@@ -119,7 +119,7 @@ export const getSingleUserLocationSubscriptionByBounds = async ({
  * @returns The created LocationSubscription
  */
 /** Free-tier cap on saved locations, matching kFreeSavedLocationsLimit in the app. */
-const FREE_SAVED_LOCATIONS_LIMIT = 3;
+const FREE_SAVED_LOCATIONS_LIMIT = 1;
 
 export const createUserLocationSubscription = async ({
   userId,
@@ -138,7 +138,7 @@ export const createUserLocationSubscription = async ({
   address?: string | undefined;
   name?: string | undefined;
 }): Promise<LocationSubscription> => {
-  // Free tier caps SAVED locations at 3 (the own-location follow is
+  // Free tier caps SAVED locations at 1 (the own-location follow is
   // exempt). The app shows the paywall at the same threshold, but the
   // limit was client-side only, so any direct API call or a multi-device
   // race sailed past it. Like the circle gate in family.service, this is

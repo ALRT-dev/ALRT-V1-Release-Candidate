@@ -10,7 +10,7 @@ final providerOfRevenueCat = Provider<RevenueCatService>(
 
 /// The free tier saves at most this many locations, no matter what
 /// (locked ALRT+ limits; moves to Remote Config in a later pass).
-const kFreeSavedLocationsLimit = 3;
+const kFreeSavedLocationsLimit = 1;
 
 /// Whether the QA unlock is live: the env flag AND the dev flavour.
 ///

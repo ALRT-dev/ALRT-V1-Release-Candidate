@@ -291,7 +291,7 @@ class MainSearchProvider extends StateNotifier<MainSearchProviderState> {
   Future<void> toggleSubscription() async {
     final subscriptionId = state.subscriptionId;
     if (subscriptionId == null) {
-      // Free tier saves at most 3 locations, no matter what; the fourth
+      // Free tier saves at most 1 location, no matter what; the second
       // save opens the ALRT+ paywall. Own-location follow never counts.
       final savedCount = _ref
           .read(providerOfMyLocationSubscriptions)
