@@ -1068,6 +1068,14 @@ export const adjustExpirationTime = (
 /**
  * Returns a formatted string representation of the hazard severity.
  */
+/**
+ * The AWS verbatim level word — Advice / Watch and Act / Emergency Warning
+ * are the exact, official Australian Warning System phrases (classification
+ * standard §4.1: "never paraphrased"). This used to return "Critical" for
+ * `emergency`, which is the System-2 band name, not the AWS term — an AWS
+ * Emergency Warning push notification would have read "Critical | <title>"
+ * instead of the actual official wording.
+ */
 export const getFormattedHazardSeverity = (
   severity: HazardSeverity,
 ): string => {
@@ -1079,7 +1087,7 @@ export const getFormattedHazardSeverity = (
     case HazardSeverity.watchAndAct:
       return "Watch and Act";
     case HazardSeverity.emergency:
-      return "Critical";
+      return "Emergency Warning";
     default:
       return "Info";
   }

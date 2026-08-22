@@ -330,7 +330,7 @@ export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
  * that might be serious; any other band would overstate one the AI is
  * forbidden from banding at all).
  */
-const getNotificationTitleForNewHazard = (hazard: Hazard): string => {
+export const getNotificationTitleForNewHazard = (hazard: Hazard): string => {
   const { severity, title, isAwsCompliant, severityBand, reportedById } =
     hazard;
 
