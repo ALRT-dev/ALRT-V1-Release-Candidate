@@ -24,7 +24,6 @@ import {
   familyRouter,
   guideRouter,
   publicRouter,
-  revenueCatRouter,
 } from "./routes/index.js";
 import { errorHandlerMiddleware } from "./middlewares/error_handler.middleware.js";
 import { unknownRouteMiddleware } from "./middlewares/unknown_route.middleware.js";
@@ -100,7 +99,6 @@ app.use(express.json());
 
 // Rate limits: webhook first (own per-key limits), then auth (stricter), then general API.
 app.use("/api/webhook", webhookRouter);
-app.use("/api/revenuecat", revenuecatRouter);
 app.use("/api/auth", authApiRateLimiter, authRouter);
 app.use("/api", apiGeneralRateLimiter);
 
@@ -116,7 +114,16 @@ app.use("/api/support", supportRouter);
 app.use("/api/maps", mapsRouter);
 app.use("/api/guides", guideRouter);
 app.use("/api/family", familyRouter);
-app.use("/api/revenuecat", revenueCatRouter);
+// Previously mounted twice under two casings of the same import
+// (revenuecatRouter/revenueCatRouter, both ./revenuecat.route.js) - the
+// earlier mount sat before apiGeneralRateLimiter (which applies as
+// middleware to everything registered after it, per the app.use("/api", ...)
+// line above) and, since Express matches the first registered route for a
+// path, silently absorbed every request - leaving this webhook with no
+// rate limiting at all despite the intent of the comment at the top of
+// this block. One mount now, positioned after the general limiter like
+// every other route here.
+app.use("/api/revenuecat", revenuecatRouter);
 // NOTE: the native Ask ALRT port that used to mount here (/api/ask) was
 // removed - confirmed orphaned (zero real callers) in the V1 reconciliation
 // audit. The canonical Ask ALRT implementation is the standalone
