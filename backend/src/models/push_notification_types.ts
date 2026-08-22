@@ -16,4 +16,5 @@ export enum PushNotificationType {
   familyLocationRequest = "familyLocationRequest", // opens the Share once / Not now screen
   familyLocationShared = "familyLocationShared",
   familyScheduledCheckInPrompt = "familyScheduledCheckInPrompt", // one-tap "I'm safe" prompt
+  familyJourneyShared = "familyJourneyShared", // sent only to the picked recipients
 }

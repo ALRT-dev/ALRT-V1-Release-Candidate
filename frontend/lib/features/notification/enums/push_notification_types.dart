@@ -18,4 +18,5 @@ enum PushNotificationType {
   familyLocationRequest,
   familyLocationShared,
   familyScheduledCheckInPrompt,
+  familyJourneyShared,
 }

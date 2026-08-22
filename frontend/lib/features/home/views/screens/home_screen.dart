@@ -248,6 +248,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             case PushNotificationType.familySosResolved:
             case PushNotificationType.familyCircleUpdate:
             case PushNotificationType.familyLocationShared:
+            case PushNotificationType.familyJourneyShared:
               // Land on the family hub with fresh data.
               ref.read(providerOfFamily.notifier).load(silent: true);
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;

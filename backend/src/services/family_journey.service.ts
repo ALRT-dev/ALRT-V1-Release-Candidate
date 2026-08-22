@@ -1,7 +1,9 @@
 import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
 import { SocketEvent } from "../models/socket_event_types.js";
+import { PushNotificationType } from "../models/push_notification_types.js";
 import { requireMembership, notifyCircle } from "./family.service.js";
+import { sendPushNotificationToUser } from "./notification.service.js";
 
 // Locked journey rules:
 // - A journey always has a hard stop the traveller chose. Nothing is
@@ -101,7 +103,7 @@ export const startJourney = async (
       circleId: membership.circleId,
       NOT: { id: membership.id },
     },
-    select: { id: true },
+    select: { id: true, userId: true },
   });
   if (recipients.length === 0) {
     throw new HttpError(400, "Those people are not in this circle");
@@ -124,12 +126,36 @@ export const startJourney = async (
     include: journeyInclude,
   });
 
+  // Generic "something changed, refetch" ping to the whole circle, as
+  // before — the payload carries no journey detail (just circleId), and
+  // listJourneysSharedWithMe already re-filters to picked recipients only
+  // when anyone actually fetches, so this is not a privacy change.
   await notifyCircle({
     circleId: membership.circleId,
     excludeMemberIds: [membership.id],
     socketEvent: SocketEvent.familyCircleUpdate,
     socketData: { circleId: membership.circleId },
   });
+
+  // The actual notification content ("X is sharing a journey") DOES reveal
+  // that a journey started, so — unlike the generic refresh ping above —
+  // it goes only to the picked recipients, matching "only the recipients
+  // the traveller picked can see it" (locked rule).
+  const travellerName =
+    journey.member?.nickname || journey.member?.user?.name || "A family member";
+  await Promise.allSettled(
+    recipients.map((r) =>
+      sendPushNotificationToUser({
+        userId: r.userId,
+        title: `${travellerName} is sharing a journey`,
+        body: input.isLive
+          ? "You can watch their live location until they arrive or stand down."
+          : "You'll see when they leave and arrive.",
+        data: { circleId: membership.circleId, journeyId: journey.id },
+        type: PushNotificationType.familyJourneyShared,
+      }),
+    ),
+  );
 
   return serializeJourney(journey);
 };
