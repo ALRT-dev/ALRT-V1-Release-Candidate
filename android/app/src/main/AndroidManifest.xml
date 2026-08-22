@@ -1,0 +1,118 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- Tap-to-talk voice search (on-device speech recognition). -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.VIEW" />
+      <data android:scheme="https" />
+    </intent>
+    <!-- Needed on Android 11+ to find the on-device speech recogniser. -->
+    <intent>
+      <action android:name="android.speech.RecognitionService" />
+    </intent>
+  </queries>
+
+
+  <application
+    android:label="@string/app_name"
+    android:name="${applicationName}"
+    android:icon="@mipmap/ic_launcher">
+    <activity
+      android:name=".MainActivity"
+      android:exported="true"
+      android:launchMode="singleTop"
+      android:taskAffinity=""
+      android:theme="@style/LaunchTheme"
+      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+      android:hardwareAccelerated="true"
+      android:windowSoftInputMode="adjustResize">
+      <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+      <meta-data
+        android:name="io.flutter.embedding.android.NormalTheme"
+        android:resource="@style/NormalTheme"
+      />
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+      <!-- App-icon long-press shortcuts: jump to the pin-widget dialog. -->
+      <meta-data
+        android:name="android.app.shortcuts"
+        android:resource="@xml/shortcuts" />
+    </activity>
+    <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+    <meta-data
+      android:name="flutterEmbedding"
+      android:value="2" />
+
+    <meta-data android:name="com.google.android.geo.API_KEY"
+      android:value="${MAPS_API_KEY}" />
+
+    <!-- Default channel for FCM notifications shown while the app is in the background -->
+    <meta-data
+      android:name="com.google.firebase.messaging.default_notification_channel_id"
+      android:value="alrt_alerts" />
+
+    <!-- Microsoft Authentication BrowserTabActivity -->
+    <activity android:name="com.microsoft.identity.client.BrowserTabActivity"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+          android:host="com.safetyalrt.alrt"
+          android:path="/hyOO/XSiCQvGcPDoA8/2xATQZi8="
+          android:scheme="msauth" />
+      </intent-filter>
+    </activity>
+
+    <!-- ALRT Nearby Alerts home-screen widget -->
+    <receiver
+      android:name=".AlrtAlertsWidgetProvider"
+      android:label="@string/widget_alerts_label"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/alrt_alerts_widget_info" />
+    </receiver>
+
+    <!-- ALRT Family status home-screen widget -->
+    <receiver
+      android:name=".AlrtFamilyWidgetProvider"
+      android:label="@string/widget_family_label"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/alrt_family_widget_info" />
+    </receiver>
+  </application>
+  <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.PROCESS_TEXT" />
+      <data android:mimeType="text/plain" />
+    </intent>
+  </queries>
+</manifest>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default widget card: dark glass, matching the app's floating chrome. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#16171C" />
+    <corners android:radius="18dp" />
+</shape>

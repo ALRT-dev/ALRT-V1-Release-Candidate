@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Info / Advice / Monitor bands. Amber for legible contrast with dark text. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#E9B500" />
+    <corners android:radius="999dp" />
+</shape>
