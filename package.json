@@ -1,0 +1,106 @@
+{
+  "name": "hazard_be",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "dev:prod": "NODE_ENV=prod tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "NODE_ENV=prod node dist/index.js",
+    "prisma:migrate:dev": "dotenv -e .env.dev -- npx prisma migrate dev",
+    "prisma:migrate:reset": "dotenv -e .env.dev -- npx prisma migrate reset",
+    "prisma:migrate:status": "dotenv -e .env.dev -- npx prisma migrate status",
+    "prisma:migrate:resolve": "dotenv -e .env.dev -- npx prisma migrate resolve",
+    "prisma:migrate:deploy": "dotenv -e .env.dev -- npx prisma migrate deploy",
+    "prisma:generate": "dotenv -e .env.dev -- npx prisma generate",
+    "super-admin:create": "dotenv -e .env.dev -- tsx src/scripts/create-super-admin.ts",
+    "admin": "dotenv -e .env.dev -- tsx src/scripts/admin-manager.ts",
+    "webhook-key": "dotenv -e .env.dev -- tsx src/scripts/webhook-api-key.ts",
+    "convert-md-to-pdf": "tsx src/scripts/convert-md-to-pdf.ts",
+    "seed:prompts": "tsx src/scripts/seed-ai-prompts.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1024.0",
+    "@aws-sdk/client-s3": "^3.913.0",
+    "@aws-sdk/s3-request-presigner": "^3.913.0",
+    "@googlemaps/google-maps-services-js": "^3.4.2",
+    "@prisma/client": "^6.16.3",
+    "apple-signin-auth": "^2.0.0",
+    "axios": "^1.13.6",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.3.1",
+    "express-slow-down": "^3.0.1",
+    "fetch": "^1.1.0",
+    "firebase-admin": "^13.5.0",
+    "form-data": "^4.0.4",
+    "geojson": "^0.5.0",
+    "google-auth-library": "^10.3.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
+    "nodemailer": "8.0.5",
+    "openai": "^6.3.0",
+    "puppeteer": "^24.34.0",
+    "qs": "^6.14.0",
+    "redis": "^5.11.0",
+    "rss-parser": "^3.13.0",
+    "sharp": "^0.35.3",
+    "socket.io": "^4.8.1",
+    "uuid": "^13.0.0",
+    "zod": "^4.1.12"
+  },
+  "overrides": {
+    "@googlemaps/google-maps-services-js": {
+      "axios": "1.13.6"
+    },
+    "express-slow-down": {
+      "express-rate-limit": "8.3.1"
+    },
+    "fast-xml-parser": "5.5.8",
+    "basic-ftp": "5.3.1",
+    "node-forge": "1.3.3",
+    "minimatch": "3.1.5",
+    "jws": "4.0.1",
+    "firebase-admin": {
+      "jsonwebtoken": "9.0.3"
+    },
+    "apple-signin-auth": {
+      "jsonwebtoken": "9.0.3"
+    },
+    "effect": "3.21.5"
+  },
+  "resolutions": {
+    "axios": "1.13.6",
+    "express-slow-down/express-rate-limit": "8.3.1",
+    "fast-xml-parser": "5.5.8",
+    "basic-ftp": "5.3.1",
+    "node-forge": "1.3.3",
+    "minimatch": "3.1.5",
+    "jws": "4.0.1",
+    "firebase-admin/jsonwebtoken": "9.0.3",
+    "apple-signin-auth/jsonwebtoken": "9.0.3",
+    "effect": "3.21.5"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/geojson": "^7946.0.16",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
+    "@types/nodemailer": "^7.0.4",
+    "@types/qs": "^6.14.0",
+    "@types/uuid": "^10.0.0",
+    "dotenv-cli": "^10.0.0",
+    "md-to-pdf": "^5.2.5",
+    "prisma": "^6.16.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

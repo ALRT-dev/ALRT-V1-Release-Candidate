@@ -1,0 +1,1290 @@
+// Run `yarn prisma:migrate:dev` to update your database schema.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String  @default("")
+  name         String?
+
+  isOnboardingCompleted Boolean @default(false)
+
+  isTOSAccepted           Boolean @default(false)
+  isPrivacyPolicyAccepted Boolean @default(false)
+  isDisclaimerAccepted    Boolean @default(false)
+
+  xpPoints         Int   @default(0)
+  reliabilityScore Float @default(0.0)
+
+  latitude     Float?
+  longitude    Float?
+  geoLocation  String? // PostGIS geometry as string (WKT or WKB)
+  locationName String? // Human-readable location name or address
+
+  ownLocationSubscriptionRadiusKm Int @default(5) // The radius in km for the user's own location subscription
+
+  profilePictureUrl String? // S3 URL for user's profile picture
+
+  // Account deletion fields
+  deletionRequestedAt DateTime? // When the user requested account deletion
+  scheduledDeletionAt DateTime? // When the account will be permanently deleted (Usually 30 days after request)
+
+  locationSubscriptions    LocationSubscription[]
+  devices                  UserDevice[]
+  hazardsReported          Hazard[]
+  hazardFlags              HazardFlag[]
+  blocksMade               UserBlock[]                   @relation("BlocksMade")
+  blocksReceived           UserBlock[]                   @relation("BlocksReceived")
+  hazardVotes              HazardVote[]
+  hazardViews              HazardView[]
+  hazardMedias             HazardMedia[]
+  pushNotificationSettings UserPushNotificationSetting[]
+  familyMemberships        FamilyMember[]
+  guideProgress            UserGuideProgress[]
+  xpEvents                 XpEvent[]
+  badges                   UserBadge[]
+  corroborationsGiven      HazardCorroboration[]
+  sosLists                 FamilySosList[]
+
+  // Activity streak (any qualifying action counts: report, check-in, guide)
+  streakDays       Int       @default(0)
+  lastActivityDate DateTime? // Day-resolution marker used for streak math
+
+  // ALRT+ entitlement, synced from RevenueCat via POST /api/revenuecat/webhook.
+  // RevenueCat app_user_id == User.id (the app calls Purchases.logIn(user.id)).
+  plan          FamilyPlan @default(free)
+  planExpiresAt DateTime? // Entitlement expiry reported by RevenueCat
+  planStore     String? // APP_STORE | PLAY_STORE | STRIPE | PROMOTIONAL
+  planUpdatedAt DateTime? // Last webhook event applied
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Performance indexes
+  @@index([xpPoints]) // For reputation/scoring queries
+  @@index([reliabilityScore]) // For reliability-based filtering
+  @@index([scheduledDeletionAt]) // For filtering users with pending account deletion
+}
+
+enum CategoryImageType {
+  info
+  monitor
+  action
+  critical
+  advice
+  watchAndAct
+  emergency
+  user
+  fireActive
+  fireBeingControlled
+  fireUnderControl
+  fireClosed
+}
+
+model HazardCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  color       String? // Hex color code for UI representation
+  keywords    String[] // Keywords associated with this category for classification
+
+  isFireRelated Boolean @default(false) // True if this category pertains to fire hazards
+
+  parentId String? // For subcategories, this points to the parent category
+
+  hazards       Hazard[]
+  images        HazardCategoryImage[]
+  parent        HazardCategory?       @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  subCategories HazardCategory[]      @relation("CategoryHierarchy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Performance indexes
+  @@index([parentId]) // Hierarchical category queries
+}
+
+model HazardCategoryImage {
+  id            String            @id @default(uuid())
+  categoryId    String
+  category      HazardCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  imageType     CategoryImageType
+  s3Key         String
+  width         Int?
+  height        Int?
+  fileSizeBytes Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categoryId, imageType])
+  @@index([categoryId])
+}
+
+enum HazardSeverity {
+  unknown
+  info
+  advice
+  watchAndAct
+  emergency
+}
+
+enum HazardSeverityBand {
+  info
+  monitor
+  action
+  critical
+}
+
+enum AIConfidence {
+  low
+  medium
+  high
+}
+
+enum FireStatus {
+  active
+  beingControlled
+  underControl
+  closed
+}
+
+// --- V3 source registry enums (see V3 verification checklist §1) ---
+
+/// Marker shape in the "five-system One Glance" model. Shape encodes the source
+/// system; the render path resolves user reports to `circle` first, then falls
+/// back to `source.shape ?? diamond`.
+enum HazardSourceShape {
+  triangle // AWS
+  diamond // Official agencies (default)
+  circle // Community / user reports
+  square // GDACS
+  shield // ALRT Intel
+}
+
+/// The severity vocabulary a source speaks. Determines what (if anything) is
+/// rendered as a severity word and how the internal band is coloured.
+enum HazardSeveritySystem {
+  awsLevel // AWS: writes the level text verbatim (Advice / Watch and Act / Emergency)
+  band // Official agencies: internal band colour only; the band word is never rendered
+  category // Community: coloured by category, never by severity
+  gdacsColour // GDACS: "GDACS {colour}" verbatim plus a fixed meaning sentence
+  advisory // ALRT Intel: advisory only, "not an official warning"
+}
+
+/// How a source's severity level/word is handled at render time.
+enum SeverityLevelHandling {
+  verbatim // Render the source's own level/colour words as issued (AWS, GDACS)
+  bandColourOnly // Colour identity only; never render a band word (official agencies)
+  categoryColour // Colour by category, never by severity (community)
+  levelExempt // No internal band is applied at all (GDACS)
+}
+
+/// When alerts from a source generate a push notification.
+enum SourcePushPolicy {
+  everyLevel // Push at every level (AWS)
+  bandThreshold // Push once the internal band crosses the threshold (official agencies, default)
+  afterConfirmation // Push only after the nearby-confirmation threshold, never on submission (community)
+  greenExempt // Push except for the suppressed colour (GDACS Green = no push)
+  advisoryOnly // Quiet advisory push at most (ALRT Intel)
+}
+
+model Hazard {
+  id            String             @id @default(uuid())
+  title         String
+  description   String
+  aiSummary     String?
+  aiConfidence  AIConfidence?
+  severity      HazardSeverity     @default(unknown)
+  severityBand  HazardSeverityBand @default(info)
+  callsToAction String[]           @default([])
+
+  fireStatus FireStatus? // Only applies to fire-related hazards
+
+  latitude     Float?
+  longitude    Float?
+  locationName String? // Human-readable location name or address
+  geoLocation  String? // PostGIS geometry as string (WKT or WKB)
+
+  // Bounding box for hazard coverage area (for broader/general locations)
+  northeastLat Float? // Northeast corner latitude
+  northeastLng Float? // Northeast corner longitude
+  southwestLat Float? // Southwest corner latitude
+  southwestLng Float? // Southwest corner longitude
+
+  // PostGIS generated columns (kept in sync by Postgres, GiST-indexed).
+  // See migration 20260704000200_postgis_spatial_indexes.
+  geom    Unsupported("geometry(Point, 4326)")?
+  geomBox Unsupported("geometry(Polygon, 4326)")?
+
+  categoryId   String
+  sourceId     String?
+  reportedById String?
+
+  isAwsCompliant Boolean @default(false) // Whether the hazard complies with Australian Warnings System (AWS) standards
+
+  reviewStatus   HazardReviewStatus @default(pending)
+  reviewFeedback String?
+  reviewedAt     DateTime?
+  reviewedById   String? // user ID of the user who reviewed OR "ai" if AI-reviewed
+
+  confidenceScore             Int      @default(50)
+  confidenceScoreCalculatedAt DateTime @default(now())
+
+  upvoteCount   Int @default(0)
+  downvoteCount Int @default(0)
+  viewCount     Int @default(0)
+
+  link String? // External link for more information
+
+  occurredAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  expiresAt  DateTime?
+
+  source     HazardSource?  @relation(fields: [sourceId], references: [id])
+  category   HazardCategory @relation(fields: [categoryId], references: [id])
+  reportedBy User?          @relation(fields: [reportedById], references: [id])
+  votes      HazardVote[]
+  flags      HazardFlag[]
+  views      HazardView[]
+  medias     HazardMedia[]
+
+  corroborations HazardCorroboration[]
+
+  // Performance indexes
+  @@index([latitude, longitude]) // Geographic queries
+  @@index([categoryId]) // Category filtering
+  @@index([severity]) // Severity filtering
+  @@index([createdAt]) // Temporal sorting
+  @@index([confidenceScore]) // Confidence sorting
+  @@index([expiresAt]) // Expiry filtering
+  @@index([reviewStatus]) // Review status filtering
+  @@index([reportedById]) // Reporter filtering
+  @@index([isAwsCompliant]) // AWS compliance filtering
+  @@index([sourceId]) // Official source filtering
+  @@index([severity, isAwsCompliant]) // Combined severity + AWS filtering
+  @@index([categoryId, severity]) // Combined category + severity filtering
+  @@index([expiresAt, reviewStatus]) // Combined expiry + review filtering
+  @@index([latitude, longitude, severity]) // Geographic + severity filtering
+  @@index([createdAt, confidenceScore]) // Combined sorting index
+  @@index([severity, createdAt]) // Severity + temporal sorting
+  @@index([severityBand, createdAt, confidenceScore]) // Optimized for default map view sorting
+  @@index([reviewStatus, expiresAt, severityBand]) // Optimized for active hazard queries
+  @@index([isAwsCompliant, severity, expiresAt]) // AWS compliance with severity and expiry
+  @@index([categoryId, expiresAt, severityBand]) // Category filtering with active hazards
+  @@index([reportedById, expiresAt]) // User-reported active hazards
+}
+
+model HazardVote {
+  id        String         @id @default(uuid())
+  hazardId  String
+  hazard    Hazard         @relation(fields: [hazardId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id])
+  voteType  HazardVoteType
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([hazardId, userId])
+}
+
+model HazardSource {
+  id        String  @id @default(uuid())
+  name      String
+  url       String
+  imageUrl  String?
+  licenseId String?
+
+  advisoryText  String? // Standard advisory text associated with this source
+  copyrightText String? // Copyright information for this source
+  copyrightLink String? // Link to copyright or attribution details
+
+  // V3 "One Glance" source registry (see V3 verification checklist §1).
+  // These describe how alerts FROM this source are rendered and pushed. All are
+  // optional so existing rows are unaffected; the render path falls back to the
+  // documented defaults (shape → diamond, push → band threshold) when unset.
+  shape           HazardSourceShape? // Marker shape for this source's alerts. User reports always render as a circle regardless of this value.
+  severitySystem  HazardSeveritySystem? // Which severity vocabulary the source speaks (AWS level / band / category / GDACS colour / advisory).
+  levelHandling   SeverityLevelHandling? // How the source's severity word/level is rendered (verbatim vs band-colour-only vs category vs level-exempt).
+  stickiness      Int? // Minutes a marker lingers after the underlying alert clears. Null = default lifecycle.
+  maxInternalBand HazardSeverityBand? // Ceiling on the internal band for this source (e.g. community caps at `action`). Null = no cap.
+  pushPolicy      SourcePushPolicy? // When alerts from this source generate a push notification.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hazards Hazard[]
+  license HazardSourceLicense? @relation(fields: [licenseId], references: [id])
+}
+
+model HazardView {
+  id       String   @id @default(uuid())
+  hazardId String
+  userId   String
+  viewedAt DateTime @default(now())
+
+  user   User?  @relation(fields: [userId], references: [id])
+  hazard Hazard @relation(fields: [hazardId], references: [id], onDelete: Cascade)
+
+  @@unique([hazardId, userId])
+  @@index([hazardId])
+  @@index([userId])
+}
+
+model HazardMedia {
+  id           String    @id @default(uuid())
+  hazardId     String
+  userId       String
+  url          String
+  s3Key        String? // S3 object key for easy deletion
+  type         MediaType
+  mimeType     String? // MIME type of the file
+  fileSize     Int? // File size in bytes
+  originalName String? // Original filename
+  thumbnailUrl String? // For videos, a thumbnail image URL
+  isPrimary    Boolean   @default(false) // True if this media is the primary media for the hazard
+
+  hazard Hazard @relation(fields: [hazardId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hazardId])
+  @@index([userId])
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum HazardVoteType {
+  upvote
+  downvote
+}
+
+enum HazardReviewStatus {
+  pending
+  accepted
+  rejected
+}
+
+model LocationSubscription {
+  id           String  @id @default(uuid())
+  userId       String
+  user         User    @relation(fields: [userId], references: [id])
+  northeastLat Float
+  northeastLng Float
+  southwestLat Float
+  southwestLng Float
+  name         String? // Optional name for the location
+  address      String? // Optional human-readable address
+  geoRegion    String? // PostGIS geometry as string (WKT or WKB)
+
+  // PostGIS generated column (GiST-indexed bounding box)
+  geomBox Unsupported("geometry(Polygon, 4326)")?
+
+  isOwnLocation Boolean  @default(false) // True if this subscription is for the user's own location
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, isOwnLocation])
+}
+
+model UserDevice {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  deviceToken String   @unique
+  platform    String? // e.g., "ios", "android"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model UserPushNotificationSetting {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  awsEmergency          Boolean  @default(true)
+  awsWatchAndAct        Boolean  @default(true)
+  awsAdvice             Boolean  @default(true)
+  officialNonAws        Boolean  @default(true)
+  userReported          Boolean  @default(true)
+  subscribedCategoryIds String[] @default([]) // List of hazard category IDs the user is subscribed to
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId])
+  @@index([userId])
+}
+
+model Admin {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  role         AdminRole @default(admin)
+  isActive     Boolean   @default(true)
+
+  mustChangePassword  Boolean   @default(true) // Flag to require password change on next login
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  passwordChangedAt   DateTime  @default(now())
+
+  promptsCreated        AIPrompt[]      @relation("AIPromptCreatedBy")
+  promptsUpdated        AIPrompt[]      @relation("AIPromptUpdatedBy")
+  configurationsCreated Configuration[] @relation("ConfigurationCreatedBy")
+  configurationsUpdated Configuration[] @relation("ConfigurationUpdatedBy")
+  webhookApiKeysCreated WebhookApiKey[] @relation("WebhookApiKeyCreatedBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([isActive])
+}
+
+enum AdminRole {
+  superAdmin
+  admin
+  moderator
+}
+
+model AIPromptGroup {
+  id          String     @id @default(uuid())
+  name        String     @unique // e.g., "User Reported Alerts", "Official Alerts"
+  description String? // Human-readable description of the group
+  prompts     AIPrompt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model AIPrompt {
+  id          String  @id @default(uuid())
+  name        String  @unique // e.g., "review_and_summarize", "summarize", "severity_assessment"
+  description String? // Human-readable description of what this prompt does
+  content     String // The actual prompt content with placeholder variables
+  variables   Json // JSON array of variable names expected in the prompt
+  model       String // e.g., "gpt-4o-mini", "gpt-5-nano", "gpt-3.5-turbo"
+
+  groupId String?
+  group   AIPromptGroup? @relation(fields: [groupId], references: [id])
+
+  createdById String
+  updatedById String?
+  createdBy   Admin   @relation("AIPromptCreatedBy", fields: [createdById], references: [id])
+  updatedBy   Admin?  @relation("AIPromptUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([groupId])
+}
+
+enum ConfigurationKey {
+  aiPrompts
+}
+
+model Configuration {
+  id          String           @id @default(uuid())
+  key         ConfigurationKey @unique
+  value       Json
+  title       String
+  description String?
+
+  createdById String?
+  updatedById String?
+  createdBy   Admin?  @relation("ConfigurationCreatedBy", fields: [createdById], references: [id])
+  updatedBy   Admin?  @relation("ConfigurationUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WebhookApiKey {
+  id          String  @id @default(uuid())
+  name        String // e.g., "Client A - N8N", "Partner B - Automation"
+  description String? // Purpose or notes about this key
+  keyHash     String  @unique // Bcrypt hash of the API key for security
+
+  isActive Boolean @default(true) // Can be disabled to block access
+
+  // Rate limiting per key
+  maxRequestsPerMinute Int @default(10) // Burst protection
+  maxRequestsPerHour   Int @default(100) // Rate limit
+  maxRequestsPerDay    Int @default(1000) // Daily quota
+
+  // Usage tracking
+  totalRequests Int       @default(0)
+  lastUsedAt    DateTime?
+  lastUsedIp    String?
+
+  // Metadata
+  createdById String?
+  createdBy   Admin?  @relation("WebhookApiKeyCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime? // Optional expiration date
+
+  logs WebhookLog[]
+
+  @@index([keyHash])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model WebhookLog {
+  id String @id @default(uuid())
+
+  apiKeyId String?
+  apiKey   WebhookApiKey? @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  success    Boolean
+  statusCode Int
+  reason     String? // Error reason if failed
+
+  clientIp String
+  endpoint String
+  method   String @default("POST")
+
+  requestBody  Json? // Optional: store request data
+  responseTime Int? // Response time in milliseconds
+
+  hazardId String? // If successfully created a hazard
+
+  createdAt DateTime @default(now())
+
+  @@index([apiKeyId])
+  @@index([success])
+  @@index([createdAt])
+  @@index([clientIp])
+}
+
+model HazardSourceLicense {
+  id          String  @id @default(uuid())
+  badgeText   String  @unique
+  licenseText String
+  description String?
+  link        String?
+
+  foregroundColor String? // Hex color code for badge text
+  backgroundColor String? // Hex color code for badge background
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hazardSources HazardSource[]
+
+  @@index([badgeText])
+}
+
+// ============================================================================
+// FAMILY MODE
+// ============================================================================
+
+// Plan of a family circle. Billing is not launched yet: every circle defaults
+// to `plus` so all features are unlocked. When ALRT+ subscriptions ship, new
+// circles default to `free` and the plan is set by the entitlement system.
+enum FamilyPlan {
+  free
+  plus
+}
+
+enum FamilyRole {
+  owner
+  adult
+  child
+  // A guest receives the circle's alerts and can say "I'm Safe", but never
+  // requests anyone's location and consumes no seat on the owner's plan.
+  guest
+}
+
+// How much of a member's location the rest of the circle can see.
+// Every member controls their own level and can change it at any time.
+enum FamilySharingLevel {
+  precise // live pin with street-level accuracy
+  approximate // suburb-level label only, no precise pin
+  alertsOnly // no location shown, but hazard-proximity alerts still fire
+  off // nothing shared, no proximity matching
+}
+
+enum FamilyPlaceIcon {
+  home
+  work
+  school
+  heart
+  other
+}
+
+enum FamilyPlaceEventType {
+  arrived
+  left
+}
+
+enum FamilyCheckInStatus {
+  safe
+  needsHelp
+}
+
+enum FamilySosStatus {
+  active
+  resolved
+  cancelled
+}
+
+enum FamilySosResponseType {
+  seen
+  onMyWay
+  called
+}
+
+model FamilyCircle {
+  id   String     @id @default(uuid())
+  name String
+  plan FamilyPlan @default(plus)
+
+  themeColor String? // Hex accent colour chosen by the owner
+  photoUrl   String? // Group picture chosen by the owner (S3 URL)
+
+  maxMembers Int @default(10)
+
+  // Group rules (locked 'Changes ALRT +' spec) — owner-set toggles.
+  anyoneCanRequestSnapshot Boolean @default(true) // false = owner only
+  sosToWholeGroup          Boolean @default(true) // SOS defaults to everyone
+  journeysSnapPointsOnly   Boolean @default(true) // journeys never live-track
+
+  createdById String
+
+  members         FamilyMember[]
+  invites         FamilyInvite[]
+  places          FamilySavedPlace[]
+  sosEvents       FamilySosEvent[]
+  checkInRequests FamilyCheckInRequest[]
+  journeys        FamilyJourney[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FamilyMember {
+  id       String @id @default(uuid())
+  circleId String
+  userId   String
+
+  role         FamilyRole         @default(adult)
+  sharingLevel FamilySharingLevel @default(precise)
+  nickname     String? // Display name within the circle (falls back to user name)
+  photoUrl     String? // Circle-specific photo (falls back to profile picture)
+  colorHex     String? // Member accent colour shown as the avatar ring
+
+  // Last SHARED location snapshot. ALRT never live-tracks: a snapshot is
+  // written only when the member checks in, answers a location request, or
+  // triggers SOS — and it expires (locationExpiresAt, 1 hour by default).
+  latitude          Float?
+  longitude         Float?
+  locationLabel     String? // Reverse-geocoded label, e.g. "Newcastle CBD"
+  locationUpdatedAt DateTime?
+  locationExpiresAt DateTime? // Snapshot TTL — hidden and unmatched once past
+  locationSharedVia FamilySnapshotSource? // How the snapshot was shared
+  batteryLevel      Int?
+  isMoving          Boolean               @default(false)
+
+  // Presence at a saved place (for arrival/departure detection)
+  currentPlaceId String?
+  currentPlace   FamilySavedPlace? @relation("PlacePresence", fields: [currentPlaceId], references: [id], onDelete: SetNull)
+
+  lastCheckInAt DateTime?
+
+  // PostGIS generated column (GiST-indexed live-location point)
+  geom Unsupported("geometry(Point, 4326)")?
+
+  circle FamilyCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  checkIns                 FamilyCheckIn[]
+  scheduledCheckIns        FamilyScheduledCheckIn[]
+  locationPings            FamilyLocationPing[]
+  placeEvents              FamilyPlaceEvent[]
+  sosEvents                FamilySosEvent[]
+  sosResponses             FamilySosResponse[]
+  journeys                 FamilyJourney[]
+  journeysReceived         FamilyJourneyRecipient[]
+  hazardAlerts             FamilyMemberHazardAlert[]
+  checkInRequests          FamilyCheckInRequest[]
+  placePrefsAbout          FamilyPlaceNotificationPref[]
+  locationRequestsSent     FamilyLocationRequest[]       @relation("LocationRequester")
+  locationRequestsReceived FamilyLocationRequest[]       @relation("LocationTarget")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([circleId, userId])
+  @@index([userId])
+  @@index([circleId])
+  @@index([latitude, longitude]) // Hazard-proximity matching over live locations
+}
+
+// How a location snapshot came to be shared — always a deliberate member
+// action, never automatic tracking.
+enum FamilySnapshotSource {
+  checkIn
+  request
+  sos
+  manual
+}
+
+enum FamilyLocationRequestStatus {
+  pending
+  shared
+  declined
+  expired
+}
+
+// "Sarah asked where you are" — a one-time, consent-gated location request.
+// The target chooses Share once or Not now; declining sends nothing.
+model FamilyLocationRequest {
+  id             String @id @default(uuid())
+  circleId       String
+  requesterId    String // FamilyMember who asked
+  targetMemberId String // FamilyMember being asked
+
+  status  FamilyLocationRequestStatus @default(pending)
+  message String?
+
+  respondedAt DateTime?
+  expiresAt   DateTime // Requests go stale (24h) if unanswered
+
+  requester FamilyMember @relation("LocationRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  target    FamilyMember @relation("LocationTarget", fields: [targetMemberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([targetMemberId, status])
+  @@index([circleId, createdAt])
+}
+
+model FamilyInvite {
+  id       String @id @default(uuid())
+  circleId String
+  code     String @unique // Short human-shareable code, e.g. "ALRT-7F3K2"
+
+  createdById String // FamilyMember id of the inviter
+
+  maxUses   Int       @default(10)
+  useCount  Int       @default(0)
+  isRevoked Boolean   @default(false)
+  expiresAt DateTime?
+
+  // Anyone joining with this code becomes a guest: alerts and "I'm Safe"
+  // only, no location requests, and no seat consumed on the owner's plan.
+  isGuestInvite Boolean @default(false)
+
+  circle FamilyCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([circleId])
+}
+
+// Rolling history of live-location pings. The latest snapshot lives on
+// FamilyMember; this table keeps a short trail and is pruned by a daily job.
+model FamilyLocationPing {
+  id       String @id @default(uuid())
+  memberId String
+
+  latitude     Float
+  longitude    Float
+  accuracy     Float? // metres
+  speed        Float? // m/s
+  heading      Float? // degrees
+  batteryLevel Int?
+  isMoving     Boolean @default(false)
+
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([memberId, createdAt])
+}
+
+model FamilyCheckIn {
+  id       String @id @default(uuid())
+  circleId String
+  memberId String
+
+  status  FamilyCheckInStatus @default(safe)
+  message String?
+
+  latitude  Float?
+  longitude Float?
+
+  // Optional context: the request or hazard this check-in responds to
+  requestId String?
+  hazardId  String?
+
+  member  FamilyMember          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  request FamilyCheckInRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([circleId, createdAt])
+  @@index([memberId, createdAt])
+}
+
+model FamilyCheckInRequest {
+  id            String  @id @default(uuid())
+  circleId      String
+  requestedById String // FamilyMember id
+  hazardId      String? // Set when the request was prompted by a specific hazard
+  message       String?
+
+  circle      FamilyCircle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  requestedBy FamilyMember    @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+  checkIns    FamilyCheckIn[]
+
+  createdAt DateTime @default(now())
+
+  @@index([circleId, createdAt])
+}
+
+// How a scheduled daily check-in behaves when it fires:
+// - automatic: a "safe" check-in is posted on the member's behalf
+// - prompted:  the member gets a push asking them to check in (one tap)
+enum FamilyScheduledCheckInMode {
+  automatic
+  prompted
+}
+
+model FamilyScheduledCheckIn {
+  id       String @id @default(uuid())
+  circleId String
+  memberId String
+
+  timeOfDay String // "HH:mm" 24h, Australia/Brisbane local time
+  mode      FamilyScheduledCheckInMode @default(prompted)
+
+  lastFiredAt DateTime? // Guards against double-firing within the same day
+
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([memberId, timeOfDay])
+  @@index([circleId])
+  @@index([timeOfDay])
+}
+
+model FamilySavedPlace {
+  id       String @id @default(uuid())
+  circleId String
+
+  name         String
+  icon         FamilyPlaceIcon @default(other)
+  latitude     Float
+  longitude    Float
+  radiusMeters Int             @default(300)
+  address      String?
+
+  createdById String // FamilyMember id
+
+  circle            FamilyCircle                  @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  notificationPrefs FamilyPlaceNotificationPref[]
+  events            FamilyPlaceEvent[]
+  membersPresent    FamilyMember[]                @relation("PlacePresence")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([circleId])
+}
+
+// Circle-wide toggles: "notify the family when <member> arrives/leaves <place>"
+model FamilyPlaceNotificationPref {
+  id              String @id @default(uuid())
+  placeId         String
+  subjectMemberId String // The member whose movement triggers the notification
+
+  notifyArrivals   Boolean @default(true)
+  notifyDepartures Boolean @default(true)
+
+  place         FamilySavedPlace @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  subjectMember FamilyMember     @relation(fields: [subjectMemberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([placeId, subjectMemberId])
+}
+
+model FamilyPlaceEvent {
+  id       String               @id @default(uuid())
+  placeId  String
+  memberId String
+  type     FamilyPlaceEventType
+
+  place  FamilySavedPlace @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  member FamilyMember     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([placeId, createdAt])
+  @@index([memberId, createdAt])
+}
+
+// SOS recipient preset (locked spec §28): a named list owned by the
+// SENDER, mixing members across their circles. Configured in advance in
+// Family settings, never during an emergency. Recommended cap: 4 lists.
+model FamilySosList {
+  id          String  @id @default(uuid())
+  ownerUserId String // The user (sender) this preset belongs to
+  name        String
+  isDefault   Boolean @default(false)
+
+  // FamilyMember ids across the owner's circles. Kept as an id array —
+  // membership churn prunes entries via the leave/remove paths.
+  memberIds String[] @default([])
+
+  owner User @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerUserId])
+}
+
+model FamilySosEvent {
+  id       String          @id @default(uuid())
+  circleId String
+  memberId String // The member who triggered the SOS
+  status   FamilySosStatus @default(active)
+
+  latitude      Float?
+  longitude     Float?
+  locationLabel String?
+
+  resolvedAt DateTime?
+
+  circle    FamilyCircle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  member    FamilyMember        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  responses FamilySosResponse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([circleId, status])
+  @@index([memberId, createdAt])
+}
+
+model FamilySosResponse {
+  id         String                @id @default(uuid())
+  sosEventId String
+  memberId   String
+  type       FamilySosResponseType
+
+  sosEvent FamilySosEvent @relation(fields: [sosEventId], references: [id], onDelete: Cascade)
+  member   FamilyMember   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([sosEventId, memberId, type])
+  @@index([sosEventId])
+}
+
+// Tracks which hazards a family member has already been flagged near, so the
+// circle is notified once per member+hazard rather than on every re-match.
+model FamilyMemberHazardAlert {
+  id         String @id @default(uuid())
+  memberId   String
+  hazardId   String
+  distanceKm Float
+
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  notifiedAt DateTime @default(now())
+
+  @@unique([memberId, hazardId])
+  @@index([hazardId])
+}
+
+// ============================================================================
+// LEARN HUB (safety guides)
+// ============================================================================
+
+model SafetyGuideTopic {
+  id          String  @id @default(uuid())
+  slug        String  @unique // e.g. "bushfire-heat"
+  name        String // e.g. "Bushfire & Heat"
+  description String?
+  icon        String? // Icon key used by the app, e.g. "flame"
+  color       String? // Hex accent color
+  sortOrder   Int     @default(0)
+
+  guides SafetyGuide[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SafetyGuide {
+  id      String  @id @default(uuid())
+  topicId String
+  slug    String  @unique // e.g. "bushfire-being-prepared"
+  title   String // e.g. "Bushfire: being prepared"
+  summary String?
+
+  // Guide body: { before: [{title, body}], during: [...], after: [...] }.
+  // Steps use suggestive wording ("The RFS suggests...") — the app shares
+  // safety information and never issues emergency instructions.
+  sections Json
+
+  sourceName String? // e.g. "NSW RFS"
+  sourceUrl  String?
+  sourceNote String? // Attribution paragraph shown in the SOURCE box
+
+  xpReward Int @default(10)
+
+  // Hazard category ids this guide applies to — used for the
+  // "What to do in a bushfire" strip on matching live alerts.
+  categoryIds String[] @default([])
+
+  sortOrder   Int     @default(0)
+  isPublished Boolean @default(true)
+
+  topic    SafetyGuideTopic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  progress UserGuideProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([topicId, sortOrder])
+}
+
+model UserGuideProgress {
+  id      String @id @default(uuid())
+  userId  String
+  guideId String
+
+  xpAwarded Int @default(0)
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guide SafetyGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  completedAt DateTime @default(now())
+
+  @@unique([userId, guideId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// XP ledger — every point change is an auditable event (Scoring v2)
+// ---------------------------------------------------------------------------
+
+enum XpEventType {
+  reportApproved // A report passed review (+10, streak-multiplied)
+  reportRejected // A report failed review (-15)
+  reportCorroborated // Someone else reported the same thing nearby (+5)
+  officialMatch // An official source confirmed the report (+15)
+  onboardingCompleted // Finished onboarding (+20, once per user)
+  firstReportPosted // The user's first ALRT (+10, once per user)
+  profileCompleted // Name, photo and location all set (+10, once per user)
+  familyJoined // Joined a family circle (+10, once per user)
+  savedPlaceAdded // Added a saved place (+5, per place)
+  reportWidelyCorroborated // A report reached wide corroboration (+10, once per report)
+  guideCompleted // Finished a safety guide (+10)
+  questCompleted // Finished the weekly quest (+20)
+  shareInstall // Someone installed via a shared link (+20, future)
+}
+
+model XpEvent {
+  id     String      @id @default(uuid())
+  userId String
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   XpEventType
+  points Int // Signed delta actually applied to the user's total
+
+  hazardId String? // Set for report-related events
+  guideId  String? // Set for guide completions
+  meta     Json? // Extra context (matched hazard, distances, multipliers)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, type, createdAt])
+  @@index([hazardId, type])
+}
+
+// One nearby person confirming one report, by reporting the same thing.
+// XP is still paid once per report (locked), but badges are earned on how
+// many people confirmed, so the confirmations themselves have to be
+// countable. Unique on (hazard, confirming user) so one person cannot
+// inflate another's badge by posting repeatedly.
+model HazardCorroboration {
+  id       String @id @default(uuid())
+  hazardId String
+  hazard   Hazard @relation(fields: [hazardId], references: [id], onDelete: Cascade)
+
+  // The person whose separate report confirms this one.
+  corroboratedByUserId   String
+  corroboratedByUser     User   @relation(fields: [corroboratedByUserId], references: [id], onDelete: Cascade)
+  corroboratedByHazardId String
+
+  distanceKm Float?
+  createdAt  DateTime @default(now())
+
+  @@unique([hazardId, corroboratedByUserId])
+  @@index([hazardId])
+  @@index([corroboratedByUserId])
+}
+
+// A badge a user has earned, from the catalogue in badge.service.ts.
+// Definitions live in code so they are versioned with the repo; only the
+// earning is stored. Badges are never revoked once earned.
+model UserBadge {
+  id      String @id @default(uuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId String
+
+  // What the counter stood at when it was earned, for the award message.
+  progressAtAward Int?
+  earnedAt        DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId, earnedAt])
+}
+
+// A journey is a trip the traveller chooses to share, and it always stops on
+// its own at a time they picked. Snap points are the default (departure,
+// roughly every 10 minutes, arrival); live is a per-journey opt-in and is
+// never an ALRT+ upsell. Only the chosen recipients ever see it.
+enum FamilyJourneyStatus {
+  active
+  ended
+}
+
+model FamilyJourney {
+  id       String              @id @default(uuid())
+  circleId String
+  memberId String
+  status   FamilyJourneyStatus @default(active)
+
+  // Live is opt-in per journey. False means snap points only.
+  isLive Boolean @default(false)
+
+  // The hard stop the traveller chose. Always set, never open-ended.
+  endsAt  DateTime
+  endedAt DateTime?
+
+  // Minutes already granted, so extensions cannot outrun the total cap.
+  grantedMinutes Int @default(0)
+
+  latitude      Float?
+  longitude     Float?
+  locationLabel String?
+
+  circle     FamilyCircle             @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  member     FamilyMember             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recipients FamilyJourneyRecipient[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([circleId, status])
+  @@index([memberId, createdAt])
+}
+
+// Who can see a journey. Chosen per journey, never inherited.
+model FamilyJourneyRecipient {
+  id        String @id @default(uuid())
+  journeyId String
+  memberId  String
+
+  journey FamilyJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  member  FamilyMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([journeyId, memberId])
+  @@index([memberId])
+}
+
+// ---------------------------------------------------------------------------
+// Community safety: user-initiated flagging and blocking
+//
+// The automated side (AI review of every report, media screening) stops most
+// objectionable content before it publishes. These two cover what automation
+// cannot: a person deciding that something aimed at them is not acceptable.
+// Both are keyed on internal ids only, so neither collects or exposes any
+// personal information about anyone.
+// ---------------------------------------------------------------------------
+
+enum HazardFlagReason {
+  inappropriate // offensive, explicit or abusive
+  misleading // false or dangerously wrong
+  spam // advertising or repetition
+  harassment // aimed at a person
+  other
+}
+
+model HazardFlag {
+  id       String           @id @default(uuid())
+  hazardId String
+  userId   String
+  reason   HazardFlagReason
+
+  // Deliberately no free-text field: a fixed reason list keeps this useful
+  // for triage and stops the flag itself becoming a channel for abuse.
+
+  createdAt DateTime @default(now())
+
+  hazard Hazard @relation(fields: [hazardId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One flag per person per report: raising it twice is not two opinions.
+  @@unique([hazardId, userId])
+  @@index([hazardId])
+  @@index([createdAt])
+}
+
+model UserBlock {
+  id        String @id @default(uuid())
+  blockerId String
+  blockedId String
+
+  createdAt DateTime @default(now())
+
+  blocker User @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  // A block hides content for the blocker alone. Nothing is deleted, and
+  // the blocked person is never told: being told is how blocking a
+  // harasser turns into an escalation.
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+}
