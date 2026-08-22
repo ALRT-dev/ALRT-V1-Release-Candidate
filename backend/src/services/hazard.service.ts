@@ -22,6 +22,7 @@ import {
   buildHazardsOrderByClauseRaw,
   buildHazardsWhereClause,
   buildHazardsWhereClauseRaw,
+  mapAiReviewStatus,
   withPublicCoords,
 } from "../utils/hazard.util.js";
 import { getPromptById } from "./ai-prompt.service.js";
@@ -33,8 +34,9 @@ import {
   cacheAISummary,
 } from "./hazard_cache.service.js";
 import { config } from "../utils/config.js";
-import { MainCategoryId } from "./hazard_category.service.js";
+import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
+import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
 import {
   SOURCE_REGISTRY_DEFAULTS,
   type SourceSystemKey,
@@ -522,14 +524,26 @@ Please analyze this hazard report:
 
   try {
     const aiReview = JSON.parse(content) as {
+      reviewStatus?: unknown;
+      reviewFeedback?: unknown;
       title: string;
       summary: string;
       callsToAction: string[];
       confidence: "high" | "medium" | "low";
     };
 
+    // This used to be hardcoded to HazardReviewStatus.accepted regardless
+    // of what the model actually returned, silently discarding the
+    // model's own moderation decision — every submission was accepted no
+    // matter what. mapAiReviewStatus only trusts the two literal values
+    // the schema defines and falls back to pending otherwise.
+    const reviewStatus = mapAiReviewStatus(aiReview.reviewStatus);
+
     return {
-      reviewStatus: HazardReviewStatus.accepted,
+      reviewStatus,
+      ...(typeof aiReview.reviewFeedback === "string" && {
+        reviewFeedback: aiReview.reviewFeedback,
+      }),
       title: aiReview.title,
       summary: aiReview.summary,
       callsToAction: aiReview.callsToAction,
@@ -577,6 +591,19 @@ export const summarizeHazard = async ({
       callsToAction: [],
       confidence: "high",
     };
+  }
+
+  // Health and Air Quality Standard (classification standard §10): AQI
+  // cards use zero AI — band, title, facts, and What To Do all come from
+  // templates keyed by band. severityBand is already the deterministic,
+  // Node-computed value (getSeverityBandFromAQI, run in ingestion before
+  // this function is ever called), so no model call is needed or made.
+  if (category.id === SubCategoryId.airQualityAlert) {
+    return getDeterministicAirQualityContent({
+      title,
+      description,
+      severityBand,
+    });
   }
 
   const contentHash = hazardContentHash({

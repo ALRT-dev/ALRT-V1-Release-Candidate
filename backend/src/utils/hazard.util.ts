@@ -1,4 +1,5 @@
 import {
+  HazardReviewStatus,
   HazardSeverity,
   HazardSeverityBand,
   Prisma,
@@ -1076,6 +1077,23 @@ export const adjustExpirationTime = (
  * Emergency Warning push notification would have read "Critical | <title>"
  * instead of the actual official wording.
  */
+/**
+ * Maps the AI review prompt's `reviewStatus` output to the real
+ * HazardReviewStatus enum, trusting only the two literal values the
+ * schema defines. Anything else — a missing field, a malformed model
+ * response, a hallucinated third value — resolves to `pending` rather
+ * than either extreme, so a response this code doesn't recognise needs
+ * human review instead of silently publishing or silently discarding a
+ * real community report. Community-report moderation (§6.5 of the
+ * classification standard) depends on this actually reflecting what the
+ * model decided, not defaulting to "accepted" regardless of input.
+ */
+export const mapAiReviewStatus = (value: unknown): HazardReviewStatus => {
+  if (value === "accepted") return HazardReviewStatus.accepted;
+  if (value === "rejected") return HazardReviewStatus.rejected;
+  return HazardReviewStatus.pending;
+};
+
 export const getFormattedHazardSeverity = (
   severity: HazardSeverity,
 ): string => {

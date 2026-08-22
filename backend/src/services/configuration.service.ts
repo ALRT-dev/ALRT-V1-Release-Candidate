@@ -311,25 +311,16 @@ export const getAIPromptConfiguration =
   };
 
 /**
- * Initialize default configurations if they don't exist
+ * Builds the AIPromptConfiguration pointing at the bracket-named default
+ * prompts (DefaultAIPromptNames / ai-prompt.util.ts) — the sole
+ * authoritative prompt system for V1 (see backend/CLAUDE.md). Shared by
+ * initializeDefaultConfigurations (fresh-boot seeding) and
+ * resetAIPromptConfigurationToBracketDefaults (the one-time convergence
+ * script for a deployment whose Configuration.aiPrompts may point
+ * elsewhere, e.g. from the retired alert_summarization_prompts.ts system).
  */
-export const initializeDefaultConfigurations = async (): Promise<void> => {
-  try {
-    const count = await prisma.configuration.count();
-    if (count > 0) {
-      return;
-    }
-
-    // Find the super admin to use as creator
-    const superAdmin = await prisma.admin.findFirst({
-      orderBy: { createdAt: "asc" }, // Get the first admin (likely super admin)
-    });
-
-    if (!superAdmin) {
-      console.log("No admin found, skipping configuration initialization");
-      return;
-    }
-
+const buildDefaultAIPromptConfiguration =
+  async (): Promise<AIPromptConfiguration> => {
     // Fetch AI prompts by their default names
     const prompts = await prisma.aIPrompt.findMany({
       where: {
@@ -347,7 +338,7 @@ export const initializeDefaultConfigurations = async (): Promise<void> => {
       promptMap[prompt.name] = prompt.id;
     }
 
-    const aiPromptConfig: AIPromptConfiguration = {
+    return {
       userReportedAlertReviewAndSummarizePromptId: {
         infoPromptId:
           promptMap[
@@ -418,22 +409,42 @@ export const initializeDefaultConfigurations = async (): Promise<void> => {
       extractLocationPromptId:
         promptMap[DefaultAIPromptNames.extractLocationPrompt] || "",
     };
+  };
 
-    // Define default configurations
-    const defaultConfigs: CreateConfigurationData[] = [
+const AI_PROMPT_CONFIGURATION_DESCRIPTION =
+  "Configuration for AI prompts used in hazard processing. It includes prompt IDs for various AI tasks. 3 keys are required for basic functionality: userReportedAlertReviewAndSummarizePromptId, officialAlertSummarizationPromptId, severityAndCallToActionPromptId";
+
+/**
+ * Initialize default configurations if they don't exist
+ */
+export const initializeDefaultConfigurations = async (): Promise<void> => {
+  try {
+    const count = await prisma.configuration.count();
+    if (count > 0) {
+      return;
+    }
+
+    // Find the super admin to use as creator
+    const superAdmin = await prisma.admin.findFirst({
+      orderBy: { createdAt: "asc" }, // Get the first admin (likely super admin)
+    });
+
+    if (!superAdmin) {
+      console.log("No admin found, skipping configuration initialization");
+      return;
+    }
+
+    const aiPromptConfig = await buildDefaultAIPromptConfiguration();
+
+    await upsertConfiguration(
       {
         key: ConfigurationKey.aiPrompts,
         value: aiPromptConfig,
         title: "AI Prompts Configuration",
-        description:
-          "Configuration for AI prompts used in hazard processing. It includes prompt IDs for various AI tasks. 3 keys are required for basic functionality: userReportedAlertReviewAndSummarizePromptId, officialAlertSummarizationPromptId, severityAndCallToActionPromptId",
+        description: AI_PROMPT_CONFIGURATION_DESCRIPTION,
       },
-    ];
-
-    // Create default configurations
-    for (const configData of defaultConfigs) {
-      await upsertConfiguration(configData, superAdmin.id);
-    }
+      superAdmin.id,
+    );
 
     console.log(
       "---------------------------------------> Default configurations initialized successfully"
@@ -441,4 +452,62 @@ export const initializeDefaultConfigurations = async (): Promise<void> => {
   } catch (error) {
     console.error("Error initializing default configurations:", error);
   }
+};
+
+/**
+ * Repoints Configuration.aiPrompts's five default groups
+ * (userReportedAlertReviewAndSummarizePromptId, officialAlertSummarizationPromptId,
+ * officialAwsAlertSummarizationPromptId, airQualityAlertCategoryPromptId,
+ * smartravellerSourcePromptId) and extractLocationPromptId at the
+ * bracket-named prompts (ai-prompt.util.ts / DefaultAIPromptNames) — the
+ * sole authoritative alert-generation prompt system for V1.
+ *
+ * Unlike initializeDefaultConfigurations, this runs unconditionally
+ * (no "only if the Configuration table is empty" guard) and merges onto
+ * whatever Configuration.aiPrompts already holds, so any admin-added
+ * per-source or per-category prompt override (a `${id}SourcePromptId` or
+ * `${id}CategoryPromptId` key) is preserved untouched — only the five
+ * default groups are repointed. Safe to run on a fresh deployment (a
+ * no-op there — it converges to the same values initializeDefaultConfigurations
+ * already wrote) or on a deployment that previously ran the now-removed
+ * `npm run seed:prompts` script (where it repoints those groups back to
+ * the bracket-named prompts, since deleting that script's source file does
+ * not by itself undo a Configuration row it already wrote to the database).
+ *
+ * Invoked by src/scripts/reset-ai-prompt-configuration.ts.
+ */
+export const resetAIPromptConfigurationToBracketDefaults = async (): Promise<{
+  adminId: string;
+  config: AIPromptConfiguration;
+}> => {
+  const superAdmin = await prisma.admin.findFirst({
+    orderBy: { createdAt: "asc" },
+  });
+  if (!superAdmin) {
+    throw new HttpError(
+      500,
+      "No admin found — cannot attribute the configuration update.",
+    );
+  }
+
+  const defaults = await buildDefaultAIPromptConfiguration();
+  const existing = await prisma.configuration.findUnique({
+    where: { key: ConfigurationKey.aiPrompts },
+  });
+  const merged: AIPromptConfiguration = {
+    ...((existing?.value as Partial<AIPromptConfiguration> | null) ?? {}),
+    ...defaults,
+  } as AIPromptConfiguration;
+
+  await upsertConfiguration(
+    {
+      key: ConfigurationKey.aiPrompts,
+      value: merged,
+      title: "AI Prompts Configuration",
+      description: AI_PROMPT_CONFIGURATION_DESCRIPTION,
+    },
+    superAdmin.id,
+  );
+
+  return { adminId: superAdmin.id, config: merged };
 };
