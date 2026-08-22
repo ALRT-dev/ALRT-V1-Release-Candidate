@@ -115,6 +115,11 @@ abstract class Hazard with _$Hazard {
     /// The total number of downvotes for the hazard.
     @Default(0) final int downvoteCount,
 
+    /// The number of independent community reports that corroborate this
+    /// hazard (never official sources, never a stand-in for severity — see
+    /// the "(x3)" corroboration indicator in the classification standard).
+    @Default(0) final int corroborationCount,
+
     /// The confidence score of the hazard (from 0 to 100) to be used in the sorting order.
     final int? confidenceScore,
 

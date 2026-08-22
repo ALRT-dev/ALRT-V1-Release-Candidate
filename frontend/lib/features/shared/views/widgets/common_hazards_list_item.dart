@@ -149,6 +149,10 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
               // do are a read, not a glance, so they wait for the detail
               // screen rather than being half-shown here.
               _coloredHeaderBuilder(),
+              // "In plain terms" is mandatory on every card type (locked
+              // rule), not just the detail screen — this is the same
+              // deterministic line _buildPlainTermsBox shows there.
+              _plainTermsBuilder(),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -194,18 +198,61 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
     ).pX(widget.horizontalPadding);
   }
 
-  /// The live-freshness chip. Share lives in the card's own action row,
-  /// so it is not repeated here.
+  /// The live-freshness chip, plus a community-corroboration chip when this
+  /// report has been independently confirmed by other nearby reports. Share
+  /// lives in the card's own action row, so it is not repeated here.
   Widget _freshnessRowBuilder() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
-        return FreshnessChip(
-          updatedAt: hazard.updatedAt,
-          createdAt: hazard.createdAt,
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FreshnessChip(
+              updatedAt: hazard.updatedAt,
+              createdAt: hazard.createdAt,
+            ),
+            if (hazard.isUserReported && hazard.corroborationCount > 0) ...[
+              6.wSizedBox,
+              _corroborationChipBuilder(hazard.corroborationCount),
+            ],
+          ],
         );
       },
+    );
+  }
+
+  /// "Confirmed by ×N" — independent community reports of the same event,
+  /// never official sources and never a severity signal (classification
+  /// standard §11: a corroboration indicator, clearly attributed to the
+  /// community, not implying official verification).
+  Widget _corroborationChipBuilder(final int corroborationCount) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.grey.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10.spMin),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 8.spMin, vertical: 3.spMin),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            LucideIcons.users,
+            size: 11.spMin,
+            color: AppColors.grey,
+          ),
+          3.wSizedBox,
+          Text(
+            'Confirmed by ×$corroborationCount',
+            style: TextStyle(
+              fontSize: 10.spMin,
+              fontWeight: FontWeight.w600,
+              color: AppColors.grey,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -315,10 +362,19 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                                     AppColors.grey)
                         : AppColors.white,
               ),
-              // Left: the SOURCE system, one badge and only one.
+              // Left: the SOURCE system, one badge and only one. Five
+              // possible values (AWS/OFFICIAL/COMMUNITY/GDACS/ALRT INTEL) —
+              // GDACS and ALRT Intel are official too, but naming them
+              // specifically (not folding into generic OFFICIAL) is what
+              // lets a reader tell a humanitarian-monitoring feed or ALRT's
+              // own assessment apart from a government agency at a glance.
               _headerPillBuilder(
                 label: isAwsCompliant
                     ? 'AWS'
+                    : widget.hazard.isAlrtIntel
+                    ? 'ALRT INTEL'
+                    : widget.hazard.isGlobalHumanitarian
+                    ? 'GDACS'
                     : isVerified
                     ? 'OFFICIAL'
                     : 'COMMUNITY',
@@ -347,6 +403,48 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                   ),
                 ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// "In plain terms" — mandatory on every card type, not just the detail
+  /// screen (locked rule). Same deterministic line as
+  /// ViewHazardScreen._buildPlainTermsBox, scaled down for a compact card.
+  Widget _plainTermsBuilder() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null) return const SizedBox.shrink();
+
+        final plainTerms = AlertCardStyle.plainTermsOf(
+          isOfficial: !hazard.isUserReported,
+          isAws: hazard.isAwsCompliant ?? false,
+          severity: hazard.severity,
+          band: hazard.severityBand,
+          categoryName: hazard.category?.name,
+          sourceName: hazard.source?.name,
+          locationName: hazard.locationName,
+        );
+        if (plainTerms == null) return const SizedBox.shrink();
+
+        return Container(
+          width: double.infinity,
+          color: AlertCardStyle.plainTermsBackground,
+          padding: EdgeInsets.symmetric(
+            horizontal: 10.spMin,
+            vertical: 6.spMin,
+          ),
+          child: Text(
+            plainTerms,
+            style: TextStyle(
+              fontSize: 11.spMin,
+              height: 1.4,
+              color: Colors.white,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         );
       },

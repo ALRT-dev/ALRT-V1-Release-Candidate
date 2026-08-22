@@ -69,8 +69,17 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
     ];
     if (matched.isEmpty) return const SizedBox.shrink();
 
-    final visible = _expanded ? matched : [matched.first];
-    final others = matched.length - 1;
+    // Standard: maximum three lines visible at once; further matches
+    // collapse behind the "Guidance for other groups" expander. Whether
+    // that expander/toggle row exists at all depends only on whether there
+    // IS more than the cap — not on the current expand state, or "Show
+    // less" would have nowhere to render once expanded.
+    const maxVisibleLines = 3;
+    final hasMore = matched.length > maxVisibleLines;
+    final visible = _expanded
+        ? matched
+        : matched.take(maxVisibleLines).toList();
+    final hiddenCount = matched.length - maxVisibleLines;
     final showVisitorExplainer =
         widget.isAws && ticked.contains(SafetyCohort.visitor);
 
@@ -124,7 +133,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
           ),
           if (showVisitorExplainer) _visitorExplainerBuilder(),
           for (final cohort in visible) _lineBuilder(cohort, rows[cohort]!),
-          if (others > 0)
+          if (hasMore)
             InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
               child: Padding(
@@ -145,7 +154,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
                     ),
                     SizedBox(width: 7.spMin),
                     if (!_expanded) ...[
-                      for (final cohort in matched.skip(1).take(3))
+                      for (final cohort in matched.skip(maxVisibleLines).take(3))
                         Container(
                           width: 12.spMin,
                           height: 12.spMin,
@@ -159,7 +168,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
                             ),
                           ),
                         ),
-                      if (others > 3)
+                      if (hiddenCount > 3)
                         Container(
                           margin: EdgeInsets.only(left: 3.spMin),
                           padding: EdgeInsets.symmetric(
@@ -171,7 +180,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            '+${others - 3}',
+                            '+${hiddenCount - 3}',
                             style: TextStyle(
                               fontSize: 9.spMin,
                               fontWeight: FontWeight.w800,

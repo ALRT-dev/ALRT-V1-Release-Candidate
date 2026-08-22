@@ -445,14 +445,28 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final severityBand = ref.watch(
           provider.select((value) => value.hazard?.severityBand),
         );
+        final isGlobalHumanitarian = ref.watch(
+          provider.select((value) => value.hazard?.isGlobalHumanitarian ?? false),
+        );
+        final isAlrtIntel = ref.watch(
+          provider.select((value) => value.hazard?.isAlrtIntel ?? false),
+        );
 
         // AWS treatment applies to AWS-compliant OFFICIAL alerts only.
         final isAws = !isUserReported && isAwsCompliant && sourceName != null;
 
+        // Five possible kickers (AWS/OFFICIAL/COMMUNITY/GDACS/ALRT INTEL) —
+        // GDACS and ALRT Intel are official too, but naming them
+        // specifically is what lets a reader tell a humanitarian-monitoring
+        // feed or ALRT's own assessment apart from a government agency.
         final kicker = isUserReported
             ? 'COMMUNITY REPORT · UNVERIFIED'
             : isAws
             ? 'AWS · EMERGENCY WARNING SYSTEM'
+            : isAlrtIntel
+            ? 'ALRT INTEL'
+            : isGlobalHumanitarian
+            ? 'GDACS'
             : 'OFFICIAL SOURCE';
 
         final byline = isUserReported
@@ -1211,6 +1225,45 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
+  /// Matches a What To Do line the backend built as an attribution prefix
+  /// relaying a source's own instruction, e.g. "NSW SES advises: do not
+  /// drive through floodwater." — see the classification standard's
+  /// directive-extraction rule (every relayed instruction is prefixed with
+  /// the issuing agency's name and the word "advises:").
+  static final RegExp _attributedActionPattern = RegExp(
+    r'^(.{1,60}? advises:)\s*(.*)$',
+  );
+
+  /// Bolds the "{Agency} advises:" prefix of a What To Do line so an
+  /// attributed source directive reads visibly differently from ALRT's own
+  /// wording around it — the classification standard's "attribution
+  /// prefixes bold" rule. Falls back to plain text for a line that isn't in
+  /// that shape (community reports carry no instructions at all, and older
+  /// content may not follow the pattern).
+  Widget _attributedActionText(final String action) {
+    final match = _attributedActionPattern.firstMatch(action);
+    final baseStyle = TextStyle(
+      color: AppColors.black.withValues(alpha: 0.9),
+      fontSize: 14.spMin,
+      height: 1.5,
+    );
+    if (match == null) {
+      return Text(action, style: baseStyle);
+    }
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: match.group(1),
+            style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+          ),
+          TextSpan(text: ' ${match.group(2)}'),
+        ],
+      ),
+      style: baseStyle,
+    );
+  }
+
   Widget _buildWhatToDoSection() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1304,16 +1357,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                                 ),
                               ),
                               Expanded(
-                                child: Text(
-                                  action,
-                                  style: TextStyle(
-                                    color: AppColors.black.withValues(
-                                      alpha: 0.9,
-                                    ),
-                                    fontSize: 14.spMin,
-                                    height: 1.5,
-                                  ),
-                                ),
+                                child: _attributedActionText(action),
                               ),
                             ],
                           ),
