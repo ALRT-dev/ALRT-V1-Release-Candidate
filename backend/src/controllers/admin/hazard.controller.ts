@@ -6,9 +6,11 @@ import {
 import type {
   CreateHazardForAdminBody,
   GetHazardsForAdminQuery,
+  ReviewHazardForAdminBody,
   SyncHazardsFromExternalSourceForAdminBody,
   UpdateHazardForAdminBody,
 } from "../../validators/admin/hazard.validator.js";
+import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 import { parseBoolean } from "../../utils/parse.util.js";
 import prisma from "../../utils/prisma_client.util.js";
 import { HttpError } from "../../models/http_error.js";
@@ -355,6 +357,94 @@ export const updateHazardForAdmin = async (
     });
 
     await invalidateHazardCaches(hazardId);
+
+    const updatedHazardWithPresignedUrls =
+      await enrichHazardWithPresignedUrls(updatedHazard);
+
+    res.status(200).json(updatedHazardWithPresignedUrls);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Human admin moderation decision (approve/reject) on a hazard's existing
+ * reviewStatus. This is deliberately the ONLY way a reviewStatus changes
+ * after creation - separate from the AI's own reviewHazard() decision made
+ * at submission time (see reviewHazard() in hazard.service.ts / CLAUDE.md
+ * "AI alert-generation prompts"). The AI decision and this human decision
+ * are independent: this endpoint never re-runs or overwrites the AI's own
+ * review, it only records the admin's own accept/reject on top of the
+ * hazard's current state, and never touches sourceId/categoryId/location -
+ * an admin cannot use a moderation decision to fabricate an official
+ * source attribution.
+ */
+export const reviewHazardForAdmin = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const hazardId = req.params.hazardId;
+    if (!hazardId) {
+      throw new HttpError(400, "hazardId parameter is required");
+    }
+
+    if (!req.admin) {
+      throw new HttpError(403, "Unauthorized");
+    }
+
+    const { reviewStatus, reviewFeedback }: ReviewHazardForAdminBody =
+      req.body;
+
+    const existingHazard = await prisma.hazard.findUnique({
+      where: { id: hazardId },
+    });
+    if (!existingHazard) {
+      throw new HttpError(404, `Hazard with id ${hazardId} not found`);
+    }
+
+    const before = {
+      reviewStatus: existingHazard.reviewStatus,
+      reviewFeedback: existingHazard.reviewFeedback,
+      reviewedById: existingHazard.reviewedById,
+    };
+
+    const updatedHazard = await prisma.hazard.update({
+      where: { id: hazardId },
+      include: buildHazardInclude(),
+      data: {
+        reviewStatus,
+        reviewFeedback: reviewFeedback ?? null,
+        reviewedAt: new Date(),
+        reviewedById: req.admin.id,
+        // Only accepted reports carry an expiry; a pending/rejected AI
+        // decision never got one (see hazard.controller.ts's create/update
+        // paths), so backfill it the same way on a human accept.
+        ...(reviewStatus === HazardReviewStatus.accepted &&
+          !existingHazard.expiresAt && {
+            expiresAt: getHazardExpiryDateFromSeverity(
+              existingHazard.severity,
+            ),
+          }),
+      },
+    });
+
+    await invalidateHazardCaches(hazardId);
+
+    await recordAdminAuditEntry({
+      adminId: req.admin.id,
+      action: "hazard.review",
+      targetType: "Hazard",
+      targetId: hazardId,
+      reason: reviewFeedback ?? null,
+      before,
+      after: {
+        reviewStatus: updatedHazard.reviewStatus,
+        reviewFeedback: updatedHazard.reviewFeedback,
+        reviewedById: updatedHazard.reviewedById,
+      },
+    });
 
     const updatedHazardWithPresignedUrls =
       await enrichHazardWithPresignedUrls(updatedHazard);

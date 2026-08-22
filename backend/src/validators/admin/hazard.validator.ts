@@ -36,7 +36,7 @@ export const getHazardsForAdminQuerySchema = z.object({
 
   reportedById: z.string().uuid().optional(),
 
-  reviewStatus: z.enum(["accepted", "rejected"]).optional(),
+  reviewStatus: z.enum(["pending", "accepted", "rejected"]).optional(),
 
   severities: z.array(z.enum(HazardSeverity)).optional(),
 
@@ -266,4 +266,40 @@ export const syncHazardsFromExternalSourceForAdminBodySchema = z.object({
 
 export type SyncHazardsFromExternalSourceForAdminBody = z.infer<
   typeof syncHazardsFromExternalSourceForAdminBodySchema
+>;
+
+// PATCH /:hazardId/review - human admin moderation decision on a hazard's
+// existing reviewStatus (approve/reject). Deliberately separate from
+// createHazardForAdminBodySchema/updateHazardForAdminBodySchema: this
+// endpoint never accepts sourceId/categoryId/location/etc, so an admin
+// cannot use a moderation decision to manufacture or change an official
+// source attribution - it only ever touches the review fields themselves.
+export const reviewHazardForAdminParamsSchema = z.object({
+  hazardId: z.string().min(1, "hazardId parameter is required"),
+});
+
+export type ReviewHazardForAdminParams = z.infer<
+  typeof reviewHazardForAdminParamsSchema
+>;
+
+export const reviewHazardForAdminBodySchema = z
+  .object({
+    reviewStatus: z.enum(["accepted", "rejected"]),
+    reviewFeedback: z
+      .string()
+      .max(1000, "Review feedback must be at most 1000 characters")
+      .optional(),
+  })
+  .refine(
+    (data) =>
+      data.reviewStatus !== "rejected" ||
+      (data.reviewFeedback && data.reviewFeedback.trim().length > 0),
+    {
+      message: "reviewFeedback is required when rejecting a report",
+      path: ["reviewFeedback"],
+    },
+  );
+
+export type ReviewHazardForAdminBody = z.infer<
+  typeof reviewHazardForAdminBodySchema
 >;

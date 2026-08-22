@@ -4,6 +4,7 @@ import {
   deleteHazardForAdmin,
   getHazardsForAdmin,
   getHazardSourcesForAdmin,
+  reviewHazardForAdmin,
   syncHazardsFromExternalSourceForAdmin,
   updateHazardForAdmin,
 } from "../../controllers/admin/hazard.controller.js";
@@ -13,7 +14,11 @@ import {
   requireAdminOrAbove,
 } from "../../middlewares/auth.admin.middleware.js";
 import { validate } from "../../middlewares/validation.middleware.js";
-import { createHazardForAdminBodySchema } from "../../validators/admin/hazard.validator.js";
+import {
+  createHazardForAdminBodySchema,
+  reviewHazardForAdminBodySchema,
+  reviewHazardForAdminParamsSchema,
+} from "../../validators/admin/hazard.validator.js";
 
 const adminHazardRouter = Router();
 
@@ -32,6 +37,17 @@ adminHazardRouter.post(
   createHazardForAdmin
 );
 adminHazardRouter.put("/:hazardId", requireAdminOrAbove, updateHazardForAdmin);
+
+// Community-report moderation decision (approve/reject) - a moderator's
+// core function, so gated at requireAnyAdmin like other read/moderation
+// work rather than requireAdminOrAbove like the general hazard writes above.
+adminHazardRouter.patch(
+  "/:hazardId/review",
+  requireAnyAdmin,
+  validate(reviewHazardForAdminParamsSchema, "params"),
+  validate(reviewHazardForAdminBodySchema),
+  reviewHazardForAdmin
+);
 adminHazardRouter.delete(
   "/:hazardId",
   requireAdminOrAbove,
