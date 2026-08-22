@@ -1,6 +1,6 @@
 # ALRT V1 Reconciliation Report
 
-**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Stage 7B (Admin backend hardening — the backend prerequisites from §22.4: moderation endpoint, role enforcement, audit log, pagination/validator fixes) complete — see §23. Application code has been changed in this repository only, across stages up to and including Stage 7B — see §17, §18, §19, §20, §21, and §23. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed. The Admin Portal frontend itself has not been built.
+**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Stage 7B (Admin backend hardening — the backend prerequisites from §22.4: moderation endpoint, role enforcement, audit log, pagination/validator fixes) complete — see §23. Stage 7C (ALRT V1 Admin Portal — a new `admin/` frontend against the existing Admin API) complete — see §24. Application code has been changed in this repository only, across stages up to and including Stage 7C — see §17, §18, §19, §20, §21, §23, and §24. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
 **Scope:** `ALRT-dev/frontendV2`, `ALRT-dev/backendV2`, `ALRT-dev/askalrt`, `ALRT-dev/V2-Claude`, `ALRT-dev/v3`, plus `ALRT-dev/ALRT-V1-Release-Candidate` itself. `ALRT-dev/widget` was pulled in read-only mid-audit because every other repo points to it as the true frontend baseline (see §1). Stage 2 additionally pulled in `ALRT-dev/alrt`, `ALRT-dev/ALRT-screen`, `ALRT-dev/mattv2`, `ALRT-dev/occulo`, `ALRT-dev/glasses`, `ALRT-dev/watchinterface` read-only, to hunt for a missing Admin Portal (see §15).
 **Method:** Full local clones with ~200 commits of history fetched per branch (every branch that exists in each repo), `git log`/`diff`/`show` history analysis, and targeted source reading across five parallel deep-dive passes (one per repo) plus manual cross-repo verification. Not every file in every repo was read line-by-line; large, low-risk areas (asset files, generated lockfiles, vendored code) were sampled rather than exhaustively reviewed.
 
@@ -1232,3 +1232,104 @@ Only the items this stage's instructions actually named were implemented (modera
 ### 23.10 Stop condition honored
 
 Per instruction, this stage stops here. No Admin Portal frontend, no Audit Log frontend, no Emergency Information frontend, no deployment, and no mobile-frontend changes were made.
+
+## 24. Stage 7C — ALRT V1 Admin Portal
+
+Builds the minimum viable Admin Portal frontend against the backend as it stood after Stage 7B, re-verified fresh against the live route/controller/service code for this stage rather than the older §22 audit (route files, response shapes, and role gates were all re-read directly from `backend/src/routes/admin/*.ts` and their controllers/services before any frontend code was written).
+
+### 24.1 Architecture
+
+New `admin/` directory at the repo root, sibling to `backend/`, `frontend/`, `askalrt/` - matching the existing monorepo convention, not a new repository (per §22.5's recommendation, followed here). No existing web tooling was found anywhere in this repo or any other ALRT repository to reuse (re-confirmed this stage: no `vite.config`, no `.tsx` files, no frontend `package.json` outside `frontend/`'s Flutter project), so it's a from-scratch scaffold - Vite + React + TypeScript, `react-router-dom`, plain `fetch`, plain CSS, `oxlint`, `vitest`. No state-management library, no CSS/component framework, no HTTP client library - deliberately minimal for an app that is a handful of list/detail screens.
+
+The portal holds no database credentials, no service-account credentials, no Google API secrets, and no webhook API keys - it only ever calls the existing Admin API over HTTP, with the base URL as its one non-secret environment variable (`VITE_API_BASE_URL`).
+
+### 24.2 Authentication
+
+Uses the backend's existing admin JWT system unchanged - `POST /api/admin/auth/login`, `/refresh-token`, `/logout`, `GET /api/admin/users/me`. No second auth system was created. Tokens live in `localStorage` via a single module (`src/api/tokenStorage.ts`) - the realistic option given the backend issues bearer JWTs, not an httpOnly session cookie (confirmed by re-reading `auth.admin.service.ts`/`jwt.admin.util.ts` this stage, unchanged since Stage 7A/7B). A shared `apiRequest()` wrapper (`src/api/client.ts`):
+
+- attaches the access token to every request except login;
+- on a 401, silently refreshes once (deduped across concurrent requests) and retries the original request;
+- on a failed refresh, clears tokens and calls a registered "session expired" handler that returns every screen to `/login`;
+- on a 403, throws a typed `ApiError` that screens render as a permission-denied state, never a silent failure.
+
+Role (`hasRole()` on `AuthContext`) is read from the authenticated admin's own profile and used only to hide controls - explicitly documented in code as UX-only. Every screen still has to handle a real 403 from the backend, which remains the sole authority.
+
+### 24.3 Screens implemented
+
+All ten navigation sections named in the instructions, plus AI Prompts/Configuration/Webhook Keys since the backend safely supports role-gated access to all three (re-verified this stage, not assumed from the older audit) - no Audit Log screen (no read endpoint exists on the backend for `AdminAuditLog` yet - see §24.6) and no Emergency Information screen (no backend model exists).
+
+| Screen | Backend endpoints used |
+|---|---|
+| Dashboard | `GET /api/admin/stats`, `GET /api/admin/stats/dashboard` |
+| Alerts | `GET /api/admin/hazards` (search/filter), `DELETE /api/admin/hazards/:id` |
+| Moderation | `GET /api/admin/hazards?reviewStatus=`, `PATCH /api/admin/hazards/:id/review` |
+| Sources | `GET /api/admin/hazard-sources`, `PUT /api/admin/hazard-sources/:id` |
+| Categories / Icons | `GET /api/admin/categories`, `PUT /api/admin/categories/:id` |
+| Users | `GET /api/admin/users/app-users`, `DELETE .../app-users/:id`, `POST .../app-users/:id/restore` |
+| Admin Accounts | `GET /api/admin/users/admins`, `POST /api/admin/users/create`, `PATCH .../admins/:id/active` |
+| AI Prompts | `GET /api/admin/ai-prompts`, `PUT /api/admin/ai-prompts/:id` (content only) |
+| Configuration | `GET /api/admin/configurations`, `PUT /api/admin/configurations/:id` (title/description only) |
+| Webhook API Keys | `GET /api/admin/webhook-api-keys`, `POST`, `PATCH .../:id` (isActive), `DELETE .../:id` |
+
+Deliberately not exposed even though the backend supports it, all documented in the UI itself (not silently omitted) and in `admin/README.md`:
+
+- **AI Prompt create/delete** - only view + edit-content shipped. Deleting a prompt still wired into `Configuration.aiPrompts` breaks alert generation; this is a first V1 with no operational track record.
+- **Configuration `value` editing** - the JSON blob wiring the AI prompt system is shown read-only; only its title/description metadata are editable. This is also the one place in the Admin API an operator could paste a secret into (§22/§23's own finding) - not adding a raw-JSON editor for it in V1 is a deliberate safety call, not an oversight.
+- **Category icon image upload** - the backend's multipart image-upload path exists (`optionalCategoryImagesUpload` middleware) but wasn't built into V1; name/description/colour edit via the same endpoint's JSON-body path, which the route doc comment confirms is supported.
+- **Hazard/alert full edit form** (severity, category, location, etc.) - view + delete only. Per instruction, arbitrary severity changes and rewriting safety-critical alert content are exactly what this portal must not casually allow; a real edit form for that is future work, not a V1 gap fixed by omission.
+
+### 24.4 Role behaviour (re-verified against the live backend, not assumed)
+
+Every route file under `backend/src/routes/admin/` was re-read for this stage. Confirmed unchanged from Stage 7B: reads are `requireAnyAdmin` (all three roles) everywhere; writes are `requireAdminOrAbove` (admin/superAdmin) everywhere except the moderation-review endpoint (`requireAnyAdmin` - moderation is a moderator's core function) and admin-account create/deactivate (`requireSuperAdmin`). The portal's nav shows all ten sections to every authenticated admin (since every section's read is `requireAnyAdmin` - a moderator genuinely can view AI Prompts/Configuration/Webhook Keys, just not write to them), and gates write buttons per-screen with `hasRole()`:
+
+| Actor | Can view all 10 sections | Approve/reject moderation | Delete alert / edit source / edit category | Edit AI prompt / Configuration | Mint/delete webhook key | Create/deactivate admin account |
+|---|---|---|---|---|---|---|
+| Moderator | Yes | Yes | No (button hidden, backend 403s if forced) | No | No | No |
+| Admin | Yes | Yes | Yes | Yes | Yes | No |
+| Super admin | Yes | Yes | Yes | Yes | Yes | Yes |
+
+This matches the real backend, not an assumption - every cell above is exercised by `admin/src/test/RoleGating.test.tsx` (button presence/absence per role) and, at the backend layer, by Stage 7B's `verify_stage7b_admin_hardening.ts` (32 real-HTTP checks against real role accounts, still passing - see §24.7). The frontend hiding is UX only: the backend's own `requireAdminOrAbove`/`requireSuperAdmin` middleware is what actually rejects a forced request, unchanged from Stage 7B.
+
+### 24.5 Security controls
+
+- No database, service-account, or Google API credentials anywhere in `admin/` - grepped the full source tree for secret-shaped strings, `DATABASE_URL`/`prisma`/`postgres` references, and found none outside doc comments describing the *backend's* files.
+- No `dangerouslySetInnerHTML` anywhere in the app - hazard titles/descriptions/AI summaries (external-source or unmoderated community content) render only as React text children, which HTML-escapes by default. Treated as untrusted throughout, per instruction.
+- Tokens live only in `src/api/tokenStorage.ts` (the single module that touches `localStorage`); never logged (`console.error` calls only log non-`ApiError` unexpected errors, never a token or key). The webhook plaintext key shown once on creation is held only in React state, cleared the moment its dialog closes, never written to storage.
+- 403s render a permission-denied state; 401s (after a failed refresh) clear tokens and redirect to `/login` - client-side authorization is never the enforcement point, only a courtesy.
+- Confirmation dialogs gate every destructive/safety-critical action (hazard delete, moderation reject with a required reason, admin-account deactivate, webhook key delete) - none of these fire on a single click.
+
+### 24.6 Audit Log - explicitly not built
+
+Per instruction: `AdminAuditLog` rows are written by the backend (Stage 7B, §23.3), but re-checking `backend/src/routes/admin/` this stage confirms no route reads them - there is no `GET` endpoint for `AdminAuditLog` anywhere. **Audit recording exists; admin audit-log viewer requires a read API.** No fake/placeholder audit screen was built.
+
+### 24.7 Tests and verification run
+
+From `admin/`:
+- `npm run build` (`tsc -b && vite build`) - clean, `dist/` produced (~278 KB JS, ~6 KB CSS before gzip).
+- `npm run lint` (`oxlint`) - 0 errors, 3 informational warnings (React fast-refresh/effect-pattern advisories on context files, not correctness issues).
+- `npm run test` (`vitest run`) - **6 files, 21 tests, all passing.** Covers login (success + 401 + 403 messaging), logout, expired session (failed-refresh clears tokens and fires the session-expired handler), 401 (silent refresh-and-retry), 403 (no refresh attempted, typed error surfaced), moderator/admin/superAdmin permission differences (button presence per role, both directions), moderation approve, moderation reject (including reason-required enforcement and the actual PATCH body sent), search/filter (query-string construction as the user types/selects), loading states, and error states (with working retry).
+
+From `backend/`:
+- `npx tsc --noEmit` - clean except the one pre-existing accepted `serviceAccountKey.json` error (unchanged; this stage made no backend code changes, only re-read it).
+- `verify_stage7b_admin_hardening.ts` (Stage 7B's real-HTTP-against-real-DB suite) - re-run against a freshly-provisioned local Postgres+PostGIS test database using the same setup documented in §23.7 - **32/32 still passing**, confirming Stage 7C's frontend work introduced no backend regression.
+- `verify_stage6_alert_rules.ts` / `verify_stage6a_alert_rules.ts` - still pass unchanged (7 and 9 checks).
+- `askalrt/functions` Jest suite - 6 suites, 31 tests, still passing, unaffected.
+- Flutter/Dart: not available in this environment, as in every prior stage; not applicable regardless since no mobile code was touched.
+
+### 24.8 Known limitations / remaining gaps
+
+- No Audit Log viewer (§24.6) - needs a new backend read endpoint first.
+- No Emergency Information screen - no backend model exists (§22.2/§22.10, unchanged).
+- AI Prompt create/delete, Configuration `value` editing, and category icon upload are backend-supported but not exposed in V1 (§24.3) - deliberate scope/safety calls, not oversights, each documented in the UI itself.
+- Source enable/disable and source-health metrics are not shown - the backend schema still has neither field (re-confirmed this stage by re-reading `prisma/schema.prisma`'s `HazardSource` model).
+- ALRT+/subscription entitlement and family-circle membership are not shown on the Users screen - `APP_USER_SELECT` in `app_user.admin.service.ts` still doesn't select `plan` or `familyMemberships` (re-confirmed this stage); per instruction, not queried directly from the database to work around this.
+- Admin-account role/email edit and forced password reset have no backend endpoint (§22.4/§23.9, unchanged) - not faked in the UI.
+- No end-to-end browser test (e.g. Playwright) was added - test coverage is component-level (`vitest`/`@testing-library/react`) against a mocked backend, plus the pre-existing real-HTTP backend suite. A true end-to-end run would need both the portal and a live backend+DB running together, which is possible in this environment (as demonstrated in Stage 7B) but wasn't repeated here to keep this stage's runtime bounded - flagged as a good candidate for the later whole-system audit rather than added unilaterally now.
+
+### 24.9 Manual setup required (deployment, not done this stage)
+
+See `admin/README.md`'s "Deployment requirements" section. Summary: static hosting for the Vite build output; `VITE_API_BASE_URL` set at build time to the real backend's URL; the backend's `CORS_ALLOWED_ORIGINS` env var updated to include the portal's real deployed origin (`backend/CLAUDE.md`'s CORS section - unchanged this stage); no new backend environment variables required.
+
+### 24.10 Stop condition honored
+
+Per instruction, this stage stops here. The Admin Portal V1 (`admin/`) is built, tested, and documented but **not deployed**. No unrelated mobile functionality, Google Maps, SOS, Family, Ask ALRT, alert ingestion, notification architecture, or ALRT+ rules were touched - this stage's only backend interaction was re-reading existing code to verify current behaviour, not modifying it.
