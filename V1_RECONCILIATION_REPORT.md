@@ -1,10 +1,12 @@
 # ALRT V1 Reconciliation Report
 
-**Status:** Audit only. No application code has been changed, merged, or deployed as part of this report.
+**Status:** Stage 3 (first controlled implementation phase) complete. Application code has now been changed in this repository only — see §17. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
 **Scope:** `ALRT-dev/frontendV2`, `ALRT-dev/backendV2`, `ALRT-dev/askalrt`, `ALRT-dev/V2-Claude`, `ALRT-dev/v3`, plus `ALRT-dev/ALRT-V1-Release-Candidate` itself. `ALRT-dev/widget` was pulled in read-only mid-audit because every other repo points to it as the true frontend baseline (see §1). Stage 2 additionally pulled in `ALRT-dev/alrt`, `ALRT-dev/ALRT-screen`, `ALRT-dev/mattv2`, `ALRT-dev/occulo`, `ALRT-dev/glasses`, `ALRT-dev/watchinterface` read-only, to hunt for a missing Admin Portal (see §15).
 **Method:** Full local clones with ~200 commits of history fetched per branch (every branch that exists in each repo), `git log`/`diff`/`show` history analysis, and targeted source reading across five parallel deep-dive passes (one per repo) plus manual cross-repo verification. Not every file in every repo was read line-by-line; large, low-risk areas (asset files, generated lockfiles, vendored code) were sampled rather than exhaustively reviewed.
 
-> **Stage 2 update (this pass):** the product owner has now ruled on the numeric conflicts Stage 1 flagged (§6.1, §10.D — see §11), and four follow-up investigations have resolved most of Stage 1's open questions: the frontendV2-vs-V2-Claude comparison (§12), the Ask ALRT architecture decision (§13), a verified CVE/security-fix inventory that corrects two Stage 1 errors (§14), and a definitive check on the four "missing backend capability" items (§15). §16 gives the recommended implementation sequence. Original Stage 1 content below is left intact as the historical record; where Stage 2 supersedes or corrects it, this is called out inline and in the new sections.
+> **Stage 2 update:** the product owner has now ruled on the numeric conflicts Stage 1 flagged (§6.1, §10.D — see §11), and four follow-up investigations have resolved most of Stage 1's open questions: the frontendV2-vs-V2-Claude comparison (§12), the Ask ALRT architecture decision (§13), a verified CVE/security-fix inventory that corrects two Stage 1 errors (§14), and a definitive check on the four "missing backend capability" items (§15). §16 gives the recommended implementation sequence. Original Stage 1 content below is left intact as the historical record; where Stage 2 supersedes or corrects it, this is called out inline and in the new sections.
+
+> **Stage 3 update (this pass):** §16's implementation order has now actually been executed, for the small/low-risk/clearly-agreed items only. This repository (`frontend/`, `backend/`, `askalrt/` subdirectories) now contains a real, building, testing V1 baseline for the first time — see §17 for the full commit-by-commit record, test results, and what remains open (only the Google Maps architectural decision and the net-new Admin Portal build, both explicitly deferred, not attempted).
 
 ---
 
@@ -436,3 +438,115 @@ This is the concrete sequence for the actual build phase, incorporating every St
 6. **Scope and build the Admin Portal** (§15) as its own project phase against `backendV2`'s existing Admin API — this is net-new work, not a port, and should not block the rest of V1 shipping if resourced separately; the Source Registry's operational/admin-facing layer (§10.E.5) depends on this existing.
 7. **Real-device QA** (release plan priority #11) — only after steps 1-6, run the app on real Android/iOS hardware, specifically verifying the home-screen widgets actually compile and run (flagged in Stage 1 as never confirmed built, having been authored without a Flutter/Gradle/Xcode toolchain), and confirm the two untested SOS product rules (no generic emergency-call button, "on my way" not exposing responder location) and the location-snapshot physical-consent UX.
 8. **Deploy**: backend/services first, then TestFlight/Play internal testing, then production (release plan priorities #11-12), using whichever of the two independently-built iOS CI pipelines is chosen after the comparison flagged in F.5.
+
+---
+
+## 17. Stage 3 — First controlled implementation phase (executed)
+
+**Scope of this phase, as instructed:** establish the V1 baselines in this repository, apply only the Stage-2-verified security/build fixes, apply the confirmed product-owner numeric rulings, add journey sharing's 15-minute option, consolidate Ask ALRT onto `askalrt/main`, and port the classification governance document. Explicitly **not** attempted: the Admin Portal build, the Google Maps architectural decision, any broad Family/SOS redesign, new alert-engine features, or deployment of any kind. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) was touched — every change below is local to `ALRT-V1-Release-Candidate`, on branch `claude/alrt-v1-rc-audit-a3gmai`.
+
+**Method:** each of `frontendV2` (`claude/safety-alert-repo-audit-8exgvn`), `backendV2` (`claude/safety-alert-repo-audit-8exgvn`), and `askalrt` (`main`) was brought in via `git subtree add --squash`, which preserves the exact source commit as a trailer on the squash commit and keeps this repo's own history readable — not a manual copy. No wholesale merge of any other branch (in particular, `claude/alrt-data-export-tzq4ex`'s unmerged backend work, and anything from `V2-Claude`, were deliberately left out of this phase — neither was on the explicit small-change list this phase was scoped to).
+
+### 17.1 Commit-by-commit record
+
+| # | Commit(s) | What | Source | Destination |
+|---|---|---|---|---|
+| 1 | `70f41b0`, `d4b06db` | Establish frontend baseline | `ALRT-dev/frontendV2` @ `claude/safety-alert-repo-audit-8exgvn` | `frontend/` |
+| 1 | `eff2183`, `9db80d9` | Establish backend baseline | `ALRT-dev/backendV2` @ `claude/safety-alert-repo-audit-8exgvn` | `backend/` |
+| 1 | `eb92fcc`, `4058161` | Establish Ask ALRT baseline | `ALRT-dev/askalrt` @ `main` | `askalrt/` |
+| 2 | `c08fdf1` | Security/build fixes: Android desugaring 2.1.4→2.1.5, Play service-account key `.gitignore` | this repo (edits) | `frontend/android/app/build.gradle.kts`, `frontend/android/.gitignore` |
+| 3 | `87a080a` | Ask ALRT consolidation (quota numbers, kill-switch fix, admin-editable prompt, structured citations; removed orphaned backend native port) | this repo (edits + deletions) | `askalrt/functions/**`, `backend/src/{controllers,routes,services,validators}/askalrt.*` (deleted), `backend/src/index.ts`, `backend/src/routes/index.ts`, `backend/src/services/database_initialization.service.ts`, `frontend/lib/features/ask_alrt/**` |
+| 4 | `2e41c26` | ALRT+ rule: free saved-locations cap 3→1 | this repo (edits) | `frontend/lib/features/subscription/providers/alrt_plus_provider.dart`, `frontend/lib/features/search/providers/main_search_provider.dart`, `backend/src/services/location_subscription.service.ts` |
+| 5 | `c996818` | Journey sharing: add the 15-minute start option | this repo (edits) | `backend/src/services/family_journey.service.ts`, `backend/src/validators/family.validator.ts`, `frontend/lib/features/family/views/screens/family_journey_screen.dart`, `frontend/lib/features/family/views/widgets/family_journey_share_sheet.dart` |
+| 6 | `5db781c` | Port Alert Classification & Content Standard v1.2 (corrected) | `ALRT-dev/V2-Claude` @ `claude/alrt-app-update-scope-s24m2k`, `docs/ALRT_ALERT_CLASSIFICATION_AND_CONTENT_STANDARD.md` | `frontend/docs/ALRT_ALERT_CLASSIFICATION_AND_CONTENT_STANDARD.md` |
+
+Full commit messages (in the repo's `git log`) each carry the same detail as this table plus exact file:line reasoning, ported/verified-already-present distinctions, and test results — this section summarises them, it doesn't replace them.
+
+### 17.2 Security/build fixes — what was actually needed vs. already present
+
+Picking `claude/safety-alert-repo-audit-8exgvn` as the backend baseline (per §16 step 1) turned out to mean most of the "security fixes to apply" were **already shipped on that branch** — verified by direct inspection after import, not assumed:
+
+| Fix | Status found | Action taken |
+|---|---|---|
+| CVE-2026-39983 (`basic-ftp` CRLF injection) | Already fixed: `backend/package.json` overrides/resolutions pin `5.3.1`, `backend/yarn.lock` resolves to `5.3.1` | None — verified only |
+| CVE-2026-32887 (`effect` context leakage) | Already fixed: `backend/package.json` overrides/resolutions pin `3.21.5`, `backend/yarn.lock` resolves to `3.21.5` | None — verified only. **Observed but not fixed** (out of the explicit scope of this phase): `backend/package-lock.json` is stale and still resolves `effect@3.16.12` — but the Dockerfile only ever `COPY`s `package.json`+`yarn.lock` and runs `yarn install --frozen-lockfile`, so this stale file is never actually used by the real build. Flagged for a future cleanup pass, not touched here. |
+| CVE-2025-15467 (OpenSSL) / CVE-2023-34152 (ImageMagick) Dockerfile hardening | Already present: `backend/Dockerfile`'s `apt-get upgrade -y openssl` + ImageMagick purge block | None — verified only |
+| Nodemailer/Wiz remediation (`nodemailer` 7.x→8.0.5) | Already an ancestor of the imported baseline | None — verified only |
+| Location-subscription race-condition fix (create/catch-P2002/retry) | Already an ancestor of the imported baseline, in `backend/src/services/location_subscription.service.ts` | None — verified only |
+| Android core-library desugaring | **Present but on the older version** (`desugar_jdk_libs:2.1.4`) | **Fixed**: bumped to `2.1.5` (the later Google Maven release, per Stage 2's confirmed finding) |
+| Play Store service-account key `.gitignore` | **Genuinely absent** | **Fixed**: added `app/playstore-access.json` to `frontend/android/.gitignore`. Re-confirmed during this phase (not just trusted from Stage 2) that no such secret file was ever actually committed to `frontendV2`'s history — this closes a preventive gap, not an active leak. |
+
+No fix was invented or guessed. The two items Stage 2 could not match to an exact commit with full textual confidence (Nodemailer/Wiz, the race-condition fix) were **not** re-litigated here — Stage 2's high-confidence evidence (a real Wiz-bot-authored commit; an inline "(race condition)" code comment plus a migration that deleted real duplicate rows) was treated as sufficient to confirm both are already fixed and already present in the imported baseline, without this phase inventing new justification for them.
+
+### 17.3 Product rules applied
+
+| Rule | Before | After | Where |
+|---|---|---|---|
+| Free saved locations | 3 | **1** | `frontend` (`kFreeSavedLocationsLimit`) + `backend` (`FREE_SAVED_LOCATIONS_LIMIT`) |
+| Free Ask ALRT quota | 3/day | **5/day** | `askalrt` (`AI_DAILY_LIMIT.free`) |
+| ALRT+ Ask ALRT quota | 20/day | **30/day** | `askalrt` (`AI_DAILY_LIMIT.plus`) |
+| ALRT+ hosted family seats | 8 | **8 (unchanged, already correct)** | `backend` (`MAX_SEATS_TOTAL`) — verified, not edited |
+| Invited family member needs no individual ALRT+ | Already correct | **Unchanged, already correct** | `backend/CLAUDE.md`'s own locked rule confirms this; verified, not edited |
+| ALRT+ free trial length | Store/RevenueCat config | **Unchanged** — this is App Store Connect/Play Console product configuration, not application code | Flagged as a **CONFIGURATION** item to verify externally, not a code change |
+| Journey sharing start options | 30/60 min only | **15/30/60 min** | `backend` (`ALLOWED_START_MINUTES` + Zod validator) + `frontend` (two `_durations` arrays) |
+| Journey sharing extend | +60 min | **Unchanged, already correct** | `backend` (`MAX_BLOCK_MINUTES`) — verified, not edited |
+| Journey sharing maximum | 240 min | **Unchanged, already correct** | `backend` (`MAX_TOTAL_MINUTES`) — verified, not edited; confirmed a 15-minute increment still composes cleanly (16 possible blocks) |
+
+The saved-locations change specifically confirmed, not just assumed, that hitting the limit does not fail bare: `frontend/lib/features/search/providers/main_search_provider.dart`'s `toggleSubscription()` already pushes `AlrtPlusPaywallScreen` when a free user hits the cap, and `backend/src/services/location_subscription.service.ts`'s 403 error message ("Free accounts can save up to N locations. ALRT+ removes the limit.") already derives `N` from the constant, so both update automatically with the number — no separate UX work was needed, only the number itself.
+
+### 17.4 Ask ALRT consolidation — what changed and why
+
+Confirmed and executed per §13's recommendation, which this phase treated as settled (re-verifying the call chain was not repeated, since §13 already traced it to the actual shipped client code):
+
+- **`askalrt/main` quotas corrected** (3/20 → 5/30), and the error-message text now derives from the same constant instead of being separately hardcoded — closing off the exact class of drift that produced the original 3/20 mismatch.
+- **The dead `agent_enabled` kill switch is now enforced.** New `remoteConfigGate.ts` reads the Remote Config template via the Admin SDK (5-minute cache, fails open on a Remote Config outage) and gates only the AI fallback path — the two zero-AI paths (canned library, emergency-number lookup) stay up even when the AI fallback is switched off centrally. This was a deliberate design choice made during implementation, not specified verbatim by Stage 2: the parameter is named `agent_enabled` (the AI agent specifically), and gating the entire callable including the safety-relevant emergency-lookup path seemed like the wrong scope for what should be a cost/behavior kill switch, not a full outage switch.
+- **Admin-editable system prompt ported**, reimplemented as a Firestore override (`askAlrtConfig/systemPrompt`, field `text`) using the exact seed-plus-Firestore-override pattern the answer library already used (`entriesLoader.ts`) — no new cross-service dependency, unlike the deleted native port's Postgres-backed admin console version.
+- **Structured alert citations ported.** `askAlrt.ts` now accepts a structured `nearbyAlerts` list (id/title/category/severity/source) instead of only a free-text blob, asks the model to end its answer with `USED_ALERT_IDS: id1,id2` when it relies on specific alerts, and validates every returned id against what was actually sent that turn — an id the model invents is dropped, never trusted. The legacy free-text `context` field is still accepted as a fallback for compatibility. The frontend now narrows the citation chips it displays to only the alerts the backend actually cited, instead of showing every alert that happened to be sent as context regardless of relevance.
+- **`backendV2`'s native Ask ALRT port removed** from this repo's `backend/` (confirmed orphaned — zero real callers — by §13's call-chain trace): `askalrt.service.ts`, `askalrt.controller.ts`, `askalrt.route.ts`, `askalrt.validator.ts`, the `/api/ask` route mount, and the boot-time `ensureAskAlrtPrompt()` seed call. The general `AIPrompt` seeding used for other (non-Ask-ALRT) AI prompts was left untouched — only the Ask-ALRT-specific seed call was removed.
+- **`backendV2`'s Firebase-token bridge left untouched** (`firebase_token.controller.ts`, `POST /api/user/firebase-token`) — this is required plumbing for the canonical implementation (the app authenticates against this backend, not Firebase, natively), not a duplicate.
+
+13 new unit tests were added (`remoteConfigGate.test.ts`, `promptOverride.test.ts`, `citations.test.ts`) — all pure-logic, no Firestore/Remote Config mocking needed, matching the existing test style in `askalrt/functions/test/`.
+
+### 17.5 Tests run
+
+| Component | Command | Result |
+|---|---|---|
+| `askalrt/functions` | `npm install`, `npm run build` (`tsc`) | Clean, zero errors |
+| `askalrt/functions` | `npm test` (`jest`) | **31/31 passing** (18 pre-existing + 13 new) |
+| `backend` | `yarn install --frozen-lockfile`, `npx prisma generate` | Clean |
+| `backend` | `npx tsc --noEmit` | **Clean except one error**, present before any change in this phase and after every subsequent change: `Cannot find module '../../serviceAccountKey.json'` — a real, gitignored deploy secret (Firebase Admin credentials) never provisioned in this environment. This is the exact "accepted baseline" error documented by the backend's own `backend/CLAUDE.md` ("`npx tsc --noEmit` must be clean before every push, except the pre-existing serviceAccountKey.json import error"). Zero *new* errors were introduced by any commit in this phase — re-run after the baseline import, after the Ask ALRT file removal, after the saved-locations edit, and after the journey-sharing edit, each time confirming only this one pre-existing error. |
+| `frontend` | — | **Not run.** No `flutter` binary exists in this execution environment (`which flutter` → not found). All Dart/Flutter edits in this phase (desugar version bump, `.gitignore` line, Ask ALRT provider/message changes, saved-location constants, journey duration arrays) were reviewed by careful manual inspection — reading the full modified files, checking type/null-safety consistency against surrounding code, and confirming no leftover references to removed variables — but **could not be compiled, analyzed, or test-run**. This is a real gap, not a formality; flag it explicitly to whoever picks this up next. |
+
+### 17.6 Verification pass: nothing on the "do not lose" list was accidentally dropped
+
+Spot-checked directly against the imported tree after all edits (not assumed from the subtree import alone):
+
+- **Map**: Ask ALRT, navigation/route-planning (`lib/features/map/**/navigation/`, `navigation_provider.dart`), voice search (`speech_to_text` dependency confirmed in `pubspec.yaml`), list view (`map_hazards_list.dart`), severity/category filtering (`hazard_severity_filter_model.dart`), saved locations (`hazard_search_subscribed_locations_list*.dart`) — all present.
+- **Family**: family groups, daily check-ins (`family_check_in_roll_call_screen.dart`), location snapshots (`family_location_service.dart`, `family_location_request_sheet.dart`), journey sharing, SOS (list-edit/lists/receiver/resolved/main screens), Child Mode (`child_mode_provider.dart`, `child_mode_screen.dart`) — all present. Backend counterparts (`family.service.ts`, `family_alert.service.ts` (SOS), `family_journey.service.ts`) — all present.
+- **Child Mode / no email requirement**: confirmed by reading `child_mode_screen.dart` in full — zero references to email anywhere in the screen; Child Mode is a restriction toggle on the existing account, not a separate child-account signup flow, so "child may not have an email address" is satisfied by there being no child-specific account creation path at all, not by a validation rule.
+- **Authentication**: Google, Apple, Email/password confirmed present and untouched in `backend/src/routes/auth.route.ts`; Microsoft OAuth confirmed present (`backend/src/utils/microsoft_oauth_client.util.ts`) — still not re-enabled on the frontend button in this phase, since that was explicitly listed as a future item ("remains to be recovered/completed"), not part of this phase's scope.
+- **Alerts / community vs. official distinction, privacy**: the community-privacy hotfix (suburb-precision rounding for community reports, full precision for official alerts) that Stage 1 found on this exact baseline branch is present and untouched.
+
+Nothing in this list required a code change in this phase — the subtree import carries all of it forward by construction, and this pass exists to confirm that claim against the actual tree rather than assume it.
+
+### 17.7 Failures and unresolved issues
+
+- **No test failures.** Every test suite that could be run, passed. The frontend test suite (8 files on the imported baseline) was not re-run in this phase for the same reason nothing else Flutter-side could be: no `flutter` binary in this environment. It was not modified by any change in this phase, so it should still pass, but this is an assumption, not a verified result — recommend running `flutter test` and `flutter analyze` for real before trusting this baseline further.
+- **`backend/package-lock.json` is stale** (still resolves `effect@3.16.12`) but unused by the real build (§17.2) — a hygiene item for a future pass, not fixed here to avoid unrequested scope.
+- **`npm audit` on `askalrt/functions`** reports 10 vulnerabilities (8 moderate, 2 high) in transitive dependencies, discovered incidentally during `npm install`. Not investigated or fixed — outside the explicit list of Stage-2-verified fixes this phase was scoped to, and inventing a fix here would violate the "do not guess" instruction. Flagged for a dedicated look in a future security pass.
+- **`frontendV2`/`widget`'s misleading GitHub default branch** (Stage 1 §3.1) was not addressed — it's a GitHub repo-settings change on the *original* `frontendV2` repo, which this phase was explicitly not permitted to touch. It only matters if someone clones `frontendV2` directly instead of using this repo's now-established baseline.
+- **The two independently-built iOS TestFlight CI pipelines** (frontendV2's vs. V2-Claude's) were not compared or reconciled — no CI/deployment work was in scope for this phase.
+
+### 17.8 Remaining Google Maps decision (explicitly not made)
+
+Per instruction, this phase left the Maps implementation exactly as imported: build-time key injection unchanged, no backend proxy re-introduced, no keys hardcoded, no new architecture decision made. The client still calls Google's Geocoding/Places/Directions/Routes APIs directly with a build-time-injected key (confirmed present and unchanged in the imported `frontend/` tree). This remains the single open architectural question flagged since Stage 1: a full backend-proxy fix was built once and deliberately reverted, and the underlying tension (client reliability/simplicity vs. server-side key rotation) was never actually resolved, only backed away from. The deleted rotation runbook remains recoverable via `git show 4662b7c:docs/google-maps-key-rotation.md` against `ALRT-dev/V2-Claude` if the proxy approach is revisited. **No action was taken on this in Stage 3, as instructed.**
+
+### 17.9 Recommended next phase
+
+1. **Get real Flutter tooling on this codebase** (a Flutter/Gradle/Xcode-capable environment) and run `flutter analyze` + `flutter test` for real against every change in this phase — the single biggest verification gap left open here.
+2. **Make the Google Maps decision** (§17.8) — the one deferred architectural item from this phase's own instructions.
+3. **Re-enable the Microsoft OAuth frontend button** now that the backend route is confirmed present in this baseline — a small, well-scoped follow-up explicitly deferred from this phase.
+4. **Scope and build the Admin Portal** (§15/§16 step 6) — still net-new work, still not started.
+5. **Merge in `claude/alrt-data-export-tzq4ex`'s unmerged backend work** (CSV/GeoJSON export, Intel Centre sources spec) — named in the original backend-baseline recommendation (§10.B) but deliberately left out of this phase's explicit small-change scope; worth a dedicated pass now that the baseline is otherwise settled.
+6. **Real-device QA** (§16 step 7) — home-screen widgets have still never been confirmed to actually compile/run on real Android/iOS hardware; the two untested SOS product rules and the location-snapshot consent UX still need real-device verification.
+7. Only after 1-6: proceed to deployment staging (§16 step 8), unchanged from the prior recommendation.
