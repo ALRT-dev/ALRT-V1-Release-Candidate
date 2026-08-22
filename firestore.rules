@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
+
+    // This project hosts only the Ask ALRT assistant. The app's backend
+    // (hazards, family, SOS, XP, sharing) is ALRT-dev/backendV2.
+
+    // ----- Entitlements: written ONLY by the RevenueCat webhook -----------
+    match /entitlements/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;              // Cloud Function (webhook) only
+    }
+
+    // ----- Ask ALRT usage: own daily count, Cloud Function writes only ---
+    match /agentUsage/{uid}/days/{day} {
+      allow read: if isSelf(uid);
+      allow write: if false;              // askAlrt increments it server-side
+    }
+
+    // ----- Ask ALRT answer library: readable by the app; edited in Console --
+    // The function reads it via the admin SDK (bypasses rules). Sarah edits it
+    // in the Firebase Console. No client writes.
+    match /askAlrtEntries/{entryId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}
