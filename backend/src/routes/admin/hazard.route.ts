@@ -16,6 +16,7 @@ import {
 import { validate } from "../../middlewares/validation.middleware.js";
 import {
   createHazardForAdminBodySchema,
+  getHazardsForAdminQuerySchema,
   reviewHazardForAdminBodySchema,
   reviewHazardForAdminParamsSchema,
   syncHazardsFromExternalSourceForAdminBodySchema,
@@ -27,8 +28,17 @@ const adminHazardRouter = Router();
 // All routes below require admin authentication
 adminHazardRouter.use(requireAdminAuth);
 
-// Read operations - any admin role
-adminHazardRouter.get("/", requireAnyAdmin, getHazardsForAdmin);
+// Read operations - any admin role. getHazardsForAdminQuerySchema was
+// previously only used as a TS type annotation on req.query, never actually
+// run - so its pageSize cap (and every other field) was unenforced. Wiring
+// validate() here is what actually applies it, and coerces page/pageSize to
+// real numbers before they reach the raw-SQL LIMIT/OFFSET parameters.
+adminHazardRouter.get(
+  "/",
+  requireAnyAdmin,
+  validate(getHazardsForAdminQuerySchema, "query"),
+  getHazardsForAdmin
+);
 adminHazardRouter.get("/sources", requireAnyAdmin, getHazardSourcesForAdmin);
 
 // Write operations - admin or above

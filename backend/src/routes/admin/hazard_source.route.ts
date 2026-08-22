@@ -68,7 +68,12 @@ adminHazardSourceRouter.delete(
 adminHazardSourceRouter.get(
   "/",
   requireAnyAdmin,
-  validate(getHazardSourcesForAdminQuerySchema),
+  // Second arg matters: validate() defaults to target "body", which for a
+  // GET route silently validates an always-empty {} and never actually
+  // touches req.query - so the pageSize cap below was never enforced.
+  // Found and fixed alongside the same bug in validation.middleware.ts
+  // itself (Stage 7B, V1_RECONCILIATION_REPORT.md).
+  validate(getHazardSourcesForAdminQuerySchema, "query"),
   getHazardSourcesForAdmin,
 );
 
