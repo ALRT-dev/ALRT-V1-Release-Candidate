@@ -7,8 +7,10 @@ import type { AdminRequest } from "../../middlewares/auth.admin.middleware.js";
 import type {
   CreateWebhookApiKeyBody,
   UpdateWebhookApiKeyBody,
+  GetWebhookLogsForAdminQuery,
 } from "../../validators/admin/webhook_api_key.validator.js";
 import { getWebhookUsageStats } from "../../middlewares/webhook.middleware.js";
+import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 
 /**
  * Get all webhook API keys
@@ -189,6 +191,20 @@ export const createWebhookApiKeyForAdmin = async (
       },
     });
 
+    // Never log the plaintext key or its hash - only non-secret metadata.
+    await recordAdminAuditEntry({
+      adminId: req.admin.id,
+      action: "webhookApiKey.create",
+      targetType: "WebhookApiKey",
+      targetId: createdKey.id,
+      after: {
+        name: createdKey.name,
+        maxRequestsPerMinute: createdKey.maxRequestsPerMinute,
+        maxRequestsPerHour: createdKey.maxRequestsPerHour,
+        maxRequestsPerDay: createdKey.maxRequestsPerDay,
+      },
+    });
+
     res.status(201).json({
       ...createdKey,
       apiKey, // IMPORTANT: This is the ONLY time the plain-text key is shown
@@ -266,6 +282,16 @@ export const updateWebhookApiKeyForAdmin = async (
       },
     });
 
+    // Never log the key hash - only non-secret metadata.
+    await recordAdminAuditEntry({
+      adminId: req.admin.id,
+      action: "webhookApiKey.update",
+      targetType: "WebhookApiKey",
+      targetId: keyId,
+      before: { name: existingKey.name, isActive: existingKey.isActive },
+      after: { name: updatedKey.name, isActive: updatedKey.isActive },
+    });
+
     res.status(200).json(updatedKey);
   } catch (error) {
     next(error);
@@ -303,6 +329,14 @@ export const deleteWebhookApiKeyForAdmin = async (
       where: { id: keyId },
     });
 
+    await recordAdminAuditEntry({
+      adminId: req.admin.id,
+      action: "webhookApiKey.delete",
+      targetType: "WebhookApiKey",
+      targetId: keyId,
+      before: { name: existingKey.name },
+    });
+
     res.status(200).json({
       message: "Webhook API key deleted successfully",
     });
@@ -324,20 +358,11 @@ export const getWebhookLogsForAdmin = async (
       throw new HttpError(403, "Unauthorized");
     }
 
-    const {
-      apiKeyId,
-      success,
-      page = "1",
-      pageSize = "50",
-    } = req.query as {
-      apiKeyId?: string;
-      success?: string;
-      page?: string;
-      pageSize?: string;
-    };
+    const { apiKeyId, success, page, pageSize } =
+      req.query as unknown as GetWebhookLogsForAdminQuery;
 
-    const pageNum = parseInt(page, 10);
-    const pageSizeNum = parseInt(pageSize, 10);
+    const pageNum = page;
+    const pageSizeNum = pageSize;
     const skip = (pageNum - 1) * pageSizeNum;
 
     const where: any = {};

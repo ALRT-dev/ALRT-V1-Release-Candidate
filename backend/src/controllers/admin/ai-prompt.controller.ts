@@ -20,6 +20,7 @@ import type {
   CreateAIPromptBody,
   UpdateAIPromptBody,
 } from "../../validators/admin/ai-prompt.validator.js";
+import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 
 /**
  * Get all AI prompts with pagination
@@ -118,6 +119,14 @@ export const createAIPrompt = async (
 
     const prompt = await createPrompt(createData, adminId);
 
+    await recordAdminAuditEntry({
+      adminId,
+      action: "aiPrompt.create",
+      targetType: "AIPrompt",
+      targetId: prompt.id,
+      after: { name: prompt.name, model: prompt.model, groupId: prompt.groupId },
+    });
+
     res.status(201).json(prompt);
   } catch (error) {
     next(error);
@@ -153,6 +162,8 @@ export const updateAIPrompt = async (
       throw new HttpError(400, "Nothing to update");
     }
 
+    const existingPrompt = await getPromptById(id);
+
     // Validate prompt content if being updated
     if (content && variables) {
       const validation = validatePromptContent(content, variables);
@@ -176,6 +187,19 @@ export const updateAIPrompt = async (
 
     const prompt = await updatePrompt(id, updateData, adminId);
 
+    await recordAdminAuditEntry({
+      adminId,
+      action: "aiPrompt.update",
+      targetType: "AIPrompt",
+      targetId: id,
+      before: {
+        name: existingPrompt.name,
+        model: existingPrompt.model,
+        groupId: existingPrompt.groupId,
+      },
+      after: { name: prompt.name, model: prompt.model, groupId: prompt.groupId },
+    });
+
     res.status(200).json(prompt);
   } catch (error) {
     next(error);
@@ -197,7 +221,21 @@ export const deleteAIPrompt = async (
 
     const { id } = req.params as { id: string };
 
+    const existingPrompt = await getPromptById(id);
+
     await deletePrompt(id);
+
+    await recordAdminAuditEntry({
+      adminId: req.admin.id,
+      action: "aiPrompt.delete",
+      targetType: "AIPrompt",
+      targetId: id,
+      before: {
+        name: existingPrompt.name,
+        model: existingPrompt.model,
+        groupId: existingPrompt.groupId,
+      },
+    });
 
     res.status(200).json({ message: "Prompt deleted successfully" });
   } catch (error) {

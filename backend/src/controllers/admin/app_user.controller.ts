@@ -10,6 +10,7 @@ import {
   setAdminActive,
   updateAppUser,
 } from "../../services/app_user.admin.service.js";
+import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 
 const parseIntOrUndefined = (value: unknown): number | undefined => {
   if (typeof value !== "string" || value.trim() === "") return undefined;
@@ -148,6 +149,15 @@ export const setAdminActiveController = async (
     }
 
     const admin = await setAdminActive(adminId, isActive);
+
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "admin.setActive",
+      targetType: "Admin",
+      targetId: adminId,
+      after: { isActive },
+    });
+
     res.status(200).json({ success: true, data: admin });
   } catch (error) {
     next(error);

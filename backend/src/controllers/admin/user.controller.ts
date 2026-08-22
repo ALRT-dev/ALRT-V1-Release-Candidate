@@ -7,6 +7,7 @@ import {
   getAdminProfile,
 } from "../../services/user.admin.service.js";
 import type { CreateAdminBody } from "../../validators/admin/user.validator.js";
+import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 
 export const getAdminProfileController = async (
   req: AdminRequest,
@@ -39,6 +40,15 @@ export const createAdmin = async (
 
     const adminData: CreateAdminBody = req.body;
     const newAdmin = await createAdminAccount(adminData);
+
+    // Never log the password - only non-secret account metadata.
+    await recordAdminAuditEntry({
+      adminId: req.admin.id,
+      action: "admin.create",
+      targetType: "Admin",
+      targetId: newAdmin.id,
+      after: { email: newAdmin.email, role: newAdmin.role },
+    });
 
     res.status(201).json({
       success: true,

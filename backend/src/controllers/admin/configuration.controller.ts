@@ -11,6 +11,7 @@ import {
 } from "../../services/configuration.service.js";
 import { HttpError } from "../../models/http_error.js";
 import type { AdminRequest } from "../../middlewares/auth.admin.middleware.js";
+import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 
 /**
  * Get all configurations with pagination
@@ -88,6 +89,16 @@ export const createConfiguration = async (
       req.admin.id
     );
 
+    // Never log `value` - it is an unvalidated JSON blob an admin could
+    // have put a secret into. Record only that the resource was created.
+    await recordAdminAuditEntry({
+      adminId: req.admin.id,
+      action: "configuration.create",
+      targetType: "Configuration",
+      targetId: newConfiguration.id,
+      after: { key: newConfiguration.key, title: newConfiguration.title },
+    });
+
     res.status(201).json(newConfiguration);
   } catch (error) {
     next(error);
@@ -115,6 +126,8 @@ export const updateConfiguration = async (
       throw new HttpError(400, "Configuration ID is required");
     }
 
+    const existingConfiguration = await getConfigByIdService(id);
+
     // Validate JSON value if provided
     if (value !== undefined) {
       const isValidValue = await validateConfigurationValue(value);
@@ -134,6 +147,22 @@ export const updateConfiguration = async (
       updateData,
       adminId
     );
+
+    // Never log `value` - see createConfiguration. Record only that it
+    // changed, plus the non-secret title/description fields.
+    await recordAdminAuditEntry({
+      adminId,
+      action: "configuration.update",
+      targetType: "Configuration",
+      targetId: id,
+      before: existingConfiguration
+        ? { title: existingConfiguration.title }
+        : null,
+      after: {
+        title: updatedConfiguration.title,
+        valueChanged: value !== undefined,
+      },
+    });
 
     res.status(200).json(updatedConfiguration);
   } catch (error) {
@@ -160,7 +189,22 @@ export const deleteConfiguration = async (
       throw new HttpError(400, "Configuration ID is required");
     }
 
+    const existingConfiguration = await getConfigByIdService(id);
+
     await deleteConfigService(id);
+
+    await recordAdminAuditEntry({
+      adminId: req.admin.id,
+      action: "configuration.delete",
+      targetType: "Configuration",
+      targetId: id,
+      before: existingConfiguration
+        ? {
+            key: existingConfiguration.key,
+            title: existingConfiguration.title,
+          }
+        : null,
+    });
 
     res.status(200).json({ message: "Configuration deleted successfully" });
   } catch (error) {

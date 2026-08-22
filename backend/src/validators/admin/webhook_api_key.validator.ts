@@ -80,3 +80,18 @@ export const updateWebhookApiKeyBodySchema = z.object({
 export type UpdateWebhookApiKeyBody = z.infer<
   typeof updateWebhookApiKeyBodySchema
 >;
+
+// GET /logs/all - query. No validator previously existed for this route;
+// pageSize was an unbounded parseInt() straight off req.query. Capped at
+// 100 to match the convention used elsewhere (e.g.
+// getHazardSourcesForAdminQuerySchema).
+export const getWebhookLogsForAdminQuerySchema = z.object({
+  apiKeyId: z.string().optional(),
+  success: z.enum(["true", "false"]).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export type GetWebhookLogsForAdminQuery = z.infer<
+  typeof getWebhookLogsForAdminQuerySchema
+>;
