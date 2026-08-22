@@ -1,10 +1,13 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart'
+    show TravelMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/map/models/route_step_model.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/map/utils/transit_icons.dart';
 import 'package:hazard_app/features/map/views/widgets/custom_compass_button.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/navigation_simulation_controls.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/take_alternate_route.dart';
@@ -90,9 +93,9 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
               children: [
                 Consumer(
                   builder: (context, ref, child) {
-                    final maneuver = ref.watch(
+                    final step = ref.watch(
                       providerOfMap.select(
-                        (s) => s.nextStep?.maneuver ?? s.currentStep?.maneuver,
+                        (s) => s.nextStep ?? s.currentStep,
                       ),
                     );
 
@@ -117,7 +120,7 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
                       ),
                       child: Center(
                         child: Icon(
-                          _iconForManeuver(maneuver),
+                          _iconForStep(step),
                           size: 32.spMin,
                           color: AppColors.white,
                         ),
@@ -179,16 +182,31 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
                         },
                       ),
                       4.hSizedBox,
-                      // "Continue for X km" — length of the road segment after
-                      // the upcoming maneuver. Hidden when no next step or its
-                      // distance is zero (e.g. ARRIVE step).
+                      // "Continue for X km" for a driving/walking/cycling
+                      // step, or "5 stops to Downtown" for a transit step —
+                      // stop count matters more than distance while riding.
+                      // Hidden when there's no next step or nothing to show.
                       Consumer(
                         builder: (context, ref, child) {
-                          final meters = ref.watch(
-                            providerOfMap.select(
-                              (s) => s.nextStep?.distanceMeters,
-                            ),
+                          final step = ref.watch(
+                            providerOfMap.select((s) => s.nextStep),
                           );
+                          final transit = step?.transitDetails;
+                          if (step?.travelMode == TravelMode.transit &&
+                              transit?.stopCount != null) {
+                            final stops = transit!.stopCount!;
+                            final headsign = transit.headsign;
+                            return Text(
+                              '$stops stop${stops == 1 ? '' : 's'}'
+                              '${headsign != null && headsign.isNotEmpty ? ' to $headsign' : ''}',
+                              style: TextStyle(
+                                fontSize: 10.spMin,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.grey,
+                              ),
+                            );
+                          }
+                          final meters = step?.distanceMeters;
                           if (meters == null || meters <= 0) {
                             return const SizedBox.shrink();
                           }
@@ -237,13 +255,13 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
                         4.hSizedBox,
                         Consumer(
                           builder: (context, ref, child) {
-                            final maneuver = ref.watch(
+                            final step = ref.watch(
                               providerOfMap.select(
-                                (s) => s.stepAfterNext?.maneuver,
+                                (s) => s.stepAfterNext,
                               ),
                             );
                             return Icon(
-                              _iconForManeuver(maneuver),
+                              _iconForStep(step),
                               size: 16.spMin,
                               color: const Color(0xFF888888),
                             );
@@ -673,4 +691,13 @@ IconData _iconForManeuver(ManeuverType? maneuver) {
     case ManeuverType.ferryTrain:
       return Icons.directions_train_rounded;
   }
+}
+
+/// The icon for a navigation step: a vehicle icon for a transit step (which
+/// carries no maneuver data), otherwise the usual turn-by-turn maneuver icon.
+IconData _iconForStep(RouteStep? step) {
+  if (step?.travelMode == TravelMode.transit) {
+    return iconForTransitVehicleType(step?.transitDetails?.line?.vehicle.type);
+  }
+  return _iconForManeuver(step?.maneuver);
 }

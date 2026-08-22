@@ -3,8 +3,10 @@ import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hazard_app/features/map/models/route_step_model.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/utils/hazard_avoidance_helper.dart';
+import 'package:hazard_app/features/map/utils/transit_icons.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
@@ -75,6 +77,7 @@ class _NavigationRouteInfoCardsListItemState
                 _buildRouteDistance(),
               ],
             ),
+            _buildTransitSegments(),
             _buildActionButton(),
           ],
         ),
@@ -194,6 +197,123 @@ class _NavigationRouteInfoCardsListItemState
         ),
       ],
     );
+  }
+
+  /// A compact strip of walk/line badges for a transit route — e.g.
+  /// walk -> [M1 bus] -> walk -> [T2 train] — so the transfers and the
+  /// actual lines Google returned are visible before the user picks a
+  /// route, not just after starting navigation. Renders nothing for a
+  /// non-transit route (unchanged card for driving/walking/cycling).
+  Widget _buildTransitSegments() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final steps = ref.watch(
+          providerOfMap.select(
+            (value) =>
+                value.currentRoutePlan?.currentRoute?.stepsForRoute(
+                  widget.route,
+                ) ??
+                const <RouteStep>[],
+          ),
+        );
+
+        final segments = _collapseIntoSegments(steps);
+        if (segments.length <= 1 &&
+            (segments.firstOrNull?.line == null)) {
+          // No transit line anywhere in this route — nothing to show.
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: EdgeInsets.only(top: 4.spMin, bottom: 2.spMin),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < segments.length; i++) ...[
+                  if (i > 0) ...[
+                    4.wSizedBox,
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 12.spMin,
+                      color: AppColors.grey.withValues(alpha: 0.6),
+                    ),
+                    4.wSizedBox,
+                  ],
+                  _buildSegmentBadge(segments[i]),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSegmentBadge(final _RouteSegment segment) {
+    final line = segment.line;
+    if (line == null) {
+      return Icon(
+        Icons.directions_walk_rounded,
+        size: 14.spMin,
+        color: AppColors.grey.withValues(alpha: 0.8),
+      );
+    }
+
+    final background = line.color ?? AppColors.blue.withValues(alpha: 0.12);
+    final foreground = line.textColor ?? AppColors.blue;
+    return Container(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(4.spMin),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 5.spMin, vertical: 2.spMin),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            iconForTransitVehicleType(segment.vehicleType),
+            size: 11.spMin,
+            color: foreground,
+          ),
+          3.wSizedBox,
+          Text(
+            line.displayLabel,
+            style: TextStyle(
+              fontSize: 9.spMin,
+              fontWeight: FontWeight.w700,
+              color: foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Collapses consecutive steps of the same kind (walking, or the same
+  /// transit line) into one [_RouteSegment] each, mirroring how Google's own
+  /// UI groups a route into "walk, then ride the M1, then walk" rather than
+  /// showing every individual turn-by-turn step.
+  List<_RouteSegment> _collapseIntoSegments(final List<RouteStep> steps) {
+    final segments = <_RouteSegment>[];
+    for (final step in steps) {
+      final isTransit =
+          step.travelMode == TravelMode.transit && step.transitDetails?.line != null;
+      final line = isTransit ? step.transitDetails!.line : null;
+      final vehicleType = isTransit ? step.transitDetails!.line!.vehicle.type : null;
+
+      final last = segments.lastOrNull;
+      final sameAsLast =
+          last != null &&
+          ((line == null && last.line == null) ||
+              (line != null &&
+                  last.line != null &&
+                  line.displayLabel == last.line!.displayLabel));
+      if (sameAsLast) continue;
+
+      segments.add(_RouteSegment(line: line, vehicleType: vehicleType));
+    }
+    return segments;
   }
 
   Widget _buildRouteMetadata() {
@@ -317,4 +437,13 @@ class _NavigationRouteInfoCardsListItemState
     );
     return sum;
   }
+}
+
+/// One collapsed segment of a route for the [_buildTransitSegments] strip:
+/// either a walking gap ([line] null) or a ride on a specific transit line.
+class _RouteSegment {
+  const _RouteSegment({this.line, this.vehicleType});
+
+  final TransitLineInfo? line;
+  final TransitVehicleType? vehicleType;
 }
