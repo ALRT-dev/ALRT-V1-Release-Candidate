@@ -1,6 +1,9 @@
+import 'dart:io' show Platform;
+
 import 'package:dio/dio.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hazard_app/api/endpoints.dart';
 import 'package:hazard_app/features/map/models/alrt_location_model.dart';
 import 'package:hazard_app/features/map/models/google_place_model.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
@@ -93,10 +96,9 @@ class MapRepositoryImpl implements MapRepository {
       future: () async {
         final result = await _dio
             .get(
-              'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+              kUrlMapsPlacesAutocomplete,
               queryParameters: {
                 'input': searchString,
-                'key': Env.googleMapsApiKey,
                 'locationbias':
                     'circle:50000@${currentUserLocation.latitude},${currentUserLocation.longitude}',
                 if (showOnlyCities) "types": ["locality"],
@@ -163,10 +165,9 @@ class MapRepositoryImpl implements MapRepository {
       name: 'getPlaceDetails',
       future: () async {
         final response = await _dio.get(
-          'https://maps.googleapis.com/maps/api/place/details/json',
+          kUrlMapsPlaceDetails,
           queryParameters: {
             'place_id': placeId,
-            'key': Env.googleMapsApiKey,
             'fields': 'geometry,formatted_address,name',
           },
         );
@@ -230,6 +231,7 @@ class MapRepositoryImpl implements MapRepository {
             'routes.legs.steps.travelMode',
             'routes.legs.steps.transitDetails',
           ].join(','),
+          headers: _appRestrictionHeaders(),
         );
 
         final result = await _polylinePoints.getRouteBetweenCoordinatesV2(
@@ -257,10 +259,9 @@ class MapRepositoryImpl implements MapRepository {
       name: 'getAddressFromCoordinates',
       future: () async {
         final response = await _dio.get(
-          'https://maps.googleapis.com/maps/api/geocode/json',
+          kUrlMapsGeocode,
           queryParameters: {
             'latlng': '${coordinates.latitude},${coordinates.longitude}',
-            'key': Env.googleMapsApiKey,
           },
         );
 
@@ -322,5 +323,27 @@ class MapRepositoryImpl implements MapRepository {
       },
       onError: Failure.new,
     );
+  }
+
+  /// Headers that let a Google-Cloud-Console Android/iOS "application
+  /// restriction" apply to a raw REST call the way it would to a native Maps
+  /// SDK call, which sends this proof automatically. Returns `null` (no
+  /// headers sent, current behavior unchanged) until the corresponding
+  /// `.env` values are configured alongside the actual Cloud Console
+  /// restriction — see the manual configuration steps in the reconciliation
+  /// report.
+  Map<String, String>? _appRestrictionHeaders() {
+    if (Platform.isAndroid &&
+        Env.googleMapsAndroidPackageName.isNotEmpty &&
+        Env.googleMapsAndroidCertSha1.isNotEmpty) {
+      return {
+        'X-Android-Package': Env.googleMapsAndroidPackageName,
+        'X-Android-Cert': Env.googleMapsAndroidCertSha1,
+      };
+    }
+    if (Platform.isIOS && Env.googleMapsIosBundleId.isNotEmpty) {
+      return {'X-Ios-Bundle-Identifier': Env.googleMapsIosBundleId};
+    }
+    return null;
   }
 }

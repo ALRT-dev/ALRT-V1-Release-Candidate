@@ -92,3 +92,21 @@ export const hazardReadUserLimiter = rateLimit({
     "Too many hazard requests for this account. Please try again later.",
   ),
 });
+
+/**
+ * After requireAuth — per-user budget for the /api/maps proxy (Geocoding/Places).
+ * The proxy has no per-endpoint caching, so this is the only thing standing between
+ * one account's autocomplete-as-you-type traffic and the shared Google Maps quota/bill.
+ */
+export const mapsProxyUserLimiter = rateLimit({
+  windowMs: config.rateLimit.mapsProxyWindowMs,
+  max: config.rateLimit.mapsProxyMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: limiterValidate,
+  keyGenerator: (req: Request, res: Response) =>
+    res.userId ? `u:${res.userId}` : rateLimitKey(req),
+  handler: json429Handler(
+    "Too many map search requests for this account. Please slow down and try again.",
+  ),
+});

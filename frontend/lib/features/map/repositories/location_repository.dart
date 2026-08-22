@@ -4,13 +4,13 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hazard_app/api/endpoints.dart';
 import 'package:hazard_app/features/map/models/alrt_location_model.dart';
 import 'package:hazard_app/features/map/models/google_place_model.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 import 'package:hazard_app/features/shared/utils/error_codes.dart';
-import 'package:hazard_app/others/env.dart';
 
 abstract class LocationRepository {
   /// Returns the current location of the user.
@@ -190,10 +190,9 @@ class LocationRepositoryImpl extends LocationRepository {
       name: 'getAddressFromCoordinates',
       future: () async {
         final response = await _dio.get(
-          'https://maps.googleapis.com/maps/api/geocode/json',
+          kUrlMapsGeocode,
           queryParameters: {
             'latlng': '${coordinates.latitude},${coordinates.longitude}',
-            'key': Env.googleMapsApiKey,
           },
         );
 
@@ -286,10 +285,9 @@ class LocationRepositoryImpl extends LocationRepository {
       future: () async {
         final result = await _dio
             .get(
-              'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+              kUrlMapsPlacesAutocomplete,
               queryParameters: {
                 'input': searchString,
-                'key': Env.googleMapsApiKey,
                 'locationbias':
                     'circle:50000@${currentUserLocation.latitude},${currentUserLocation.longitude}',
                 if (showOnlyCities) "types": ["locality"],
@@ -356,10 +354,9 @@ class LocationRepositoryImpl extends LocationRepository {
       name: 'getPlaceDetails',
       future: () async {
         final response = await _dio.get(
-          'https://maps.googleapis.com/maps/api/place/details/json',
+          kUrlMapsPlaceDetails,
           queryParameters: {
             'place_id': placeId,
-            'key': Env.googleMapsApiKey,
             'fields': 'geometry,formatted_address,name',
           },
         );

@@ -207,6 +207,15 @@ export const config = {
       getOptionalEnv("HAZARD_READ_RATE_LIMIT_MAX", "15000"),
       10,
     ),
+    /** Per authenticated user for the /api/maps proxy (Geocoding/Places) — protects the shared Google quota/billing from one account's search-as-you-type traffic. */
+    mapsProxyWindowMs: parseInt(
+      getOptionalEnv("MAPS_PROXY_RATE_LIMIT_WINDOW_MS", "60000"),
+      10,
+    ),
+    mapsProxyMax: parseInt(
+      getOptionalEnv("MAPS_PROXY_RATE_LIMIT_MAX", "60"),
+      10,
+    ),
   },
 
   // RevenueCat webhook (ALRT+ entitlement sync). Must match the

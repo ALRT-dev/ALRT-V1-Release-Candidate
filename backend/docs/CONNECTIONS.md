@@ -78,7 +78,7 @@
 
 | | |
 |---|---|
-| **Used for** | Server-side proxy for Geocoding + Places (autocomplete/details) so the key never ships in the mobile app; plus map utilities. |
+| **Used for** | Server-side proxy for Geocoding + Places (autocomplete/details) so the key never ships in the mobile app; plus map utilities. Confirmed as the app's live call path again as of Stage 5 (`frontend/lib/features/map/repositories/{map,location}_repository.dart`) — it had briefly gone unused after an earlier revert repointed the app to call Google directly; see `V1_RECONCILIATION_REPORT.md` §19. |
 | **SDK** | `@googlemaps/google-maps-services-js` (`package.json:26`). |
 | **Client init** | `src/utils/google_map_client.util.ts:3`. |
 | **Endpoints** | `https://maps.googleapis.com/maps/api` proxied in `src/services/maps_proxy.service.ts:13,28`; also `src/services/google_map.service.ts`. |

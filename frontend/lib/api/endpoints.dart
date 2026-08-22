@@ -15,6 +15,16 @@ const kUrlRefreshToken = '$kUrlAuth/refresh-token';
 const kUrlEmailLogin = '$kUrlAuth/email-password/login';
 const kUrlEmailRegister = '$kUrlAuth/email-password/register';
 
+// ---------------------------- MAPS ----------------------------
+// Backend proxy for Google Geocoding/Places so the web-service key never
+// ships in the mobile binary (see backend/src/services/maps_proxy.service.ts).
+
+const kUrlMaps = '$kUrlApi/maps';
+
+const kUrlMapsGeocode = '$kUrlMaps/geocode';
+const kUrlMapsPlacesAutocomplete = '$kUrlMaps/places/autocomplete';
+const kUrlMapsPlaceDetails = '$kUrlMaps/places/details';
+
 // ---------------------------- ONBOARDING ----------------------------
 
 const kUrlOnboarding = '$kUrlApi/onboarding';
