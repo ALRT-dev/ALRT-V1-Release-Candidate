@@ -454,6 +454,7 @@ model Admin {
   configurationsCreated Configuration[] @relation("ConfigurationCreatedBy")
   configurationsUpdated Configuration[] @relation("ConfigurationUpdatedBy")
   webhookApiKeysCreated WebhookApiKey[] @relation("WebhookApiKeyCreatedBy")
+  auditLogs             AdminAuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -466,6 +467,34 @@ enum AdminRole {
   superAdmin
   admin
   moderator
+}
+
+// Minimum viable admin action audit trail (Stage 7B, §22.4/§22.8 of
+// V1_RECONCILIATION_REPORT.md). Deliberately flat: one row per mutation,
+// written by a single shared helper (admin_audit_log.service.ts) called
+// from mutating admin controllers. `before`/`after` are redacted JSON
+// snapshots — never store secrets (passwords, API keys, OAuth/service
+// credentials) here; record that a secret-bearing resource changed
+// without the value itself.
+model AdminAuditLog {
+  id String @id @default(uuid())
+
+  adminId String?
+  admin   Admin?  @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  action     String // e.g. "hazard.review", "aiPrompt.delete"
+  targetType String // e.g. "Hazard", "AIPrompt", "Configuration", "WebhookApiKey", "Admin"
+  targetId   String?
+  reason     String?
+
+  before Json?
+  after  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
 
 model AIPromptGroup {
