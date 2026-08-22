@@ -14,3 +14,5 @@ key.properties
 **/*.jks
 # Public upload certificate — regenerable from the keystore, kept out of git for consistency.
 upload_certificate.pem
+# Play Store service-account key — never commit, deploy credential only.
+app/playstore-access.json
