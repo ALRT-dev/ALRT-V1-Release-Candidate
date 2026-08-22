@@ -1,6 +1,6 @@
 # ALRT V1 Reconciliation Report
 
-**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Application code has now been changed in this repository only — see §17, §18, §19, §20, and §21. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
+**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Application code has been changed in this repository only, in stages up to and including Stage 6A — see §17, §18, §19, §20, and §21. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
 **Scope:** `ALRT-dev/frontendV2`, `ALRT-dev/backendV2`, `ALRT-dev/askalrt`, `ALRT-dev/V2-Claude`, `ALRT-dev/v3`, plus `ALRT-dev/ALRT-V1-Release-Candidate` itself. `ALRT-dev/widget` was pulled in read-only mid-audit because every other repo points to it as the true frontend baseline (see §1). Stage 2 additionally pulled in `ALRT-dev/alrt`, `ALRT-dev/ALRT-screen`, `ALRT-dev/mattv2`, `ALRT-dev/occulo`, `ALRT-dev/glasses`, `ALRT-dev/watchinterface` read-only, to hunt for a missing Admin Portal (see §15).
 **Method:** Full local clones with ~200 commits of history fetched per branch (every branch that exists in each repo), `git log`/`diff`/`show` history analysis, and targeted source reading across five parallel deep-dive passes (one per repo) plus manual cross-repo verification. Not every file in every repo was read line-by-line; large, low-risk areas (asset files, generated lockfiles, vendored code) were sampled rather than exhaustively reviewed.
 
@@ -995,3 +995,141 @@ What does **not** exist, and was deliberately **not built**: active reconciliati
 ### 21.11 Stop condition honored
 
 Per instruction, this phase stops here. No Admin Portal, no deployment, and no work beyond the six questions in scope were started or attempted in this phase.
+
+## 22. Admin Portal V1 Scope
+
+Stage 7A audit. Read-only — no application code was changed. Four background investigations covered the Admin API surface, the auth/authorization/audit model, community-moderation data completeness, and repository placement; findings below are synthesized from all four, with the underlying code re-cited where it matters for a build decision.
+
+### 22.1 Existing Admin API
+
+Mounted at `/api/admin` (`backend/src/index.ts:114`), behind only the general rate limiter (600 req/15min/IP) — never the stricter auth limiter, including on `POST /api/admin/auth/login`. Nine sub-routers, all real implementations (no stubs found anywhere except admin logout — see §22.3):
+
+| Group | Base path | Read gate | Write gate | Status |
+|---|---|---|---|---|
+| Auth | `/auth` | — | — | Real login/refresh/change-password; **logout is a no-op** (no token revocation exists) |
+| Stats/Dashboard | `/stats` | `requireAnyAdmin` | — | Real: users (total/new/DAU/WAU/pending-deletion), hazards (active/pending-review/by-severity/by-source/top-cities), device platforms, catalogue counts. **No ALRT+/subscription stats** (data exists via `FamilyCircle.plan`/`FamilyMember`, just unqueried) |
+| Hazards/Alerts | `/hazards` | `requireAnyAdmin` | `requireAdminOrAbove` | Real CRUD + manual create + external-source sync trigger. **No endpoint to change `reviewStatus` on an existing hazard** — the confirmed moderation gap (see §22.2). `PUT /:id` and `POST /sync-external` skip Zod validation despite validators existing. `pageSize` unbounded |
+| Hazard Categories | `/categories` | `requireAnyAdmin` | `requireAdminOrAbove` | Real CRUD incl. icon upload (multipart, 12 image slots), FK-guarded delete, circular-parent guard |
+| Hazard Sources &amp; Licenses | `/hazard-sources` | `requireAnyAdmin` | `requireAdminOrAbove` | Real CRUD, paginated (capped at 100), FK-guarded delete. **No health/fetch-status field exists on `HazardSource`** — only proxy is an all-time `hazardsCount`, no "last fetched"/"last alert seen" timestamp anywhere in the 37-model schema |
+| AI Prompts | `/ai-prompts` | `requireAdminAuth` only | `requireAdminAuth` only | Real CRUD incl. placeholder-consistency validation and reference-count guard on delete. **No role gate at all — a `moderator` can edit/delete the live alert-generation prompts**, unlike every other write-capable group |
+| Configuration | `/configurations` | `requireAdminAuth` only | `requireAdminAuth` only | Real CRUD. `key` is Prisma-enum-restricted to the single value `aiPrompts` (structurally cannot hold an arbitrary secret key), but `value` is an unvalidated JSON blob and **no route in this group has a role gate or a Zod validator** |
+| Webhook API Keys | `/webhook-api-keys` | `requireAdminAuth` only | `requireAdminAuth` only | Real CRUD, bcrypt-hashed keys, plaintext shown once, per-key rate limits, 24h usage stats + logs. **No role gate** — a `moderator` can mint a key that lets an external system push live hazard alerts to users via `POST /api/webhook/hazards`. `logs/all` `pageSize` unbounded |
+| Users (app + admin accounts) | `/users` | `requireAnyAdmin` | `requireAdminOrAbove` (app users) / `requireSuperAdmin` (admin accounts) | Real. App-user delete is soft (30-day grace + restore), correctly gated field allow-list excludes `passwordHash`/email/password editing. Admin-account create/deactivate is `requireSuperAdmin`-only. **No endpoint to edit an existing admin's role/email/name or force a password reset**; no guard against deactivating the last remaining super admin (recoverable only via env-seeded bootstrap on next server restart) |
+
+Not present anywhere in the Admin API: emergency-contact management (no `EmergencyContact` model exists; the only emergency numbers in the codebase are hardcoded inside static `SafetyGuide` seed content, itself not admin-editable), community-report approve/reject, admin action audit log, source health/fetch status, subscription/ALRT+ administration.
+
+### 22.2 Missing capabilities
+
+1. **Community-report moderation decision.** No endpoint anywhere sets `reviewStatus`/`reviewFeedback` on an existing hazard. `GET /admin/hazards?reviewStatus=` only allows `accepted`/`rejected` (not `pending`) despite the DB/SQL layer fully supporting a pending filter. This is the single largest functional gap for the moderation use case this stage was scoped around.
+2. **Moderator attribution.** `Hazard.reviewedById` is a schema column (`String?`, comment says it should hold `"ai"` or an admin's id) that **no code path currently writes** — it is `null` on every row today. It also isn't a real FK to `Admin`.
+3. **Moderation timestamp gap.** `reviewedAt` is only set when a hazard is accepted; rejected/pending reports never get a timestamp, so "reviewed at X" can't be shown for a rejected report even though the AI did review it.
+4. **Source health.** No `lastSuccessfulFetch`/`lastAlertSeenAt`/equivalent field or table exists; the dashboard and source list can show hazard counts but not source liveness.
+5. **Emergency contact information.** No admin-manageable model exists at all; content is hardcoded in seed data.
+6. **Audit log.** No admin-action audit trail exists anywhere in the schema or code (see §22.3/§22.8).
+7. **ALRT+/subscription stats.** Not surfaced by the dashboard despite the underlying data existing.
+8. **Admin account lifecycle.** No edit-role/edit-email/force-password-reset endpoints; last-super-admin lockout isn't guarded.
+9. **Role-gating gaps.** AI Prompts, Configuration, and Webhook API Keys accept `moderator`-tier writes with no elevation — see §22.3.
+
+### 22.3 Security/authentication model
+
+Admin auth is a genuinely separate system from user auth, not a role flag reused from the user JWT:
+
+- **Identity**: a dedicated `Admin` Prisma model (`prisma/schema.prisma:438-469`) with `role: AdminRole { superAdmin, admin, moderator }`, `isActive`, lockout fields — fully disjoint from `User`.
+- **Authentication**: `POST /api/admin/auth/login` (`auth.admin.service.ts`) — bcrypt password check, 5-strikes/15-minute lockout, admin-only JWTs signed with distinct secrets (`ADMIN_JWT_ACCESS_SECRET`/`ADMIN_JWT_REFRESH_SECRET`) and a distinct issuer/audience (`alrt-admin`/`alrt-admin-panel`), so a regular user's token cannot be reused as an admin token even if replayed. `requireAdminAuth` re-checks `isActive`/`lockedUntil` live against the DB on every request, not just at token-issue time.
+- **Authorization**: role checks (`requireAnyAdmin`/`requireAdminOrAbove`/`requireSuperAdmin`) are a **separate, opt-in** middleware layer from `requireAdminAuth` — 6 of 9 route groups apply them correctly (read = any tier, write = admin-or-above, admin-account mutation = super-admin-only); **3 groups (AI Prompts, Configuration, Webhook API Keys) apply only `requireAdminAuth`, no role check at all**, so a `moderator` has the same write power as a `superAdmin` there. This is an inconsistency relative to the pattern used everywhere else in the same codebase, not a missing feature — it needs a decision (add the role gate, or confirm moderators are meant to have this access) before those three screens are exposed in a UI to non-super-admin staff.
+- **Cross-check (non-admin bypass)**: none found. Every one of the 9 route files applies `router.use(requireAdminAuth)`; a regular user JWT fails verification outright (different secret + issuer/audience). No admin route is reachable without a valid admin token.
+- **Session/logout**: `POST /api/admin/auth/logout` returns success but performs no token revocation — no server-side session store or blacklist exists, so a leaked admin access or refresh token remains valid until natural expiry regardless of "logout." Login-lockout state is in-memory/per-process, reset on restart or inconsistent across multiple instances.
+- **Audit logging: does not exist.** Grepped the full schema and codebase for any audit/change-log table — none found (the only "log" tables are `WebhookLog`, unrelated to admin actions, and the user-XP `XpEvent` ledger). Admin mutations leave only sparse `createdById`/`updatedById` current-value attribution on `AIPrompt` and `Configuration`; hazards, categories, sources, and admin-account changes leave **zero trace of who acted**. Destructive actions (hazard/category/source/license/prompt/config/webhook-key delete, admin deactivate) require no confirmation and no reason field at the API level.
+
+Conclusion: the core authentication model is sound and correctly backend-enforced (no client-side-only admin security). What needs to be added before V1: the three missing role gates, and an audit log (see §22.4/§22.8).
+
+### 22.4 Required backend changes
+
+Ordered by how directly they gate V1 Admin Portal screens:
+
+1. **Community-report moderation endpoint** — new `PATCH /api/admin/hazards/:hazardId/review` (`requireAdminOrAbove`), body `{reviewStatus: "accepted"|"rejected", reviewFeedback?: string}`. Writes `reviewStatus`, `reviewFeedback`, `reviewedAt` (unconditionally, fixing the accept-only gap), `reviewedById: req.admin.id` (fixing the never-written column), and — on accept — the same `expiresAt` logic the create/update paths already use.
+2. **Pending-queue filter fix** — widen `getHazardsForAdminQuerySchema`'s `reviewStatus` enum (`hazard.validator.ts:39`) to include `"pending"`. Trivial, no new endpoint; the SQL/index layer already supports it.
+3. **Role gates on AI Prompts, Configuration, Webhook API Keys** — add `requireAdminOrAbove` (or `requireSuperAdmin` for the highest-stakes ones — webhook key creation grants a third party the ability to push live alerts) to the write routes in these three route files, matching the pattern already used everywhere else.
+4. **Minimum viable audit log** — one new table (`AdminAuditLog {id, adminId, action, targetType, targetId, before Json?, after Json?, createdAt}`, indexed on `(adminId, createdAt)` and `(targetType, targetId)`) plus a single write call at the end of each mutating admin controller. Not a general framework — this is the smallest shape that answers "who changed what, when, from what, to what."
+5. **Source health tracking** — new column(s) on `HazardSource` (or a small `SourceFetchLog` table) written by `ingestion.service.ts` on each poll: last-attempted-at, last-successful-at, last-alert-seen-at. Needed only if §22.6's Sources screen is to show real health rather than just a hazard count.
+6. **Validation gaps** — wire the already-existing but unused `updateHazardForAdminBodySchema`/`syncHazardsFromExternalSourceForAdminBodySchema` validators onto their routes; add a Zod schema to the Configuration create/update routes (currently none exists).
+7. **Pagination caps** — bound `pageSize` on `GET /admin/hazards` and `GET /admin/webhook-api-keys/logs/all` to match the 100-item cap already used on the other list endpoints.
+8. **Admin account lifecycle** — optional for V1, but flagged: no edit-role/edit-email/force-reset endpoint exists, and there's no guard against deactivating the last active super admin.
+9. **Emergency contact information** — not required for V1 (see §22.10); if ever built, it needs a new `EmergencyContact`-type model, since none exists — the current numbers are hardcoded seed content.
+
+None of the above were implemented this stage — this is a change list for a future backend-work stage, to be authorized separately.
+
+### 22.5 Recommended Admin Portal architecture
+
+**New subdirectory inside this repo, as a sibling of `backend/`** — e.g. `admin/` or `admin-portal/` at the repo root. Basis for the recommendation (from the repository survey):
+
+- `alrt-v1-release-candidate` is already a working monorepo with independently-stacked sibling projects: `backend/` (Node/TS API), `frontend/` (Flutter mobile app), `askalrt/` (separate Firebase functions project with its own `package.json`/`firebase.json`). A fourth sibling directly extends an established, already-functioning convention rather than inventing a new one.
+- No other surveyed repo (frontendV2, backendV2, V2-Claude, v3, askalrt standalone, alrt, ALRT-screen, mattv2, occulo, glasses, watchinterface) contains any admin/web-dashboard scaffolding, however partial — reconfirmed fresh this stage. `frontendV2`/`V2-Claude`/this repo's own `frontend/` are all Flutter mobile apps with only a boilerplate `web/` build target, not a real web app — bolting a web admin tool onto that target would conflate a consumer-facing mobile app with an internal tool, which is exactly what the task instructions said to avoid.
+- The Admin Portal's only real dependency is the Admin API already living in this repo's `backend/`; co-locating keeps API-contract and portal changes reviewable together, the same pattern the `askalrt/` sibling already demonstrates (a differently-stacked project living beside the others).
+- A standalone separate repository remains a legitimate fallback if the team later wants an independent deploy cadence/CI/ownership boundary for the portal, but nothing on disk today establishes multi-repo-per-service as the working convention — the sibling-directory monorepo pattern is what's actually there.
+
+Recommended stack (not started, no code written): a standard React or similar SPA build (matches the "authenticated internal dashboard calling a REST API" shape of the Admin API) rather than anything Flutter-based, since the Admin API is plain REST/JSON with no Flutter-specific contract.
+
+### 22.6 V1 screens
+
+| Screen | Justified for V1? | Why |
+|---|---|---|
+| Login | Yes | Required — admin auth already exists and must be used, not bypassed |
+| Dashboard | Yes | `GET /admin/stats/dashboard` is real and substantial; a landing screen is low-cost and high-value |
+| Users (app users) | Yes | Search/view/soft-delete/restore all exist and are safely scoped (no password/email editing exposed, matching the backend's own intentional restriction) |
+| Alerts (hazards) | Yes | List/search/create/edit/delete all exist; must ship alongside the new review-status endpoint (§22.4 item 1) to be useful for moderation, not just as a read-only viewer |
+| Moderation (community reports) | Yes, but blocked | The single most-requested capability per the task brief; blocked on §22.4 items 1-2. Build the screen once the endpoint exists — do not ship a "moderation" screen that can only view, not decide |
+| Sources | Yes (partial) | List/view/enable-disable-via-edit exist; health indicators should be marked "not yet available" rather than faked, pending §22.4 item 5 |
+| Categories/Icons | Yes | Full CRUD incl. icon upload already exists and is safe to expose |
+| AI/Content (prompts) | Conditional | Full CRUD exists, but do not expose to `moderator`-tier admins until the role gate (§22.4 item 3) ships — this is safety-critical content (governs every AI-generated alert's wording) |
+| Configuration | Conditional | Same role-gate condition as above; keep the JSON editor for the single `aiPrompts` config row only, and never allow free-text key entry (the schema already prevents arbitrary keys, but the UI should not imply otherwise) |
+| Webhook API Keys | Conditional | Same role-gate condition, arguably the highest-stakes of the three — a key grants a third party live-alert-push access |
+| Audit Log | Not V1 | No backend exists yet (§22.4 item 4 is a prerequisite); build the screen once the log exists, not before |
+| Admin accounts | Yes (super-admin only) | Create/list/deactivate already exist and are correctly `requireSuperAdmin`-gated |
+| Emergency Information | Not V1 | No backend model exists at all (§22.2 item 5); out of scope until a future stage adds one |
+
+### 22.7 V1 functions
+
+Within the screens above, the concrete V1 function set:
+- View dashboard counts (users, hazards, platforms, top cities, catalogue) — read-only, no subscription stats until §22.4-adjacent work queries `FamilyCircle`.
+- Search/view app users; soft-delete and restore; **no** email/password editing (matches backend's own intentional restriction — do not add a client-side workaround).
+- List/search/view hazards with official/community distinction (via `reportedById` presence), severity, source, status, timestamps, location, `corroborationCount`.
+- Create/edit/delete hazards (existing, admin-authored alerts) — retain the hard-delete-with-no-undo behavior as-is, but the UI must add its own confirmation step since the API provides none.
+- **Approve/reject a pending community report with a reason** — new, depends on §22.4 item 1.
+- View/manage hazard categories and icon mappings (full CRUD, already supported).
+- View/manage hazard sources: enable/disable, license, view hazard count; health status shown as "unavailable" until backend support lands.
+- View (and, gated to admin-or-above/super-admin once §22.4 item 3 ships) edit AI prompts and the single `aiPrompts` configuration row.
+- View (super-admin) admin account list; create new admin accounts; deactivate (with the last-super-admin caveat flagged, not silently allowed).
+- View webhook API keys, usage stats, and logs; create/edit/delete keys — gated as above.
+
+### 22.8 Audit requirements
+
+No audit system exists today (§22.3). Minimum viable for V1, per the task's own "do not build a complicated system" instruction:
+
+- One table: who (`adminId`), what (`action`, `targetType`, `targetId`), when (`createdAt`), previous/new value (`before`/`after` JSON, nullable — populate only where a diff is meaningful, e.g. not needed for a pure create).
+- Write it from a single shared helper called at the end of every mutating admin controller — not a general framework, not a database trigger system, not per-field granular tracking.
+- Cover, at minimum: hazard create/edit/delete/review-decision, category/source/license create/edit/delete, AI prompt/configuration create/edit/delete, admin account create/deactivate, webhook key create/edit/delete.
+- Reason field: required only on the review-decision endpoint (`reviewFeedback` already serves this) and recommended, not required, elsewhere for V1 — a mandatory reason on every action is the "complicated audit system" the instructions said to avoid building.
+
+### 22.9 External configuration
+
+- **Hosting**: a new static/SPA hosting target for the Admin Portal build (e.g. the same platform as any existing web hosting, or a simple static host) — none currently exists since no admin frontend exists.
+- **Authentication**: none new required — the Admin Portal is a client of the existing, already-backend-enforced admin JWT system; no separate IdP/SSO needed for V1.
+- **Domain**: an internal-only subdomain/path is recommended given the sensitivity of the operations (AI prompt/configuration/webhook-key management); do not expose it on the same public domain as the marketing site without access controls.
+- **Database permissions**: none new — the portal talks to the existing Admin API, not directly to the database.
+- **Environment variables**: the portal needs only the Admin API's base URL at build/runtime; the backend's existing admin-related env vars (`ADMIN_JWT_ACCESS_SECRET`, `ADMIN_JWT_REFRESH_SECRET`, super-admin bootstrap credentials) are unchanged and must not be exposed to the frontend build.
+- **Monitoring/analytics**: not required for V1; if added later, keep it off the same tracking used for the consumer app given the different audience and sensitivity.
+- **CI/CD**: a new pipeline entry for the `admin/` directory, mirroring however `backend/`/`frontend/` are currently built (not investigated this stage — deployment is explicitly out of scope).
+- No secrets are to be exposed to the Admin Portal client at any point — this reiterates §22.2's "do not put these in Admin" constraint, not a new requirement.
+
+### 22.10 What is explicitly NOT V1
+
+- Building or deploying the Admin Portal itself — this stage is audit-only, per instruction.
+- Emergency contact information management — no backend model exists; out of scope until a dedicated future stage.
+- Full audit log with per-field diffs, approval workflows, or a general "complicated audit system" — only the minimum viable log in §22.8.
+- Subscription/ALRT+ entitlement management screens — the data exists but nothing queries or exposes it yet; flagged as a future dashboard enhancement, not a V1 requirement.
+- Source health/liveness dashboards — blocked on new backend fields that don't exist yet (§22.4 item 5); ship Sources as list/enable-disable only for V1.
+- AI prompt/configuration/webhook-key screens exposed to `moderator`-tier admins — blocked on the role-gate fix (§22.4 item 3); these screens are super-admin/admin-only until then.
+- Admin-account self-service (role edit, email change, password reset by others) — no endpoint exists; not required for a V1 whose only admin-management need is create/deactivate.
+- Any secret/API-key/credential entry or display in the Admin Portal UI, per the task's explicit "do not put these in Admin" list — the Configuration screen must remain scoped to the single `aiPrompts` JSON row it structurally can hold, never a general key-value secrets editor.
+- Arbitrary severity changes without an audit trail, fabricated official alerts, or impersonated source attribution — none of these are currently possible via the API (hazard creation always requires a real `sourceId`; there is no "mark as official" toggle independent of source), and the Admin Portal must not add a shortcut around this.
