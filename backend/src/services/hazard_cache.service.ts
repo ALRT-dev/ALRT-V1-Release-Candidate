@@ -305,3 +305,41 @@ export const markContentNotified = async (
     /* best-effort */
   }
 };
+
+// ---------------------------------------------------------------------------
+// Notification cooldown
+//
+// Caps how many hazard push notifications a single user can receive in a
+// rolling window, so a dense cluster of low-severity alerts in one area (or
+// a misbehaving source) can't spam one person's notification tray. Fails
+// open (never blocks a notification) if the cache is unavailable, matching
+// wasContentNotified's risk posture: infra flakiness should never silently
+// suppress a real alert, only skip this extra spam guard.
+// ---------------------------------------------------------------------------
+
+const NOTIFICATION_COOLDOWN_WINDOW_SECONDS = 15 * 60; // 15 minutes
+const NOTIFICATION_COOLDOWN_MAX = 10; // hazard pushes per user, per window
+
+const cooldownKey = (userId: string) => `hazard:notifycount:${userId}`;
+
+/**
+ * Increments this user's hazard-notification count for the current window
+ * and returns whether they are still under the cap. Fails open (true) if
+ * the cache is unavailable.
+ */
+export const isUnderNotificationCooldown = async (
+  userId: string,
+): Promise<boolean> => {
+  const redis = getCacheClient();
+  if (!redis) return true;
+  try {
+    const key = cooldownKey(userId);
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, NOTIFICATION_COOLDOWN_WINDOW_SECONDS);
+    }
+    return count <= NOTIFICATION_COOLDOWN_MAX;
+  } catch {
+    return true;
+  }
+};

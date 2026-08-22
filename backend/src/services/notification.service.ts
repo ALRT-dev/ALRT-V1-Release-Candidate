@@ -6,6 +6,7 @@ import {
   getFormattedHazardSeverity,
   getFormattedHazardSeverityBand,
 } from "../utils/hazard.util.js";
+import { isUnderNotificationCooldown } from "./hazard_cache.service.js";
 
 /**
  * A function to get user push notification tokens of a specific user by their user ID.
@@ -166,15 +167,29 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
       select: {
         user: {
           select: {
+            id: true,
             devices: true,
           },
         },
       },
     });
 
-    const userTokens = subscriptions.flatMap((sub) =>
-      sub.user.devices.map((device) => device.deviceToken)
+    // Dedupe by user (a user can have multiple overlapping location
+    // subscriptions match the same hazard) before applying the cooldown, so
+    // one user with several matching saved locations only spends one slot.
+    const uniqueUsers = new Map(
+      subscriptions.map((sub) => [sub.user.id, sub.user]),
     );
+    const usersUnderCooldown = await Promise.all(
+      [...uniqueUsers.values()].map(async (user) => ({
+        user,
+        underCooldown: await isUnderNotificationCooldown(user.id),
+      })),
+    );
+
+    const userTokens = usersUnderCooldown
+      .filter(({ underCooldown }) => underCooldown)
+      .flatMap(({ user }) => user.devices.map((device) => device.deviceToken));
 
     return userTokens;
   } catch (error) {
