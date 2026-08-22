@@ -306,9 +306,22 @@ export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
 
 /**
  * Returns the notification title for a new hazard based on its severity and title.
+ *
+ * Community reports never carry a severity/band prefix: per the classification
+ * standard (§6), a community report has category colour only, never a severity
+ * band, and that rule has to hold in the push notification tray too, not just
+ * on the card. A prefix like "Info | <title>" on an unverified report both
+ * violates that rule and is misleading either way ("Info" undersells a report
+ * that might be serious; any other band would overstate one the AI is
+ * forbidden from banding at all).
  */
 const getNotificationTitleForNewHazard = (hazard: Hazard): string => {
-  const { severity, title, isAwsCompliant, severityBand } = hazard;
+  const { severity, title, isAwsCompliant, severityBand, reportedById } =
+    hazard;
+
+  if (reportedById) {
+    return `Community report | ${title}`;
+  }
 
   const formattedSeverity = getFormattedHazardSeverity(severity);
   const foramttedSeverityBand = getFormattedHazardSeverityBand(severityBand);

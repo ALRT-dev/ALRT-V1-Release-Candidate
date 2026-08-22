@@ -457,8 +457,26 @@ export const buildHazardInclude = (
         isPrimary: "desc",
       },
     },
+    _count: {
+      select: { corroborations: true },
+    },
     ...params,
   };
+};
+
+/**
+ * Flattens the Prisma `_count.corroborations` shape `buildHazardInclude`
+ * requests into a plain `corroborationCount` field, so the client sees the
+ * same shape here as from the raw-SQL list query (which computes it
+ * directly). This is what §11's "(x3)" community-corroboration indicator
+ * reads — independent community reports of the same event, never official
+ * sources, and never a stand-in for severity.
+ */
+export const withCorroborationCount = <T extends { _count?: { corroborations: number } }>(
+  hazard: T,
+): Omit<T, "_count"> & { corroborationCount: number } => {
+  const { _count, ...rest } = hazard;
+  return { ...rest, corroborationCount: _count?.corroborations ?? 0 };
 };
 
 /**

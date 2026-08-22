@@ -45,6 +45,7 @@ import {
   adjustExpirationTime,
   buildHazardInclude,
   withPublicCoords,
+  withCorroborationCount,
 } from "../utils/hazard.util.js";
 import { parseBoolean } from "../utils/parse.util.js";
 import {
@@ -300,7 +301,11 @@ export const getHazardById = async (
     const { userId: viewerId } = res;
     res
       .status(200)
-      .json(withPublicCoords(hazardWithPresignedUrls[0] as any, viewerId));
+      .json(
+        withCorroborationCount(
+          withPublicCoords(hazardWithPresignedUrls[0] as any, viewerId),
+        ),
+      );
   } catch (error) {
     next(error);
   }

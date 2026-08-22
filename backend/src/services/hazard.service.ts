@@ -297,12 +297,24 @@ export const getHazardsApplyingFiltersRaw = async (
       FROM "HazardMedia" hm
       WHERE hm."hazardId" IN (SELECT id FROM hazard_data)
       GROUP BY hm."hazardId"
+    ),
+    hazard_corroboration_counts AS (
+      -- Independent community reports of the same event (never official
+      -- sources, never a severity signal) — backs the §11 "(x3)" indicator.
+      SELECT
+        hc."hazardId",
+        COUNT(*)::int as "corroborationCount"
+      FROM "HazardCorroboration" hc
+      WHERE hc."hazardId" IN (SELECT id FROM hazard_data)
+      GROUP BY hc."hazardId"
     )
-    SELECT 
+    SELECT
       hd.*,
-      COALESCE(hm.medias, '[]'::json) as medias
+      COALESCE(hm.medias, '[]'::json) as medias,
+      COALESCE(hcc."corroborationCount", 0) as "corroborationCount"
     FROM hazard_data hd
-    LEFT JOIN hazard_medias hm ON hd.id = hm."hazardId"`;
+    LEFT JOIN hazard_medias hm ON hd.id = hm."hazardId"
+    LEFT JOIN hazard_corroboration_counts hcc ON hd.id = hcc."hazardId"`;
 
   const hazards = (await prisma.$queryRawUnsafe(
     query,
@@ -1229,6 +1241,7 @@ export const getHazardsForGeoJson = async (
       h."isAwsCompliant",
       h."categoryId",
       h."sourceId",
+      h."reportedById",
       h."expiresAt",
       h."createdAt",
       h."updatedAt",
