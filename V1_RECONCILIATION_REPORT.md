@@ -1,6 +1,6 @@
 # ALRT V1 Reconciliation Report
 
-**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Application code has been changed in this repository only, in stages up to and including Stage 6A — see §17, §18, §19, §20, and §21. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
+**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Stage 7B (Admin backend hardening — the backend prerequisites from §22.4: moderation endpoint, role enforcement, audit log, pagination/validator fixes) complete — see §23. Application code has been changed in this repository only, across stages up to and including Stage 7B — see §17, §18, §19, §20, §21, and §23. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed. The Admin Portal frontend itself has not been built.
 **Scope:** `ALRT-dev/frontendV2`, `ALRT-dev/backendV2`, `ALRT-dev/askalrt`, `ALRT-dev/V2-Claude`, `ALRT-dev/v3`, plus `ALRT-dev/ALRT-V1-Release-Candidate` itself. `ALRT-dev/widget` was pulled in read-only mid-audit because every other repo points to it as the true frontend baseline (see §1). Stage 2 additionally pulled in `ALRT-dev/alrt`, `ALRT-dev/ALRT-screen`, `ALRT-dev/mattv2`, `ALRT-dev/occulo`, `ALRT-dev/glasses`, `ALRT-dev/watchinterface` read-only, to hunt for a missing Admin Portal (see §15).
 **Method:** Full local clones with ~200 commits of history fetched per branch (every branch that exists in each repo), `git log`/`diff`/`show` history analysis, and targeted source reading across five parallel deep-dive passes (one per repo) plus manual cross-repo verification. Not every file in every repo was read line-by-line; large, low-risk areas (asset files, generated lockfiles, vendored code) were sampled rather than exhaustively reviewed.
 
@@ -1133,3 +1133,102 @@ No audit system exists today (§22.3). Minimum viable for V1, per the task's own
 - Admin-account self-service (role edit, email change, password reset by others) — no endpoint exists; not required for a V1 whose only admin-management need is create/deactivate.
 - Any secret/API-key/credential entry or display in the Admin Portal UI, per the task's explicit "do not put these in Admin" list — the Configuration screen must remain scoped to the single `aiPrompts` JSON row it structurally can hold, never a general key-value secrets editor.
 - Arbitrary severity changes without an audit trail, fabricated official alerts, or impersonated source attribution — none of these are currently possible via the API (hazard creation always requires a real `sourceId`; there is no "mark as official" toggle independent of source), and the Admin Portal must not add a shortcut around this.
+
+## 23. Stage 7B — Admin Backend Hardening
+
+Implements the backend prerequisites identified in §22.4. Backend only — no Admin Portal frontend, no deployment, no mobile-frontend changes. Six commits, `04204fb..c8d2593`:
+
+| Commit | What |
+|---|---|
+| `8bc457a` | `AdminAuditLog` Prisma model + migration + shared `recordAdminAuditEntry()` helper |
+| `375039e` | `PATCH /api/admin/hazards/:id/review` (moderation) + `reviewStatus=pending` filter |
+| `0bb8e1b` | Role gates + audit logging on AI Prompt/Configuration/Webhook Key/Admin routes |
+| `12789d9` | `pageSize` cap on `GET /admin/hazards`; attached the two unwired hazard validators |
+| `cd9abc2` | Fixed a real bug the verification step uncovered: `validate(schema, "query")` was a silent no-op/crash on Express 5 |
+| `c8d2593` | `verify_stage7b_admin_hardening.ts` — real HTTP + real DB verification (32 checks) |
+
+### 23.1 Community moderation (§1, §2)
+
+`PATCH /api/admin/hazards/:hazardId/review` (`requireAnyAdmin`) is new. Body: `{reviewStatus: "accepted"|"rejected", reviewFeedback?: string}` — `reviewFeedback` is required when rejecting (enforced by a Zod `.refine`, verified to 400 in testing). It writes exactly four fields on the existing `Hazard` row: `reviewStatus`, `reviewFeedback`, `reviewedAt` (unconditionally now, not gated on accept — the old create/update paths only stamped `reviewedAt` on accept, so a rejected report never got one; fixed here for the new endpoint), and `reviewedById` (`req.admin.id` — a schema column that, per §22's finding, no code path had ever written before this). On accept, it backfills `expiresAt` from severity the same way create/update already do, if not already set.
+
+No schema migration was needed for this part — `reviewStatus`/`reviewFeedback`/`reviewedAt`/`reviewedById` all already existed on `Hazard`; this is the same data model, not a second moderation system. The endpoint never accepts `sourceId`, `categoryId`, or location fields — confirmed in testing that even a client that sends `sourceId` in the body has it silently dropped by the Zod schema before the Prisma update, so a moderation decision cannot manufacture or change an official source attribution. The AI's own `reviewHazard()` decision at submission time (Stage 6A) is untouched by this endpoint — it is a separate, later, human decision recorded on top of it, never a re-run of the AI review.
+
+`getHazardsForAdminQuerySchema`'s `reviewStatus` filter now accepts `"pending"` (was `accepted`/`rejected` only). Verified end to end: a hazard created with `reviewStatus: pending` is returned by `GET /admin/hazards?reviewStatus=pending`.
+
+### 23.2 Role enforcement (§3)
+
+AI Prompt, Configuration, and Webhook API Key routes previously applied only `requireAdminAuth` (any authenticated admin, any tier). All three now split reads (`requireAnyAdmin`) from writes (`requireAdminOrAbove`), matching the pattern already used for hazards/categories/sources:
+
+| Route group | Read | Write (create/update/delete) |
+|---|---|---|
+| `/admin/ai-prompts` (+ `/groups`) | `requireAnyAdmin` | `requireAdminOrAbove` |
+| `/admin/configurations` | `requireAnyAdmin` | `requireAdminOrAbove` |
+| `/admin/webhook-api-keys` (+ `/logs/all`) | `requireAnyAdmin` | `requireAdminOrAbove` |
+| `/admin/users` (admin accounts) | `requireAnyAdmin` (list) | `requireSuperAdmin` (create/deactivate — unchanged, already correct) |
+| `/admin/hazards`, `/categories`, `/hazard-sources` | `requireAnyAdmin` | `requireAdminOrAbove` (unchanged, already correct) |
+| `/admin/hazards/:id/review` (new) | — | `requireAnyAdmin` (moderation is a moderator's core function, not gated like the general hazard writes above) |
+
+Full role matrix, verified with real HTTP requests (not helper-function tests) against real admin/moderator/superAdmin accounts and a plain authenticated user:
+
+| Actor | AI prompt read | AI prompt write | Configuration write | Mint webhook key | Review report | Create admin | Deactivate admin |
+|---|---|---|---|---|---|---|---|
+| Ordinary user | 401 | 401 | 401 | 401 | 401 | 401 | 401 |
+| Moderator | 200 | 403 | 403 | 403 | 200 | 403 | 403 |
+| Admin | 200 | 200 | 200 | 200 | 200 | 403 | 403 |
+| Super admin | 200 | 200 | 200 | 200 | 200 | 200 | 200 |
+
+(AI prompt *write* in this table was verified via the prompt-group create route, which shares the exact same `requireAdminOrAbove` gate as prompt-content create/update/delete — prompt-content create/update itself calls out to the real AI provider to validate the model id, which this environment has no live AWS Bedrock/OpenAI credentials for; same class of external dependency as "no Flutter binary" in prior stages, documented rather than faked.)
+
+Every check above is enforced server-side by `requireAdminAuth`/`requireAdminRole` middleware, not the frontend — there is no Admin Portal frontend yet for it to be enforced by, and per §22.3 no route was found reachable by a non-admin regardless.
+
+### 23.3 Admin audit log (§4)
+
+New `AdminAuditLog` table (migration `20260822000000_admin_audit_log`): `adminId`, `action`, `targetType`, `targetId`, `reason`, `before`/`after` (JSON), `createdAt`. One shared helper, `recordAdminAuditEntry()` in `admin_audit_log.service.ts` — not a framework; it never blocks the action it's describing (errors are caught and logged, not thrown).
+
+Wired into: `hazard.review`, `aiPrompt.create/update/delete`, `configuration.create/update/delete`, `webhookApiKey.create/update/delete`, `admin.create`, `admin.setActive`. Each call site redacts its own secret before calling the helper, rather than the helper trying to guess what's sensitive:
+
+- AI prompt entries store `{name, model, groupId}` only, never the full `content` (large, but not secret — excluded to keep audit rows small).
+- Configuration entries store `{key, title}` (create/delete) or `{title, valueChanged: boolean}` (update) — never `value`, since it's an unvalidated JSON blob an admin could have put a secret into (§22's own finding).
+- Webhook API key entries store `{name, maxRequestsPerMinute/Hour/Day}` or `{name, isActive}` — never `keyHash` or the plaintext key. Verified in testing: the audit row for a key creation contains no `whk_` prefix anywhere and no `keyHash` field in either `before` or `after`.
+- Admin account entries store `{email, role}` / `{isActive}` — never `passwordHash` or the plaintext password. Verified in testing: the audit row for an admin creation does not contain the test password anywhere, case-insensitively.
+
+### 23.4 Pagination safety (§5)
+
+`GET /admin/hazards`'s `pageSize` was an unbounded string-regex field (`Number(pageSize)` straight into a raw SQL `LIMIT`). Capped at 100 via `z.coerce.number().int().min(1).max(100)`, matching the bound already used on `getHazardSourcesForAdminQuerySchema`. `GET /admin/webhook-api-keys/logs/all` had no validator at all (`parseInt` on raw `req.query`); added one with the same bound.
+
+Applying the bound required fixing a real bug the verification step found (§23.6) — `validate(schema, "query")` didn't actually reach `req.query` on Express 5 (or, for `GET /admin/hazard-sources`, was silently checking `req.body` instead due to a missing second argument at the call site). Both are fixed; see §23.6. Verified: `pageSize=999999` now 400s on both routes (previously 500'd for hazards, and was simply unenforced for hazard-sources); `pageSize=100` (the cap) still succeeds.
+
+### 23.5 Validators (§6)
+
+`PUT /api/admin/hazards/:hazardId` and `POST /api/admin/hazards/sync-external` had real Zod validators (`updateHazardForAdminBodySchema`, `syncHazardsFromExternalSourceForAdminBodySchema`) defined but never attached — malformed bodies previously reached the service layer with only TS-level typing. Attached both. Confirmed the enum values they validate (`FireStatus`, `HazardSeverity`) match the Prisma schema exactly, so no previously-valid request becomes newly rejected. Verified: an invalid `severity` on the PUT route and an invalid `syncOption` on the sync-external route both now 400 before reaching the controller.
+
+### 23.6 A bug this stage's own verification found and fixed
+
+Real HTTP testing (§23.7) — not helper-function tests — surfaced a genuine pre-existing defect in `validate()` itself (`src/middlewares/validation.middleware.ts`), unrelated to any single feature above but blocking the pagination fix in §23.4: on Express 5, `req.query` is a getter re-parsed from the URL on every access, with no setter and no per-instance caching. `(req as any).query = parsed` throws (`Cannot set property query of #<IncomingMessage> which has only a getter`); mutating the object returned by one access is silently lost, because the next access re-parses from scratch. This meant every `validate(schema, "query")` call in the codebase was either broken (throws) or, where a call site additionally omitted the `"query"` argument (defaulting to `"body"`, always `{}` on a GET), silently validated nothing at all — `GET /admin/hazard-sources` was in the latter category, so its own `pageSize` cap had never actually been enforced despite the schema looking correct.
+
+Fixed by defining an own `query` property on the request instance inside `validate()` (`Object.defineProperty(req, "query", {value: parsed, writable: true, configurable: true, enumerable: true})`), which shadows the prototype getter for every later access on that same request — and by adding the missing `"query"` argument at the `hazard_source.route.ts` call site. This is a fix to shared middleware, not a new feature; it makes every existing and new `validate(schema, "query")` call site in the codebase behave as its callers already assumed it did.
+
+### 23.7 Tests
+
+- `npx tsc --noEmit`: clean except the one pre-existing accepted `serviceAccountKey.json` error (confirmed both before and after all changes).
+- **New**: `src/scripts/verify_stage7b_admin_hardening.ts` — 32 checks, all real HTTP requests against a running instance of this backend backed by a real local PostgreSQL 16 + PostGIS database (installed for this stage via `apt-get`; no live DB was available in the environment used for prior stages, so this is a stronger verification method than those stages' pure-function scripts, used here because it was actually possible). Covers the full role matrix (§23.2's table), moderation behaviour end to end (approve/reject/reason-required/repeated-review/404/401/no-source-manufacture), all four audited-and-redacted mutation types (§23.3), both pagination caps at and above the boundary, and both newly-attached validators rejecting bad input. Setup/tools used: `service postgresql start`; a throwaway `alrt_stage7b_test` database with `CREATE EXTENSION postgis`; `prisma db push` (not `migrate deploy` — the migration history has an unrelated pre-existing dating inconsistency, `20250317000000_add_category_images` sorting before `20251004073622_init`, that predates this stage and blocks strict-order replay on a from-scratch database; `db push` syncs the schema directly and was sufficient for a throwaway test DB); a throwaway `.env.test` and a throwaway self-signed `serviceAccountKey.json` (both fake-credentialed, neither committed — `serviceAccountKey.json` is gitignored, `.env.test` was deleted after the run and never staged). The database, `.env.test`, and `serviceAccountKey.json` were all torn down after verification; nothing test-related was left in the working tree (confirmed via `git status`) or committed.
+- Re-ran both Stage 6/6A verification scripts (`verify_stage6_alert_rules.ts`, `verify_stage6a_alert_rules.ts`) — still pass unchanged (7 and 9 checks respectively), confirming this stage didn't regress the alert-engine work.
+- Re-ran `askalrt/functions`'s Jest suite for completeness — 6 suites, 31 tests, all pass, unaffected (this stage never touched `askalrt/`).
+- Flutter/Dart: not available in this environment (no binary), as in every prior stage. Not applicable anyway — this stage made no mobile-frontend changes, per instruction.
+
+### 23.8 An incidental finding outside this stage's scope
+
+The same `validate(schema)` missing-`"query"`-argument defect fixed on `hazard_source.route.ts` (§23.6) also exists on the **public**, non-admin `GET /api/hazards` route (`src/routes/hazard.route.ts:46,53`, `validate(getHazardsQuerySchema)` with no target argument). That route is outside §22.4's admin-only scope and this stage's "no unrelated backend refactors" instruction, so it was left as found — flagged here for a future pass rather than fixed silently or fixed out of scope.
+
+### 23.9 Remaining Admin Portal prerequisites (from §22.4, not done this stage)
+
+Only the items this stage's instructions actually named were implemented (moderation endpoint + pending filter, role enforcement, audit log, pagination, the two named validators). Still open from §22.4, out of scope for Stage 7B:
+
+- Source health tracking (item 5) — needs new `HazardSource` columns or a fetch-log table; no schema change was requested this stage.
+- Admin account lifecycle gaps (item 8) — no edit-role/edit-email/force-password-reset endpoint exists; no guard against deactivating the last remaining super admin. Not named in Stage 7B's instructions.
+- Emergency contact information (§22.2 item 5) — no backend model exists at all; explicitly still not V1 per §22.10.
+- The `reviewedById` column is still a bare `String?`, not a real FK to `Admin` (§22.4 item 3's optional schema-tightening suggestion) — the new review endpoint writes a valid `Admin.id` into it, so it's correct in practice, just not FK-enforced at the DB level. Left as-is per "use the existing hazard/review data model" and "do not create a second moderation system" — a schema-tightening migration wasn't requested and wasn't necessary to deliver the required capability.
+
+### 23.10 Stop condition honored
+
+Per instruction, this stage stops here. No Admin Portal frontend, no Audit Log frontend, no Emergency Information frontend, no deployment, and no mobile-frontend changes were made.
