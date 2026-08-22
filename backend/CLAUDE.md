@@ -35,6 +35,18 @@ explicit instruction from the product owner in the current session.
   seats to absorb the whole circle; ineligible members are returned greyed
   with a reason, never hidden.
 
+## Google Maps proxy (decided Stage 5, 2026-08-22)
+
+- `/api/maps/*` (geocode, places/autocomplete, places/details) is the app's
+  live call path for Geocoding/Places, not orphaned code — the frontend
+  calls it, per `frontend/CLAUDE.md`. Keep `requireAuth` +
+  `mapsProxyUserLimiter` on every route; never let a client override the
+  injected `key` param (see `pick()` in `maps_proxy.service.ts`).
+- Directions/Routes is not proxied here (the frontend's
+  `flutter_polyline_points` client calls Google directly) — do not add a
+  `/api/maps/directions` route without also updating the frontend to use
+  it; a half-migrated proxy is worse than the current split.
+
 ## Engineering conventions
 
 - `npx tsc --noEmit` must be clean before every push, except the

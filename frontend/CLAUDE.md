@@ -80,6 +80,29 @@ explicit instruction from the product owner in the current session.
   consumes a seat; joiners consume nothing of their own.
 - Prices come from the store (RevenueCat), never hardcoded.
 
+## Google Maps architecture (decided Stage 5, 2026-08-22)
+
+- Geocoding and Places (autocomplete/details) go through the backend proxy
+  (`/api/maps/*`, `map_repository.dart`/`location_repository.dart`) — never
+  call `maps.googleapis.com` directly for these. The web-service key lives
+  only on the backend.
+- The Maps SDK (rendering) and the Routes API (`getRoute`) keep the
+  embedded client key — Directions/Routes can't be proxied through
+  `flutter_polyline_points` without replacing that package, which was out
+  of scope for this pass. `getRoute` sends
+  `X-Android-Package`/`X-Android-Cert`/`X-Ios-Bundle-Identifier` headers
+  (from `Env`, blank by default) so the key CAN be Android/iOS
+  app-restricted in Google Cloud Console once those values are configured
+  — see `V1_RECONCILIATION_REPORT.md` for the manual configuration list.
+  Do not revert to calling Geocoding/Places directly without a fresh
+  product-owner decision; that was tried once already (commit `5b1eba2`
+  in `frontendV2`, undocumented reasoning) and is exactly the regression
+  this section exists to prevent.
+- Transit segment data (line, vehicle type, headsign, stop count) is parsed
+  from Google's own `transitDetails` response — never hardcode "Train",
+  "Bus", "Tram", "Ferry" as generic options; only show what the route
+  actually returned.
+
 ## Engineering conventions
 
 - Riverpod 3 for new code (Notifier, no StateProvider/valueOrNull).

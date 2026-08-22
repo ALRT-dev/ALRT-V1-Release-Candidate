@@ -1,6 +1,6 @@
 # ALRT V1 Reconciliation Report
 
-**Status:** Stage 4 (audit-and-complete pass over Family, check-ins, Mark Safe, location snapshots, journey sharing, SOS, SOS live location, Child Mode, UI/UX consistency, and privacy/safety) complete — see §18. Application code has now been changed in this repository only — see §17 and §18. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
+**Status:** Stage 5 (Google Maps / routing / transport audit and completion, and the Maps architecture decision) complete — see §19. Application code has now been changed in this repository only — see §17, §18, and §19. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
 **Scope:** `ALRT-dev/frontendV2`, `ALRT-dev/backendV2`, `ALRT-dev/askalrt`, `ALRT-dev/V2-Claude`, `ALRT-dev/v3`, plus `ALRT-dev/ALRT-V1-Release-Candidate` itself. `ALRT-dev/widget` was pulled in read-only mid-audit because every other repo points to it as the true frontend baseline (see §1). Stage 2 additionally pulled in `ALRT-dev/alrt`, `ALRT-dev/ALRT-screen`, `ALRT-dev/mattv2`, `ALRT-dev/occulo`, `ALRT-dev/glasses`, `ALRT-dev/watchinterface` read-only, to hunt for a missing Admin Portal (see §15).
 **Method:** Full local clones with ~200 commits of history fetched per branch (every branch that exists in each repo), `git log`/`diff`/`show` history analysis, and targeted source reading across five parallel deep-dive passes (one per repo) plus manual cross-repo verification. Not every file in every repo was read line-by-line; large, low-risk areas (asset files, generated lockfiles, vendored code) were sampled rather than exhaustively reviewed.
 
@@ -8,7 +8,9 @@
 
 > **Stage 3 update:** §16's implementation order has now actually been executed, for the small/low-risk/clearly-agreed items only. This repository (`frontend/`, `backend/`, `askalrt/` subdirectories) now contains a real, building, testing V1 baseline for the first time — see §17 for the full commit-by-commit record, test results, and what remains open (only the Google Maps architectural decision and the net-new Admin Portal build, both explicitly deferred, not attempted).
 
-> **Stage 4 update (this pass):** an audit-then-complete phase over the eleven Family/SOS-area features already promised by the V1 baseline — Family lifecycle, daily check-ins, Mark Yourself Safe, location snapshots, journey sharing, SOS, SOS live location, Child Mode, UI/UX consistency, and privacy/safety. Five parallel read-only audits were run first (one per feature cluster); this pass then implemented every well-scoped gap they found, and made no change where the audits found the feature already correct. Nothing net-new was built (no Admin Portal, no Google Maps decision, no broad alert-engine change) — see §18 for the full record.
+> **Stage 4 update:** an audit-then-complete phase over the eleven Family/SOS-area features already promised by the V1 baseline — Family lifecycle, daily check-ins, Mark Yourself Safe, location snapshots, journey sharing, SOS, SOS live location, Child Mode, UI/UX consistency, and privacy/safety. Five parallel read-only audits were run first (one per feature cluster); this pass then implemented every well-scoped gap they found, and made no change where the audits found the feature already correct. Nothing net-new was built (no Admin Portal, no Google Maps decision, no broad alert-engine change) — see §18 for the full record.
+
+> **Stage 5 update (this pass):** the Google Maps architecture question deferred since Stage 1 (§17.8) is now resolved. Three parallel audits (current frontend Maps usage, current backend Maps usage, and the full historical rotation/revert story across `frontendV2`/`backendV2`/`V2-Claude`) ran first; the finding was that an authenticated backend proxy for Geocoding/Places already existed and had simply gone unused after an undocumented revert — so the correction was to re-point the frontend to it, not build anything new. Directions/Routes (which was never proxied even in the original attempt) stays a direct client call, now capable of Android/iOS app-restriction headers. Separately, Google's own `transitDetails` response — already requested in the field mask but never parsed — is now parsed and shown, so a transit route displays its real line, vehicle type, headsign, and stop count instead of a generic icon. See §19 for the full record, the security assessment, and the manual Google Cloud configuration list.
 
 ---
 
@@ -669,3 +671,129 @@ No new automated tests were added in this phase — every change either extends 
 ### 18.9 Stop condition honored
 
 Per instruction, this phase stops here. No Google Maps architecture work, no Admin Portal, no broad alert-engine change, and no deployment were started or attempted in this phase or any prior one.
+
+---
+
+## 19. Stage 5 — Google Maps, routing, and transport (executed)
+
+**Scope of this phase, as instructed:** audit the current Maps/routing implementation, resolve the outstanding Maps-key architecture question with the smallest practical correction (explicitly not a reflexive full backend proxy), preserve every existing map feature, and make transport-mode selection reflect what the routing provider actually returns rather than hardcoded options. Explicitly **not** attempted: the Admin Portal, broad alert-engine work, or deployment.
+
+**Method:** three parallel read-only audits ran before any code changed — (1) the current frontend Maps/Places/Geocoding/Routes/navigation implementation, (2) the current backend's Maps-related code, and (3) the full historical rotation/revert story across `frontendV2`, `backendV2`, and `V2-Claude`, including the specific commits named in the task (`6874609`, `5b1eba2`, `ffbd610`) and the deleted key-rotation runbook. Their findings, cross-checked against each other, are what the decision in §19.2 is built on — nothing below is guessed.
+
+### 19.1 Current Maps architecture, as found (before this phase)
+
+- **Maps SDK** (`google_maps_flutter`): embedded key, build-time injected on both platforms — Android via a Gradle `manifestPlaceholders["MAPS_API_KEY"]` resolved from `GOOGLE_MAPS_API_KEY`, iOS via a gitignored `Maps.xcconfig`. No key was ever hardcoded in source on either platform.
+- **Places (Autocomplete + Details)** and **Geocoding**: called **directly** from the Flutter client (`map_repository.dart`, `location_repository.dart`) against `maps.googleapis.com`, using the **same** embedded key as the Maps SDK — not a separate, more-restrictable web-service key.
+- **Directions/Routes**: the **Routes API v2** (not the legacy Directions API), via `flutter_polyline_points`'s `getRouteBetweenCoordinatesV2`, also called directly with the embedded key. Driving, walking, bicycling, and transit are requested in parallel for every route plan; a custom field mask already asked for full turn-by-turn step data (`navigationInstruction`, `travelMode`, `transitDetails`) for every route including alternates.
+- **Navigation**: real GPS-driven turn-by-turn navigation (not just a static preview) — a live HUD, position-stream-driven step advancement, and hazard-aware "take alternate route" prompts. No voice/TTS guidance (visual only); voice search (`speech_to_text`) feeds Places search, not navigation.
+- **A backend Maps proxy already existed and was already live**, but had **no caller**: `backend/src/routes/maps.route.ts` mounted `GET /api/maps/geocode`, `/places/autocomplete`, `/places/details`, all `requireAuth`, forwarding to Google with a server-side key (`maps_proxy.service.ts`, correctly stripping any client-supplied `key` param before injecting its own). Nothing in the frontend called it.
+- **Backend also runs its own, unrelated, internal geocoding** (`google_map.service.ts`, via `@googlemaps/google-maps-services-js`) for hazard-ingestion address enrichment and family-location suburb relabeling — not reachable from the client, not part of this decision.
+
+### 19.2 How the current state came to be (the historical audit)
+
+- `6874609` (PR #8, `frontendv2`/`backendv2`, Jun 30) built exactly the split-key architecture Google itself recommends: build-time key injection for the embedded SDK key (`7290e2c`), plus a backend proxy for Geocoding/Places so the web-service key never ships in the binary (`4662b7c` frontend + `a475545` backend), with a 132-line rotation runbook (`docs/google-maps-key-rotation.md`) documenting exactly how to restrict each key type in Google Cloud Console — Android package name **and both** the upload-keystore and Play-App-Signing SHA-1 fingerprints; iOS bundle ID; a separate entry for the `.dev` build flavor; API-restrict the web-service key to Geocoding/Places (+Routes, once migrated — never done).
+- Four days later, `5b1eba2` — pushed directly to `main`, **not** through the PR/session workflow every other commit in this story used, authored by a `wiz.io` address rather than the usual Claude co-author pattern — reverted **only the frontend half**: Geocoding/Places calls went back to hitting Google directly with the embedded key, and the runbook was deleted outright. Its commit message gives one line of reasoning ("removing the app's runtime dependency on the backend /api/maps proxy") and nothing further; no linked PR or doc explains why.
+- **The backend proxy was never reverted.** It has sat live, authenticated, and unused on `main` since `a475545` — an orphaned but real piece of attack surface (any authenticated user could have hit it and burned the shared Google quota, even though the shipped app never called it).
+- Directions/Routes was **never** migrated to the proxy in the first place, in either direction — the runbook itself listed this as known future work, not something the revert undid.
+- `ffbd610` (Family Mode/Learning merge, Jul 8) is unrelated to the key story — it touches Maps rendering (screen-space marker clustering, family-avatar pins) but doesn't revisit the proxy question.
+- The most complete Maps implementation found anywhere (`frontendv2`'s `claude/safety-alert-repo-audit-8exgvn`, the branch this repository's `frontend/` baseline was built from in Stage 3) already requests `transitDetails` in its field mask and models a per-step `travelMode`, but never parses the transit response — this is exactly the gap §19.5 closes.
+
+### 19.3 Security assessment and the decision
+
+**Is a single embedded key, used directly by the client for Places/Geocoding/Routes, safe enough for V1? No — not as it stood, and not simply because it's "restricted."** The reasoning, worked through rather than assumed:
+
+- What actually protects an embedded mobile key is Google Cloud Console **application restriction** (Android package + SHA-1, or iOS bundle ID), not secrecy — a key shipped in an APK/IPA is always extractable.
+- Application restriction on Android/iOS **does not automatically apply** to a raw REST call the way it does to a native Maps SDK call. For Geocoding/Places/Routes called via plain HTTP (as this app calls them — `dio` for Places/Geocoding, `flutter_polyline_points` for Routes), Google requires the app to **manually send** `X-Android-Package`/`X-Android-Cert` or `X-Ios-Bundle-Identifier` headers on every such request for the restriction to be honored. **This app's REST calls sent none of these headers** (confirmed by direct code inspection, not assumed). That means either the key was left application-**unrestricted** (so anything extracted from the binary could call Places/Geocoding/Routes on ALRT's Google Cloud billing account without limit beyond whatever API-restriction and quota exist) — or, if restriction had been turned on regardless, Places/Geocoding/Routes would already be broken for every user, which the audits' evidence (these features actively work) says is not the case. Either reading means the *practical* security posture was weaker than "restricted key" implies.
+- A backend proxy for Geocoding/Places **already existed, authenticated, and tested** — re-pointing the frontend to it is not "recreating a proxy," it's finishing a migration that was already built and then abandoned by an undocumented revert. This is the **smallest** correction available for those three calls, not the largest.
+- Directions/Routes genuinely can't be proxied through the existing `flutter_polyline_points` package without replacing it — that's real new work, out of proportion to what "smallest practical correction" asks for. Instead: the package's `RoutesApiRequest` (confirmed via its own API docs) accepts custom `headers`, so the app-restriction headers Google requires *can* now be sent, making Android/iOS app restriction on this key a real, working option going forward — it just wasn't wired up before.
+
+**Decision:** Geocoding and Places (Autocomplete + Details) now go through the existing backend proxy — the key for those calls never ships in the binary at all, closing the gap outright rather than just narrowing it. The Maps SDK and Routes API keep the embedded key (Directions/Routes cannot practically move server-side this phase), but `getRoute()` now sends the app-restriction headers Google requires, via new optional `.env` values that default to blank (zero behavior change until configured). This is documented as the locked architecture in both `frontend/CLAUDE.md` and `backend/CLAUDE.md` so it isn't silently re-reverted again.
+
+### 19.4 Exact changes made
+
+**Commit `a2a2e20a09f96d3e9249ab9254adcf239f75dc4c`** — Maps architecture/security correction:
+
+| File | Change |
+|---|---|
+| `frontend/lib/features/map/repositories/map_repository.dart` | `getPlaces`, `getPlaceDetails`, `getAddressFromCoordinates` now call `kUrlMapsPlacesAutocomplete`/`kUrlMapsPlaceDetails`/`kUrlMapsGeocode` on the app's own authenticated backend client (relative path, existing `_dio` instance, existing `AuthInterceptor`) instead of `maps.googleapis.com` with `Env.googleMapsApiKey`. `getRoute` gained a `headers:` argument built by new `_appRestrictionHeaders()`, returning `null` (no headers, unchanged behavior) unless the new `.env` values are set. |
+| `frontend/lib/features/map/repositories/location_repository.dart` | The same three-call migration in this near-duplicate implementation. |
+| `frontend/lib/api/endpoints.dart` | New `kUrlMaps`, `kUrlMapsGeocode`, `kUrlMapsPlacesAutocomplete`, `kUrlMapsPlaceDetails` constants. |
+| `frontend/lib/others/env.dart`, `frontend/.env.default` | New optional `GOOGLE_MAPS_ANDROID_PACKAGE_NAME`, `GOOGLE_MAPS_ANDROID_CERT_SHA1`, `GOOGLE_MAPS_IOS_BUNDLE_ID` — blank by default, documented as only needed once Cloud Console restriction is configured to match. |
+| `backend/src/utils/config.ts` | New `rateLimit.mapsProxyWindowMs`/`mapsProxyMax` (env `MAPS_PROXY_RATE_LIMIT_WINDOW_MS`/`MAPS_PROXY_RATE_LIMIT_MAX`, default 60 req/60s per user). |
+| `backend/src/middlewares/api_rate_limit.middleware.ts` | New `mapsProxyUserLimiter`, mirroring the existing `hazardReadUserLimiter` per-user pattern — the proxy previously had no rate limit beyond the generic 600-req/15-min IP bucket; now that it's live traffic rather than orphaned code, it needs one of its own. |
+| `backend/src/routes/maps.route.ts` | Applies `mapsProxyUserLimiter` after `requireAuth` on all three routes. |
+| `backend/.env.default` | Documents the two new rate-limit env vars. |
+| `backend/docs/CONNECTIONS.md` | Corrected the stale "Used for" description, which described the proxy as actively used when it had not been since the Stage-1-era revert; now notes it's confirmed live again as of this phase. |
+
+**Commit `407e5fb5eb363657e2b0ae2b98f5015d1b43b0d2`** — transit data model and UI:
+
+| File | Change |
+|---|---|
+| `frontend/lib/features/map/models/route_step_model.dart` | New `TransitDetails`, `TransitLineInfo`, `TransitVehicleInfo`, `TransitStopInfo` models and a `TransitVehicleType` enum, parsed field-for-field against the verified `google.maps.routing.v2` proto schema (`RouteLegStepTransitDetails`/`TransitLine`/`TransitVehicle`/`TransitStop`) — not guessed. `RouteStep` gained a `transitDetails` field and a fallback instruction ("Take `<line>` towards `<headsign>`") for the (common) case where Google omits `navigationInstruction` on a transit step. |
+| `frontend/lib/features/map/utils/transit_icons.dart` (new) | Shared vehicle-type → Material icon mapping, used by both surfaces below so they agree with each other. |
+| `frontend/lib/features/map/views/widgets/navigation/navigation_mode_overlay.dart` | The live turn-by-turn HUD's step icon is now vehicle-based (not a misleading straight-arrow maneuver icon) for a transit step, and the "continue for X km" line becomes "N stops to `<headsign>`" for transit. |
+| `frontend/lib/features/map/views/widgets/navigation/navigation_route_info_cards_list_item.dart` | Route-selection cards for a transit route now show a collapsed walk/line/walk/line strip (colour-coded from Google's own line colour, when provided) so transfers are visible before the user commits to a route. Renders nothing extra for a driving/walking/cycling route — that card is visually unchanged. |
+
+**Documentation** (uncommitted at the time of writing, committed alongside this report update): `frontend/CLAUDE.md` and `backend/CLAUDE.md` each gained a short "Google Maps architecture" / "Google Maps proxy" section recording the decision in §19.3 as locked, including an explicit instruction not to re-revert Geocoding/Places back to direct calls without a fresh product-owner decision.
+
+### 19.5 Transport selection — what was and wasn't already there
+
+- A transport-mode selector **already existed** (`route_planning.dart`, `NavigationTravelModesList`) and was **already** driven by which modes actually returned a usable route (`RoutePlan.travelModeRoutes`/`unavailableModes`), not a hardcoded static list — a mode with no coverage is shown greyed out with Google's own reason text rather than hidden or invented. This was preserved unchanged; it already satisfied the "don't hardcode options" instruction at the mode level.
+- What was genuinely missing, and is what this phase built: **segment-level** detail once transit is selected. The field mask already asked Google for `transitDetails` on every step; nothing parsed it, so a transit route showed a generic train icon and no line, vehicle type, headsign, or stop count — exactly the gap flagged in §19.2's historical audit. §19.4's second commit closes it by parsing the real response and surfacing it in both the live overlay and the route-selection cards, with the walking/line/walking/line strip specifically to make transfers visible before the user commits.
+- Nothing was invented: every line name, vehicle type, colour, headsign, and stop count comes from Google's own response for that specific route at that specific time. Where a transit line has no official colour (some agencies omit it), the badge falls back to a neutral colour rather than fabricating one.
+
+### 19.6 Google Routes data — what the app receives vs. surfaces
+
+Per the verified `google.maps.routing.v2` proto (`route.proto`, `transit.proto`), a transit step's `transitDetails` carries: `stopDetails` (departure/arrival stop name + location + time), `headsign`, `headway`, `transitLine` (name, short name, colour, text colour, and `vehicle` — a localized name + `TransitVehicleType` enum of 18 values), `stopCount`, and `tripShortText`. This phase parses and surfaces: both stops' names, both times, headsign, stop count, and the full line/vehicle detail. **Deliberately not surfaced**, because nothing in the app currently needs it: `localizedValues` (Google's own pre-formatted display strings — the app formats times itself), `headway`, `tripShortText`, transit agency phone/URI, and any remote icon URIs (the app uses local Material icons instead of fetching Google's SVGs, avoiding a new image-loading dependency). All of these remain available in the raw response if a future pass wants them — nothing was discarded, only left unparsed.
+
+No additional Google APIs are required beyond what the app already calls — the Routes API v2 response already contains everything above; this was a parsing gap, not a data-availability gap.
+
+### 19.7 Manual configuration required in Google Cloud Console (no keys included below)
+
+None of this can be done from this repository or this environment — it requires access to the live Google Cloud project holding the Maps API key(s). Recommended order:
+
+1. **Split the key** (if not already split): keep the existing key for the Maps SDK (Android + iOS) and Routes API; issue a **separate** key for the backend Geocoding/Places proxy, restricted by the backend's egress IP (or left unrestricted-by-IP if the deployment doesn't have a stable egress IP, but still API-restricted per step 2) — this is the key `GOOGLE_MAPS_API_KEY` in the **backend's** environment/Secrets Manager, never in the mobile app.
+2. **API-restrict both keys** to only what they need: the client-embedded key to *Maps SDK for Android*, *Maps SDK for iOS*, and *Routes API*; the backend key to *Geocoding API* and *Places API* only.
+3. **Application-restrict the client-embedded key**: Android — package `com.safetyalrt.alrt` (prod) **and** `com.safetyalrt.alrt.dev` (dev flavor) as separate entries, each with **both** the upload-keystore SHA-1 **and** the Play App Signing SHA-1 (restricting to only the upload SHA-1 breaks the app for every Play Store user — this exact gotcha was documented in the deleted rotation runbook and is worth re-documenting somewhere durable this time). iOS — bundle ID `com.safetyalrt.alrt` and `com.safetyalrt.alrt.dev`.
+4. **Populate the new frontend `.env` values** (`GOOGLE_MAPS_ANDROID_PACKAGE_NAME`, `GOOGLE_MAPS_ANDROID_CERT_SHA1`, `GOOGLE_MAPS_IOS_BUNDLE_ID`) — via the same CI-secret mechanism already used for `GOOGLE_MAPS_API_KEY` — matching whichever flavor is being built, **before or at the same time as** turning on step 3's restriction (turning on restriction without these values breaks Routes; setting these values without restriction is a safe no-op).
+5. **Confirm billing/quota alerts exist** on the project (not verified from this repository — no visibility into billing configuration). A per-user rate limit was added on the backend proxy (§19.4) as a partial mitigation, but it doesn't cap the embedded client key's own usage ceiling — that's a Cloud Console/billing-alert concern.
+6. **Verify end-to-end on a real device** after 1-4: Places search, Geocoding (current-location address), and route planning (all four modes) must still work on both a Play Store-installed build and a dev-flavor build once restriction is live — this cannot be verified from this environment (§19.8).
+
+### 19.8 Tests performed and unavailable
+
+| Component | Command | Result |
+|---|---|---|
+| `backend` | `npx tsc --noEmit`, run after every backend change in this phase | Clean except the one documented pre-existing error (`serviceAccountKey.json`) |
+| `askalrt/functions` | not touched this phase | Not re-run — nothing in Ask ALRT was changed |
+| `frontend` | — | **Not run.** No `flutter` or `dart` binary in this environment (confirmed directly — `which flutter dart` finds neither). Every Dart change in this phase, including the new transit models, the shared icon helper, and both widget files, was verified only by manual inspection: reading the full modified files, cross-checking every parsed JSON field name against the verified `google.maps.routing.v2` proto source (not guessed), and confirming import/type consistency by hand. **None of it has been compiled, analyzed, or test-run.** |
+| `frontend/test/route_transit_details_test.dart` | not run (same reason) | A new pure-logic test file was **written** (`TransitVehicleType.fromApi`, `RouteStep.fromJson` parsing a realistic transit-step JSON payload including line/vehicle/stops/headsign, a non-transit step control case, and a malformed-`transitDetails` defensive case) but **could not be executed** in this environment. It is reasoned through by hand in the same commit's construction but has not been verified by an actual test run — flag this explicitly to whoever picks this up next, per the standing instruction not to claim Flutter tests passed when they cannot run here. |
+
+### 19.9 Real-device test matrix required (per the task's own list, not yet performed)
+
+None of the following have been performed — they require a real Android device, a real iPhone, and/or the live Google Cloud configuration from §19.7:
+
+1. Driving route — unchanged behavior, confirm no regression from the Places/Geocoding re-pointing.
+2. Walking route.
+3. Cycling route.
+4. Public transport route where transit is available — confirm the new line/vehicle/headsign/stop-count UI (§19.4/§19.5) renders correctly and matches what's actually running.
+5. A transit route with at least one transfer — confirm the walk/line/walk/line strip on the route-selection card correctly shows each leg.
+6. A route combining walking + public transport — confirm the walking-segment badge and the transit-segment badge both appear correctly ordered.
+7. A route where public transport is unavailable for that origin/destination/time — confirm the existing "greyed out with a reason" behavior (§19.5, unchanged) still works after the Places/Geocoding re-pointing.
+8. Alternate routes — confirm alternates still return correctly through the now-proxied Geocoding/Places calls feeding the origin/destination search.
+9. Saved locations — confirm the saved-location flow (which uses Geocoding/Places) still works end to end through the proxy.
+10. Location permission denied — confirm this is unaffected (no code in this phase touched permission handling).
+11. API failure — confirm the app's existing error handling still surfaces a sensible error when the backend proxy itself fails or times out (10s timeout, unchanged from the pre-existing proxy code), not just when Google fails.
+12. Offline/poor connection behavior — confirm the existing retry/offline handling (`dio_smart_retry`, already wired into the shared `_dio` instance) behaves the same now that Places/Geocoding go through one more network hop (app -> backend -> Google) than before.
+13. **Specific to this phase's own change**: once §19.7's Cloud Console restriction is actually turned on, re-verify Places/Geocoding (now backend-proxied, unaffected by client-side restriction) **and** Routes (still client-direct, now restriction-dependent) both still work on a real Play Store build and a real dev-flavor build — this is the one scenario that could newly break something if steps 3-4 of §19.7 are done out of order or incompletely.
+
+### 19.10 Remaining Maps issues (not addressed this phase, by design)
+
+- **Directions/Routes cannot be moved server-side without replacing `flutter_polyline_points`** — out of scope for "smallest practical correction"; flagged, not attempted.
+- **The internal backend geocoding used for hazard ingestion and family-location relabeling** (`google_map.service.ts`) was not touched — it's unrelated to the client-facing key question and was already server-side.
+- **Billing/quota alerting** on the Google Cloud project could not be verified or configured from this repository (§19.7 step 5).
+- **`headway`, `tripShortText`, and transit agency phone/URI** are available in Google's response but deliberately not surfaced (§19.6) — nothing in the app currently needs them; a future pass can add them without any new backend or API work since the data already flows through.
+- Everything in §19.9's real-device matrix remains genuinely unverified.
+
+### 19.11 Stop condition honored
+
+Per instruction, this phase stops here. No Admin Portal, no broad alert-engine work, and no deployment were started or attempted in this phase or any prior one.
