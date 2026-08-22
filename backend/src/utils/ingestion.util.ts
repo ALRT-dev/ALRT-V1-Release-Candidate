@@ -1512,9 +1512,20 @@ function createWAHazardFromWarning({
 
   const description = descriptionParts.join("\n");
 
-  // Generate ID from warning ID
+  // Generate ID. WA DFES publishes the same real incident on two separate
+  // feeds (warnings + incidents — both share the ExternalSourceId.waDfes
+  // source id). dfesIncidentNumber is the agency's own shared identifier
+  // and appears on both feeds for the same incident; warning.id is a
+  // warnings-feed-only identifier with no equivalent on the incidents
+  // feed. Prioritising dfesIncidentNumber here (matching
+  // createWAHazardFromItem's own priority below) means both feeds
+  // converge on the same hazard id whenever the agency's shared number is
+  // present, so the second feed's poll updates the existing row instead
+  // of creating a duplicate — this is a same-agency-ID match, not a geo/
+  // time heuristic, so it carries none of the false-merge risk a
+  // cross-source dedup key would (see the report's dedup section).
   const hazardId = `${ExternalSourceId.waDfes}-${
-    warning.id || dfesIncidentNumber
+    dfesIncidentNumber || warning.id
   }`;
 
   // Generate link to DFES incident if incident number is available

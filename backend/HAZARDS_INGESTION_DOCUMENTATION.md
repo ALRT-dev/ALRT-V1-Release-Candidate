@@ -1066,9 +1066,23 @@ Continuous Monitoring:
 If incident updated:
 - Re-normalize data (detect severity/description changes)
 - Update database record with new information
+- expiresAt is recomputed from the fresh severity band (getHazardExpiryDateFromSeverity),
+  so a confirmed downgrade (e.g. wording now says "contained"/"cleared") shrinks the
+  remaining window rather than leaving the original stronger-severity TTL in place
 ↓
-If incident removed from source:
-- Mark hazard as expired in database
+If incident is simply absent from a poll (not updated, not confirmed):
+- NOT actively detected or marked expired — there is no reconciliation pass that diffs
+  "previously seen IDs" against "IDs in this poll" for general sources (only the
+  severity-band-filtered sources, WAQI/Open-Meteo, have this — see the AQI example
+  below). The hazard rides out its last-computed severity-based expiresAt (max 48h
+  for a critical-band hazard) and then expires on that bound. This is a deliberate,
+  documented decision (V1 Reconciliation Report §21): actively guessing "this
+  disappeared from the source so the event must have ended" risks a false
+  "resolved" signal from a feed hiccup, pagination change, or format shift — worse
+  for a safety app than a bounded, conservative TTL that never claims more than it
+  knows. This section previously described an active removal-detection step that
+  does not exist in the code; corrected here to match the real, deliberately
+  conservative behaviour.
 ```
 
 ### Parallel Processing
