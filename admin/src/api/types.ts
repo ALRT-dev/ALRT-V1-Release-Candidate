@@ -91,6 +91,48 @@ export interface HazardMedia {
   isPrimary: boolean;
 }
 
+// These three are nested objects in the real response (confirmed against
+// getHazardsApplyingFiltersRaw's return shape in backend/src/services/
+// hazard.service.ts, Stage 8 audit) - AdminHazard used to declare them as
+// flat categoryName/sourceName/reportedByName/etc fields, which are never
+// actually present on the wire and silently rendered every user of them
+// as a fallback "-"/"Unknown" on every hazard, official or community.
+export interface AdminHazardCategoryRef {
+  id: string;
+  name: string | null;
+  description: string | null;
+  color: string | null;
+  parentId: string | null;
+  parent: { id: string; name: string | null; description: string | null; color: string | null } | null;
+}
+
+export interface AdminHazardSourceRef {
+  id: string;
+  name: string | null;
+  url: string | null;
+  shape: string | null;
+  advisoryText: string | null;
+  copyrightText: string | null;
+  copyrightLink: string | null;
+  license: {
+    id: string;
+    badgeText: string | null;
+    licenseText: string | null;
+    description: string | null;
+    link: string | null;
+    foregroundColor: string | null;
+    backgroundColor: string | null;
+  } | null;
+}
+
+export interface AdminHazardReporterRef {
+  id: string;
+  name: string | null;
+  xpPoints: number;
+  reliabilityScore: number;
+  reportsStatus: string;
+}
+
 export interface AdminHazard {
   id: string;
   title: string;
@@ -103,15 +145,11 @@ export interface AdminHazard {
   longitude: number | null;
   locationName: string | null;
   categoryId: string;
-  categoryName: string | null;
-  categoryColor: string | null;
-  categoryParentName: string | null;
+  category: AdminHazardCategoryRef | null;
   sourceId: string | null;
-  sourceName: string | null;
-  sourceUrl: string | null;
-  licenseBadgeText: string | null;
+  source: AdminHazardSourceRef | null;
   reportedById: string | null;
-  reportedByName: string | null;
+  reportedBy: AdminHazardReporterRef | null;
   isAwsCompliant: boolean;
   reviewStatus: HazardReviewStatus;
   reviewFeedback: string | null;

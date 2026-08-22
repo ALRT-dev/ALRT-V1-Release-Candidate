@@ -55,20 +55,20 @@ export const HazardDetailModal = ({
             <tr>
               <th>Category</th>
               <td>
-                {hazard.categoryName ?? "-"}
-                {hazard.categoryParentName ? ` (${hazard.categoryParentName})` : ""}
+                {hazard.category?.name ?? "-"}
+                {hazard.category?.parent?.name ? ` (${hazard.category.parent.name})` : ""}
               </td>
             </tr>
             <tr>
               <th>Source</th>
               <td>
-                {hazard.sourceName ?? "None (community report)"}
-                {hazard.licenseBadgeText ? ` · ${hazard.licenseBadgeText}` : ""}
+                {hazard.source?.name ?? "None (community report)"}
+                {hazard.source?.license?.badgeText ? ` · ${hazard.source.license.badgeText}` : ""}
               </td>
             </tr>
             <tr>
               <th>Reported by</th>
-              <td>{hazard.reportedByName ?? "-"}</td>
+              <td>{hazard.reportedBy?.name ?? "-"}</td>
             </tr>
             <tr>
               <th>Location</th>

@@ -108,7 +108,7 @@ export const AlertsPage = () => {
                 <td>
                   <SeverityBadge severity={hazard.severity} />
                 </td>
-                <td>{hazard.sourceName ?? hazard.reportedByName ?? "-"}</td>
+                <td>{hazard.source?.name ?? hazard.reportedBy?.name ?? "-"}</td>
                 <td>
                   <ReviewStatusBadge status={hazard.reviewStatus} />
                 </td>
