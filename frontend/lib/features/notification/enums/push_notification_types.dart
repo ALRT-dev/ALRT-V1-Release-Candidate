@@ -17,4 +17,5 @@ enum PushNotificationType {
   familyCircleUpdate,
   familyLocationRequest,
   familyLocationShared,
+  familyScheduledCheckInPrompt,
 }

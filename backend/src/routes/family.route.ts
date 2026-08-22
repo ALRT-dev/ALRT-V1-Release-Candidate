@@ -55,6 +55,7 @@ import {
   respondToLocationRequestController,
   checkInController,
   requestCheckInController,
+  cancelCheckInRequestController,
   listCheckInsController,
   createScheduledCheckInController,
   listScheduledCheckInsController,
@@ -152,6 +153,10 @@ familyRouter.post(
   requestCheckInController,
 );
 familyRouter.get("/check-ins", listCheckInsController);
+familyRouter.delete(
+  "/check-in/request/:requestId",
+  cancelCheckInRequestController,
+);
 
 // Scheduled check-ins (daily routine; respond via the normal POST /check-in)
 familyRouter.post(

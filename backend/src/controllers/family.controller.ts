@@ -499,6 +499,24 @@ export const requestCheckInController = async (
   }
 };
 
+export const cancelCheckInRequestController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const { requestId } = req.params;
+    if (!requestId) {
+      throw new HttpError(400, "requestId is required");
+    }
+    const result = await familyService.cancelCheckInRequest(userId, requestId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const listCheckInsController = async (
   req: Request,
   res: Response,

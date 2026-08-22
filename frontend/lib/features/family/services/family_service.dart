@@ -172,6 +172,7 @@ class FamilyService {
     final double? longitude,
     final String? requestId,
     final String? hazardId,
+    final String? circleId,
   }) {
     return _familyRepository.sendFamilyCheckIn(
       status: status,
@@ -180,6 +181,7 @@ class FamilyService {
       longitude: longitude,
       requestId: requestId,
       hazardId: hazardId,
+      circleId: circleId,
     );
   }
 
@@ -191,6 +193,12 @@ class FamilyService {
       message: message,
       hazardId: hazardId,
     );
+  }
+
+  Future<Either<void, AppError>> cancelFamilyCheckInRequest({
+    required final String requestId,
+  }) {
+    return _familyRepository.cancelFamilyCheckInRequest(requestId: requestId);
   }
 
   Future<Either<List<FamilyCheckIn>, AppError>> getFamilyCheckIns({

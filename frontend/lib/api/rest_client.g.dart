@@ -1915,6 +1915,25 @@ class _RestClient implements RestClient {
   }
 
   @override
+  Future<void> cancelFamilyCheckInRequest({required String requestId}) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{};
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<void>(
+      Options(method: 'DELETE', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/family/check-in/request/${requestId}',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    await _dio.fetch<void>(_options);
+  }
+
+  @override
   Future<FamilyScheduledCheckIn> createFamilyScheduledCheckIn({
     required String timeOfDay,
     String? mode,

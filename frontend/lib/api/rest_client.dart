@@ -400,6 +400,11 @@ abstract class RestClient {
     @Query('circleId') final String? circleId,
   });
 
+  @DELETE(kUrlFamilyCheckInRequestCancel)
+  Future<void> cancelFamilyCheckInRequest({
+    @Path() required final String requestId,
+  });
+
   @POST(kUrlFamilyScheduledCheckIns)
   Future<FamilyScheduledCheckIn> createFamilyScheduledCheckIn({
     @Field() required final String timeOfDay,

@@ -113,11 +113,16 @@ abstract class FamilyRepository {
     final double? longitude,
     final String? requestId,
     final String? hazardId,
+    final String? circleId,
   });
 
   Future<Either<FamilyCheckInRequest, AppError>> requestFamilyCheckIn({
     final String? message,
     final String? hazardId,
+  });
+
+  Future<Either<void, AppError>> cancelFamilyCheckInRequest({
+    required final String requestId,
   });
 
   Future<Either<List<FamilyCheckIn>, AppError>> getFamilyCheckIns({
@@ -607,6 +612,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
     double? longitude,
     String? requestId,
     String? hazardId,
+    String? circleId,
   }) {
     return runAsyncCall(
       name: 'sendFamilyCheckIn',
@@ -618,7 +624,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
           longitude: longitude,
           requestId: requestId,
           hazardId: hazardId,
-          circleId: _circleId,
+          circleId: circleId ?? _circleId,
         );
         return Success(result);
       },
@@ -640,6 +646,20 @@ class FamilyRepositoryImpl implements FamilyRepository {
           circleId: _circleId,
         );
         return Success(result);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<void, AppError>> cancelFamilyCheckInRequest({
+    required String requestId,
+  }) {
+    return runAsyncCall(
+      name: 'cancelFamilyCheckInRequest',
+      future: () async {
+        await _restClient.cancelFamilyCheckInRequest(requestId: requestId);
+        return const Success(null);
       },
       onError: Failure.new,
     );

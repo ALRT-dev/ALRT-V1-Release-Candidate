@@ -241,6 +241,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               return;
             case PushNotificationType.familyCheckIn:
             case PushNotificationType.familyCheckInRequest:
+            case PushNotificationType.familyScheduledCheckInPrompt:
             case PushNotificationType.familyPlaceEvent:
             case PushNotificationType.familySos:
             case PushNotificationType.familySosResponse:

@@ -13,6 +13,7 @@ import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -69,7 +70,7 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
       body: ListView(
         padding: EdgeInsets.all(20.spMin),
         children: [
-          if (request != null) _askCardBuilder(request),
+          if (request != null) _askCardBuilder(context, ref, request, circle),
           if (request != null) SizedBox(height: 16.spMin),
           _labelBuilder(waiting == 0 ? 'EVERYONE' : 'WAITING ON $waiting'),
           SizedBox(height: 10.spMin),
@@ -118,9 +119,15 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
     );
   }
 
-  Widget _askCardBuilder(final FamilyCheckInRequest request) {
+  Widget _askCardBuilder(
+    final BuildContext context,
+    final WidgetRef ref,
+    final FamilyCheckInRequest request,
+    final FamilyCircle circle,
+  ) {
     final who = request.requestedBy?.displayName ?? 'Someone';
     final when = request.createdAt;
+    final canCancel = request.requestedById == circle.myMemberId;
     return Container(
       padding: EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
@@ -148,8 +155,31 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
               ),
             ),
           ),
+          if (canCancel)
+            TextButton(
+              onPressed: () => _cancelAsk(context, ref, request.id),
+              child: const Text('Cancel'),
+            ),
         ],
       ),
+    );
+  }
+
+  Future<void> _cancelAsk(
+    final BuildContext context,
+    final WidgetRef ref,
+    final String requestId,
+  ) async {
+    await showConfirmationSheet(
+      context: context,
+      title: 'Cancel this check-in ask?',
+      description:
+          'Nobody in your circle will be asked to check in for this request '
+          'anymore. Anyone who already answered keeps their check-in.',
+      confirmButtonText: 'Cancel ask',
+      onPressedConfirm: (_, __) {
+        ref.read(providerOfFamily.notifier).cancelCheckInRequest(requestId);
+      },
     );
   }
 

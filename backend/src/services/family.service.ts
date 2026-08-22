@@ -505,8 +505,12 @@ export const leaveCircle = async (userId: string, circleId?: string) => {
     membership.nickname ?? undefined,
   ).catch((error) => console.error("SOS list prune failed on leave:", error));
 
+  const leaverName = membership.nickname || "A family member";
   await notifyCircle({
     circleId: membership.circleId,
+    title: "Family circle update",
+    body: `${leaverName} left your family circle`,
+    type: PushNotificationType.familyCircleUpdate,
     socketEvent: SocketEvent.familyCircleUpdate,
     socketData: { circleId: membership.circleId },
   });
@@ -805,8 +809,12 @@ export const removeMember = async (userId: string, memberId: string) => {
     event: SocketEvent.familyCircleUpdate,
     data: { circleId: membership.circleId, removed: true },
   });
+  const removedName = target.nickname || "A family member";
   await notifyCircle({
     circleId: membership.circleId,
+    title: "Family circle update",
+    body: `${removedName} was removed from your family circle`,
+    type: PushNotificationType.familyCircleUpdate,
     socketEvent: SocketEvent.familyCircleUpdate,
     socketData: { circleId: membership.circleId },
   });
@@ -1197,6 +1205,41 @@ export const requestCheckIn = async (
   });
 
   return request;
+};
+
+/**
+ * Cancels an outstanding "ask everyone to check in" request. Only the
+ * member who asked, or the circle owner, may cancel it. Deleting the row
+ * is enough on its own: FamilyCheckIn.requestId is onDelete: SetNull, so
+ * any check-in that already answered this request keeps its own record,
+ * it just stops being attributed to a now-cancelled ask.
+ */
+export const cancelCheckInRequest = async (
+  userId: string,
+  requestId: string,
+) => {
+  const request = await prisma.familyCheckInRequest.findUnique({
+    where: { id: requestId },
+  });
+  if (!request) {
+    throw new HttpError(404, "Check-in request not found");
+  }
+  const membership = await requireMembership(userId, request.circleId);
+  if (request.requestedById !== membership.id && membership.role !== "owner") {
+    throw new HttpError(
+      403,
+      "Only the person who asked, or the circle owner, can cancel this request",
+    );
+  }
+  await prisma.familyCheckInRequest.delete({ where: { id: requestId } });
+
+  await notifyCircle({
+    circleId: request.circleId,
+    socketEvent: SocketEvent.familyCircleUpdate,
+    socketData: { circleId: request.circleId },
+  });
+
+  return { cancelled: true };
 };
 
 export const listRecentCheckIns = async (

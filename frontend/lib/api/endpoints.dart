@@ -102,6 +102,7 @@ const kUrlFamilyLocationRequestRespond =
     '$kUrlFamily/location-requests/{requestId}/respond';
 const kUrlFamilyCheckIn = '$kUrlFamily/check-in';
 const kUrlFamilyCheckInRequest = '$kUrlFamilyCheckIn/request';
+const kUrlFamilyCheckInRequestCancel = '$kUrlFamilyCheckInRequest/{requestId}';
 const kUrlFamilyCheckIns = '$kUrlFamily/check-ins';
 const kUrlFamilyScheduledCheckIns = '$kUrlFamily/scheduled-check-ins';
 const kUrlFamilyScheduledCheckIn =

@@ -881,6 +881,14 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   // ---------------------------- CHECK-INS ----------------------------
 
   /// Sends a check-in with the user's current (last known) location attached.
+  ///
+  /// A check-in answering a specific request (`requestId` set, e.g. a
+  /// scheduled prompt or someone's "ask everyone") stays scoped to that
+  /// request's own circle — answering it must not silently mark the user
+  /// safe in circles nobody asked in. A proactive "I'm Safe" tap (no
+  /// pending request) is the app's one-tap-to-everyone action per the
+  /// onboarding pitch and the Ask ALRT system prompt's own description of
+  /// the feature, so it fans out to every circle the user belongs to.
   Future<void> checkIn({
     final FamilyCheckInStatus status = FamilyCheckInStatus.safe,
     final String? message,
@@ -891,16 +899,60 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         .getLastKnownOrCurrentPosition();
     if (!mounted) return;
 
-    final result = await _familyService.sendFamilyCheckIn(
-      status: status,
-      message: message,
-      latitude: position?.latitude,
-      longitude: position?.longitude,
-      requestId: state.circle?.latestCheckInRequest?.id,
+    final requestId = state.circle?.latestCheckInRequest?.id;
+    final targetCircleIds = requestId != null
+        ? <String>[]
+        : state.circles.map((c) => c.circleId).toSet().toList();
+
+    if (targetCircleIds.length <= 1) {
+      final result = await _familyService.sendFamilyCheckIn(
+        status: status,
+        message: message,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        requestId: requestId,
+      );
+      if (!mounted) return;
+
+      result.when(
+        (checkInResult) {
+          AnalyticsService.familyCheckIn();
+          _appendCheckIn(checkInResult);
+          state = state.copyWith(
+            checkInState: const FamilyActionState.success(),
+          );
+        },
+        (error) {
+          state = state.copyWith(checkInState: FamilyActionState.error(error));
+        },
+      );
+      return;
+    }
+
+    // More than one circle and no specific request to answer: broadcast.
+    final results = await Future.wait(
+      targetCircleIds.map(
+        (circleId) => _familyService.sendFamilyCheckIn(
+          status: status,
+          message: message,
+          latitude: position?.latitude,
+          longitude: position?.longitude,
+          circleId: circleId,
+        ),
+      ),
     );
     if (!mounted) return;
 
-    result.when(
+    // The currently-selected circle's own result drives the visible check-in
+    // feed and success/error state; the other circles' sends are best-effort
+    // fan-out (each already reached its own circle regardless).
+    final selectedId =
+        _ref.read(providerOfSelectedCircleId) ?? state.circle?.id;
+    final primaryIndex = selectedId == null
+        ? 0
+        : targetCircleIds.indexOf(selectedId).clamp(0, results.length - 1);
+
+    results[primaryIndex].when(
       (checkInResult) {
         AnalyticsService.familyCheckIn();
         _appendCheckIn(checkInResult);
@@ -926,6 +978,39 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       (request) {
         state = state.copyWith(
           circle: state.circle?.copyWith(latestCheckInRequest: request),
+          requestCheckInState: const FamilyActionState.success(),
+        );
+      },
+      (error) {
+        state = state.copyWith(
+          requestCheckInState: FamilyActionState.error(error),
+        );
+      },
+    );
+  }
+
+  /// Cancels an outstanding "ask everyone to check in" request the caller
+  /// (or the circle owner) sent. Only the requester/owner can call this
+  /// server-side; the request simply stops being anyone's "latest" once
+  /// gone, so the roll-call screen drops it on the next load.
+  Future<void> cancelCheckInRequest(final String requestId) async {
+    state = state.copyWith(
+      requestCheckInState: const FamilyActionState.loading(),
+    );
+
+    final result = await _familyService.cancelFamilyCheckInRequest(
+      requestId: requestId,
+    );
+    if (!mounted) return;
+
+    result.when(
+      (_) {
+        final current = state.circle;
+        final shouldClear = current?.latestCheckInRequest?.id == requestId;
+        state = state.copyWith(
+          circle: shouldClear
+              ? current!.copyWith(latestCheckInRequest: null)
+              : current,
           requestCheckInState: const FamilyActionState.success(),
         );
       },
