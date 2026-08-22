@@ -1,12 +1,14 @@
 # ALRT V1 Reconciliation Report
 
-**Status:** Stage 3 (first controlled implementation phase) complete. Application code has now been changed in this repository only — see §17. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
+**Status:** Stage 4 (audit-and-complete pass over Family, check-ins, Mark Safe, location snapshots, journey sharing, SOS, SOS live location, Child Mode, UI/UX consistency, and privacy/safety) complete — see §18. Application code has now been changed in this repository only — see §17 and §18. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
 **Scope:** `ALRT-dev/frontendV2`, `ALRT-dev/backendV2`, `ALRT-dev/askalrt`, `ALRT-dev/V2-Claude`, `ALRT-dev/v3`, plus `ALRT-dev/ALRT-V1-Release-Candidate` itself. `ALRT-dev/widget` was pulled in read-only mid-audit because every other repo points to it as the true frontend baseline (see §1). Stage 2 additionally pulled in `ALRT-dev/alrt`, `ALRT-dev/ALRT-screen`, `ALRT-dev/mattv2`, `ALRT-dev/occulo`, `ALRT-dev/glasses`, `ALRT-dev/watchinterface` read-only, to hunt for a missing Admin Portal (see §15).
 **Method:** Full local clones with ~200 commits of history fetched per branch (every branch that exists in each repo), `git log`/`diff`/`show` history analysis, and targeted source reading across five parallel deep-dive passes (one per repo) plus manual cross-repo verification. Not every file in every repo was read line-by-line; large, low-risk areas (asset files, generated lockfiles, vendored code) were sampled rather than exhaustively reviewed.
 
 > **Stage 2 update:** the product owner has now ruled on the numeric conflicts Stage 1 flagged (§6.1, §10.D — see §11), and four follow-up investigations have resolved most of Stage 1's open questions: the frontendV2-vs-V2-Claude comparison (§12), the Ask ALRT architecture decision (§13), a verified CVE/security-fix inventory that corrects two Stage 1 errors (§14), and a definitive check on the four "missing backend capability" items (§15). §16 gives the recommended implementation sequence. Original Stage 1 content below is left intact as the historical record; where Stage 2 supersedes or corrects it, this is called out inline and in the new sections.
 
-> **Stage 3 update (this pass):** §16's implementation order has now actually been executed, for the small/low-risk/clearly-agreed items only. This repository (`frontend/`, `backend/`, `askalrt/` subdirectories) now contains a real, building, testing V1 baseline for the first time — see §17 for the full commit-by-commit record, test results, and what remains open (only the Google Maps architectural decision and the net-new Admin Portal build, both explicitly deferred, not attempted).
+> **Stage 3 update:** §16's implementation order has now actually been executed, for the small/low-risk/clearly-agreed items only. This repository (`frontend/`, `backend/`, `askalrt/` subdirectories) now contains a real, building, testing V1 baseline for the first time — see §17 for the full commit-by-commit record, test results, and what remains open (only the Google Maps architectural decision and the net-new Admin Portal build, both explicitly deferred, not attempted).
+
+> **Stage 4 update (this pass):** an audit-then-complete phase over the eleven Family/SOS-area features already promised by the V1 baseline — Family lifecycle, daily check-ins, Mark Yourself Safe, location snapshots, journey sharing, SOS, SOS live location, Child Mode, UI/UX consistency, and privacy/safety. Five parallel read-only audits were run first (one per feature cluster); this pass then implemented every well-scoped gap they found, and made no change where the audits found the feature already correct. Nothing net-new was built (no Admin Portal, no Google Maps decision, no broad alert-engine change) — see §18 for the full record.
 
 ---
 
@@ -550,3 +552,120 @@ Per instruction, this phase left the Maps implementation exactly as imported: bu
 5. **Merge in `claude/alrt-data-export-tzq4ex`'s unmerged backend work** (CSV/GeoJSON export, Intel Centre sources spec) — named in the original backend-baseline recommendation (§10.B) but deliberately left out of this phase's explicit small-change scope; worth a dedicated pass now that the baseline is otherwise settled.
 6. **Real-device QA** (§16 step 7) — home-screen widgets have still never been confirmed to actually compile/run on real Android/iOS hardware; the two untested SOS product rules and the location-snapshot consent UX still need real-device verification.
 7. Only after 1-6: proceed to deployment staging (§16 step 8), unchanged from the prior recommendation.
+
+---
+
+## 18. Stage 4 — Audit and complete: Family, check-ins, Mark Safe, snapshots, journeys, SOS, Child Mode (executed)
+
+**Scope of this phase, as instructed:** audit and *complete* existing functionality — not rebuild it — across eleven feature areas: Family lifecycle, daily check-ins, Mark Yourself Safe, location snapshots, journey sharing, SOS, SOS live location, Child Mode, UI/UX consistency, privacy/safety, and testing. Explicitly **not** attempted: Google Maps architecture, the Admin Portal, broad alert-engine changes, or deployment. No original repo was touched — every change below is local to `ALRT-V1-Release-Candidate`, on branch `claude/alrt-v1-rc-audit-a3gmai`.
+
+**Method:** five parallel read-only audit passes (Family/check-ins/Mark Safe; location snapshots; journey sharing; SOS/SOS live location; Child Mode/UI-UX/privacy-safety), each tracing frontend provider → repository → REST client → backend route → controller → service → Prisma schema for its area, and each checked against the specific rules in this phase's own instructions and the locked `frontend/CLAUDE.md`/`backend/CLAUDE.md` product rules. Every finding was triaged into IMPLEMENT (well-scoped, in-area) or FLAG (out of scope, needs new architecture, or needs real-device verification) before any code was written. Implementation then proceeded in four small, area-scoped commits.
+
+### 18.1 Commit-by-commit record
+
+| # | Commit | What | Area |
+|---|---|---|---|
+| 1 | `bab6e187ca28069392d192bda55bd4613ed9bd42` | Push notifications for leave/remove-member; cancel a sent check-in request (backend service/controller/route + frontend provider/repository/service/REST client/UI); fixed a wrong `.circleId`→`.id` field reference; added a missing `familyScheduledCheckInPrompt` push-type case; Mark Safe now fans out to every circle only when it's a proactive check-in with no specific pending request | Family / check-ins / Mark Safe |
+| 2 | `9e7f408ded0bd7459668826089e5fca9d4f439bb` | Bulk location-snapshot request to selected/whole-group members ("Ask everyone"); cancel a sent location request; expired-but-still-`pending` requests now get flipped to `expired` by the existing purge job; fixed a client-side pin-staleness bug (`hasLiveLocation` didn't check expiry) | Location snapshots |
+| 3 | `9ff02986e9b0ef1bc5fe299a42e4cb82e5e383d6` | New targeted push notification to the specific recipients a journey was shared with (whole-circle socket refresh kept alongside it, since that payload carries no journey detail) | Journey sharing |
+| 4 | `f475115ee30f1da538253f53d4be4a7ce9018c87` | SOS live-location choice: new `isLive` field (schema + migration + validator + service, required not optional) so the sender must explicitly choose whether live sharing runs; frontend toggle on the SOS screen; two-tier Stop SOS confirmation (a second, separate confirmation specifically about stopping live location, only shown when live is actually active); banner/header text corrected to not claim live sharing when it isn't running | SOS / SOS live location |
+
+Group 5 (Child Mode) produced **no commit** — the audit concluded the existing architecture already satisfies the requirement without a code change (§18.6). Group 6 (this report update) is the closing documentation commit.
+
+### 18.2 What the audits found already complete (no change made)
+
+- **Family lifecycle**: create/invite/accept/membership/settings/map/notifications, the 8-seat cap (`MAX_SEATS_TOTAL`), and the 4-owned-circles cap (`MAX_OWNED_CIRCLES`) were all already correctly enforced **in the backend service layer**, not just the UI — `family.service.ts` computes seat usage server-side before allowing a join/invite-accept, so a modified or bypassed client cannot exceed either cap. Invited members already never see an ALRT+ paywall or need their own purchase (confirmed both in `backend/CLAUDE.md`'s own locked rule and in the actual join-flow code) — the audit found no unrestricted-privilege leak.
+- **Daily check-ins**: scheduled-time creation, expected-response tracking, sent/received/waiting state, and the no-response/cancelled/schedule-change transitions were all already implemented and already scoped to a location/time snapshot only, never continuous tracking. One doc/code discrepancy was found and deliberately **not** "fixed": `backend/CLAUDE.md` says automatic scheduled check-ins should carry a location snapshot, but the actual code sends no location on the automatic path — changing that would mean auto-transmitting location without a per-instance tap, which directly violates this phase's own "location must never automatically transmit" rule. Flagged for product-owner attention rather than code-changed toward the riskier reading.
+- **Mark Yourself Safe**: already textually, visually, and structurally distinct from SOS (own model, own button colour/copy, no emergency-service behavior) before this phase touched it; the only real gap was the "send to everyone in one tap" case not actually fanning out to every circle, closed in commit 1.
+- **Location snapshots**: the core privacy rule — a request never auto-transmits, the recipient must physically approve/send — was already correctly enforced end to end (no code path exists that captures or sends a location without an explicit recipient action). 1-hour expiry, map display, and single-recipient/selected-member requesting were already present. The gaps were entirely on the "whole group at once" and "cancel a sent request" convenience paths (closed in commit 2), plus the stale-status/pin-staleness bugs (also closed in commit 2).
+- **Journey sharing**: 30/60-minute start options, +60-minute extension, and the 240-minute (4-hour) hard maximum were already enforced **in the backend** (`ALLOWED_START_MINUTES`, `MAX_BLOCK_MINUTES`, `MAX_TOTAL_MINUTES`), not just the frontend — a modified client cannot exceed 4 hours or extend indefinitely. The 15-minute start option was already added in Stage 3 (§17.3) and reconfirmed present here. Manual stop, recipient visibility, map display, active-state location updates, and live sharing actually stopping when a journey ends were all already correct. The only gap was recipients not getting a targeted notification when a journey started (closed in commit 3).
+- **SOS**: the ≥3-second hold-to-trigger (no accidental tap), recipients being pre-configured/user-chosen rather than ad hoc, and the complete absence of any emergency-service auto-dispatch path were all already correct. "Seen" was already automatic and "On my way" already deliberate and already did **not** auto-reveal the responder's own location — confirmed by reading the responder-status code path directly, not assumed. The two real gaps — the sender never being asked whether live location should run, and Stop SOS not carrying a second confirmation specifically about live location — were the two headline items closed in commit 4.
+- **Privacy/safety cross-cutting checks**: no indefinite live tracking (4-hour cap enforced backend-side for both journeys and SOS live), no automatic emergency-service call anywhere in the codebase, no background location tracking triggered by a snapshot request or a check-in, and no silent location sharing (every transmission path requires an explicit user action) were all independently reconfirmed by the audits. The one live gap in this list — SOS being able to silently continue live sharing past what the sender actually intended, because the sender was never asked — is the same gap closed in commit 4.
+
+### 18.3 What was changed — file-by-file
+
+**Family / check-ins / Mark Safe (commit `bab6e18`):**
+- `backend/src/services/family.service.ts` — `leaveCircle`/`removeMember` now pass `title`/`body`/`type` to `notifyCircle()` (previously socket-only, so the push branch never fired); new `cancelCheckInRequest(userId, requestId)` (requester-or-owner only, deletes the request, relies on the existing `onDelete: SetNull` relation).
+- `backend/src/controllers/family.controller.ts`, `backend/src/routes/family.route.ts` — new `DELETE /check-in/request/:requestId`.
+- `frontend/lib/features/family/providers/family_provider.dart` — `checkIn()` fans out across all circles only for a proactive, no-specific-request "I'm Safe" tap; answering a specific request stays scoped to that request's own circle; new `cancelCheckInRequest(String requestId)`. Fixed `.circleId` → the correct `.id` field on `FamilyCircle`.
+- `frontend/lib/features/family/repositories/family_repository.dart`, `services/family_service.dart` — threaded optional `circleId` through `sendFamilyCheckIn`; added `cancelFamilyCheckInRequest`.
+- `frontend/lib/api/endpoints.dart`, `rest_client.dart`, `rest_client.g.dart` — new `kUrlFamilyCheckInRequestCancel` + `@DELETE cancelFamilyCheckInRequest`, hand-written generated implementation mirroring the existing `deleteFamilyScheduledCheckIn` shape.
+- `frontend/lib/features/family/views/screens/family_check_in_roll_call_screen.dart` — "Cancel" button, visible only to the request's own creator, using the existing `showConfirmationSheet` pattern.
+- `frontend/lib/features/notification/enums/push_notification_types.dart`, `frontend/lib/features/home/views/screens/home_screen.dart` — added the `familyScheduledCheckInPrompt` case that already existed backend-side but was missing frontend-side.
+
+**Location snapshots (commit `9e7f408`):**
+- `backend/src/services/family_alert.service.ts` — `createLocationRequestsForMembers(userId, targetMemberIds[])` (fans out via `Promise.allSettled`, returns created/failed); `cancelLocationRequest(userId, requestId)` (requester-only, sets `status: "declined"` — no new enum value, no migration needed); `purgeExpiredFamilyLocationData()` now also flips stale `pending` requests to `expired`.
+- `backend/src/validators/family.validator.ts` — `bulkFamilyLocationRequestSchema` (1-50 member ids).
+- `backend/src/controllers/family.controller.ts`, `backend/src/routes/family.route.ts` — new `POST /location-requests` (bulk), `DELETE /location-requests/:requestId` (cancel).
+- `frontend/lib/features/family/models/family_models.dart` — `hasLiveLocation` now also checks `locationExpiresAt`, fixing a within-session stale-pin bug.
+- `frontend/lib/api/endpoints.dart`/`rest_client.dart`/`rest_client.g.dart`, `repositories/family_repository.dart`, `services/family_service.dart`, `providers/family_provider.dart` — full-stack plumbing for `createFamilyLocationRequestsBulk` and `cancelFamilyLocationRequest`; new provider methods `requestMembersLocation(memberIds)`, `cancelLocationRequest(requestId)`.
+- `frontend/lib/features/family/views/screens/family_hub_screen.dart` — "Ask everyone" button next to the Members section header.
+
+**Journey sharing (commit `9ff0298`):**
+- `backend/src/models/push_notification_types.ts` — new `familyJourneyShared` type.
+- `backend/src/services/family_journey.service.ts` — `startJourney` sends a new targeted push to the picked recipients (title/body vary by live/snap-points), alongside the pre-existing whole-circle socket refresh (kept, deliberately — its payload carries no journey detail, so broadcasting it is not a privacy issue, and removing it risked breaking other UI that depends on the generic refresh signal).
+- `frontend/lib/features/notification/enums/push_notification_types.dart`, `home_screen.dart` — matching `familyJourneyShared` case.
+
+**SOS / SOS live location (commit `f475115`):**
+- `backend/prisma/schema.prisma` + new migration `20260808000000_sos_live_location_choice/migration.sql` — `FamilySosEvent.isLive Boolean @default(true)`. `npx prisma generate` re-run.
+- `backend/src/validators/family.validator.ts` — `triggerFamilySosSchema.isLive` is **required**, not optional, so a sender must explicitly choose every time.
+- `backend/src/services/family.service.ts` — `triggerSos` takes and persists `isLive`.
+- `frontend/lib/features/family/models/family_models.dart`/`.g.dart`/`.freezed.dart` — `FamilySosEvent.isLive` (defaults `true` for backward JSON compatibility with any in-flight event predating this field); the `.freezed.dart` edit was hand-mirrored field-for-field against `FamilyJourney.isLive`'s already-proven generated pattern, not invented.
+- `frontend/lib/features/family/views/screens/family_sos_screen.dart` — new live-location `Switch` (default on) on the SOS screen; pre/post-send copy branches on the choice; `_fireSos()` passes `isLive`.
+- `frontend/lib/features/family/providers/family_provider.dart`, `repositories/family_repository.dart`, `services/family_service.dart`, `rest_client.dart`/`.g.dart` — `isLive` threaded through; `_startSosLiveShare()` now only runs `if (isLive)`.
+- `frontend/lib/features/family/views/screens/family_sos_receiver_screen.dart` — Stop SOS is now two-tier: tier 1 always asks "Stop your SOS?"; if confirmed **and** `sos.isLive`, a second, separate confirmation asks specifically "Also stop sharing your live location?" before anything is actually resolved. Header/live-map text corrected to reflect `sos.isLive` rather than assuming live is always on.
+- `frontend/lib/features/family/views/screens/family_hub_screen.dart` — the persistent SOS banner ("Your SOS is live/active") corrected to match `sos.isLive` instead of always saying "live".
+
+### 18.4 Child Mode — audited, no change made
+
+The audit read `child_mode_screen.dart` and its provider in full. Conclusion: the existing architecture already satisfies what this phase asks for, without a new backend or a new account type:
+
+- Child Mode is a **restriction toggle on the parent's own account/device**, not a separate child account — there is no account-creation path for a child at all, so "child may not have an email address" is satisfied structurally (there is nothing to enter an email into), not by a validation rule that could be bypassed.
+- The parent controls the child's experience directly (what's restricted, PIN-gated exit) rather than the child receiving the unrestricted adult app.
+- Per Stage 2's own ruling (§15), a missing dedicated Child Mode **backend** (separate child identities, parent-child linkage as a first-class backend concept) was explicitly established as **not a V1 blocker**. Building that now would mean new backend architecture beyond "complete existing functionality," which this phase's own instructions rule out.
+
+No code was changed for Child Mode in this phase. This is a verified conclusion, not a skipped item.
+
+### 18.5 UI/UX consistency — audited, no change made
+
+Mark Safe, Snapshot, Journey Sharing, and SOS were each independently confirmed — across all five audits — to already use distinct colours, copy, button shapes, and confirmation flows: Mark Safe (green "I'm Safe" button, its own `FamilyCheckIn` model), Snapshot (its own consent-sheet-driven flow), Journey Sharing (its own screen and duration-selection sheet), SOS (red/white hold-to-trigger button, its own screens and push types). None of the four could plausibly be mistaken for another. No redesign was performed or needed; this phase's own instruction not to redesign unrelated screens was honored by making no UI change beyond what §18.3's specific gaps required.
+
+### 18.6 Privacy/safety — final synthesis
+
+All items in this phase's privacy/safety checklist were verified, most already correct before this phase and the remainder closed by commit `f475115`:
+
+| Check | Status |
+|---|---|
+| No indefinite live tracking | Already enforced backend-side (4-hour caps on both journeys and SOS live) |
+| No automatic location transmission | Already enforced (every transmission requires an explicit recipient action) |
+| No automatic emergency-service call | Already true — no such code path exists anywhere in the codebase |
+| No responder-location exposure via "On my way" | Already true, confirmed by reading the responder-status code directly |
+| No silent location sharing | Already true |
+| No background tracking from snapshot requests | Already true |
+| No background tracking from check-ins | Already true |
+| Sender always chooses whether SOS live location runs | **Closed this phase** — was previously assumed-on with no choice |
+| Stop SOS gives a clear, correctly-tiered confirmation | **Closed this phase** — was previously a single generic confirmation regardless of live state |
+
+### 18.7 Tests run
+
+| Component | Command | Result |
+|---|---|---|
+| `backend` | `npx tsc --noEmit` | Clean except the one documented pre-existing error (`serviceAccountKey.json`) — run after every single change in this phase, not just once at the end, and confirmed to introduce zero new errors at each step |
+| `backend` | `npx prisma generate` (after the `isLive` migration) | Clean |
+| `backend` | dedicated test suite | None exists (`npm test` → "Missing script: test") — unchanged from Stage 3, not a gap introduced here |
+| `askalrt/functions` | `npm test` (`jest`) | **31/31 passing** — re-run for completeness even though nothing in Ask ALRT was touched this phase; confirms Stage 3's work is still intact |
+| `frontend` | — | **Not run.** No `flutter` binary in this environment (`which flutter` → not found). Every Dart change in this phase — including the hand-edited `family_models.freezed.dart` — was verified only by manual inspection: reading the full modified files, and for generated code specifically, locating and mirroring an already-proven-correct pattern elsewhere in the same generated file (`FamilyJourney.isLive`) rather than freehand-writing Freezed/Retrofit boilerplate. This is a real, standing limitation, not a formality — none of the Dart changes in this phase have been compiled, analyzed, or test-run. |
+
+No new automated tests were added in this phase — every change either extends existing, already-tested service functions with a straightforward new parameter (e.g. `isLive`, bulk fan-out over an existing single-item function) or is UI-only, and the environment cannot run `flutter test` to exercise it either way. This is a gap for the next phase to close once real Flutter tooling is available, not a decision that testing wasn't needed.
+
+### 18.8 Remaining gaps and what needs real-device testing
+
+- **Low-battery-aware SOS live-location throttling** was not implemented — it would need a new native (platform-channel) dependency that cannot be verified without real Flutter/Android/iOS tooling. Deferred to a real-device follow-up phase, not attempted here to avoid guessing at an unverifiable native integration.
+- **No dedicated "my sent location requests" cancel screen.** The backend service/controller/route and the full frontend provider/repository/service/REST-client plumbing for cancelling a sent location request are built and ready (`cancelLocationRequest`), but there was no existing UI surface to hang a cancel button off for a *sent* request specifically (as opposed to the check-in cancel button, which had an obvious existing home in `family_check_in_roll_call_screen.dart`). Flagged as a small follow-up UI task, not built here since it would mean adding a new screen/section rather than completing an existing one.
+- **Everything new in this phase needs real-device confirmation**, per the standing Flutter-tooling gap: the SOS live-location toggle, the two-tier Stop SOS confirmation flow, the "Ask everyone" bulk snapshot request button, the Mark Safe multi-circle fan-out, and — highest risk — the hand-edited `family_models.freezed.dart` (`FamilySosEvent.isLive`) must all be exercised on a real device or at minimum run through `flutter analyze`/`flutter test`/`dart run build_runner build` before this is trusted further.
+- **Carried over from Stage 3, still unresolved**: home-screen widgets have never been confirmed to actually compile on real Android/iOS hardware (§17.9).
+- **Doc/code discrepancy flagged, not changed**: `backend/CLAUDE.md` describes automatic scheduled check-ins as carrying a location snapshot; the actual code does not send one automatically. Left as-is per §18.2's reasoning — changing it would violate this phase's own no-auto-transmit privacy rule. Needs a product-owner decision on which is correct (the doc, or the code).
+
+### 18.9 Stop condition honored
+
+Per instruction, this phase stops here. No Google Maps architecture work, no Admin Portal, no broad alert-engine change, and no deployment were started or attempted in this phase or any prior one.
