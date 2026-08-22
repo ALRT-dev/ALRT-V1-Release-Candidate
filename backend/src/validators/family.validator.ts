@@ -183,7 +183,7 @@ export type FamilySosListUpdateInput = z.infer<
 
 export const startFamilyJourneySchema = z.object({
   // Only the durations the app offers; extensions are a separate call.
-  durationMinutes: z.union([z.literal(30), z.literal(60)]),
+  durationMinutes: z.union([z.literal(15), z.literal(30), z.literal(60)]),
   // Live is a deliberate per-journey opt-in, never remembered for you.
   isLive: z.boolean().optional(),
   recipientMemberIds: z.array(z.string().uuid()).min(1).max(50),

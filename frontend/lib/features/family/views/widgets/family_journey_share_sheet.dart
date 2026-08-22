@@ -34,7 +34,7 @@ class _JourneyShareSheet extends ConsumerStatefulWidget {
 }
 
 class _JourneyShareSheetState extends ConsumerState<_JourneyShareSheet> {
-  static const _durations = [30, 60];
+  static const _durations = [15, 30, 60];
 
   int _durationMinutes = 60;
   final Set<String> _recipientIds = {};

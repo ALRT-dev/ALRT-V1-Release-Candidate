@@ -27,7 +27,7 @@ class FamilyJourneyScreen extends ConsumerStatefulWidget {
 class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
   /// The offered blocks. Anything longer is reached by extending, so the
   /// traveller is asked again rather than committing up front.
-  static const _durations = [30, 60];
+  static const _durations = [15, 30, 60];
 
   int _durationMinutes = 60;
   final Set<String> _recipientIds = {};

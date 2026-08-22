@@ -15,7 +15,7 @@ const MAX_BLOCK_MINUTES = 60;
 const MAX_TOTAL_MINUTES = 240;
 
 /** The durations the app offers when starting a journey. */
-const ALLOWED_START_MINUTES = [30, 60];
+const ALLOWED_START_MINUTES = [15, 30, 60];
 
 const journeyInclude = {
   member: {
@@ -83,10 +83,12 @@ export const startJourney = async (
   const membership = await requireMembership(userId, circleId);
 
   if (!ALLOWED_START_MINUTES.includes(input.durationMinutes)) {
-    throw new HttpError(
-      400,
-      `A journey runs for ${ALLOWED_START_MINUTES.join(" or ")} minutes`,
-    );
+    const options = ALLOWED_START_MINUTES;
+    const list =
+      options.length > 1
+        ? `${options.slice(0, -1).join(", ")} or ${options[options.length - 1]}`
+        : `${options[0]}`;
+    throw new HttpError(400, `A journey runs for ${list} minutes`);
   }
   if (input.recipientMemberIds.length === 0) {
     throw new HttpError(400, "Pick at least one person to share with");
