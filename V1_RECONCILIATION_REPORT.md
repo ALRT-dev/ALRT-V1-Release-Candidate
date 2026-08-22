@@ -1,6 +1,6 @@
 # ALRT V1 Reconciliation Report
 
-**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Stage 7B (Admin backend hardening — the backend prerequisites from §22.4: moderation endpoint, role enforcement, audit log, pagination/validator fixes) complete — see §23. Stage 7C (ALRT V1 Admin Portal — a new `admin/` frontend against the existing Admin API) complete — see §24. Application code has been changed in this repository only, across stages up to and including Stage 7C — see §17, §18, §19, §20, §21, §23, and §24. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
+**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Stage 7B (Admin backend hardening — the backend prerequisites from §22.4: moderation endpoint, role enforcement, audit log, pagination/validator fixes) complete — see §23. Stage 7C (ALRT V1 Admin Portal — a new `admin/` frontend against the existing Admin API) complete — see §24. Stage 8 (complete V1 release-readiness audit — repository-wide, thirteen parallel investigations, four small confirmed-safe fixes applied) complete — see §25. **RELEASE STATUS: READY WITH CONDITIONS — see §25.20.** Application code has been changed in this repository only, across stages up to and including Stage 8 — see §17, §18, §19, §20, §21, §23, §24, and §25. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
 **Scope:** `ALRT-dev/frontendV2`, `ALRT-dev/backendV2`, `ALRT-dev/askalrt`, `ALRT-dev/V2-Claude`, `ALRT-dev/v3`, plus `ALRT-dev/ALRT-V1-Release-Candidate` itself. `ALRT-dev/widget` was pulled in read-only mid-audit because every other repo points to it as the true frontend baseline (see §1). Stage 2 additionally pulled in `ALRT-dev/alrt`, `ALRT-dev/ALRT-screen`, `ALRT-dev/mattv2`, `ALRT-dev/occulo`, `ALRT-dev/glasses`, `ALRT-dev/watchinterface` read-only, to hunt for a missing Admin Portal (see §15).
 **Method:** Full local clones with ~200 commits of history fetched per branch (every branch that exists in each repo), `git log`/`diff`/`show` history analysis, and targeted source reading across five parallel deep-dive passes (one per repo) plus manual cross-repo verification. Not every file in every repo was read line-by-line; large, low-risk areas (asset files, generated lockfiles, vendored code) were sampled rather than exhaustively reviewed.
 
@@ -1333,3 +1333,191 @@ See `admin/README.md`'s "Deployment requirements" section. Summary: static hosti
 ### 24.10 Stop condition honored
 
 Per instruction, this stage stops here. The Admin Portal V1 (`admin/`) is built, tested, and documented but **not deployed**. No unrelated mobile functionality, Google Maps, SOS, Family, Ask ALRT, alert ingestion, notification architecture, or ALRT+ rules were touched - this stage's only backend interaction was re-reading existing code to verify current behaviour, not modifying it.
+
+## 25. Complete V1 Release Readiness Audit (Stage 8)
+
+A release-readiness audit of the current branch as it actually stands — not a re-read of prior stages' own reports. Thirteen parallel investigations traced real code paths end to end (repository reconciliation, auth/OAuth, Maps, alert pipeline, notifications, Ask ALRT, ALRT+/numeric consistency, Family/Safety, mobile UI, Admin Portal, security, third-party integrations, Android/iOS release readiness), each citing file:line evidence rather than trusting prior claims. Four small, clearly-safe, confirmed defects were fixed in-stage per the audit's own explicit instruction; everything else is documented as a finding with a recommended next step, not fixed unilaterally.
+
+### 25.1 Executive summary
+
+The system is substantially complete and, in the overwhelming majority of subsystems audited, genuinely working end to end — not just present in code but actually wired from UI to backend to database with real enforcement, verified either by direct code trace or by real HTTP requests against a real database this session. Four real defects were found and fixed this stage (three backend, one Admin Portal). No new P0 (safety/security-critical release blocker) was found beyond what was already fixed. Two P1 items remain open and need a decision before release: **Journey Sharing has no recipient-side viewer at all** (the sender experience works; a recipient who gets "X is sharing a journey" has nothing to open), and **there is no password-reset path for email/password accounts** (a fully-supported registration method with no recovery route). A handful of P2/P3 items — mostly documentation/config inconsistencies and minor UI gaps — are listed in full below. **Microsoft OAuth is fully implemented end-to-end on both backend and frontend but its UI entry point is deliberately commented out**, inherited unchanged from the source branch (confirmed via that branch's own git history: built one day, hidden the next) — this needs a product decision (ship hidden, enable, or remove), not a code fix.
+
+### 25.2 Repository reconciliation
+
+All items from the audit's checklist were confirmed present with real, non-trivial implementations: Google/Apple/Microsoft/email auth, Google Maps proxy + transit UI, ALRT+ entitlement/RevenueCat, Family lifecycle (circles/check-ins/Mark Safe/snapshots/Journey/SOS/Child Mode), Ask ALRT (with the old native backend port confirmed actually removed, not just unrouted), alert ingestion/classification/AI-prompt consolidation/AQI/moderation/corroboration, the Admin API and Admin Portal, several spot-checked locked security rules, the historical Android release fixes, and CI/deployment config (Dockerfile, docker-compose, GitHub Actions workflows for Android APK and iOS TestFlight). The one notable flag: Microsoft OAuth's UI button is commented out (see §25.3) — code-complete, not user-reachable.
+
+### 25.3 Authentication / OAuth
+
+| Path | Status |
+|---|---|
+| Email registration/login | Production-ready |
+| Token refresh (proactive + reactive retry-on-401) | Production-ready |
+| Logout | Frontend-only token clear; no server-side revocation for regular users (admin has a `/logout` route, regular users don't) |
+| Password reset | **Missing entirely** — no backend route, no frontend screen. Real gap, not an intentional OAuth-only substitution, since email/password is a fully first-class path |
+| Google OAuth | Production-ready, backend + frontend |
+| **Microsoft OAuth** | **Backend production-ready** (real JWKS-based RS256 verification, fails loud with a clean 501 if unconfigured, not a stub). **Frontend fully built but the sign-in button is commented out of the widget tree on both Android and iOS** (`frontend/lib/features/auth/views/screens/auth_screen.dart:219-227`) — confirmed via `V2-Claude`'s own git history that this was built then deliberately hidden one day later (`feat: added button for microsoft auth` → `feat: hide microsoft auth button for now`), and the Release Candidate simply carried that disabled state forward rather than losing a working feature |
+| Apple Sign In | Production-ready |
+| Account linking | Not a designed feature — same-email accounts opportunistically merge across providers, but there's no consent step, no linked-provider management UI, no schema field tracking which providers are linked |
+| Account deletion (30-day grace) | Production-ready; login remains possible throughout the grace period (by design) |
+| Expired session handling | Production-ready — prompts re-auth, doesn't silently fail |
+| Invalid/tampered token rejection | Production-ready |
+
+### 25.4 Google Maps
+
+All nine items the audit asked to verify came back **VERIFIED WORKING**: backend proxy for Geocoding/Places (`requireAuth` + `mapsProxyUserLimiter`, key never client-overridable), no committed Maps key anywhere, frontend correctly calls the proxy for Geocoding/Places and Google directly for Directions/Routes (matching the documented Stage 5 split), client-side key sourced from build-time config/CI secrets (not hardcoded), app-restriction headers are built and wired but currently inactive by default (blank env values — a documented, intentional manual-configuration gap, not a code defect), all four travel modes (walking/driving/cycling/transit) implemented and fetched in parallel, transit line/vehicle/headsign/transfer information all genuinely parsed from Google's response and rendered (not hardcoded), and graceful per-mode degradation when transit is unavailable (a persistent bottom sheet with the real reason, never a blank screen or crash). No defects found; no architecture changes made.
+
+### 25.5 Alert pipeline
+
+All twelve locked Stage 6/6A rules were re-traced against current code and found **intact**: deterministic severity computed before any AI call, official AWS severity wording preserved verbatim, community moderation via `mapAiReviewStatus` (never hardcoded) plus the separate Stage 7B admin human-review layer, untrusted-data framing in both review/summarization prompts, the physical-movement CTA restriction, AQI's zero-AI deterministic path, same-source-only dedup (no unsafe cross-source dedup), the severity-based expiry bound, corroboration wired into both the raw-SQL list and the detail-include paths, and official/community attribution surfaced on both API and UI. The previously-removed duplicate prompt system (`alert_summarization_prompts.ts`) is confirmed still gone — zero live references anywhere. Two nuances worth release-team awareness, neither a regression: (1) the CTA "always `[]` for community reports" rule is enforced by prompt instruction only, not a hard code-level override — a malformed AI response could theoretically slip a non-empty array through; (2) a dormant unbounded-expiry override for the still-disabled Smartraveller source is a live landmine if that source is ever re-enabled without revisiting it.
+
+### 25.6 Notifications
+
+Severity routing, per-user preference enforcement, location-targeted (not broadcast) delivery, a generic per-user rate cap (10 pushes/15min, not a same-hazard-specific cooldown), zero notification side-effect from corroboration (confidence/XP only), and moderation gating (nothing pushes while `reviewStatus === pending`, verified at every call site) all came back **VERIFIED WORKING**. SOS/Mark Safe are correctly distinct in both payload type and copy, and SOS payloads never include a phone number, matching the locked rule. Scheduled check-ins fire correctly but **have no missed-check-in escalation** (a real absence, not a bug). **Journey Sharing notifications only cover the start event** — no push fires on arrival, on manual stop, or for any milestone, and there is no danger-near-route alerting for a journey's live points (ordinary location-snapshot proximity checks exist; journey points never feed them). No second, less-safe notification-text code path was found — a single builder feeds both call sites, and it routes through the same Stage 6A-hardened AI summarization.
+
+### 25.7 Ask ALRT
+
+**Clean bill of health.** The frontend calls the Firebase callable directly; the old native backend port is confirmed actually deleted (not merely unrouted — an explicit removal comment exists, and a file-level search found nothing). The Firebase custom-token bridge (`POST /api/user/firebase-token`) is real, required plumbing, not a duplicate implementation. The prompt is Firestore-based and admin-editable with a code fallback, structured citations are validated by real (test-covered) code that silently drops any AI-cited id not actually sent that turn, the Remote Config kill switch sits ahead of the AI path specifically (the zero-AI library/emergency paths stay up regardless, by design), and the quota is confirmed exactly `{free: 5, plus: 30}` per day in exactly one place, with an explicit code comment against ever reintroducing the old `3/20` values.
+
+### 25.8 ALRT+
+
+Enforcement code (not just constants) confirmed for the core commercial rules: `MAX_SEATS_TOTAL=8`/`MAX_OWNED_CIRCLES=4` genuinely checked at both circle-creation and join time; invited/joined members verified to hit zero paywall/entitlement check anywhere in the join path; `FREE_SAVED_LOCATIONS_LIMIT=1` consistent between backend and frontend. See §25.16 for the numeric-consistency sweep's specific findings (a stale askalrt README figure and a three-way validator-ceiling mismatch on an unrelated field). **`BILLING_ENABLED` is currently unset**, meaning every account/circle is treated as ALRT+ regardless of actual subscription status — this matches `backend/CLAUDE.md`'s documented pre-launch state exactly ("Billing is not launched: every circle defaults to plan `plus`") and is not a bug, but it is a required, tracked go-live step, not something that flips itself.
+
+### 25.9 Family / Safety features
+
+Family lifecycle (circle creation, invitations, join-by-code-is-free, leave/remove, owner-vs-member privilege, seat enforcement at both creation and join), check-ins (scheduled with real cron firing, ad-hoc, cancellation), Mark Yourself Safe (genuine multi-circle fan-out, clearly distinct from SOS in both payload and UI), Location Snapshots (real consent-gated request flow, bulk request, 1-hour expiry with genuine data deletion via a 5-minute cron sweep, pin-freshness UI), and SOS (3-second hold trigger, sender-controlled live-location choice, two-tier stop confirmation, correct receiver/sender behavior, and — importantly — **state correctly resyncs from the server on app restart**, not trusted from stale local state) all came back **VERIFIED WORKING** with real enforcement code at every locked rule checked.
+
+**Journey Sharing is the one genuine break found in this stage's entire audit.** Start/duration/live-vs-snap-default/manual-stop/auto-end-at-deadline all work correctly (durations `[15, 30, 60]` minutes, matching backend and frontend exactly). But **the backend and API client fully support a recipient viewing a journey shared with them (`GET /journeys/shared`, a real repository method) — and nothing in the frontend ever calls it.** No screen, no provider state, no map rendering (`FamilyJourneyScreen`, 671 lines, has zero references to `GoogleMap`/`Marker`/`Polyline`/coordinates anywhere). A recipient who receives the "X is sharing a journey" push has no way to open and view it. This is a core safety feature that is fully backend-complete and half-built on the frontend — the sender's half works, the recipient's half does not exist.
+
+Child Mode (a pure on-device toggle, no network surface, hides "Report an ALRT" only) matches its documented product decision exactly, with no drift.
+
+### 25.10 Mobile UI
+
+Static code inspection only — **Flutter is not available in this environment; no build, no `flutter analyze`, no device/emulator run was performed**, consistent with every prior stage's honest disclosure of the same limitation. Requirements were extracted from `V1_RECONCILIATION_REPORT.md` and `frontend/CLAUDE.md` before reading code, to check implementation against documented decisions rather than assumption.
+
+Matched requirements: severity terminology/colors (exact hex match to the locked palette), the five-shape/five-label official/community/AWS/GDACS/ALRT-Intel source-attribution system, notification deep-linking to the correct alert, Family/SOS/Journey-duration/Maps-transport/ALRT+ screen requirements, and "For You" (correctly scoped as an in-card cohort-guidance block only, never sent to the backend, never dumping unfiltered content when no cohort matches).
+
+Gaps found:
+- **`MyAcceptedHazardsListItem`** (the profile "My Hazards" tab) is a separate, thinner card widget that doesn't reuse the shared `CommonHazardsListItem` — missing severity shape, source pill, plain-terms line, and corroboration count that every other hazard card in the app shows.
+- **The AI-generated `aiSummary` field is parsed into the hazard model but never rendered anywhere.** What users actually see as "plain language" is either the raw source `description` or a separate, genuinely non-AI, deterministic on-device template (`AlertCardStyle.plainTermsOf`) — which is arguably a *safer* outcome than showing raw AI text, but it means the backend's AI-summarization work for display purposes is currently dead data, and the documented "plain-language explanation" requirement is fulfilled by a different mechanism than the one the field name implies.
+- **Corroboration count renders on the alert card but not on the hazard detail screen** — a second, narrower instance of the same "one surface shows it, another doesn't" pattern as the first finding.
+- Microsoft OAuth button confirmed still commented out (matches §25.3, independently re-confirmed by this agent).
+
+### 25.11 Admin Portal
+
+Independent re-verification (not trusting Stage 7C's own claims) of authentication, role gating (every screen's client-side `hasRole` check cross-referenced against the actual current backend middleware for that route — no mismatch found in either direction), no direct-database-access anywhere in `admin/src`, no committed secrets, and per-screen response-shape agreement. **One real, confirmed bug, fixed this stage**: `AdminHazard`'s TypeScript type declared flat `categoryName`/`sourceName`/`licenseBadgeText`/`reportedByName` fields that the backend never actually returns — the real response nests this data under `category`/`source`/`reportedBy` objects. The mismatch silently degraded the Alerts, Moderation, and Hazard-Detail screens (every hazard's category/source/license/reporter always showed its fallback text), which materially hurt a moderator's ability to judge a community report's credibility. Fixed in commit `53177fe` (see §25.17). No security gap was found — the frontend never leads an admin to believe an action is safe when the backend would reject it, or vice versa.
+
+### 25.12 Security
+
+A comprehensive sweep (secrets, unsafe logging, CORS, authorization/validation spot-checks across every route file, raw SQL, XSS, pagination, unauthenticated-privileged-route search, rate-limiting coverage) came back clean except for four findings, **all four fixed this stage**:
+
+1. **`GET /api/hazards` and `GET /api/notifications/feed`** — the exact bug Stage 7B's own report flagged as an out-of-scope incidental finding (§23.8), re-checked fresh and confirmed still present: `validate(schema)` was called with no `"query"` target, so each route's `pageSize` bound (present but inert on hazards; entirely absent on notifications) was never actually enforced against a real query string. **Confirmed authenticated-only, not public** (both routes sit behind `requireAuth`) — correcting the task prompt's framing. Not a SQL-injection risk (both raw-SQL call sites use parameterized `$N` placeholders throughout, independently re-verified) — the real risk was resource-exhaustion/cost amplification from an unbounded `LIMIT`. **Fixed**: added `"query"` to both `validate()` calls, and added the missing bound to the notification schema, mirroring Stage 7B's proven pattern exactly. Verified via real HTTP: an oversized `pageSize` now 400s on both routes; normal values still succeed.
+2. **`POST /api/hazard-categories/`** — any authenticated app user (no admin/role check) could create arbitrary hazard categories with zero body validation. Confirmed via the frontend's generated REST client that no real caller ever used it. **Fixed**: removed the route entirely (category management already has its own properly admin-gated CRUD).
+3. **Duplicate `/api/revenuecat` mount** — the same router was imported and mounted twice under two casings; the earlier mount sat before the general rate limiter and silently absorbed every request via Express's first-match routing, leaving the webhook completely unrate-limited despite its position in the file implying otherwise. **Fixed**: reduced to one mount, positioned after the general limiter.
+4. Admin Portal `AdminHazard` type mismatch — see §25.11 (a correctness bug, not a security one, but fixed alongside the others).
+
+All four are covered by a new `verify_stage8_release_audit.ts` (7 checks, real HTTP against a real DB, all passing — see §25.15). No SQL injection risk found anywhere (all 3 `$queryRawUnsafe` call sites individually traced; every user-controlled value reaches the query only via parameterized placeholders). No committed secrets, no unsafe logging, no open CORS, no unauthenticated privileged (write) route beyond the one already fixed.
+
+### 25.13 Third-party integrations
+
+Google (OAuth + Maps, correctly separated credentials), Microsoft OAuth (config present, backend real, frontend disabled per §25.3), Apple Sign In, push notifications (FCM via the backend's own Firebase project, chunked at 500 tokens per call, real device-token registration), and the ingestion data sources (QLD Traffic/NSW Transport/WAQI) all check out as real integrations with documented env-var/production-config requirements. Findings worth release-team attention, none of them code bugs:
+
+- **Two separate Firebase projects exist** (the main backend's, requiring a manually-provisioned `serviceAccountKey.json`; and `askalrt`'s own, using ambient Cloud Functions credentials plus two Firebase-CLI-managed secrets `ANTHROPIC_API_KEY`/`REVENUECAT_AUTH`) — both must be provisioned and deployed independently; there is no shared credential between them.
+- **RevenueCat has two independent webhook implementations** (backend Postgres `User.plan`, askalrt Firestore `entitlements/{uid}`) requiring **two separate webhook subscriber URLs in the RevenueCat dashboard**, each with its own differently-named auth secret (`REVENUECAT_WEBHOOK_AUTH` vs `REVENUECAT_AUTH`) — a real, easy-to-get-wrong deployment step, not a code defect, but worth a deployment runbook entry given the naming mismatch invites confusion.
+- **`NSW_TRANSPORT_API_KEY`/`WAQI_API_TOKEN` are required at server boot** (the whole app fails to start without them) while **`QLD_TRAFFIC_API_KEY` is optional** (that one source alone is skipped when unset) — an inconsistency in graceful-degradation philosophy `backend/CLAUDE.md` only documents for QLD. Arguably safer (loud failure beats silent gap) but worth the release team knowing every deployment needs all three keys up front, unlike QLD.
+- `OPENAI_API_KEY` is required at boot even when `AI_PROVIDER=bedrock` — an easy-to-miss requirement for a Bedrock-only deployment.
+- `MICROSOFT_OAUTH_CLIENT_SECRET` is listed in `.env.default` but never read anywhere in code (the Microsoft flow is ID-token verification, which needs no client secret) — a harmless but confusing dead config entry.
+- No outbound n8n/webhook integration exists anywhere — the inbound `WebhookApiKey` system (Stage 7B) is correctly the only webhook surface, and n8n is explicitly documented elsewhere as "not a required V1 dependency."
+
+### 25.14 Android/iOS release readiness
+
+**Flutter/Dart SDK, Android SDK, and Xcode are all unavailable in this environment** — explicitly re-verified this stage (`which flutter`/`dart` → not found; a real `gradle tasks --offline` invocation was attempted and failed for lack of `local.properties`, confirming absence rather than assuming it). **Every finding below is CODE VERIFIED ONLY. No BUILD VERIFIED and no REAL DEVICE VERIFIED claim is made anywhere in this stage.**
+
+All five historical Android fixes confirmed present in code: core library desugaring (pinned version), the native video player dependency (now on a real pub.dev release, having moved past even the git-fork-pinned interim fix visible in git history), release signing hardening (conditional on a gitignored `key.properties`, correct debug fallback when absent, no hardcoded credentials), and both the upload-certificate and Play-service-account-key gitignore entries (neither file present in the tree). Release version is a real, non-placeholder `1.0.5+35`. Build flavors (dev/prod) are coherently wired to matching entry points and CI workflows. iOS bundle identifiers, team ID, and every permission usage-description string needed for the permissions the app actually requests were all found present and non-placeholder. One item flagged for awareness, not a defect: minification/R8 is off (no `proguard-rules.pro`) — consistent, but should be a deliberate choice the release owner confirms rather than an unnoticed default.
+
+### 25.15 Testing
+
+Run this stage, with real results:
+
+- `cd backend && npx tsc --noEmit` — clean except the one pre-existing accepted `serviceAccountKey.json` error (before and after this stage's fixes).
+- `verify_stage6_alert_rules.ts` — 7/7 passing.
+- `verify_stage6a_alert_rules.ts` — 9/9 passing.
+- `verify_stage7b_admin_hardening.ts` (real HTTP + real local Postgres+PostGIS) — **32/32 passing**, re-run after this stage's fixes, no regression.
+- `verify_stage8_release_audit.ts` (new, real HTTP + real DB) — **7/7 passing**, exercising the four fixes in §25.12 directly (oversized `pageSize` now 400s on both public routes where it previously wasn't enforced; the removed category route now 404s while its real GET siblings still work; the deduplicated RevenueCat mount reaches a real handler).
+- `askalrt/functions` Jest suite — 6 suites, 31 tests, all passing, unaffected (no askalrt code touched this stage).
+- `admin` (`npm run build && npm run lint && npm run test`) — build clean, lint 0 errors (3 informational warnings, unchanged), **21/21 tests passing** including after the `AdminHazard` shape fix (two test fixtures updated to the corrected nested shape).
+- Flutter/Dart: **not available in this environment**, as in every prior stage. Mobile UI and Android/iOS findings this stage are code-inspection only (§25.10, §25.14) — this is stated explicitly, not glossed over.
+
+What remains genuinely untested by any automated suite in this repository: the live external-provider integrations (Google/Microsoft/Apple token verification against real providers, RevenueCat's live webhook flow, FCM's live send, SMTP's live send, Bedrock/OpenAI/Anthropic's live model calls, Sightengine's live moderation call) — all of these are credential-gated and were verified by code trace only, consistent with every prior stage's disclosure of the same limitation. No end-to-end/Playwright-style browser test exists for the Admin Portal (component-level tests only, per Stage 7C's own documented scope).
+
+### 25.16 Numeric / product-rule consistency
+
+Confirmed **consistent** everywhere checked: family seats = 8, owned circles = 4, free saved locations = 1, journey durations `[15, 30, 60]` minutes, SOS live-share cap = 4 hours, snapshot expiry = 1 hour, invited-member paywall bypass, ALRT+ pricing (the only hardcoded `$9.99`/`$99.99` figures are an explicitly-labeled dev-only preview path, never shown in a real purchase flow). Several of these are duplicated as independent literals across frontend screens rather than imported from one shared constant (a maintainability risk, not a current conflict) — not changed this stage, since nothing is actually wrong yet.
+
+Two confirmed **live conflicts**, found but not changed (values, not code paths — outside this stage's "small and obviously safe" fix criterion):
+1. **`askalrt/README.md:24`** still documents the old, explicitly-retired AI quota ("3/day free, 20/day ALRT+"), contradicting the shipped `AI_DAILY_LIMIT = {free: 5, plus: 30}` in `askalrt/functions/src/askalrt/askAlrt.ts:43` (which itself carries a comment against ever reintroducing the old values). A stale doc, not a stale enforcement — the code is correct and consistent everywhere else it's referenced (including `V1_RELEASE_PLAN.md`).
+2. **`ownLocationSubscriptionRadiusKm` has three different validator ceilings** for the same field: 50km (onboarding), 100km (settings update), 500km (admin panel). The mobile UI only ever offers 1-5km, so this is currently unreachable in practice via the app, but the three schemas disagree with each other for no evident product reason, and a direct API call could exploit the gap.
+
+One additional, unverified-by-this-audit note worth a second look: the numeric-consistency agent separately flagged `family_share_ending_screen.dart:119` as saying SOS live share has a "1 hour" limit, where every other reference (backend and frontend) says 4 hours — possibly a leftover snapshot-expiry string reused in the wrong screen. Flagged for the release team to confirm, not independently re-verified in this pass.
+
+### 25.17 Fixes made this stage (commits)
+
+| Commit | What |
+|---|---|
+| `f6ee4e6` | `GET /api/hazards` and `GET /api/notifications/feed`: fixed the missing `validate(schema, "query")` target bug (Stage 7B's own flagged-but-deferred finding); added the missing pageSize bound to the notification schema |
+| `da1118e` | Removed unused, unvalidated `POST /api/hazard-categories/` (any authed user could create arbitrary categories; confirmed unused by the real app) |
+| `716249c` | Fixed the duplicate `/api/revenuecat` mount that left the webhook effectively unrate-limited |
+| `c0b6f52` | Added `verify_stage8_release_audit.ts` — 7 real-HTTP checks covering the three fixes above |
+| `53177fe` | Fixed the Admin Portal's `AdminHazard` type mismatch (flat fields that don't exist on the wire; real shape is nested `category`/`source`/`reportedBy`) and its two affected test fixtures |
+
+All five were verified: `tsc --noEmit` clean, the new script's 7 checks passing, Stage 7B's 32 checks still passing (no regression), Stage 6/6A's 16 checks still passing, and the Admin Portal's build/lint/21-test suite still green.
+
+### 25.18 Remaining findings and P0/P1/P2/P3 classification
+
+**P0 — release blocker / safety or security critical**
+None found beyond what's already fixed in §25.17. No unfixed safety-critical or security-critical defect was identified by any of the thirteen investigations.
+
+**P1 — must fix (or make an explicit, informed decision on) before V1 release**
+1. **Journey Sharing has no recipient-side viewer or map** (§25.9). The backend and API client fully support it; the frontend never calls `GET /journeys/shared` and has no map-rendering code anywhere in the journey screen. A recipient who's told "X is sharing a journey" cannot open it. This is a core safety feature that silently doesn't do half of what it promises.
+2. **No password-reset path exists for email/password accounts** (§25.3). Email/password is a fully-supported, first-class registration method with zero account-recovery mechanism — a real usability and support-burden gap, not an intentional OAuth-only design.
+3. **`BILLING_ENABLED` must be explicitly flipped at go-live** (§25.8) — expected/documented, but it's a real deployment step with real consequences if missed (every account stays ALRT+ for free indefinitely), so it belongs on a release checklist, not left implicit.
+4. **RevenueCat's two independent webhooks need explicit, correctly-distinguished dashboard configuration** (§25.13) — two URLs, two differently-named secrets, easy to misconfigure with no code-level safeguard against pointing both at the same value.
+
+**P2 — should fix soon, does not block V1**
+5. Microsoft OAuth: product decision needed — ship hidden (current state), enable the button, or remove the dead frontend code. Not broken, just undecided.
+6. `MyAcceptedHazardsListItem` (profile "My Hazards" tab) doesn't reuse the shared hazard-card widget — missing severity shape, source pill, plain-terms line, corroboration.
+7. Corroboration count shown on the alert card but not the hazard detail screen.
+8. `aiSummary` is computed and stored but never rendered in the mobile UI (a deterministic on-device template is shown instead) — worth a product decision on whether that's the intended final design or a display gap.
+9. Journey Sharing has no arrival/milestone notifications and no danger-near-route alerting (only "journey started" pushes).
+10. No missed-scheduled-check-in escalation notification.
+11. `ownLocationSubscriptionRadiusKm`'s three-way validator ceiling mismatch (50/100/500km) — currently unreachable via the UI (1-5km only), but the schemas should agree.
+12. `NSW_TRANSPORT_API_KEY`/`WAQI_API_TOKEN` required-at-boot vs `QLD_TRAFFIC_API_KEY` optional — inconsistent graceful-degradation philosophy, worth a deployment-docs note at minimum.
+13. Possible stale "1 hour" SOS-cap string in `family_share_ending_screen.dart:119` (everywhere else says 4 hours) — flagged, not independently re-verified this pass.
+
+**P3 — future enhancement / doc cleanup / post-V1**
+14. `askalrt/README.md`'s stale "3/day free, 20/day ALRT+" quota text (code is correct; only the doc is stale).
+15. `MICROSOFT_OAUTH_CLIENT_SECRET` is a dead, unused env var in `.env.default`.
+16. `OPENAI_API_KEY` required at boot even when `AI_PROVIDER=bedrock`.
+17. Several numeric constants (seats=8, SOS/snapshot durations) are duplicated as independent literals across frontend screens instead of one shared source — no current conflict, a drift risk.
+18. Admin Portal: no Audit Log viewer (needs a new backend read endpoint first — already documented as intentional V1 scope in §24), no Emergency Information screen (no backend model exists), AI Prompt create/delete and Configuration raw-value editing intentionally not exposed.
+19. Minification/R8 disabled for Android release builds with no `proguard-rules.pro` — confirm this is deliberate.
+
+### 25.19 Exact recommended fix sequence
+
+1. **Before anything else, get a product-owner decision on the two P1 feature gaps** (Journey Sharing recipient view, password reset) — both are scoped enough to estimate quickly, but both are real, user-facing gaps in advertised functionality, not code-quality nits. Recommend committing to at least a minimal fix for both before V1 ships, given one is a safety feature and the other is a support-burden/account-lockout risk.
+2. **Add a release checklist item for `BILLING_ENABLED` and the two-webhook RevenueCat configuration** (P1 items 3-4) — these need no code change, just a documented, checked-off deployment step, ideally with a runbook entry given the naming-mismatch risk on the RevenueCat secrets.
+3. **Get a product decision on Microsoft OAuth** (P2 #5) — ship hidden, enable, or remove; all three are cheap, the only wrong answer is leaving it in limbo indefinitely without a decision recorded.
+4. **Batch the small mobile-UI P2 items** (6-8: My Hazards card, detail-screen corroboration, `aiSummary` display decision) into one focused frontend pass, since they touch the same card-rendering subsystem.
+5. **Batch the Family/notification P2 items** (9-10: journey arrival/milestone/route-danger notifications, missed-check-in escalation) into one Family-notifications follow-up stage.
+6. **Fix the `ownLocationSubscriptionRadiusKm` validator mismatch** (P2 #11) in a single small PR — three Zod schemas, pick one ceiling and apply it everywhere.
+7. **P3 items** (14-19) are cheap doc/config cleanups appropriate for a routine housekeeping pass whenever convenient — none block anything.
+8. Everything already fixed in §25.17 needs no further action beyond normal code review of this stage's commits.
+
+### 25.20 RELEASE STATUS
+
+**READY WITH CONDITIONS**
+
+The system is not broken, is not insecure in any way this audit could find and not already fix, and the vast majority of what was promised across every prior stage is genuinely built and working, verified by direct trace or real HTTP against a real database rather than taken on faith. It is not unconditionally READY because two real, user-facing P1 gaps remain open with no code fix yet (Journey Sharing's missing recipient view, and the complete absence of password reset for email/password accounts), and because two more P1 items are deployment-configuration steps that must not be forgotten (`BILLING_ENABLED`, the two-webhook RevenueCat setup) rather than automatic. None of these four are large — each is a scoped, well-understood, single-subsystem fix or a documented deployment checklist item, not evidence of a systemic problem. The condition for READY is: resolve or make an explicit, recorded product decision on the four P1 items in §25.18, and carry the P1 deployment-config items onto an actual release checklist. Everything else found (P2/P3) is real but does not block a V1 release.
+
+### 25.21 Stop condition honored
+
+Per instruction, this stage stops here. No deployment was performed. No new major feature was started. No product requirement was changed — every numeric rule and locked decision found was verified against existing documentation, never silently altered. The only code changes made were the four small, confirmed-safe fixes in §25.17, each individually justified above; every other finding is documented with a recommended next step rather than acted on unilaterally, per the audit's own explicit scope limit.
