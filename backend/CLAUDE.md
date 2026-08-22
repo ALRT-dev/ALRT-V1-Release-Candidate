@@ -47,6 +47,36 @@ explicit instruction from the product owner in the current session.
   `/api/maps/directions` route without also updating the frontend to use
   it; a half-migrated proxy is worse than the current split.
 
+## AI alert-generation prompts (decided Stage 6A, 2026-08-22)
+
+- `src/utils/ai-prompt.util.ts` + `src/services/ai-prompt.service.ts`
+  (the `DefaultAIPromptNames` / bracket-named prompts) is the **sole**
+  authoritative alert-generation prompt system. A second, repo-versioned
+  system (`src/prompts/alert_summarization_prompts.ts`, seeded via
+  `npm run seed:prompts`) was removed — it covered only 3 of 5 prompt
+  groups, silently dropped the locked "never write a specific emergency
+  number" rule, and was reachable only via a manual script nothing else
+  called. Do not recreate a second prompt-content system; edit prompts
+  in the admin panel or in `ai-prompt.util.ts`, not both.
+- If `Configuration.aiPrompts` on a given deployment still points at
+  snake_case-named prompts from the removed system (any deployment that
+  ever ran the old `seed:prompts`), run
+  `npm run reset-ai-prompts` once to repoint it at the bracket-named
+  defaults. Safe to run on any deployment, including one that's never
+  been touched — it's a no-op there.
+- Community reports (`reviewHazard`) never carry a call-to-action —
+  `callsToAction` is always `[]`. A community report is an unverified
+  observation, never an instruction, regardless of how the report reads.
+- `reviewHazard`'s `reviewStatus` must reflect what the AI actually
+  returned (`mapAiReviewStatus` in `hazard.util.ts`), never a hardcoded
+  value — this gates real moderation (spam/abuse/instruction-injection/
+  private data rejected, not silently accepted).
+- AQI hazards (`SubCategoryId.airQualityAlert`) never call the AI —
+  `getDeterministicAirQualityContent` in `air_quality_template.util.ts`
+  builds the card content directly from the already-deterministic
+  severity band and the AQI value/station name in the source text. Do
+  not route AQI back through `executePrompt`.
+
 ## Engineering conventions
 
 - `npx tsc --noEmit` must be clean before every push, except the
