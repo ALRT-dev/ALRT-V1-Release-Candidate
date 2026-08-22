@@ -15,7 +15,8 @@ const notificationRouter = Router();
 notificationRouter.get(
   "/feed",
   requireAuth,
-  validate(getNotificationsFeedSchema),
+  // Second arg matters - see the identical fix/comment in hazard.route.ts.
+  validate(getNotificationsFeedSchema, "query"),
   getNotificationsFeed
 );
 notificationRouter.post(

@@ -36,7 +36,20 @@ export const getNotificationsFeedSchema = z.object({
 
   page: z.string().regex(/^\d+$/, "Page must be a number").optional(),
 
-  pageSize: z.string().regex(/^\d+$/, "Page size must be a number").optional(),
+  // Previously no upper bound at all - the feed ultimately calls the same
+  // getHazardsApplyingFiltersRaw() as GET /api/hazards, so it gets the same
+  // bound that route's schema already uses.
+  pageSize: z
+    .string()
+    .regex(/^\d+$/, "Page size must be a number")
+    .refine(
+      (val) => {
+        const n = parseInt(val, 10);
+        return !Number.isNaN(n) && n >= 1 && n <= 5000;
+      },
+      { message: "Page size must be between 1 and 5000" },
+    )
+    .optional(),
 
   showExpired: z
     .string()
