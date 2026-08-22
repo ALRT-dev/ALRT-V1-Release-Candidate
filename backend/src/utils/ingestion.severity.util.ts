@@ -207,6 +207,27 @@ export const getSeverityBandFromAWSCompliantSeverity = (
 };
 
 /**
+ * Keywords that force HazardSeverityBand.info regardless of any other band
+ * keyword match, per the ALRT Alert Classification & Content Standard v1.2
+ * §5.1: a planned drill/exercise, or a resolved/closed incident, is never
+ * banded by the strong language describing what it drilled for or used to
+ * be — it is always INFO.
+ */
+const infoOverrideKeywords = [
+  // Planned activity, not a real event.
+  "exercise",
+  "test",
+  "drill",
+  "training",
+  "practice drill",
+  // Resolved/closed incident.
+  "charged",
+  "cleared",
+  "all lanes open",
+  "response concluded",
+];
+
+/**
  * Determine hazard severity band based on description keywords.
  *
  * @param description - The hazard description text.
@@ -216,9 +237,17 @@ export const getSeverityBandFromDescription = (
   description: string
 ): HazardSeverityBand => {
   const desc = description.toLowerCase();
+
+  if (infoOverrideKeywords.some((keyword) => desc.includes(keyword))) {
+    return HazardSeverityBand.info;
+  }
+
   for (const [severityBand, keywords] of Object.entries(severityBandKeywords)) {
     for (const keyword of keywords) {
-      if (desc.includes(keyword.toLowerCase())) {
+      if (
+        desc.includes(keyword.toLowerCase()) &&
+        !desc.includes(`${keyword.toLowerCase()}:`)
+      ) {
         return severityBand as HazardSeverityBand;
       }
     }

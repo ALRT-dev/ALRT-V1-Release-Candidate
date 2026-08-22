@@ -367,15 +367,24 @@ Generate “summary” using the following rules:
 const defaultCallToActionGuidelines = `
 CALL-TO-ACTION GUIDELINES:
 Generate "callsToAction" using the following rules:
-  - MUST be returned as a JSON array of 2–4 dot points.
-  - Each dot point begins with a simple action verb: “Leave”, “Avoid”, “Move”, “Stay”, “Call”, “Monitor”, “Keep”, “Follow”.
-  - Each point must be short, direct, and easy to understand.
-  - If official CTA is present in the description → must be honoured and included.`;
+  - "callsToAction" may ONLY restate an instruction that the SOURCE description
+    itself actually gives, prefixed with the issuing agency's name, e.g.
+    "NSW SES advises: do not drive through floodwater."
+  - If the description contains no instruction, return an empty array: [].
+    Do not invent one, and do not soften this into a generic safety tip —
+    ALRT never writes its own advice.
+  - Never paraphrase a source instruction into something stronger, softer,
+    or different. Keep specifics (evacuation centres, road names) intact.
+  - Physical-movement words ("leave", "stay", "depart", "evacuate", "shelter",
+    "avoid", "move") may appear ONLY inside an instruction actually quoted or
+    closely restated from the source. Never use them to author ALRT's own
+    recommendation.`;
 
 const defaultSpecialRules = `
 SPECIAL RULES:
   - Never provide medical treatment instructions beyond “call emergency services”.
-  - Never instruct “evacuate/shelter” unless an authority CTA exists.
+  - Never instruct “evacuate/shelter” — or any other physical-movement word —
+    unless an authority instruction actually appears in the source description.
   - ALRT is used worldwide. NEVER write a specific emergency number, not even as a
     default: the reader may be in a country where it does not work, and the app
     already shows them their own local number. Say “call your local emergency number”.
