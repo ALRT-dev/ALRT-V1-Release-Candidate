@@ -69,8 +69,8 @@ export const getHazardsForAdmin = async (
       ignoreHazardLatLngBounds,
       showExpired,
       sortSettings,
-      page = "1",
-      pageSize = "100",
+      page = 1,
+      pageSize = 100,
     }: GetHazardsForAdminQuery = req.query;
 
     const hazards = await getHazardsApplyingFiltersRaw({
@@ -96,8 +96,8 @@ export const getHazardsForAdmin = async (
       ignoreHazardLatLngBounds: parseBoolean(ignoreHazardLatLngBounds),
       showExpired: parseBoolean(showExpired),
       sortSettings,
-      page: Number(page),
-      pageSize: Number(pageSize),
+      page,
+      pageSize,
     });
 
     const hazardsWithPresignedUrls =

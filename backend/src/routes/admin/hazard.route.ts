@@ -18,6 +18,8 @@ import {
   createHazardForAdminBodySchema,
   reviewHazardForAdminBodySchema,
   reviewHazardForAdminParamsSchema,
+  syncHazardsFromExternalSourceForAdminBodySchema,
+  updateHazardForAdminBodySchema,
 } from "../../validators/admin/hazard.validator.js";
 
 const adminHazardRouter = Router();
@@ -36,7 +38,12 @@ adminHazardRouter.post(
   validate(createHazardForAdminBodySchema),
   createHazardForAdmin
 );
-adminHazardRouter.put("/:hazardId", requireAdminOrAbove, updateHazardForAdmin);
+adminHazardRouter.put(
+  "/:hazardId",
+  requireAdminOrAbove,
+  validate(updateHazardForAdminBodySchema),
+  updateHazardForAdmin
+);
 
 // Community-report moderation decision (approve/reject) - a moderator's
 // core function, so gated at requireAnyAdmin like other read/moderation
@@ -56,6 +63,7 @@ adminHazardRouter.delete(
 adminHazardRouter.post(
   "/sync-external",
   requireAdminOrAbove,
+  validate(syncHazardsFromExternalSourceForAdminBodySchema),
   syncHazardsFromExternalSourceForAdmin
 );
 

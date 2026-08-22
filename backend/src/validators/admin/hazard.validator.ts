@@ -42,9 +42,11 @@ export const getHazardsForAdminQuerySchema = z.object({
 
   severityBands: z.array(z.enum(HazardSeverityBand)).optional(),
 
-  page: z.string().regex(/^\d+$/, "Page must be a number").optional(),
+  page: z.coerce.number().int().min(1).optional(),
 
-  pageSize: z.string().regex(/^\d+$/, "Page size must be a number").optional(),
+  // Capped at 100 to match the bound used elsewhere (e.g.
+  // getHazardSourcesForAdminQuerySchema) - previously unbounded.
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
 
   northeastLat: z
     .string()
