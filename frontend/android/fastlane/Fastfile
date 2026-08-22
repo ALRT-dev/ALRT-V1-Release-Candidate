@@ -1,0 +1,53 @@
+default_platform(:android)
+platform :android do
+
+  desc "Deploy the DEV application to Firebase App Distribution (Android)"
+  lane :firebase_dev do
+    sh 'fvm flutter build apk -t lib/main_dev.dart --flavor dev'
+    firebase_app_distribution(
+      app: '',
+      release_notes_file: '../release_note.txt',
+      android_artifact_type: 'APK',
+      android_artifact_path: '../build/app/outputs/flutter-apk/app-dev-release.apk',
+      firebase_cli_token: '',
+      groups: '',
+    )
+  end
+
+  desc "Deploy the PROD application to Firebase App Distribution (Android)"
+  lane :firebase_prod do
+    sh 'fvm flutter build apk -t lib/main_prod.dart --flavor prod'
+    firebase_app_distribution(
+      app: '',
+      release_notes_file: '../release_note.txt',
+      android_artifact_type: 'APK',
+      android_artifact_path: '../build/app/outputs/flutter-apk/app-prod-release.apk',
+      firebase_cli_token: '',
+      groups: '',
+    )
+  end
+
+  desc "Deploy the PROD application to GooglePlay beta release"
+  lane :beta_release do
+    sh 'fvm flutter build appbundle -t lib/main_prod.dart --flavor prod'
+
+    release_notes_text = File.read("../../release_note.txt")
+    upload_to_play_store(
+      track: 'internal',
+      release_status: 'draft',
+      aab: '../build/app/outputs/bundle/prodRelease/app-prod-release.aab',
+    )
+  end
+
+  desc "Deploy the PROD application to GooglePlay production release"
+  lane :production_release do
+    sh 'fvm flutter build appbundle -t lib/main_prod.dart --flavor prod'
+
+    release_notes_text = File.read("../../release_note.txt")
+    upload_to_play_store(
+      track: 'production',
+      release_status: 'completed',
+      aab: '../build/app/outputs/bundle/prodRelease/app-prod-release.aab',
+    )
+  end
+end

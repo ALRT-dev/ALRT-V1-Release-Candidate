@@ -1,0 +1,2 @@
+json_key_file("./app/playstore-access.json")
+package_name("com.safetyalrt.alrt")

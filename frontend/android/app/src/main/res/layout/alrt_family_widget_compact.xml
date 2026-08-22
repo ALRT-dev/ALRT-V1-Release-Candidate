@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compact (1-cell-high) variant of the Family widget: the app-tile icon
+     plus one headline line. Same view ids as the full layout so the
+     provider binds either without branching. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/family_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/alrt_widget_bg"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <ImageView
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginEnd="10dp"
+        android:src="@mipmap/ic_launcher"
+        android:scaleType="fitCenter"
+        android:contentDescription="ALRT" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/family_kicker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#B7B7C0"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/family_headline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <!-- Present for the shared bind, never shown at this size. -->
+        <TextView
+            android:id="@+id/family_sub"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Present for the shared bind; icons need the full card. -->
+    <LinearLayout
+        android:id="@+id/family_groups_row"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/family_group_icon_0"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:contentDescription="@null" />
+
+        <ImageView
+            android:id="@+id/family_group_icon_1"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:contentDescription="@null" />
+
+        <ImageView
+            android:id="@+id/family_group_icon_2"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:contentDescription="@null" />
+
+        <ImageView
+            android:id="@+id/family_group_icon_3"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:contentDescription="@null" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,4 @@
+enum MyHazardsTab {
+  accepted,
+  rejected,
+}

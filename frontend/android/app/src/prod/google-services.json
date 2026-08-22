@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "705221000399",
+    "project_id": "alrt-a6539",
+    "storage_bucket": "alrt-a6539.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:705221000399:android:91faca8cf2c5f4f8858bba",
+        "android_client_info": {
+          "package_name": "com.safetyalrt.alrt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBR9QoyBvMjC3JuP6FG53LRkdtp7WzvFQk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:705221000399:android:e626de52935e48e0858bba",
+        "android_client_info": {
+          "package_name": "com.safetyalrt.alrt.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBR9QoyBvMjC3JuP6FG53LRkdtp7WzvFQk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

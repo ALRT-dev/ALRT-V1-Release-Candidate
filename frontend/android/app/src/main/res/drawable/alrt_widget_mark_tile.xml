@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The orange tile the ALRT mark sits on in the widget header. Same rust
+     -> red the app uses for its own voice, so the widget is recognisable
+     as ALRT before a word is read. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="8dp" />
+    <gradient
+        android:angle="315"
+        android:startColor="#FF8C00"
+        android:endColor="#FF2D12" />
+</shape>

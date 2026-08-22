@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Used only by CI (ios-testflight.yml): exports the archive for App
+	     Store / TestFlight with the certificates fastlane match installs. -->
+	<key>method</key>
+	<string>app-store</string>
+	<key>teamID</key>
+	<string>JR89M7CYPR</string>
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.safetyalrt.alrt</key>
+		<string>match AppStore com.safetyalrt.alrt</string>
+	</dict>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>

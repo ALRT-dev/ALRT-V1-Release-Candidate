@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App-icon long-press shortcuts (app_name itself comes from gradle resValue per flavor). -->
+    <!-- Home-screen widget picker entries. Without these the picker falls
+         back to the app label, which carries the flavour prefix. -->
+    <string name="widget_alerts_label">ALRT Nearby Alerts</string>
+    <string name="widget_alerts_description">Nearest alert, or all clear when there is nothing near you.</string>
+    <string name="widget_family_label">ALRT Family</string>
+    <string name="widget_family_description">Who in your circle has checked in.</string>
+    <string name="shortcut_pin_alerts_short">Add Alerts widget</string>
+    <string name="shortcut_pin_alerts_long">Add Nearby Alerts widget</string>
+    <string name="shortcut_pin_family_short">Add Family widget</string>
+    <string name="shortcut_pin_family_long">Add Family widget</string>
+</resources>

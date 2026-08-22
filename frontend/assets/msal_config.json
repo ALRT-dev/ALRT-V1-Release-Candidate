@@ -1,0 +1,15 @@
+{
+  "client_id": "8e254eb3-5f4f-4455-b3ba-aa30f64e1730",
+  "account_mode": "SINGLE",
+  "authorization_user_agent": "BROWSER",
+  "broker_redirect_uri_registered": true,
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "AzureADMyOrg",
+        "tenant_id": "0efaf5d7-b718-49a6-b88d-60ae11b5a6b3"
+      }
+    }
+  ]
+}
