@@ -1549,7 +1549,13 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   // ---------------------------- SOS ----------------------------
 
   /// Triggers an SOS with the user's current location attached.
-  Future<FamilySosEvent?> triggerSos({final String? sosListId}) async {
+  /// [isLive] is the sender's own choice, made before triggering — never
+  /// assumed. Live tracking only starts when they chose it; SOS itself
+  /// still reaches every recipient either way.
+  Future<FamilySosEvent?> triggerSos({
+    final String? sosListId,
+    required final bool isLive,
+  }) async {
     state = state.copyWith(sosTriggerState: const FamilyActionState.loading());
 
     final position = await _familyLocationService
@@ -1560,6 +1566,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       latitude: position?.latitude,
       longitude: position?.longitude,
       sosListId: sosListId,
+      isLive: isLive,
     );
     if (!mounted) return null;
 
@@ -1567,9 +1574,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       (sosEvent) {
         AnalyticsService.familySosTriggered();
         _upsertSosEvent(sosEvent);
-        // Live tracking starts automatically with the SOS: the people it
-        // reached can watch movement, not just the first point.
-        _startSosLiveShare();
+        // Only start the continuous stream when the sender chose it.
+        if (isLive) _startSosLiveShare();
         state = state.copyWith(
           sosTriggerState: const FamilyActionState.success(),
         );

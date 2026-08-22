@@ -1758,6 +1758,7 @@ export const triggerSos = async (
     latitude?: number | undefined;
     longitude?: number | undefined;
     sosListId?: string | undefined;
+    isLive: boolean;
   },
   circleId?: string,
 ) => {
@@ -1805,6 +1806,7 @@ export const triggerSos = async (
     data: {
       circleId: membership.circleId,
       memberId: membership.id,
+      isLive: input.isLive,
       ...(latitude !== null && { latitude }),
       ...(longitude !== null && { longitude }),
       ...(membership.locationLabel && {

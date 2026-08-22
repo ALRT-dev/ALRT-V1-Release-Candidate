@@ -883,7 +883,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isMine ? 'Your SOS is live' : '$name needs help · SOS',
+                    isMine
+                        ? (sos.isLive ? 'Your SOS is live' : 'Your SOS is active')
+                        : '$name needs help · SOS',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 15.spMin,
@@ -893,8 +895,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   if (sos.createdAt != null)
                     Text(
                       isMine
-                          ? 'Your family can watch your movements · tap '
-                                'to update or stand down'
+                          ? (sos.isLive
+                                ? 'Your family can watch your movements · tap '
+                                      'to update or stand down'
+                                : 'Your family has been alerted · tap to stand '
+                                      'down')
                           : 'Started ${timeago.format(sos.createdAt!)} · '
                                 'tap to see them on the map and respond',
                       style: TextStyle(

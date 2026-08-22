@@ -438,6 +438,9 @@ abstract class FamilySosEvent with _$FamilySosEvent {
     @JsonKey(unknownEnumValue: FamilySosStatus.active)
     @Default(FamilySosStatus.active)
     final FamilySosStatus status,
+    // Whether the sender chose live location sharing for this SOS.
+    // Defaults true: every SOS from before this field existed was live.
+    @Default(true) final bool isLive,
     final double? latitude,
     final double? longitude,
     final String? locationLabel,

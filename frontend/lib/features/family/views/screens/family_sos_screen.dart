@@ -41,6 +41,13 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
   String? _selectedListId;
   bool _listTouched = false;
 
+  /// The sender's own choice, made before triggering — SOS must never
+  /// assume live location sharing is wanted (low battery, or any other
+  /// reason to send without a continuous stream). Defaults on: most
+  /// people want live sharing in an emergency, but it is a real,
+  /// visible, changeable choice, not an unconditional side effect.
+  bool _liveLocationEnabled = true;
+
   @override
   void initState() {
     super.initState();
@@ -124,12 +131,18 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
               SizedBox(height: 8.spMin),
               Text(
                 _sent
-                    ? 'Your live location is now shared with '
-                          '${selectedList?.name ?? circleName}. They can '
-                          'watch your movements on the map until you stand '
-                          'down from the Family tab, for up to 4 hours.'
-                    : 'Sends an SOS and your live location '
-                          'to $targetLabel.',
+                    ? (_liveLocationEnabled
+                          ? 'Your live location is now shared with '
+                                '${selectedList?.name ?? circleName}. They can '
+                                'watch your movements on the map until you stand '
+                                'down from the Family tab, for up to 4 hours.'
+                          : '${selectedList?.name ?? circleName} has been '
+                                'alerted. Your location is not being shared live.')
+                    : (_liveLocationEnabled
+                          ? 'Sends an SOS and your live location '
+                                'to $targetLabel.'
+                          : 'Sends an SOS to $targetLabel. Your live '
+                                'location will not be shared.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.8),
@@ -167,6 +180,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                     ),
                   ),
                 ),
+                SizedBox(height: 10.spMin),
+                _liveLocationToggleBuilder(),
               ],
               const Spacer(),
               _sent ? _sentIndicatorBuilder() : _holdButtonBuilder(),
@@ -264,6 +279,44 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// The sender's explicit choice, made before triggering — never an
+  /// assumed default the sender didn't see. Off is a real option, not a
+  /// hidden path: low battery, or any other reason not to start a
+  /// continuous location stream, stays fully supported.
+  Widget _liveLocationToggleBuilder() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 4.spMin),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14.spMin),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Share live location',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14.spMin,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Switch(
+            value: _liveLocationEnabled,
+            activeThumbColor: Colors.white,
+            activeTrackColor: FamilyColors.safeGreen,
+            inactiveThumbColor: Colors.white.withValues(alpha: 0.7),
+            inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
+            onChanged: (value) =>
+                setState(() => _liveLocationEnabled = value),
+          ),
+        ],
       ),
     );
   }
@@ -426,7 +479,10 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     HapticFeedback.heavyImpact();
     final sos = await ref
         .read(providerOfFamily.notifier)
-        .triggerSos(sosListId: _selectedListId);
+        .triggerSos(
+          sosListId: _selectedListId,
+          isLive: _liveLocationEnabled,
+        );
     if (!mounted) return;
     if (sos != null) {
       setState(() => _sent = true);

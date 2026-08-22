@@ -163,6 +163,10 @@ export const triggerFamilySosSchema = z.object({
   latitude: latitudeSchema.optional(),
   longitude: longitudeSchema.optional(),
   sosListId: z.string().uuid().optional(),
+  // Required, not defaulted: the sender must choose, every time - SOS must
+  // never silently assume live location sharing is wanted (e.g. low
+  // battery, or any other reason to send SOS without a continuous stream).
+  isLive: z.boolean(),
 });
 
 export type TriggerFamilySosInput = z.infer<typeof triggerFamilySosSchema>;

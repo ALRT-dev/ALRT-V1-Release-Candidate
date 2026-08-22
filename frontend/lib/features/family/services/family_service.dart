@@ -317,11 +317,13 @@ class FamilyService {
     final double? latitude,
     final double? longitude,
     final String? sosListId,
+    required final bool isLive,
   }) {
     return _familyRepository.triggerFamilySos(
       latitude: latitude,
       longitude: longitude,
       sosListId: sosListId,
+      isLive: isLive,
     );
   }
 

@@ -583,6 +583,7 @@ _FamilySosEvent _$FamilySosEventFromJson(
         unknownValue: FamilySosStatus.active,
       ) ??
       FamilySosStatus.active,
+  isLive: json['isLive'] as bool? ?? true,
   latitude: (json['latitude'] as num?)?.toDouble(),
   longitude: (json['longitude'] as num?)?.toDouble(),
   locationLabel: json['locationLabel'] as String?,
@@ -608,6 +609,7 @@ Map<String, dynamic> _$FamilySosEventToJson(_FamilySosEvent instance) =>
       'circleId': instance.circleId,
       'memberId': instance.memberId,
       'status': _$FamilySosStatusEnumMap[instance.status]!,
+      'isLive': instance.isLive,
       'latitude': ?instance.latitude,
       'longitude': ?instance.longitude,
       'locationLabel': ?instance.locationLabel,

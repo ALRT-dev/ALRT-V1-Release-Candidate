@@ -983,6 +983,10 @@ model FamilySosEvent {
   circleId String
   memberId String // The member who triggered the SOS
   status   FamilySosStatus @default(active)
+  // Whether the sender chose continuous live-location sharing for this SOS.
+  // Defaults true so every SOS from before this field existed reads as the
+  // live share it always was; new SOS events pass the sender's real choice.
+  isLive   Boolean         @default(true)
 
   latitude      Float?
   longitude     Float?

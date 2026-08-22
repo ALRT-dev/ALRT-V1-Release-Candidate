@@ -4738,7 +4738,7 @@ $FamilyMemberSnippetCopyWith<$Res>? get requestedBy {
 /// @nodoc
 mixin _$FamilySosEvent {
 
- String get id; String get circleId; String get memberId;@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus get status; double? get latitude; double? get longitude; String? get locationLabel; FamilyMemberSnippet? get member; List<FamilySosResponse> get responses; DateTime? get resolvedAt; DateTime? get createdAt;
+ String get id; String get circleId; String get memberId;@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus get status; bool get isLive; double? get latitude; double? get longitude; String? get locationLabel; FamilyMemberSnippet? get member; List<FamilySosResponse> get responses; DateTime? get resolvedAt; DateTime? get createdAt;
 /// Create a copy of FamilySosEvent
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -4751,16 +4751,16 @@ $FamilySosEventCopyWith<FamilySosEvent> get copyWith => _$FamilySosEventCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilySosEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.locationLabel, locationLabel) || other.locationLabel == locationLabel)&&(identical(other.member, member) || other.member == member)&&const DeepCollectionEquality().equals(other.responses, responses)&&(identical(other.resolvedAt, resolvedAt) || other.resolvedAt == resolvedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilySosEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.isLive, isLive) || other.isLive == isLive)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.locationLabel, locationLabel) || other.locationLabel == locationLabel)&&(identical(other.member, member) || other.member == member)&&const DeepCollectionEquality().equals(other.responses, responses)&&(identical(other.resolvedAt, resolvedAt) || other.resolvedAt == resolvedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,circleId,memberId,status,latitude,longitude,locationLabel,member,const DeepCollectionEquality().hash(responses),resolvedAt,createdAt);
+int get hashCode => Object.hash(runtimeType,id,circleId,memberId,status,isLive,latitude,longitude,locationLabel,member,const DeepCollectionEquality().hash(responses),resolvedAt,createdAt);
 
 @override
 String toString() {
-  return 'FamilySosEvent(id: $id, circleId: $circleId, memberId: $memberId, status: $status, latitude: $latitude, longitude: $longitude, locationLabel: $locationLabel, member: $member, responses: $responses, resolvedAt: $resolvedAt, createdAt: $createdAt)';
+  return 'FamilySosEvent(id: $id, circleId: $circleId, memberId: $memberId, status: $status, isLive: $isLive, latitude: $latitude, longitude: $longitude, locationLabel: $locationLabel, member: $member, responses: $responses, resolvedAt: $resolvedAt, createdAt: $createdAt)';
 }
 
 
@@ -4771,7 +4771,7 @@ abstract mixin class $FamilySosEventCopyWith<$Res>  {
   factory $FamilySosEventCopyWith(FamilySosEvent value, $Res Function(FamilySosEvent) _then) = _$FamilySosEventCopyWithImpl;
 @useResult
 $Res call({
- String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus status, double? latitude, double? longitude, String? locationLabel, FamilyMemberSnippet? member, List<FamilySosResponse> responses, DateTime? resolvedAt, DateTime? createdAt
+ String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus status, bool isLive, double? latitude, double? longitude, String? locationLabel, FamilyMemberSnippet? member, List<FamilySosResponse> responses, DateTime? resolvedAt, DateTime? createdAt
 });
 
 
@@ -4788,13 +4788,14 @@ class _$FamilySosEventCopyWithImpl<$Res>
 
 /// Create a copy of FamilySosEvent
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? latitude = freezed,Object? longitude = freezed,Object? locationLabel = freezed,Object? member = freezed,Object? responses = null,Object? resolvedAt = freezed,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? isLive = null,Object? latitude = freezed,Object? longitude = freezed,Object? locationLabel = freezed,Object? member = freezed,Object? responses = null,Object? resolvedAt = freezed,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,circleId: null == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
 as String,memberId: null == memberId ? _self.memberId : memberId // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
-as FamilySosStatus,latitude: freezed == latitude ? _self.latitude : latitude // ignore: cast_nullable_to_non_nullable
+as FamilySosStatus,isLive: null == isLive ? _self.isLive : isLive // ignore: cast_nullable_to_non_nullable
+as bool,latitude: freezed == latitude ? _self.latitude : latitude // ignore: cast_nullable_to_non_nullable
 as double?,longitude: freezed == longitude ? _self.longitude : longitude // ignore: cast_nullable_to_non_nullable
 as double?,locationLabel: freezed == locationLabel ? _self.locationLabel : locationLabel // ignore: cast_nullable_to_non_nullable
 as String?,member: freezed == member ? _self.member : member // ignore: cast_nullable_to_non_nullable
@@ -4954,13 +4955,14 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.latitu
 @JsonSerializable()
 
 class _FamilySosEvent implements FamilySosEvent {
-  const _FamilySosEvent({required this.id, required this.circleId, required this.memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active) this.status = FamilySosStatus.active, this.latitude, this.longitude, this.locationLabel, this.member, final  List<FamilySosResponse> responses = const <FamilySosResponse>[], this.resolvedAt, this.createdAt}): _responses = responses;
+  const _FamilySosEvent({required this.id, required this.circleId, required this.memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active) this.status = FamilySosStatus.active, this.isLive = true, this.latitude, this.longitude, this.locationLabel, this.member, final  List<FamilySosResponse> responses = const <FamilySosResponse>[], this.resolvedAt, this.createdAt}): _responses = responses;
   factory _FamilySosEvent.fromJson(Map<String, dynamic> json) => _$FamilySosEventFromJson(json);
 
 @override final  String id;
 @override final  String circleId;
 @override final  String memberId;
 @override@JsonKey(unknownEnumValue: FamilySosStatus.active) final  FamilySosStatus status;
+@override@JsonKey() final  bool isLive;
 @override final  double? latitude;
 @override final  double? longitude;
 @override final  String? locationLabel;
@@ -4988,16 +4990,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilySosEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.locationLabel, locationLabel) || other.locationLabel == locationLabel)&&(identical(other.member, member) || other.member == member)&&const DeepCollectionEquality().equals(other._responses, _responses)&&(identical(other.resolvedAt, resolvedAt) || other.resolvedAt == resolvedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilySosEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.isLive, isLive) || other.isLive == isLive)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.locationLabel, locationLabel) || other.locationLabel == locationLabel)&&(identical(other.member, member) || other.member == member)&&const DeepCollectionEquality().equals(other._responses, _responses)&&(identical(other.resolvedAt, resolvedAt) || other.resolvedAt == resolvedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,circleId,memberId,status,latitude,longitude,locationLabel,member,const DeepCollectionEquality().hash(_responses),resolvedAt,createdAt);
+int get hashCode => Object.hash(runtimeType,id,circleId,memberId,status,isLive,latitude,longitude,locationLabel,member,const DeepCollectionEquality().hash(_responses),resolvedAt,createdAt);
 
 @override
 String toString() {
-  return 'FamilySosEvent(id: $id, circleId: $circleId, memberId: $memberId, status: $status, latitude: $latitude, longitude: $longitude, locationLabel: $locationLabel, member: $member, responses: $responses, resolvedAt: $resolvedAt, createdAt: $createdAt)';
+  return 'FamilySosEvent(id: $id, circleId: $circleId, memberId: $memberId, status: $status, isLive: $isLive, latitude: $latitude, longitude: $longitude, locationLabel: $locationLabel, member: $member, responses: $responses, resolvedAt: $resolvedAt, createdAt: $createdAt)';
 }
 
 
@@ -5008,7 +5010,7 @@ abstract mixin class _$FamilySosEventCopyWith<$Res> implements $FamilySosEventCo
   factory _$FamilySosEventCopyWith(_FamilySosEvent value, $Res Function(_FamilySosEvent) _then) = __$FamilySosEventCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus status, double? latitude, double? longitude, String? locationLabel, FamilyMemberSnippet? member, List<FamilySosResponse> responses, DateTime? resolvedAt, DateTime? createdAt
+ String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus status, bool isLive, double? latitude, double? longitude, String? locationLabel, FamilyMemberSnippet? member, List<FamilySosResponse> responses, DateTime? resolvedAt, DateTime? createdAt
 });
 
 
@@ -5025,13 +5027,14 @@ class __$FamilySosEventCopyWithImpl<$Res>
 
 /// Create a copy of FamilySosEvent
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? latitude = freezed,Object? longitude = freezed,Object? locationLabel = freezed,Object? member = freezed,Object? responses = null,Object? resolvedAt = freezed,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? isLive = null,Object? latitude = freezed,Object? longitude = freezed,Object? locationLabel = freezed,Object? member = freezed,Object? responses = null,Object? resolvedAt = freezed,Object? createdAt = freezed,}) {
   return _then(_FamilySosEvent(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,circleId: null == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
 as String,memberId: null == memberId ? _self.memberId : memberId // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
-as FamilySosStatus,latitude: freezed == latitude ? _self.latitude : latitude // ignore: cast_nullable_to_non_nullable
+as FamilySosStatus,isLive: null == isLive ? _self.isLive : isLive // ignore: cast_nullable_to_non_nullable
+as bool,latitude: freezed == latitude ? _self.latitude : latitude // ignore: cast_nullable_to_non_nullable
 as double?,longitude: freezed == longitude ? _self.longitude : longitude // ignore: cast_nullable_to_non_nullable
 as double?,locationLabel: freezed == locationLabel ? _self.locationLabel : locationLabel // ignore: cast_nullable_to_non_nullable
 as String?,member: freezed == member ? _self.member : member // ignore: cast_nullable_to_non_nullable

@@ -486,6 +486,7 @@ abstract class RestClient {
     @Field() final double? latitude,
     @Field() final double? longitude,
     @Field() final String? sosListId,
+    @Field() required final bool isLive,
     @Query('circleId') final String? circleId,
   });
 

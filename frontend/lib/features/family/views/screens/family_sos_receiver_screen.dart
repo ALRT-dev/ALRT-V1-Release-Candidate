@@ -10,6 +10,7 @@ import 'package:hazard_app/features/family/views/screens/family_sos_resolved_scr
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
+import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -209,7 +210,7 @@ class _FamilySosReceiverScreenState
               padding: EdgeInsets.all(20.spMin),
               children: [
                 if (position != null)
-                  _mapBuilder(position, isLive: !isResolved),
+                  _mapBuilder(position, isLive: !isResolved && sos.isLive),
                 SizedBox(height: 14.spMin),
                 _locationCardBuilder(sos, isResolved),
                 SizedBox(height: 16.spMin),
@@ -262,7 +263,9 @@ class _FamilySosReceiverScreenState
                     Text(
                       isResolved
                           ? 'SOS resolved'
-                          : 'Live location on · started ${timeago.format(sos.createdAt!)}',
+                          : sos.isLive
+                              ? 'Live location on · started ${timeago.format(sos.createdAt!)}'
+                              : 'Started ${timeago.format(sos.createdAt!)} · live location off',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 12.spMin,
@@ -429,13 +432,51 @@ class _FamilySosReceiverScreenState
             borderRadius: BorderRadius.circular(16.spMin),
           ),
         ),
-        onPressed: () => _resolveAndShowSummary(context, ref, sos),
+        onPressed: () => _confirmAndResolve(context, ref, sos),
         child: Text(
           "I'm safe now — resolve SOS",
           style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
         ),
       ),
     );
+  }
+
+  /// Two-tier confirmation before an SOS actually stops, so the sender
+  /// understands what is about to happen before it happens — not just
+  /// after. When live location sharing is active, a second, live-specific
+  /// confirmation follows the first: stopping SOS and stopping live
+  /// sharing are two things happening at once, and both need to be said,
+  /// not just one generic "are you sure".
+  Future<void> _confirmAndResolve(
+    final BuildContext context,
+    final WidgetRef ref,
+    final FamilySosEvent sos,
+  ) async {
+    var confirmedStop = false;
+    await showConfirmationSheet(
+      context: context,
+      title: 'Stop your SOS?',
+      description: 'Your family stops seeing this alert and it moves to '
+          'your history.',
+      confirmButtonText: 'Stop SOS',
+      onPressedConfirm: (_, __) => confirmedStop = true,
+    );
+    if (!confirmedStop || !context.mounted) return;
+
+    if (sos.isLive) {
+      var confirmedStopLive = false;
+      await showConfirmationSheet(
+        context: context,
+        title: 'Also stop sharing your live location?',
+        description: 'Live location sharing ends immediately and the '
+            'trail is deleted. This cannot be undone.',
+        confirmButtonText: 'Stop live sharing',
+        onPressedConfirm: (_, __) => confirmedStopLive = true,
+      );
+      if (!confirmedStopLive || !context.mounted) return;
+    }
+
+    await _resolveAndShowSummary(context, ref, sos);
   }
 
   /// Stands the SOS down and then shows the after-event record, so the

@@ -189,6 +189,7 @@ abstract class FamilyRepository {
     final double? latitude,
     final double? longitude,
     final String? sosListId,
+    required final bool isLive,
   });
 
   /// Starts a journey shared with the chosen members.
@@ -881,6 +882,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
     double? latitude,
     double? longitude,
     String? sosListId,
+    required bool isLive,
   }) {
     return runAsyncCall(
       name: 'triggerFamilySos',
@@ -889,6 +891,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
           latitude: latitude,
           longitude: longitude,
           sosListId: sosListId,
+          isLive: isLive,
           circleId: _circleId,
         );
         return Success(result);
