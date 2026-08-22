@@ -44,7 +44,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
     if (trimmed.isEmpty || state.isSending) return;
 
     final groundingAlerts = _gatherNearbyAlerts();
-    final contextString = _composeContext(groundingAlerts);
+    final nearbyAlertsPayload = _composeNearbyAlerts(groundingAlerts);
 
     state = state.copyWith(
       messages: [
@@ -75,7 +75,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
     }
 
     var answer = fallbackAnswerFor(emergencyNumber);
-    var usedContext = false;
+    var citedAlerts = const <Hazard>[];
 
     try {
       final callable = FirebaseFunctions.instance.httpsCallable(
@@ -84,13 +84,13 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
       );
       final result = await callable.call<dynamic>({
         'question': trimmed,
-        if (contextString.isNotEmpty) 'context': contextString,
+        if (nearbyAlertsPayload.isNotEmpty) 'nearbyAlerts': nearbyAlertsPayload,
       });
 
       final parsedAnswer = _extractAnswer(result.data);
       if (parsedAnswer != null) {
         answer = parsedAnswer;
-        usedContext = contextString.isNotEmpty;
+        citedAlerts = _resolveCitedAlerts(result.data, groundingAlerts);
       }
     } on FirebaseFunctionsException catch (exception) {
       answer = _isLimitError(exception)
@@ -111,7 +111,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
         AskAlrtMessage(
           role: AskAlrtRole.assistant,
           text: answer,
-          groundingAlerts: usedContext ? groundingAlerts : const <Hazard>[],
+          groundingAlerts: citedAlerts,
         ),
       ],
       isSending: false,
@@ -135,28 +135,30 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
     }
   }
 
-  /// One compact line per alert:
-  /// "{title} — {category} — {severityTitle if AWS} — {source or community}".
-  String _composeContext(final List<Hazard> alerts) {
-    final lines = <String>[];
+  /// One structured entry per alert, keyed by the app's own stable id, so
+  /// the backend can cite exactly which alerts it relied on instead of the
+  /// app having to guess from a free-text reply. Alerts with no id can't be
+  /// cited back, so they're left out rather than sent uncitably.
+  List<Map<String, String>> _composeNearbyAlerts(final List<Hazard> alerts) {
+    final payload = <Map<String, String>>[];
     for (final alert in alerts) {
+      final id = alert.id?.trim();
       final title = alert.title?.trim() ?? '';
-      if (title.isEmpty) continue;
+      if (id == null || id.isEmpty || title.isEmpty) continue;
 
       final sourceName = alert.source?.name?.trim();
-      final parts = <String>[
-        title,
+      payload.add({
+        'id': id,
+        'title': title,
         if (alert.category?.name?.trim().isNotEmpty ?? false)
-          alert.category!.name!.trim(),
-        if (alert.isAwsCompliant == true) alert.severityTitle,
-        if (sourceName != null && sourceName.isNotEmpty)
-          sourceName
-        else
-          'community report, unverified',
-      ];
-      lines.add(parts.join(' — '));
+          'category': alert.category!.name!.trim(),
+        if (alert.isAwsCompliant == true) 'severity': alert.severityTitle,
+        'source': (sourceName != null && sourceName.isNotEmpty)
+            ? sourceName
+            : 'community report, unverified',
+      });
     }
-    return lines.join('\n');
+    return payload;
   }
 
   /// Pulls the display text out of whatever shape the callable returned.
@@ -173,6 +175,23 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
       return data.trim();
     }
     return null;
+  }
+
+  /// Narrows [sentAlerts] down to only the ones the backend actually cited
+  /// in `referencedAlertIds`, so the sheet shows citations, not just
+  /// "everything that happened to be sent." Empty when the field is absent
+  /// (e.g. an older backend) or the answer didn't rely on any of them.
+  List<Hazard> _resolveCitedAlerts(
+    final dynamic data,
+    final List<Hazard> sentAlerts,
+  ) {
+    if (data is! Map) return const <Hazard>[];
+    final ids = data['referencedAlertIds'];
+    if (ids is! List || ids.isEmpty) return const <Hazard>[];
+
+    final citedIds = ids.whereType<String>().toSet();
+    if (citedIds.isEmpty) return const <Hazard>[];
+    return sentAlerts.where((alert) => citedIds.contains(alert.id)).toList();
   }
 
   /// True when the backend rejected the call with a quota-style message.

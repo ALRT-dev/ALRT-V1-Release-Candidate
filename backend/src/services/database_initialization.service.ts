@@ -4,7 +4,6 @@ import { initializeDefaultConfigurations } from "./configuration.service.js";
 import { activateSuperAdmin } from "./user.admin.service.js";
 import { initializeHazardSources } from "./hazard.service.js";
 import { seedSafetyGuides } from "./guide_seed.service.js";
-import { ensureAskAlrtPrompt } from "./askalrt.service.js";
 
 /**
  * Initialize all database-dependent services and data
@@ -17,9 +16,7 @@ export const initializeDatabase = async (): Promise<void> => {
     await Promise.all([
       initializeHazardSources(),
       initializeHazardCategories(),
-      initializeAIPrompts()
-        .then(() => ensureAskAlrtPrompt())
-        .then(() => initializeDefaultConfigurations()),
+      initializeAIPrompts().then(() => initializeDefaultConfigurations()),
     ]);
 
     // Seed Learn hub safety guides after categories exist (guides map to

@@ -27,5 +27,13 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if false;
     }
+
+    // ----- Ask ALRT system prompt override: server-only, edited in Console --
+    // Same pattern as askAlrtEntries, but never read by the client directly -
+    // only the askAlrt callable reads it (via the admin SDK, bypasses rules).
+    match /askAlrtConfig/{docId} {
+      allow read: if false;
+      allow write: if false;
+    }
   }
 }

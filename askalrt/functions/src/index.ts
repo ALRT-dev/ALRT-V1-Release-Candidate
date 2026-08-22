@@ -12,7 +12,7 @@ import * as admin from "firebase-admin";
 admin.initializeApp();
 
 // RevenueCat → entitlements/{uid} (plan free/plus). Used here only to pick
-// the Ask ALRT daily quota (3 free / 20 paid).
+// the Ask ALRT daily quota (5 free / 30 paid).
 export { revenuecatWebhook } from "./entitlements";
 
 // Ask ALRT assistant (library-first, minimal AI).

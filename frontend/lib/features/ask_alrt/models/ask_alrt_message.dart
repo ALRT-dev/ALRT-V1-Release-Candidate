@@ -26,9 +26,11 @@ class AskAlrtMessage {
   /// The display text of the message.
   final String text;
 
-  /// The nearby alerts that were passed to the backend as grounding context
-  /// for this answer. Rendered as outlined source chips under the assistant
-  /// bubble. Empty for user messages and for answers with no alert context.
+  /// The nearby alerts the backend actually cited when answering this
+  /// question (a subset of whatever was sent as context - not everything
+  /// sent, only what the model said it relied on). Rendered as outlined
+  /// source chips under the assistant bubble. Empty for user messages and
+  /// for answers that didn't cite any specific alert.
   final List<Hazard> groundingAlerts;
 
   /// Whether this message was written by the assistant.

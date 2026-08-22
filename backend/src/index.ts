@@ -25,7 +25,6 @@ import {
   guideRouter,
   publicRouter,
   revenueCatRouter,
-  askAlrtRouter,
 } from "./routes/index.js";
 import { errorHandlerMiddleware } from "./middlewares/error_handler.middleware.js";
 import { unknownRouteMiddleware } from "./middlewares/unknown_route.middleware.js";
@@ -118,7 +117,13 @@ app.use("/api/maps", mapsRouter);
 app.use("/api/guides", guideRouter);
 app.use("/api/family", familyRouter);
 app.use("/api/revenuecat", revenueCatRouter);
-app.use("/api/ask", askAlrtRouter);
+// NOTE: the native Ask ALRT port that used to mount here (/api/ask) was
+// removed - confirmed orphaned (zero real callers) in the V1 reconciliation
+// audit. The canonical Ask ALRT implementation is the standalone
+// ALRT-dev/askalrt Firebase service; this backend still mints the Firebase
+// custom token it needs via POST /api/user/firebase-token (unchanged, see
+// firebase_token.controller.ts - that is required plumbing, not a
+// duplicate). See V1_RECONCILIATION_REPORT.md S13.
 
 app.get("/api/test", (req, res) => {
   res.send("Test route is working!");
