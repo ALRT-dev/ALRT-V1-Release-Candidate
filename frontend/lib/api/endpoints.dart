@@ -96,10 +96,13 @@ const kUrlFamilyJoin = '$kUrlFamily/join';
 const kUrlFamilyLocation = '$kUrlFamily/location';
 const kUrlFamilyLocationRequest =
     '$kUrlFamilyMembers/{memberId}/location-request';
+const kUrlFamilyLocationRequests = '$kUrlFamily/location-requests';
 const kUrlFamilyLocationRequestsPending =
     '$kUrlFamily/location-requests/pending';
 const kUrlFamilyLocationRequestRespond =
     '$kUrlFamily/location-requests/{requestId}/respond';
+const kUrlFamilyLocationRequestCancel =
+    '$kUrlFamily/location-requests/{requestId}';
 const kUrlFamilyCheckIn = '$kUrlFamily/check-in';
 const kUrlFamilyCheckInRequest = '$kUrlFamilyCheckIn/request';
 const kUrlFamilyCheckInRequestCancel = '$kUrlFamilyCheckInRequest/{requestId}';

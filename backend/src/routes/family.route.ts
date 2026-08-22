@@ -23,6 +23,7 @@ import {
   updateFamilyPlaceSchema,
   updateFamilyPlacePrefSchema,
   respondFamilyLocationRequestSchema,
+  bulkFamilyLocationRequestSchema,
   triggerFamilySosSchema,
   respondFamilySosSchema,
   transferFamilyOwnershipSchema,
@@ -51,6 +52,8 @@ import {
   listCirclesController,
   shareSnapshotController,
   createLocationRequestController,
+  createLocationRequestsController,
+  cancelLocationRequestController,
   getPendingLocationRequestsController,
   respondToLocationRequestController,
   checkInController,
@@ -138,11 +141,20 @@ familyRouter.post("/join", validate(joinFamilyCircleSchema), joinCircleControlle
 // Location snapshots (ALRT never live-tracks: one-time, expiring shares)
 familyRouter.post("/location", validate(familyLocationPingSchema), shareSnapshotController);
 familyRouter.post("/members/:memberId/location-request", createLocationRequestController);
+familyRouter.post(
+  "/location-requests",
+  validate(bulkFamilyLocationRequestSchema),
+  createLocationRequestsController,
+);
 familyRouter.get("/location-requests/pending", getPendingLocationRequestsController);
 familyRouter.post(
   "/location-requests/:requestId/respond",
   validate(respondFamilyLocationRequestSchema),
   respondToLocationRequestController,
+);
+familyRouter.delete(
+  "/location-requests/:requestId",
+  cancelLocationRequestController,
 );
 
 // Check-ins

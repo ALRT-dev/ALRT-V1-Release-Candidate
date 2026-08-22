@@ -257,6 +257,81 @@ export const createLocationRequest = async (
   return request;
 };
 
+/**
+ * Requests a snapshot from more than one member at once — "selected people"
+ * or "the whole group" (the caller passes every member id it wants; there is
+ * no separate "whole group" flag, since the client already has the full
+ * member list to build that from). Each target still goes through the exact
+ * same createLocationRequest checks (guests, sharing off, self-request,
+ * anyoneCanRequestSnapshot) and gets its own row and its own consent prompt
+ * — this does not create one request that could be answered for the group,
+ * it just saves the caller from tapping "ask" once per person. A target
+ * that fails its own check (e.g. sharing off) does not fail the whole
+ * batch — the others still go out.
+ */
+export const createLocationRequestsForMembers = async (
+  userId: string,
+  targetMemberIds: string[],
+) => {
+  const uniqueIds = [...new Set(targetMemberIds)];
+  const results = await Promise.allSettled(
+    uniqueIds.map((targetMemberId) =>
+      createLocationRequest(userId, targetMemberId),
+    ),
+  );
+
+  const created: Awaited<ReturnType<typeof createLocationRequest>>[] = [];
+  const failed: { targetMemberId: string; reason: string }[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      created.push(result.value);
+    } else {
+      failed.push({
+        targetMemberId: uniqueIds[index]!,
+        reason:
+          result.reason instanceof Error
+            ? result.reason.message
+            : "Could not request this member's location",
+      });
+    }
+  });
+
+  return { created, failed };
+};
+
+/**
+ * Cancels a pending location request the caller sent. Only the requester
+ * may cancel — the target already sees only "pending" requests
+ * (getPendingLocationRequests filters by status/expiry), so this just
+ * removes it from that list instead of leaving it to expire naturally.
+ */
+export const cancelLocationRequest = async (
+  userId: string,
+  requestId: string,
+) => {
+  const request = await prisma.familyLocationRequest.findUnique({
+    where: { id: requestId },
+  });
+  if (!request) {
+    throw new HttpError(404, "Location request not found");
+  }
+  const membership = await requireMembership(userId, request.circleId);
+  if (request.requesterId !== membership.id) {
+    throw new HttpError(
+      403,
+      "Only the person who asked can cancel this request",
+    );
+  }
+  if (request.status !== "pending") {
+    throw new HttpError(400, "That request is no longer pending");
+  }
+  await prisma.familyLocationRequest.update({
+    where: { id: requestId },
+    data: { status: "declined" },
+  });
+  return { cancelled: true };
+};
+
 /** Pending location requests addressed to the calling user (any circle). */
 export const getPendingLocationRequests = async (userId: string) => {
   await requireMembership(userId);
@@ -752,7 +827,7 @@ export const purgeExpiredFamilyLocationData = async () => {
   const now = new Date();
   const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
-  const [members, checkIns, sosEvents] = await Promise.all([
+  const [members, checkIns, sosEvents, lapsedRequests] = await Promise.all([
     prisma.familyMember.updateMany({
       where: { locationExpiresAt: { lt: now }, latitude: { not: null } },
       data: {
@@ -776,6 +851,15 @@ export const purgeExpiredFamilyLocationData = async () => {
       },
       data: { latitude: null, longitude: null, locationLabel: null },
     }),
+    // Flip stale, never-answered requests to `expired` so the status is a
+    // real record rather than a value declared and never set — pending
+    // requests already stop being offered to the target once expiresAt
+    // passes (getPendingLocationRequests filters on it), this just makes
+    // that outcome visible in the row itself.
+    prisma.familyLocationRequest.updateMany({
+      where: { status: "pending", expiresAt: { lt: now } },
+      data: { status: "expired" },
+    }),
   ]);
 
   const total = members.count + checkIns.count + sosEvents.count;
@@ -784,5 +868,8 @@ export const purgeExpiredFamilyLocationData = async () => {
       `Purged expired family location data: ${members.count} member ` +
         `snapshots, ${checkIns.count} check-ins, ${sosEvents.count} SOS events`,
     );
+  }
+  if (lapsedRequests.count > 0) {
+    console.log(`Expired ${lapsedRequests.count} unanswered location requests`);
   }
 };

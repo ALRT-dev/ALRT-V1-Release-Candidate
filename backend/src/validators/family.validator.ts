@@ -145,6 +145,16 @@ export const respondFamilyLocationRequestSchema = z.object({
   longitude: longitudeSchema.optional(),
 });
 
+// Selected members, or the whole group (the client passes every member id
+// it wants asked — there is no separate "whole group" flag server-side).
+export const bulkFamilyLocationRequestSchema = z.object({
+  memberIds: z.array(z.string().uuid()).min(1).max(50),
+});
+
+export type BulkFamilyLocationRequestInput = z.infer<
+  typeof bulkFamilyLocationRequestSchema
+>;
+
 export type RespondFamilyLocationRequestInput = z.infer<
   typeof respondFamilyLocationRequestSchema
 >;

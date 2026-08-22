@@ -145,6 +145,22 @@ class FamilyService {
     return _familyRepository.createFamilyLocationRequest(memberId: memberId);
   }
 
+  Future<Either<List<String>, AppError>> createFamilyLocationRequestsBulk({
+    required final List<String> memberIds,
+  }) {
+    return _familyRepository.createFamilyLocationRequestsBulk(
+      memberIds: memberIds,
+    );
+  }
+
+  Future<Either<void, AppError>> cancelFamilyLocationRequest({
+    required final String requestId,
+  }) {
+    return _familyRepository.cancelFamilyLocationRequest(
+      requestId: requestId,
+    );
+  }
+
   Future<Either<List<FamilyLocationRequest>, AppError>>
   getPendingFamilyLocationRequests() {
     return _familyRepository.getPendingFamilyLocationRequests();

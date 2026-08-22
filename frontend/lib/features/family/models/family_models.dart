@@ -155,7 +155,19 @@ abstract class FamilyMember with _$FamilyMember {
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
-  bool get hasLiveLocation => latitude != null && longitude != null;
+  /// True only while the server would still consider this snapshot valid.
+  ///
+  /// The server nulls out coordinates on expiry (both at every read and on
+  /// a 5-minute sweep), so a fresh fetch is always correct — but a session
+  /// that's been sitting on the map screen for over an hour with no other
+  /// reason to reload would otherwise keep drawing a pin the server has
+  /// already cleared. Checking [locationExpiresAt] here as well means the
+  /// map stops drawing it the moment local time catches up, not just on
+  /// the next reload.
+  bool get hasLiveLocation =>
+      latitude != null &&
+      longitude != null &&
+      (locationExpiresAt == null || locationExpiresAt!.isAfter(DateTime.now()));
 
   /// Checked in within the last 24 hours counts as "safe".
   bool get isCheckedInRecently =>

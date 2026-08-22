@@ -833,6 +833,32 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     return result.when((_) => true, (_) => false);
   }
 
+  /// Asks every one of [memberIds] to share a one-time snapshot in one go
+  /// — "selected people" or "the whole group," depending on which ids are
+  /// passed. Each person still gets their own request and their own
+  /// consent prompt; this only saves asking one at a time. Returns the ids
+  /// that failed their own check (e.g. sharing off) so the caller can tell
+  /// the user, rather than pretending every ask went out.
+  Future<List<String>> requestMembersLocation({
+    required final List<String> memberIds,
+  }) async {
+    if (memberIds.isEmpty) return const [];
+    final result = await _familyService.createFamilyLocationRequestsBulk(
+      memberIds: memberIds,
+    );
+    if (!mounted) return const [];
+    return result.when((failed) => failed, (_) => memberIds);
+  }
+
+  /// Cancels a pending location request the caller sent.
+  Future<bool> cancelLocationRequest({required final String requestId}) async {
+    final result = await _familyService.cancelFamilyLocationRequest(
+      requestId: requestId,
+    );
+    if (!mounted) return false;
+    return result.when((_) => true, (_) => false);
+  }
+
   /// Answers a "where are you" request. When [share] is true the current
   /// position is attached; declining sends nothing.
   Future<bool> respondToLocationRequest({

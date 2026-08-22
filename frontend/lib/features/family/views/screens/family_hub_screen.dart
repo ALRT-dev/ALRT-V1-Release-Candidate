@@ -1455,7 +1455,17 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionLabelBuilder('Members', count: circle.members.length),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _sectionLabelBuilder('Members', count: circle.members.length),
+            if (!iAmGuest && circle.members.length > 1)
+              TextButton(
+                onPressed: () => _requestEveryoneLocation(circle),
+                child: const Text('Ask everyone'),
+              ),
+          ],
+        ),
         SizedBox(height: 10.spMin),
         _cardBuilder(
           padding: EdgeInsets.zero,
@@ -1498,6 +1508,31 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       context.showSuccessToast(
         message:
             '${member.name} has been asked to share a one-time snapshot.',
+      );
+    }
+  }
+
+  /// Asks the whole group at once — each member still gets their own
+  /// request and their own consent prompt, this only sends every ask in
+  /// one tap instead of one per member.
+  Future<void> _requestEveryoneLocation(final FamilyCircle circle) async {
+    final memberIds = circle.members
+        .where((member) => member.id != circle.myMemberId)
+        .map((member) => member.id)
+        .toList();
+    if (memberIds.isEmpty) return;
+
+    final failed = await ref
+        .read(providerOfFamily.notifier)
+        .requestMembersLocation(memberIds: memberIds);
+    if (!mounted) return;
+
+    final askedCount = memberIds.length - failed.length;
+    if (askedCount > 0) {
+      context.showSuccessToast(
+        message: askedCount == memberIds.length
+            ? 'Everyone has been asked to share a one-time snapshot.'
+            : '$askedCount of ${memberIds.length} have been asked to share a one-time snapshot.',
       );
     }
   }

@@ -95,6 +95,17 @@ abstract class FamilyRepository {
     required final String memberId,
   });
 
+  /// Selected members, or the whole group — pass every member id wanted.
+  /// Returns the ids that failed their own checks (e.g. sharing off)
+  /// alongside the ones that succeeded, rather than failing the whole ask.
+  Future<Either<List<String>, AppError>> createFamilyLocationRequestsBulk({
+    required final List<String> memberIds,
+  });
+
+  Future<Either<void, AppError>> cancelFamilyLocationRequest({
+    required final String requestId,
+  });
+
   Future<Either<List<FamilyLocationRequest>, AppError>>
   getPendingFamilyLocationRequests();
 
@@ -563,6 +574,39 @@ class FamilyRepositoryImpl implements FamilyRepository {
           memberId: memberId,
         );
         return Success(request);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<List<String>, AppError>> createFamilyLocationRequestsBulk({
+    required List<String> memberIds,
+  }) {
+    return runAsyncCall(
+      name: 'createFamilyLocationRequestsBulk',
+      future: () async {
+        final result = await _restClient.createFamilyLocationRequestsBulk(
+          body: {'memberIds': memberIds},
+        );
+        final failed = (result['failed'] as List? ?? const [])
+            .map((f) => (f as Map)['targetMemberId'] as String)
+            .toList();
+        return Success(failed);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<void, AppError>> cancelFamilyLocationRequest({
+    required String requestId,
+  }) {
+    return runAsyncCall(
+      name: 'cancelFamilyLocationRequest',
+      future: () async {
+        await _restClient.cancelFamilyLocationRequest(requestId: requestId);
+        return const Success(null);
       },
       onError: Failure.new,
     );

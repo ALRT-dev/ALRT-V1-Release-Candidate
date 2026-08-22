@@ -31,10 +31,13 @@ import {
 } from "../services/s3.service.js";
 import {
   createLocationRequest,
+  createLocationRequestsForMembers,
+  cancelLocationRequest,
   getPendingLocationRequests,
   respondToLocationRequest,
   shareLocationSnapshot,
 } from "../services/family_alert.service.js";
+import type { BulkFamilyLocationRequestInput } from "../validators/family.validator.js";
 
 const requireUserId = (res: Response): string => {
   const { userId } = res;
@@ -418,6 +421,40 @@ export const createLocationRequestController = async (
     if (!memberId) throw new HttpError(400, "memberId is required");
     const request = await createLocationRequest(userId, memberId);
     res.status(201).json(request);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Selected members, or the whole group — the caller sends every member id
+ *  it wants asked. Each target is validated the same as a single request;
+ *  one target's failure (guest, sharing off, etc.) does not block the rest. */
+export const createLocationRequestsController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const { memberIds }: BulkFamilyLocationRequestInput = req.body;
+    const result = await createLocationRequestsForMembers(userId, memberIds);
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cancelLocationRequestController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const { requestId } = req.params;
+    if (!requestId) throw new HttpError(400, "requestId is required");
+    const result = await cancelLocationRequest(userId, requestId);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

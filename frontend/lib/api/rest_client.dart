@@ -371,6 +371,19 @@ abstract class RestClient {
     @Path() required final String memberId,
   });
 
+  /// Selected members, or the whole group (send every member id wanted -
+  /// there is no separate "whole group" flag). Returns
+  /// `{created: [...], failed: [{targetMemberId, reason}, ...]}`.
+  @POST(kUrlFamilyLocationRequests)
+  Future<Map<String, dynamic>> createFamilyLocationRequestsBulk({
+    @Body() required final Map<String, dynamic> body,
+  });
+
+  @DELETE(kUrlFamilyLocationRequestCancel)
+  Future<void> cancelFamilyLocationRequest({
+    @Path() required final String requestId,
+  });
+
   @GET(kUrlFamilyLocationRequestsPending)
   Future<List<FamilyLocationRequest>> getPendingFamilyLocationRequests();
 
