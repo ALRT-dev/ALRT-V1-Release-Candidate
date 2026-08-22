@@ -1,0 +1,9 @@
+node_modules
+.DS_Store
+dist
+*.log
+.env.dev
+.env.prod
+rest.http
+/src/generated/prisma
+serviceAccountKey.json
