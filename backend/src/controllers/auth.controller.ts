@@ -13,14 +13,25 @@ import {
   verifyGoogleToken,
   verifyMicrosoftToken,
 } from "../services/auth.service.js";
+import {
+  confirmPasswordReset,
+  requestPasswordReset,
+} from "../services/password_reset.service.js";
+import { config } from "../utils/config.js";
 import type {
   AppleOAuthInput,
   GoogleOAuthInput,
   LoginInput,
   MicrosoftOAuthInput,
+  PasswordResetConfirmInput,
+  PasswordResetRequestInput,
   RefreshTokenInput,
   RegisterInput,
 } from "../validators/auth.validator.js";
+
+/** The public origin a reset-password link should point at. */
+const resetLinkBaseUrl = (req: Request): string =>
+  config.passwordReset.baseUrl || `${req.protocol}://${req.get("host")}`;
 
 /// Controller to handle user registration with email and password.
 export const registerWithEmailAndPassword = async (
@@ -312,10 +323,31 @@ export const refreshToken = async (
     const userId = decoded.userId;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true },
+      select: { id: true, passwordChangedAt: true },
     });
     if (!user) {
       throw new HttpError(401, "User not found");
+    }
+
+    // A refresh token issued before the password last changed is stale -
+    // reject it rather than minting a fresh access token from it. This is
+    // the only session invalidation a password reset needs: access tokens
+    // are already short-lived, and refresh JWTs carry no other
+    // server-side record to revoke.
+    //
+    // JWT `iat` is seconds since epoch (floored), so a token minted in the
+    // exact same wall-clock second as passwordChangedAt is genuinely
+    // ambiguous - it could be a fraction of a second before or after.
+    // Reject that boundary second rather than accept it: the cost is a
+    // login that happens to land in the very same second as a password
+    // reset has to sign in again, which is both rare and cheap, versus the
+    // alternative of possibly honouring a token that predates the reset.
+    if (
+      user.passwordChangedAt &&
+      typeof decoded.iat === "number" &&
+      decoded.iat <= Math.floor(user.passwordChangedAt.getTime() / 1000)
+    ) {
+      throw new HttpError(401, "Refresh token is no longer valid");
     }
 
     const newAccessToken = signAccessToken({ userId: user.id });
@@ -326,6 +358,46 @@ export const refreshToken = async (
     res.status(200).json({
       accessToken: newAccessToken,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/// Starts a password reset. Always 200 with the same generic message,
+/// whether or not the email is registered - never an enumeration oracle.
+export const requestPasswordResetController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { email }: PasswordResetRequestInput = req.body;
+    await requestPasswordReset(email, resetLinkBaseUrl(req));
+    res.status(200).json({
+      message:
+        "If an account exists for that email, a reset link has been sent.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/// Redeems a password-reset token and sets the new password. Used by the
+/// reset-password page's own client-side call and available directly for
+/// any other client. Never reveals whether a bad token was wrong, expired,
+/// or already used - one generic 400 for all three.
+export const confirmPasswordResetController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { token, newPassword }: PasswordResetConfirmInput = req.body;
+    const succeeded = await confirmPasswordReset(token, newPassword);
+    if (!succeeded) {
+      throw new HttpError(400, "This reset link is invalid or has expired.");
+    }
+    res.status(200).json({ message: "Password updated." });
   } catch (error) {
     next(error);
   }

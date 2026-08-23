@@ -50,3 +50,25 @@ export const refreshTokenSchema = z.object({
 });
 
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+
+export const passwordResetRequestSchema = z.object({
+  email: z.email("Invalid email format").min(1, "Email is required"),
+});
+
+export type PasswordResetRequestInput = z.infer<
+  typeof passwordResetRequestSchema
+>;
+
+export const passwordResetConfirmSchema = z.object({
+  token: z.string().min(1, "Reset token is required").max(1024),
+  // Same rule as registerSchema.password - a reset must not be able to set
+  // a password weaker than registration allows.
+  newPassword: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .max(128, "Password must be less than 128 characters"),
+});
+
+export type PasswordResetConfirmInput = z.infer<
+  typeof passwordResetConfirmSchema
+>;

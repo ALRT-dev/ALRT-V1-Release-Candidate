@@ -1,8 +1,10 @@
 import router from "express";
 import {
+  confirmPasswordResetController,
   loginWithEmailAndPassword,
   refreshToken,
   registerWithEmailAndPassword,
+  requestPasswordResetController,
   verifyAppleOAuth,
   verifyGoogleOAuth,
   verifyMicrosoftOAuth,
@@ -15,6 +17,8 @@ import {
   appleOAuthSchema,
   microsoftOAuthSchema,
   refreshTokenSchema,
+  passwordResetRequestSchema,
+  passwordResetConfirmSchema,
 } from "../validators/auth.validator.js";
 
 const authRouter = router();
@@ -41,5 +45,16 @@ authRouter.post(
   verifyMicrosoftOAuth
 );
 authRouter.post("/refresh-token", validate(refreshTokenSchema), refreshToken);
+
+authRouter.post(
+  "/password-reset/request",
+  validate(passwordResetRequestSchema),
+  requestPasswordResetController
+);
+authRouter.post(
+  "/password-reset/confirm",
+  validate(passwordResetConfirmSchema),
+  confirmPasswordResetController
+);
 
 export default authRouter;

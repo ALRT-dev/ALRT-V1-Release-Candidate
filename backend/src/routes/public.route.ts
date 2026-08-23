@@ -1,12 +1,16 @@
 import { Router } from "express";
+import express from "express";
 import type { Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import {
   getPublicHazardController,
+  passwordResetPageController,
+  passwordResetSubmitController,
   shareAlertCardController,
   shareAlertPageController,
 } from "../controllers/public.controller.js";
 import { config } from "../utils/config.js";
+import { authApiRateLimiter } from "../middlewares/api_rate_limit.middleware.js";
 import {
   getClientIp,
   normalizeClientIpForRateLimitKey,
@@ -58,5 +62,21 @@ publicRouter.get(
 // Short alias used in share sheets — easier to read and type than the
 // full /share/alert path.
 publicRouter.get("/a/:id", publicShareRateLimiter, shareAlertPageController);
+
+// The password-reset email links here. Same stricter rate limit as the
+// rest of the password-reset surface under /api/auth (not the generous
+// share-link limiter above) since this is a security-sensitive form, not a
+// read-mostly public page.
+publicRouter.get(
+  "/reset-password",
+  authApiRateLimiter,
+  passwordResetPageController,
+);
+publicRouter.post(
+  "/reset-password",
+  authApiRateLimiter,
+  express.urlencoded({ extended: true }),
+  passwordResetSubmitController,
+);
 
 export default publicRouter;

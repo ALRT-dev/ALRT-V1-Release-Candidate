@@ -3,6 +3,10 @@ import { HazardReviewStatus } from "@prisma/client";
 import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
 import { renderShareCard } from "../services/share_card.service.js";
+import {
+  confirmPasswordReset,
+  isPasswordResetTokenValid,
+} from "../services/password_reset.service.js";
 
 const SITE_URL = "https://safetyalrt.com";
 const GET_APP_URL = "https://safetyalrt.com/get";
@@ -314,6 +318,151 @@ export const shareAlertCardController = async (
     res.setHeader("Content-Type", "image/png");
     res.setHeader("Cache-Control", "public, max-age=86400, immutable");
     res.status(200).send(png);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Password reset page — the destination of the link in the reset email.
+// Deliberately a plain server-rendered HTML form (no JS required, works in
+// any email client's in-app browser) rather than a native app deep link:
+// this avoids the app needing to be installed at all, and the reset token
+// never needs to touch a mobile deep-link handler.
+// ---------------------------------------------------------------------------
+
+const passwordResetPageShell = (bodyHtml: string): string => `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Reset your password — Safety ALRT</title>
+<style>
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f5f6f8; color: #1c1c1e; }
+  .wrap { max-width: 420px; margin: 0 auto; padding: 48px 20px; }
+  .card { background: #fff; border-radius: 16px; padding: 32px 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  p { color: #555; line-height: 1.5; margin: 0 0 16px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+  input[type="password"] { width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid #d8d8dc; border-radius: 10px; font-size: 15px; }
+  button { width: 100%; margin-top: 24px; background: #1c1c1e; color: #fff; border: none; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 12px; cursor: pointer; }
+  .error { background: #fdecec; color: #a4222c; border-radius: 10px; padding: 10px 14px; font-size: 13px; margin: 0 0 16px; }
+  .cta { display: inline-block; background: #1c1c1e; color: #fff; text-decoration: none; font-weight: 600; padding: 14px 28px; border-radius: 12px; }
+  .disclaimer { font-size: 12px; color: #888; margin-top: 24px; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      ${bodyHtml}
+    </div>
+    <p class="disclaimer">${DISCLAIMER}</p>
+  </div>
+</body>
+</html>`;
+
+const resetLinkInvalidHtml = (): string =>
+  passwordResetPageShell(`
+    <h1>This link is invalid or has expired</h1>
+    <p>Reset links work once and expire an hour after they're sent. Go back to Safety ALRT and request a new one.</p>
+    <a class="cta" href="${SITE_URL}">Open Safety ALRT</a>
+  `);
+
+const resetFormHtml = (token: string, errorMessage?: string): string =>
+  passwordResetPageShell(`
+    <h1>Choose a new password</h1>
+    ${errorMessage ? `<p class="error">${escapeHtml(errorMessage)}</p>` : ""}
+    <form method="POST" action="/reset-password">
+      <input type="hidden" name="token" value="${escapeHtml(token)}">
+      <label for="password">New password</label>
+      <input type="password" id="password" name="newPassword" minlength="6" maxlength="128" required autofocus>
+      <label for="confirmPassword">Confirm new password</label>
+      <input type="password" id="confirmPassword" name="confirmPassword" minlength="6" maxlength="128" required>
+      <button type="submit">Update password</button>
+    </form>
+  `);
+
+const resetSuccessHtml = (): string =>
+  passwordResetPageShell(`
+    <h1>Password updated</h1>
+    <p>Your password has been changed. Open the Safety ALRT app and sign in with your new password.</p>
+  `);
+
+/**
+ * GET /reset-password?token=... — read-only by design. Visiting this link
+ * (which email-scanners/link-prefetchers do automatically) never itself
+ * consumes the token; only a submitted new password does.
+ *
+ * Errors are handled entirely inside this controller rather than via
+ * next(error): the shared error-handler middleware logs req.originalUrl on
+ * every error, which for a GET would include the token in the query
+ * string. Nothing here ever reaches that logging path.
+ */
+export const passwordResetPageController = async (
+  req: Request,
+  res: Response,
+) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  try {
+    const token = typeof req.query.token === "string" ? req.query.token : "";
+    if (!token || !(await isPasswordResetTokenValid(token))) {
+      res.status(400).send(resetLinkInvalidHtml());
+      return;
+    }
+    res.status(200).send(resetFormHtml(token));
+  } catch {
+    // Deliberately no token/URL in this log line - see comment above.
+    console.error("Error rendering the password reset page");
+    res.status(500).send(resetLinkInvalidHtml());
+  }
+};
+
+/**
+ * POST /reset-password — classic form submit (application/x-www-form-urlencoded),
+ * so it works with JavaScript disabled. The token travels in the body here,
+ * not the URL, so the req.originalUrl logged by the shared error handler
+ * never carries it - next(error) is safe to use in this handler.
+ */
+export const passwordResetSubmitController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  try {
+    const token =
+      typeof req.body?.token === "string" ? req.body.token : "";
+    const newPassword =
+      typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+    const confirmPassword =
+      typeof req.body?.confirmPassword === "string"
+        ? req.body.confirmPassword
+        : "";
+
+    if (!token) {
+      res.status(400).send(resetLinkInvalidHtml());
+      return;
+    }
+    if (newPassword.length < 6 || newPassword.length > 128) {
+      res
+        .status(400)
+        .send(resetFormHtml(token, "Password must be 6-128 characters."));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      res.status(400).send(resetFormHtml(token, "Passwords do not match."));
+      return;
+    }
+
+    const succeeded = await confirmPasswordReset(token, newPassword);
+    if (!succeeded) {
+      res.status(400).send(resetLinkInvalidHtml());
+      return;
+    }
+
+    res.status(200).send(resetSuccessHtml());
   } catch (error) {
     next(error);
   }

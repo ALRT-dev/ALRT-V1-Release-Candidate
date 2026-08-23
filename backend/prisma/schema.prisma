@@ -39,6 +39,12 @@ model User {
   deletionRequestedAt DateTime? // When the user requested account deletion
   scheduledDeletionAt DateTime? // When the account will be permanently deleted (Usually 30 days after request)
 
+  // Set on every successful password change (self-service reset or future
+  // change-password). Refresh tokens issued before this moment are rejected
+  // (see refreshToken controller) - the only revocation ALRT needs, since
+  // refresh JWTs otherwise carry no server-side record to invalidate.
+  passwordChangedAt DateTime?
+
   locationSubscriptions    LocationSubscription[]
   devices                  UserDevice[]
   hazardsReported          Hazard[]
@@ -55,6 +61,7 @@ model User {
   badges                   UserBadge[]
   corroborationsGiven      HazardCorroboration[]
   sosLists                 FamilySosList[]
+  passwordResetTokens      PasswordResetToken[]
 
   // Activity streak (any qualifying action counts: report, check-in, guide)
   streakDays       Int       @default(0)
@@ -74,6 +81,25 @@ model User {
   @@index([xpPoints]) // For reputation/scoring queries
   @@index([reliabilityScore]) // For reliability-based filtering
   @@index([scheduledDeletionAt]) // For filtering users with pending account deletion
+}
+
+// One row per "forgot password" request. tokenHash is SHA-256, not bcrypt:
+// the token itself is a 256-bit random secret (not a low-entropy human
+// password), so a fast deterministic hash is the correct tool here and,
+// unlike bcrypt, supports a direct findFirst({where:{tokenHash}}) lookup
+// instead of comparing against every row in the table. The raw token is
+// never stored and never logged - only its hash.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime? // Set the moment the token is redeemed - single-use.
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 enum CategoryImageType {

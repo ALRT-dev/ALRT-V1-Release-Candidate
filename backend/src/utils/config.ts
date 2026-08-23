@@ -224,6 +224,15 @@ export const config = {
     webhookAuth: getOptionalEnv("REVENUECAT_WEBHOOK_AUTH", ""),
   },
 
+  // Password reset link. Optional: when unset, the link is built from the
+  // incoming request's own protocol/host, so this works out of the box on
+  // any deployment. Set it to pin the link to a specific public domain
+  // instead (e.g. behind a proxy/CDN where the request's own host header
+  // isn't the public one).
+  passwordReset: {
+    baseUrl: getOptionalEnv("PASSWORD_RESET_BASE_URL", ""),
+  },
+
   // Email configuration
   email: {
     smtpHost: getRequiredEnv("SMTP_HOST"),
