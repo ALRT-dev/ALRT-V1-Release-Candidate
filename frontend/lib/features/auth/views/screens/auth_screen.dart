@@ -503,6 +503,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         );
       },
     );
+
+    ref.listen<SignInWithMicrosoftState>(
+      providerOfAuth.select(
+        (value) => value.signInWithMicrosoftState,
+      ),
+      (previous, next) {
+        next.maybeWhen(
+          success: _gotoWrapper,
+          error: _handleError,
+          orElse: () {},
+        );
+      },
+    );
   }
 
   /// Handles errors by showing an error toast.
