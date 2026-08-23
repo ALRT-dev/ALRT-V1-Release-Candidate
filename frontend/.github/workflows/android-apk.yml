@@ -9,7 +9,8 @@
 #   REVENUECAT_API_KEY_APPLE       optional (unused on Android)
 #
 # The APK is signed with a debug key: perfect for installing on your own
-# phone, not acceptable for the Play Store (Matt's keystore build does that).
+# phone, not acceptable for the Play Store — see android-release.yml for the
+# production-signed .aab pipeline.
 name: Android APK
 
 on:

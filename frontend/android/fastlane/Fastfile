@@ -50,4 +50,26 @@ platform :android do
       aab: '../build/app/outputs/bundle/prodRelease/app-prod-release.aab',
     )
   end
+
+  # Used by the android-release.yml CI workflow, which builds the AppBundle
+  # itself (via the plain `flutter` on PATH, not `fvm`, matching how every
+  # other CI workflow in this repo invokes Flutter) before calling these —
+  # so, unlike the two lanes above, these do not build again.
+  desc "Upload an already-built PROD AppBundle to the GooglePlay internal track"
+  lane :upload_beta do
+    upload_to_play_store(
+      track: 'internal',
+      release_status: 'draft',
+      aab: '../build/app/outputs/bundle/prodRelease/app-prod-release.aab',
+    )
+  end
+
+  desc "Upload an already-built PROD AppBundle to the GooglePlay production track"
+  lane :upload_production do
+    upload_to_play_store(
+      track: 'production',
+      release_status: 'completed',
+      aab: '../build/app/outputs/bundle/prodRelease/app-prod-release.aab',
+    )
+  end
 end

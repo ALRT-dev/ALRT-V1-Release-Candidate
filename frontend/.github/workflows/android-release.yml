@@ -1,0 +1,170 @@
+# Builds a PRODUCTION-SIGNED Android App Bundle (.aab) for the Play Store —
+# start it by hand: repo -> Actions -> "Android Release" -> Run workflow.
+# Unlike android-apk.yml (debug-signed .apk, dev flavour, runs on every
+# push), this workflow only runs when triggered and only produces a real
+# release artifact when the real upload keystore is configured — it never
+# falls back to debug signing and never invents a keystore.
+#
+# ONE-TIME SETUP before the first run (Settings -> Secrets and variables ->
+# Actions). Nothing here is in this repository; every value below must be
+# provided by whoever holds the real Play Console / keystore access.
+#
+#   Signing (required for every run of this workflow):
+#     1. ANDROID_UPLOAD_KEYSTORE_BASE64   The upload keystore file (.jks),
+#        base64-encoded: `base64 -i upload-keystore.jks | tr -d '\n'`.
+#        See "Creating the upload keystore" below if one does not exist yet.
+#     2. ANDROID_KEYSTORE_PASSWORD        Password for that keystore file.
+#     3. ANDROID_KEY_ALIAS                Alias of the signing key inside it.
+#     4. ANDROID_KEY_PASSWORD             Password for that key (often the
+#        same as the store password, but not required to be).
+#
+#   Play publishing (only required when publish_track is not "none"):
+#     5. PLAY_STORE_SERVICE_ACCOUNT_JSON  The full JSON content of a Google
+#        Play Console service-account key with "Release manager" access
+#        (Play Console -> Setup -> API access -> Service accounts).
+#
+#   Already used by the existing dev build (android-apk.yml) — reused here
+#   so the release build has the same runtime configuration:
+#     6. GOOGLE_MAPS_API_KEY
+#     7. GOOGLE_OAUTH_SERVER_CLIENT_ID
+#     8. REVENUECAT_API_KEY_GOOGLE
+#
+# Creating the upload keystore (once, by whoever owns the Play listing):
+#   keytool -genkeypair -v -keystore upload-keystore.jks -keyalg RSA \
+#     -keysize 2048 -validity 10000 -alias upload
+#   Keep the .jks file and its passwords in a password manager — Google
+#   cannot recover a lost upload key, only reset it via a support request
+#   backed by Play App Signing (see below).
+#
+# Play App Signing compatibility: this workflow signs with the UPLOAD key
+# only. Play re-signs the bundle with its own app signing key before
+# distributing it to devices — the standard, recommended Play App Signing
+# flow. Nothing here bypasses or duplicates that; do not also configure a
+# separate "app signing key" locally.
+#
+# This workflow deliberately does NOT commit, cache, or echo any secret
+# value. The decoded keystore and key.properties exist only in the runner's
+# workspace for the duration of the job.
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_track:
+        description: "Play publish track (\"none\" builds the .aab only and uploads it as a workflow artifact, without touching Play Console)"
+        type: choice
+        options:
+          - none
+          - internal
+          - production
+        default: none
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify production signing secrets are configured
+        run: |
+          missing=()
+          [ -z "${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}" ] && missing+=("ANDROID_UPLOAD_KEYSTORE_BASE64")
+          [ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ] && missing+=("ANDROID_KEYSTORE_PASSWORD")
+          [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ] && missing+=("ANDROID_KEY_ALIAS")
+          [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ] && missing+=("ANDROID_KEY_PASSWORD")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing required signing secret(s): ${missing[*]}"
+            echo "This workflow refuses to fall back to debug signing for a release build."
+            echo "See this file's header comment for how to create and provide the upload keystore."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+
+      - uses: ruby/setup-ruby@v1
+        if: ${{ inputs.publish_track != 'none' }}
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: android
+
+      - name: Create .env from repo secrets
+        run: |
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}"
+            echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}"
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE=${{ secrets.REVENUECAT_API_KEY_APPLE }}"
+            echo "REVENUECAT_API_KEY_GOOGLE=${{ secrets.REVENUECAT_API_KEY_GOOGLE }}"
+          } > .env
+
+      - name: Decode the upload keystore and write key.properties
+        working-directory: android
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 -d > upload-keystore.jks
+          {
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "storeFile=upload-keystore.jks"
+          } > key.properties
+
+      - run: flutter pub get
+
+      - name: Build the production-signed App Bundle
+        run: |
+          flutter build appbundle --release --flavor prod -t lib/main_prod.dart
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}
+
+      - name: Remove the decoded keystore and key.properties from the workspace
+        if: always()
+        working-directory: android
+        run: rm -f upload-keystore.jks key.properties
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ALRT-android-release-aab
+          path: build/app/outputs/bundle/prodRelease/app-prod-release.aab
+          retention-days: 14
+
+      - name: Publish to Play Console
+        if: ${{ inputs.publish_track != 'none' }}
+        working-directory: android
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$PLAY_STORE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::publish_track=${{ inputs.publish_track }} was requested but PLAY_STORE_SERVICE_ACCOUNT_JSON is not set."
+            exit 1
+          fi
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > app/playstore-access.json
+          # upload_beta/upload_production upload the .aab this workflow
+          # already built above — they do not rebuild it (unlike the
+          # beta_release/production_release lanes, which are for local,
+          # fvm-based developer use).
+          if [ "${{ inputs.publish_track }}" = "production" ]; then
+            bundle exec fastlane upload_production
+          else
+            bundle exec fastlane upload_beta
+          fi
+          rm -f app/playstore-access.json
