@@ -128,6 +128,7 @@ const kUrlFamilySosList = '$kUrlFamilySosLists/{sosListId}';
 const kUrlFamilyJourneys = '$kUrlFamily/journeys';
 const kUrlFamilyJourneyMine = '$kUrlFamilyJourneys/me';
 const kUrlFamilyJourneysShared = '$kUrlFamilyJourneys/shared';
+const kUrlFamilyJourneyDetail = '$kUrlFamilyJourneys/{journeyId}';
 const kUrlFamilyJourneyExtend = '$kUrlFamilyJourneys/{journeyId}/extend';
 const kUrlFamilyJourneyStop = '$kUrlFamilyJourneys/{journeyId}/stop';
 const kUrlFamilyJourneyPoint = '$kUrlFamilyJourneys/{journeyId}/point';

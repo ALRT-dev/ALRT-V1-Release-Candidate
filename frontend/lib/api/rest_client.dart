@@ -539,6 +539,11 @@ abstract class RestClient {
     @Query('circleId') final String? circleId,
   });
 
+  @GET(kUrlFamilyJourneyDetail)
+  Future<FamilyJourney> getFamilyJourney({
+    @Path() required final String journeyId,
+  });
+
   @POST(kUrlFamilyJourneyExtend)
   Future<FamilyJourney> extendFamilyJourney({
     @Path() required final String journeyId,

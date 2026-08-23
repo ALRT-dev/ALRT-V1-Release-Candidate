@@ -205,6 +205,13 @@ abstract class FamilyRepository {
   /// Running journeys the caller was picked to see.
   Future<Either<List<FamilyJourney>, AppError>> getFamilyJourneysSharedWithMe();
 
+  /// A single journey, for the traveller or a recipient they were shared
+  /// with - including after it has ended. Backend enforces access; anyone
+  /// else gets an [AppError].
+  Future<Either<FamilyJourney, AppError>> getFamilyJourney({
+    required final String journeyId,
+  });
+
   /// Extends a running journey by one more block.
   Future<Either<FamilyJourney, AppError>> extendFamilyJourney({
     required final String journeyId,
@@ -955,6 +962,22 @@ class FamilyRepositoryImpl implements FamilyRepository {
       future: () async {
         final result = await _restClient.getFamilyJourneysSharedWithMe(
           circleId: _circleId,
+        );
+        return Success(result);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<FamilyJourney, AppError>> getFamilyJourney({
+    required final String journeyId,
+  }) {
+    return runAsyncCall(
+      name: 'getFamilyJourney',
+      future: () async {
+        final result = await _restClient.getFamilyJourney(
+          journeyId: journeyId,
         );
         return Success(result);
       },

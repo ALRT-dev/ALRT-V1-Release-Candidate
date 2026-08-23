@@ -343,6 +343,21 @@ class FamilyService {
     return _familyRepository.getMyFamilyJourney();
   }
 
+  /// Running journeys the caller was picked to see.
+  Future<Either<List<FamilyJourney>, AppError>>
+  getFamilyJourneysSharedWithMe() {
+    return _familyRepository.getFamilyJourneysSharedWithMe();
+  }
+
+  /// A single journey by id, for the recipient viewer's notification deep
+  /// link. Works for the traveller too, and for a journey that has already
+  /// ended - the backend is the authority on who may see it.
+  Future<Either<FamilyJourney, AppError>> getFamilyJourney({
+    required final String journeyId,
+  }) {
+    return _familyRepository.getFamilyJourney(journeyId: journeyId);
+  }
+
   Future<Either<FamilyJourney, AppError>> extendFamilyJourney({
     required final String journeyId,
     final int? minutes,
