@@ -1,6 +1,6 @@
 # ALRT V1 Reconciliation Report
 
-**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Stage 7B (Admin backend hardening — the backend prerequisites from §22.4: moderation endpoint, role enforcement, audit log, pagination/validator fixes) complete — see §23. Stage 7C (ALRT V1 Admin Portal — a new `admin/` frontend against the existing Admin API) complete — see §24. Stage 8 (complete V1 release-readiness audit — repository-wide, thirteen parallel investigations, four small confirmed-safe fixes applied) complete — see §25. **RELEASE STATUS (as of Stage 8): READY WITH CONDITIONS — see §25.20.** Stage 9A (Journey Sharing recipient experience — the P1 gap from §25.18.1: a new authorized single-journey retrieval endpoint, a recipient viewer screen and map reusing the existing Google Maps implementation, a direct notification deep link, and live updates on the existing socket/poll mechanism) complete — see §26. Stage 9B (Authentication completion — the two remaining §25.18 P1 items: a full password-reset flow built on existing SMTP/bcrypt/JWT infrastructure, and a from-scratch Microsoft OAuth investigation that found and fixed two real frontend defects but left the sign-in button intentionally hidden pending real Azure credentials and a product decision on account linking) complete — see §27. Stage 10 (final V1 production-readiness audit — seven parallel investigations, a fresh cross-repo historical-reconciliation pass, and an independent final security sweep; found one new P0 privacy defect and one new safety-relevant push-notification bug, neither fixed per this audit-only stage's own instruction) complete — see §28. **RELEASE STATUS (as of Stage 10): NOT READY — see §28.15.** Stage 11 (release blocker fixes — the three genuine blockers §28.15 identified: the public-endpoint GPS privacy leak fixed with the existing `withPublicCoords()` mechanism, the `familyHazardProximity` double-JSON-encoding bug fixed at its root cause, and a real (not fake) production Android signing/CI structure added without inventing credentials) complete — see §29. **RELEASE STATUS (as of Stage 11): NOT READY FOR PRODUCTION, READY FOR INTERNAL TESTING ONCE CONFIGURED — see §29.5.** Application code has been changed in this repository only, across stages up to and including Stage 11 — see §17, §18, §19, §20, §21, §23, §24, §25, §26, §27, and §29; Stage 10 (§28) is audit-only and changed no application code. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
+**Status:** Stage 6A (final alert-engine reconciliation — the six open questions from §20) complete — see §21. Stage 7A (Admin Portal audit and V1 scope — read-only, no application code changed) complete — see §22. Stage 7B (Admin backend hardening — the backend prerequisites from §22.4: moderation endpoint, role enforcement, audit log, pagination/validator fixes) complete — see §23. Stage 7C (ALRT V1 Admin Portal — a new `admin/` frontend against the existing Admin API) complete — see §24. Stage 8 (complete V1 release-readiness audit — repository-wide, thirteen parallel investigations, four small confirmed-safe fixes applied) complete — see §25. **RELEASE STATUS (as of Stage 8): READY WITH CONDITIONS — see §25.20.** Stage 9A (Journey Sharing recipient experience — the P1 gap from §25.18.1: a new authorized single-journey retrieval endpoint, a recipient viewer screen and map reusing the existing Google Maps implementation, a direct notification deep link, and live updates on the existing socket/poll mechanism) complete — see §26. Stage 9B (Authentication completion — the two remaining §25.18 P1 items: a full password-reset flow built on existing SMTP/bcrypt/JWT infrastructure, and a from-scratch Microsoft OAuth investigation that found and fixed two real frontend defects but left the sign-in button intentionally hidden pending real Azure credentials and a product decision on account linking) complete — see §27. Stage 10 (final V1 production-readiness audit — seven parallel investigations, a fresh cross-repo historical-reconciliation pass, and an independent final security sweep; found one new P0 privacy defect and one new safety-relevant push-notification bug, neither fixed per this audit-only stage's own instruction) complete — see §28. **RELEASE STATUS (as of Stage 10): NOT READY — see §28.15.** Stage 11 (release blocker fixes — the three genuine blockers §28.15 identified: the public-endpoint GPS privacy leak fixed with the existing `withPublicCoords()` mechanism, the `familyHazardProximity` double-JSON-encoding bug fixed at its root cause, and a real (not fake) production Android signing/CI structure added without inventing credentials) complete — see §29. **RELEASE STATUS (as of Stage 11): NOT READY FOR PRODUCTION, READY FOR INTERNAL TESTING ONCE CONFIGURED — see §29.5.** Stage 12 (production configuration and internal release preparation — a consolidated, classified configuration checklist reconciling §28+§29, precise external-service/GitHub-secret requirements for Android, Google/Firebase, Microsoft OAuth, RevenueCat, email, the Admin Portal, and backend infrastructure, the internal release sequence, and the full real-device QA matrix; documentation only, no application code changed) complete — see §30. **RELEASE STATUS (as of Stage 12): unchanged — NOT READY FOR PRODUCTION, READY FOR INTERNAL TESTING ONCE THE §30.1 CHECKLIST IS COMPLETE — see §30.1/§30.11.** Application code has been changed in this repository only, across stages up to and including Stage 11 — see §17, §18, §19, §20, §21, §23, §24, §25, §26, §27, and §29; Stage 10 (§28) and Stage 12 (§30) are audit/documentation-only and changed no application code. No original repo (`frontendV2`, `backendV2`, `askalrt`, `V2-Claude`, `v3`) has been modified, no branches were merged wholesale, and nothing has been deployed.
 **Scope:** `ALRT-dev/frontendV2`, `ALRT-dev/backendV2`, `ALRT-dev/askalrt`, `ALRT-dev/V2-Claude`, `ALRT-dev/v3`, plus `ALRT-dev/ALRT-V1-Release-Candidate` itself. `ALRT-dev/widget` was pulled in read-only mid-audit because every other repo points to it as the true frontend baseline (see §1). Stage 2 additionally pulled in `ALRT-dev/alrt`, `ALRT-dev/ALRT-screen`, `ALRT-dev/mattv2`, `ALRT-dev/occulo`, `ALRT-dev/glasses`, `ALRT-dev/watchinterface` read-only, to hunt for a missing Admin Portal (see §15).
 **Method:** Full local clones with ~200 commits of history fetched per branch (every branch that exists in each repo), `git log`/`diff`/`show` history analysis, and targeted source reading across five parallel deep-dive passes (one per repo) plus manual cross-repo verification. Not every file in every repo was read line-by-line; large, low-risk areas (asset files, generated lockfiles, vendored code) were sampled rather than exhaustively reviewed.
 
@@ -2087,3 +2087,314 @@ What still stands between this Release Candidate and a production decision is un
 ### 29.6 Stop condition honored
 
 Only the three named release blockers were touched. No new feature development was started (no Microsoft OAuth enablement, no billing configuration, no RevenueCat production changes, no Google Cloud production configuration). Nothing was deployed. No production service was configured or enabled — the new Android workflow is manually triggered only and was never run in this session; no real signing secrets were created or provided. No secret value appears anywhere in this section or in any file committed this stage — `git status`/`git diff` were checked before every commit, the throwaway `serviceAccountKey.json` and `.env.test` used for local testing were deleted before committing, and every credential-shaped item in the new Android workflow is a named GitHub Actions secret reference, never a value.
+
+## 30. Production Configuration & Internal Release Preparation (Stage 12)
+
+Stages 1–11 are complete and accepted. This stage does not change application code except where explicitly noted as a documented, tiny, configuration-adjacent exception (none were needed — no code problem was discovered this stage). It reconciles §28 (the Stage 10 audit) and §29 (the Stage 11 fixes) into one consolidated configuration checklist, documents every external-service and GitHub-secret requirement precisely, defines the internal release order, and produces the real-device QA matrix. Nothing was deployed, no production billing was enabled, Microsoft OAuth stays off, and no real credential of any kind was created, requested, or committed.
+
+### 30.1 Consolidated configuration checklist
+
+Reconciles §28.14 (Stage 10) and §29's per-blocker "remaining manual configuration" notes into one list. Items §28.14 flagged as blocking that Stage 11 has since fixed in code are marked resolved, not repeated as open work. Classification legend: **CODE COMPLETE** (nothing left to do in this repo) · **CONFIGURATION REQUIRED** (an environment variable, secret, or file this repo already reads/expects) · **USER ACTION REQUIRED** (a decision or manual step only the product owner can make/do) · **GITHUB SECRET REQUIRED** (a named CI secret a workflow in this repo already references) · **EXTERNAL SERVICE REQUIRED** (console/dashboard work on a third-party platform) · **REAL DEVICE TEST REQUIRED** · **NOT V1** (out of scope, do not action).
+
+| # | Item | Classification | Reference | Status this stage |
+|---|---|---|---|---|
+| 1 | P0 GPS coordinate leak (`GET /api/public/hazards/:id`) | CODE COMPLETE | §28.10, §29.1 | **Resolved Stage 11** — was the top item in §28.14, now closed. No longer open work. |
+| 2 | `familyHazardProximity` push double-encoding | CODE COMPLETE | §28.6, §29.2 | **Resolved Stage 11.** No longer open work. |
+| 3 | Android production signing structure (code/CI) | CODE COMPLETE | §28.11, §29.3 | **Built Stage 11** (`android-release.yml`). The *pipeline* is done; the *secrets it needs* are §30.1 item 4 below, still open. |
+| 4 | Android signing secrets (keystore + 4 passwords/aliases) | USER ACTION REQUIRED + GITHUB SECRET REQUIRED | §29.3, §30.2 | Open — real keystore does not exist yet. See §30.2 for exact values and how to create them. |
+| 5 | Play Console service-account JSON | EXTERNAL SERVICE REQUIRED + GITHUB SECRET REQUIRED | §29.3, §30.2 | Open — only needed once actual Play publishing (not just building) is wanted. |
+| 6 | Google Cloud production project + Maps key restriction | EXTERNAL SERVICE REQUIRED | §28.3, §19.7, §30.3 | Open. |
+| 7 | Google Maps SHA-1/SHA-256 fingerprints (upload key + Play App Signing key, both Android variants) + iOS bundle restriction | EXTERNAL SERVICE REQUIRED | §28.3, §30.3 | Open — depends on item 4 (a real upload keystore must exist first to have a SHA-1 to register). |
+| 8 | `GOOGLE_OAUTH_SERVER_CLIENT_ID` (frontend, currently blank) | CONFIGURATION REQUIRED | §28.3, §30.3 | Open — a real functional gap, not a deliberate no-op. Blocks Google Sign-In entirely until set. |
+| 9 | `GOOGLE_OAUTH_CLIENT_ID_WEB/IOS/ANDROID`, `APPLE_OAUTH_AUDIENCE` (backend) | CONFIGURATION REQUIRED | §28.9, §30.3 | Open — required env vars, server will not boot without them. |
+| 10 | Azure/Entra app registration + `assets/msal_config.json` reconciliation | EXTERNAL SERVICE REQUIRED + USER ACTION REQUIRED | §28.4, §30.4 | Open, **not required for this release** — Microsoft stays off. |
+| 11 | Microsoft account-linking product decision | USER ACTION REQUIRED | §28.4, §30.4 | Open, unresolved, **must land before the button is ever shown**, independent of the config item above. |
+| 12 | Firebase: real APNs cert/key uploaded | EXTERNAL SERVICE REQUIRED | §28.3, §28.6, §30.3 | Open. |
+| 13 | Firebase: `.dev`-flavor iOS/`firebase_options.dart` asymmetry | CONFIGURATION REQUIRED (code-adjacent, but not fixed this stage per the "document, don't fix" instruction) | §28.3, §30.3 | Open — a real gap, documented, not touched (see §30.11 note). |
+| 14 | Firebase: real production `serviceAccountKey.json` provisioned at deploy | CONFIGURATION REQUIRED | §28.9, §30.8 | Open — file-based, no env-var fallback exists. |
+| 15 | RevenueCat: both webhook dashboard entries (backend + askalrt) | EXTERNAL SERVICE REQUIRED | §28.5, §30.5 | Open — `ALRT_PLUS_SETUP.md` only documents one of the two. |
+| 16 | RevenueCat: App Store Connect + Google Play Console products matching code | EXTERNAL SERVICE REQUIRED | §28.5, §30.5 | Open. |
+| 17 | `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_API_KEY_APPLE/GOOGLE`, askalrt's `REVENUECAT_AUTH` secret | CONFIGURATION REQUIRED | §28.9, §30.5 | Open. |
+| 18 | `BILLING_ENABLED=true` flip + pre-launch-circle plan-reset decision | USER ACTION REQUIRED | §28.5, §30.5 | Open, **last step in the RevenueCat sequence**, not to be flipped early. |
+| 19 | Real SMTP credentials + sending-domain SPF/DKIM/DMARC | EXTERNAL SERVICE REQUIRED | §28.7, §30.6 | Open. |
+| 20 | `SMTP_*`, `EMAIL_FROM_ADDRESS`, `EMAIL_SUPPORT_ADDRESS`, `PASSWORD_RESET_BASE_URL` | CONFIGURATION REQUIRED | §28.7, §28.9, §30.6 | Open. |
+| 21 | Admin Portal hosting (provider, domain, HTTPS) | EXTERNAL SERVICE REQUIRED | §28.8, §30.7 | Open — **nothing deploys it today**, unstarted. |
+| 22 | `VITE_API_BASE_URL`, `CORS_ALLOWED_ORIGINS` real Admin Portal domain | CONFIGURATION REQUIRED | §28.8, §30.7 | Open. |
+| 23 | Production Postgres+PostGIS, Redis, S3+CloudFront | EXTERNAL SERVICE REQUIRED | §28.9, §30.8 | Open. |
+| 24 | Complete backend env var inventory (§30.8, names only) | CONFIGURATION REQUIRED | §28.9 | Open — server will not boot without every `getRequiredEnv()`-marked one. |
+| 25 | Ingestion source keys (`NSW_TRANSPORT_API_KEY`, `WAQI_API_TOKEN` required; `QLD_TRAFFIC_API_KEY` optional) | CONFIGURATION REQUIRED | §28.9 | Open. |
+| 26 | `AI_PROVIDER` vs. seeded prompts' `model` field consistency check | USER ACTION REQUIRED | §20.6, §28.2 | Open — a silent mismatch would silently drop AI-generated hazards. |
+| 27 | Monitoring/error tracking (none exists anywhere in this codebase) | EXTERNAL SERVICE REQUIRED | §28.8, §28.9 | Open — genuine, confirmed gap, not a nuance. |
+| 28 | Distributed-lock or single-always-on-instance decision for scheduled jobs | USER ACTION REQUIRED | §28.9 | Open — no protection exists today against duplicate job execution on multiple instances. |
+| 29 | `prisma:migrate:deploy` script hardcodes `.env.dev` | USER ACTION REQUIRED (run migration with real env exported directly, do not rely on the npm script as written) | §28.9, §28.13 | Open — a deploy-process note, not a code defect requiring a fix in this repo. |
+| 30 | Domains/DNS (API, Admin Portal, email-sending domain) | EXTERNAL SERVICE REQUIRED | §28.9, §30.7 | Open — root dependency for several items above. |
+| 31 | App Store Connect: capabilities, Data Safety/App Privacy declarations | EXTERNAL SERVICE REQUIRED | §28.11, §30.9 | Open. |
+| 32 | 6 iOS TestFlight GitHub Actions secrets | GITHUB SECRET REQUIRED | §28.11, §30.9 | Open — names only, listed in §30.9. |
+| 33 | Play Console: content rating, Data Safety form, track progression | EXTERNAL SERVICE REQUIRED | §28.11, §30.2 | Open. |
+| 34 | Real-device QA pass, full matrix | REAL DEVICE TEST REQUIRED | §28.12, §30.10 | Open — **has never happened once across twelve stages.** |
+| 35 | `claude/alrt-data-export-tzq4ex` disposition (merge or formally drop) | USER ACTION REQUIRED | §28.1 | Open, not release-blocking. |
+| 36 | Emergency information feature | NOT V1 | §22.10 | No action — confirmed out of scope, no backend model exists. |
+| 37 | Category icon-image upload via Admin Portal | NOT V1 (deferred) | §22.10, §28.1 | No action required for this release — backend support exists, unused, a documented cut. |
+
+Not duplicated from §28.14: two lower-priority housekeeping items (two never-compared iOS TestFlight pipelines across historical repos; one un-reverified Matt commit) remain exactly as documented in §28.1 — informational, not release-blocking, not repeated here as a numbered action.
+
+### 30.2 Android internal release — pipeline verification
+
+**Pipeline re-verified this stage**, no code changes needed: `frontend/.github/workflows/android-release.yml` (built Stage 11) is `workflow_dispatch`-only, refuses to run if any of the four signing secrets is unset, decodes the keystore and writes `key.properties` only for the job's duration, builds `flutter build appbundle --release --flavor prod -t lib/main_prod.dart`, deletes the decoded keystore before the job ends, and uploads the `.aab` as a workflow artifact. Publishing to Play is gated behind the separate `publish_track` input and a fifth secret. **No fake or placeholder production credentials were created or used to test this** — the pipeline's correctness was verified by direct read of the workflow YAML (syntax-validated with `python3 -c "import yaml; yaml.safe_load(...)"`) and of `build.gradle.kts`'s already-correct conditional signing logic, not by an actual run.
+
+**Exactly what you need to provide, and how:**
+
+| Secret | What it is | How to produce it |
+|---|---|---|
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` | The upload keystore file (`.jks`), base64-encoded | `keytool -genkeypair -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`, then `base64 -i upload-keystore.jks \| tr -d '\n'` |
+| `ANDROID_KEYSTORE_PASSWORD` | Password for that keystore file | Chosen at `keytool` creation time |
+| `ANDROID_KEY_ALIAS` | Alias of the signing key inside it | Chosen at `keytool` creation time (`upload` in the example above) |
+| `ANDROID_KEY_PASSWORD` | Password for that specific key (can equal the store password) | Chosen at `keytool` creation time |
+| `PLAY_STORE_SERVICE_ACCOUNT_JSON` | Full JSON of a Play Console service-account key, "Release Manager" access | Play Console → Setup → API access → Service accounts. **Only needed to publish** (`publish_track != none`); building the `.aab` does not need it. |
+
+Store the `.jks` file and its passwords in a password manager before pasting them into GitHub secrets — once they exist as GitHub secrets they cannot be read back, only overwritten, and Google cannot recover a lost upload key (only reset it via a Play App Signing support request).
+
+**Confirmed this stage, no drift since §28.11/§29.3, no code change needed for any of these:**
+- **Application ID**: `com.safetyalrt.alrt` (prod), `com.safetyalrt.alrt.dev` (dev flavor) — confirmed in `build.gradle.kts` and `project.pbxproj` (iOS matches: `com.safetyalrt.alrt` / `.dev`).
+- **Version/build number**: `1.0.5+35` (`pubspec.yaml`, confirmed unchanged); `versionCode`/`versionName` in `build.gradle.kts` are Flutter-driven (`flutter.versionCode`/`flutter.versionName`), not hardcoded anywhere the new workflow touches.
+- **Play App Signing compatibility**: the pipeline signs with the upload key only and never touches an app signing key — the standard, recommended flow. Compatible as designed; nothing to configure differently.
+- **Firebase configuration**: `google-services.json` (Android) is untouched by the new workflow; the two real dev/prod asymmetries already documented (§28.3, §30.1 item 13) are unrelated to signing and remain open, unaffected by this pipeline.
+- **Google Maps configuration**: the `com.google.android.geo.API_KEY` manifest placeholder mechanism is untouched; still resolves `GOOGLE_MAPS_API_KEY` from the environment/CI secret exactly as the existing dev workflow does.
+- **OAuth configuration**: no redirect URI or client ID logic was touched by the new workflow; Google/Microsoft Android redirect configuration is exactly what §28.3/§28.4/§29 already describe.
+- **Notification configuration**: FCM/`google-services.json` wiring is unaffected — the new workflow only changes how the `.apk`/`.aab` is *signed*, not how Firebase is initialized.
+
+**Whether the pipeline can produce an internal-testing AAB once the real secrets are provided: yes, structurally** — it will run `flutter build appbundle --release --flavor prod` with real release signing the first time all four signing secrets exist, and the resulting `.aab` is genuinely upload-ready. This has not been exercised with real secrets in this environment (none exist here, and none were invented), so it is **CODE VERIFIED**, not **BUILD VERIFIED** — the honest distinction this project has maintained every stage.
+
+### 30.3 Google / Firebase production configuration checklist
+
+**Google Maps** — production project already exists (the app already calls a real `GOOGLE_MAPS_API_KEY`); what's missing is *restriction*, not provisioning:
+- [ ] Application-restrict the embedded client key (used for Maps SDK rendering + Routes/Directions) to: Android — both SHA-1 fingerprints (the upload-key SHA-1 from §30.2, and the separate Play App Signing SHA-1 Play generates once the app is first uploaded) × both package IDs (`com.safetyalrt.alrt`, `com.safetyalrt.alrt.dev`); iOS — both bundle IDs (`com.safetyalrt.alrt`, `com.safetyalrt.alrt.dev`).
+- [ ] API-restrict the separate backend proxy key (`GOOGLE_MAPS_API_KEY` on the backend, used for the `/api/maps/*` Places/Geocoding proxy) to Places API + Geocoding API only, with no Android/iOS restriction (server-side callers have no app signature to present).
+- [ ] Enable/confirm billing on the Places, Geocoding, and Routes APIs in Cloud Console; confirm quota alerts are configured — no code-level cost guard exists beyond the existing rate limiters (`MAPS_PROXY_RATE_LIMIT_*`).
+- [ ] Populate the three currently-blank frontend restriction-header env vars (`GOOGLE_MAPS_ANDROID_PACKAGE_NAME`, `GOOGLE_MAPS_ANDROID_CERT_SHA1`, `GOOGLE_MAPS_IOS_BUNDLE_ID`) once the client key is restricted — the code already sends these headers, they're just empty today by design until restriction is live (§28.3).
+- **Do not restrict the client key before the backend proxy key is confirmed working** — §28.13's step 8 ordering: the proxy must exist and work first, or removing the client key's direct-call fallback breaks Places/Geocoding entirely in the gap.
+
+**Google authentication:**
+- [ ] `GOOGLE_OAUTH_CLIENT_ID_WEB` / `_IOS` / `_ANDROID` (backend, all three required at boot) — from the same Google Cloud project's OAuth consent screen / credentials page.
+- [ ] `GOOGLE_OAUTH_SERVER_CLIENT_ID` (frontend build-time) — **must equal** `GOOGLE_OAUTH_CLIENT_ID_WEB`; this is the one currently-blank real gap (§28.3), not a deliberate no-op.
+- [ ] Redirect URIs / allowed origins: none needed for the mobile app itself — Google Sign-In on mobile uses the native ID-token pattern (`google_sign_in` package), not a redirect flow, confirmed in §28.3's trace. The only redirect-URI-shaped item in this codebase is the orphaned web client ID hardcoded in `frontend/web/index.html`, which no CI workflow builds or deploys — confirm with the release team it's intentionally dormant before either wiring up a web build or deleting it.
+
+**Firebase:**
+- [ ] Confirm the production Firebase project (`alrt-a6539`) is the intended production project, not a placeholder.
+- [ ] Android app registration: already correct — `google-services.json` has both `com.safetyalrt.alrt` and `com.safetyalrt.alrt.dev` registered as separate app entries within the one project.
+- [ ] iOS app registration: **only the prod bundle ID (`com.safetyalrt.alrt`) has a `GoogleService-Info.plist`** — no separate Firebase iOS app exists for `.dev`. A `.dev` iOS build currently ships with a config file whose `BUNDLE_ID` doesn't match its own bundle ID. Needs a real Firebase Console action (register the second iOS app) before this is safe to trust.
+- [ ] `firebase_options.dart` hardcodes prod-only Android/iOS app IDs with no flavor branching — `Firebase.initializeApp()` uses the prod identity even on `.dev` builds. This is a **code-adjacent** finding, not fixed this stage (see §30.11) — flagging it here as a configuration checklist item is not sufficient on its own; it needs a code fix in a future stage before the two Firebase items above can be trusted end to end.
+- [ ] FCM: no separate configuration beyond the above — `firebase-admin`/`firebase_messaging` wiring is already correct.
+- [ ] APNs: upload a real APNs authentication key (or certificate) to the Firebase Console for the production Firebase project — console-side only, nothing in this repo to change.
+- [ ] Backend: provision a real `serviceAccountKey.json` for this Firebase project at every deploy (file-based, gitignored, no env-var fallback — `Dockerfile` `COPY`s it in).
+
+### 30.4 Microsoft OAuth — external configuration still required (button stays hidden)
+
+**Not enabled this stage, and not to be enabled until both of the following are resolved:**
+
+1. **Azure/Entra application registration (EXTERNAL SERVICE REQUIRED).** A real, production-owned app registration in Azure Portal (Entra ID), not the personal/test tenant `frontend/assets/msal_config.json` currently appears to point at. Needs: tenant (decide `common`/multi-tenant vs. a specific tenant GUID — see the product decision below), client ID, and — because this codebase verifies Microsoft's ID token via JWKS/RS256 rather than an OAuth code exchange — **no client secret or certificate is actually needed** (`MICROSOFT_OAUTH_CLIENT_SECRET` in `.env.default` is dead, unused config, confirmed by direct read, safe to delete on a routine pass). Android redirect URI: already fixed Stage 9B to mirror the real, already-registered manifest signature hash — the Azure app registration's redirect URI just needs to match what the frontend already sends. iOS redirect: `Info.plist` MSAL configuration was already confirmed correct in Stage 9B/10, no change needed. `frontend/assets/msal_config.json` must be reconciled with whatever the real Azure app registration produces before enabling.
+2. **Production MSAL configuration**: once the Azure app exists, `assets/msal_config.json` must be updated to match it, and its precedence over any Dart-side config is unverified without Flutter/Android build tooling — flag this as needing a real build check, not just a file edit, before trusting it.
+
+**Unresolved account-linking product decision (USER ACTION REQUIRED, blocks enabling regardless of configuration):** this codebase links an OAuth sign-in to an existing account by email alone, with no `state`/`nonce`, identical in shape to Google's and Apple's already-shipped-in-production linking behavior. Microsoft's default `common` (multi-tenant) configuration makes the `email`/`preferred_username` claim's trust level measurably weaker than Google's or Apple's equivalent — any Microsoft-managed tenant's admin can, in principle, provision a user with an email matching an existing ALRT account. **This has not been decided.** The two options, neither implemented: (a) accept the same email-linking model already used for Google/Apple, treating Microsoft as no different in practice; (b) pin `MICROSOFT_OAUTH_TENANT_ID` to a specific, known-good tenant GUID once sign-in is restricted to that organization, removing the multi-tenant trust question entirely. This decision must be made before the sign-in button is ever shown to real users — it is independent of whether the Azure app registration itself is otherwise ready.
+
+### 30.5 RevenueCat — exact production setup required
+
+**Not enabled this stage; `BILLING_ENABLED` stays `false`.**
+
+- [ ] **RevenueCat project**: confirm/create the production RevenueCat project (distinct from any sandbox project used during development).
+- [ ] **ALRT+ products**: one entitlement, hardcoded on both the backend and frontend as `"plus"` — confirm the production RevenueCat project's entitlement identifier is exactly `plus`, not renamed.
+- [ ] **Apple products**: App Store Connect subscription product(s) matching whatever price/duration tiers the product team has decided, linked to the `plus` entitlement in RevenueCat.
+- [ ] **Google Play products**: the equivalent Play Console subscription product(s), also linked to `plus`.
+- [ ] **Family seats**: no separate RevenueCat configuration — the 8-seats/4-owned-circles model is entirely backend-enforced (`family.service.ts`, `MAX_SEATS_TOTAL`/`MAX_OWNED_CIRCLES`), confirmed by code read, not a RevenueCat product-catalog concept. Nothing to configure in RevenueCat for this specifically.
+- [ ] **Webhook endpoint #1 (backend)**: `POST /api/revenuecat/webhook` (this repo's backend) — writes `User.plan` in Postgres. Add this URL as a RevenueCat dashboard webhook, authenticated by `REVENUECAT_WEBHOOK_AUTH`.
+- [ ] **Webhook endpoint #2 (askalrt)**: a separate Firebase Cloud Function, `revenuecatWebhook` (`askalrt/functions/src/entitlements.ts`), authenticated by its own Firebase Functions secret `REVENUECAT_AUTH` (distinct from the backend's `REVENUECAT_WEBHOOK_AUTH`) — writes Firestore `entitlements/{uid}` for Ask ALRT's own AI-quota sizing. **This is the endpoint `frontend/ALRT_PLUS_SETUP.md` does not document** — following that guide alone leaves a paying subscriber's Ask ALRT quota stuck at the free tier permanently. Must be added as its own dashboard webhook entry, separately from endpoint #1.
+- [ ] **Webhook secrets**: `REVENUECAT_WEBHOOK_AUTH` (backend env), `REVENUECAT_AUTH` (askalrt Firebase Functions secret) — two different secrets for two different endpoints, not one shared value.
+- [ ] **`BILLING_ENABLED` sequencing**: leave `false` until every item above is verified live end to end (both webhooks receiving real events, both store products purchasable in a test/sandbox context). Flipping it requires no data migration — the webhook already writes `User.plan` correctly even pre-launch — **but** any `FamilyCircle` created before the flip defaults to `plan: "plus"` and stays that way until its owner's subscription later lapses and triggers a fresh webhook event. Whether pre-launch circles need a one-time reset script at go-live is an unresolved **product decision** — no such script exists in this repo today.
+- [ ] **Sandbox/internal testing**: neither webhook handler distinguishes a sandbox purchase event from a real one — this is normal RevenueCat behavior, but it means QA must use dedicated Apple/Google sandbox test accounts against a non-production database; there is no code-level safety net if that discipline lapses and a real card gets charged during internal testing.
+
+### 30.6 Email — production configuration
+
+- [ ] **SMTP provider**: not yet chosen/confirmed in this repo — any standard transactional SMTP provider works, `email.util.ts` is a generic `nodemailer` transport with no provider-specific code.
+- [ ] **Sender address**: hardcoded shape `"ALRT Support" <EMAIL_FROM_ADDRESS>` — pick the real address for `EMAIL_FROM_ADDRESS`.
+- [ ] **Sending domain**: never stated explicitly in code, only inferable from nearby comments/defaults (`admin.safetyalrt.com`, an example `app.safetyalrt.com`) — confirm the real domain with the product owner before DNS work below.
+- [ ] **SPF**: add an SPF record authorizing the chosen SMTP provider for the sending domain — pure DNS, no code involved.
+- [ ] **DKIM**: add the SMTP provider's DKIM CNAME/TXT records for the sending domain — pure DNS.
+- [ ] **DMARC**: add a DMARC policy record for the sending domain — pure DNS, decide enforcement level (`p=none`/`quarantine`/`reject`) with the product owner.
+- [ ] **Production password-reset URL**: `PASSWORD_RESET_BASE_URL` — optional in code (falls back to the incoming request's own host/protocol), but should be set explicitly in production since that fallback is fragile behind a proxy/CDN.
+- [ ] **Required environment variables**: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM_ADDRESS`, `EMAIL_SUPPORT_ADDRESS` (all required at boot, `getRequiredEnv`); `EMAIL_SUPPORT_CC_ADDRESSES`, `PASSWORD_RESET_BASE_URL` (both optional).
+- [ ] **Rate limits**: already code-complete, no configuration needed — the entire password-reset surface (both the JSON API and the HTML page) shares the same stricter `/api/auth` rate limiter, independently re-verified by direct code read in §28.7.
+
+### 30.7 Admin Portal — minimum hosting setup
+
+**Nothing deploys the Admin Portal today — this is genuinely unstarted, not a configuration nuance.**
+
+- [ ] **Hosting provider**: any static/SPA host works (Vercel, Netlify, S3+CloudFront, etc.) — no `Dockerfile`/`vercel.json`/`netlify.toml` exists in `admin/` today, so the hosting choice is entirely open and needs a first-time setup, not a config tweak.
+- [ ] **Domain**: `backend/src/utils/config.ts`'s `CORS_ALLOWED_ORIGINS` already defaults to `https://admin.safetyalrt.com` — using that exact domain makes this step a no-op on the backend side; any other domain requires setting `CORS_ALLOWED_ORIGINS` explicitly.
+- [ ] **HTTPS**: standard for any modern static host — no code-level requirement beyond the backend's CORS check, which doesn't itself enforce scheme.
+- [ ] **`VITE_API_BASE_URL`**: the one build-time environment variable the Admin Portal needs (`admin/src/api/client.ts` reads `import.meta.env.VITE_API_BASE_URL` directly) — point it at the live backend's real public URL.
+- [ ] **Backend `CORS_ALLOWED_ORIGINS`**: must include the real chosen Admin Portal domain (and nothing broader — this is a comma-separated allowlist, confirmed sound and not bypassable in §28.10).
+- [ ] **Authentication**: no additional configuration needed — the Admin JWT system is fully isolated from the regular user JWT system and already code-complete; the super-admin bootstrap account is created via `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`/`SUPER_ADMIN_NAME` (backend env, already in the required-vars list).
+- [ ] **Monitoring**: none exists for the Admin Portal (or anywhere in this codebase) — see §30.8's monitoring item; this is the same gap, not a separate one.
+
+### 30.8 Backend infrastructure — production requirements
+
+- [ ] **PostgreSQL/PostGIS**: a real production instance with the PostGIS extension enabled; `DATABASE_URL` is the sole required connection variable. No connection pooling (PgBouncer or Prisma's own `connection_limit`) is configured anywhere in this codebase today — worth planning for before real traffic, not a day-one blocker at expected V1 scale (§28.9).
+- [ ] **Redis**: backs the notification cooldown and hazard-cache dedup, both of which **fail open** without it (degraded, not broken) — can technically follow later in the sequence, but should not in practice; `CACHE_URL`/`CACHE_TLS`.
+- [ ] **Backend service**: must run as an **always-on process**, not scale-to-zero — four scheduled jobs (ingestion polling every 15 min, account-deletion processing at 2am, a 5-minute expiry sweep, per-minute check-in firing) run in-process via `node-cron`, gated on `NODE_ENV=prod`, with **no distributed lock** — a horizontally-scaled multi-instance deployment would run every one of these redundantly on every instance. Decide single-instance-only or add real job-locking before ever scaling out.
+- [ ] **Ingestion workers**: no separate worker process — ingestion runs in the same backend process via the cron jobs above. Needs `NSW_TRANSPORT_API_KEY` and `WAQI_API_TOKEN` (both required for their sources to run), `QLD_TRAFFIC_API_KEY` (optional — that one source is skipped, not broken, if unset); the other 15 sources are unauthenticated public feeds needing no key.
+- [ ] **Scheduled jobs**: no separate deploy step — confirmed running as part of the backend process itself, contingent on the always-on/distributed-lock decision above.
+- [ ] **AI provider**: `AI_PROVIDER` (`bedrock` or `openai`), plus whichever provider's own credentials are populated (`AWS_BEDROCK_*` or `OPENAI_API_KEY`). Confirm `AI_PROVIDER` matches the seeded prompts' own `model` field — a silent mismatch (e.g. an `openai`-shaped model string against a `bedrock` provider) would silently drop every AI-generated hazard rather than error loudly (§20.6).
+- [ ] **SMTP**: see §30.6.
+- [ ] **Firebase**: see §30.3.
+- [ ] **RevenueCat**: see §30.5.
+- [ ] **Source credentials**: `NSW_TRANSPORT_API_KEY`, `WAQI_API_TOKEN`, `QLD_TRAFFIC_API_KEY` (see ingestion workers above), plus `SIGHTENGINE_API_USER`/`SIGHTENGINE_API_SECRET`/`SIGHTENGINE_WORKFLOW_ID` for content moderation.
+- [ ] **Monitoring**: no error-tracking or APM SDK exists anywhere in this codebase (backend, Admin Portal, or askalrt) — confirmed by grepping every `package.json` in the repo for Sentry/Bugsnag/Rollbar/Datadog/New Relic and finding nothing. `console.error` is the entire error-visibility story today. This needs a real provider chosen and wired in — a genuine gap, not yet started.
+- [ ] **Logging**: same gap as monitoring — no structured logging pipeline exists; stdout/`console.log`/`console.error` only.
+- [ ] **Error tracking**: same item as monitoring, listed separately here only because the instruction asked for it by name — there is exactly one gap, not two.
+
+**Environment variable NAMES required (no values — reproduced from §28.9's inventory, unchanged since Stage 10, independently re-confirmed current this stage against the unmodified `config.ts`):**
+
+*Core/runtime:* `NODE_ENV`, `PORT`, `TRUST_PROXY`
+*Rate limiting:* `API_RATE_LIMIT_WINDOW_MS`, `API_RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_WINDOW_MS`, `AUTH_RATE_LIMIT_MAX`, `HAZARD_GET_IP_RATE_LIMIT_WINDOW_MS`, `HAZARD_GET_IP_RATE_LIMIT_MAX`, `HAZARD_READ_RATE_LIMIT_WINDOW_MS`, `HAZARD_READ_RATE_LIMIT_MAX`, `MAPS_PROXY_RATE_LIMIT_WINDOW_MS`, `MAPS_PROXY_RATE_LIMIT_MAX`
+*CORS:* `CORS_ALLOWED_ORIGINS`
+*Database:* `DATABASE_URL`
+*User JWT:* `JWT_ACCESS_SECRET`, `JWT_ACCESS_EXP_M`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXP_D`
+*Admin JWT:* `ADMIN_JWT_ACCESS_SECRET`, `ADMIN_JWT_ACCESS_EXP_M`, `ADMIN_JWT_REFRESH_SECRET`, `ADMIN_JWT_REFRESH_EXP_D`
+*Admin bootstrap:* `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, `SUPER_ADMIN_NAME`, `WEBHOOK_KEY_OUTPUT_FILE`, `ADMIN_PASSWORD_OUTPUT_FILE`
+*RevenueCat:* `REVENUECAT_WEBHOOK_AUTH`, `BILLING_ENABLED`
+*OAuth:* `GOOGLE_OAUTH_CLIENT_ID_WEB`, `GOOGLE_OAUTH_CLIENT_ID_IOS`, `GOOGLE_OAUTH_CLIENT_ID_ANDROID`, `APPLE_OAUTH_AUDIENCE`, `MICROSOFT_OAUTH_CLIENT_ID`, `MICROSOFT_OAUTH_TENANT_ID` (`MICROSOFT_OAUTH_CLIENT_SECRET` is dead/unused, safe to omit)
+*AI:* `OPENAI_API_KEY`, `AI_PROVIDER`
+*AWS S3:* `AWS_S3_REGION`, `AWS_S3_ACCESS_KEY_ID`, `AWS_S3_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET_NAME`, `AWS_CLOUDFRONT_DOMAIN`
+*AWS Bedrock:* `AWS_BEDROCK_REGION`, `AWS_BEDROCK_ACCESS_KEY_ID`, `AWS_BEDROCK_SECRET_ACCESS_KEY`, `AWS_BEDROCK_FALLBACK_MODEL_ID`
+*AWS Secrets Manager Agent (sidecar, deployed environments only):* `AWS_SECRETS_AGENT_PORT`, `AWS_SECRETS_AGENT_TOKEN_FILE`, `MAPS_API_KEY_SECRET_ID`, `MAPS_API_KEY_SECRET_ENV_KEY`
+*Ingestion sources:* `NSW_TRANSPORT_API_KEY`, `QLD_TRAFFIC_API_KEY`, `WAQI_API_TOKEN`
+*Maps:* `GOOGLE_MAPS_API_KEY`
+*Moderation:* `SIGHTENGINE_API_USER`, `SIGHTENGINE_API_SECRET`, `SIGHTENGINE_WORKFLOW_ID`
+*Webhook ingestion:* `WEBHOOK_API_KEY`
+*Cache:* `CACHE_URL`, `CACHE_TLS`
+*Password reset:* `PASSWORD_RESET_BASE_URL`
+*Email/SMTP:* `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM_ADDRESS`, `EMAIL_SUPPORT_ADDRESS`, `EMAIL_SUPPORT_CC_ADDRESSES`
+
+*Frontend (build-time, `.env`):* `GOOGLE_MAPS_API_KEY`, `GOOGLE_OAUTH_SERVER_CLIENT_ID`, `GOOGLE_MAPS_ANDROID_PACKAGE_NAME`, `GOOGLE_MAPS_ANDROID_CERT_SHA1`, `GOOGLE_MAPS_IOS_BUNDLE_ID`, `REVENUECAT_API_KEY_APPLE`, `REVENUECAT_API_KEY_GOOGLE`
+*Admin Portal (build-time):* `VITE_API_BASE_URL`
+*askalrt (Firebase Functions secrets, not plain env vars):* `REVENUECAT_AUTH`, and an Anthropic API key secret for the Claude fallback tier
+*File-based, not env-var-based:* `backend/serviceAccountKey.json` (Firebase Admin — no fallback exists in code)
+
+**GitHub Actions secrets (CI-only, separate from the runtime env vars above):**
+
+| Secret | Workflow | Purpose |
+|---|---|---|
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` | `android-release.yml` | Base64 upload keystore |
+| `ANDROID_KEYSTORE_PASSWORD` | `android-release.yml` | Keystore password |
+| `ANDROID_KEY_ALIAS` | `android-release.yml` | Signing key alias |
+| `ANDROID_KEY_PASSWORD` | `android-release.yml` | Signing key password |
+| `PLAY_STORE_SERVICE_ACCOUNT_JSON` | `android-release.yml` | Play publish credential (only when `publish_track != none`) |
+| `APP_STORE_CONNECT_API_KEY_ID` | `ios-testflight.yml` | App Store Connect API key ID |
+| `APP_STORE_CONNECT_ISSUER_ID` | `ios-testflight.yml` | App Store Connect issuer ID |
+| `APP_STORE_CONNECT_API_KEY_CONTENT` | `ios-testflight.yml` | App Store Connect API key content (base64 `.p8`) |
+| `MATCH_GIT_URL` | `ios-testflight.yml` | Private repo holding encrypted iOS signing certs |
+| `MATCH_GIT_BASIC_AUTHORIZATION` | `ios-testflight.yml` | Base64 `user:token` for that repo |
+| `MATCH_PASSWORD` | `ios-testflight.yml` | Passphrase encrypting the certs in that repo |
+| `GOOGLE_MAPS_API_KEY` (or `googlemaps`) | `android-apk.yml`, `android-release.yml`, `ios-testflight.yml` | Shared across all three mobile CI workflows |
+| `GOOGLE_OAUTH_SERVER_CLIENT_ID` | `android-apk.yml`, `android-release.yml`, `ios-testflight.yml` | Same value as the backend's `GOOGLE_OAUTH_CLIENT_ID_WEB` |
+| `REVENUECAT_API_KEY_APPLE` / `REVENUECAT_API_KEY_GOOGLE` | `android-apk.yml`, `android-release.yml`, `ios-testflight.yml` | ALRT+ paywall SDK keys |
+
+### 30.9 Internal release sequence
+
+Adapted from §28.13, updated for what Stage 11 actually built (Android now has a real pipeline, not just iOS):
+
+1. **Domains/DNS** — API domain, Admin Portal domain, email-sending domain (SPF/DKIM/DMARC). Root dependency for several later steps; do this first.
+2. **Production infrastructure** — Postgres+PostGIS, Redis, S3+CloudFront, and the always-on-instance-or-job-lock decision (§30.8).
+3. **Database migration** — `npx prisma migrate deploy` against the real production `DATABASE_URL`, with the real deployed environment's variables exported directly, **not** via the repo's own `prisma:migrate:deploy` npm script as written (it hardcodes `.env.dev`).
+4. **Backend deploy** — every required env var from §30.8 populated, real `serviceAccountKey.json` provisioned out-of-band, `BILLING_ENABLED` deliberately left `false`.
+5. **Scheduled jobs** — no separate step, confirmed running as part of step 4; this is where the distributed-lock decision from step 2 actually takes effect.
+6. **Firebase** — confirm the production project, upload real APNs credentials, resolve (in a future stage) the `.dev`-flavor iOS/`firebase_options.dart` asymmetry before trusting any dev-flavor build's push behavior.
+7. **Google authentication + Maps** — populate `GOOGLE_OAUTH_SERVER_CLIENT_ID` and the backend OAuth client IDs; restrict the Maps client key **only after** step 4's backend proxy key is confirmed live (§30.3's ordering note).
+8. **Admin Portal** — build with the real `VITE_API_BASE_URL`, deploy to a real host, add its domain to `CORS_ALLOWED_ORIGINS`.
+9. **RevenueCat sandbox/staging setup** — both webhook dashboard entries configured and receiving real sandbox events, both store products created (not yet live-purchasable to the public); `BILLING_ENABLED` still `false` at this point — this step proves the plumbing works before any real money is involved.
+10. **Email** — real SMTP credentials, domain DNS records live, `PASSWORD_RESET_BASE_URL` set.
+11. **Android internal AAB** — the four signing secrets provided, `android-release.yml` run once with `publish_track: none` to confirm the `.aab` builds; a second run with `publish_track: internal` once the Play Console listing itself exists, to reach an internal test track.
+12. **iOS TestFlight** — the six existing secrets provided, `ios-testflight.yml` run with `generate_certs: true` once (first run only), producing a real TestFlight build.
+13. **Real-device QA** (§30.10) — cannot be skipped or compressed; the first point in this entire sequence where any "code verified, never device verified" claim in this report gets tested for real.
+14. **RevenueCat go-live** — only after step 13's ALRT+ purchase/restore flow has passed real-device QA: flip `BILLING_ENABLED=true`, decide and (if needed) execute the pre-launch-circle plan-reset.
+15. **Production monitoring** — stand up real error tracking; listed near the end only because it has no code dependency on the steps above, not because it is low priority — it should exist before, not after, real user traffic of any kind (including internal testers).
+16. **Production store submission** — Play Store production track (content rating, Data Safety form) and App Store Connect submission, only after step 13 has passed and step 14 is a deliberate, separate go-live decision.
+
+Microsoft OAuth does not appear in this sequence at all — it stays off for this entire internal-release cycle regardless of when its own configuration (§30.4) is separately completed.
+
+### 30.10 Real-device QA matrix
+
+No Flutter/Android/iOS/Xcode tooling has existed in any environment this project has been worked from across all twelve stages (`which flutter dart adb xcodebuild pod` fail without exception, reconfirmed this stage). **Every row below is at most CODE VERIFIED and, where noted, AUTOMATED TEST VERIFIED — INTERNAL BUILD VERIFIED and REAL DEVICE VERIFIED are "No" for every single row, without exception, because no build has ever been produced.** This is the plan to run once a real internal build exists (§30.9 step 11/12), not a report of anything already executed on a device.
+
+| Area | Item | Code verified | Automated test verified | Internal build verified | Real device verified |
+|---|---|---|---|---|---|
+| AUTH | Registration | Yes | Yes (Stage 7B/9B suites) | No | No |
+| AUTH | Login | Yes | Yes | No | No |
+| AUTH | Password reset | Yes | Yes (17/17, §27.7/§29.4) | No | No |
+| AUTH | Google sign-in | Yes | No (needs a real Google token) | No | No |
+| AUTH | Apple sign-in | Yes | No (needs a real Apple token) | No | No |
+| AUTH | Microsoft sign-in | N/A this release — button hidden (§30.4) | Yes, 501-unconfigured path only | No | No |
+| ALRT+ | Purchase | Yes | No (needs a real store) | No | No |
+| ALRT+ | Restore | Yes | No | No | No |
+| ALRT+ | Entitlement sync | Yes | Yes (webhook single-mount fix, §25.12) | No | No |
+| ALRT+ | Family seats | Yes | No dedicated test (re-confirmed by code read only) | No | No |
+| FAMILY | Invite | Yes | Yes (§26 setup flow) | No | No |
+| FAMILY | Accept | Yes | Yes (§26 setup flow) | No | No |
+| FAMILY | Remove member | Yes | No dedicated test | No | No |
+| FAMILY | Mark Safe | Yes | No dedicated test | No | No |
+| FAMILY | Check-in | Yes | No dedicated test | No | No |
+| FAMILY | Location request | Yes | No dedicated test — and a known, unfixed deep-link bug exists here (§28.6, out of Stage 11's scope) | No | No |
+| FAMILY | Location snapshot | Yes | No dedicated test | No | No |
+| SOS | Trigger | Yes | No dedicated test | No | No |
+| SOS | Live location | Yes | No dedicated test | No | No |
+| SOS | Recipient experience | Yes | No dedicated test | No | No |
+| SOS | Stop confirmation | Yes | No dedicated test | No | No |
+| JOURNEY | Start | Yes | Yes (13/13, §26) | No | No |
+| JOURNEY | Recipient notification | Yes | Partial — HTTP retrieval path tested (§26); the push send itself uses the correct convention (confirmed by code read) but has no dedicated payload-interception test like Blocker 2's | No | No |
+| JOURNEY | Recipient map | Yes | No (frontend UI, not testable without Flutter tooling) | No | No |
+| JOURNEY | Live updates | Yes | Yes (§26) | No | No |
+| JOURNEY | Stop | Yes | Yes (§26) | No | No |
+| JOURNEY | 15-minute expiry | Yes | Yes (§26) | No | No |
+| ALERTS | Official alert | Yes | Yes | No | No |
+| ALERTS | Community report | Yes | Yes (moderation accept/reject, §21.1) | No | No |
+| ALERTS | Moderation | Yes | Yes (32/32, §23) | No | No |
+| ALERTS | Severity | Yes | Yes (7/7 + 9/9, §20/21) | No | No |
+| ALERTS | Notification (general) | Yes | Partial | No | No |
+| ALERTS | Notification deep link | Yes (`familyHazardProximity` fixed Stage 11) | Yes (payload shape, 4/4, §29.4) — frontend routing itself untested | No | No |
+| ALERTS | Proximity notification | Yes (fixed Stage 11) | Yes (4/4, §29.4) | No | No |
+| ALERTS | Maps | Yes | No | No | No |
+| ALERTS | Transit | Yes | No | No | No |
+| ADMIN | Login | Yes | Yes | No | N/A (web, not a mobile build — needs Admin Portal hosting, §30.7, not a device) |
+| ADMIN | Roles | Yes | Yes (role matrix, §23) | No | N/A |
+| ADMIN | Moderation | Yes | Yes (32/32) | No | N/A |
+| ADMIN | User search | Yes | No dedicated test | No | N/A |
+| ADMIN | Configuration | Yes | Yes | No | N/A |
+| ADMIN | AI prompts | Yes | Partial (group creation tested; prompt-content routes need a live AI provider this environment doesn't have) | No | N/A |
+| ADMIN | Webhook keys | Yes | Yes (mint tested) | No | N/A |
+| OFFLINE/NETWORK | Poor connectivity | Unknown/unverified | No | No | No |
+| OFFLINE/NETWORK | Reconnect | Unknown/unverified | No | No | No |
+| OFFLINE/NETWORK | Token expiry | Yes | Yes (refresh-token invalidation, §27.7) | No | No |
+| OFFLINE/NETWORK | Push while backgrounded | Yes (funnel architecture) | No | No | No |
+| OFFLINE/NETWORK | Push while terminated | Yes (funnel architecture) | No | No | No |
+
+**Devices/configurations needed** (unchanged from §28.12, restated as the concrete pre-QA requirement): a real Android device at the resolved `minSdk` floor and a second at the latest stable Android version (exercising `targetSdk=35`'s runtime-permission behavior); the Android 13+ `POST_NOTIFICATIONS` prompt end to end; the Microsoft MSAL redirect handshake **only if/when §30.4 is separately resolved and the button is re-enabled**; the Google Maps key restriction, smoke-tested on an actual Play-Store-signed build (a sideloaded debug-signed APK presents a different SHA-1 and can mask a misconfiguration); a physical iPhone on a recent stable iOS version for production APNs (**the iOS Simulator cannot receive real push notifications at all**); a physical iPhone for Sign in with Apple's system UI/keychain interactions; and at least one lower/older-spec Android device from an aggressive-background-killing OEM (Samsung/Xiaomi-class), since SOS live-share and family-location are exactly what that behavior threatens.
+
+### 30.11 Remaining blockers and explicit non-claims
+
+**What still blocks internal testing:** the Android signing secrets (§30.1 item 4) not existing yet; the Google/Firebase/RevenueCat/Email/Admin-Portal configuration in §30.1 not yet started; and — structurally — nothing else. All application-level code defects known to this report are either fixed (Stage 11's three blockers) or explicitly deferred with a named reason (the `familyLocationRequest` deep-link bug, the SOS-type notifications' generic-landing behavior — both pre-existing, both out of Stage 11's scope, neither touched this stage either).
+
+**What still blocks production, beyond internal testing:** a real-device QA pass that has never once happened (§30.10); `BILLING_ENABLED` go-live sequencing (§30.5); the `.dev`-flavor Firebase asymmetry (§30.3), which needs an actual code fix in a future stage, not just configuration — flagged here and left untouched per this stage's explicit instruction not to expand scope with a code change; and standing up real production monitoring, which does not exist today.
+
+**This stage discovered no new code problem.** The one item that comes closest — the `firebase_options.dart` prod-only hardcoding (§30.3) — was already known and documented in §28.3; this stage did not find it fresh, is not fixing it (a configuration checklist item cannot itself close a code gap), and is calling it out explicitly here rather than silently treating it as "configuration" when part of the underlying issue is actually in the Dart source. No code was changed this stage as a result — consistent with the instruction to document and stop rather than expand scope.
+
+**Explicit non-claims, per this stage's own instruction not to assume any of the following without actual verification — none of them are claimed anywhere in this report:**
+- Production credentials of any kind do not exist in this environment and were not created.
+- No production service (Google Cloud restriction, Firebase APNs, RevenueCat dashboards, SMTP, Admin Portal hosting) has been configured by this stage — every checklist item above is open work, not a record of anything done.
+- The Android AAB pipeline has not been run with real signing credentials; it is CODE VERIFIED, not BUILD VERIFIED.
+- Google Maps restrictions, OAuth flows, and push notifications have not been confirmed working on a real device — every row in §30.10 is, at most, CODE VERIFIED or AUTOMATED TEST VERIFIED.
+- RevenueCat production billing has not been exercised in any form — `BILLING_ENABLED` remains `false`.
+- Email deliverability in production has not been verified — no SPF/DKIM/DMARC records exist yet for any real sending domain, per this stage's own investigation.
+
+### 30.12 Stop condition honored
+
+No production deployment was performed. No production billing was enabled — `BILLING_ENABLED` remains `false`, untouched. Microsoft OAuth was not enabled — the sign-in button remains hidden, and neither its Azure configuration nor its account-linking product decision was resolved, only documented. No new feature development occurred. No real credential, secret value, or production configuration file was created, requested, or committed — every credential-shaped item in this section is a named requirement, never a value; `git status`/`git diff` were checked before committing and show only `V1_RECONCILIATION_REPORT.md` changed. No application code was modified this stage — no code problem was discovered that required a configuration-only correction, and the one pre-existing code-adjacent gap re-surfaced during this reconciliation (`firebase_options.dart`'s dev/prod asymmetry) was documented, not touched, per the explicit instruction to stop rather than silently expand scope.
