@@ -591,11 +591,17 @@ const flagMemberNearHazard = async (
     circleId: member.circleId,
     title: `${severityLabel} near ${name}`,
     body: `${hazard.title} — ${distanceKm.toFixed(1)} km from ${name}'s location`,
+    // The shared push wrapper (sendPushNotificationToTokens) already
+    // JSON-stringifies this whole object into data.payload exactly once —
+    // matching viewHazard's `data: hazard` — so the hazard's fields must
+    // ride at the top level, not pre-stringified into a nested `payload`
+    // key (that produced a double-encoded payload the frontend couldn't
+    // parse as a hazard). See V1_RECONCILIATION_REPORT.md Stage 11.
     data: {
+      ...hazard,
       circleId: member.circleId,
       memberId: member.id,
-      payload: JSON.stringify(hazard),
-      distanceKm: String(distanceKm),
+      distanceKm,
     },
     type: PushNotificationType.familyHazardProximity,
     socketEvent: SocketEvent.familyHazardProximity,
@@ -700,10 +706,12 @@ export const notifyFamiliesAboutNewHazard = async (hazard: Hazard) => {
         circleId: place.circleId,
         title: `${severityLabel} issued ${distanceKm < 1 ? "less than 1" : Math.round(distanceKm)} km from ${place.name}`,
         body: `${hazard.title}${hazard.locationName ? ` · ${hazard.locationName}` : ""}`,
+        // Same fix as flagMemberNearHazard above: top-level hazard fields,
+        // not a pre-stringified nested `payload` key.
         data: {
+          ...hazard,
           circleId: place.circleId,
           placeId: place.id,
-          payload: JSON.stringify(hazard),
         },
         type: PushNotificationType.familyHazardProximity,
         socketEvent: SocketEvent.familyHazardProximity,
