@@ -1011,3 +1011,24 @@ export const listSharedJourneysController = async (
     next(error);
   }
 };
+
+// Single-journey lookup, for the traveller or a recipient they picked -
+// this is what the recipient's notification deep-links into, including
+// after the journey has ended (listSharedJourneysController only returns
+// still-running ones).
+export const getJourneyController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const journey = await familyJourneyService.getJourneyForViewer(
+      userId,
+      req.params.journeyId!,
+    );
+    res.status(200).json(journey);
+  } catch (error) {
+    next(error);
+  }
+};

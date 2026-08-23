@@ -274,6 +274,35 @@ export const listJourneysSharedWithMe = async (
 };
 
 /**
+ * A single journey, for the traveller or one of the recipients they picked.
+ * Unlike listJourneysSharedWithMe this does not filter by status, so a
+ * recipient can still open a journey after it has ended or expired - they
+ * get the same read-only final state serializeJourney already produces
+ * (times kept, location cleared). Anyone else in the circle, and anyone
+ * outside it, gets 404/403 - being a family member is not enough, the
+ * traveller has to have picked you (locked rule).
+ */
+export const getJourneyForViewer = async (userId: string, journeyId: string) => {
+  const journey = await prisma.familyJourney.findUnique({
+    where: { id: journeyId },
+    include: journeyInclude,
+  });
+  if (!journey) throw new HttpError(404, "Journey not found");
+
+  const membership = await requireMembership(userId, journey.circleId);
+
+  const isTraveller = journey.memberId === membership.id;
+  const isRecipient = journey.recipients.some(
+    (r) => r.memberId === membership.id,
+  );
+  if (!isTraveller && !isRecipient) {
+    throw new HttpError(403, "You weren't shared this journey");
+  }
+
+  return serializeJourney(journey);
+};
+
+/**
  * Records a point on a running journey. Snap-point journeys keep only the
  * newest position; live ones do the same on the journey row, because the
  * trail is never retained beyond the journey itself.

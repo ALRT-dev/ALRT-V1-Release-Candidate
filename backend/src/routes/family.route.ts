@@ -41,6 +41,7 @@ import {
   removeCirclePhotoController,
   createInviteController,
   extendJourneyController,
+  getJourneyController,
   getMyJourneyController,
   journeyPointController,
   listSharedJourneysController,
@@ -227,6 +228,10 @@ familyRouter.post(
 );
 familyRouter.get("/journeys/me", getMyJourneyController);
 familyRouter.get("/journeys/shared", listSharedJourneysController);
+// Single-journey lookup for the recipient viewer / notification deep link.
+// Registered after the literal /me and /shared routes above so those two
+// keep matching first - Express tries routes in registration order.
+familyRouter.get("/journeys/:journeyId", getJourneyController);
 familyRouter.post(
   "/journeys/:journeyId/extend",
   validate(extendFamilyJourneySchema),
