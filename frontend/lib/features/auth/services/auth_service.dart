@@ -169,6 +169,14 @@ class AuthService {
     return result;
   }
 
+  /// Starts a password reset. Always resolves the same way regardless of
+  /// whether the email is registered - the backend never reveals that.
+  Future<Either<void, AppError>> requestPasswordReset({
+    required final String email,
+  }) {
+    return _authRepository.requestPasswordReset(email: email);
+  }
+
   /// Logs out the user by deleting the access token from local storage.
   Future<Either<void, AppError>> logout() async {
     await _deleteAccessToken();

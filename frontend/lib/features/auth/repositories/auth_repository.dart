@@ -30,6 +30,12 @@ abstract class AuthRepository {
     required final String email,
     required final String password,
   });
+
+  /// Starts a password reset. Always resolves the same way regardless of
+  /// whether the email is registered - the backend never reveals that.
+  Future<Either<void, AppError>> requestPasswordReset({
+    required final String email,
+  });
 }
 
 class AuthRepositoryImpl implements AuthRepository {
@@ -137,7 +143,16 @@ class AuthRepositoryImpl implements AuthRepository {
           clientId: Env.microsoftClientId,
           androidConfig: AndroidConfig(
             configFilePath: 'assets/msal_config.json',
-            redirectUri: 'msauth://com.example.hazard_app/YOUR_SIGNATURE_HASH',
+            // Must match the BrowserTabActivity intent-filter registered in
+            // AndroidManifest.xml (host = the real applicationId, path =
+            // the URL-encoded signature hash) AND the redirect URI
+            // registered against this app in the Azure app registration.
+            // The previous value here (com.example.hazard_app/
+            // YOUR_SIGNATURE_HASH) was a literal, never-replaced
+            // placeholder that did not match either — Microsoft sign-in on
+            // Android could never have completed with it.
+            redirectUri:
+                'msauth://com.safetyalrt.alrt/hyOO%2FXSiCQvGcPDoA8%2F2xATQZi8%3D',
           ),
           appleConfig: AppleConfig(
             authority:
@@ -204,6 +219,20 @@ class AuthRepositoryImpl implements AuthRepository {
           password: password,
         );
         return Success(result);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<void, AppError>> requestPasswordReset({
+    required final String email,
+  }) {
+    return runAsyncCall(
+      name: 'requestPasswordReset',
+      future: () async {
+        await _restClient.requestPasswordReset(email: email);
+        return const Success(null);
       },
       onError: Failure.new,
     );

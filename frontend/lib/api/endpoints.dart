@@ -14,6 +14,7 @@ const kUrlOAuthMicrosoft = '$kUrlAuth/oauth/microsoft';
 const kUrlRefreshToken = '$kUrlAuth/refresh-token';
 const kUrlEmailLogin = '$kUrlAuth/email-password/login';
 const kUrlEmailRegister = '$kUrlAuth/email-password/register';
+const kUrlPasswordResetRequest = '$kUrlAuth/password-reset/request';
 
 // ---------------------------- MAPS ----------------------------
 // Backend proxy for Google Geocoding/Places so the web-service key never

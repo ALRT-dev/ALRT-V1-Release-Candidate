@@ -62,6 +62,11 @@ abstract class RestClient {
     @Field() required final String accessToken,
   });
 
+  @POST(kUrlPasswordResetRequest)
+  Future<void> requestPasswordReset({
+    @Field() required final String email,
+  });
+
   // ---------------------------- ONBOARDING ----------------------------
 
   @POST(kUrlOnboardingAcceptDisclaimer)

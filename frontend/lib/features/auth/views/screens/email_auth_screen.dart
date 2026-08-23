@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/auth/providers/auth_provider.dart';
 import 'package:hazard_app/features/auth/providers/states/auth_provider_state.dart';
+import 'package:hazard_app/features/auth/views/screens/forgot_password_screen.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_wrapper.dart';
@@ -148,6 +149,26 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                         return null;
                       },
                     ),
+                    if (!_isRegister) ...[
+                      SizedBox(height: 8.spMin),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: isLoading
+                              ? null
+                              : () =>
+                                    context.push(ForgotPasswordScreen.route),
+                          child: Text(
+                            'Forgot password?',
+                            style: TextStyle(
+                              fontSize: 13.spMin,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     SizedBox(height: 24.spMin),
                     SizedBox(
                       height: 52.spMin,
