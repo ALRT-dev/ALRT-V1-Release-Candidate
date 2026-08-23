@@ -1,0 +1,41 @@
+# Isolated internal-test backend + its own database - Stage A of the
+# internal-test-environment project (V1_RECONCILIATION_REPORT.md).
+#
+# Deliberately mirrors docker-compose.dev.yml's shape, with every name, port
+# and volume changed so this can run ALONGSIDE the existing dev stack without
+# collision, and so it is obviously a separate database by construction, not
+# a schema/tenant sharing an instance with anything else.
+#
+# Usage: copy .env.test.example to .env.test, fill in real values (DATABASE_URL
+# should match the postgres service below when running this locally), then:
+#   docker compose -f docker-compose.test.yml up
+services:
+  app:
+    container_name: app-test
+    build: .
+    env_file:
+      - .env.test
+    ports:
+      - "3010:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && yarn start"
+
+  postgres:
+    container_name: postgres-test
+    image: postgis/postgis:15-3.4
+    env_file:
+      - .env.test
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata_test:

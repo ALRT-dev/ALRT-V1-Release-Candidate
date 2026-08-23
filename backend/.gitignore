@@ -4,6 +4,7 @@ dist
 *.log
 .env.dev
 .env.prod
+.env.test
 rest.http
 /src/generated/prisma
 serviceAccountKey.json

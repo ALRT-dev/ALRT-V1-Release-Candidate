@@ -14,9 +14,13 @@ dist-ssr
 
 # Env files - never commit an admin portal API base URL override that
 # might point at a real deployment; .env.example documents the shape.
+# .env.test is the one deliberate exception: it points only at the
+# isolated internal-test backend (never production), and a base URL is
+# not a secret - see V1_RECONCILIATION_REPORT.md Stage A.
 .env
 .env.*
 !.env.example
+!.env.test
 
 coverage
 
