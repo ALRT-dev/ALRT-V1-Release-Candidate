@@ -11,6 +11,7 @@ import 'package:hazard_app/features/shared/providers/base_url_provider.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_service.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/firebase_options.dart';
+import 'package:hazard_app/firebase_options_dev.dart';
 import 'package:hazard_app/others/app.dart';
 import 'package:hazard_app/others/app_flavor_types.dart';
 
@@ -109,8 +110,13 @@ class AppBootstrap {
     return runAsyncCall(
       name: 'initializeFirebase',
       future: () async {
+        // dev must not initialize with the prod Firebase app identity -
+        // see V1_RECONCILIATION_REPORT.md §31 for why this was previously
+        // wrong on Android regardless of flavor.
         await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
+          options: flavor == AppFlavor.dev
+              ? DefaultFirebaseOptionsDev.currentPlatform
+              : DefaultFirebaseOptions.currentPlatform,
         );
         // Ask ALRT's callable enforces App Check, so the attestation has
         // to be registered before anything calls it.
