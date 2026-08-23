@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_tab_view.dart';
+import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_location_request_sheet.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_provider.dart';
@@ -239,6 +240,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 );
               }
               return;
+            case PushNotificationType.familyJourneyShared:
+              // Targeted at the picked recipients only — open the shared
+              // journey directly rather than landing on the family hub and
+              // making them go find it. Like the hazard cases above, the
+              // structured fields ride in data['payload'] (a JSON string),
+              // decoded by RemoteMessageExt.payload.
+              final journeyId = remoteMessage.payload['journeyId'];
+              if (journeyId is String && journeyId.isNotEmpty) {
+                return _gotoSharedJourneyScreen(journeyId);
+              }
+              ref.read(providerOfFamily.notifier).load(silent: true);
+              ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+              return;
             case PushNotificationType.familyCheckIn:
             case PushNotificationType.familyCheckInRequest:
             case PushNotificationType.familyScheduledCheckInPrompt:
@@ -248,7 +262,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             case PushNotificationType.familySosResolved:
             case PushNotificationType.familyCircleUpdate:
             case PushNotificationType.familyLocationShared:
-            case PushNotificationType.familyJourneyShared:
               // Land on the family hub with fresh data.
               ref.read(providerOfFamily.notifier).load(silent: true);
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
@@ -309,6 +322,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     context.push(
       ViewHazardScreen.route,
       extra: ViewHazardScreenArgs(hazard: hazard),
+    );
+  }
+
+  /// Opens the recipient's shared-journey viewer for [journeyId]. The
+  /// screen fetches the journey itself — the notification carries only the
+  /// id, not a ready-made journey object.
+  void _gotoSharedJourneyScreen(final String journeyId) {
+    context.push(
+      SharedJourneyScreen.route,
+      extra: SharedJourneyScreenArgs(journeyId: journeyId),
     );
   }
 }

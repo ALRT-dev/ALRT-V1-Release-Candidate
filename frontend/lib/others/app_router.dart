@@ -17,6 +17,7 @@ import 'package:hazard_app/features/family/views/screens/family_places_screen.da
 import 'package:hazard_app/features/family/views/screens/family_sharing_level_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
+import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/learn/views/screens/guide_detail_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_circle_profile_screen.dart';
@@ -210,6 +211,12 @@ class AppRouter {
           path: FamilySosReceiverScreen.route,
           builder: (context, state) => FamilySosReceiverScreen(
             args: state.extra as FamilySosReceiverScreenArgs,
+          ),
+        ),
+        GoRoute(
+          path: SharedJourneyScreen.route,
+          builder: (context, state) => SharedJourneyScreen(
+            args: state.extra as SharedJourneyScreenArgs,
           ),
         ),
         // ------------------------- LEARN HUB -------------------------
