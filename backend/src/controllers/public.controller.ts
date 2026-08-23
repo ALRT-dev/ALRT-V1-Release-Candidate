@@ -3,6 +3,7 @@ import { HazardReviewStatus } from "@prisma/client";
 import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
 import { renderShareCard } from "../services/share_card.service.js";
+import { withPublicCoords } from "../utils/hazard.util.js";
 import {
   confirmPasswordReset,
   isPasswordResetTokenValid,
@@ -102,10 +103,15 @@ export const getPublicHazardController = async (
     const { id } = req.params;
     if (!id) throw new HttpError(400, "id is required");
 
-    const hazard = await findShareableHazard(id);
-    if (!hazard) {
+    const hazardRecord = await findShareableHazard(id);
+    if (!hazardRecord) {
       throw new HttpError(404, "Alert not found");
     }
+
+    // Unauthenticated endpoint: no viewerId, so every community-reported
+    // hazard is rounded to suburb precision; official/ingested alerts
+    // (reportedById null) pass through at full precision unchanged.
+    const hazard = withPublicCoords(hazardRecord);
 
     res.status(200).json({
       id: hazard.id,
