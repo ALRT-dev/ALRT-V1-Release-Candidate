@@ -87,6 +87,36 @@ platform :ios do
     )
   end
 
+  desc "CI: install the App Store signing certificate and profile for the isolated TEST (dev-flavour) app on the runner"
+  lane :ci_certs_dev do |options|
+    # Same as ci_certs above, targeting the separate "ALRT Dev" App Store
+    # Connect app (com.safetyalrt.alrt.dev) instead of production. Never
+    # merged into ci_certs - the two must stay independently invocable so a
+    # TEST pipeline change can never affect the production signing lane.
+    setup_ci
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+      is_key_content_base64: true
+    )
+    match(
+      type: "appstore",
+      readonly: options[:generate].to_s != "true",
+      api_key: api_key,
+      app_identifier: "com.safetyalrt.alrt.dev"
+    )
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Runner.xcodeproj",
+      targets: ["Runner"],
+      team_id: "JR89M7CYPR",
+      bundle_identifier: "com.safetyalrt.alrt.dev",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.safetyalrt.alrt.dev"
+    )
+  end
+
   desc "CI: upload the already-built ipa (IPA_PATH env, absolute) to TestFlight"
   lane :ci_upload do
     api_key = app_store_connect_api_key(

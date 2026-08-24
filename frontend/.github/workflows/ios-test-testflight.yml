@@ -1,0 +1,143 @@
+# Builds the iPhone app (DEV flavour, com.safetyalrt.alrt.dev) pointed at
+# the ISOLATED INTERNAL-TEST backend, and uploads it to the separate
+# "ALRT Dev" App Store Connect app / TestFlight internal group - never the
+# production app or its TestFlight build. This is a NEW, separate workflow -
+# it does not modify ios-testflight.yml (still production-connected,
+# unchanged), the production Fastlane lanes (ci_certs/ci_upload), the
+# production bundle ID, or production Firebase configuration.
+#
+# Uses the existing "dev" Xcode scheme exactly as android-test.yml's Android
+# counterpart does - same app id (com.safetyalrt.alrt.dev), same debug
+# signing identity concept, different (TEST) App Store Connect app. The
+# ONLY functional difference from ios-testflight.yml is: dev flavour instead
+# of prod, DEV_BASE_URL points at the isolated test backend instead of
+# nothing, and signing/upload target com.safetyalrt.alrt.dev via the new
+# ci_certs_dev Fastlane lane and ExportOptionsCI-dev.plist.
+#
+# Manual trigger only (workflow_dispatch) - never runs on push, and refuses
+# to run at all if the isolated test backend's URL secret isn't configured,
+# same guard pattern as android-test.yml.
+#
+# Requires a GitHub Environment named "test" (same one android-test.yml
+# uses) with this secret defined on it:
+#   TEST_BACKEND_URL   the isolated test backend's public URL, e.g.
+#                       https://api-test.safetyalrt.com
+#
+# Also requires (see V1_RECONCILIATION_REPORT.md for the full prerequisite
+# chain): the "ALRT Dev" App Store Connect app and com.safetyalrt.alrt.dev
+# App ID (already created, per product-owner instruction) and a match
+# distribution profile for com.safetyalrt.alrt.dev, which does not exist
+# yet - the first real run of this workflow must pass generate_certs=true
+# so fastlane match creates it (additive to the existing MATCH_GIT_URL
+# certs repo; does not touch or revoke the production certificate/profile).
+#
+# Everything else (Maps, Google Sign-In, RevenueCat SDK keys) intentionally
+# reuses the SAME repo-level secrets ios-testflight.yml already uses -
+# this workflow does not migrate the Google Maps key or touch RevenueCat
+# production webhooks. ALRT_PLUS_TEST_UNLOCK=true bypasses RevenueCat
+# entirely for entitlement checks (already-existing mechanism, see
+# alrt_plus_provider.dart) - no real purchase-flow testing happens via this
+# workflow, matching android-test.yml.
+name: iOS Dev TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      generate_certs:
+        description: "First run only: generate the com.safetyalrt.alrt.dev signing certificate/profile"
+        type: boolean
+        default: false
+      build_number:
+        description: "Build number override (blank = automatic)"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify the isolated test backend URL is configured
+        run: |
+          if [ -z "${{ secrets.TEST_BACKEND_URL }}" ]; then
+            echo "::error::TEST_BACKEND_URL is not set on the 'test' GitHub Environment."
+            echo "This workflow refuses to fall back to any default backend URL for a test build."
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Create .env pointed at the isolated test backend
+        run: |
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}"
+            echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}"
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE=${{ secrets.REVENUECAT_API_KEY_APPLE }}"
+            echo "REVENUECAT_API_KEY_GOOGLE=${{ secrets.REVENUECAT_API_KEY_GOOGLE }}"
+            echo "DEV_BASE_URL=${{ secrets.TEST_BACKEND_URL }}"
+            echo "ALRT_PLUS_TEST_UNLOCK=true"
+          } > .env
+
+      # iOS reads the Maps key from this xcconfig (see AppDelegate.swift) -
+      # same shared key ios-testflight.yml uses, per this repo's Google
+      # Maps key migration plan not yet being executed.
+      - name: Create ios/Flutter/Maps.xcconfig
+        run: echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}" > ios/Flutter/Maps.xcconfig
+
+      - run: flutter pub get
+
+      - name: Install signing certificate and profile (ALRT Dev / com.safetyalrt.alrt.dev)
+        working-directory: ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
+
+      - name: Build the signed iPhone app (dev flavour, isolated test backend)
+        run: |
+          BUILD_NUMBER="${{ inputs.build_number }}"
+          if [ -z "$BUILD_NUMBER" ]; then
+            BUILD_NUMBER=$((100 + ${{ github.run_number }}))
+          fi
+          echo "Building with build number $BUILD_NUMBER"
+          flutter build ipa --release --flavor dev -t lib/main_dev.dart \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=ios/ExportOptionsCI-dev.plist
+
+      - name: Upload to TestFlight (ALRT Dev)
+        working-directory: ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          IPA_PATH="$(ls "$GITHUB_WORKSPACE"/build/ios/ipa/*.ipa | head -1)"
+          echo "Uploading $IPA_PATH"
+          export IPA_PATH
+          bundle exec fastlane ci_upload
+
+      # Keep the ipa on the run page too, in case the upload step needs a retry.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ALRT-ios-dev-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 14

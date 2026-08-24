@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Used only by CI (ios-test-testflight.yml): exports the DEV-flavour
+	     archive for the isolated TEST TestFlight app (com.safetyalrt.alrt.dev,
+	     "ALRT Dev" in App Store Connect) with the certificates fastlane match
+	     installs via the ci_certs_dev lane. This is a separate file from
+	     ExportOptionsCI.plist (production) - never share one export-options
+	     file between the two bundle IDs. -->
+	<key>method</key>
+	<string>app-store</string>
+	<key>teamID</key>
+	<string>JR89M7CYPR</string>
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.safetyalrt.alrt.dev</key>
+		<string>match AppStore com.safetyalrt.alrt.dev</string>
+	</dict>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>
