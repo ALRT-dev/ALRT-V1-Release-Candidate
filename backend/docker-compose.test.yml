@@ -8,7 +8,19 @@
 #
 # Usage: copy .env.test.example to .env.test, fill in real values (DATABASE_URL
 # should match the postgres service below when running this locally), then:
-#   docker compose -f docker-compose.test.yml up
+#
+#   FIRST TIME ONLY, against a brand-new empty database - baseline it first
+#   (see scripts/provision-test-db.sh for why: prisma/migrations has a
+#   known, unfixable-by-renaming ordering defect, V1_RECONCILIATION_REPORT.md
+#   §33.1 - a plain `prisma migrate deploy` replay fails on an empty database):
+#     docker compose -f docker-compose.test.yml up -d postgres
+#     docker compose -f docker-compose.test.yml --profile baseline run --rm migrate-baseline
+#
+#   THEN, and on every subsequent start (including the very first one, right
+#   after baselining above), normal startup is safe - the database is already
+#   baselined, so `prisma migrate deploy` only ever needs to apply genuinely
+#   new migrations, exactly like the production compose file:
+#     docker compose -f docker-compose.test.yml up
 services:
   app:
     container_name: app-test
@@ -21,6 +33,23 @@ services:
       postgres:
         condition: service_healthy
     command: sh -c "npx prisma migrate deploy && yarn start"
+
+  # First-time-only provisioning for a brand-new, empty database. Gated
+  # behind the "baseline" profile so plain `docker compose up` NEVER starts
+  # this - it must be invoked explicitly (see the usage comment above).
+  # Not safe to re-run against a database that already has data - see
+  # scripts/provision-test-db.sh's own header for the full explanation and
+  # the safety checks it performs before doing anything.
+  migrate-baseline:
+    container_name: app-test-migrate-baseline
+    profiles: ["baseline"]
+    build: .
+    env_file:
+      - .env.test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["bash", "scripts/provision-test-db.sh", "--yes"]
 
   postgres:
     container_name: postgres-test

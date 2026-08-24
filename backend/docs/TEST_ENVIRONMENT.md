@@ -60,28 +60,52 @@ cp .env.test.example .env.test
 # secrets (do not reuse production's), SUPER_ADMIN_* (a clearly-test-only
 # email), and the other required vars per .env.test.example's own comments.
 
-# 3a. Local smoke test (uses the bundled test-only Postgres container):
-docker compose -f docker-compose.test.yml up
-# This runs `npx prisma migrate deploy` automatically (see the compose
-# file's app service command) against postgres-test, then starts the server
-# on localhost:3010.
+# 3. FIRST TIME ONLY, against a brand-new empty database: baseline it.
+#    prisma/migrations has a known, unfixable-by-renaming ordering defect
+#    (see "Prisma migration-ordering defect" section below) - a plain
+#    `prisma migrate deploy` replay FAILS on an empty database. Do not skip
+#    this step for a fresh database.
+#
+#    Local smoke test, via Docker Compose (the "baseline" profile never
+#    runs automatically - it must be invoked explicitly, exactly once):
+docker compose -f docker-compose.test.yml up -d postgres
+docker compose -f docker-compose.test.yml --profile baseline run --rm migrate-baseline
 
-# 3b. Real deployment: build and run the existing Dockerfile against your
-#     real test database, exactly as production does but with .env.test:
+#    Real deployment, or running the script directly against any reachable
+#    Postgres (no Docker required - just needs DATABASE_URL in .env.test):
+cd backend
+./scripts/provision-test-db.sh --yes
+
+# 4. THEN, and on every subsequent start, normal startup is safe - the
+#    database is already baselined, so `prisma migrate deploy` only ever
+#    needs to apply genuinely new migrations, exactly like production:
+docker compose -f docker-compose.test.yml up
+# - or, for a real (non-Docker-Compose) deployment of the existing image:
 docker build -t alrt-backend-test .
 docker run --env-file .env.test -p 9000:9000 alrt-backend-test \
   sh -c "npx prisma migrate deploy && yarn start"
 # (Substitute your actual hosting platform's deploy mechanism if not
 # running the container directly - the point is: same image, .env.test
-# only, a database that has never been production's.)
+# only, a database that has never been production's, already baselined
+# per step 3 above before this is ever run against it for the first time.)
 
-# 4. Seed the dedicated test super-admin (run once, against .env.test):
+# 5. Seed the dedicated test super-admin (run once, against .env.test):
 NODE_ENV=test npx dotenv -e .env.test -- npx tsx src/scripts/create-super-admin.ts
 
-# 5. Point DNS/your hosting platform's routing at this deployment under
+# 6. Point DNS/your hosting platform's routing at this deployment under
 #    whatever domain you choose (api-test.safetyalrt.com is proposed in
 #    admin/.env.test - change both if you pick something else).
 ```
+
+### Prisma migration-ordering defect — why a persistent TEST database needs baselining, not a plain `migrate deploy`
+
+Two migrations, `20250317000000_add_category_images` and `20250317100000_remove_url_from_hazard_category_image`, are misdated — they were actually authored in March **2026** (a year-typo in their hand-authored timestamp prefix; `backend/CLAUDE.md` confirms migrations here are hand-authored SQL, not `prisma migrate dev`-generated), but their filenames sort them before `20251004073622_init`, the migration that creates the tables they depend on. `prisma migrate deploy` applies migrations strictly in filename order, so against a brand-new, empty database it fails immediately with `P3018` (`relation "HazardCategory" does not exist`) — reproduced and confirmed during this project's investigation (`V1_RECONCILIATION_REPORT.md` §33.1).
+
+**This is never fixed by renaming, reordering, editing, deleting, or squashing any migration file.** Production's `_prisma_migrations` table almost certainly already has these two migrations recorded under their current names (they applied successfully in production because `HazardCategory` already existed by the time they were actually written, five months after `init`) — renaming a migration folder would desync any database, including a freshly-provisioned TEST one, from that history.
+
+**The safe approach for a persistent TEST database is baselining**, not a plain `migrate deploy` replay: `scripts/provision-test-db.sh` builds the schema directly via `prisma db push` (bypassing migration replay entirely, so the ordering bug never triggers), then records every existing migration as already applied — in the corrected dependency order — via `prisma migrate resolve --applied`, which only writes ledger rows and never re-runs any migration's SQL. This is Prisma's own documented pattern for baselining a database against a known-good schema. Verified end-to-end against a disposable local database before this script was written: all 101 migrations resolved with zero failures, `prisma migrate status` reported the database up to date, and a genuine new dummy migration applied cleanly afterwards via ordinary `prisma migrate deploy` — confirming this leaves the database in a state where all FUTURE migrations apply completely normally, exactly like production's own `docker-compose.yml` boot command already assumes.
+
+Run `scripts/provision-test-db.sh --yes` (or the Docker Compose `migrate-baseline` service) exactly **once**, against a brand-new, empty TEST database, before the `app` service is ever started against it. It is not safe to re-run against a database that already has data — see the script's own header comment for the safety checks it performs.
 
 ### Important operational note: scheduled jobs (ingestion) need `NODE_ENV=prod`, not `NODE_ENV=test`
 
