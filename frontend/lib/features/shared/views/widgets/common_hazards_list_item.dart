@@ -885,6 +885,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => shareAlert(
+            ref: ref,
             hazard: hazard,
             from: widget.isInfoWindow ? 'map_callout' : 'card',
           ),

@@ -314,7 +314,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         color: foregroundColor,
         size: 18.spMin,
       ),
-    ).onPressed(() => shareAlert(hazard: hazard, from: 'detail'));
+    ).onPressed(() => shareAlert(ref: ref, hazard: hazard, from: 'detail'));
   }
 
   Widget _buildBackButton({
@@ -951,7 +951,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             if (canShare) ...[
               action(
                 label: 'Share',
-                onTap: () => shareAlert(hazard: hazard, from: 'detail'),
+                onTap: () => shareAlert(ref: ref, hazard: hazard, from: 'detail'),
               ),
               8.wSizedBox,
             ],
