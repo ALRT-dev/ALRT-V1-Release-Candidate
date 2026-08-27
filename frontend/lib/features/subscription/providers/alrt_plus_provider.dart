@@ -45,6 +45,10 @@ final providerOfAlrtPlusBillingIssue = FutureProvider.autoDispose<bool>((
 ) async {
   final userId = ref.watch(providerOfLoggedInUser)?.id;
   if (userId == null) return false;
+  // Test-build escape hatch, matching providerOfAlrtPlus above: never
+  // contact RevenueCat under test-unlock. A QA build has no real
+  // entitlement to check for a billing issue.
+  if (isAlrtPlusTestUnlocked) return false;
   final rc = ref.watch(providerOfRevenueCat);
   await rc.ensureConfigured(userId);
   final entitlement = await rc.plusEntitlement();

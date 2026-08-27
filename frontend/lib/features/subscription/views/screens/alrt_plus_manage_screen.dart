@@ -48,6 +48,13 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
   }
 
   Future<void> _load() async {
+    // Test-build escape hatch: never contact RevenueCat under test-unlock -
+    // _entitlement stays null, which _planLineBuilder already renders as a
+    // plain "ALRT + is active on this account" line.
+    if (isAlrtPlusTestUnlocked) {
+      setState(() => _loaded = true);
+      return;
+    }
     final entitlement =
         await ref.read(providerOfRevenueCat).plusEntitlement();
     if (!mounted) return;
@@ -58,6 +65,20 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
   }
 
   Future<void> _openStoreManagement() async {
+    // Test-build escape hatch: never contact RevenueCat under test-unlock -
+    // there is no real store subscription to manage on a dummy plan.
+    if (isAlrtPlusTestUnlocked) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Manage your subscription in your app store account settings.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     final url = await ref.read(providerOfRevenueCat).managementUrl();
     if (url == null) {
       if (mounted) {

@@ -46,17 +46,27 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
   }
 
   Future<void> _load() async {
+    // Test-build escape hatch: never contact RevenueCat under test-unlock -
+    // go straight to the dummy plan cards instead of calling the real SDK.
+    if (isAlrtPlusTestUnlocked) {
+      setState(() {
+        _offering = null;
+        _selected = null;
+        _dummy = true;
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
     final rc = ref.read(providerOfRevenueCat);
     final offering = await rc.currentOffering();
     if (!mounted) return;
-    final dummy = offering == null &&
-        isAlrtPlusTestUnlocked;
     setState(() {
       _offering = offering;
       _selected = offering?.annual ?? offering?.availablePackages.firstOrNull;
-      _dummy = dummy;
+      _dummy = false;
       _loading = false;
-      _error = (offering == null && !dummy)
+      _error = offering == null
           ? 'ALRT + is not available right now. Please try again later.'
           : null;
     });
@@ -99,6 +109,14 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
 
   Future<void> _restore() async {
     if (_busy) return;
+    // Test-build escape hatch: never contact RevenueCat under test-unlock -
+    // there is no real purchase to restore on a dummy plan.
+    if (isAlrtPlusTestUnlocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No previous ALRT + purchase found.')),
+      );
+      return;
+    }
     setState(() => _busy = true);
     final ok = await ref.read(providerOfRevenueCat).restore();
     if (!mounted) return;
