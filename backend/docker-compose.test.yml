@@ -64,7 +64,13 @@ services:
     env_file:
       - .env.test
     ports:
-      - "5433:5432"
+      # Loopback-only - the app container reaches postgres over the internal
+      # compose network by service name (see DATABASE_URL in .env.test), not
+      # through this published port. This binding is only for a human
+      # operator to psql in from the host itself; 0.0.0.0 would put the
+      # database on the public interface as soon as any security-group rule
+      # ever opened this port, regardless of the app's own DB password.
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata_test:/var/lib/postgresql/data
     healthcheck:
