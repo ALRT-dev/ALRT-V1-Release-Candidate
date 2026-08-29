@@ -208,7 +208,13 @@ export interface HazardCategory {
   parentId: string | null;
   images: HazardCategoryImage[];
   subCategories: HazardCategory[];
-  _count?: { hazards: number };
+  // GET /api/admin/categories (hazard_category.controller.ts) only nests
+  // `subCategories` one level deep - a subcategory entry inside
+  // `subCategories` has no `subCategories` of its own, hence the `?? []`
+  // guards at every recursive render site in CategoriesPage.tsx. Optional
+  // here since it's only present in the API response, never on a bare
+  // Prisma HazardCategory.
+  hazardsCount?: number;
 }
 
 // --- App users -------------------------------------------------------

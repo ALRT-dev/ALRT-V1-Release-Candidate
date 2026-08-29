@@ -14,7 +14,7 @@ interface EditDraft {
 }
 
 const CategoryIcon = ({ category }: { category: HazardCategory }) => {
-  const icon = category.images.find((img) => img.presignedUrl);
+  const icon = (category.images ?? []).find((img) => img.presignedUrl);
   if (!icon?.presignedUrl) {
     return (
       <span
@@ -60,7 +60,7 @@ const CategoryRow = ({
         </span>
       </td>
       <td>{category.isFireRelated ? "Fire" : "General"}</td>
-      <td>{category._count?.hazards ?? "-"}</td>
+      <td>{category.hazardsCount ?? "-"}</td>
       <td>{category.description ?? "-"}</td>
       <td>
         {canWrite && (
@@ -70,7 +70,7 @@ const CategoryRow = ({
         )}
       </td>
     </tr>
-    {category.subCategories.map((sub) => (
+    {(category.subCategories ?? []).map((sub) => (
       <CategoryRow
         key={sub.id}
         category={sub}
