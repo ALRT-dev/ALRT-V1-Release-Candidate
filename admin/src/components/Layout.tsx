@@ -12,6 +12,7 @@ const NAV_ITEMS: { to: string; label: string }[] = [
   { to: "/ai-prompts", label: "AI Prompts" },
   { to: "/configuration", label: "Configuration" },
   { to: "/webhook-keys", label: "Webhook API Keys" },
+  { to: "/ask-alrt", label: "Ask ALRT" },
 ];
 
 export const Layout = () => {
