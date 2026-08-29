@@ -17,6 +17,24 @@
 # this workflow sends it to the isolated test backend (Stage A,
 # V1_RECONCILIATION_REPORT.md) instead of https://api.safetyalrt.com.
 #
+# Phase 1 TEST APK scope (product-owner decision): Google Sign-In, Google
+# Maps, and RevenueCat are all deliberately blanked below so this build
+# connects only to the isolated TEST backend and no other external
+# production-connected service. Verified before making this change:
+# - Google Sign-In's init call is wrapped in a caught async call whose
+#   result the app initialization sequence never inspects
+#   (auth_repository.dart / app_initialization_provider.dart) - a blank
+#   client ID cannot crash app startup, it only leaves Google Sign-In
+#   non-functional when tapped. Email/password login is unaffected.
+# - RevenueCat is never contacted on this build regardless of its keys,
+#   since ALRT_PLUS_TEST_UNLOCK=true (kept below) already short-circuits
+#   ensureConfigured() before either key would ever be read
+#   (alrt_plus_provider.dart's isAlrtPlusTestUnlocked gate).
+# - Firebase (google-services.json) is NOT touched here - it remains the
+#   same shared Firebase app the existing [Dev] ALRT build already uses;
+#   this workflow has no mechanism to change that (it's a committed file,
+#   not an env var).
+#
 # Manual trigger only (workflow_dispatch) — deliberately does not run on
 # push, so it never fires accidentally before the "test" GitHub
 # Environment and its secrets actually exist.
@@ -29,14 +47,6 @@
 #                       already-public production API hostname — scoped to
 #                       the environment for tidiness, not because it needs
 #                       hiding)
-#
-# Everything else (Maps, Google Sign-In, RevenueCat SDK keys) intentionally
-# reuses the SAME repo-level secrets android-apk.yml already uses — Stage A
-# does not migrate the Google Maps key or touch RevenueCat production
-# webhooks, per V1_RECONCILIATION_REPORT.md. ALRT_PLUS_TEST_UNLOCK=true
-# bypasses RevenueCat entirely for entitlement checks (already-existing
-# mechanism, see alrt_plus_provider.dart) — no real purchase-flow testing
-# happens via this workflow.
 name: Android Test Build
 
 on:
@@ -82,15 +92,18 @@ jobs:
           channel: stable
           cache: true
 
+      # Google Sign-In, Google Maps, and RevenueCat are all blanked here -
+      # see the Phase 1 TEST APK scope comment at the top of this file for
+      # why each one is safe to blank without breaking app startup.
       - name: Create .env pointed at the isolated test backend
         run: |
           {
-            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}"
-            echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}"
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
+            echo "GOOGLE_MAPS_API_KEY="
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
-            echo "REVENUECAT_API_KEY_APPLE=${{ secrets.REVENUECAT_API_KEY_APPLE }}"
-            echo "REVENUECAT_API_KEY_GOOGLE=${{ secrets.REVENUECAT_API_KEY_GOOGLE }}"
+            echo "REVENUECAT_API_KEY_APPLE="
+            echo "REVENUECAT_API_KEY_GOOGLE="
             echo "DEV_BASE_URL=${{ secrets.TEST_BACKEND_URL }}"
             echo "ALRT_PLUS_TEST_UNLOCK=true"
           } > .env
@@ -98,10 +111,10 @@ jobs:
       - run: flutter pub get
 
       # Same dev flavour/app id as android-apk.yml - only DEV_BASE_URL
-      # differs, via the .env written above.
+      # differs, via the .env written above. No GOOGLE_MAPS_API_KEY env
+      # var here - Maps is blanked for this Phase 1 TEST APK (see top of
+      # file), so nothing reads it.
       - run: flutter build apk --release --flavor dev -t lib/main_dev.dart
-        env:
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}
 
       # Workflow artifact only - deliberately does NOT publish to the
       # dev-latest GitHub Release android-apk.yml owns, so this can never
