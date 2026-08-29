@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
-import { deleteHazard, listHazards } from "../api/resources";
+import { createHazard, createHazardSource, deleteHazard, listHazards } from "../api/resources";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
@@ -9,6 +9,16 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HazardDetailModal } from "../components/HazardDetailModal";
 import { ApiError } from "../api/client";
 import type { AdminHazard, HazardReviewStatus } from "../api/types";
+
+// Fixed, non-editable payload for the TEST-only "Create Dummy Alert"
+// button below - no free-text fields, no location picker, no media, so
+// there's nothing for an admin to mistype or accidentally point at a
+// real category/AI path. categoryId "airQualityAlert" is what routes
+// creation through a deterministic template instead of calling AI (see
+// createHazard's doc comment in api/resources.ts).
+const DUMMY_SOURCE_ID = "test-dummy";
+const DUMMY_TITLE = "TEST — DO NOT USE";
+const dummyAlertsEnabled = import.meta.env.VITE_ENABLE_DUMMY_ALERTS === "true";
 
 export const AlertsPage = () => {
   const { hasRole } = useAuth();
@@ -20,6 +30,7 @@ export const AlertsPage = () => {
   const [origin, setOrigin] = useState<"" | "official" | "community">("");
   const [selected, setSelected] = useState<AdminHazard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminHazard | null>(null);
+  const [creatingDummy, setCreatingDummy] = useState(false);
 
   const fetcher = useCallback(
     () =>
@@ -43,6 +54,41 @@ export const AlertsPage = () => {
     } catch (err) {
       notifyError(err instanceof ApiError ? err.message : "Delete failed.");
       setDeleteTarget(null);
+    }
+  };
+
+  // TEST-only - see dummyAlertsEnabled above. Creates the disposable
+  // "test-dummy" source on first use (ignoring the "already exists" 400
+  // on every click after that), then the fixed dummy alert itself. No
+  // AI, Maps, Firebase, email, or payment service is touched by either
+  // call - both are the same existing admin endpoints a real admin uses
+  // for real hazard management.
+  const handleCreateDummyAlert = async () => {
+    setCreatingDummy(true);
+    try {
+      try {
+        await createHazardSource({
+          id: DUMMY_SOURCE_ID,
+          name: "TEST DUMMY SOURCE - DO NOT USE",
+          url: "https://example.invalid/test",
+        });
+      } catch (err) {
+        if (!(err instanceof ApiError && err.status === 400)) throw err;
+      }
+      await createHazard({
+        title: DUMMY_TITLE,
+        description: "Dummy alert for TEST environment verification only.",
+        sourceId: DUMMY_SOURCE_ID,
+        categoryId: "airQualityAlert",
+        latitude: -27.4698,
+        longitude: 153.0251,
+      });
+      notifySuccess(`Created "${DUMMY_TITLE}".`);
+      refetch();
+    } catch (err) {
+      notifyError(err instanceof ApiError ? err.message : "Failed to create dummy alert.");
+    } finally {
+      setCreatingDummy(false);
     }
   };
 
@@ -79,6 +125,16 @@ export const AlertsPage = () => {
           <option value="official">Official only</option>
           <option value="community">Community only</option>
         </select>
+        {dummyAlertsEnabled && canWrite && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={creatingDummy}
+            onClick={() => void handleCreateDummyAlert()}
+          >
+            {creatingDummy ? "Creating..." : "Create Dummy Alert"}
+          </button>
+        )}
       </div>
 
       {loading && <LoadingState label="Loading alerts..." />}

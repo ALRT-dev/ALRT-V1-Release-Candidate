@@ -83,10 +83,30 @@ export const reviewHazard = (
 export const deleteHazard = (hazardId: string) =>
   apiDelete<{ message: string }>(`/api/admin/hazards/${hazardId}`);
 
+// Used only by the TEST-only "Create Dummy Alert" button (AlertsPage.tsx,
+// gated on VITE_ENABLE_DUMMY_ALERTS). categoryId "airQualityAlert" routes
+// hazard creation through a deterministic template instead of AI - see
+// getDeterministicAirQualityContent in the backend. reviewStatus is
+// hardcoded to "accepted" by this endpoint regardless of caller.
+export const createHazard = (data: {
+  title: string;
+  description: string;
+  sourceId: string;
+  categoryId: string;
+  latitude: number;
+  longitude: number;
+}) => apiPost<AdminHazard>("/api/admin/hazards", data);
+
 // --- Hazard sources ----------------------------------------------------
 
 export const listHazardSources = (params: { page?: number; pageSize?: number; searchString?: string } = {}) =>
   apiGet<AdminHazardSource[]>(`/api/admin/hazard-sources${buildQuery(params)}`);
+
+// Used only by the TEST-only "Create Dummy Alert" button, to lazily
+// create the disposable "test-dummy" source it attaches every dummy
+// alert to. A plain POST, same as any real admin creating a real source.
+export const createHazardSource = (data: { id: string; name: string; url: string }) =>
+  apiPost<AdminHazardSource>("/api/admin/hazard-sources", data);
 
 export const updateHazardSource = (
   sourceId: string,
