@@ -14,8 +14,22 @@
 # Uses the existing "dev" flavour (com.safetyalrt.alrt.dev) exactly as
 # android-apk.yml does — same app id, same Firebase app, same debug
 # signing. The ONLY difference is which backend DEV_BASE_URL points at:
-# this workflow sends it to the isolated test backend (Stage A,
-# V1_RECONCILIATION_REPORT.md) instead of https://api.safetyalrt.com.
+# this workflow sends it to the isolated test backend instead of
+# https://api.safetyalrt.com.
+#
+# DEV_BASE_URL below is a hardcoded literal, not a secret lookup. It was
+# originally sourced from a "test" GitHub Environment secret
+# (TEST_BACKEND_URL), but four consecutive runs - both API-triggered and
+# manually triggered from the GitHub Actions UI - failed with that
+# secret resolving empty, despite the environment name, secret placement,
+# and branch access all being confirmed correct multiple times over, and
+# the secret's value being freshly re-saved. Never diagnosed further, since
+# nothing else was checkable from the GitHub settings UI. This URL was never
+# actually sensitive in the first place - it's the same class of value as
+# the already-public production API hostname - so hardcoding it removes
+# the entire failure mode: there is no lookup left to silently return
+# empty, and no way for it to resolve to the production URL instead,
+# since changing it now requires a reviewed commit to this repo.
 #
 # Phase 1 TEST APK scope (product-owner decision): Google Sign-In, Google
 # Maps, and RevenueCat are all deliberately blanked below so this build
@@ -36,17 +50,7 @@
 #   not an env var).
 #
 # Manual trigger only (workflow_dispatch) — deliberately does not run on
-# push, so it never fires accidentally before the "test" GitHub
-# Environment and its secrets actually exist.
-#
-# Requires a GitHub Environment named "test" (Settings -> Environments ->
-# New environment -> "test") with this secret defined on it:
-#   TEST_BACKEND_URL   the isolated test backend's public URL, e.g.
-#                       https://api-test.safetyalrt.com (not a secret value
-#                       in the sensitive sense — same class as the
-#                       already-public production API hostname — scoped to
-#                       the environment for tidiness, not because it needs
-#                       hiding)
+# push.
 name: Android Test Build
 
 on:
@@ -73,14 +77,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify the isolated test backend URL is configured
-        run: |
-          if [ -z "${{ secrets.TEST_BACKEND_URL }}" ]; then
-            echo "::error::TEST_BACKEND_URL is not set on the 'test' GitHub Environment."
-            echo "This workflow refuses to fall back to any default backend URL for a test build."
-            exit 1
-          fi
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -95,6 +91,9 @@ jobs:
       # Google Sign-In, Google Maps, and RevenueCat are all blanked here -
       # see the Phase 1 TEST APK scope comment at the top of this file for
       # why each one is safe to blank without breaking app startup.
+      # DEV_BASE_URL is the hardcoded isolated TEST backend URL - see the
+      # comment at the top of this file for why this is a literal, not a
+      # secret lookup.
       - name: Create .env pointed at the isolated test backend
         run: |
           {
@@ -104,7 +103,7 @@ jobs:
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE="
             echo "REVENUECAT_API_KEY_GOOGLE="
-            echo "DEV_BASE_URL=${{ secrets.TEST_BACKEND_URL }}"
+            echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
             echo "ALRT_PLUS_TEST_UNLOCK=true"
           } > .env
 
