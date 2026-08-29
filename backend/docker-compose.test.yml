@@ -32,7 +32,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npx prisma migrate deploy && yarn start"
+    # NOT "yarn start" - package.json's start script hardcodes
+    # NODE_ENV=prod unconditionally, which would override .env.test's
+    # NODE_ENV=test and arm the in-process scheduled jobs (hazard
+    # ingestion, expiry sweeps, check-ins) that .env.test.example
+    # documents as prod-only. Invoking node directly keeps NODE_ENV=test
+    # for this TEST-only compose file without touching the production
+    # start script or any other compose file.
+    command: sh -c "npx prisma migrate deploy && NODE_ENV=test node dist/index.js"
 
   # First-time-only provisioning for a brand-new, empty database. Gated
   # behind the "baseline" profile so plain `docker compose up` NEVER starts
