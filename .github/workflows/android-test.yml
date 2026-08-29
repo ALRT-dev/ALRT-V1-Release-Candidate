@@ -1,4 +1,4 @@
-ingroup# Builds an installable Android APK pointed at the ISOLATED INTERNAL-TEST
+# Builds an installable Android APK pointed at the ISOLATED INTERNAL-TEST
 # backend, not production. This is a NEW, separate workflow — it does not
 # modify android-apk.yml (still production-connected, unchanged) or
 # android-release.yml (the real Play release pipeline, unchanged).
