@@ -64,8 +64,19 @@ explicit instruction from the product owner in the current session.
   1-hour expiry, never continuous.
 - Call buttons appear only by an advance grant; phone numbers are never
   displayed to the caller.
-- "Seen" is automatic, "On my way" is deliberate; there is deliberately no
-  Monitoring option.
+- Family SOS wording (product-owner instruction 2026-08-30): the sender's
+  resolve action reads "I'm safe", the receiver's automatic acknowledgment
+  reads "I've seen this", and the after-event screen/header reads "SOS
+  ended" — never "On my way", "Emergency ended", or "SOS resolved". "On my
+  way" is removed from the flow entirely (button and history entry both);
+  there is no other deliberate response and deliberately no Monitoring
+  option. The one-tap local-emergency-call button is removed from both the
+  sender's active-SOS screen and the receiver's response screen — this
+  overrides the "always one tap" call guarantee above for this flow only;
+  "WHAT THIS DOES" copy still tells the sender to call themselves if
+  needed. `FamilySosResponseType.onMyWay`/`.called` stay in the shared
+  model (backend contract, historical data) even though the UI no longer
+  offers or displays them.
 - Guests never request locations. There is no mute/snooze for circle SOS
   receipt — leaving is the only opt-out.
 - The leaderboard never shows other users' identities.

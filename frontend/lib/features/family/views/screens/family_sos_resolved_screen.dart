@@ -95,7 +95,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
               ),
             3.hSizedBox,
             Text(
-              'SOS resolved',
+              'SOS ended',
               style: TextStyle(
                 fontSize: 26.spMin,
                 fontWeight: FontWeight.w800,
@@ -172,7 +172,14 @@ class FamilySosResolvedScreen extends ConsumerWidget {
     final BuildContext context,
     final FamilySosEvent e,
   ) {
-    if (e.responses.isEmpty) {
+    // "On my way" is removed from the flow entirely, so past responses of
+    // that type are hidden here too, not just relabeled. The switches in
+    // _responseRowBuilder/_responseDetail still cover it - required for
+    // exhaustiveness over FamilySosResponseType - but unreachable.
+    final visibleResponses = e.responses
+        .where((response) => response.type != FamilySosResponseType.onMyWay)
+        .toList();
+    if (visibleResponses.isEmpty) {
       return _cardBuilder(
         label: 'Circle responses',
         labelColor: FamilyColors.v31Indigo,
@@ -191,7 +198,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
       labelColor: FamilyColors.v31Indigo,
       child: Column(
         children: [
-          for (final (index, response) in e.responses.indexed)
+          for (final (index, response) in visibleResponses.indexed)
             Container(
               padding: EdgeInsets.symmetric(vertical: 7.spMin),
               decoration: index == 0
@@ -218,7 +225,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
     final label = switch (response.type) {
       FamilySosResponseType.onMyWay => 'Responded',
       FamilySosResponseType.called => 'Responded',
-      FamilySosResponseType.seen => 'Seen',
+      FamilySosResponseType.seen => "I've seen this",
     };
 
     return Row(
@@ -394,7 +401,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
     return switch (response.type) {
       FamilySosResponseType.onMyWay => 'On my way$time',
       FamilySosResponseType.called => 'Called$time',
-      FamilySosResponseType.seen => 'Seen$time',
+      FamilySosResponseType.seen => "I've seen this$time",
     };
   }
 

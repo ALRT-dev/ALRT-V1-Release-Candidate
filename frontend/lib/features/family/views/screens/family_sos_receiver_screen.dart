@@ -14,8 +14,6 @@ import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:url_launcher/url_launcher.dart';
-import 'package:hazard_app/features/shared/services/emergency_number.dart';
 
 class FamilySosReceiverScreenArgs {
   const FamilySosReceiverScreenArgs({required this.sosEvent});
@@ -24,8 +22,10 @@ class FamilySosReceiverScreenArgs {
 }
 
 /// What the circle sees when someone triggers SOS: a live map of the
-/// person's movements, one-tap responses, and calling the local emergency
-/// number from their own phone — the person dials, never the platform.
+/// person's movements and an automatic "I've seen this" acknowledgment
+/// the moment they open this screen. There is no in-app call action here
+/// (product-owner instruction 2026-08-30) — anyone worried should call
+/// their own local emergency number from their own phone.
 ///
 /// SOS is the one place location updates automatically: triggering it starts
 /// the live share (product owner 2026-08-06), so this screen follows the
@@ -70,9 +70,11 @@ class _FamilySosReceiverScreenState
   bool _seenPosted = false;
   ProviderSubscription<String?>? _seenRetry;
 
-  /// "Seen" is automatic (locked rule): opening the SOS is what seeing it
-  /// means, so the person in trouble learns someone is looking without
-  /// anyone having to press anything. "On my way" stays deliberate.
+  /// "I've seen this" is automatic (locked rule): opening the SOS is what
+  /// seeing it means, so the person in trouble learns someone is looking
+  /// without anyone having to press anything. There is no deliberate
+  /// response left in this flow (product-owner instruction 2026-08-30
+  /// removed "On my way").
   ///
   /// A push can open this screen before the circle has loaded, so when
   /// myMemberId is not known yet the post waits for it instead of being
@@ -214,7 +216,6 @@ class _FamilySosReceiverScreenState
                 SizedBox(height: 14.spMin),
                 _locationCardBuilder(sos, isResolved),
                 SizedBox(height: 16.spMin),
-                if (!isResolved && !isMine) _actionsBuilder(context, ref, sos, name),
                 if (!isResolved && isMine) ...[
                   _resolveButtonBuilder(context, ref, sos),
                   SizedBox(height: 10.spMin),
@@ -262,7 +263,7 @@ class _FamilySosReceiverScreenState
                   if (sos.createdAt != null)
                     Text(
                       isResolved
-                          ? 'SOS resolved'
+                          ? 'SOS ended'
                           : sos.isLive
                               ? 'Live location on · started ${timeago.format(sos.createdAt!)}'
                               : 'Started ${timeago.format(sos.createdAt!)} · live location off',
@@ -347,75 +348,6 @@ class _FamilySosReceiverScreenState
     );
   }
 
-  Widget _actionsBuilder(
-    final BuildContext context,
-    final WidgetRef ref,
-    final FamilySosEvent sos,
-    final String name,
-  ) {
-    final notifier = ref.read(providerOfFamily.notifier);
-    // Global app: resolved for wherever the responder is, never 000.
-    final emergencyNumber = ref.watch(providerOfEmergencyNumber);
-    return Column(
-      children: [
-        // Only the deliberate actions are buttons. Seen was posted the
-        // moment this screen opened; there is deliberately no Monitoring
-        // option, and there is nothing here that says "I am watching".
-        SizedBox(
-          height: 50.spMin,
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: FamilyColors.safeGreen,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.spMin),
-              ),
-            ),
-            onPressed: () => notifier.respondToSos(
-              sosEventId: sos.id,
-              type: FamilySosResponseType.onMyWay,
-            ),
-            icon: Icon(LucideIcons.navigation, size: 16.spMin),
-            label: Text(
-              'On my way',
-              style: TextStyle(
-                fontSize: 15.spMin,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-        SizedBox(height: 10.spMin),
-        SizedBox(
-          height: 50.spMin,
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: FamilyColors.sosRed,
-              side: const BorderSide(color: FamilyColors.sosRed),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.spMin),
-              ),
-            ),
-            onPressed: () async {
-              await ref.read(providerOfFamily.notifier).respondToSos(
-                sosEventId: sos.id,
-                type: FamilySosResponseType.called,
-              );
-              await launchUrl(Uri.parse('tel:$emergencyNumber'));
-            },
-            icon: Icon(Icons.phone, size: 18.spMin),
-            label: Text(
-              'Call $emergencyNumber for $name',
-              style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _resolveButtonBuilder(
     final BuildContext context,
     final WidgetRef ref,
@@ -434,7 +366,7 @@ class _FamilySosReceiverScreenState
         ),
         onPressed: () => _confirmAndResolve(context, ref, sos),
         child: Text(
-          "I'm safe now — resolve SOS",
+          "I'm safe",
           style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
         ),
       ),
@@ -551,7 +483,14 @@ class _FamilySosReceiverScreenState
   }
 
   Widget _responsesBuilder(final FamilySosEvent sos) {
-    if (sos.responses.isEmpty) return const SizedBox.shrink();
+    // "On my way" is removed from the flow entirely, so past responses of
+    // that type are hidden here too, not just relabeled. The switch
+    // expressions below still cover it - required for exhaustiveness over
+    // FamilySosResponseType - but that branch is unreachable.
+    final visibleResponses = sos.responses
+        .where((response) => response.type != FamilySosResponseType.onMyWay)
+        .toList();
+    if (visibleResponses.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -572,7 +511,7 @@ class _FamilySosReceiverScreenState
           ),
           child: Column(
             children: [
-              for (final response in sos.responses)
+              for (final response in visibleResponses)
                 ListTile(
                   dense: true,
                   leading: Icon(
@@ -597,7 +536,7 @@ class _FamilySosReceiverScreenState
                         'On my way${response.createdAt != null ? ' · ${timeago.format(response.createdAt!)}' : ''}',
                       FamilySosResponseType.called => 'Called for help',
                       FamilySosResponseType.seen =>
-                        'Seen${response.createdAt != null ? ' · ${timeago.format(response.createdAt!)}' : ''}',
+                        "I've seen this${response.createdAt != null ? ' · ${timeago.format(response.createdAt!)}' : ''}",
                     },
                     style: TextStyle(
                       fontSize: 12.spMin,

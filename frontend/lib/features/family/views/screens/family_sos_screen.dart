@@ -9,11 +9,12 @@ import 'package:hazard_app/features/family/views/screens/family_sos_lists_screen
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/services/emergency_number.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// Hold-to-send Family SOS. Sends a location snapshot + SOS to the circle only —
-/// ALRT never contacts authorities, and the screen says so with 000 one tap
-/// away the whole time.
+/// ALRT never contacts authorities; this screen states that and tells the
+/// sender to call their local emergency number themselves if life or
+/// property is in danger (product-owner instruction 2026-08-30 removed the
+/// in-app one-tap call button).
 class FamilySosScreen extends ConsumerStatefulWidget {
   const FamilySosScreen({super.key});
 
@@ -196,8 +197,6 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                 ),
               const Spacer(),
               _whatThisDoesBuilder(emergencyNumber),
-              SizedBox(height: 14.spMin),
-              _callEmergencyButtonBuilder(emergencyNumber),
               SizedBox(height: 8.spMin),
               TextButton(
                 onPressed: () => context.pop(),
@@ -443,28 +442,6 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _callEmergencyButtonBuilder(final String emergencyNumber) {
-    return SizedBox(
-      height: 52.spMin,
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: FamilyColors.sosRed,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.spMin),
-          ),
-        ),
-        onPressed: () => launchUrl(Uri.parse('tel:$emergencyNumber')),
-        icon: Icon(Icons.phone, size: 20.spMin),
-        label: Text(
-          'Call $emergencyNumber',
-          style: TextStyle(fontSize: 17.spMin, fontWeight: FontWeight.w700),
-        ),
       ),
     );
   }
