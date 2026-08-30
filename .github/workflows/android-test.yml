@@ -59,13 +59,19 @@
 # - "test_store": ALRT_PLUS_TEST_UNLOCK=false (so the app actually calls
 #   RevenueCat's ensureConfigured/isPlus instead of bypassing it), and
 #   REVENUECAT_API_KEY_GOOGLE is read from the "test" GitHub Environment's
-#   REVENUECAT_API_KEY_GOOGLE Variable (not a Secret - a publishable
-#   RevenueCat SDK key, the same class of value Env.dart's own comment
-#   already documents as safe to ship). REVENUECAT_API_KEY_APPLE stays
-#   blank either way - Apple/iOS Test Store testing is a separate later
-#   step. A guard step refuses the build if test_store is selected but
-#   the Variable is empty, so this can never silently fall back to a
-#   blank RevenueCat key.
+#   REVENUECAT_API_KEY_GOOGLE Secret. This was originally a Variable (the
+#   reasoning being it's a publishable RevenueCat SDK key, the same class
+#   of value Env.dart's own comment already documents as safe to ship) -
+#   changed to a Secret after the first test_store run showed the actual
+#   value did appear in that run's log, in the step-level "env:" debug
+#   listing GitHub Actions prints automatically. That listing only masks
+#   values sourced from Secrets, never from Variables, regardless of how
+#   sensitive the value actually is - so this must stay a Secret from now
+#   on even though the key itself isn't a high-stakes credential.
+#   REVENUECAT_API_KEY_APPLE stays blank either way - Apple/iOS Test Store
+#   testing is a separate later step. A guard step refuses the build if
+#   test_store is selected but the Secret is empty, so this can never
+#   silently fall back to a blank RevenueCat key.
 name: Android Test Build
 
 on:
@@ -114,18 +120,21 @@ jobs:
 
       # Only relevant when billing_mode=test_store - see the billing_mode
       # comment at the top of this file. Checks presence by length only;
-      # the value itself is never printed.
+      # the value itself is never printed. Sourced from a Secret (not a
+      # Variable) specifically so GitHub Actions' own automatic
+      # step-level "env:" debug listing masks it - see the billing_mode
+      # comment at the top of this file for why that distinction matters.
       - name: Verify the RevenueCat Test Store key is configured
         if: ${{ inputs.billing_mode == 'test_store' }}
         run: |
           if [ -z "$REVENUECAT_API_KEY_GOOGLE" ]; then
-            echo "::error::billing_mode=test_store requires REVENUECAT_API_KEY_GOOGLE to be set as a Variable on the 'test' GitHub Environment."
+            echo "::error::billing_mode=test_store requires REVENUECAT_API_KEY_GOOGLE to be set as a Secret on the 'test' GitHub Environment."
             echo "This workflow refuses to build test_store with a blank RevenueCat key - that would silently disable the paywall instead of testing it."
             exit 1
           fi
           echo "REVENUECAT_API_KEY_GOOGLE is set (length: ${#REVENUECAT_API_KEY_GOOGLE} characters). Value itself is never printed."
         env:
-          REVENUECAT_API_KEY_GOOGLE: ${{ vars.REVENUECAT_API_KEY_GOOGLE }}
+          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
 
       # Google Sign-In and Google Maps are blanked here regardless of
       # billing_mode - see the Phase 1 TEST APK scope comment at the top
@@ -155,7 +164,7 @@ jobs:
             echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
           } > .env
         env:
-          REVENUECAT_API_KEY_GOOGLE: ${{ vars.REVENUECAT_API_KEY_GOOGLE }}
+          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
 
       - run: flutter pub get
 
