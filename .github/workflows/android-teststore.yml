@@ -1,8 +1,9 @@
 # Builds a SEPARATE Android APK for testing the real RevenueCat paywall
 # through RevenueCat's Test Store, pointed at the ISOLATED INTERNAL-TEST
-# backend, not production. This is a NEW, separate workflow — it does not
-# modify android-test.yml (the existing ALRT_PLUS_TEST_UNLOCK=true bypass
-# build, unchanged), android-apk.yml, or android-release.yml.
+# backend, not production. This is a NEW, separate workflow file — it
+# does not modify android-test.yml (the existing
+# ALRT_PLUS_TEST_UNLOCK=true bypass build, unchanged), android-apk.yml,
+# or android-release.yml.
 #
 # Same "dev" flavour/app id (com.safetyalrt.alrt.dev) and same debug
 # signing as android-test.yml, so installing this build replaces/updates
