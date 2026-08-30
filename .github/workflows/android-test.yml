@@ -58,20 +58,25 @@
 #   Every existing/normal TEST build keeps this exact behaviour.
 # - "test_store": ALRT_PLUS_TEST_UNLOCK=false (so the app actually calls
 #   RevenueCat's ensureConfigured/isPlus instead of bypassing it), and
-#   REVENUECAT_API_KEY_GOOGLE is read from the "test" GitHub Environment's
-#   REVENUECAT_API_KEY_GOOGLE Secret. This was originally a Variable (the
-#   reasoning being it's a publishable RevenueCat SDK key, the same class
-#   of value Env.dart's own comment already documents as safe to ship) -
-#   changed to a Secret after the first test_store run showed the actual
-#   value did appear in that run's log, in the step-level "env:" debug
-#   listing GitHub Actions prints automatically. That listing only masks
-#   values sourced from Secrets, never from Variables, regardless of how
-#   sensitive the value actually is - so this must stay a Secret from now
-#   on even though the key itself isn't a high-stakes credential.
-#   REVENUECAT_API_KEY_APPLE stays blank either way - Apple/iOS Test Store
-#   testing is a separate later step. A guard step refuses the build if
-#   test_store is selected but the Secret is empty, so this can never
-#   silently fall back to a blank RevenueCat key.
+#   REVENUECAT_API_KEY_GOOGLE is read from the repository-level Secret
+#   TEST_REVENUECAT_API_KEY_GOOGLE (Settings > Secrets and variables >
+#   Actions > Secrets - not an Environment secret/variable). History:
+#   this was originally a "test" Environment Variable (reasoning: it's a
+#   publishable RevenueCat SDK key, the same class of value Env.dart's
+#   own comment already documents as safe to ship) - changed to a "test"
+#   Environment Secret after the first test_store run showed the actual
+#   value in that run's log via GitHub Actions' automatic step-level
+#   "env:" debug listing, which only masks values sourced from Secrets,
+#   never Variables. The Environment Secret then repeatedly resolved
+#   empty at build time even after being deleted and re-added fresh
+#   (mirroring an earlier unexplained failure with a different
+#   Environment secret, TEST_BACKEND_URL, in this same repo - never
+#   root-caused). Moved to a repository-level Secret to rule out
+#   whatever is specifically wrong with this repo's "test" Environment
+#   secret resolution. A guard step refuses the build if test_store is
+#   selected but the Secret is empty, so this can never silently fall
+#   back to a blank RevenueCat key. REVENUECAT_API_KEY_APPLE stays blank
+#   either way - Apple/iOS Test Store testing is a separate later step.
 name: Android Test Build
 
 on:
@@ -120,21 +125,23 @@ jobs:
 
       # Only relevant when billing_mode=test_store - see the billing_mode
       # comment at the top of this file. Checks presence by length only;
-      # the value itself is never printed. Sourced from a Secret (not a
-      # Variable) specifically so GitHub Actions' own automatic
-      # step-level "env:" debug listing masks it - see the billing_mode
-      # comment at the top of this file for why that distinction matters.
+      # the value itself is never printed. Sourced from a repository-
+      # level Secret (not an Environment secret/variable) specifically so
+      # GitHub Actions' own automatic step-level "env:" debug listing
+      # masks it - see the billing_mode comment at the top of this file
+      # for why that distinction matters and why this moved off the
+      # "test" Environment entirely.
       - name: Verify the RevenueCat Test Store key is configured
         if: ${{ inputs.billing_mode == 'test_store' }}
         run: |
           if [ -z "$REVENUECAT_API_KEY_GOOGLE" ]; then
-            echo "::error::billing_mode=test_store requires REVENUECAT_API_KEY_GOOGLE to be set as a Secret on the 'test' GitHub Environment."
+            echo "::error::billing_mode=test_store requires the repository Secret TEST_REVENUECAT_API_KEY_GOOGLE to be set (Settings > Secrets and variables > Actions > Secrets)."
             echo "This workflow refuses to build test_store with a blank RevenueCat key - that would silently disable the paywall instead of testing it."
             exit 1
           fi
           echo "REVENUECAT_API_KEY_GOOGLE is set (length: ${#REVENUECAT_API_KEY_GOOGLE} characters). Value itself is never printed."
         env:
-          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
+          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
 
       # Google Sign-In and Google Maps are blanked here regardless of
       # billing_mode - see the Phase 1 TEST APK scope comment at the top
@@ -164,7 +171,7 @@ jobs:
             echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
           } > .env
         env:
-          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
+          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
 
       - run: flutter pub get
 
