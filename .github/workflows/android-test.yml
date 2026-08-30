@@ -51,10 +51,34 @@
 #
 # Manual trigger only (workflow_dispatch) — deliberately does not run on
 # push.
+#
+# billing_mode input (added for RevenueCat Test Store validation):
+# - "bypass" (default): unchanged from before this input existed -
+#   ALRT_PLUS_TEST_UNLOCK=true, RevenueCat never contacted, blank keys.
+#   Every existing/normal TEST build keeps this exact behaviour.
+# - "test_store": ALRT_PLUS_TEST_UNLOCK=false (so the app actually calls
+#   RevenueCat's ensureConfigured/isPlus instead of bypassing it), and
+#   REVENUECAT_API_KEY_GOOGLE is read from the "test" GitHub Environment's
+#   REVENUECAT_API_KEY_GOOGLE Variable (not a Secret - a publishable
+#   RevenueCat SDK key, the same class of value Env.dart's own comment
+#   already documents as safe to ship). REVENUECAT_API_KEY_APPLE stays
+#   blank either way - Apple/iOS Test Store testing is a separate later
+#   step. A guard step refuses the build if test_store is selected but
+#   the Variable is empty, so this can never silently fall back to a
+#   blank RevenueCat key.
 name: Android Test Build
 
 on:
   workflow_dispatch:
+    inputs:
+      billing_mode:
+        description: "bypass (default, ALRT_PLUS_TEST_UNLOCK=true) or test_store (real RevenueCat Test Store paywall)"
+        required: false
+        default: "bypass"
+        type: choice
+        options:
+          - bypass
+          - test_store
 
 # The actual Flutter project lives in frontend/, not the repo root, since
 # this repo consolidates backend/frontend/admin/askalrt as subdirectories.
@@ -88,31 +112,58 @@ jobs:
           channel: stable
           cache: true
 
-      # Google Sign-In, Google Maps, and RevenueCat are all blanked here -
-      # see the Phase 1 TEST APK scope comment at the top of this file for
-      # why each one is safe to blank without breaking app startup.
-      # DEV_BASE_URL is the hardcoded isolated TEST backend URL - see the
-      # comment at the top of this file for why this is a literal, not a
-      # secret lookup.
+      # Only relevant when billing_mode=test_store - see the billing_mode
+      # comment at the top of this file. Checks presence by length only;
+      # the value itself is never printed.
+      - name: Verify the RevenueCat Test Store key is configured
+        if: ${{ inputs.billing_mode == 'test_store' }}
+        run: |
+          if [ -z "$REVENUECAT_API_KEY_GOOGLE" ]; then
+            echo "::error::billing_mode=test_store requires REVENUECAT_API_KEY_GOOGLE to be set as a Variable on the 'test' GitHub Environment."
+            echo "This workflow refuses to build test_store with a blank RevenueCat key - that would silently disable the paywall instead of testing it."
+            exit 1
+          fi
+          echo "REVENUECAT_API_KEY_GOOGLE is set (length: ${#REVENUECAT_API_KEY_GOOGLE} characters). Value itself is never printed."
+        env:
+          REVENUECAT_API_KEY_GOOGLE: ${{ vars.REVENUECAT_API_KEY_GOOGLE }}
+
+      # Google Sign-In and Google Maps are blanked here regardless of
+      # billing_mode - see the Phase 1 TEST APK scope comment at the top
+      # of this file for why each is safe to blank without breaking app
+      # startup. DEV_BASE_URL is the hardcoded isolated TEST backend URL -
+      # see the comment at the top of this file for why this is a
+      # literal, not a secret lookup. REVENUECAT_API_KEY_GOOGLE and
+      # ALRT_PLUS_TEST_UNLOCK depend on billing_mode - see the
+      # billing_mode comment at the top of this file.
       - name: Create .env pointed at the isolated test backend
         run: |
+          if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
+            REVENUECAT_GOOGLE_VALUE="$REVENUECAT_API_KEY_GOOGLE"
+            TEST_UNLOCK_VALUE="false"
+          else
+            REVENUECAT_GOOGLE_VALUE=""
+            TEST_UNLOCK_VALUE="true"
+          fi
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
             echo "GOOGLE_MAPS_API_KEY="
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE="
-            echo "REVENUECAT_API_KEY_GOOGLE="
+            echo "REVENUECAT_API_KEY_GOOGLE=$REVENUECAT_GOOGLE_VALUE"
             echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
-            echo "ALRT_PLUS_TEST_UNLOCK=true"
+            echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
           } > .env
+        env:
+          REVENUECAT_API_KEY_GOOGLE: ${{ vars.REVENUECAT_API_KEY_GOOGLE }}
 
       - run: flutter pub get
 
       # Same dev flavour/app id as android-apk.yml - only DEV_BASE_URL
-      # differs, via the .env written above. No GOOGLE_MAPS_API_KEY env
-      # var here - Maps is blanked for this Phase 1 TEST APK (see top of
-      # file), so nothing reads it.
+      # and (when billing_mode=test_store) RevenueCat differ, via the
+      # .env written above. No GOOGLE_MAPS_API_KEY env var here - Maps is
+      # blanked for this Phase 1 TEST APK (see top of file), so nothing
+      # reads it.
       - run: flutter build apk --release --flavor dev -t lib/main_dev.dart
 
       # Workflow artifact only - deliberately does NOT publish to the
@@ -120,9 +171,10 @@ jobs:
       # overwrite the existing production-connected QR-code build. Path is
       # explicitly prefixed with frontend/ since upload-artifact resolves
       # `path:` against the checkout root, not the working-directory
-      # default above.
+      # default above. Named per billing_mode so a bypass and a
+      # test_store artifact from two different runs are never confused.
       - uses: actions/upload-artifact@v4
         with:
-          name: ALRT-android-test-apk
+          name: ALRT-android-test-apk-${{ inputs.billing_mode }}
           path: frontend/build/app/outputs/flutter-apk/app-dev-release.apk
           retention-days: 14
