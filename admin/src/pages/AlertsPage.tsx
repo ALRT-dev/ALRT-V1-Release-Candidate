@@ -80,8 +80,8 @@ export const AlertsPage = () => {
         description: "Dummy alert for TEST environment verification only.",
         sourceId: DUMMY_SOURCE_ID,
         categoryId: "airQualityAlert",
-        latitude: -27.4698,
-        longitude: 153.0251,
+        latitude: -31.9505,
+        longitude: 115.8605,
       });
       notifySuccess(`Created "${DUMMY_TITLE}".`);
       refetch();
