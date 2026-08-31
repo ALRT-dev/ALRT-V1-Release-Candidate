@@ -16,6 +16,7 @@ import 'package:hazard_app/features/shared/providers/user_socket_manager_provide
 import 'package:hazard_app/features/shared/services/media_service.dart';
 import 'package:hazard_app/features/shared/services/user_service.dart';
 import 'package:hazard_app/features/shared/services/firebase_session_service.dart';
+import 'package:image_picker/image_picker.dart';
 
 final providerOfProfile =
     StateNotifierProvider.autoDispose<ProfileProvider, ProfileProviderState>(
@@ -118,9 +119,12 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
     });
   }
 
-  /// Updates the profile picture of the user.
-  Future<void> updateProfilePicture() async {
-    final isSelected = await pickProfilePicture();
+  /// Updates the profile picture of the user, picking it from [source]
+  /// first (defaults to the gallery).
+  Future<void> updateProfilePicture({
+    final ImageSource source = ImageSource.gallery,
+  }) async {
+    final isSelected = await pickProfilePicture(source: source);
     if (!isSelected) return;
     if (!mounted) return;
 
@@ -172,9 +176,12 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
     );
   }
 
-  /// Picks a new profile picture using the media service.
-  Future<bool> pickProfilePicture() async {
-    final result = await _mediaService.pickImage();
+  /// Picks a new profile picture using the media service, from [source]
+  /// (defaults to the gallery).
+  Future<bool> pickProfilePicture({
+    final ImageSource source = ImageSource.gallery,
+  }) async {
+    final result = await _mediaService.pickImage(source: source);
     if (!mounted) return false;
 
     return result.when(

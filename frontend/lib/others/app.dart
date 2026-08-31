@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/api/auth_session_events.dart';
 import 'package:hazard_app/features/auth/views/screens/auth_screen.dart';
+import 'package:hazard_app/features/profile/providers/appearance_provider.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
 import 'package:hazard_app/others/app_router.dart';
 import 'package:hazard_app/others/app_theme.dart';
@@ -66,6 +67,7 @@ class _MyAppState extends ConsumerState<MyApp> {
           locale: context.locale,
           theme: AppTheme.lightPalette,
           darkTheme: AppTheme.darkPalette,
+          themeMode: ref.watch(providerOfAppearance),
 
           // The phone's own font-size setting was passed straight through,
           // so a user on the largest accessibility size overflowed every
