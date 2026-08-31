@@ -27,7 +27,6 @@ import 'package:hazard_app/features/profile/views/widgets/add_widget_sheet.dart'
 import 'package:hazard_app/features/profile/views/widgets/profile_badges_card.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_colors.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_gradient_icon.dart';
-import 'package:hazard_app/features/profile/views/widgets/profile_points_card.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_trust_card.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_xp_progress.dart';
 import 'package:hazard_app/features/profile/views/widgets/rejected_hazards_widgets/my_rejected_hazards_list.dart';
@@ -71,8 +70,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const ProfilePointsCard(),
-                  14.spMin.hSizedBox,
                   _buildFamilyHighlightCard(),
                   10.spMin.hSizedBox,
                   _buildAlrtPlusHighlightCard(),
@@ -473,10 +470,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Family & check-ins — deliberately the most prominent card on the
-  /// screen after the points bar: a clear, calm safety focal point, not
-  /// just another grouped row. Subtitle is real circle/SOS status only -
-  /// never invented copy.
+  /// Family & check-ins — the first card under the header: a calm, very
+  /// subtly green-tinted safety card (never a loud fill), so it reads as
+  /// a safety focal point without competing with the header's own XP bar.
+  /// Subtitle is real circle/SOS status only - never invented copy.
   Widget _buildFamilyHighlightCard() {
     return Consumer(
       builder: (context, ref, child) {
@@ -507,8 +504,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return _buildHighlightCard(
           icon: LucideIcons.users,
           accent: ProfileColors.familyAndCheckIns,
-          backgroundTint: 0.07,
-          borderTint: 0.22,
+          backgroundTint: 0.09,
+          borderTint: 0.26,
           title: 'Family & check-ins',
           subtitle: subtitle,
           onTap: () =>
@@ -518,9 +515,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// ALRT+ membership — the other deliberately prominent card: a clearly
-  /// premium warm gold/orange treatment. Subtitle and TEST chip reuse the
-  /// exact same real entitlement state as before - no invented offers.
+  /// ALRT+ membership — the deliberately premium card: a warm gold/orange
+  /// gradient wash, not a flat tint, so it reads as membership rather than
+  /// another safety row. Subtitle and TEST chip reuse the exact same real
+  /// entitlement state as before - no invented offers, no gating changes.
   Widget _buildAlrtPlusHighlightCard() {
     return Consumer(
       builder: (context, ref, child) {
@@ -528,8 +526,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return _buildHighlightCard(
           icon: LucideIcons.crown,
           accent: ProfileColors.alrtPlusMembership,
-          backgroundTint: 0.14,
-          borderTint: 0.35,
+          backgroundTint: 0.16,
+          borderTint: 0.42,
+          premium: true,
           title: 'ALRT+ membership',
           subtitle: isSubscribed
               ? 'Plan, seats and billing'
@@ -547,9 +546,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Shared shape for the two promoted cards: a soft tint of [accent] (not
-  /// a loud full-saturation fill), a bold gradient icon badge, and larger
-  /// title text than an ordinary grouped row.
+  /// Shared shape for the two promoted cards. Family stays a flat, very
+  /// subtle tint of [accent] (calm/safety). [premium] switches to a soft
+  /// two-stop gradient wash instead of a flat fill and a slightly heavier
+  /// border - used only for ALRT+, to read as a premium treatment rather
+  /// than a louder version of the same safety card.
   Widget _buildHighlightCard({
     required final IconData icon,
     required final ProfileRowAccent accent,
@@ -559,13 +560,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required final String subtitle,
     required final VoidCallback onTap,
     final Widget? trailing,
+    final bool premium = false,
   }) {
     return Container(
       padding: EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
-        color: accent.end.withValues(alpha: backgroundTint),
+        color: premium ? null : accent.end.withValues(alpha: backgroundTint),
+        gradient: premium
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accent.start.withValues(alpha: backgroundTint),
+                  accent.end.withValues(alpha: backgroundTint * 1.8),
+                ],
+              )
+            : null,
         borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(color: accent.end.withValues(alpha: borderTint)),
+        border: Border.all(
+          color: accent.end.withValues(alpha: borderTint),
+          width: premium ? 1.4 : 1.0,
+        ),
       ),
       child: Row(
         children: [
@@ -706,6 +721,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       rows: [
         // QA builds ship with the test unlock on, which hides every
         // paywall gate — this row lets the paywall itself be reviewed.
+        // isAlrtPlusTestUnlocked requires appFlavor == 'dev' AND the
+        // ALRT_PLUS_TEST_UNLOCK env flag, so it is structurally false in
+        // a normal production (release-flavor) build - this row cannot
+        // render there regardless of any env value.
         if (isAlrtPlusTestUnlocked)
           _buildProfileRow(
             title: 'Preview ALRT+ paywall',
