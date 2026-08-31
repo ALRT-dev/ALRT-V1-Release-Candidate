@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -13,7 +14,8 @@ plugins {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
@@ -62,7 +64,6 @@ android {
     // Without it (e.g. a fresh machine missing the upload keystore), release builds
     // fall back to debug signing so local device testing still works — but such a
     // build is NOT accepted by the Play Store.
-    val hasReleaseKeystore = keystorePropertiesFile.exists()
     signingConfigs {
         if (hasReleaseKeystore) {
             create("release") {
@@ -94,6 +95,37 @@ android {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
+            }
+        }
+    }
+}
+
+// Local fail-safe: a 'prod' flavour release build must never silently ship
+// debug-signed. CI (android-release.yml) already refuses to run at all
+// without the real signing secrets, before Gradle is even invoked - this
+// closes the same gap for anyone building `--flavor prod --release`
+// directly on a machine without android/key.properties, where the
+// buildTypes block above would otherwise fall back to debug signing with
+// no warning. The 'dev' flavour is deliberately unaffected:
+// android-apk.yml and android-test.yml both build a debug-signed 'dev'
+// release on purpose, for TEST/QR-code installs.
+afterEvaluate {
+    tasks.matching { task ->
+        task.name.contains("Prod") &&
+            task.name.contains("Release") &&
+            (task.name.startsWith("assemble") || task.name.startsWith("bundle"))
+    }.configureEach {
+        doFirst {
+            if (!hasReleaseKeystore) {
+                throw GradleException(
+                    "Refusing to build a 'prod' flavour release: the real upload " +
+                        "keystore is not configured (android/key.properties is " +
+                        "missing). This build would otherwise silently fall back to " +
+                        "debug signing under the real com.safetyalrt.alrt app id - " +
+                        "not acceptable for anything beyond local device testing. " +
+                        "See .github/workflows/android-release.yml's header comment " +
+                        "for how to create/configure the real upload keystore."
+                )
             }
         }
     }
