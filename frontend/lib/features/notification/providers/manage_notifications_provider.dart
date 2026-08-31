@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
 import 'package:hazard_app/features/notification/providers/states/manage_notifications_provider_state.dart';
+import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/user_service.dart';
 
@@ -24,10 +25,13 @@ class ManageNotificationsProvider
   }) : _ref = ref,
        super(state) {
     getPushNotificationSettings();
+    _watchForNeverCustomizedCategories();
   }
 
   final Ref _ref;
   UserService get _userService => _ref.read(providerOfUserService);
+
+  bool _hasReconciledCategories = false;
 
   /// Fetches the push notification settings for the current user.
   Future<void> getPushNotificationSettings() async {
@@ -46,6 +50,7 @@ class ManageNotificationsProvider
           getPushNotificationSettingsState:
               GetPushNotificationSettingsState.success(settings),
         );
+        _maybeReconcileCategories();
       },
       (error) {
         state = state.copyWith(
@@ -54,6 +59,58 @@ class ManageNotificationsProvider
         );
       },
     );
+  }
+
+  /// Mirrors [HazardFiltersProvider]'s own default: the feed's category
+  /// filter treats "nothing recorded yet" as "everything", not "nothing"
+  /// (`HazardFiltersProvider._onInit`), so a category reads and behaves the
+  /// same wherever it is offered. `subscribedCategoryIds` defaults to an
+  /// empty list server-side, which is indistinguishable from a user who
+  /// deliberately unsubscribed from every category - unlike the feed's
+  /// transient filter, this preference drives what actually gets pushed to
+  /// the device, so leaving it empty silently means the user never
+  /// receives a single category-scoped alert, with no visual cue anything
+  /// is wrong (every chip just reads as "off").
+  ///
+  /// Runs at most once per provider lifetime, and only fills in - never
+  /// overwrites - a genuinely empty, still-unset selection, so an existing
+  /// saved preference (partial or full) is always left exactly as saved.
+  void _watchForNeverCustomizedCategories() {
+    _maybeReconcileCategories();
+    _ref.listen(
+      providerOfMainCategories.select((value) => value.mainCategories),
+      (
+        _,
+        __,
+      ) {
+        _maybeReconcileCategories();
+      },
+    );
+  }
+
+  void _maybeReconcileCategories() {
+    if (_hasReconciledCategories) return;
+
+    final settingsLoaded = state.getPushNotificationSettingsState.when(
+      initial: () => false,
+      loading: () => false,
+      success: (_) => true,
+      error: (_) => false,
+    );
+    if (!settingsLoaded) return;
+
+    final allCategoryIds = _ref
+        .read(providerOfMainCategories)
+        .mainCategories
+        .map((e) => e.id)
+        .toSet();
+    if (allCategoryIds.isEmpty) return;
+
+    _hasReconciledCategories = true;
+    if (state.pushNotificationSettings.subscribedCategoryIds.isNotEmpty) {
+      return;
+    }
+    updateAllCategories(allCategoryIds);
   }
 
   /// Updates the push notification settings for the current user.
