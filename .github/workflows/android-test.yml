@@ -290,12 +290,21 @@ jobs:
       # keystore - needs no secret material at all, so there's nothing
       # here that could leak a password or the base64 keystore, and it
       # reports whatever signingConfig Gradle actually applied rather
-      # than assuming which one won. SHA-1 is safe to print: it's the
-      # public fingerprint an Android API key restriction is matched
-      # against, not a secret.
+      # than assuming which one won. Uses apksigner rather than
+      # `keytool -printcert -jarfile`: keytool only understands legacy
+      # v1 (JAR) signing, and AGP skips v1 signing by default once
+      # minSdkVersion is high enough, leaving only the v2/v3 APK
+      # Signature Block that keytool can't read at all - it would
+      # silently report "not a signed jar" with no visible error.
+      # apksigner (bundled with the Android SDK build-tools already on
+      # the runner) verifies whichever scheme(s) actually signed the
+      # APK. SHA-1 is safe to print: it's the public fingerprint an
+      # Android API key restriction is matched against, not a secret.
       - name: Report the TEST APK signing certificate SHA-1
         run: |
-          SHA1=$(keytool -printcert -jarfile "build/app/outputs/flutter-apk/${{ steps.build.outputs.apk_filename }}" | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//')
+          APKSIGNER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools" -name apksigner -type f | sort -V | tail -1)
+          RAW=$("$APKSIGNER" verify --print-certs "build/app/outputs/flutter-apk/${{ steps.build.outputs.apk_filename }}" | grep "certificate SHA-1 digest:" | awk '{print $NF}')
+          SHA1=$(echo "$RAW" | tr 'a-f' 'A-F' | sed 's/../&:/g;s/:$//')
           echo "TEST APK signing certificate SHA-1: $SHA1"
           echo "### TEST APK signing certificate" >> "$GITHUB_STEP_SUMMARY"
           echo "SHA-1: \`$SHA1\`" >> "$GITHUB_STEP_SUMMARY"
