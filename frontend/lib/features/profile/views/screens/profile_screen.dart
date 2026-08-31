@@ -39,6 +39,7 @@ import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/views/widgets/button.dart';
 import 'package:hazard_app/features/profile/views/widgets/share_alrt_sheet.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:hazard_app/others/app_wrapper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -148,6 +149,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   )
                 : null,
+            // Deliberately always dark, in both Light and Dark Appearance -
+            // this header already reads as its own high-contrast surface
+            // (per the mockup) and predates the Appearance toggle, so it is
+            // out of scope for the Light/Dark distinction rather than a
+            // remaining gap in it.
             background: Container(
               decoration: BoxDecoration(
                 color: AppColors.black.withValues(alpha: 0.9),
@@ -415,7 +421,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               style: TextStyle(
                 fontSize: 14.spMin,
                 fontWeight: FontWeight.w600,
-                color: AppColors.grey.withValues(alpha: 0.6),
+                color: context.onSurfaceMuted.withValues(alpha: 0.6),
               ),
             ),
             MyAcceptedHazardsList(
@@ -452,7 +458,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               style: TextStyle(
                 fontSize: 14.spMin,
                 fontWeight: FontWeight.w600,
-                color: AppColors.grey.withValues(alpha: 0.6),
+                color: context.onSurfaceMuted.withValues(alpha: 0.6),
               ),
             ),
             MyRejectedHazardsList(
@@ -593,7 +599,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             width: 42.spMin,
             height: 42.spMin,
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: context.surfaceCard,
               borderRadius: BorderRadius.circular(12.spMin),
             ),
             child: Center(
@@ -615,7 +621,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   style: TextStyle(
                     fontSize: 15.5.spMin,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.black,
+                    color: context.onSurface,
                   ),
                 ),
                 2.spMin.hSizedBox,
@@ -623,7 +629,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   subtitle,
                   style: TextStyle(
                     fontSize: 12.5.spMin,
-                    color: AppColors.grey,
+                    color: context.onSurfaceMuted,
                     height: 1.3,
                   ),
                 ),
@@ -864,11 +870,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             leading: CircleAvatar(
               backgroundColor: isSelected
                   ? AppColors.orange
-                  : AppColors.grey.withValues(alpha: 0.15),
+                  : sheetContext.surfaceMuted,
               child: Text(
                 code.toUpperCase(),
                 style: TextStyle(
-                  color: isSelected ? AppColors.white : AppColors.grey,
+                  color: isSelected
+                      ? AppColors.white
+                      : sheetContext.onSurfaceMuted,
                   fontSize: 12.spMin,
                   fontWeight: FontWeight.w700,
                 ),
@@ -925,7 +933,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   'Official warnings are shown in their original English wording where a verified translation is not yet available.',
                   style: TextStyle(
                     fontSize: 11.spMin,
-                    color: AppColors.grey,
+                    color: sheetContext.onSurfaceMuted,
                   ),
                 ),
               ),
@@ -957,7 +965,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           return ListTile(
             leading: Icon(
               icon,
-              color: isSelected ? AppColors.orange : AppColors.grey,
+              color: isSelected
+                  ? AppColors.orange
+                  : sheetContext.onSurfaceMuted,
             ),
             title: Text(
               title,
@@ -1101,11 +1111,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(20.spMin),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowColorLight,
+            color: context.cardShadow,
             blurRadius: 2.0,
             offset: Offset(0.0, 0.0),
           ),
@@ -1131,7 +1141,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             label.toUpperCase(),
             style: TextStyle(
               fontSize: 12.spMin,
-              color: AppColors.grey.withValues(alpha: 0.5),
+              color: context.onSurfaceMuted.withValues(alpha: 0.5),
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
@@ -1158,16 +1168,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           style: TextStyle(
             fontSize: 14.spMin,
             fontWeight: FontWeight.w600,
-            color: AppColors.grey.withValues(alpha: 0.6),
+            color: context.onSurfaceMuted.withValues(alpha: 0.6),
           ),
         ),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: context.surfaceCard,
             borderRadius: BorderRadius.circular(20.spMin),
             boxShadow: [
               BoxShadow(
-                color: AppColors.shadowColorLight,
+                color: context.cardShadow,
                 blurRadius: 2.0,
                 offset: Offset(0.0, 0.0),
               ),
@@ -1206,7 +1216,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   style: TextStyle(
                     fontSize: 16.spMin,
                     fontWeight: FontWeight.w600,
-                    color: titleColor ?? AppColors.black,
+                    color: titleColor ?? context.onSurface,
                   ),
                 ),
                 2.spMin.hSizedBox,
@@ -1214,7 +1224,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   subtitle,
                   style: TextStyle(
                     fontSize: 13.spMin,
-                    color: AppColors.grey,
+                    color: context.onSurfaceMuted,
                     height: 1.3,
                   ),
                 ),
@@ -1224,7 +1234,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           if (trailing != null) ...[trailing, 8.wSizedBox],
           Icon(
             Icons.chevron_right,
-            color: AppColors.lightGrey,
+            color: context.outline,
             size: 20.spMin,
           ),
         ],
@@ -1258,7 +1268,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.spMin, vertical: 3.spMin),
       decoration: BoxDecoration(
-        color: AppColors.extraLightGrey,
+        color: context.surfaceMuted,
         borderRadius: BorderRadius.circular(20.spMin),
       ),
       child: Text(
@@ -1266,7 +1276,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         style: TextStyle(
           fontSize: 10.5.spMin,
           fontWeight: FontWeight.w700,
-          color: AppColors.grey,
+          color: context.onSurfaceMuted,
         ),
       ),
     );
@@ -1282,15 +1292,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Container(
         padding: EdgeInsets.all(16.spMin),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: context.surfaceCard,
           border: Border.all(
-            color: AppColors.lightGrey.withValues(alpha: 0.5),
+            color: context.outline.withValues(alpha: 0.5),
             style: BorderStyle.solid,
           ),
           borderRadius: BorderRadius.circular(16.spMin),
           boxShadow: [
             BoxShadow(
-              color: AppColors.shadowColorLight,
+              color: context.cardShadow,
               blurRadius: 2.0,
               offset: Offset(0.0, 0.0),
             ),
@@ -1303,7 +1313,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               text,
               style: TextStyle(
                 fontSize: 14.spMin,
-                color: AppColors.grey.withValues(alpha: 0.7),
+                color: context.onSurfaceMuted.withValues(alpha: 0.7),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1311,7 +1321,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Icon(
               LucideIcons.arrowRight500,
               size: 16.spMin,
-              color: AppColors.grey.withValues(alpha: 0.7),
+              color: context.onSurfaceMuted.withValues(alpha: 0.7),
             ),
           ],
         ),

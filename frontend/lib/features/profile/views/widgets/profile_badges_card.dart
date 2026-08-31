@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/profile/models/xp_summary_models.dart';
 import 'package:hazard_app/features/profile/providers/xp_summary_provider.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 const _earnedInk = Color(0xFF27AE60);
@@ -30,10 +31,10 @@ class ProfileBadgesCard extends ConsumerWidget {
     return Container(
       padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(18.spMin),
         boxShadow: [
-          BoxShadow(color: AppColors.shadowColorLight, blurRadius: 2.0),
+          BoxShadow(color: context.cardShadow, blurRadius: 2.0),
         ],
       ),
       child: Column(
@@ -49,7 +50,7 @@ class ProfileBadgesCard extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 16.spMin,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.black,
+                    color: context.onSurface,
                   ),
                 ),
               ),
@@ -58,7 +59,7 @@ class ProfileBadgesCard extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12.5.spMin,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.mediumGrey,
+                  color: context.onSurfaceMuted,
                 ),
               ),
             ],
@@ -69,20 +70,20 @@ class ProfileBadgesCard extends ConsumerWidget {
             style: TextStyle(
               fontSize: 12.spMin,
               height: 1.4,
-              color: AppColors.mediumGrey,
+              color: context.onSurfaceMuted,
             ),
           ),
           SizedBox(height: 14.spMin),
           for (final (index, badge) in badges.indexed) ...[
             if (index > 0) SizedBox(height: 12.spMin),
-            _badgeRowBuilder(badge),
+            _badgeRowBuilder(context, badge),
           ],
         ],
       ),
     );
   }
 
-  Widget _badgeRowBuilder(final SafetyBadge badge) {
+  Widget _badgeRowBuilder(final BuildContext context, final SafetyBadge badge) {
     final ink = badge.earned ? _earnedInk : _lockedInk;
 
     return Row(
@@ -136,7 +137,9 @@ class ProfileBadgesCard extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 14.5.spMin,
                   fontWeight: FontWeight.w800,
-                  color: badge.earned ? AppColors.black : AppColors.mediumGrey,
+                  color: badge.earned
+                      ? context.onSurface
+                      : context.onSurfaceMuted,
                 ),
               ),
               SizedBox(height: 2.spMin),
@@ -145,7 +148,7 @@ class ProfileBadgesCard extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 12.spMin,
                   height: 1.35,
-                  color: AppColors.mediumGrey,
+                  color: context.onSurfaceMuted,
                 ),
               ),
               if (!badge.earned) ...[
@@ -171,7 +174,8 @@ class ProfileBadgesCard extends ConsumerWidget {
 ///
 /// A badge that arrives silently is not a reward. This is deliberately the
 /// only celebration in the scoring system: corroborating someone else's
-/// report still earns nothing and says so.
+/// report still earns nothing and says so. Deliberately dark on any
+/// background (not theme-driven) — a celebratory overlay, not a surface.
 class BadgeEarnedBanner {
   const BadgeEarnedBanner._();
 

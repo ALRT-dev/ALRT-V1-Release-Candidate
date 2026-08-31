@@ -7,6 +7,7 @@ import 'package:hazard_app/features/profile/providers/xp_summary_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/how_points_work_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/points_breakdown_screen.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 const _green = Color(0xFF27AE60);
@@ -30,10 +31,10 @@ class ProfileTrustCard extends ConsumerWidget {
     return Container(
       padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(18.spMin),
         boxShadow: [
-          BoxShadow(color: AppColors.shadowColorLight, blurRadius: 2.0),
+          BoxShadow(color: context.cardShadow, blurRadius: 2.0),
         ],
       ),
       child: Column(
@@ -65,14 +66,14 @@ class ProfileTrustCard extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 16.spMin,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.black,
+                        color: context.onSurface,
                       ),
                     ),
                     Text(
                       _tierSubtitle(tier),
                       style: TextStyle(
                         fontSize: 12.spMin,
-                        color: AppColors.grey,
+                        color: context.onSurfaceMuted,
                       ),
                     ),
                   ],
@@ -83,11 +84,11 @@ class ProfileTrustCard extends ConsumerWidget {
           ),
           if (tier?.next != null) ...[
             SizedBox(height: 12.spMin),
-            _nextTierProgressBuilder(tier!),
+            _nextTierProgressBuilder(context, tier!),
           ],
           if (quest != null) ...[
             SizedBox(height: 14.spMin),
-            _questBuilder(quest),
+            _questBuilder(context, quest),
           ],
           SizedBox(height: 12.spMin),
           GestureDetector(
@@ -175,7 +176,10 @@ class ProfileTrustCard extends ConsumerWidget {
     );
   }
 
-  Widget _nextTierProgressBuilder(final TrustTier tier) {
+  Widget _nextTierProgressBuilder(
+    final BuildContext context,
+    final TrustTier tier,
+  ) {
     final next = tier.next!;
     final progress = next.approvedNeeded > 0
         ? (tier.approvedCount / next.approvedNeeded).clamp(0.0, 1.0)
@@ -187,7 +191,7 @@ class ProfileTrustCard extends ConsumerWidget {
         Text(
           '${tier.approvedCount}/${next.approvedNeeded} approved reports '
           'towards ${next.name}',
-          style: TextStyle(fontSize: 11.spMin, color: AppColors.grey),
+          style: TextStyle(fontSize: 11.spMin, color: context.onSurfaceMuted),
         ),
         SizedBox(height: 6.spMin),
         ClipRRect(
@@ -195,7 +199,7 @@ class ProfileTrustCard extends ConsumerWidget {
           child: LinearProgressIndicator(
             value: progress,
             minHeight: 6.spMin,
-            backgroundColor: const Color(0xFFF0F0F2),
+            backgroundColor: context.surfaceMuted,
             valueColor: const AlwaysStoppedAnimation<Color>(_green),
           ),
         ),
@@ -203,7 +207,7 @@ class ProfileTrustCard extends ConsumerWidget {
     );
   }
 
-  Widget _questBuilder(final WeeklyQuest quest) {
+  Widget _questBuilder(final BuildContext context, final WeeklyQuest quest) {
     final progress = quest.target > 0
         ? (quest.progress / quest.target).clamp(0.0, 1.0)
         : 0.0;
@@ -233,7 +237,7 @@ class ProfileTrustCard extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 13.spMin,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.black,
+                    color: context.onSurface,
                   ),
                 ),
                 if (!quest.completed) ...[
@@ -243,7 +247,7 @@ class ProfileTrustCard extends ConsumerWidget {
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 5.spMin,
-                      backgroundColor: Colors.white,
+                      backgroundColor: context.surfaceMuted,
                       valueColor:
                           const AlwaysStoppedAnimation<Color>(_indigo),
                     ),
