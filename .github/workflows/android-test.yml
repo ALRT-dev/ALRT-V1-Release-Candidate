@@ -279,10 +279,26 @@ jobs:
           if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
             flutter build apk --debug --flavor dev -t lib/main_dev.dart
             echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-debug.apk" >> "$GITHUB_OUTPUT"
+            echo "apk_filename=app-dev-debug.apk" >> "$GITHUB_OUTPUT"
           else
             flutter build apk --release --flavor dev -t lib/main_dev.dart
             echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-release.apk" >> "$GITHUB_OUTPUT"
+            echo "apk_filename=app-dev-release.apk" >> "$GITHUB_OUTPUT"
           fi
+
+      # Reads the certificate straight out of the built APK, not the
+      # keystore - needs no secret material at all, so there's nothing
+      # here that could leak a password or the base64 keystore, and it
+      # reports whatever signingConfig Gradle actually applied rather
+      # than assuming which one won. SHA-1 is safe to print: it's the
+      # public fingerprint an Android API key restriction is matched
+      # against, not a secret.
+      - name: Report the TEST APK signing certificate SHA-1
+        run: |
+          SHA1=$(keytool -printcert -jarfile "build/app/outputs/flutter-apk/${{ steps.build.outputs.apk_filename }}" | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//')
+          echo "TEST APK signing certificate SHA-1: $SHA1"
+          echo "### TEST APK signing certificate" >> "$GITHUB_STEP_SUMMARY"
+          echo "SHA-1: \`$SHA1\`" >> "$GITHUB_STEP_SUMMARY"
 
       # Always runs, even if the build above failed, so a decoded TEST
       # keystore is never left behind in the runner's workspace.
