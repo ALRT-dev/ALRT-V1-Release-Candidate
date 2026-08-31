@@ -10,17 +10,15 @@
 # V1_RECONCILIATION_REPORT.md) instead of https://api.safetyalrt.com.
 #
 # Manual trigger only (workflow_dispatch) — deliberately does not run on
-# push, so it never fires accidentally before the "test" GitHub
-# Environment and its secrets actually exist.
+# push.
 #
-# Requires a GitHub Environment named "test" (Settings -> Environments ->
-# New environment -> "test") with this secret defined on it:
-#   TEST_BACKEND_URL   the isolated test backend's public URL, e.g.
-#                       https://api-test.safetyalrt.com (not a secret value
-#                       in the sensitive sense — same class as the
-#                       already-public production API hostname — scoped to
-#                       the environment for tidiness, not because it needs
-#                       hiding)
+# DEV_BASE_URL is the literal https://api-test.safetyalrt.com, not a
+# secret: an earlier version read it from a TEST_BACKEND_URL secret on
+# the "test" GitHub Environment, but that secret never reliably resolved,
+# so the URL is hardcoded here instead - same class of value as the
+# already-public production API hostname, not sensitive. The "test"
+# Environment is still used below for its own sake (approval/protection
+# rules), independent of this URL.
 #
 # Everything else (Maps, Google Sign-In, RevenueCat SDK keys) intentionally
 # reuses the SAME repo-level secrets android-apk.yml already uses — Stage A
@@ -42,14 +40,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify the isolated test backend URL is configured
-        run: |
-          if [ -z "${{ secrets.TEST_BACKEND_URL }}" ]; then
-            echo "::error::TEST_BACKEND_URL is not set on the 'test' GitHub Environment."
-            echo "This workflow refuses to fall back to any default backend URL for a test build."
-            exit 1
-          fi
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -70,7 +60,7 @@ jobs:
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE=${{ secrets.REVENUECAT_API_KEY_APPLE }}"
             echo "REVENUECAT_API_KEY_GOOGLE=${{ secrets.REVENUECAT_API_KEY_GOOGLE }}"
-            echo "DEV_BASE_URL=${{ secrets.TEST_BACKEND_URL }}"
+            echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
             echo "ALRT_PLUS_TEST_UNLOCK=true"
           } > .env
 
