@@ -27,6 +27,13 @@
  *   3. Concurrent calls (the genuine race the unique index/P2002 fallback
  *      exists for) still converge on exactly one row.
  *
+ * All fixture accounts this script creates use the email prefixes
+ * dedup-http- / dedup-service- / dedup-race- under @test.local. Cleanup
+ * (see cleanupFixtureAccounts below) sweeps by that prefix rather than by
+ * the specific IDs this run created, so it also removes any leftover
+ * fixture account from an earlier run that crashed before reaching its own
+ * cleanup (e.g. the response-shape bug this script previously had).
+ *
  * Run with:
  *   NODE_ENV=test npx dotenv -e .env.test -- npx tsx src/scripts/verify_own_location_dedup.ts
  */
@@ -66,20 +73,72 @@ const ownLocationCountFor = async (userId: string) =>
     where: { userId, isOwnLocation: true },
   });
 
-async function main() {
-  console.log("Duplicate 'My Location' regression verification (real HTTP + real DB)\n");
-
-  console.log("Setup: HTTP path (PUT /api/user, mirrors repeated login/app-start)");
+/**
+ * Registers a fresh account over HTTP and returns its userId + access
+ * token. The register endpoint's response is just { accessToken,
+ * refreshToken } (see auth.controller.ts's registerWithEmailAndPassword) -
+ * it does not echo the user or its id, so the id is read back via the
+ * authenticated GET /api/user profile endpoint instead.
+ */
+const registerAndGetUser = async (
+  emailPrefix: string,
+): Promise<{ userId: string; token: string }> => {
   const registerRes = await api("/api/auth/email-password/register", {
     method: "POST",
     body: {
-      email: `dedup-http-${crypto.randomUUID().slice(0, 8)}@test.local`,
+      email: `${emailPrefix}${crypto.randomUUID().slice(0, 8)}@test.local`,
       password: "TestPass123!Xx",
     },
   });
   assert.equal(registerRes.status, 201, JSON.stringify(registerRes.body));
-  const httpUserId = registerRes.body.user.id as string;
-  const httpToken = registerRes.body.accessToken as string;
+  const token = registerRes.body.accessToken as string;
+  assert.ok(token, "register response must include an accessToken");
+
+  const profileRes = await api("/api/user", { token });
+  assert.equal(profileRes.status, 200, JSON.stringify(profileRes.body));
+  const userId = profileRes.body.id as string;
+  assert.ok(userId, "GET /api/user response must include an id");
+
+  return { userId, token };
+};
+
+/**
+ * Removes every fixture account this script's naming convention could have
+ * created, by email prefix rather than by this run's own IDs, so a
+ * previous run that crashed before its own cleanup (leaving a stray
+ * dedup-http-...@test.local account behind, for example) is swept up too.
+ * Safe by construction: only ever matches the three prefixes this script
+ * itself uses, all under the synthetic @test.local domain.
+ */
+const cleanupFixtureAccounts = async () => {
+  const strayUsers = await prisma.user.findMany({
+    where: {
+      OR: [
+        { email: { startsWith: "dedup-http-", endsWith: "@test.local" } },
+        { email: { startsWith: "dedup-service-", endsWith: "@test.local" } },
+        { email: { startsWith: "dedup-race-", endsWith: "@test.local" } },
+      ],
+    },
+    select: { id: true },
+  });
+  const ids = strayUsers.map((u) => u.id);
+  if (ids.length === 0) return;
+
+  await prisma.locationSubscription.deleteMany({
+    where: { userId: { in: ids } },
+  });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
+  console.log(
+    `Cleanup: removed ${ids.length} fixture account(s) (dedup-http-/dedup-service-/dedup-race- @test.local) and their location rows.`,
+  );
+};
+
+async function main() {
+  console.log("Duplicate 'My Location' regression verification (real HTTP + real DB)\n");
+
+  console.log("Setup: HTTP path (PUT /api/user, mirrors repeated login/app-start)");
+  const { userId: httpUserId, token: httpToken } =
+    await registerAndGetUser("dedup-http-");
 
   await check(
     "5 repeated PUT /api/user calls with drifting GPS coords leave exactly one own-location row",
@@ -173,13 +232,6 @@ async function main() {
   );
 
   console.log(`\n${passed} checks passed.`);
-
-  await prisma.locationSubscription.deleteMany({
-    where: { userId: { in: [httpUserId, serviceUser.id, raceUser.id] } },
-  });
-  await prisma.user.deleteMany({
-    where: { id: { in: [httpUserId, serviceUser.id, raceUser.id] } },
-  });
 }
 
 main()
@@ -188,5 +240,14 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
+    // Runs whether main() succeeded, threw partway through, or failed
+    // before creating every fixture user - always sweeps by naming
+    // convention rather than relying on which local variables got
+    // assigned before a failure.
+    try {
+      await cleanupFixtureAccounts();
+    } catch (cleanupError) {
+      console.error("Cleanup failed:", cleanupError);
+    }
     await prisma.$disconnect();
   });
