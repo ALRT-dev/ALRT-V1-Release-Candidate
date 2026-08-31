@@ -126,6 +126,14 @@ jobs:
           channel: stable
           cache: true
 
+      - run: flutter pub get
+
+      # Fails the job (and skips the build below) on any red test, rather
+      # than spending build minutes on a change that didn't pass its own
+      # suite. Runs the whole of frontend/test/, not just new files.
+      - name: Run flutter test
+        run: flutter test
+
       # Only relevant when billing_mode=test_store - see the billing_mode
       # comment at the top of this file. Checks presence by length only;
       # the value itself is never printed. Sourced from a repository-
@@ -175,8 +183,6 @@ jobs:
           } > .env
         env:
           REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
-
-      - run: flutter pub get
 
       # Same dev flavour/app id as android-apk.yml - only DEV_BASE_URL
       # and (when billing_mode=test_store) RevenueCat differ, via the
