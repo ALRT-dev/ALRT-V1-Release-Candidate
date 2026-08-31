@@ -12,10 +12,12 @@
 # in place, untouched - this is a new, separate file, not a move.
 #
 # Uses the existing "dev" flavour (com.safetyalrt.alrt.dev) exactly as
-# android-apk.yml does — same app id, same Firebase app, same debug
-# signing. The ONLY difference is which backend DEV_BASE_URL points at:
-# this workflow sends it to the isolated test backend instead of
-# https://api.safetyalrt.com.
+# android-apk.yml does — same app id, same Firebase app. Signing differs:
+# see "Stable TEST-only signing" below - android-apk.yml still ships a
+# plain debug-signed 'dev' build (SHA-1 changes every run), this workflow
+# now requires a dedicated, stable TEST keystore instead. The other real
+# difference is which backend DEV_BASE_URL points at: this workflow sends
+# it to the isolated test backend instead of https://api.safetyalrt.com.
 #
 # DEV_BASE_URL below is a hardcoded literal, not a secret lookup. It was
 # originally sourced from a "test" GitHub Environment secret
@@ -80,6 +82,25 @@
 #   test_store also builds --debug instead of --release (see the build
 #   step below) - RevenueCat's SDK refuses to initialize a Test Store
 #   key in a release build and force-closes the app instead, by design.
+#
+# Stable TEST-only signing: without it, every run signs with a fresh,
+# randomly-generated debug keystore (GitHub's runners are ephemeral - the
+# default Android debug keystore is generated on first use and nothing
+# here ever persisted or reused a specific one across runs), so the app's
+# SHA-1 changed on every build. That made it impossible to ever safely
+# restrict a Google Maps API key to this app - a key restricted to one
+# run's SHA-1 would fail on the next. This workflow now decodes a
+# dedicated, low-stakes TEST-only keystore (never the real Play Store
+# upload keystore - a completely separate file and separate secrets, see
+# build.gradle.kts) before building, and refuses to run at all if that
+# keystore's secrets are not configured, rather than silently falling
+# back to the old unstable behaviour. Requires four repository Secrets
+# (Settings > Secrets and variables > Actions > Secrets):
+# TEST_ANDROID_KEYSTORE_BASE64, TEST_ANDROID_KEYSTORE_PASSWORD,
+# TEST_ANDROID_KEY_ALIAS, TEST_ANDROID_KEY_PASSWORD. Applies only to the
+# 'dev' flavour this workflow builds - production signing
+# (android-release.yml, the real upload keystore) is completely
+# untouched by this.
 name: Android Test Build
 
 on:
@@ -115,6 +136,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fail fast, before any setup/build time is spent. This workflow's
+      # whole point is a TEST APK with a STABLE signing identity (needed
+      # so a Google Maps key can ever be safely restricted to it) - it
+      # must never silently fall back to the plain Android debug keystore,
+      # which gets a fresh random SHA-1 every run on GitHub's ephemeral
+      # runners. Distinct secret names from the real Play Store upload
+      # keystore's (ANDROID_UPLOAD_KEYSTORE_BASE64 etc. in
+      # android-release.yml) so the two can never be confused.
+      - name: Verify TEST Android signing secrets are configured
+        run: |
+          missing=()
+          [ -z "${{ secrets.TEST_ANDROID_KEYSTORE_BASE64 }}" ] && missing+=("TEST_ANDROID_KEYSTORE_BASE64")
+          [ -z "${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}" ] && missing+=("TEST_ANDROID_KEYSTORE_PASSWORD")
+          [ -z "${{ secrets.TEST_ANDROID_KEY_ALIAS }}" ] && missing+=("TEST_ANDROID_KEY_ALIAS")
+          [ -z "${{ secrets.TEST_ANDROID_KEY_PASSWORD }}" ] && missing+=("TEST_ANDROID_KEY_PASSWORD")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing required TEST signing secret(s): ${missing[*]}"
+            echo "This workflow requires a stable TEST-only signing identity so the app's SHA-1 stays constant across builds - it refuses to silently fall back to the unstable, freshly-regenerated debug keystore."
+            exit 1
+          fi
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -127,6 +169,31 @@ jobs:
           cache: true
 
       - run: flutter pub get
+
+      # Decodes the dedicated TEST-only keystore (verified present above)
+      # into a clearly TEST-named properties file - deliberately never
+      # named key.properties, so it can never be confused with the real
+      # Play Store upload keystore android-release.yml decodes under that
+      # name. build.gradle.kts reads this file (rootProject.file(
+      # "test-key.properties")) and applies it only to the 'dev' flavour;
+      # the 'prod' flavour and every other signing path are untouched.
+      # Removed at the end of the job (see "Remove the decoded TEST
+      # keystore" below), even if the build fails.
+      - name: Decode the TEST keystore and write test-key.properties
+        working-directory: frontend/android
+        env:
+          TEST_ANDROID_KEYSTORE_BASE64: ${{ secrets.TEST_ANDROID_KEYSTORE_BASE64 }}
+          TEST_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
+          TEST_ANDROID_KEY_ALIAS: ${{ secrets.TEST_ANDROID_KEY_ALIAS }}
+          TEST_ANDROID_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$TEST_ANDROID_KEYSTORE_BASE64" | base64 -d > test-keystore.jks
+          {
+            echo "storePassword=$TEST_ANDROID_KEYSTORE_PASSWORD"
+            echo "keyPassword=$TEST_ANDROID_KEY_PASSWORD"
+            echo "keyAlias=$TEST_ANDROID_KEY_ALIAS"
+            echo "storeFile=test-keystore.jks"
+          } > test-key.properties
 
       # Only relevant when billing_mode=test_store - see the billing_mode
       # comment at the top of this file. Checks presence by length only;
@@ -216,6 +283,13 @@ jobs:
             flutter build apk --release --flavor dev -t lib/main_dev.dart
             echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-release.apk" >> "$GITHUB_OUTPUT"
           fi
+
+      # Always runs, even if the build above failed, so a decoded TEST
+      # keystore is never left behind in the runner's workspace.
+      - name: Remove the decoded TEST keystore and properties file
+        if: always()
+        working-directory: frontend/android
+        run: rm -f test-keystore.jks test-key.properties
 
       # Workflow artifact only - deliberately does NOT publish to the
       # dev-latest GitHub Release android-apk.yml owns, so this can never

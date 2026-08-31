@@ -10,6 +10,11 @@ GeneratedPluginRegistrant.java
 # Remember to never publicly share your keystore.
 # See https://flutter.dev/to/reference-keystore
 key.properties
+# The dedicated TEST-only signing identity's properties file - a
+# different literal filename from key.properties above, so it needs its
+# own line here too. See app/build.gradle.kts and
+# .github/workflows/android-test.yml at the repo root.
+test-key.properties
 **/*.keystore
 **/*.jks
 # Public upload certificate — regenerable from the keystore, kept out of git for consistency.

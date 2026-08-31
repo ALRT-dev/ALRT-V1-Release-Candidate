@@ -19,6 +19,21 @@ if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// A separate, dedicated TEST-only signing identity for the 'dev' flavour -
+// deliberately a different file from key.properties (the real Play Store
+// upload keystore) so the two can never be confused or accidentally
+// swapped. Decoded by CI from repo secrets distinct from the real upload
+// key's (see .github/workflows/android-test.yml); absent on every local
+// machine and on any CI run that hasn't configured it, in which case the
+// 'dev' flavour keeps falling back to the plain Android debug keystore
+// exactly as before this existed - this is purely additive.
+val testKeystoreProperties = Properties()
+val testKeystorePropertiesFile = rootProject.file("test-key.properties")
+val hasTestKeystore = testKeystorePropertiesFile.exists()
+if (hasTestKeystore) {
+    testKeystoreProperties.load(FileInputStream(testKeystorePropertiesFile))
+}
+
 // Google Maps API key — injected into the manifest at build time, never committed.
 // Resolved from (in order): the GOOGLE_MAPS_API_KEY environment variable (CI), then the
 // project's .env file (the same file flutter_dotenv loads at runtime).
@@ -73,6 +88,19 @@ android {
                 storePassword = keystoreProperties["storePassword"] as String
             }
         }
+        // Stable TEST-only identity: a real (but low-stakes, TEST-only)
+        // keystore so the 'dev' flavour's signing SHA-1 stays constant
+        // across CI runs, instead of a fresh one every build from the
+        // default Android debug keystore - needed so a Google Maps key can
+        // ever be safely restricted to this app's fingerprint in TEST.
+        if (hasTestKeystore) {
+            create("devTest") {
+                keyAlias = testKeystoreProperties["keyAlias"] as String
+                keyPassword = testKeystoreProperties["keyPassword"] as String
+                storeFile = testKeystoreProperties["storeFile"]?.let { file(it) }
+                storePassword = testKeystoreProperties["storePassword"] as String
+            }
+        }
     }
 
     flavorDimensions += "default"
@@ -81,6 +109,12 @@ android {
             dimension = "default"
             resValue("string", "app_name", "[Dev] ALRT")
             applicationIdSuffix = ".dev"
+            // Overrides the buildTypes.release signingConfig below for
+            // this flavour only, when present - never touches the "prod"
+            // flavour, which is untouched by anything in this block.
+            if (hasTestKeystore) {
+                signingConfig = signingConfigs.getByName("devTest")
+            }
         }
         create("prod") {
             dimension = "default"
@@ -106,9 +140,13 @@ android {
 // closes the same gap for anyone building `--flavor prod --release`
 // directly on a machine without android/key.properties, where the
 // buildTypes block above would otherwise fall back to debug signing with
-// no warning. The 'dev' flavour is deliberately unaffected:
-// android-apk.yml and android-test.yml both build a debug-signed 'dev'
-// release on purpose, for TEST/QR-code installs.
+// no warning. The 'dev' flavour is deliberately unaffected by this guard:
+// android-apk.yml still ships a plain debug-signed 'dev' build on purpose
+// (QR-code installs), and android-test.yml now enforces its own separate
+// requirement in CI (see the productFlavors.dev block above and that
+// workflow's own signing-secret guard) - a local `--flavor dev --release`
+// build with neither key.properties nor test-key.properties present is
+// unaffected and keeps falling back to plain debug signing, same as always.
 afterEvaluate {
     tasks.matching { task ->
         task.name.contains("Prod") &&
