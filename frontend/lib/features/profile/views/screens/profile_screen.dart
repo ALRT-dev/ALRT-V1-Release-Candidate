@@ -72,6 +72,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const ProfilePointsCard(),
+                  14.spMin.hSizedBox,
+                  _buildFamilyHighlightCard(),
+                  10.spMin.hSizedBox,
+                  _buildAlrtPlusHighlightCard(),
                   24.spMin.hSizedBox,
                   _buildStatsSection(),
                   14.spMin.hSizedBox,
@@ -469,7 +473,156 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// SAFETY: saved locations, family & check-ins, journey sharing.
+  /// Family & check-ins — deliberately the most prominent card on the
+  /// screen after the points bar: a clear, calm safety focal point, not
+  /// just another grouped row. Subtitle is real circle/SOS status only -
+  /// never invented copy.
+  Widget _buildFamilyHighlightCard() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final circle = ref.watch(providerOfFamily.select((s) => s.circle));
+        final circles = ref.watch(providerOfFamily.select((s) => s.circles));
+        final activeSosCount = ref.watch(
+          providerOfFamily.select((s) => s.activeSosEvents.length),
+        );
+
+        final String subtitle;
+        if (activeSosCount > 0) {
+          subtitle = activeSosCount == 1
+              ? '1 active SOS in your circle'
+              : '$activeSosCount active SOS in your circle';
+        } else if (circle != null) {
+          final memberCount = circle.members.length;
+          subtitle = memberCount > 0
+              ? '${circle.name} · $memberCount member${memberCount == 1 ? '' : 's'}'
+              : circle.name;
+        } else if (circles.isNotEmpty) {
+          subtitle = circles.length == 1
+              ? 'You belong to 1 circle'
+              : 'You belong to ${circles.length} circles';
+        } else {
+          subtitle = 'Check in and see who is near an alert';
+        }
+
+        return _buildHighlightCard(
+          icon: LucideIcons.users,
+          accent: ProfileColors.familyAndCheckIns,
+          backgroundTint: 0.07,
+          borderTint: 0.22,
+          title: 'Family & check-ins',
+          subtitle: subtitle,
+          onTap: () =>
+              ref.read(providerOfHomeTab.notifier).state = HomeTab.family,
+        );
+      },
+    );
+  }
+
+  /// ALRT+ membership — the other deliberately prominent card: a clearly
+  /// premium warm gold/orange treatment. Subtitle and TEST chip reuse the
+  /// exact same real entitlement state as before - no invented offers.
+  Widget _buildAlrtPlusHighlightCard() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final isSubscribed = ref.watch(providerOfAlrtPlus).value == true;
+        return _buildHighlightCard(
+          icon: LucideIcons.crown,
+          accent: ProfileColors.alrtPlusMembership,
+          backgroundTint: 0.14,
+          borderTint: 0.35,
+          title: 'ALRT+ membership',
+          subtitle: isSubscribed
+              ? 'Plan, seats and billing'
+              : 'You pay once, everyone else joins free',
+          trailing: isAlrtPlusTestUnlocked
+              ? _buildTextChip('TEST', ProfileColors.alrtPlusMembership)
+              : null,
+          onTap: () => context.push(
+            isSubscribed
+                ? AlrtPlusManageScreen.route
+                : AlrtPlusPaywallScreen.route,
+          ),
+        );
+      },
+    );
+  }
+
+  /// Shared shape for the two promoted cards: a soft tint of [accent] (not
+  /// a loud full-saturation fill), a bold gradient icon badge, and larger
+  /// title text than an ordinary grouped row.
+  Widget _buildHighlightCard({
+    required final IconData icon,
+    required final ProfileRowAccent accent,
+    required final double backgroundTint,
+    required final double borderTint,
+    required final String title,
+    required final String subtitle,
+    required final VoidCallback onTap,
+    final Widget? trailing,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(14.spMin),
+      decoration: BoxDecoration(
+        color: accent.end.withValues(alpha: backgroundTint),
+        borderRadius: BorderRadius.circular(16.spMin),
+        border: Border.all(color: accent.end.withValues(alpha: borderTint)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42.spMin,
+            height: 42.spMin,
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12.spMin),
+            ),
+            child: Center(
+              child: ProfileGradientIcon(
+                icon: icon,
+                accent: accent,
+                size: 21.0,
+                gradient: true,
+              ),
+            ),
+          ),
+          12.wSizedBox,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15.5.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.black,
+                  ),
+                ),
+                2.spMin.hSizedBox,
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    color: AppColors.grey,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[trailing, 6.wSizedBox],
+          Icon(
+            Icons.chevron_right,
+            color: accent.end.withValues(alpha: 0.6),
+            size: 19.spMin,
+          ),
+        ],
+      ),
+    ).onPressed(onTap);
+  }
+
+  /// SAFETY: saved locations, journey sharing. Family & check-ins is now
+  /// its own highlight card above, not a row in this list.
   Widget _buildSafetySection() {
     return _buildSectionCard(
       label: 'Safety',
@@ -495,15 +648,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             );
           },
-        ),
-        _buildProfileRow(
-          title: 'Family & check-ins',
-          subtitle: 'Check in and see who is near an alert',
-          icon: LucideIcons.users,
-          accent: ProfileColors.familyAndCheckIns,
-          trailing: _buildTextChip('ALRT+', ProfileColors.familyAndCheckIns),
-          onTap: () =>
-              ref.read(providerOfHomeTab.notifier).state = HomeTab.family,
         ),
         _buildProfileRow(
           title: 'Journey sharing',
@@ -554,32 +698,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// ACCOUNT: ALRT+ membership, help & feedback.
+  /// ACCOUNT: help & feedback (+ the QA-only paywall preview row). ALRT+
+  /// membership itself is now its own highlight card above.
   Widget _buildAccountSection() {
     return _buildSectionCard(
       label: 'Account',
       rows: [
-        Consumer(
-          builder: (context, ref, child) {
-            final isSubscribed = ref.watch(providerOfAlrtPlus).value == true;
-            return _buildProfileRow(
-              title: 'ALRT+ membership',
-              subtitle: isSubscribed
-                  ? 'Plan, seats and billing'
-                  : 'You pay once, everyone else joins free',
-              icon: LucideIcons.crown,
-              accent: ProfileColors.alrtPlusMembership,
-              trailing: isAlrtPlusTestUnlocked
-                  ? _buildTextChip('TEST', ProfileColors.alrtPlusMembership)
-                  : null,
-              onTap: () => context.push(
-                isSubscribed
-                    ? AlrtPlusManageScreen.route
-                    : AlrtPlusPaywallScreen.route,
-              ),
-            );
-          },
-        ),
         // QA builds ship with the test unlock on, which hides every
         // paywall gate — this row lets the paywall itself be reviewed.
         if (isAlrtPlusTestUnlocked)
@@ -932,7 +1056,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// otherwise) — reuses the exact same membership check FamilyTabView
   /// already applies, rather than inventing a new gate. With no circle
   /// yet, this lands on the same Family tab / onboarding screen the
-  /// "Family & check-ins" row above also goes to.
+  /// Family highlight card above also goes to.
   void _gotoJourneySharing() {
     final isInAGroup = ref.read(
       providerOfFamily.select(
@@ -1000,6 +1124,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required final String label,
     required final List<Widget> rows,
   }) {
+    if (rows.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 10.spMin,
@@ -1030,9 +1155,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// A single Profile row: a gradient-stroke icon (colour on the icon
-  /// only, never a filled row background), title/subtitle, an optional
-  /// trailing chip, then the chevron.
+  /// A single Profile row: a calm, single-colour icon (never a gradient -
+  /// gradients stay reserved for the two highlight cards above), title/
+  /// subtitle, an optional trailing chip, then the chevron.
   Widget _buildProfileRow({
     required final String title,
     required final String subtitle,
