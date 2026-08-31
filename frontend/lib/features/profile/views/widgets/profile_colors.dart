@@ -45,9 +45,11 @@ class ProfileColors {
     Color(0xFFE86A00),
   );
 
+  /// Warm gold/orange only - the premium ALRT+ treatment. No red: red
+  /// stays reserved for [dangerAction] so it never reads as a warning.
   static const alrtPlusMembership = ProfileRowAccent(
-    Color(0xFFFF8A00),
-    Color(0xFFF5000A),
+    Color(0xFFFFC542),
+    Color(0xFFF5A000),
   );
 
   static const helpAndFeedback = ProfileRowAccent(

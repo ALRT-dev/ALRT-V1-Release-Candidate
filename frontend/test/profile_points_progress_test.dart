@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/enums/user_badge_enum.dart';
 
-/// The Profile "ALRT points" card (profile_points_card.dart) shows a
-/// real total, the real tier name, and "N points to <next tier>" — the
-/// exact same source data and formula ProfileXpProgress already draws
-/// from, never a second invented points/level system. These tests pin
-/// that formula so the card can never silently drift from it.
+/// Pins the tier-progress formula behind the Profile header's XP bar
+/// (ProfileXpProgress: "N XP to <next tier>") - the single XP/progress
+/// summary now shown on Profile, after the duplicate points card below
+/// the header was removed. Same source data and formula throughout,
+/// never a second invented points/level system.
 void main() {
   group('ALRT points progress', () {
     test('a brand new user is a Watcher, 750 points from Scout', () {
