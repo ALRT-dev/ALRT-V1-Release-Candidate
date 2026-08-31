@@ -22,6 +22,5 @@ adminRouter.use("/hazard-sources", adminHazardSourceRouter);
 adminRouter.use("/ai-prompts", adminAIPromptRouter);
 adminRouter.use("/configurations", adminConfigurationRouter);
 adminRouter.use("/webhook-api-keys", adminWebhookApiKeyRouter);
-adminRouter.use("/stats", adminStatsRouter);
 
 export default adminRouter;
