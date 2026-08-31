@@ -8,11 +8,11 @@ import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dar
 import 'package:hazard_app/others/app_colors.dart';
 
 /// Compact "ALRT points" summary shown just below the profile header,
-/// before Safety. Deliberately plain rather than celebratory: a real
-/// number, the real tier name, a slim bar and one line of plain-language
-/// progress text - no emoji, no confetti, no invented reward copy. Reads
-/// the same xpPoints/tier data as the app-bar's own progress bar
-/// (ProfileXpProgress), never a second source of truth.
+/// before Safety. Deliberately plain and small rather than celebratory: a
+/// real number, the real tier name, a slim bar and one line of
+/// plain-language progress text - no emoji, no confetti, no invented
+/// reward copy. Reads the same xpPoints/tier data as the app-bar's own
+/// progress bar (ProfileXpProgress), never a second source of truth.
 class ProfilePointsCard extends ConsumerWidget {
   const ProfilePointsCard({super.key});
 
@@ -30,10 +30,10 @@ class ProfilePointsCard extends ConsumerWidget {
     final progress = (xpPoints.clamp(0, maxXpPoints)) / maxXpPoints;
 
     return Container(
-      padding: EdgeInsets.all(16.spMin),
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 11.spMin),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(18.spMin),
+        borderRadius: BorderRadius.circular(14.spMin),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadowColorLight,
@@ -53,19 +53,19 @@ class ProfilePointsCard extends ConsumerWidget {
                   Text(
                     '$xpPoints',
                     style: TextStyle(
-                      fontSize: 24.spMin,
+                      fontSize: 17.spMin,
                       fontWeight: FontWeight.w800,
                       color: AppColors.black,
                       height: 1.0,
                     ),
                   ),
-                  4.wSizedBox,
+                  3.wSizedBox,
                   Padding(
-                    padding: EdgeInsets.only(bottom: 3.spMin),
+                    padding: EdgeInsets.only(bottom: 1.spMin),
                     child: Text(
                       'points',
                       style: TextStyle(
-                        fontSize: 12.spMin,
+                        fontSize: 10.5.spMin,
                         color: AppColors.grey,
                         fontWeight: FontWeight.w600,
                       ),
@@ -75,8 +75,8 @@ class ProfilePointsCard extends ConsumerWidget {
               ),
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: 10.spMin,
-                  vertical: 5.spMin,
+                  horizontal: 8.spMin,
+                  vertical: 3.spMin,
                 ),
                 decoration: BoxDecoration(
                   color: AppColors.blue.withValues(alpha: 0.08),
@@ -85,7 +85,7 @@ class ProfilePointsCard extends ConsumerWidget {
                 child: Text(
                   currentBadge.title,
                   style: TextStyle(
-                    fontSize: 12.spMin,
+                    fontSize: 10.5.spMin,
                     fontWeight: FontWeight.w700,
                     color: AppColors.darkBlue,
                   ),
@@ -93,23 +93,23 @@ class ProfilePointsCard extends ConsumerWidget {
               ),
             ],
           ),
-          10.hSizedBox,
+          7.hSizedBox,
           ClipRRect(
             borderRadius: BorderRadius.circular(100.spMin),
             child: LinearProgressIndicator(
               value: progress.toDouble(),
-              minHeight: 5.spMin,
+              minHeight: 3.5.spMin,
               backgroundColor: AppColors.extraLightGrey,
               valueColor: AlwaysStoppedAnimation(AppColors.blue),
             ),
           ),
-          6.hSizedBox,
+          5.hSizedBox,
           Text(
             isMaxTier
                 ? 'Highest level reached — ${currentBadge.title}'
                 : '${nextBadge.requiredXpPoints - xpPoints} points to ${nextBadge.title}',
             style: TextStyle(
-              fontSize: 11.5.spMin,
+              fontSize: 10.5.spMin,
               color: AppColors.grey,
             ),
           ),
