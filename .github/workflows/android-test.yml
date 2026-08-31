@@ -77,6 +77,9 @@
 #   selected but the Secret is empty, so this can never silently fall
 #   back to a blank RevenueCat key. REVENUECAT_API_KEY_APPLE stays blank
 #   either way - Apple/iOS Test Store testing is a separate later step.
+#   test_store also builds --debug instead of --release (see the build
+#   step below) - RevenueCat's SDK refuses to initialize a Test Store
+#   key in a release build and force-closes the app instead, by design.
 name: Android Test Build
 
 on:
@@ -180,17 +183,40 @@ jobs:
       # .env written above. No GOOGLE_MAPS_API_KEY env var here - Maps is
       # blanked for this Phase 1 TEST APK (see top of file), so nothing
       # reads it.
-      - run: flutter build apk --release --flavor dev -t lib/main_dev.dart
+      #
+      # test_store builds --debug, not --release: RevenueCat's SDK only
+      # initializes a Test Store API key inside a debug build - a
+      # release build (any flavour) using a Test Store key shows a
+      # "Wrong API Key" dialog and force-closes itself, by design, so a
+      # test key can never accidentally ship to real users. bypass mode
+      # never contacts RevenueCat at all, so it keeps building --release
+      # unchanged, matching android-apk.yml's real signing story more
+      # closely for that path. Flutter's debug output filename differs
+      # from release's (app-dev-debug.apk vs app-dev-release.apk), so
+      # the actual path is captured via this step's output and consumed
+      # by upload-artifact below - it can't be a fixed literal anymore.
+      - name: Build the APK (debug for test_store, release for bypass)
+        id: build
+        run: |
+          if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
+            flutter build apk --debug --flavor dev -t lib/main_dev.dart
+            echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-debug.apk" >> "$GITHUB_OUTPUT"
+          else
+            flutter build apk --release --flavor dev -t lib/main_dev.dart
+            echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-release.apk" >> "$GITHUB_OUTPUT"
+          fi
 
       # Workflow artifact only - deliberately does NOT publish to the
       # dev-latest GitHub Release android-apk.yml owns, so this can never
-      # overwrite the existing production-connected QR-code build. Path is
-      # explicitly prefixed with frontend/ since upload-artifact resolves
-      # `path:` against the checkout root, not the working-directory
-      # default above. Named per billing_mode so a bypass and a
-      # test_store artifact from two different runs are never confused.
+      # overwrite the existing production-connected QR-code build. Path
+      # comes from the build step's output above (debug vs release
+      # filenames differ) - upload-artifact still resolves `path:`
+      # against the checkout root regardless of the working-directory
+      # default, which is why that output is already prefixed with
+      # frontend/. Named per billing_mode so a bypass and a test_store
+      # artifact from two different runs are never confused.
       - uses: actions/upload-artifact@v4
         with:
           name: ALRT-android-test-apk-${{ inputs.billing_mode }}
-          path: frontend/build/app/outputs/flutter-apk/app-dev-release.apk
+          path: ${{ steps.build.outputs.apk_path }}
           retention-days: 14
