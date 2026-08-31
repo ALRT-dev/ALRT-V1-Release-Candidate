@@ -515,10 +515,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// ALRT+ membership — the deliberately premium card: a warm gold/orange
-  /// gradient wash, not a flat tint, so it reads as membership rather than
-  /// another safety row. Subtitle and TEST chip reuse the exact same real
-  /// entitlement state as before - no invented offers, no gating changes.
+  /// ALRT+ membership — the deliberately premium card: a warm three-stop
+  /// gold -> orange -> coral gradient wash (ProfileColors.alrtPlusMembership),
+  /// not a flat tint, so it reads as membership rather than another safety
+  /// row. Subtitle and TEST chip reuse the exact same real entitlement
+  /// state as before - no invented offers, no gating changes.
   Widget _buildAlrtPlusHighlightCard() {
     return Consumer(
       builder: (context, ref, child) {
@@ -548,9 +549,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   /// Shared shape for the two promoted cards. Family stays a flat, very
   /// subtle tint of [accent] (calm/safety). [premium] switches to a soft
-  /// two-stop gradient wash instead of a flat fill and a slightly heavier
-  /// border - used only for ALRT+, to read as a premium treatment rather
-  /// than a louder version of the same safety card.
+  /// gradient wash (following [accent]'s own stops - two or three) instead
+  /// of a flat fill, plus a slightly heavier border - used only for ALRT+,
+  /// to read as a premium treatment rather than a louder safety card.
   Widget _buildHighlightCard({
     required final IconData icon,
     required final ProfileRowAccent accent,
@@ -571,8 +572,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  accent.start.withValues(alpha: backgroundTint),
-                  accent.end.withValues(alpha: backgroundTint * 1.8),
+                  for (final (index, stopColor) in accent.colors.indexed)
+                    stopColor.withValues(
+                      alpha: index == accent.colors.length - 1
+                          ? backgroundTint * 1.8
+                          : backgroundTint,
+                    ),
                 ],
               )
             : null,
