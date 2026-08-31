@@ -4,13 +4,18 @@ import 'package:flutter/material.dart';
 /// lives on the icon only (via [ShaderMask]), never as a filled row
 /// background - so the screen stays quiet next to the alert feed, where a
 /// saturated fill already carries meaning.
+///
+/// Two stops ([start], [end]) by default. [mid] is optional and only used
+/// by accents that want a three-stop gradient (currently ALRT+ membership's
+/// gold -> orange -> coral) - every other accent is unaffected.
 class ProfileRowAccent {
-  const ProfileRowAccent(this.start, this.end);
+  const ProfileRowAccent(this.start, this.end, {this.mid});
 
   final Color start;
   final Color end;
+  final Color? mid;
 
-  List<Color> get colors => [start, end];
+  List<Color> get colors => mid != null ? [start, mid!, end] : [start, end];
 }
 
 /// Per-row accent colours from the approved mockup. Each row keeps the
@@ -25,6 +30,9 @@ class ProfileColors {
     Color(0xFF1B54CC),
   );
 
+  /// Family & check-ins - a calm green/teal safety accent. Deliberately
+  /// stays a two-stop gradient (not the three-stop premium treatment
+  /// below): Family reads as safety, not membership.
   static const familyAndCheckIns = ProfileRowAccent(
     Color(0xFF29C48D),
     Color(0xFF068257),
@@ -45,11 +53,14 @@ class ProfileColors {
     Color(0xFFE86A00),
   );
 
-  /// Warm gold/orange only - the premium ALRT+ treatment. No red: red
+  /// The premium ALRT+ treatment: a genuine three-stop warm gold -> orange
+  /// -> coral gradient. F5A000 (the middle stop) is the ALRT+ amber
+  /// approved earlier in this project - kept, not replaced. No red: red
   /// stays reserved for [dangerAction] so it never reads as a warning.
   static const alrtPlusMembership = ProfileRowAccent(
-    Color(0xFFFFC542),
-    Color(0xFFF5A000),
+    Color(0xFFFFD166),
+    Color(0xFFFF6F59),
+    mid: Color(0xFFF5A000),
   );
 
   static const helpAndFeedback = ProfileRowAccent(
