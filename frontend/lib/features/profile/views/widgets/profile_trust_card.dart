@@ -6,7 +6,6 @@ import 'package:hazard_app/features/profile/models/xp_summary_models.dart';
 import 'package:hazard_app/features/profile/providers/xp_summary_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/how_points_work_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/points_breakdown_screen.dart';
-import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
