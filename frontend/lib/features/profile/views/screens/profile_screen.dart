@@ -10,7 +10,6 @@ import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/notification/views/screens/manage_notifications_screen.dart';
 import 'package:hazard_app/features/profile/enums/my_hazards_tab_types.dart';
-import 'package:hazard_app/features/profile/providers/appearance_provider.dart';
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
@@ -24,7 +23,6 @@ import 'package:hazard_app/features/profile/views/screens/delete_account_screen.
 import 'package:hazard_app/features/profile/views/screens/my_hazards_screen.dart';
 import 'package:hazard_app/features/profile/views/widgets/accepted_hazards_widgets/my_accepted_hazards_list.dart';
 import 'package:hazard_app/features/profile/views/widgets/add_widget_sheet.dart';
-import 'package:hazard_app/features/profile/views/widgets/profile_badges_card.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_colors.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_gradient_icon.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_trust_card.dart';
@@ -78,8 +76,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _buildStatsSection(),
                   14.spMin.hSizedBox,
                   const ProfileTrustCard(),
-                  14.spMin.hSizedBox,
-                  const ProfileBadgesCard(),
                   24.spMin.hSizedBox,
                   _buildSubmittedHazardsSection(),
                   _buildFailedReviewsSection(),
@@ -476,10 +472,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Family & check-ins — the first card under the header: a calm, very
-  /// subtly green-tinted safety card (never a loud fill), so it reads as
-  /// a safety focal point without competing with the header's own XP bar.
-  /// Subtitle is real circle/SOS status only - never invented copy.
+  /// Family & check-ins — the first card under the header: a soft,
+  /// restrained green -> teal gradient wash (calm, never a loud fill), so
+  /// it reads as a safety focal point without competing with the header's
+  /// own XP bar or ALRT+'s bolder premium treatment below. Subtitle is
+  /// real circle/SOS status only - never invented copy.
   Widget _buildFamilyHighlightCard() {
     return Consumer(
       builder: (context, ref, child) {
@@ -510,8 +507,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return _buildHighlightCard(
           icon: LucideIcons.users,
           accent: ProfileColors.familyAndCheckIns,
-          backgroundTint: 0.09,
-          borderTint: 0.26,
+          backgroundTint: 0.10,
+          borderTint: 0.28,
           title: 'Family & check-ins',
           subtitle: subtitle,
           onTap: () =>
@@ -553,11 +550,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Shared shape for the two promoted cards. Family stays a flat, very
-  /// subtle tint of [accent] (calm/safety). [premium] switches to a soft
-  /// gradient wash (following [accent]'s own stops - two or three) instead
-  /// of a flat fill, plus a slightly heavier border - used only for ALRT+,
-  /// to read as a premium treatment rather than a louder safety card.
+  /// Shared shape for the two promoted cards. Both now wash in a soft
+  /// gradient of [accent]'s own stops (two for Family, three for ALRT+) -
+  /// [premium] only controls how strongly that wash reads: a deeper end
+  /// stop, a heavier border, a slightly larger icon badge with a stronger
+  /// shadow, and a bolder heading - so ALRT+ still feels distinctly
+  /// premium next to Family's calmer, more restrained version of the same
+  /// shape, rather than two unrelated treatments.
   Widget _buildHighlightCard({
     required final IconData icon,
     required final ProfileRowAccent accent,
@@ -572,21 +571,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Container(
       padding: EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
-        color: premium ? null : accent.end.withValues(alpha: backgroundTint),
-        gradient: premium
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  for (final (index, stopColor) in accent.colors.indexed)
-                    stopColor.withValues(
-                      alpha: index == accent.colors.length - 1
-                          ? backgroundTint * 1.8
-                          : backgroundTint,
-                    ),
-                ],
-              )
-            : null,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            for (final (index, stopColor) in accent.colors.indexed)
+              stopColor.withValues(
+                alpha: index == accent.colors.length - 1
+                    ? backgroundTint * (premium ? 1.8 : 1.3)
+                    : backgroundTint,
+              ),
+          ],
+        ),
         borderRadius: BorderRadius.circular(16.spMin),
         border: Border.all(
           color: accent.end.withValues(alpha: borderTint),
@@ -596,17 +592,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Row(
         children: [
           Container(
-            width: 42.spMin,
-            height: 42.spMin,
+            width: (premium ? 46 : 42).spMin,
+            height: (premium ? 46 : 42).spMin,
             decoration: BoxDecoration(
               color: context.surfaceCard,
-              borderRadius: BorderRadius.circular(12.spMin),
+              borderRadius: BorderRadius.circular(13.spMin),
+              boxShadow: [
+                BoxShadow(
+                  color: accent.end.withValues(alpha: premium ? 0.35 : 0.18),
+                  blurRadius: premium ? 10.0 : 6.0,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Center(
               child: ProfileGradientIcon(
                 icon: icon,
                 accent: accent,
-                size: 21.0,
+                size: premium ? 23.0 : 21.0,
                 gradient: true,
               ),
             ),
@@ -619,8 +622,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 15.5.spMin,
-                    fontWeight: FontWeight.w700,
+                    fontSize: (premium ? 16.5 : 15.5).spMin,
+                    fontWeight: premium ? FontWeight.w800 : FontWeight.w700,
                     color: context.onSurface,
                   ),
                 ),
@@ -686,23 +689,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// PREFERENCES: appearance, notifications, language.
+  /// PREFERENCES: notifications, language. Appearance is deliberately
+  /// hidden for now - Dark mode is unfinished (see app.dart, pinned to
+  /// ThemeMode.light) and the row would offer a choice the app cannot
+  /// yet honour. The picker itself, appearance_provider.dart and the
+  /// dark palette all stay in place, dormant, for a later accessibility
+  /// pass.
   Widget _buildPreferencesSection() {
     return _buildSectionCard(
       label: 'Preferences',
       rows: [
-        Consumer(
-          builder: (context, ref, child) {
-            final mode = ref.watch(providerOfAppearance);
-            return _buildProfileRow(
-              title: 'Appearance',
-              subtitle: _appearanceLabel(mode),
-              icon: LucideIcons.sun,
-              accent: ProfileColors.appearance,
-              onTap: _showAppearancePicker,
-            );
-          },
-        ),
         _buildProfileRow(
           title: 'Notifications',
           subtitle: 'Alert types and push preferences',
@@ -944,90 +940,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Bottom sheet to switch between Device setting / Light / Dark, saved
-  /// locally on this phone only (frontend/lib/features/profile/providers
-  /// /appearance_provider.dart) — never synced to the account.
-  void _showAppearancePicker() {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
-      ),
-      builder: (sheetContext) {
-        final current = ref.read(providerOfAppearance);
-
-        Widget appearanceTile({
-          required ThemeMode mode,
-          required String title,
-          required IconData icon,
-        }) {
-          final isSelected = current == mode;
-          return ListTile(
-            leading: Icon(
-              icon,
-              color: isSelected
-                  ? AppColors.orange
-                  : sheetContext.onSurfaceMuted,
-            ),
-            title: Text(
-              title,
-              style: TextStyle(
-                fontSize: 15.spMin,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            trailing: isSelected
-                ? Icon(Icons.check_circle, color: AppColors.orange)
-                : null,
-            onTap: () {
-              ref.read(providerOfAppearance.notifier).setThemeMode(mode);
-              Navigator.of(sheetContext).pop();
-            },
-          );
-        }
-
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: EdgeInsets.all(16.spMin),
-                child: Text(
-                  'Appearance',
-                  style: TextStyle(
-                    fontSize: 18.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              appearanceTile(
-                mode: ThemeMode.system,
-                title: 'Use device setting',
-                icon: Icons.smartphone,
-              ),
-              appearanceTile(
-                mode: ThemeMode.light,
-                title: 'Light',
-                icon: LucideIcons.sun,
-              ),
-              appearanceTile(
-                mode: ThemeMode.dark,
-                title: 'Dark',
-                icon: Icons.dark_mode,
-              ),
-              8.spMin.hSizedBox,
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _appearanceLabel(final ThemeMode mode) => switch (mode) {
-    ThemeMode.light => 'Light',
-    ThemeMode.dark => 'Dark',
-    ThemeMode.system => 'Device setting',
-  };
+  // The Light/Dark/Device Appearance picker (and its ProfileColors.appearance
+  // accent) is deliberately not wired into any row right now - see the
+  // comment on _buildPreferencesSection. Removed here rather than left as
+  // dead code so `flutter analyze` stays clean; appearance_provider.dart
+  // and AppTheme.darkPalette are untouched and ready to be reconnected
+  // when full accessibility support is designed.
 
   /// Bottom sheet to change the profile photo — the upload logic already
   /// existed (profile_provider.dart) but had no UI trigger before this

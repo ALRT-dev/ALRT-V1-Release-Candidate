@@ -7,7 +7,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/api/auth_session_events.dart';
 import 'package:hazard_app/features/auth/views/screens/auth_screen.dart';
-import 'package:hazard_app/features/profile/providers/appearance_provider.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
 import 'package:hazard_app/others/app_router.dart';
 import 'package:hazard_app/others/app_theme.dart';
@@ -65,9 +64,17 @@ class _MyAppState extends ConsumerState<MyApp> {
           localizationsDelegates: context.localizationDelegates,
           supportedLocales: context.supportedLocales,
           locale: context.locale,
+          // Pinned to Light for now: Dark mode is unfinished and stays
+          // dormant rather than deleted (AppTheme.darkPalette,
+          // appearance_provider.dart, AppSurfaceColors) so a later,
+          // properly-designed accessibility pass can pick it back up.
+          // Every consumer of AppSurfaceColors resolves from
+          // Theme.of(context).brightness, so pinning it here is the single
+          // switch that keeps the whole app - onboarding included - on one
+          // coherent light visual system without touching those files.
           theme: AppTheme.lightPalette,
           darkTheme: AppTheme.darkPalette,
-          themeMode: ref.watch(providerOfAppearance),
+          themeMode: ThemeMode.light,
 
           // The phone's own font-size setting was passed straight through,
           // so a user on the largest accessibility size overflowed every
