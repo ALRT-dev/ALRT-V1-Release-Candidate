@@ -30,12 +30,12 @@ import 'package:hazard_app/features/map/services/map_service.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/map/utils/hazard_cluster_util.dart';
+import 'package:hazard_app/features/map/utils/hazard_visibility_util.dart';
 import 'package:hazard_app/features/map/utils/bypass_waypoint_planner.dart';
 import 'package:hazard_app/features/map/utils/hazard_corridor_detector.dart';
 import 'package:hazard_app/features/map/utils/navigation_polyline_simulation.dart';
 import 'package:hazard_app/features/map/views/widgets/route_label_marker.dart';
 import 'package:hazard_app/features/search/models/hazard_search_params.dart';
-import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_types.dart';
 import 'package:hazard_app/features/shared/enums/sort_category_types.dart';
@@ -162,55 +162,12 @@ class MapProvider extends StateNotifier<MapProviderState> {
     }
   }
 
-  bool _isInBounds(Hazard hazard, LatLngBounds bounds) {
-    final lat = hazard.latitude;
-    final lng = hazard.longitude;
-    if (lat == null || lng == null) return false;
-    return lat >= bounds.southwest.latitude &&
-        lat <= bounds.northeast.latitude &&
-        lng >= bounds.southwest.longitude &&
-        lng <= bounds.northeast.longitude;
-  }
-
-  /// Returns true if [hazard] passes the given source/category filters.
-  bool _matchesFilters(
-    Hazard hazard,
-    HazardFiltersProviderState filters,
-  ) {
-    // Category filter
-    final categoryId = hazard.categoryId;
-    final parentCategoryId = hazard.category?.parentId;
-    final isCategorySelected =
-        categoryId != null && filters.selectedCategoryIds.contains(categoryId);
-    final isParentCategorySelected =
-        parentCategoryId != null &&
-        filters.selectedCategoryIds.contains(parentCategoryId);
-    if (filters.selectedCategoryIds.isNotEmpty &&
-        !isCategorySelected &&
-        !isParentCategorySelected) {
-      return false;
-    }
-
-    // Source-type filters
-    if (hazard.isUserReported) return filters.userReported;
-
-    if (hazard.isAwsCompliant == true) {
-      return switch (hazard.severityBand) {
-        HazardSeverityBand.critical => filters.awsEmergency,
-        HazardSeverityBand.action => filters.awsWatchAndAct,
-        _ => filters.awsAdvice,
-      };
-    }
-
-    return filters.officialNonAws;
-  }
-
   List<Hazard> _getHazardsInBounds(
     LatLngBounds bounds,
     HazardFiltersProviderState filters,
   ) {
     return state.hazardCache.values
-        .where((h) => _isInBounds(h, bounds) && _matchesFilters(h, filters))
+        .where((h) => hazardIsInMapBounds(h, bounds) && hazardMatchesMapFilters(h, filters))
         .toList();
   }
 
@@ -322,8 +279,8 @@ class MapProvider extends StateNotifier<MapProviderState> {
         // the active filters stay in cache for other filter states.
         updatedCache.removeWhere(
           (id, hazard) =>
-              _isInBounds(hazard, requestedBounds) &&
-              _matchesFilters(hazard, currentFilterState) &&
+              hazardIsInMapBounds(hazard, requestedBounds) &&
+              hazardMatchesMapFilters(hazard, currentFilterState) &&
               !responseIds.contains(id),
         );
         updateHazardCache(updatedCache);
