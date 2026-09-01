@@ -1,0 +1,207 @@
+# Builds the iPhone app (DEV flavour, com.safetyalrt.alrt.dev) pointed at
+# the ISOLATED INTERNAL-TEST backend, and uploads it to the separate
+# "ALRT Dev" App Store Connect app / TestFlight internal group - never the
+# production app or its TestFlight build. Does not modify ios-testflight.yml
+# (still production-connected, unchanged), the production Fastlane lanes
+# (ci_certs/ci_upload), the production bundle ID, or production Firebase
+# configuration.
+#
+# This is the repo-root copy of
+# frontend/.github/workflows/ios-test-testflight.yml, adapted for this
+# monorepo's layout - GitHub Actions only ever discovers workflows at
+# .github/workflows/ on the actual repository root, so the nested copy is
+# invisible to GitHub Actions and can never be dispatched, exactly the same
+# situation android-test.yml was in before its own root copy was added (see
+# that file's header comment). The nested file is left in place, untouched -
+# this is a new, separate file, not a move.
+#
+# This is NOT a byte-for-byte copy: the nested source file has never
+# actually run (confirmed - V1_RECONCILIATION_REPORT.md §34.3 says so
+# explicitly), and it was authored without accounting for this monorepo's
+# layout - the actual Flutter/iOS project lives in frontend/, but the
+# nested file's steps use paths (ios/ExportOptionsCI-dev.plist,
+# lib/main_dev.dart, working-directory: ios, build/ios/ipa/*.ipa) that only
+# resolve correctly if the job's working directory is already frontend/,
+# which nothing in that file ever sets. Copied byte-for-byte, it would fail
+# immediately on its very first real run - "No such file or directory" on
+# effectively every step after checkout. Fixed here the same way
+# android-test.yml already had to be: a job-level
+# `defaults: run: working-directory: frontend`, `frontend/ios` instead of
+# `ios` wherever a step declares its own working-directory (job-level
+# defaults don't apply to those, or to actions/upload-artifact's `path:`,
+# which always resolves against the checkout root regardless - see
+# android-test.yml's own comment on this exact point). Nothing about what
+# the workflow DOES changed by this - purely where its paths point.
+#
+# Uses the existing "dev" Xcode scheme exactly as android-test.yml's Android
+# counterpart does - same app id (com.safetyalrt.alrt.dev). The signing/
+# certificate/upload steps below (ci_certs_dev, ExportOptionsCI-dev.plist,
+# ci_upload) are otherwise UNCHANGED from the nested copy - this file does
+# not create, rotate, or touch any Apple certificate, provisioning profile,
+# App Store Connect app, tester group, or API key.
+#
+# DEV_BASE_URL below is a hardcoded literal, not a secret lookup - mirroring
+# android-test.yml's own DEV_BASE_URL history exactly: it was originally
+# sourced from a "test" GitHub Environment secret (TEST_BACKEND_URL), but
+# that exact secret repeatedly, unexplainedly resolved empty for
+# android-test.yml across four consecutive runs (both API-triggered and
+# manually triggered), never root-caused further. Hardcoding it here from
+# the start avoids inheriting that same failure mode - this URL was never
+# actually sensitive (same class of value as the already-public production
+# API hostname), so there is no lookup left to silently return empty, and no
+# way for it to resolve to the production URL instead. The "Verify the
+# isolated test backend URL is configured" guard step from the nested copy
+# is removed here - there is no secret left to check.
+#
+# Phase 1 TEST IPA scope (matching android-test.yml's own "Phase 1 TEST APK
+# scope" decision exactly, for the same reason - an isolated build that
+# talks to nothing but the isolated TEST backend): Google Sign-In and Google
+# Maps are deliberately blanked below (both the Dart-level .env value and
+# the native ios/Flutter/Maps.xcconfig value, since iOS reads the Maps key
+# from two places - see AppDelegate.swift/Info.plist's GMSApiKey), and
+# RevenueCat is bypassed via ALRT_PLUS_TEST_UNLOCK=true, same mechanism
+# android-test.yml's bypass mode already uses (alrt_plus_provider.dart's
+# isAlrtPlusTestUnlocked gate short-circuits ensureConfigured() before
+# either RevenueCat key would ever be read). Unlike the nested copy, this
+# file does NOT reuse the shared, real GOOGLE_MAPS_API_KEY/
+# GOOGLE_OAUTH_SERVER_CLIENT_ID/REVENUECAT_API_KEY_APPLE/
+# REVENUECAT_API_KEY_GOOGLE secrets production's ios-testflight.yml uses -
+# this build embeds none of those real, shared third-party credentials.
+#
+# Everything else - the Apple signing/upload chain (APP_STORE_CONNECT_*,
+# MATCH_*), Firebase configuration, and the "test" GitHub Environment - is
+# unchanged from the nested copy. Two prerequisites this file does not
+# create and cannot check: (1) the com.safetyalrt.alrt.dev distribution
+# certificate/profile does not yet exist in the shared MATCH_GIT_URL certs
+# repo - the first real run must pass generate_certs=true so fastlane match
+# creates it (additive; does not touch or revoke the production
+# certificate/profile); (2) the "ALRT Dev" App Store Connect app,
+# com.safetyalrt.alrt.dev App ID, and a TestFlight internal group with a
+# tester added are expected to already exist (per product-owner setup) -
+# reconfirm these in App Store Connect before the first real run.
+#
+# Manual trigger only (workflow_dispatch) - deliberately does not run on
+# push, matching every other TEST/release CI workflow in this repo.
+name: iOS Dev TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      generate_certs:
+        description: "First run only: generate the com.safetyalrt.alrt.dev signing certificate/profile"
+        type: boolean
+        default: false
+      build_number:
+        description: "Build number override (blank = automatic)"
+        required: false
+        default: ""
+
+# The actual Flutter/iOS project lives in frontend/, not the repo root -
+# see the header comment above. Applies to every plain `run:` step below;
+# does NOT affect actions/checkout, subosito/flutter-action, or
+# ruby/setup-ruby (none of them read/write repo-relative files the way a
+# shell step does, so working-directory doesn't apply to them), or
+# actions/upload-artifact's `path:` (that one always resolves against the
+# checkout root regardless of this default).
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: frontend/ios
+
+      # Google Sign-In and Google Maps are blanked here - see the Phase 1
+      # TEST IPA scope comment at the top of this file for why that's safe
+      # (matches android-test.yml's own reasoning: a blank client id/key
+      # cannot crash app startup, it only leaves that feature non-functional
+      # when used). DEV_BASE_URL is the hardcoded isolated TEST backend URL
+      # - see the comment at the top of this file for why this is a
+      # literal, not a secret lookup. ALRT_PLUS_TEST_UNLOCK=true bypasses
+      # RevenueCat entirely, matching android-test.yml's bypass mode.
+      - name: Create .env pointed at the isolated test backend
+        run: |
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
+            echo "GOOGLE_MAPS_API_KEY="
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE="
+            echo "REVENUECAT_API_KEY_GOOGLE="
+            echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
+            echo "ALRT_PLUS_TEST_UNLOCK=true"
+          } > .env
+
+      # iOS reads the Maps key from this xcconfig too (see AppDelegate.swift
+      # / Info.plist's GMSApiKey) - a separate native-layer path from the
+      # Dart-level .env value above, so it needs blanking here as well to
+      # actually keep Maps non-functional on this build.
+      - name: Create ios/Flutter/Maps.xcconfig (blank - Maps disabled on this TEST build)
+        run: echo "GOOGLE_MAPS_API_KEY=" > ios/Flutter/Maps.xcconfig
+
+      - run: flutter pub get
+
+      # Unchanged from the nested copy (aside from the working-directory
+      # correction - see the header comment) - this does not create, rotate,
+      # or touch any Apple certificate/profile/App/key beyond what running
+      # this exact step already required before this file existed at the
+      # live location.
+      - name: Install signing certificate and profile (ALRT Dev / com.safetyalrt.alrt.dev)
+        working-directory: frontend/ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
+
+      - name: Build the signed iPhone app (dev flavour, isolated test backend)
+        run: |
+          BUILD_NUMBER="${{ inputs.build_number }}"
+          if [ -z "$BUILD_NUMBER" ]; then
+            BUILD_NUMBER=$((100 + ${{ github.run_number }}))
+          fi
+          echo "Building with build number $BUILD_NUMBER"
+          flutter build ipa --release --flavor dev -t lib/main_dev.dart \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=ios/ExportOptionsCI-dev.plist
+
+      - name: Upload to TestFlight (ALRT Dev)
+        working-directory: frontend/ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          IPA_PATH="$(ls "$GITHUB_WORKSPACE"/frontend/build/ios/ipa/*.ipa | head -1)"
+          echo "Uploading $IPA_PATH"
+          export IPA_PATH
+          bundle exec fastlane ci_upload
+
+      # Keep the ipa on the run page too, in case the upload step needs a
+      # retry. upload-artifact's `path:` always resolves against the
+      # checkout root regardless of the working-directory default above -
+      # see the header comment - so it needs the frontend/ prefix here.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ALRT-ios-dev-ipa
+          path: frontend/build/ios/ipa/*.ipa
+          retention-days: 14
