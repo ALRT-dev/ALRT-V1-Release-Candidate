@@ -33,10 +33,12 @@
 # empty, and no way for it to resolve to the production URL instead,
 # since changing it now requires a reviewed commit to this repo.
 #
-# Phase 1 TEST APK scope (product-owner decision): Google Sign-In, Google
-# Maps, and RevenueCat are all deliberately blanked below so this build
-# connects only to the isolated TEST backend and no other external
-# production-connected service. Verified before making this change:
+# Phase 1 TEST APK scope (product-owner decision): Google Sign-In and
+# RevenueCat are deliberately blanked/bypassed below so this build connects
+# only to the isolated TEST backend and no other external
+# production-connected service. Google Maps is the one exception - see
+# "TEST Google Maps API key" below - it now ships a real, but
+# Android-app-restricted, TEST-only key. Verified before making this change:
 # - Google Sign-In's init call is wrapped in a caught async call whose
 #   result the app initialization sequence never inspects
 #   (auth_repository.dart / app_initialization_provider.dart) - a blank
@@ -50,6 +52,20 @@
 #   same shared Firebase app the existing [Dev] ALRT build already uses;
 #   this workflow has no mechanism to change that (it's a committed file,
 #   not an env var).
+#
+# TEST Google Maps API key: GOOGLE_MAPS_API_KEY is read from the
+# repository-level Secret TEST_GOOGLE_MAPS_API_KEY (Settings > Secrets and
+# variables > Actions > Secrets), a separate Google Cloud key ("ALRT TEST
+# Android Maps") restricted to this app's package id and the stable TEST
+# signing certificate's SHA-1 (see "Stable TEST-only signing" below for
+# where that SHA-1 comes from) - it cannot be used from any other app or
+# build. Never printed: it flows through this workflow only via `env:`
+# blocks into shell variables, the same pattern every other secret here
+# uses, so GitHub Actions' automatic step-echo of script source never shows
+# it. A missing/empty key does not fail the build (Maps was already blank
+# here until now, and a blank key just leaves the map non-functional, the
+# same non-fatal failure mode as a blank Google Sign-In client id above) -
+# a guard step reports only whether it resolved, by length, never by value.
 #
 # Manual trigger only (workflow_dispatch) — deliberately does not run on
 # push.
@@ -215,14 +231,30 @@ jobs:
         env:
           REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
 
-      # Google Sign-In and Google Maps are blanked here regardless of
-      # billing_mode - see the Phase 1 TEST APK scope comment at the top
-      # of this file for why each is safe to blank without breaking app
-      # startup. DEV_BASE_URL is the hardcoded isolated TEST backend URL -
-      # see the comment at the top of this file for why this is a
-      # literal, not a secret lookup. REVENUECAT_API_KEY_GOOGLE and
-      # ALRT_PLUS_TEST_UNLOCK depend on billing_mode - see the
-      # billing_mode comment at the top of this file.
+      # Reports only whether TEST_GOOGLE_MAPS_API_KEY resolved (by length),
+      # never its value. Non-fatal if empty - see the "TEST Google Maps API
+      # key" comment at the top of this file for why a blank key is safe
+      # (Maps just stays non-functional, not a build failure), unlike the
+      # signing-secrets guard above which does fail the build.
+      - name: Verify the TEST Google Maps API key is configured
+        run: |
+          if [ -z "$GOOGLE_MAPS_API_KEY" ]; then
+            echo "::warning::TEST_GOOGLE_MAPS_API_KEY is not set - this build's GOOGLE_MAPS_API_KEY will be blank, same as before this key existed."
+          else
+            echo "TEST_GOOGLE_MAPS_API_KEY is set (length: ${#GOOGLE_MAPS_API_KEY} characters). Value itself is never printed."
+          fi
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY }}
+
+      # Google Sign-In is blanked here regardless of billing_mode - see the
+      # Phase 1 TEST APK scope comment at the top of this file for why
+      # that's safe to blank without breaking app startup. Google Maps
+      # reads the real repository Secret TEST_GOOGLE_MAPS_API_KEY (see
+      # "TEST Google Maps API key" comment at the top). DEV_BASE_URL is the
+      # hardcoded isolated TEST backend URL - see the comment at the top of
+      # this file for why this is a literal, not a secret lookup.
+      # REVENUECAT_API_KEY_GOOGLE and ALRT_PLUS_TEST_UNLOCK depend on
+      # billing_mode - see the billing_mode comment at the top of this file.
       - name: Create .env pointed at the isolated test backend
         run: |
           if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
@@ -234,7 +266,7 @@ jobs:
           fi
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
-            echo "GOOGLE_MAPS_API_KEY="
+            echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE="
@@ -244,6 +276,7 @@ jobs:
           } > .env
         env:
           REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY }}
 
       # Runs only after .env exists (above): pubspec.yaml declares .env as
       # a Flutter asset (flutter_dotenv), so running this any earlier
