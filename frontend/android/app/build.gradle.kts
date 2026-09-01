@@ -109,27 +109,46 @@ android {
             dimension = "default"
             resValue("string", "app_name", "[Dev] ALRT")
             applicationIdSuffix = ".dev"
-            // Overrides the buildTypes.release signingConfig below for
-            // this flavour only, when present - never touches the "prod"
-            // flavour, which is untouched by anything in this block.
-            if (hasTestKeystore) {
-                signingConfig = signingConfigs.getByName("devTest")
+            // Set here, not in buildTypes.release below - see the comment
+            // on that (now-empty) block for why. Falls back to plain debug
+            // signing when test-key.properties isn't present (local
+            // machines, android-apk.yml's CI environment) - unchanged,
+            // intentional behaviour for that workflow's QR-code installs.
+            signingConfig = if (hasTestKeystore) {
+                signingConfigs.getByName("devTest")
+            } else {
+                signingConfigs.getByName("debug")
             }
         }
         create("prod") {
             dimension = "default"
             resValue("string", "app_name", "ALRT")
             applicationIdSuffix = ""
-        }
-    }
-
-    buildTypes {
-        release {
+            // Set here, not in buildTypes.release below - see the comment
+            // on that (now-empty) block. Identical condition/fallback as
+            // before this moved - no behaviour change for this flavour.
             signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
             }
+        }
+    }
+
+    buildTypes {
+        release {
+            // Deliberately does NOT set signingConfig - each flavour above
+            // sets its own. AGP's variant merge gives a buildType's
+            // signingConfig priority over a productFlavor's when both set
+            // one, so setting it here (as this file used to) silently
+            // discarded productFlavors.dev's devTest signingConfig on
+            // every devRelease build in the android-test.yml CI
+            // environment (where hasReleaseKeystore is always false, so
+            // this always resolved to plain debug) - the app was never
+            // actually using the stable TEST keystore despite the secrets
+            // being configured and the guard step passing, which is why
+            // its SHA-1 kept changing between builds. Do not reintroduce a
+            // signingConfig assignment here.
         }
     }
 }
@@ -138,9 +157,9 @@ android {
 // debug-signed. CI (android-release.yml) already refuses to run at all
 // without the real signing secrets, before Gradle is even invoked - this
 // closes the same gap for anyone building `--flavor prod --release`
-// directly on a machine without android/key.properties, where the
-// buildTypes block above would otherwise fall back to debug signing with
-// no warning. The 'dev' flavour is deliberately unaffected by this guard:
+// directly on a machine without android/key.properties, where
+// productFlavors.prod above would otherwise fall back to debug signing
+// with no warning. The 'dev' flavour is deliberately unaffected by this guard:
 // android-apk.yml still ships a plain debug-signed 'dev' build on purpose
 // (QR-code installs), and android-test.yml now enforces its own separate
 // requirement in CI (see the productFlavors.dev block above and that

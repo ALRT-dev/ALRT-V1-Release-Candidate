@@ -117,6 +117,20 @@
 # 'dev' flavour this workflow builds - production signing
 # (android-release.yml, the real upload keystore) is completely
 # untouched by this.
+#
+# Incident: for every run between when this was first added and today,
+# devRelease was STILL silently signing with the ephemeral debug keystore
+# despite all of the above - the guard step passed, the keystore decoded
+# fine, but build.gradle.kts also set signingConfig on buildTypes.release
+# (to plain debug, since hasReleaseKeystore is always false here), and
+# AGP's variant merge gives a buildType's signingConfig priority over a
+# productFlavor's when both set one. Three consecutive bypass builds each
+# reported a different SHA-1 before this was caught. Fixed by moving
+# signingConfig onto each productFlavor only (see build.gradle.kts) and by
+# adding a verification step below that independently reads the decoded
+# keystore's own certificate and compares it against the finished APK's -
+# it now fails the whole workflow, loudly, rather than reporting a
+# fingerprint that might not actually match what was built.
 name: Android Test Build
 
 on:
@@ -319,28 +333,63 @@ jobs:
             echo "apk_filename=app-dev-release.apk" >> "$GITHUB_OUTPUT"
           fi
 
-      # Reads the certificate straight out of the built APK, not the
-      # keystore - needs no secret material at all, so there's nothing
-      # here that could leak a password or the base64 keystore, and it
-      # reports whatever signingConfig Gradle actually applied rather
-      # than assuming which one won. Uses apksigner rather than
-      # `keytool -printcert -jarfile`: keytool only understands legacy
-      # v1 (JAR) signing, and AGP skips v1 signing by default once
-      # minSdkVersion is high enough, leaving only the v2/v3 APK
-      # Signature Block that keytool can't read at all - it would
-      # silently report "not a signed jar" with no visible error.
-      # apksigner (bundled with the Android SDK build-tools already on
-      # the runner) verifies whichever scheme(s) actually signed the
-      # APK. SHA-1 is safe to print: it's the public fingerprint an
-      # Android API key restriction is matched against, not a secret.
-      - name: Report the TEST APK signing certificate SHA-1
+      # Independently verifies devRelease actually got signed with the
+      # decoded TEST keystore, rather than trusting that Gradle applied the
+      # signingConfig the workflow intended. Added after a real incident:
+      # build.gradle.kts used to set signingConfig on both
+      # productFlavors.dev (devTest) and buildTypes.release (debug, since
+      # hasReleaseKeystore is always false here) - AGP's variant merge
+      # gives a buildType's signingConfig priority over a productFlavor's,
+      # so devRelease was silently signed with the ephemeral, freshly
+      # regenerated Android debug keystore on every run, despite the TEST
+      # keystore secrets being configured correctly and the guard step
+      # above passing. That produced a different, unstable SHA-1 on every
+      # build (confirmed directly: three consecutive bypass runs reported
+      # three different values). Fixed in build.gradle.kts (signingConfig
+      # now lives only on each productFlavor, never on buildTypes.release),
+      # but this step exists so a future regression of the same kind fails
+      # the workflow loudly instead of silently re-reporting a fingerprint
+      # that no longer matches what a Google Maps key was restricted to.
+      #
+      # Compares two independently-derived SHA-1s:
+      #  - the decoded TEST keystore's own certificate (`keytool -list -v`
+      #    read directly from test-keystore.jks, before it's deleted below)
+      #  - the finished APK's actual signing certificate (`apksigner
+      #    verify --print-certs` - see the previous version of this step
+      #    for why apksigner is used over `keytool -printcert -jarfile`)
+      # and fails if they differ, printing neither value in that case -
+      # only the single, confirmed-matching SHA-1 is ever printed. Neither
+      # extraction command touches the keystore/key passwords or base64
+      # content beyond what's needed to open the keystore file itself, and
+      # both password secrets are passed via `-storepass:env`/`env:`, never
+      # written into the command line or echoed.
+      - name: Verify the built APK is signed with the decoded TEST keystore
         run: |
+          KEYSTORE_SHA1=$(keytool -list -v -keystore android/test-keystore.jks -alias "$TEST_ANDROID_KEY_ALIAS" -storepass:env TEST_ANDROID_KEYSTORE_PASSWORD | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//')
+
           APKSIGNER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools" -name apksigner -type f | sort -V | tail -1)
-          RAW=$("$APKSIGNER" verify --print-certs "build/app/outputs/flutter-apk/${{ steps.build.outputs.apk_filename }}" | grep "certificate SHA-1 digest:" | awk '{print $NF}')
-          SHA1=$(echo "$RAW" | tr 'a-f' 'A-F' | sed 's/../&:/g;s/:$//')
-          echo "TEST APK signing certificate SHA-1: $SHA1"
-          echo "### TEST APK signing certificate" >> "$GITHUB_STEP_SUMMARY"
-          echo "SHA-1: \`$SHA1\`" >> "$GITHUB_STEP_SUMMARY"
+          APK_SHA1_RAW=$("$APKSIGNER" verify --print-certs "build/app/outputs/flutter-apk/${{ steps.build.outputs.apk_filename }}" | grep "certificate SHA-1 digest:" | awk '{print $NF}')
+          APK_SHA1=$(echo "$APK_SHA1_RAW" | tr 'a-f' 'A-F' | sed 's/../&:/g;s/:$//')
+
+          if [ -z "$KEYSTORE_SHA1" ]; then
+            echo "::error::Could not read a certificate SHA-1 from the decoded TEST keystore (test-keystore.jks) - check that TEST_ANDROID_KEY_ALIAS and TEST_ANDROID_KEYSTORE_PASSWORD are correct."
+            exit 1
+          fi
+          if [ -z "$APK_SHA1" ]; then
+            echo "::error::Could not read a certificate SHA-1 from the built APK via apksigner."
+            exit 1
+          fi
+          if [ "$KEYSTORE_SHA1" != "$APK_SHA1" ]; then
+            echo "::error::The built APK is signed with a DIFFERENT identity than the decoded TEST keystore - devRelease did not use the intended signingConfig. Refusing to report a fingerprint that would not match a Google Maps API key restricted to the real TEST keystore."
+            exit 1
+          fi
+
+          echo "TEST APK signing certificate SHA-1 (verified against the decoded TEST keystore): $KEYSTORE_SHA1"
+          echo "### TEST APK signing certificate (verified)" >> "$GITHUB_STEP_SUMMARY"
+          echo "SHA-1: \`$KEYSTORE_SHA1\`" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          TEST_ANDROID_KEY_ALIAS: ${{ secrets.TEST_ANDROID_KEY_ALIAS }}
+          TEST_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
 
       # Always runs, even if the build above failed, so a decoded TEST
       # keystore is never left behind in the runner's workspace.
