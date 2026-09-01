@@ -7,18 +7,25 @@ import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import { ReviewStatusBadge, SeverityBadge } from "../components/StatusBadge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HazardDetailModal } from "../components/HazardDetailModal";
+import { TestAlertPickerModal } from "../components/TestAlertPickerModal";
 import { ApiError } from "../api/client";
 import type { AdminHazard, HazardReviewStatus } from "../api/types";
+import {
+  SCARBOROUGH_WA_LAT,
+  SCARBOROUGH_WA_LNG,
+  testAlertExpiresAt,
+} from "../data/testAlertPresets";
+import type { TestAlertPreset } from "../data/testAlertPresets";
 
-// Fixed, non-editable payload for the TEST-only "Create Dummy Alert"
-// button below - no free-text fields, no location picker, no media, so
-// there's nothing for an admin to mistype or accidentally point at a
-// real category/AI path. categoryId "airQualityAlert" is what routes
-// creation through a deterministic template instead of calling AI (see
-// createHazard's doc comment in api/resources.ts).
-const DUMMY_SOURCE_ID = "test-dummy";
-const DUMMY_TITLE = "TEST — DO NOT USE";
-const dummyAlertsEnabled = import.meta.env.VITE_ENABLE_DUMMY_ALERTS === "true";
+// Disposable TEST-only source every "Create Test Alert" preset attaches
+// to - lazily created via the API on first use (see handleCreateTestAlert
+// below), same as the original single dummy-alert button. The env var
+// name predates the picker (it started as one fixed button) but still
+// works exactly the same way: it's only set in admin/.env.test, so a
+// plain production build never inlines it and the button/picker don't
+// exist at all - not just hidden by role/CSS.
+const TEST_SOURCE_ID = "test-dummy";
+const testAlertsEnabled = import.meta.env.VITE_ENABLE_DUMMY_ALERTS === "true";
 
 export const AlertsPage = () => {
   const { hasRole } = useAuth();
@@ -30,7 +37,8 @@ export const AlertsPage = () => {
   const [origin, setOrigin] = useState<"" | "official" | "community">("");
   const [selected, setSelected] = useState<AdminHazard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminHazard | null>(null);
-  const [creatingDummy, setCreatingDummy] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [creatingPresetId, setCreatingPresetId] = useState<string | null>(null);
 
   const fetcher = useCallback(
     () =>
@@ -57,18 +65,19 @@ export const AlertsPage = () => {
     }
   };
 
-  // TEST-only - see dummyAlertsEnabled above. Creates the disposable
+  // TEST-only - see testAlertsEnabled above. Creates the disposable
   // "test-dummy" source on first use (ignoring the "already exists" 400
-  // on every click after that), then the fixed dummy alert itself. No
-  // AI, Maps, Firebase, email, or payment service is touched by either
-  // call - both are the same existing admin endpoints a real admin uses
-  // for real hazard management.
-  const handleCreateDummyAlert = async () => {
-    setCreatingDummy(true);
+  // on every subsequent preset), then the picked preset's fixed alert. No
+  // AI (per-preset useDummyAi, see testAlertPresets.ts), Maps, Firebase,
+  // email, or payment service is touched by either call - both are the
+  // same existing admin endpoints a real admin uses for real hazard
+  // management, just with fixed, non-editable payloads.
+  const handleCreateTestAlert = async (preset: TestAlertPreset) => {
+    setCreatingPresetId(preset.id);
     try {
       try {
         await createHazardSource({
-          id: DUMMY_SOURCE_ID,
+          id: TEST_SOURCE_ID,
           name: "TEST DUMMY SOURCE - DO NOT USE",
           url: "https://example.invalid/test",
         });
@@ -76,19 +85,24 @@ export const AlertsPage = () => {
         if (!(err instanceof ApiError && err.status === 400)) throw err;
       }
       await createHazard({
-        title: DUMMY_TITLE,
-        description: "Dummy alert for TEST environment verification only.",
-        sourceId: DUMMY_SOURCE_ID,
-        categoryId: "airQualityAlert",
-        latitude: -31.89441,
-        longitude: 115.75999,
+        title: preset.title,
+        description: preset.description,
+        sourceId: TEST_SOURCE_ID,
+        categoryId: preset.categoryId,
+        latitude: SCARBOROUGH_WA_LAT,
+        longitude: SCARBOROUGH_WA_LNG,
+        severity: preset.severity,
+        severityBand: preset.severityBand,
+        expiresAt: testAlertExpiresAt(),
+        useDummyAi: preset.useDummyAi,
       });
-      notifySuccess(`Created "${DUMMY_TITLE}".`);
+      notifySuccess(`Created "${preset.title}".`);
+      setPickerOpen(false);
       refetch();
     } catch (err) {
-      notifyError(err instanceof ApiError ? err.message : "Failed to create dummy alert.");
+      notifyError(err instanceof ApiError ? err.message : "Failed to create test alert.");
     } finally {
-      setCreatingDummy(false);
+      setCreatingPresetId(null);
     }
   };
 
@@ -125,14 +139,13 @@ export const AlertsPage = () => {
           <option value="official">Official only</option>
           <option value="community">Community only</option>
         </select>
-        {dummyAlertsEnabled && canWrite && (
+        {testAlertsEnabled && canWrite && (
           <button
             type="button"
             className="btn btn-sm"
-            disabled={creatingDummy}
-            onClick={() => void handleCreateDummyAlert()}
+            onClick={() => setPickerOpen(true)}
           >
-            {creatingDummy ? "Creating..." : "Create Dummy Alert"}
+            Create Test Alert
           </button>
         )}
       </div>
@@ -206,6 +219,14 @@ export const AlertsPage = () => {
           danger
           onConfirm={() => void handleDelete()}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {testAlertsEnabled && pickerOpen && (
+        <TestAlertPickerModal
+          creatingId={creatingPresetId}
+          onSelect={(preset) => void handleCreateTestAlert(preset)}
+          onCancel={() => setPickerOpen(false)}
         />
       )}
     </div>

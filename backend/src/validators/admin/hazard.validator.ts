@@ -192,6 +192,14 @@ export const createHazardForAdminBodySchema = z.object({
   occurredAt: z.iso.datetime().optional(),
 
   expiresAt: z.iso.datetime().optional(),
+
+  // Opt-in only - existing callers that omit this get the exact same
+  // behaviour as before (an AI summarization call, unless categoryId is
+  // airQualityAlert). When true, summarizeHazard's pre-existing
+  // useDummy mode is used instead, which never calls the AI model for
+  // any category - see the TEST Alert picker in the Admin Portal, the
+  // only caller that sets this today.
+  useDummyAi: z.boolean().optional(),
 });
 
 export type CreateHazardForAdminBody = z.infer<

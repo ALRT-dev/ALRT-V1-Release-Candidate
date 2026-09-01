@@ -146,6 +146,7 @@ export const createHazardForAdmin = async (
       link,
       occurredAt,
       expiresAt,
+      useDummyAi = false,
     }: CreateHazardForAdminBody = req.body;
 
     // Validate sourceId
@@ -183,7 +184,10 @@ export const createHazardForAdmin = async (
     }
     category = category || attributes.category;
 
-    // Summarize hazard using AI
+    // Summarize hazard using AI, unless the caller explicitly opted into
+    // summarizeHazard's pre-existing no-AI passthrough mode (useDummyAi) -
+    // airQualityAlert already skips the AI model regardless, via its own
+    // deterministic template branch inside summarizeHazard.
     const summarized = await summarizeHazard({
       title: title || "",
       description,
@@ -192,6 +196,7 @@ export const createHazardForAdmin = async (
       source,
       isAwsCompliant,
       severityBand,
+      useDummy: useDummyAi,
     });
 
     // Calculate confidence score for the admin created hazard
