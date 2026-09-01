@@ -19,6 +19,7 @@ import 'package:hazard_app/features/family/views/screens/family_sos_receiver_scr
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
+import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/family/views/widgets/family_leave_confirm_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_list_item.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
@@ -315,14 +316,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     final nearCount = memberIdsNearAlert.length;
 
     return SliverToBoxAdapter(
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [FamilyColors.indigo, FamilyColors.indigoDark],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+      // Uses the shared family header blend (FamilyColors.headerGradient +
+      // headerHighlight) rather than the old flat two-stop indigo, so the
+      // hub reads as the same purple/gradient family as ALRT+ instead of a
+      // plain blue slab that made this the only rich header in the section.
+      child: FamilyHeaderSurface(
         padding: EdgeInsets.fromLTRB(20.spMin, 0, 20.spMin, 24.spMin),
         child: SafeArea(
           bottom: false,

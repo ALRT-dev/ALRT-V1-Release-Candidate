@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_source_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
@@ -106,13 +107,7 @@ class _FamilyCircleProfileScreenState
 
     return Scaffold(
       backgroundColor: FamilyColors.v31Page,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: Text(
-          'My profile in this group',
-          style: TextStyle(fontSize: 17.spMin, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: const FamilyAppBar(title: 'My profile in this group'),
       // Not a ListView: lazy lists only build what is on screen, so the
       // section keys below the fold had no context and the deep links from
       // the hub silently landed at the top. This screen is small; building

@@ -23,9 +23,9 @@ import 'package:hazard_app/features/profile/views/screens/delete_account_screen.
 import 'package:hazard_app/features/profile/views/screens/my_hazards_screen.dart';
 import 'package:hazard_app/features/profile/views/widgets/accepted_hazards_widgets/my_accepted_hazards_list.dart';
 import 'package:hazard_app/features/profile/views/widgets/add_widget_sheet.dart';
+import 'package:hazard_app/features/profile/views/screens/points_breakdown_screen.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_colors.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_gradient_icon.dart';
-import 'package:hazard_app/features/profile/views/widgets/profile_trust_card.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_xp_progress.dart';
 import 'package:hazard_app/features/profile/views/widgets/rejected_hazards_widgets/my_rejected_hazards_list.dart';
 import 'package:hazard_app/features/shared/enums/user_badge_enum.dart';
@@ -74,8 +74,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _buildAlrtPlusHighlightCard(),
                   24.spMin.hSizedBox,
                   _buildStatsSection(),
-                  14.spMin.hSizedBox,
-                  const ProfileTrustCard(),
                   24.spMin.hSizedBox,
                   _buildSubmittedHazardsSection(),
                   _buildFailedReviewsSection(),
@@ -720,12 +718,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// ACCOUNT: help & feedback (+ the QA-only paywall preview row). ALRT+
-  /// membership itself is now its own highlight card above.
+  /// ACCOUNT: points, help & feedback (+ the QA-only paywall preview row).
+  /// ALRT+ membership itself is now its own highlight card above.
   Widget _buildAccountSection() {
     return _buildSectionCard(
       label: 'Account',
       rows: [
+        // The only remaining path to the points breakdown after removing
+        // the old ProfileTrustCard block (duplicate tier/streak/quest
+        // card, replaced by the single compact XP bar in the header) - a
+        // quiet row here rather than a second progress display. "How
+        // points work" stays reachable from the report-submission screen
+        // (create_update_report_screen.dart), so it does not need a
+        // second entry point here too.
+        _buildProfileRow(
+          title: 'Your points',
+          subtitle: 'See where your points came from',
+          icon: LucideIcons.star,
+          accent: const ProfileRowAccent(Color(0xFFFFD166), Color(0xFFE1A500)),
+          onTap: () => context.push(PointsBreakdownScreen.route),
+        ),
         // QA builds ship with the test unlock on, which hides every
         // paywall gate — this row lets the paywall itself be reviewed.
         // isAlrtPlusTestUnlocked requires appFlavor == 'dev' AND the

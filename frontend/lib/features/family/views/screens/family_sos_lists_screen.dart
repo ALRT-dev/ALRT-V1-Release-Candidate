@@ -6,6 +6,7 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_list_edit_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 
 /// Who your SOS reaches: the saved lists, set up calmly in advance.
 ///
@@ -52,12 +53,13 @@ class _FamilySosListsScreenState extends ConsumerState<FamilySosListsScreen> {
 
     return Scaffold(
       backgroundColor: _page,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
+      appBar: const FamilyAppBar(
+        title: 'Who your SOS reaches',
+        subtitle: 'Set your lists here so you never choose in an emergency',
+      ),
+      body: ListView(
         padding: EdgeInsets.only(bottom: 40.spMin),
         children: [
-          _headerBuilder(),
           Padding(
             padding: EdgeInsets.fromLTRB(16.spMin, 15.spMin, 16.spMin, 7.spMin),
             child: Text(
@@ -136,53 +138,6 @@ class _FamilySosListsScreenState extends ConsumerState<FamilySosListsScreen> {
           ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _headerBuilder() {
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.fromLTRB(16.spMin, 52.spMin, 16.spMin, 16.spMin),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.of(context).maybePop(),
-            child: Container(
-              width: 30.spMin,
-              height: 30.spMin,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF1EEF4),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.arrow_back_ios_new_rounded, size: 14.spMin),
-            ),
-          ),
-          SizedBox(width: 11.spMin),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Who your SOS reaches',
-                  style: TextStyle(
-                    fontSize: 20.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                Text(
-                  'Set your lists here so you never choose in an emergency',
-                  style: TextStyle(
-                    fontSize: 11.5.spMin,
-                    color: FamilyColors.v31Ink,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
