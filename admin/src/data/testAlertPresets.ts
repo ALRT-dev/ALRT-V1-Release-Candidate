@@ -10,9 +10,18 @@ import type { HazardSeverity, HazardSeverityBand } from "../api/types";
 //    dummy alert settled on (see git history: 41b2628, 9cd2bb2) - the app's
 //    Map tab filters hazards by the device's current GPS-seeded viewport,
 //    so these will only appear there on a device/emulator located at or
-//    panned to Scarborough; the Alerts/Notifications (bell) tab is not
-//    viewport-dependent and is the reliable way to confirm a preset was
-//    created and is visible to the app regardless of device location.
+//    panned to Scarborough. The Alerts/Notifications (bell) tab is NOT
+//    viewport-dependent, but it IS scoped to the signed-in user's saved
+//    LocationSubscription bounding box(es) (own-location + any saved
+//    locations - see location_subscription.service.ts, applied in
+//    notification.controller.ts via buildHazardsWhereClauseRaw's
+//    subscriptions branch) - a tester with zero subscriptions, or none
+//    covering Scarborough, will see an empty/short feed regardless of
+//    whether the alert was created correctly. The Map tab panned to
+//    Scarborough is the reliable, subscription-independent way to confirm
+//    a preset was created and is visible to the app (verified end-to-end:
+//    review status, expiry, viewport bounds, and parent/child category
+//    matching all resolve correctly there for every preset here).
 //  - uses a real, currently-seeded category id (hazard_category.service.ts)
 //    - never an invented one
 //  - sets severity/severityBand explicitly so the result is deterministic,
