@@ -97,7 +97,20 @@ android {
             create("devTest") {
                 keyAlias = testKeystoreProperties["keyAlias"] as String
                 keyPassword = testKeystoreProperties["keyPassword"] as String
-                storeFile = testKeystoreProperties["storeFile"]?.let { file(it) }
+                // rootProject.file(), not file(): the decode step in
+                // android-test.yml writes test-keystore.jks into
+                // frontend/android/ (this project's rootProject), not into
+                // frontend/android/app/ (this build.gradle.kts's own
+                // project directory, which is what a bare file(it) call
+                // resolves relative to). Using file(it) here failed the
+                // very first real build against this signingConfig with
+                // "Keystore file '.../app/test-keystore.jks' not found for
+                // signing config 'devTest'" - devRelease had never
+                // actually reached this far before (it was silently
+                // signing with the debug keystore instead, per the fix
+                // above this one), so the mismatched path went unnoticed
+                // until now.
+                storeFile = testKeystoreProperties["storeFile"]?.let { rootProject.file(it) }
                 storePassword = testKeystoreProperties["storePassword"] as String
             }
         }
