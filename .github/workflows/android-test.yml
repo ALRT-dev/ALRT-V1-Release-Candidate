@@ -269,6 +269,13 @@ jobs:
       # this file for why this is a literal, not a secret lookup.
       # REVENUECAT_API_KEY_GOOGLE and ALRT_PLUS_TEST_UNLOCK depend on
       # billing_mode - see the billing_mode comment at the top of this file.
+      # USE_DUMMY_AI_FOR_REPORTS=true makes a community "post an alert"
+      # report ask the backend to skip its AI review call (see
+      # hazard_repository.dart's useDummyAiForReports and
+      # reviewHazard's useDummy branch, backend/src/services/hazard.service.ts)
+      # - the backend re-checks NODE_ENV server-side regardless of what
+      # this flag says, so it has no effect unless the backend is
+      # genuinely running as the TEST environment.
       - name: Create .env pointed at the isolated test backend
         run: |
           if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
@@ -287,6 +294,7 @@ jobs:
             echo "REVENUECAT_API_KEY_GOOGLE=$REVENUECAT_GOOGLE_VALUE"
             echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
             echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
+            echo "USE_DUMMY_AI_FOR_REPORTS=true"
           } > .env
         env:
           REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}

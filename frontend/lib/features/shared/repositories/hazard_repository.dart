@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hazard_app/api/rest_client.dart';
 import 'package:hazard_app/features/search/models/hazard_search_params.dart';
 import 'package:hazard_app/features/shared/enums/hazard_vote_types.dart';
@@ -12,6 +14,32 @@ import 'package:hazard_app/features/shared/models/get_hazards_with_subscription_
 import 'package:hazard_app/features/shared/models/view_hazard_response_model.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
+
+/// Whether a newly-created community report should ask the backend to
+/// skip its AI review call (backend/src/services/hazard.service.ts's
+/// reviewHazard `useDummy` branch) - only ever sent as a request field,
+/// never trusted on its own: the backend re-checks NODE_ENV server-side
+/// and ignores this unless it's actually running in the TEST
+/// environment, so a stray flag left on in a store build has no effect.
+/// appFlavor is the same double-gate isAlrtPlusTestUnlocked already
+/// uses (see alrt_plus_provider.dart) - the sideloaded dev APK is built
+/// --release too, so kReleaseMode alone can't tell it apart from a real
+/// release build.
+bool get useDummyAiForReports =>
+    appFlavor == 'dev' && dotenv.env['USE_DUMMY_AI_FOR_REPORTS'] == 'true';
+
+/// Pure and unit-testable: appends `useDummyAi: true` to [hazardJson] when
+/// [enabled] is true, otherwise returns it unchanged. Separated from
+/// [useDummyAiForReports] itself so the actual injection logic can be
+/// tested without needing to fake `appFlavor` (a compile-time constant
+/// set by --flavor, not toggleable at test time) or dotenv state.
+Map<String, dynamic> withDummyAiFlagIfEnabled(
+  Map<String, dynamic> hazardJson, {
+  required bool enabled,
+}) {
+  if (!enabled) return hazardJson;
+  return {...hazardJson, 'useDummyAi': true};
+}
 
 abstract class HazardRepository {
   Future<Either<List<Hazard>, AppError>> getHazards({
@@ -117,8 +145,12 @@ class HazardRepositoryImpl extends HazardRepository {
     return runAsyncCall(
       name: 'createHazardReport',
       future: () async {
+        final hazardJson = withDummyAiFlagIfEnabled(
+          hazard.toJson(),
+          enabled: useDummyAiForReports,
+        );
         final result = await _restClient.createHazardReport(
-          hazard: hazard.toJson(),
+          hazard: hazardJson,
           mediaFiles: mediaFiles?.map((media) => File(media.value)).toList(),
         );
         return Success(result);
