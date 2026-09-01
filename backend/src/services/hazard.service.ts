@@ -493,6 +493,7 @@ export const reviewHazard = async ({
   longitude,
   locationName,
   severityBand,
+  useDummy = false,
 }: {
   title: string | undefined | null;
   description: string | undefined | null;
@@ -501,7 +502,31 @@ export const reviewHazard = async ({
   longitude: number;
   locationName?: string | undefined | null;
   severityBand: HazardSeverityBand;
+  useDummy?: boolean;
 }): Promise<AIReviewResponse> => {
+  // No-AI mode for the TEST environment only (see createHazard's useDummy
+  // computation, hard-gated server-side to config.env === "test" - this
+  // parameter itself carries no gate, so it must never be wired to a real
+  // caller without that check). Returns pending, not accepted - real
+  // human moderation via the existing, unchanged
+  // PATCH /api/admin/hazards/:hazardId/review still decides the outcome,
+  // exactly as it does for a real AI-reviewed report. ALRT never writes
+  // its own advice: with no callsToAction, the app hides that section,
+  // matching summarizeHazard's useDummy comment on the same locked rule.
+  if (useDummy) {
+    return {
+      reviewStatus: "pending",
+      reviewFeedback:
+        "TEST bypass: AI review was skipped (useDummyAi). Approve or reject via Admin Portal moderation to continue testing this report.",
+      title: title || "TEST — DO NOT USE",
+      summary:
+        description ||
+        "TEST — DO NOT USE community report (AI review bypassed for the TEST environment).",
+      callsToAction: [],
+      confidence: "high",
+    };
+  }
+
   const { userReportedAlertReviewAndSummarizePromptId } =
     await getAIPromptConfiguration();
   const { content: promptContent, model } = await getPromptById(

@@ -30,6 +30,15 @@ export const createHazardDataSchema = z.object({
     .optional(),
 
   occurredAt: z.string().datetime().optional(),
+
+  // Opt-in only, and hard-gated server-side to the TEST environment
+  // regardless of what a client sends - see createHazard's useDummy
+  // computation in hazard.controller.ts. Omitted/false is identical to
+  // existing behaviour for every caller, including production. Lets a
+  // tester exercise the real community report UI end-to-end without a
+  // real AI review call - see reviewHazard's useDummy branch in
+  // hazard.service.ts.
+  useDummyAi: z.boolean().optional(),
 });
 
 export const createHazardSchema = z.object({
