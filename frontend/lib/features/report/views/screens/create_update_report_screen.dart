@@ -22,6 +22,7 @@ import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/shared/repositories/hazard_repository.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/media_service.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
@@ -1786,6 +1787,7 @@ class _CreateUpdateReportScreenState
         getSubUrbOnly: true,
         centerLocation: userLocation,
         radiusInMeters: 5000,
+        showTestScarboroughOption: testScarboroughLocationFallbackEnabled,
       ),
     );
     if (!mounted) return;
@@ -1800,9 +1802,20 @@ class _CreateUpdateReportScreenState
     ref.read(providerOfCreateReport.notifier).updateTitle(title);
   }
 
-  /// Updates the location in the state.
+  /// Updates the location in the state. Picking the TEST-only Scarborough
+  /// fallback also labels the report, so it can never be submitted looking
+  /// like a real one even if the tester never touches the title field -
+  /// only when the title is still empty, so it never overwrites something
+  /// the tester already typed.
   void _updateLocation(final AlrtLocation location) {
     ref.read(providerOfCreateReport.notifier).updateLocation(location);
+
+    if (location == testScarboroughLocation &&
+        _titleController.text.trim().isEmpty) {
+      const testTitle = 'TEST — DO NOT USE — Community test report';
+      _titleController.text = testTitle;
+      _updateTitle(testTitle);
+    }
   }
 
   /// Updates the description in the state.

@@ -17,11 +17,23 @@ import 'package:hazard_app/features/shared/utils/location_helper.dart';
 import 'package:hazard_app/features/shared/views/widgets/round_button.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
+/// Fixed TEST-only report location, matching the coordinates the Admin
+/// Portal's own "TEST — DO NOT USE — Fire" preset uses (see
+/// SCARBOROUGH_WA_LAT/LNG, admin/src/data/testAlertPresets.ts) so a
+/// tester's manually-submitted community report and the admin-created
+/// TEST alert land on the exact same map pin.
+const testScarboroughLocation = AlrtLocation(
+  latitude: -31.89441,
+  longitude: 115.75999,
+  name: 'Scarborough, WA (TEST)',
+);
+
 class SelectLocationScreenArgs {
   SelectLocationScreenArgs({
     this.initialLocation,
     this.getSubUrbOnly = false,
     this.showYourLocationOption = true,
+    this.showTestScarboroughOption = false,
     this.centerLocation,
     this.radiusInMeters,
   });
@@ -34,6 +46,15 @@ class SelectLocationScreenArgs {
 
   /// Whether to show the "Your Location" option.
   final bool showYourLocationOption;
+
+  /// Whether to show the TEST-only "Use Scarborough WA (TEST)" option -
+  /// callers opt in explicitly (see create_update_report_screen.dart's
+  /// _gotoSelectLocationScreen), so this never appears for other
+  /// SelectLocationScreen callers (saved locations, family places, etc.)
+  /// even when the TEST flag is on. testScarboroughLocationFallbackEnabled
+  /// (hazard_repository.dart) already double-gates the flag itself to a
+  /// TEST/dev build, so this stays false in production regardless.
+  final bool showTestScarboroughOption;
 
   /// The center location for radius constraint.
   /// If provided with [radiusInMeters], only locations within the radius can be selected.
@@ -97,6 +118,8 @@ class _SelectLocationScreenState extends ConsumerState<SelectLocationScreen> {
 
           if (widget.args?.showYourLocationOption ?? true)
             _yourLocationBuilder().sliverBox,
+          if (widget.args?.showTestScarboroughOption ?? false)
+            _testScarboroughLocationBuilder().sliverBox,
           _chooseOnTheMapBuilder().sliverBox,
           Divider().pX(20.0).sliverBox,
           if (widget.args?.hasRadiusConstraint ?? false)
@@ -249,6 +272,35 @@ class _SelectLocationScreenState extends ConsumerState<SelectLocationScreen> {
         ),
       ),
       onTap: _handleYourLocationPressed,
+    );
+  }
+
+  /// TEST-only fallback for when device location is unavailable (see
+  /// showTestScarboroughOption) - pops straight back with the fixed
+  /// Scarborough location, the same way "Your location" pops with the
+  /// device's real one, no GPS involved.
+  Widget _testScarboroughLocationBuilder() {
+    return ListTile(
+      leading: RoundButton(
+        icon: Icon(
+          Icons.science_outlined,
+          color: AppColors.orange,
+          size: 22.spMin,
+        ),
+      ),
+      title: Text(
+        'Use Scarborough WA (TEST)',
+        style: TextStyle(
+          fontSize: 16.spMin,
+          color: AppColors.orange,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        'For testing only, when your real location is unavailable',
+        style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
+      ),
+      onTap: () => context.pop(testScarboroughLocation),
     );
   }
 

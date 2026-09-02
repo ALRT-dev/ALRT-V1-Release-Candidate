@@ -28,6 +28,16 @@ import 'package:hazard_app/features/shared/utils/either.dart';
 bool get useDummyAiForReports =>
     appFlavor == 'dev' && dotenv.env['USE_DUMMY_AI_FOR_REPORTS'] == 'true';
 
+/// Whether the community report flow should offer a manual "Use
+/// Scarborough WA (TEST)" location option when the device's own location
+/// is unavailable (SelectLocationScreen's "Your location" fails with
+/// "Could not get your location"). Deliberately reuses
+/// USE_DUMMY_AI_FOR_REPORTS rather than a second flag - both exist for
+/// the same purpose: letting a tester complete the real "post an alert"
+/// UI in TEST without a working GPS fix or a real AI call. Same
+/// TEST-only double-gate as [useDummyAiForReports].
+bool get testScarboroughLocationFallbackEnabled => useDummyAiForReports;
+
 /// Pure and unit-testable: appends `useDummyAi: true` to [hazardJson] when
 /// [enabled] is true, otherwise returns it unchanged. Separated from
 /// [useDummyAiForReports] itself so the actual injection logic can be
