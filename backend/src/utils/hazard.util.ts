@@ -565,9 +565,19 @@ export const buildHazardsWhereClauseRaw = (
 
   // Apply category filter if provided - OPTIMIZED with CTE for better performance
   if (categoryIds) {
+    // A client-sent categoryIds is either already an array (repeated query
+    // keys, e.g. ?categoryIds=a&categoryIds=b, which Express's query
+    // parser turns into a real array) or a single comma-joined string
+    // (?categoryIds=a,b) - matches getHazardsQuerySchema's
+    // z.string().optional() and the Prisma-based category filter a few
+    // hundred lines above, which already splits on comma. This raw-SQL
+    // version used to wrap an unsplit multi-value string as one bogus
+    // single category id ("a,b"), which can never equal a real
+    // HazardCategory.id - so selecting more than one category (the
+    // default: every main category selected) silently matched nothing.
     const categoryArray = Array.isArray(categoryIds)
       ? categoryIds
-      : [categoryIds];
+      : categoryIds.split(",");
 
     // Create separate placeholders for direct and parent category matches
     const directPlaceholders = categoryArray
@@ -592,9 +602,12 @@ export const buildHazardsWhereClauseRaw = (
     queryParams.push(...categoryArray, ...categoryArray);
   }
 
-  // Apply sourceIds filter if provided
+  // Apply sourceIds filter if provided - same array-vs-comma-string shape
+  // as categoryIds above.
   if (sourceIds) {
-    const sourceArray = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
+    const sourceArray = Array.isArray(sourceIds)
+      ? sourceIds
+      : sourceIds.split(",");
     const sourcePlaceholders = sourceArray
       .map(() => `$${paramIndex++}`)
       .join(",");

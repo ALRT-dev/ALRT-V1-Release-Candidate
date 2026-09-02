@@ -27,6 +27,15 @@
  *   3. A hazard with no coordinates at all still has "geom" NULL (the
  *      CASE branch isn't overly permissive) and is correctly absent from
  *      a bounds query.
+ *   4. Also covers a second, independent defect found while chasing the
+ *      same symptom: buildHazardsWhereClauseRaw's categoryIds handling
+ *      (hazard.util.ts) treated a single comma-joined categoryIds string
+ *      (?categoryIds=a,b,c - what getHazardsQuerySchema's z.string()
+ *      expects, and what the app sends when its default "every main
+ *      category selected" filter state is active) as ONE bogus category
+ *      id instead of splitting it, unlike its Prisma-based sibling a few
+ *      hundred lines above in the same file. Selecting more than one
+ *      category - the app's default - silently matched nothing.
  *
  * Run with:
  *   NODE_ENV=test npx dotenv -e .env.test -- npx tsx src/scripts/verify_hazard_geom_generated_column.ts
@@ -80,6 +89,17 @@ async function main() {
     where: { id: "bushfire" },
   });
   assert.ok(category, 'seed data must include the "bushfire" category');
+
+  // The same "every main category selected" default the app's
+  // HazardFiltersProvider._onInit ships with, comma-joined the same way
+  // getHazardsQuerySchema's categoryIds: z.string() expects a client to
+  // send it.
+  const mainCategories = await prisma.hazardCategory.findMany({
+    where: { parentId: null },
+    select: { id: true },
+  });
+  assert.ok(mainCategories.length > 1, "seed data must include more than one main category");
+  const allMainCategoryIdsCommaJoined = mainCategories.map((c) => c.id).join(",");
 
   await prisma.hazardSource.upsert({
     where: { id: TEST_SOURCE_ID },
@@ -189,6 +209,25 @@ async function main() {
         });
         const ids = hazards.map((h) => h.id);
         assert.ok(!ids.includes(noCoordsHazard.id));
+      },
+    );
+
+    await check(
+      "getHazardsApplyingFiltersRaw still returns the hazard when categoryIds is a comma-joined string of every main category (the app's actual default selection)",
+      async () => {
+        const hazards = await getHazardsApplyingFiltersRaw({
+          ...scarboroughBounds,
+          ...mapTabDefaultFilters,
+          categoryIds: allMainCategoryIdsCommaJoined,
+          pageSize: 100,
+        });
+        const ids = hazards.map((h) => h.id);
+        assert.ok(
+          ids.includes(fireHazard.id),
+          "buildHazardsWhereClauseRaw's categoryIds branch must split a comma-joined string " +
+            "(matching its Prisma-based sibling and the querystring schema) rather than " +
+            "matching the whole joined string as one bogus category id",
+        );
       },
     );
 
