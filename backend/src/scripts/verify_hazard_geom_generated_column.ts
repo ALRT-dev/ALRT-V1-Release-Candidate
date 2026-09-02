@@ -36,6 +36,19 @@
  *      id instead of splitting it, unlike its Prisma-based sibling a few
  *      hundred lines above in the same file. Selecting more than one
  *      category - the app's default - silently matched nothing.
+ *   5. A third, independent defect found from the TEST server's own
+ *      access logs after fixing (4): the Android app's Dio client
+ *      actually sends categoryIds as REPEATED query keys
+ *      (?categoryIds=a&categoryIds=b), which Express's query parser
+ *      turns into a real array - and getHazardsQuerySchema/
+ *      getHazardsForAdminQuerySchema typed categoryIds/sourceIds as
+ *      z.string() only, so every one of these requests was rejected at
+ *      the validator with HTTP 400 "Invalid input: expected string,
+ *      received array" before ever reaching (4)'s fix. Both schemas now
+ *      accept z.union([z.string(), z.array(z.string())]) - this script's
+ *      DB-backed checks below already cover the comma-string shape; the
+ *      first check covers the schema itself with the exact repeated-key
+ *      shape, with no DB required.
  *
  * Run with:
  *   NODE_ENV=test npx dotenv -e .env.test -- npx tsx src/scripts/verify_hazard_geom_generated_column.ts
@@ -44,6 +57,8 @@
 import assert from "node:assert/strict";
 import { PrismaClient, HazardReviewStatus, HazardSeverity, HazardSeverityBand } from "@prisma/client";
 import { getHazardsApplyingFiltersRaw } from "../services/hazard.service.js";
+import { getHazardsQuerySchema } from "../validators/hazard.validator.js";
+import { getHazardsForAdminQuerySchema } from "../validators/admin/hazard.validator.js";
 
 const prisma = new PrismaClient();
 
@@ -83,6 +98,55 @@ const mapTabDefaultFilters = {
 
 async function main() {
   console.log("Hazard.geom generated-column regression check (real DB)\n");
+
+  console.log("Schema-only checks (no DB required)");
+
+  await check(
+    "getHazardsQuerySchema accepts categoryIds as repeated-key array (the Android app's actual request shape)",
+    () => {
+      const repeatedKeyExample = {
+        categoryIds: ["securityAndCrime", "healthAndAir"],
+        sourceIds: ["test-dummy", "another-source"],
+      };
+      const result = getHazardsQuerySchema.safeParse(repeatedKeyExample);
+      assert.ok(
+        result.success,
+        `expected the array shape to validate, got: ${
+          result.success ? "" : JSON.stringify(result.error.issues)
+        }`,
+      );
+      assert.deepEqual(result.data?.categoryIds, repeatedKeyExample.categoryIds);
+      assert.deepEqual(result.data?.sourceIds, repeatedKeyExample.sourceIds);
+    },
+  );
+
+  await check(
+    "getHazardsQuerySchema still accepts categoryIds as a single comma-joined string (unchanged behaviour)",
+    () => {
+      const result = getHazardsQuerySchema.safeParse({
+        categoryIds: "bushfire,flood",
+      });
+      assert.ok(result.success);
+      assert.equal(result.data?.categoryIds, "bushfire,flood");
+    },
+  );
+
+  await check(
+    "getHazardsForAdminQuerySchema (the admin list endpoint's copy of the same schema) also accepts the repeated-key array shape",
+    () => {
+      const result = getHazardsForAdminQuerySchema.safeParse({
+        categoryIds: ["securityAndCrime", "healthAndAir"],
+      });
+      assert.ok(
+        result.success,
+        `expected the array shape to validate, got: ${
+          result.success ? "" : JSON.stringify(result.error.issues)
+        }`,
+      );
+    },
+  );
+
+  console.log("\nDB-backed checks");
 
   console.log("Setup");
   const category = await prisma.hazardCategory.findUnique({
@@ -227,6 +291,23 @@ async function main() {
           "buildHazardsWhereClauseRaw's categoryIds branch must split a comma-joined string " +
             "(matching its Prisma-based sibling and the querystring schema) rather than " +
             "matching the whole joined string as one bogus category id",
+        );
+      },
+    );
+
+    await check(
+      "getHazardsApplyingFiltersRaw also returns the hazard when categoryIds arrives as a real array of every main category id (the Android app's actual repeated-key request, post-validator)",
+      async () => {
+        const hazards = await getHazardsApplyingFiltersRaw({
+          ...scarboroughBounds,
+          ...mapTabDefaultFilters,
+          categoryIds: mainCategories.map((c) => c.id),
+          pageSize: 100,
+        });
+        const ids = hazards.map((h) => h.id);
+        assert.ok(
+          ids.includes(fireHazard.id),
+          `expected ${fireHazard.id} in the map-bounds result set with an array categoryIds, got ${JSON.stringify(ids)}`,
         );
       },
     );

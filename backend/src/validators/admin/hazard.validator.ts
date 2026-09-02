@@ -5,9 +5,13 @@ import { FireStatus, HazardSeverity, HazardSeverityBand } from "@prisma/client";
 export const getHazardsForAdminQuerySchema = z.object({
   searchString: z.string().optional(),
 
-  categoryIds: z.string().optional(),
+  // Same array-or-comma-string compatibility as getHazardsQuerySchema
+  // (hazard.validator.ts) - buildHazardsWhereClauseRaw, which this
+  // endpoint shares with the community hazard list, already handles both
+  // shapes.
+  categoryIds: z.union([z.string(), z.array(z.string())]).optional(),
 
-  sourceIds: z.string().optional(),
+  sourceIds: z.union([z.string(), z.array(z.string())]).optional(),
 
   awsEmergency: z
     .string()
