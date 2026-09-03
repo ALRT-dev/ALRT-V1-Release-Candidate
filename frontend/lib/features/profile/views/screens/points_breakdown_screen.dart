@@ -128,15 +128,6 @@ class PointsBreakdownScreen extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: 8.spMin),
-          if (data.totalUsers > 0)
-            Text(
-              'Rank #${data.rank} of ${data.totalUsers}  ·  top ${100 - data.percentile}%',
-              style: TextStyle(
-                fontSize: 13.spMin,
-                color: const Color(0xFF5f5c66),
-              ),
-            ),
         ],
       ),
     );
