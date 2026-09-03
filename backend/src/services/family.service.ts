@@ -1179,8 +1179,14 @@ export const requestCheckIn = async (
       ...(input.hazardId && { hazardId: input.hazardId }),
     },
     include: {
+      // Only who asked, never where they are: this broadcasts to every
+      // other circle member, and a check-in request never carries the
+      // requester's location (see backend/CLAUDE.md — location leaves a
+      // phone only by the owner's action).
       requestedBy: {
-        include: {
+        select: {
+          id: true,
+          nickname: true,
           user: { select: { id: true, name: true, profilePictureUrl: true } },
         },
       },
