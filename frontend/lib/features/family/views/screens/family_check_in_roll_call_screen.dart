@@ -301,8 +301,9 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
         border: Border.all(color: FamilyColors.v31NoteBorder),
       ),
       child: Text(
-        'A check-in shares one point at the moment it is sent, and it '
-        'expires after an hour. Nobody is being tracked between check-ins.',
+        'Checking in confirms someone is okay - it never shares where they '
+        'are. Sharing a location snapshot for the next hour is always the '
+        "responder's own choice, never automatic.",
         style: TextStyle(
           fontSize: 12.5.spMin,
           height: 1.4,

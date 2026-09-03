@@ -111,6 +111,25 @@ abstract class FamilyCircle with _$FamilyCircle {
   List<FamilyMember> get others =>
       members.where((m) => m.id != myMemberId).toList();
 
+  /// The outstanding check-in request I still owe an answer to, if any -
+  /// null when nobody has asked, when I'm the one who asked, or when I've
+  /// already checked in since the ask. Any UI that is about to answer a
+  /// check-in request (as opposed to a spontaneous "I'm Safe") should
+  /// gate on this first: answering one is the one place a location-share
+  /// consent choice is required before anything is sent.
+  FamilyCheckInRequest? get checkInRequestOwedByMe {
+    final request = latestCheckInRequest;
+    if (request == null) return null;
+    if (request.requestedById == myMemberId) return null;
+    final askedAt = request.createdAt;
+    final myLastCheckIn = me?.lastCheckInAt;
+    final alreadyAnswered =
+        askedAt != null &&
+        myLastCheckIn != null &&
+        myLastCheckIn.isAfter(askedAt);
+    return alreadyAnswered ? null : request;
+  }
+
   factory FamilyCircle.fromJson(Map<String, dynamic> json) =>
       _$FamilyCircleFromJson(json);
 }

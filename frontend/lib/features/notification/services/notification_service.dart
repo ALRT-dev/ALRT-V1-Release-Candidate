@@ -168,8 +168,14 @@ class NotificationService {
   /// "I'm safe" on an ACTION/CRITICAL notification fires the same family
   /// check-in as the in-app button when a circle exists; without one it just
   /// lands on the family tab so the user can set a circle up.
+  ///
+  /// Skipped when it would also answer someone's outstanding check-in
+  /// request: that always needs the recipient's own location-share
+  /// consent choice, which this background action has no UI to collect,
+  /// so it lands on the family tab instead and lets the real button ask.
   void _handleImSafeAction() {
-    if (_ref.read(providerOfFamily).circle != null) {
+    final circle = _ref.read(providerOfFamily).circle;
+    if (circle != null && circle.checkInRequestOwedByMe == null) {
       _ref.read(providerOfFamily.notifier).checkIn();
     }
     _goToHomeTab(HomeTab.family);

@@ -86,7 +86,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                       SizedBox(height: 12.spMin),
                     ],
                     _checkInRequestBannerBuilder(circle, checkInState),
-                    _imSafeButtonBuilder(checkInState),
+                    _imSafeButtonBuilder(circle, checkInState),
                     SizedBox(height: 10.spMin),
                     _quickTilesRowBuilder(),
                     SizedBox(height: 16.spMin),
@@ -988,6 +988,32 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
+  /// Answering someone's check-in ask is a distinct moment from a
+  /// spontaneous "I'm Safe": it is the one place a recipient can be misled
+  /// into thinking they must also share their location. This always asks
+  /// first, and "Just check in" — the no-location choice — is the primary
+  /// button, since that's what a check-in request actually asks for.
+  Future<void> _answerCheckInRequest(
+    final BuildContext context,
+    final WidgetRef ref,
+    final String who,
+  ) {
+    return showConfirmationSheet(
+      context: context,
+      title: 'Check in as safe',
+      description:
+          "$who will see that you checked in, not where you are. Share "
+          "your location too if you want them to see it for the next "
+          "hour — it's entirely your choice.",
+      confirmButtonText: 'Just check in',
+      cancelButtonText: 'Share location too',
+      onPressedConfirm: (_, ref) =>
+          ref.read(providerOfFamily.notifier).checkIn(shareLocation: false),
+      onPressedCancel: (_, ref) =>
+          ref.read(providerOfFamily.notifier).checkIn(shareLocation: true),
+    );
+  }
+
   /// Someone asked the circle to check in. That ask used to arrive with no
   /// evidence on screen at all — it was held in state and never drawn. It
   /// now sits above everything with the answer one tap away.
@@ -1127,7 +1153,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     ),
                     onPressed: checkInState.isLoading
                         ? null
-                        : () => ref.read(providerOfFamily.notifier).checkIn(),
+                        : () => _answerCheckInRequest(context, ref, who),
                     icon: Icon(Icons.check, size: 20.spMin),
                     label: Text(
                       "I'm Safe · lets $who know",
@@ -1163,12 +1189,22 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
+  /// Who this "I'm Safe" tap would actually be answering, if anyone.
+  String? _requesterNameStillOwedAnAnswer(final FamilyCircle circle) {
+    final request = circle.checkInRequestOwedByMe;
+    if (request == null) return null;
+    return request.requestedBy?.displayName ?? 'Someone';
+  }
+
   /// The one action that matters most, and the only one that looks like it.
   ///
   /// Four identical outlined pills stacked down the page gave every action
   /// the same weight, so nothing led. "I'm Safe" now carries the green
   /// gradient and its own glow, and everything else drops to a compact tile.
-  Widget _imSafeButtonBuilder(final FamilyActionState checkInState) {
+  Widget _imSafeButtonBuilder(
+    final FamilyCircle circle,
+    final FamilyActionState checkInState,
+  ) {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -1197,7 +1233,14 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           ),
           onPressed: checkInState.isLoading
               ? null
-              : () => ref.read(providerOfFamily.notifier).checkIn(),
+              : () {
+                  final owedTo = _requesterNameStillOwedAnAnswer(circle);
+                  if (owedTo != null) {
+                    _answerCheckInRequest(context, ref, owedTo);
+                  } else {
+                    ref.read(providerOfFamily.notifier).checkIn();
+                  }
+                },
           icon: checkInState.isLoading
               ? SizedBox(
                   width: 18.spMin,

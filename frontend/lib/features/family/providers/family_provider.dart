@@ -915,14 +915,23 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// pending request) is the app's one-tap-to-everyone action per the
   /// onboarding pitch and the Ask ALRT system prompt's own description of
   /// the feature, so it fans out to every circle the user belongs to.
+  ///
+  /// [shareLocation] gates whether this check-in attaches a location
+  /// snapshot at all. It defaults true for the proactive "I'm Safe" tap
+  /// (unchanged behaviour). When answering someone else's check-in
+  /// request, the caller must pass the recipient's own explicit choice
+  /// here — a check-in request never requires or implies location, so
+  /// nothing is fetched unless the recipient said yes.
   Future<void> checkIn({
     final FamilyCheckInStatus status = FamilyCheckInStatus.safe,
     final String? message,
+    final bool shareLocation = true,
   }) async {
     state = state.copyWith(checkInState: const FamilyActionState.loading());
 
-    final position = await _familyLocationService
-        .getLastKnownOrCurrentPosition();
+    final position = shareLocation
+        ? await _familyLocationService.getLastKnownOrCurrentPosition()
+        : null;
     if (!mounted) return;
 
     final requestId = state.circle?.latestCheckInRequest?.id;
