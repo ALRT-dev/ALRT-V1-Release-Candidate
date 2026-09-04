@@ -36,7 +36,8 @@ Future<void> showShareAlrtSheet(final BuildContext context) {
 ///
 /// [link] is null on a TEST build: a sideloaded TEST APK must never send
 /// a recipient to the production website or a store, so the sheet says so
-/// instead of showing a QR or a share button (AppLinks.shareAppLinkForFlavor).
+/// (the TEST APK is sent directly) instead of showing a QR or a share
+/// button (AppLinks.shareAppLinkForFlavor).
 class ShareAlrtSheet extends StatelessWidget {
   const ShareAlrtSheet({super.key, required this.link});
 
@@ -209,8 +210,8 @@ class ShareAlrtSheet extends StatelessWidget {
           Expanded(
             child: Text(
               'TEST build: sharing links are switched off. This build is '
-              'not in the stores, so there is no link to send - testers get '
-              'the app from the internal TEST build, not from a store.',
+              'not in the stores and must not point anyone at them. To get '
+              'another tester on board, send them the TEST APK directly.',
               style: TextStyle(
                 fontSize: 13.spMin,
                 height: 1.45,
@@ -241,7 +242,7 @@ class ShareAlrtSheet extends StatelessWidget {
           SizedBox(width: 10.spMin),
           Expanded(
             child: Text(
-              AppLinks.websiteDisplay,
+              AppLinks.shareAppProductionDisplay,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

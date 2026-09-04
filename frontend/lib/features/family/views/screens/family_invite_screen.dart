@@ -21,10 +21,14 @@ import 'package:timeago/timeago.dart' as timeago;
 /// Family invite is a code for one specific circle, redeemed inside the
 /// app under Family → "I have an invite code". Nothing here links to the
 /// website or a store: the code is the whole payload, so it works the same
-/// on a TEST build (sideloaded APK) as it will on a store build, and a
-/// scanned QR simply shows the code to type. Joining with a code is always
-/// free; only the host's plan is involved (see the seat rule in
-/// family.service.ts).
+/// on a TEST build (sideloaded APK) as it will on a store build.
+///
+/// The QR is NOT a scan-to-join journey yet (product owner 2026-09-03): it
+/// encodes the bare code so a phone camera shows the code to read off and
+/// type. Manual code entry is the one join path today; an in-app scanner
+/// is a separate, approved-first change (camera dependency + permission).
+/// Joining with a code is always free; only the host's plan is involved
+/// (see the seat rule in family.service.ts).
 class FamilyInviteScreen extends ConsumerStatefulWidget {
   const FamilyInviteScreen({super.key});
 
@@ -271,8 +275,9 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
           step(2, 'They tap "I have an invite code".'),
           step(
             3,
-            'They enter the code (or read it off your QR). No website, '
-            'no link - the code is all they need.',
+            'They type the code in (the QR just shows it to them - it is '
+            'not scanned to join yet). No website, no link - the code is '
+            'all they need.',
           ),
         ],
       ),
@@ -290,7 +295,9 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
       child: Column(
         children: [
           Text(
-            'Show this to the person you are inviting',
+            'Show this to the person you are inviting - they read the code '
+            'off it and type it in',
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13.spMin, color: AppColors.grey),
           ),
           SizedBox(height: 14.spMin),
