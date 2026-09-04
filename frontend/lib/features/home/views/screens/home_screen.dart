@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/family/views/screens/family_tab_view.dart';
 import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_location_request_sheet.dart';
@@ -70,7 +71,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final _tabController = TabController(
     length: HomeTab.values.length,
     initialIndex: widget.args.initialTab.index,
@@ -80,13 +81,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onInit());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// Coming back to the foreground, on ANY tab: the live socket is the
+  /// usual casualty of the app being backgrounded, so reconnect it at
+  /// once instead of waiting for its backoff, and refresh the family
+  /// circle so anything missed while away (a check-in, an SOS) shows
+  /// without a pull-to-refresh. This is the one owner of that resume
+  /// refresh; the Family tab no longer does its own.
+  @override
+  void didChangeAppLifecycleState(final AppLifecycleState lifecycleState) {
+    if (lifecycleState != AppLifecycleState.resumed) return;
+    ref.read(providerOfSocketService).ensureConnected();
+    if (ref.read(providerOfFamily).hasLoadedOnce) {
+      ref.read(providerOfFamily.notifier).load(silent: true);
+    }
   }
 
   @override

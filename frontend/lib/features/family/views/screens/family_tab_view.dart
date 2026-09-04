@@ -16,32 +16,17 @@ class FamilyTabView extends ConsumerStatefulWidget {
   ConsumerState<ConsumerStatefulWidget> createState() => _FamilyTabViewState();
 }
 
-class _FamilyTabViewState extends ConsumerState<FamilyTabView>
-    with WidgetsBindingObserver {
+class _FamilyTabViewState extends ConsumerState<FamilyTabView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => ref.read(providerOfFamily.notifier).load(),
     );
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(final AppLifecycleState lifecycleState) {
-    // Coming back to the app refreshes the circle. A load that failed
-    // while the phone was between networks (wifi-only phones especially)
-    // otherwise stayed failed until a manual retry.
-    if (lifecycleState == AppLifecycleState.resumed) {
-      ref.read(providerOfFamily.notifier).load(silent: true);
-    }
-  }
+  // The resume refresh (socket reconnect + silent circle reload) lives on
+  // HomeScreen so it runs whichever tab is showing, not only this one.
 
   @override
   Widget build(BuildContext context) {

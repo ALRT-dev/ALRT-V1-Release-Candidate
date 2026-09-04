@@ -25,6 +25,7 @@ import 'package:hazard_app/features/family/views/widgets/family_header_surface.d
 import 'package:hazard_app/features/family/views/widgets/family_leave_confirm_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_list_item.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/subscription/views/widgets/billing_issue_banner.dart';
@@ -308,6 +309,59 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
+  /// Whether live updates are arriving right now, said out loud. A dropped
+  /// connection used to be invisible: the screen simply stopped changing
+  /// and looked broken. Green "Live" while the socket is up; amber
+  /// "Reconnecting" while it is down (and the hub refreshes itself every
+  /// 30 s in the meantime, see FamilyProvider).
+  Widget _livePillBuilder() {
+    return Consumer(
+      builder: (context, ref, _) {
+        final isLive = ref.watch(providerOfLiveConnection);
+        final dot = isLive ? const Color(0xFF6EE7A0) : const Color(0xFFFBBF24);
+        return Semantics(
+          label: isLive
+              ? 'Live updates connected'
+              : 'Live updates reconnecting',
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 8.spMin,
+              vertical: 4.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: isLive
+                  ? FamilyColors.safeGreen.withValues(alpha: 0.35)
+                  : Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(10.spMin),
+              border: isLive
+                  ? null
+                  : Border.all(color: Colors.white.withValues(alpha: 0.55)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6.spMin,
+                  height: 6.spMin,
+                  decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+                ),
+                SizedBox(width: 5.spMin),
+                Text(
+                  isLive ? 'Live' : 'Reconnecting',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10.5.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _headerBuilder(
     final FamilyCircle circle,
     final Set<String> memberIdsNearAlert,
@@ -356,6 +410,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                       ),
                     ),
                   ),
+                  _livePillBuilder(),
+                  SizedBox(width: 4.spMin),
                   _overflowMenuBuilder(circle),
                 ],
               ),

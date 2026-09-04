@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_socket_manager_provider.dart';
+import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
 import 'package:hazard_app/features/family/providers/states/family_provider_state.dart';
 import 'package:hazard_app/features/family/services/family_location_service.dart';
@@ -106,13 +107,60 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       _familySocketManager.hazardProximityStream.listen(_onHazardProximity),
     ];
 
+    // The live connection itself: while it is down, nothing above fires,
+    // so the hub polls instead; when it comes back, everything that
+    // happened in the gap is fetched in one go.
+    final socketService = _ref.read(providerOfSocketService);
+    final liveSubscription = socketService.onSocketConnectionChanged.listen(
+      _onLiveConnectionChanged,
+    );
+    if (!socketService.isSocketConnected) _startStalePolling();
+
     _ref.onDispose(() {
       _stopSosLiveShare();
       _stopJourneyPoints();
+      _stopStalePolling();
+      liveSubscription.cancel();
       for (final subscription in subscriptions) {
         subscription.cancel();
       }
     });
+  }
+
+  /// While the socket is down the hub refreshes itself this often, so a
+  /// check-in or SOS never sits unseen behind a dead connection. Cheap:
+  /// one circle fetch, only when a circle is loaded and not mid-load.
+  static const _stalePollInterval = Duration(seconds: 30);
+  Timer? _stalePollTimer;
+  var _wasLiveBefore = false;
+
+  void _onLiveConnectionChanged(final bool connected) {
+    if (!connected) {
+      _startStalePolling();
+      return;
+    }
+    _stopStalePolling();
+    // A RE-connect means events were missed in the gap: catch up now.
+    // The very first connect at app start needs nothing, the initial
+    // load is already in flight.
+    if (_wasLiveBefore && state.hasLoadedOnce && !state.loadState.isLoading) {
+      unawaited(load(silent: true));
+    }
+    _wasLiveBefore = true;
+  }
+
+  void _startStalePolling() {
+    if (_stalePollTimer?.isActive ?? false) return;
+    _stalePollTimer = Timer.periodic(_stalePollInterval, (_) {
+      if (!mounted) return;
+      if (state.circle == null || state.loadState.isLoading) return;
+      unawaited(load(silent: true));
+    });
+  }
+
+  void _stopStalePolling() {
+    _stalePollTimer?.cancel();
+    _stalePollTimer = null;
   }
 
   /// Patches the live location fields of a member in the circle.
