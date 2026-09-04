@@ -59,7 +59,7 @@
     <key>LSRequiresIPhoneOS</key>
     <true />
     <key>NSCameraUsageDescription</key>
-	<string>ALRT uses the camera only when you choose to attach a photo to a community safety report or set a profile picture.</string>
+	<string>ALRT uses the camera only when you choose to attach a photo to a community safety report, set a profile picture, or scan a family invite code.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>This app needs access to your location to show nearby alerts and help you navigate to
       safety.</string>

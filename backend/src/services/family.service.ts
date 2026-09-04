@@ -1046,13 +1046,34 @@ export const joinCircleWithCode = async (userId: string, code: string) => {
     include: { circle: { include: { members: true } } },
   });
 
-  if (
-    !invite ||
-    invite.isRevoked ||
-    (invite.expiresAt && invite.expiresAt < new Date()) ||
-    invite.useCount >= invite.maxUses
-  ) {
-    throw new HttpError(404, "This invite code is invalid or has expired");
+  // One reason per failure, so the joiner (and the scanner UI) can say
+  // exactly what went wrong instead of one blanket "invalid or expired".
+  // All 404: none of these codes can be joined, and the distinction is
+  // useful to the person holding the code, not to an attacker guessing
+  // codes (the alphabet gives ~10^9 codes and joins are rate-limited).
+  if (!invite) {
+    throw new HttpError(
+      404,
+      "That code doesn't match any family circle. Check it and try again.",
+    );
+  }
+  if (invite.isRevoked) {
+    throw new HttpError(
+      404,
+      "This invite code was revoked by the host. Ask them for a new one.",
+    );
+  }
+  if (invite.expiresAt && invite.expiresAt < new Date()) {
+    throw new HttpError(
+      404,
+      "This invite code has expired. Ask the host for a new one.",
+    );
+  }
+  if (invite.useCount >= invite.maxUses) {
+    throw new HttpError(
+      404,
+      "This invite code has already been used the maximum number of times. Ask the host for a new one.",
+    );
   }
 
   if (invite.circle.members.length >= invite.circle.maxMembers) {
