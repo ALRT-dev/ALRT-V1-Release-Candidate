@@ -439,6 +439,10 @@ class FamilyService {
     return _familyRepository.getActiveFamilySosEvents();
   }
 
+  Future<Either<List<FamilySosEvent>, AppError>> getFamilySosHistory() {
+    return _familyRepository.getFamilySosHistory();
+  }
+
   Future<Either<FamilySosResponse, AppError>> respondToFamilySos({
     required final String sosEventId,
     required final FamilySosResponseType type,

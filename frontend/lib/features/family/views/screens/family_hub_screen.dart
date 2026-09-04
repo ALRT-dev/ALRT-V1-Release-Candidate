@@ -16,6 +16,7 @@ import 'package:hazard_app/features/family/views/screens/family_invite_screen.da
 import 'package:hazard_app/features/family/views/screens/family_places_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sharing_level_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
+import 'package:hazard_app/features/family/views/screens/family_sos_resolved_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
@@ -96,6 +97,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     _privacyBannerBuilder(),
                     SizedBox(height: 20.spMin),
                     _membersSectionBuilder(circle, memberIdsNearAlert),
+                    SizedBox(height: 20.spMin),
+                    _sosHistorySectionBuilder(circle),
                     SizedBox(height: 120.spMin),
                   ],
                 ),
@@ -929,9 +932,12 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// A one-line read of who has answered an SOS, most committed first.
+  /// A one-line read of who has acknowledged an SOS, by name, newest
+  /// last, with the most recent time. The sender reads this on their own
+  /// banner: knowing WHO has seen it is the reassurance (product owner
+  /// 2026-08-07), so it is never reduced to a bare count.
   String _sosResponseSummary(final FamilySosEvent sos) {
-    final onTheWay = sos.responses
+    final responding = sos.responses
         .where(
           (r) =>
               r.type == FamilySosResponseType.onMyWay ||
@@ -939,15 +945,110 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         )
         .map((r) => r.member?.displayName ?? 'Someone')
         .toList();
-    final seenCount = sos.responses
+    final seen = sos.responses
         .where((r) => r.type == FamilySosResponseType.seen)
-        .length;
+        .toList()
+      ..sort((a, b) {
+        final at = a.createdAt;
+        final bt = b.createdAt;
+        if (at == null || bt == null) return 0;
+        return at.compareTo(bt);
+      });
+    final seenNames = seen.map((r) => r.member?.displayName ?? 'Someone');
+    final latestSeenAt = seen.isEmpty ? null : seen.last.createdAt;
 
     final parts = <String>[
-      if (onTheWay.isNotEmpty) '${onTheWay.join(', ')} responding',
-      if (seenCount > 0) '$seenCount seen',
+      if (responding.isNotEmpty) '${responding.join(', ')} responding',
+      if (seen.isNotEmpty)
+        'Seen by ${seenNames.join(', ')}'
+            '${latestSeenAt != null ? ' · ${timeago.format(latestSeenAt)}' : ''}',
     ];
     return parts.join(' · ');
+  }
+
+  /// Retained SOS history: every stood-down SOS in this circle (last 30
+  /// days), with who acknowledged it. Tapping opens the after-event record.
+  /// The server never returns locations for these - who and when only.
+  Widget _sosHistorySectionBuilder(final FamilyCircle circle) {
+    final history = ref.watch(providerOfFamily.select((s) => s.sosHistory));
+    if (history.isEmpty) return const SizedBox.shrink();
+    final shown = history.take(3).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabelBuilder('Past SOS', count: history.length),
+        SizedBox(height: 10.spMin),
+        _cardBuilder(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (final (index, sos) in shown.indexed) ...[
+                if (index > 0)
+                  Divider(
+                    height: 1,
+                    indent: 56.spMin,
+                    color: const Color(0xFFF0F0F2),
+                  ),
+                _sosHistoryRowBuilder(circle, sos),
+              ],
+            ],
+          ),
+        ),
+        SizedBox(height: 20.spMin),
+      ],
+    );
+  }
+
+  Widget _sosHistoryRowBuilder(
+    final FamilyCircle circle,
+    final FamilySosEvent sos,
+  ) {
+    final isMine =
+        sos.memberId == circle.myMemberId ||
+        (sos.member?.user?.id != null &&
+            sos.member?.user?.id == ref.read(providerOfLoggedInUser)?.id);
+    final who = isMine ? 'Your SOS' : "${sos.member?.displayName ?? 'A member'}'s SOS";
+    final endedAt = sos.resolvedAt ?? sos.createdAt;
+    final seen = sos.responses
+        .where((r) => r.type == FamilySosResponseType.seen)
+        .map((r) => r.member?.displayName ?? 'Someone')
+        .toList();
+    final ack = seen.isEmpty
+        ? 'Nobody acknowledged it'
+        : 'Seen by ${seen.join(', ')}';
+
+    return ListTile(
+      onTap: () => context.push(
+        FamilySosResolvedScreen.route,
+        extra: FamilySosResolvedScreenArgs(
+          event: sos,
+          circleName: circle.name,
+          recipientCount: circle.members.length - 1,
+        ),
+      ),
+      contentPadding: EdgeInsets.symmetric(horizontal: 14.spMin),
+      leading: Container(
+        width: 32.spMin,
+        height: 32.spMin,
+        decoration: const BoxDecoration(
+          color: FamilyColors.sosRedLight,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(LucideIcons.siren, size: 16.spMin, color: FamilyColors.sosRed),
+      ),
+      title: Text(
+        endedAt == null ? '$who · ended' : '$who · ended ${timeago.format(endedAt)}',
+        style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
+      ),
+      subtitle: Text(
+        ack,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
+      ),
+      trailing: Icon(Icons.chevron_right, size: 20.spMin, color: AppColors.grey),
+    );
   }
 
   /// The one section label on this screen: indigo, uppercase, letter-spaced,

@@ -1890,8 +1890,14 @@ export const respondToSos = async (
   if (!sos) throw new HttpError(404, "SOS event not found");
 
   const membership = await requireMembership(userId, sos.circleId);
+  // Late acknowledgments are blocked: once an SOS has ended its response
+  // list is a closed record, so history shows exactly who saw it while
+  // it ran and nobody can add to it afterwards.
   if (sos.status !== "active") {
-    throw new HttpError(400, "This SOS is no longer active");
+    throw new HttpError(
+      400,
+      "This SOS has ended, so it can no longer be acknowledged",
+    );
   }
   if (sos.memberId === membership.id) {
     throw new HttpError(400, "You cannot respond to your own SOS");
@@ -2121,6 +2127,58 @@ export const endLapsedSosEvents = async (): Promise<number> => {
   );
 
   return lapsed.length;
+};
+
+/**
+ * Stood-down SOS events for the circle, newest first, with who acknowledged
+ * each one and when. This is the retained SOS history: the event log (who
+ * triggered it, when it started and ended, who saw it) survives stand-down;
+ * the trigger location never does. The purge job wipes coordinates an hour
+ * after stand-down, but that job only runs where the scheduler is armed
+ * (NODE_ENV=prod), so history strips them on the way out regardless -
+ * locked rule: history keeps only time and duration, never locations.
+ * Bounded so a busy circle cannot pull its entire past in one call.
+ */
+export const SOS_HISTORY_DAYS = 30;
+export const SOS_HISTORY_LIMIT = 20;
+
+export const getSosHistory = async (userId: string, circleId?: string) => {
+  const membership = await requireMembership(userId, circleId);
+  const since = new Date(Date.now() - SOS_HISTORY_DAYS * 24 * 60 * 60 * 1000);
+  const events = await prisma.familySosEvent.findMany({
+    where: {
+      circleId: membership.circleId,
+      status: { not: "active" },
+      createdAt: { gte: since },
+    },
+    include: {
+      member: {
+        include: {
+          user: { select: { id: true, name: true, profilePictureUrl: true } },
+        },
+      },
+      responses: {
+        include: {
+          member: {
+            include: {
+              user: {
+                select: { id: true, name: true, profilePictureUrl: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+    orderBy: [{ resolvedAt: "desc" }, { createdAt: "desc" }],
+    take: SOS_HISTORY_LIMIT,
+  });
+  return events.map((event) => ({
+    ...event,
+    latitude: null,
+    longitude: null,
+    locationLabel: null,
+  }));
 };
 
 export const getActiveSos = async (userId: string, circleId?: string) => {

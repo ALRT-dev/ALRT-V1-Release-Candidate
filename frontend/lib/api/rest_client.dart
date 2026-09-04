@@ -573,6 +573,12 @@ abstract class RestClient {
     @Query('circleId') final String? circleId,
   });
 
+  /// Stood-down SOS events with who acknowledged them (never locations).
+  @GET(kUrlFamilySosHistory)
+  Future<List<FamilySosEvent>> getFamilySosHistory({
+    @Query('circleId') final String? circleId,
+  });
+
   @POST(kUrlFamilySosRespond)
   Future<FamilySosResponse> respondToFamilySos({
     @Path() required final String sosEventId,

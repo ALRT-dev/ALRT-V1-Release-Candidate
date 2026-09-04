@@ -135,6 +135,7 @@ const kUrlFamilyJourneyStop = '$kUrlFamilyJourneys/{journeyId}/stop';
 const kUrlFamilyJourneyPoint = '$kUrlFamilyJourneys/{journeyId}/point';
 const kUrlFamilySos = '$kUrlFamily/sos';
 const kUrlFamilySosActive = '$kUrlFamilySos/active';
+const kUrlFamilySosHistory = '$kUrlFamilySos/history';
 const kUrlFamilySosRespond = '$kUrlFamilySos/{sosEventId}/respond';
 const kUrlFamilySosResolve = '$kUrlFamilySos/{sosEventId}/resolve';
 const kUrlFamilySosTrail = '$kUrlFamilySos/{sosEventId}/trail';

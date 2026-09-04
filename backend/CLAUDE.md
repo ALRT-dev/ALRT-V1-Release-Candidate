@@ -14,6 +14,12 @@ explicit instruction from the product owner in the current session.
   location data. Never archive or aggregate expired locations.
 - SOS live share caps at 4 hours; on stop the last point is deleted, and
   history keeps only time and duration.
+- SOS acknowledgments (product owner 2026-09-03): a "seen" response is an
+  explicit recipient action; the sender is told by name. Once an SOS is no
+  longer active, respondToSos refuses new responses (closed record), and
+  GET /api/family/sos/history returns stood-down events with their
+  responses and NO coordinates or location label - regardless of whether
+  the purge job has run yet.
 - Journeys are snap points by default; live is per-journey opt-in.
 - Scheduled snapshots: one point per time, 1-hour expiry, never continuous.
 - Call buttons only by advance grant; phone numbers are never returned to

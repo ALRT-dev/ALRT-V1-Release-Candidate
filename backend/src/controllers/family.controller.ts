@@ -888,6 +888,21 @@ export const resolveSosController = async (
   }
 };
 
+/** GET /api/family/sos/history — stood-down SOS events with who saw them. */
+export const getSosHistoryController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const events = await familyService.getSosHistory(userId, circleIdOf(req));
+    res.status(200).json(events);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getActiveSosController = async (
   req: Request,
   res: Response,

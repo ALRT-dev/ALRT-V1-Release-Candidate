@@ -256,6 +256,9 @@ abstract class FamilyRepository {
 
   Future<Either<List<FamilySosEvent>, AppError>> getActiveFamilySosEvents();
 
+  /// Stood-down SOS events with who acknowledged them (never locations).
+  Future<Either<List<FamilySosEvent>, AppError>> getFamilySosHistory();
+
   Future<Either<FamilySosResponse, AppError>> respondToFamilySos({
     required final String sosEventId,
     required final FamilySosResponseType type,
@@ -913,6 +916,18 @@ class FamilyRepositoryImpl implements FamilyRepository {
       name: 'getActiveFamilySosEvents',
       future: () async {
         final result = await _restClient.getActiveFamilySosEvents(circleId: _circleId);
+        return Success(result);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<List<FamilySosEvent>, AppError>> getFamilySosHistory() {
+    return runAsyncCall(
+      name: 'getFamilySosHistory',
+      future: () async {
+        final result = await _restClient.getFamilySosHistory(circleId: _circleId);
         return Success(result);
       },
       onError: Failure.new,

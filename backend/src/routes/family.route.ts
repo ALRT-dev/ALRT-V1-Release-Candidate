@@ -80,6 +80,7 @@ import {
   resolveSosController,
   getSosTrailController,
   getActiveSosController,
+  getSosHistoryController,
   listTransferCandidatesController,
   transferOwnershipController,
 } from "../controllers/family.controller.js";
@@ -213,6 +214,10 @@ familyRouter.delete("/sos-lists/:sosListId", deleteSosListController);
 
 familyRouter.post("/sos", validate(triggerFamilySosSchema), triggerSosController);
 familyRouter.get("/sos/active", getActiveSosController);
+// Retained history: stood-down events and who acknowledged them (never
+// locations). Literal segment, registered before the /sos/:sosEventId/*
+// routes so it can never be read as an event id.
+familyRouter.get("/sos/history", getSosHistoryController);
 familyRouter.post("/sos/:sosEventId/respond", validate(respondFamilySosSchema), respondSosController);
 familyRouter.post("/sos/:sosEventId/resolve", resolveSosController);
 // Live trail behind an active SOS: exists only until stand-down wipes it.

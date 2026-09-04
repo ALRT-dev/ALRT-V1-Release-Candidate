@@ -65,12 +65,20 @@ explicit instruction from the product owner in the current session.
 - Call buttons appear only by an advance grant; phone numbers are never
   displayed to the caller.
 - Family SOS wording (product-owner instruction 2026-08-30): the sender's
-  resolve action reads "I'm safe", the receiver's automatic acknowledgment
-  reads "I've seen this", and the after-event screen/header reads "SOS
+  resolve action reads "I'm safe", the receiver's acknowledgment reads
+  "I've seen this", and the after-event screen/header reads "SOS
   ended" — never "On my way", "Emergency ended", or "SOS resolved". "On my
   way" is removed from the flow entirely (button and history entry both);
   there is no other deliberate response and deliberately no Monitoring
-  option. The one-tap local-emergency-call button is removed from both the
+  option.
+- SOS acknowledgment (product-owner instruction 2026-09-03, supersedes the
+  2026-08-30 automatic-on-open behaviour): "I've seen this" is an explicit
+  tap by the recipient, never posted automatically when the screen opens.
+  The sender sees acknowledgments by NAME and time (hub banner and SOS
+  screen), never a bare count. When an SOS ends its acknowledgment list is
+  a closed record: the server refuses late acknowledgments, and the list is
+  kept in the retained SOS history (GET /api/family/sos/history, "Past
+  SOS" on the hub) with who/when only - never locations. The one-tap local-emergency-call button is removed from both the
   sender's active-SOS screen and the receiver's response screen — this
   overrides the "always one tap" call guarantee above for this flow only;
   "WHAT THIS DOES" copy still tells the sender to call themselves if

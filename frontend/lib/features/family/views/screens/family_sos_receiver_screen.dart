@@ -22,15 +22,19 @@ class FamilySosReceiverScreenArgs {
 }
 
 /// What the circle sees when someone triggers SOS: a live map of the
-/// person's movements and an automatic "I've seen this" acknowledgment
-/// the moment they open this screen. There is no in-app call action here
+/// person's movements and one deliberate action, "I've seen this", which
+/// tells the person in trouble - by name, with a time - that someone is
+/// looking (product-owner instruction 2026-09-03: an explicit tap, not an
+/// automatic post on open). There is no in-app call action here
 /// (product-owner instruction 2026-08-30) — anyone worried should call
 /// their own local emergency number from their own phone.
 ///
 /// SOS is the one place location updates automatically: triggering it starts
 /// the live share (product owner 2026-08-06), so this screen follows the
 /// person while the SOS runs. Stand-down wipes the trail server-side, so a
-/// resolved SOS goes back to a static snapshot with nothing to replay.
+/// resolved SOS goes back to a static snapshot with nothing to replay, and
+/// its acknowledgment list becomes a closed record: the server refuses late
+/// acknowledgments, and this screen stops offering the button.
 class FamilySosReceiverScreen extends ConsumerStatefulWidget {
   const FamilySosReceiverScreen({super.key, required this.args});
 
@@ -54,11 +58,14 @@ class _FamilySosReceiverScreenState
   GoogleMapController? _mapController;
   LatLng? _followedTarget;
 
+  /// Set the moment the acknowledgment is tapped, so a double tap or a slow
+  /// network cannot post it twice before the response arrives.
+  bool _acknowledging = false;
+
   @override
   void initState() {
     super.initState();
     if (widget.args.sosEvent.status == FamilySosStatus.active) {
-      _markSeen();
       _refreshTrail();
       _trailTimer = Timer.periodic(
         _trailRefreshInterval,
@@ -67,63 +74,9 @@ class _FamilySosReceiverScreenState
     }
   }
 
-  bool _seenPosted = false;
-  ProviderSubscription<String?>? _seenRetry;
-
-  /// "I've seen this" is automatic (locked rule): opening the SOS is what
-  /// seeing it means, so the person in trouble learns someone is looking
-  /// without anyone having to press anything. There is no deliberate
-  /// response left in this flow (product-owner instruction 2026-08-30
-  /// removed "On my way").
-  ///
-  /// A push can open this screen before the circle has loaded, so when
-  /// myMemberId is not known yet the post waits for it instead of being
-  /// dropped: losing the signal because the app was cold is exactly the
-  /// silent failure the automatic rule exists to prevent.
-  void _markSeen() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final myMemberId = ref.read(providerOfFamily).circle?.myMemberId;
-      if (myMemberId != null) {
-        _postSeenIfNotMine(myMemberId);
-        return;
-      }
-      _seenRetry = ref.listenManual<String?>(
-        providerOfFamily.select((s) => s.circle?.myMemberId),
-        (_, memberId) {
-          if (memberId == null) return;
-          _seenRetry?.close();
-          _seenRetry = null;
-          _postSeenIfNotMine(memberId);
-        },
-      );
-    });
-  }
-
-  void _postSeenIfNotMine(final String myMemberId) {
-    // Never against your own SOS, and never twice. "Own" is checked by
-    // USER as well as member id: member ids differ per circle, so on a
-    // cross-group SOS the member-id check alone let the sender's phone
-    // post "Seen" on their own SOS.
-    final sosEvent = widget.args.sosEvent;
-    final myUserId = ref.read(providerOfLoggedInUser)?.id;
-    final senderUserId = sosEvent.member?.user?.id;
-    final isMine = sosEvent.memberId == myMemberId ||
-        (senderUserId != null && senderUserId == myUserId);
-    if (_seenPosted || isMine) return;
-    _seenPosted = true;
-    unawaited(
-      ref.read(providerOfFamily.notifier).respondToSos(
-            sosEventId: widget.args.sosEvent.id,
-            type: FamilySosResponseType.seen,
-          ),
-    );
-  }
-
   @override
   void dispose() {
     _trailTimer?.cancel();
-    _seenRetry?.close();
     _mapController?.dispose();
     super.dispose();
   }
@@ -159,14 +112,43 @@ class _FamilySosReceiverScreenState
     });
   }
 
+  /// The deliberate acknowledgment. Posts a "seen" response; the server
+  /// tells the sender by name (socket, then push) and the response list
+  /// below updates with the time. Refused server-side once the SOS has
+  /// ended, so a stale screen cannot add a late acknowledgment.
+  Future<void> _acknowledge(final FamilySosEvent sos) async {
+    if (_acknowledging) return;
+    setState(() => _acknowledging = true);
+    await ref.read(providerOfFamily.notifier).respondToSos(
+          sosEventId: sos.id,
+          type: FamilySosResponseType.seen,
+        );
+    if (!mounted) return;
+    final failed = ref.read(providerOfFamily).sosRespondState.isError;
+    setState(() => _acknowledging = false);
+    if (failed) {
+      context.showErrorToast(
+        message: ref.read(providerOfFamily).sosRespondState.error?.message ??
+            'Could not send your acknowledgment. Please try again.',
+      );
+    } else {
+      final name = sos.member?.displayName ?? 'They';
+      context.showSuccessToast(message: '$name has been told you saw this.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Prefer the live copy from state (updated by socket events).
+    // Prefer the live copy from state (updated by socket events); once the
+    // SOS has ended, the history copy carries the final acknowledgments.
     final sos = ref.watch(
           providerOfFamily.select(
             (s) => s.activeSosEvents
-                .where((e) => e.id == widget.args.sosEvent.id)
-                .firstOrNull,
+                    .where((e) => e.id == widget.args.sosEvent.id)
+                    .firstOrNull ??
+                s.sosHistory
+                    .where((e) => e.id == widget.args.sosEvent.id)
+                    .firstOrNull,
           ),
         ) ??
         widget.args.sosEvent;
@@ -183,6 +165,15 @@ class _FamilySosReceiverScreenState
     final isMine = sos.memberId == myMemberId ||
         (sos.member?.user?.id != null && sos.member?.user?.id == myUserId);
     final isResolved = sos.status != FamilySosStatus.active;
+    final mySeen = sos.responses
+        .where(
+          (r) =>
+              r.type == FamilySosResponseType.seen &&
+              (r.memberId == myMemberId ||
+                  (r.member?.user?.id != null &&
+                      r.member?.user?.id == myUserId)),
+        )
+        .firstOrNull;
 
     // Where the person is right now: the socket-patched member location is
     // the freshest, then the newest trail point, then the trigger snapshot.
@@ -221,8 +212,12 @@ class _FamilySosReceiverScreenState
                   SizedBox(height: 10.spMin),
                   _shareUpdatedLocationButtonBuilder(context, ref),
                 ],
+                if (!isResolved && !isMine) ...[
+                  _acknowledgeButtonBuilder(sos, mySeen),
+                ],
+                if (isResolved) _closedNoteBuilder(),
                 SizedBox(height: 20.spMin),
-                _responsesBuilder(sos),
+                _responsesBuilder(sos, myMemberId, myUserId),
               ],
             ),
           ),
@@ -340,6 +335,110 @@ class _FamilySosReceiverScreenState
               style: TextStyle(
                 fontSize: 14.spMin,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The one action a recipient has. Before tapping: a full-width indigo
+  /// "I've seen this". After: the same slot reads back what was sent and
+  /// when, so there is never any doubt whether it went through.
+  Widget _acknowledgeButtonBuilder(
+    final FamilySosEvent sos,
+    final FamilySosResponse? mySeen,
+  ) {
+    if (mySeen != null) {
+      final when = mySeen.createdAt;
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
+        decoration: BoxDecoration(
+          color: FamilyColors.safeGreenLight,
+          borderRadius: BorderRadius.circular(16.spMin),
+          border: Border.all(
+            color: FamilyColors.safeGreen.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              LucideIcons.circleCheck,
+              color: FamilyColors.safeGreen,
+              size: 20.spMin,
+            ),
+            SizedBox(width: 10.spMin),
+            Expanded(
+              child: Text(
+                when == null
+                    ? "You've seen this · ${sos.member?.displayName ?? 'they'} "
+                        'know someone is looking'
+                    : "You've seen this · ${timeago.format(when)}",
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0A6B45),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 54.spMin,
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: FamilyColors.indigo,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.spMin),
+          ),
+        ),
+        onPressed: _acknowledging ? null : () => _acknowledge(sos),
+        icon: _acknowledging
+            ? SizedBox(
+                width: 18.spMin,
+                height: 18.spMin,
+                child: const CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Icon(LucideIcons.eye, size: 20.spMin),
+        label: Text(
+          "I've seen this",
+          style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
+  }
+
+  /// Once the SOS has ended the acknowledgment list is a closed record.
+  Widget _closedNoteBuilder() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14.spMin),
+        border: Border.all(color: const Color(0xFFE6E6EA)),
+      ),
+      child: Row(
+        children: [
+          Icon(LucideIcons.lock, size: 16.spMin, color: AppColors.grey),
+          SizedBox(width: 8.spMin),
+          Expanded(
+            child: Text(
+              'This SOS has ended. Who saw it while it ran is kept below; '
+              'no further acknowledgments can be added.',
+              style: TextStyle(
+                fontSize: 12.5.spMin,
+                height: 1.4,
+                color: AppColors.mediumGrey,
               ),
             ),
           ),
@@ -482,20 +581,33 @@ class _FamilySosReceiverScreenState
     );
   }
 
-  Widget _responsesBuilder(final FamilySosEvent sos) {
+  /// Who has acknowledged, by name and time, oldest first. The sender sees
+  /// exactly this list; so does every other recipient.
+  Widget _responsesBuilder(
+    final FamilySosEvent sos,
+    final String? myMemberId,
+    final String? myUserId,
+  ) {
     // "On my way" is removed from the flow entirely, so past responses of
     // that type are hidden here too, not just relabeled. The switch
     // expressions below still cover it - required for exhaustiveness over
     // FamilySosResponseType - but that branch is unreachable.
     final visibleResponses = sos.responses
         .where((response) => response.type != FamilySosResponseType.onMyWay)
-        .toList();
-    if (visibleResponses.isEmpty) return const SizedBox.shrink();
+        .toList()
+      ..sort((a, b) {
+        final at = a.createdAt;
+        final bt = b.createdAt;
+        if (at == null || bt == null) return 0;
+        return at.compareTo(bt);
+      });
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'CIRCLE RESPONSES',
+          visibleResponses.isEmpty
+              ? 'CIRCLE RESPONSES'
+              : 'CIRCLE RESPONSES · ${visibleResponses.length}',
           style: TextStyle(
             fontSize: 13.spMin,
             fontWeight: FontWeight.w700,
@@ -509,43 +621,62 @@ class _FamilySosReceiverScreenState
             color: Colors.white,
             borderRadius: BorderRadius.circular(16.spMin),
           ),
-          child: Column(
-            children: [
-              for (final response in visibleResponses)
-                ListTile(
-                  dense: true,
-                  leading: Icon(
-                    switch (response.type) {
-                      FamilySosResponseType.onMyWay => LucideIcons.navigation,
-                      FamilySosResponseType.called => Icons.phone,
-                      FamilySosResponseType.seen => LucideIcons.eye,
-                    },
-                    size: 18.spMin,
-                    color: FamilyColors.indigo,
-                  ),
-                  title: Text(
-                    response.member?.displayName ?? 'Family member',
+          child: visibleResponses.isEmpty
+              ? Padding(
+                  padding: EdgeInsets.all(16.spMin),
+                  child: Text(
+                    sos.status == FamilySosStatus.active
+                        ? 'Nobody has acknowledged this yet.'
+                        : 'Nobody acknowledged this before it ended.',
                     style: TextStyle(
-                      fontSize: 14.spMin,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 13.spMin,
+                      color: AppColors.mediumGrey,
                     ),
                   ),
-                  trailing: Text(
-                    switch (response.type) {
-                      FamilySosResponseType.onMyWay =>
-                        'On my way${response.createdAt != null ? ' · ${timeago.format(response.createdAt!)}' : ''}',
-                      FamilySosResponseType.called => 'Called for help',
-                      FamilySosResponseType.seen =>
-                        "I've seen this${response.createdAt != null ? ' · ${timeago.format(response.createdAt!)}' : ''}",
-                    },
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      color: AppColors.grey,
-                    ),
-                  ),
+                )
+              : Column(
+                  children: [
+                    for (final response in visibleResponses)
+                      ListTile(
+                        dense: true,
+                        leading: Icon(
+                          switch (response.type) {
+                            FamilySosResponseType.onMyWay =>
+                              LucideIcons.navigation,
+                            FamilySosResponseType.called => Icons.phone,
+                            FamilySosResponseType.seen => LucideIcons.eye,
+                          },
+                          size: 18.spMin,
+                          color: FamilyColors.indigo,
+                        ),
+                        title: Text(
+                          response.memberId == myMemberId ||
+                                  (response.member?.user?.id != null &&
+                                      response.member?.user?.id == myUserId)
+                              ? 'You'
+                              : response.member?.displayName ??
+                                  'Family member',
+                          style: TextStyle(
+                            fontSize: 14.spMin,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        trailing: Text(
+                          switch (response.type) {
+                            FamilySosResponseType.onMyWay =>
+                              'On my way${response.createdAt != null ? ' · ${timeago.format(response.createdAt!)}' : ''}',
+                            FamilySosResponseType.called => 'Called for help',
+                            FamilySosResponseType.seen =>
+                              "I've seen this${response.createdAt != null ? ' · ${timeago.format(response.createdAt!)}' : ''}",
+                          },
+                          style: TextStyle(
+                            fontSize: 12.spMin,
+                            color: AppColors.grey,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
-          ),
         ),
       ],
     );

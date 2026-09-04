@@ -47,6 +47,7 @@ class FamilyProviderState {
     this.hasLoadedOnce = false,
     this.loadState = const FamilyActionState.initial(),
     this.activeSosEvents = const <FamilySosEvent>[],
+    this.sosHistory = const <FamilySosEvent>[],
     this.recentCheckIns = const <FamilyCheckIn>[],
     this.scheduledCheckIns = const <FamilyScheduledCheckIn>[],
     this.circles = const <FamilyCircleSummary>[],
@@ -79,6 +80,11 @@ class FamilyProviderState {
 
   /// The currently active SOS events of the circle.
   final List<FamilySosEvent> activeSosEvents;
+
+  /// Stood-down SOS events of the circle, newest first, each with the
+  /// acknowledgments it collected while it ran. Retained history: the
+  /// server never returns locations for these, only who/when.
+  final List<FamilySosEvent> sosHistory;
 
   /// The caller's own journey while it is running, null otherwise.
   final FamilyJourney? activeJourney;
@@ -127,6 +133,7 @@ class FamilyProviderState {
     final bool? hasLoadedOnce,
     final FamilyActionState? loadState,
     final List<FamilySosEvent>? activeSosEvents,
+    final List<FamilySosEvent>? sosHistory,
     final List<FamilyCheckIn>? recentCheckIns,
     final List<FamilyScheduledCheckIn>? scheduledCheckIns,
     final List<FamilyCircleSummary>? circles,
@@ -152,6 +159,7 @@ class FamilyProviderState {
       hasLoadedOnce: hasLoadedOnce ?? this.hasLoadedOnce,
       loadState: loadState ?? this.loadState,
       activeSosEvents: activeSosEvents ?? this.activeSosEvents,
+      sosHistory: sosHistory ?? this.sosHistory,
       activeJourney: activeJourney == _unset
           ? this.activeJourney
           : activeJourney as FamilyJourney?,
