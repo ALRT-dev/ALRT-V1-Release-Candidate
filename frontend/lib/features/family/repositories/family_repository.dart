@@ -597,9 +597,10 @@ class FamilyRepositoryImpl implements FamilyRepository {
     return runAsyncCall(
       name: 'createFamilyLocationRequestsBulk',
       future: () async {
-        final result = await _restClient.createFamilyLocationRequestsBulk(
+        final response = await _restClient.createFamilyLocationRequestsBulk(
           body: {'memberIds': memberIds},
         );
+        final result = Map<String, dynamic>.from(response.data as Map);
         final failed = (result['failed'] as List? ?? const [])
             .map((f) => (f as Map)['targetMemberId'] as String)
             .toList();

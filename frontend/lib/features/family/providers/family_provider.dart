@@ -164,11 +164,14 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       unawaited(load(silent: true));
       if (isMine) return;
       final name = request.requestedBy?.displayName ?? 'A family member';
+      // The in-app alert has no consent UI, so its one tap checks in
+      // WITHOUT location - exactly what a check-in request asks for.
+      // Sharing a snapshot stays a deliberate choice on the Family hub.
       _showBigAlert(
         title: '$name asked for a check-in',
         body: 'One tap to let them know you are safe.',
         isSos: false,
-        onTap: checkIn,
+        onTap: () => checkIn(shareLocation: false),
       );
       return;
     }
@@ -190,7 +193,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
             ? 'Waiting on $waitingOn people. One tap says you are safe.'
             : 'One tap to let them know you are safe.',
         isSos: false,
-        onTap: checkIn,
+        // No consent UI on the alert itself: check in without location.
+        onTap: () => checkIn(shareLocation: false),
       );
     }
   }

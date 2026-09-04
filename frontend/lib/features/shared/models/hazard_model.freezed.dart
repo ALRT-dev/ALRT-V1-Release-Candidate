@@ -49,7 +49,10 @@ mixin _$Hazard {
 @DateTimeConverter() DateTime? get reviewedAt;/// The vote type (upvote or downvote) by the current user.
  HazardVoteType? get userVoteType;/// The total number of upvotes for the hazard.
  int get upvoteCount;/// The total number of downvotes for the hazard.
- int get downvoteCount; int get corroborationCount;/// The confidence score of the hazard (from 0 to 100) to be used in the sorting order.
+ int get downvoteCount;/// The number of independent community reports that corroborate this
+/// hazard (never official sources, never a stand-in for severity — see
+/// the "(x3)" corroboration indicator in the classification standard).
+ int get corroborationCount;/// The confidence score of the hazard (from 0 to 100) to be used in the sorting order.
  int? get confidenceScore;/// The list of media files associated with the hazard.
  List<S3Media> get medias;/// The list of medias that have been processed and are ready for displaying to the UI.
 ///
@@ -398,7 +401,11 @@ class _Hazard extends Hazard {
 /// The total number of upvotes for the hazard.
 @override@JsonKey() final  int upvoteCount;
 /// The total number of downvotes for the hazard.
-@override@JsonKey() final  int downvoteCount;@override@JsonKey() final  int corroborationCount;
+@override@JsonKey() final  int downvoteCount;
+/// The number of independent community reports that corroborate this
+/// hazard (never official sources, never a stand-in for severity — see
+/// the "(x3)" corroboration indicator in the classification standard).
+@override@JsonKey() final  int corroborationCount;
 /// The confidence score of the hazard (from 0 to 100) to be used in the sorting order.
 @override final  int? confidenceScore;
 /// The list of media files associated with the hazard.

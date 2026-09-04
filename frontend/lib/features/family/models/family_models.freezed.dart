@@ -4738,7 +4738,9 @@ $FamilyMemberSnippetCopyWith<$Res>? get requestedBy {
 /// @nodoc
 mixin _$FamilySosEvent {
 
- String get id; String get circleId; String get memberId;@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus get status; bool get isLive; double? get latitude; double? get longitude; String? get locationLabel; FamilyMemberSnippet? get member; List<FamilySosResponse> get responses; DateTime? get resolvedAt; DateTime? get createdAt;
+ String get id; String get circleId; String get memberId;@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus get status;// Whether the sender chose live location sharing for this SOS.
+// Defaults true: every SOS from before this field existed was live.
+ bool get isLive; double? get latitude; double? get longitude; String? get locationLabel; FamilyMemberSnippet? get member; List<FamilySosResponse> get responses; DateTime? get resolvedAt; DateTime? get createdAt;
 /// Create a copy of FamilySosEvent
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -4899,10 +4901,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  double? latitude,  double? longitude,  String? locationLabel,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FamilySosEvent() when $default != null:
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.latitude,_that.longitude,_that.locationLabel,_that.member,_that.responses,_that.resolvedAt,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.member,_that.responses,_that.resolvedAt,_that.createdAt);case _:
   return orElse();
 
 }
@@ -4920,10 +4922,10 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.latitu
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  double? latitude,  double? longitude,  String? locationLabel,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _FamilySosEvent():
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.latitude,_that.longitude,_that.locationLabel,_that.member,_that.responses,_that.resolvedAt,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.member,_that.responses,_that.resolvedAt,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -4940,10 +4942,10 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.latitu
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  double? latitude,  double? longitude,  String? locationLabel,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _FamilySosEvent() when $default != null:
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.latitude,_that.longitude,_that.locationLabel,_that.member,_that.responses,_that.resolvedAt,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.member,_that.responses,_that.resolvedAt,_that.createdAt);case _:
   return null;
 
 }
@@ -4962,6 +4964,8 @@ class _FamilySosEvent implements FamilySosEvent {
 @override final  String circleId;
 @override final  String memberId;
 @override@JsonKey(unknownEnumValue: FamilySosStatus.active) final  FamilySosStatus status;
+// Whether the sender chose live location sharing for this SOS.
+// Defaults true: every SOS from before this field existed was live.
 @override@JsonKey() final  bool isLive;
 @override final  double? latitude;
 @override final  double? longitude;

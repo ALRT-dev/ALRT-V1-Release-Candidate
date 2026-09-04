@@ -377,10 +377,16 @@ abstract class RestClient {
   });
 
   /// Selected members, or the whole group (send every member id wanted -
-  /// there is no separate "whole group" flag). Returns
+  /// there is no separate "whole group" flag). The body is
   /// `{created: [...], failed: [{targetMemberId, reason}, ...]}`.
+  ///
+  /// Typed as HttpResponse<dynamic> (like getFamilyCircle) rather than
+  /// Map<String, dynamic>: the pinned retrofit_generator emits invalid
+  /// code (`dynamic.fromJson`) for a bare Map return type, which is why
+  /// the generated file used to carry a hand patch for this method. With
+  /// this type the generator output compiles as emitted.
   @POST(kUrlFamilyLocationRequests)
-  Future<Map<String, dynamic>> createFamilyLocationRequestsBulk({
+  Future<HttpResponse<dynamic>> createFamilyLocationRequestsBulk({
     @Body() required final Map<String, dynamic> body,
   });
 
