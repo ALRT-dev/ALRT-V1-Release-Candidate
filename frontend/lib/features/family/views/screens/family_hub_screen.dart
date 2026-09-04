@@ -1474,7 +1474,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
 
     final roll = CheckInRoll.of(circle);
     // Once you have checked in since the ask, it stops nagging.
-    if (!iAsked && roll.hasAnswered(circle.me ?? circle.members.first)) {
+    final me = circle.me;
+    if (!iAsked && (me == null || roll.hasAnswered(me))) {
       return const SizedBox.shrink();
     }
 
