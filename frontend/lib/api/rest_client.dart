@@ -380,8 +380,8 @@ abstract class RestClient {
   /// there is no separate "whole group" flag). The body is
   /// `{created: [...], failed: [{targetMemberId, reason}, ...]}`.
   ///
-  /// Typed as HttpResponse<dynamic> (like getFamilyCircle) rather than
-  /// Map<String, dynamic>: the pinned retrofit_generator emits invalid
+  /// Typed as `HttpResponse<dynamic>` (like getFamilyCircle) rather than
+  /// `Map<String, dynamic>`: the pinned retrofit_generator emits invalid
   /// code (`dynamic.fromJson`) for a bare Map return type, which is why
   /// the generated file used to carry a hand patch for this method. With
   /// this type the generator output compiles as emitted.
