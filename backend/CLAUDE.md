@@ -103,3 +103,15 @@ explicit instruction from the product owner in the current session.
 - Work happens on branch `claude/safety-alert-repo-audit-8exgvn`.
 - Never touch SafetyALRT org repos; never deploy.
 - No en-dashes in any output.
+
+## Check-in asks and group-list state (2026-09-04)
+
+- `FamilyCheckInRequest.targetMemberIds` (empty = everyone): a targeted
+  ask notifies only its targets, and a member's `latestCheckInRequest`
+  is the latest ask that concerns them (everyone, them, or sent by them).
+  Never widen an invalid target list to everyone: refuse it.
+- `GET /api/family/circles` carries per-group `checkedInCount`,
+  `waitingOn` (names) and `activeSos` ({id, memberId, memberName,
+  createdAt}). Names and times only; this list must never carry a
+  location. Verified by `verify_circle_list_state.ts` and
+  `verify_targeted_check_in_request.ts`.

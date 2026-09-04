@@ -405,10 +405,34 @@ abstract class FamilyCircleSummary with _$FamilyCircleSummary {
     /// consume the caller's seats.
     @Default(false) final bool isOwned,
     final DateTime? joinedAt,
+
+    /// Members who checked in within the last day.
+    @Default(0) final int checkedInCount,
+
+    /// Names of members who have not checked in within the last day.
+    @Default(<String>[]) final List<String> waitingOn,
+
+    /// The latest SOS running in this circle, if any. Who and when only.
+    final FamilyCircleSosSummary? activeSos,
   }) = _FamilyCircleSummary;
 
   factory FamilyCircleSummary.fromJson(Map<String, dynamic> json) =>
       _$FamilyCircleSummaryFromJson(json);
+}
+
+/// An SOS as the group list carries it: enough to say "SOS live · Tom" on
+/// a group you do not have open. Never a location.
+@freezed
+abstract class FamilyCircleSosSummary with _$FamilyCircleSosSummary {
+  const factory FamilyCircleSosSummary({
+    required final String id,
+    required final String memberId,
+    @Default('Family member') final String memberName,
+    final DateTime? createdAt,
+  }) = _FamilyCircleSosSummary;
+
+  factory FamilyCircleSosSummary.fromJson(Map<String, dynamic> json) =>
+      _$FamilyCircleSosSummaryFromJson(json);
 }
 
 @freezed

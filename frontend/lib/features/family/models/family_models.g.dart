@@ -474,6 +474,17 @@ _FamilyCircleSummary _$FamilyCircleSummaryFromJson(Map<String, dynamic> json) =>
       joinedAt: json['joinedAt'] == null
           ? null
           : DateTime.parse(json['joinedAt'] as String),
+      checkedInCount: (json['checkedInCount'] as num?)?.toInt() ?? 0,
+      waitingOn:
+          (json['waitingOn'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const <String>[],
+      activeSos: json['activeSos'] == null
+          ? null
+          : FamilyCircleSosSummary.fromJson(
+              json['activeSos'] as Map<String, dynamic>,
+            ),
     );
 
 Map<String, dynamic> _$FamilyCircleSummaryToJson(
@@ -489,6 +500,29 @@ Map<String, dynamic> _$FamilyCircleSummaryToJson(
   'seatCount': instance.seatCount,
   'isOwned': instance.isOwned,
   'joinedAt': ?instance.joinedAt?.toIso8601String(),
+  'checkedInCount': instance.checkedInCount,
+  'waitingOn': instance.waitingOn,
+  'activeSos': ?instance.activeSos?.toJson(),
+};
+
+_FamilyCircleSosSummary _$FamilyCircleSosSummaryFromJson(
+  Map<String, dynamic> json,
+) => _FamilyCircleSosSummary(
+  id: json['id'] as String,
+  memberId: json['memberId'] as String,
+  memberName: json['memberName'] as String? ?? 'Family member',
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+);
+
+Map<String, dynamic> _$FamilyCircleSosSummaryToJson(
+  _FamilyCircleSosSummary instance,
+) => <String, dynamic>{
+  'id': instance.id,
+  'memberId': instance.memberId,
+  'memberName': instance.memberName,
+  'createdAt': ?instance.createdAt?.toIso8601String(),
 };
 
 _FamilyScheduledCheckIn _$FamilyScheduledCheckInFromJson(

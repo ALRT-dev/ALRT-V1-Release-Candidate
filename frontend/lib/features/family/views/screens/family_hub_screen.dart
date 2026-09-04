@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/check_in_roll.dart';
+import 'package:hazard_app/features/family/utils/group_state.dart';
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_check_in_roll_call_screen.dart';
@@ -115,8 +116,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// Group switcher chips. Tapping a chip rescopes the whole family tab,
-  /// and the last slot opens the manage page.
+  /// Your groups, as state tiles, not name chips: each says at a glance
+  /// whether everyone is in, who is still owed ("2 of 3 · waiting on
+  /// Amy"), or that an SOS is running there ("SOS live · Tom") - for the
+  /// groups you do NOT have open as much as the one you do. Tapping a tile
+  /// rescopes the whole family tab; the last tile opens the groups page.
   ///
   /// Shown from one group up, not two: with a single group the row was
   /// hidden entirely, which left the only path to creating another buried
@@ -127,62 +131,149 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     if (circles.isEmpty) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
+    final activeSos = ref.watch(
+      providerOfFamily.select((s) => s.activeSosEvents),
+    );
 
     return SliverToBoxAdapter(
       child: Container(
         color: Colors.white,
-        padding: EdgeInsets.symmetric(vertical: 10.spMin),
-        child: SizedBox(
-          height: 36.spMin,
-          child: ListView.separated(
-            padding: EdgeInsets.symmetric(horizontal: 20.spMin),
-            scrollDirection: Axis.horizontal,
-            // One extra slot: the chips switch, the last one manages.
-            itemCount: circles.length + 1,
-            separatorBuilder: (_, _) => SizedBox(width: 8.spMin),
-            itemBuilder: (context, index) {
-              if (index == circles.length) return _manageGroupsChipBuilder();
-
-              final summary = circles[index];
-              final isSelected = summary.circleId == circle.id;
-
-              return GestureDetector(
-                onTap: () => ref
-                    .read(providerOfFamily.notifier)
-                    .selectCircle(summary.circleId),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 14.spMin),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? FamilyColors.indigo
-                        : FamilyColors.v31Page,
-                    borderRadius: BorderRadius.circular(18.spMin),
-                  ),
-                  child: Row(
-                    children: [
-                      if (summary.isOwned) ...[
-                        Icon(
-                          LucideIcons.crown,
-                          size: 13.spMin,
-                          color: isSelected ? Colors.white : AppColors.grey,
-                        ),
-                        SizedBox(width: 5.spMin),
-                      ],
-                      Text(
-                        summary.name,
-                        style: TextStyle(
-                          fontSize: 13.spMin,
-                          fontWeight: FontWeight.w700,
-                          color: isSelected ? Colors.white : AppColors.black,
-                        ),
+        padding: EdgeInsets.fromLTRB(0, 12.spMin, 0, 12.spMin),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.spMin),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _sectionLabelBuilder('Your groups', count: circles.length),
+                  GestureDetector(
+                    onTap: () => context.push(FamilySwitchGroupScreen.route),
+                    child: Text(
+                      'See all',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: FamilyColors.indigo,
                       ),
-                    ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 8.spMin),
+            SizedBox(
+              height: 66.spMin,
+              child: ListView.separated(
+                padding: EdgeInsets.symmetric(horizontal: 20.spMin),
+                scrollDirection: Axis.horizontal,
+                // One extra slot: the tiles switch, the last one manages.
+                itemCount: circles.length + 1,
+                separatorBuilder: (_, _) => SizedBox(width: 8.spMin),
+                itemBuilder: (context, index) {
+                  if (index == circles.length) return _manageGroupsChipBuilder();
+                  final summary = circles[index];
+                  return _groupStateTileBuilder(
+                    summary,
+                    isSelected: summary.circleId == circle.id,
+                    state: groupStateOf(
+                      summary,
+                      openCircle: circle,
+                      activeSosEvents: activeSos,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _groupStateTileBuilder(
+    final FamilyCircleSummary summary, {
+    required final bool isSelected,
+    required final GroupState state,
+  }) {
+    final Color ink;
+    final Color background;
+    final Color border;
+    switch (state.kind) {
+      case GroupStateKind.sos:
+        ink = FamilyColors.sosRed;
+        background = FamilyColors.sosRedLight;
+        border = FamilyColors.sosRed;
+      case GroupStateKind.waiting:
+        ink = FamilyColors.amber;
+        background = isSelected ? FamilyColors.indigoLight : FamilyColors.v31Page;
+        border = isSelected ? FamilyColors.indigo : Colors.transparent;
+      case GroupStateKind.allIn:
+        ink = FamilyColors.safeGreen;
+        background = isSelected ? FamilyColors.indigoLight : FamilyColors.v31Page;
+        border = isSelected ? FamilyColors.indigo : Colors.transparent;
+      case GroupStateKind.alone:
+        ink = AppColors.grey;
+        background = isSelected ? FamilyColors.indigoLight : FamilyColors.v31Page;
+        border = isSelected ? FamilyColors.indigo : Colors.transparent;
+    }
+    return GestureDetector(
+      onTap: () =>
+          ref.read(providerOfFamily.notifier).selectCircle(summary.circleId),
+      child: Container(
+        width: 156.spMin,
+        padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 9.spMin),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(14.spMin),
+          border: Border.all(color: border, width: 2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10.spMin,
+                  height: 10.spMin,
+                  decoration: BoxDecoration(
+                    color: FamilyColors.beaconOf(summary.themeColor),
+                    shape: BoxShape.circle,
                   ),
                 ),
-              );
-            },
-          ),
+                SizedBox(width: 6.spMin),
+                if (summary.isOwned) ...[
+                  Icon(LucideIcons.crown, size: 12.spMin, color: AppColors.grey),
+                  SizedBox(width: 4.spMin),
+                ],
+                Expanded(
+                  child: Text(
+                    summary.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.spMin,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 4.spMin),
+            Text(
+              state.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.spMin,
+                fontWeight: FontWeight.w700,
+                color: ink,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -283,6 +374,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 14.spMin),
         alignment: Alignment.center,
+        height: 66.spMin,
         decoration: BoxDecoration(
           color: FamilyColors.v31Page,
           borderRadius: BorderRadius.circular(18.spMin),

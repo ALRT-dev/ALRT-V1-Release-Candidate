@@ -342,6 +342,70 @@ export const listCirclesForUser = async (userId: string) => {
     seatCounts.map((row) => [row.circleId, row._count._all]),
   );
 
+  // One-glance state per group, so the hub can say "2 of 3 · waiting on
+  // Amy" or "SOS live · Tom" for groups that are NOT open, not just the
+  // one whose members are loaded. Names and times only - never a location
+  // (backend/CLAUDE.md: location leaves a phone only by the owner's
+  // action, and this list is read constantly).
+  const circleIds = memberships.map((m) => m.circleId);
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [allMembers, activeSos] = await Promise.all([
+    prisma.familyMember.findMany({
+      where: { circleId: { in: circleIds } },
+      select: {
+        circleId: true,
+        nickname: true,
+        lastCheckInAt: true,
+        user: { select: { name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.familySosEvent.findMany({
+      where: { circleId: { in: circleIds }, status: "active" },
+      select: {
+        id: true,
+        circleId: true,
+        memberId: true,
+        createdAt: true,
+        member: {
+          select: { nickname: true, user: { select: { name: true } } },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+  const checkedInByCircle = new Map<string, number>();
+  const waitingOnByCircle = new Map<string, string[]>();
+  for (const m of allMembers) {
+    const name = m.nickname || m.user.name || "Family member";
+    const checkedIn = !!m.lastCheckInAt && m.lastCheckInAt > dayAgo;
+    if (checkedIn) {
+      checkedInByCircle.set(
+        m.circleId,
+        (checkedInByCircle.get(m.circleId) ?? 0) + 1,
+      );
+    } else {
+      waitingOnByCircle.set(m.circleId, [
+        ...(waitingOnByCircle.get(m.circleId) ?? []),
+        name,
+      ]);
+    }
+  }
+  const sosByCircle = new Map<
+    string,
+    { id: string; memberId: string; memberName: string; createdAt: Date }
+  >();
+  for (const sos of activeSos) {
+    // Newest first, so the first one seen per circle is the latest.
+    if (sosByCircle.has(sos.circleId)) continue;
+    sosByCircle.set(sos.circleId, {
+      id: sos.id,
+      memberId: sos.memberId,
+      memberName: sos.member.nickname || sos.member.user.name || "Family member",
+      createdAt: sos.createdAt,
+    });
+  }
+
   return memberships.map((membership) => ({
     circleId: membership.circleId,
     name: membership.circle.name,
@@ -354,6 +418,9 @@ export const listCirclesForUser = async (userId: string) => {
     seatCount: seatCountByCircle.get(membership.circleId) ?? 0,
     isOwned: membership.circle.createdById === userId,
     joinedAt: membership.createdAt,
+    checkedInCount: checkedInByCircle.get(membership.circleId) ?? 0,
+    waitingOn: waitingOnByCircle.get(membership.circleId) ?? [],
+    activeSos: sosByCircle.get(membership.circleId) ?? null,
   }));
 };
 

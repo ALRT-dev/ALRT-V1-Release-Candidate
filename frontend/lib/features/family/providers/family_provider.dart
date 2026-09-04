@@ -188,6 +188,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// quiet toast when it came from another member.
   void _onCheckInReceived(final FamilyCheckIn checkIn) {
     _appendCheckIn(checkIn);
+    _refreshGroupListIfOtherCircle(checkIn.circleId);
 
     if (checkIn.memberId != state.circle?.myMemberId) {
       final name = checkIn.member?.displayName ?? 'A family member';
@@ -307,6 +308,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   void _onSosReceived(final FamilySosEvent sosEvent) {
     _upsertSosEvent(sosEvent);
+    _refreshGroupListIfOtherCircle(sosEvent.circleId);
 
     // "Mine" is decided by USER, not by member id: member ids differ per
     // circle, so a cross-group SOS (or a not-yet-loaded circle) made the
@@ -426,6 +428,17 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       ],
     );
     unawaited(_refreshSosHistory());
+    _refreshGroupListIfOtherCircle(sosEvent.circleId);
+  }
+
+  /// The group tiles show state for groups that are NOT open, read from
+  /// the group list. A live event from one of those groups (a check-in, an
+  /// SOS starting or ending) refreshes that list so the tile moves at
+  /// once; events for the open group already patch its members directly.
+  void _refreshGroupListIfOtherCircle(final String circleId) {
+    if (circleId == state.circle?.id) return;
+    if (!state.circles.any((c) => c.circleId == circleId)) return;
+    unawaited(_refreshCircleList());
   }
 
   void _onHazardProximity(final Map<String, dynamic> payload) {

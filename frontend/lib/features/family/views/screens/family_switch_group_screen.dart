@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
+import 'package:hazard_app/features/family/utils/group_state.dart';
+import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_actions.dart';
@@ -363,6 +365,8 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
                 color: Colors.white.withValues(alpha: 0.88),
               ),
             ),
+            SizedBox(height: 10.spMin),
+            _stateRowBuilder(context, ref, summary, loaded),
             if (loaded != null && loaded.members.isNotEmpty) ...[
               SizedBox(height: 11.spMin),
               _memberDotsBuilder(loaded, beacon),
@@ -371,6 +375,105 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// The same one-line state as the hub tiles ("2 of 3 · waiting on Amy",
+  /// "SOS live · Tom"), plus the action it calls for: ask this group to
+  /// check in, or open the SOS. Asking switches the hub to the group and
+  /// opens the ask sheet there, because a check-in is answered per group.
+  Widget _stateRowBuilder(
+    final BuildContext context,
+    final WidgetRef ref,
+    final FamilyCircleSummary summary,
+    final FamilyCircle? loaded,
+  ) {
+    final activeSos = ref.watch(
+      providerOfFamily.select((s) => s.activeSosEvents),
+    );
+    final state = groupStateOf(
+      summary,
+      openCircle: loaded,
+      activeSosEvents: activeSos,
+    );
+    final isSos = state.kind == GroupStateKind.sos;
+    final canAsk = state.kind == GroupStateKind.waiting ||
+        state.kind == GroupStateKind.allIn;
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 10.spMin,
+              vertical: 7.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: isSos
+                  ? FamilyColors.sosRed
+                  : Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10.spMin),
+            ),
+            child: Text(
+              state.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5.spMin,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        if (isSos || canAsk) ...[
+          SizedBox(width: 8.spMin),
+          GestureDetector(
+            onTap: () => isSos
+                ? _openSos(context, ref, summary)
+                : _askThisGroup(context, ref, summary),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: 12.spMin,
+                vertical: 7.spMin,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10.spMin),
+              ),
+              child: Text(
+                isSos ? 'Open SOS' : 'Ask to check in',
+                style: TextStyle(
+                  fontSize: 11.5.spMin,
+                  fontWeight: FontWeight.w800,
+                  color: isSos ? FamilyColors.sosRed : FamilyColors.indigo,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _askThisGroup(
+    final BuildContext context,
+    final WidgetRef ref,
+    final FamilyCircleSummary summary,
+  ) async {
+    await ref.read(providerOfFamily.notifier).selectCircle(summary.circleId);
+    if (!context.mounted) return;
+    await showFamilyAskCheckInSheet(context, ref);
+  }
+
+  /// Opens the SOS running in [summary]: the hub is switched to that group
+  /// first, whose banner and strip then carry the live event.
+  Future<void> _openSos(
+    final BuildContext context,
+    final WidgetRef ref,
+    final FamilyCircleSummary summary,
+  ) async {
+    await ref.read(providerOfFamily.notifier).selectCircle(summary.circleId);
+    if (!context.mounted) return;
+    Navigator.of(context).maybePop();
   }
 
   Widget _pillBuilder({
@@ -543,15 +646,8 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
 
   /// The group's chosen beacon, falling back to the family indigo so a group
   /// that has never been themed still looks deliberate.
-  Color _beaconOf(final FamilyCircleSummary summary) {
-    final hex = summary.themeColor?.trim();
-    if (hex == null || hex.isEmpty) return FamilyColors.indigo;
-
-    final cleaned = hex.replaceFirst('#', '');
-    final value = int.tryParse(cleaned, radix: 16);
-    if (value == null) return FamilyColors.indigo;
-    return Color(cleaned.length <= 6 ? value | 0xFF000000 : value);
-  }
+  Color _beaconOf(final FamilyCircleSummary summary) =>
+      FamilyColors.beaconOf(summary.themeColor);
 
   /// The top-left stop of the card gradient: the same beacon, lifted, so
   /// every card shares one light source.

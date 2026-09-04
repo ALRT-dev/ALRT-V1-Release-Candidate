@@ -85,6 +85,21 @@ explicit instruction from the product owner in the current session.
   a closed record: the server refuses late acknowledgments, and the list is
   kept in the retained SOS history (GET /api/family/sos/history, "Past
   SOS" on the hub) with who/when only - never locations.
+- SOS visibility (product-owner instruction 2026-09-04): while any SOS in
+  any of your groups is running, a red strip (FamilySosStrip) sits above
+  whichever home tab is showing - who, which group, how long, and for the
+  sender who has seen it by name. It is never hidden behind a tab and
+  never shows a location. The group tiles say "SOS live · <name>" for
+  that group. Live updates arrive over the socket; SocketService must
+  keep reconnecting with a fresh token (never give up on a refused
+  handshake), and the Family header shows Live / Reconnecting so a dead
+  connection is never silent.
+- Check-in asks (product-owner instruction 2026-09-04): an ask is
+  everyone in a group OR exactly the people picked (targetMemberIds);
+  only those asked are notified or see it as owed. The button and the
+  requester's tracker always NAME who was asked and who has answered,
+  never a bare count. "Who has checked in" is one answer everywhere
+  (CheckInRoll): header, chips, split member list, tiles.
 - Guests never request locations. There is no mute/snooze for circle SOS
   receipt — leaving is the only opt-out.
 - The leaderboard never shows other users' identities.

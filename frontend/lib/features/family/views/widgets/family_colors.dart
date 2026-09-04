@@ -122,6 +122,17 @@ class FamilyColors {
   ///
   /// Uses a deterministic hash over the id's code units so the same member
   /// always gets the same color, across sessions and devices.
+  /// A group's chosen beacon colour from its stored hex, falling back to
+  /// the family indigo so an unthemed group still looks deliberate.
+  static Color beaconOf(final String? hex) {
+    final trimmed = hex?.trim();
+    if (trimmed == null || trimmed.isEmpty) return indigo;
+    final cleaned = trimmed.replaceFirst('#', '');
+    final value = int.tryParse(cleaned, radix: 16);
+    if (value == null) return indigo;
+    return Color(cleaned.length <= 6 ? value | 0xFF000000 : value);
+  }
+
   static Color memberColor(final String memberId) {
     var hash = 0;
     for (final unit in memberId.codeUnits) {
