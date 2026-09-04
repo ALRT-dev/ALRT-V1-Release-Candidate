@@ -2,7 +2,15 @@ import WidgetKit
 import SwiftUI
 
 private enum FamilyWidgetConfig {
-    static let appGroup = "group.com.safetyalrt.alrt"
+    // Flavour-specific: the TEST app (any bundle id containing ".dev") uses
+    // the separate group.com.safetyalrt.alrt.dev, so a TEST install never
+    // shares widget data with the live app. Matches Runner-dev.entitlements
+    // and HomeWidgetKeys.appGroupId on the Dart side.
+    static var appGroup: String {
+        (Bundle.main.bundleIdentifier ?? "").contains(".dev")
+            ? "group.com.safetyalrt.alrt.dev"
+            : "group.com.safetyalrt.alrt"
+    }
     static let payloadKey = "alrt_family_widget_payload"
     static let kind = "AlrtFamilyWidget"
 }

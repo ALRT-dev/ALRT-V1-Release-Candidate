@@ -127,33 +127,52 @@ jobs:
           bundler-cache: true
           working-directory: frontend/ios
 
-      # Google Sign-In and Google Maps are blanked here - see the Phase 1
-      # TEST IPA scope comment at the top of this file for why that's safe
-      # (matches android-test.yml's own reasoning: a blank client id/key
-      # cannot crash app startup, it only leaves that feature non-functional
-      # when used). DEV_BASE_URL is the hardcoded isolated TEST backend URL
-      # - see the comment at the top of this file for why this is a
-      # literal, not a secret lookup. ALRT_PLUS_TEST_UNLOCK=true bypasses
-      # RevenueCat entirely, matching android-test.yml's bypass mode.
+      # Google Sign-In is blanked at the Dart layer here, and the dev-flavour
+      # build configurations use ios/Runner/Info-dev.plist, which carries no
+      # GIDClientID / Google URL scheme at all (see that file's header) - so
+      # this build embeds no production Google OAuth identity anywhere.
+      # DEV_BASE_URL is the hardcoded isolated TEST backend URL - see the
+      # comment at the top of this file for why this is a literal, not a
+      # secret lookup. ALRT_PLUS_TEST_UNLOCK=true bypasses RevenueCat
+      # entirely (both keys blank), matching android-test.yml's bypass mode.
+      # GOOGLE_MAPS_API_KEY (Dart layer) mirrors the native xcconfig below.
+      # USE_DUMMY_AI_FOR_REPORTS=true matches the Android TEST build: the
+      # backend honours it only when it is itself running as TEST.
       - name: Create .env pointed at the isolated test backend
         run: |
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
-            echo "GOOGLE_MAPS_API_KEY="
+            echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS"
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE="
             echo "REVENUECAT_API_KEY_GOOGLE="
             echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
             echo "ALRT_PLUS_TEST_UNLOCK=true"
+            echo "USE_DUMMY_AI_FOR_REPORTS=true"
           } > .env
+        env:
+          GOOGLE_MAPS_API_KEY_IOS: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY_IOS }}
 
       # iOS reads the Maps key from this xcconfig too (see AppDelegate.swift
       # / Info.plist's GMSApiKey) - a separate native-layer path from the
-      # Dart-level .env value above, so it needs blanking here as well to
-      # actually keep Maps non-functional on this build.
-      - name: Create ios/Flutter/Maps.xcconfig (blank - Maps disabled on this TEST build)
-        run: echo "GOOGLE_MAPS_API_KEY=" > ios/Flutter/Maps.xcconfig
+      # Dart-level .env value above. It is filled from the repository Secret
+      # TEST_GOOGLE_MAPS_API_KEY_IOS, a Google Cloud key restricted to the
+      # com.safetyalrt.alrt.dev bundle id ONLY (see
+      # frontend/ios/TEST_IOS_SETUP.md for how to create it). That Secret
+      # does not exist yet: while it is absent this resolves empty and Maps
+      # is simply disabled on the TEST build, never falling back to the
+      # production key. Non-fatal on purpose; reported by length only.
+      - name: Create ios/Flutter/Maps.xcconfig from the TEST-only iOS Maps key (blank = Maps disabled)
+        run: |
+          echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS" > ios/Flutter/Maps.xcconfig
+          if [ -z "$GOOGLE_MAPS_API_KEY_IOS" ]; then
+            echo "::warning::TEST_GOOGLE_MAPS_API_KEY_IOS is not set - Google Maps is disabled on this TEST build (no production key is ever used here)."
+          else
+            echo "TEST_GOOGLE_MAPS_API_KEY_IOS is set (length: ${#GOOGLE_MAPS_API_KEY_IOS}). Value never printed."
+          fi
+        env:
+          GOOGLE_MAPS_API_KEY_IOS: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY_IOS }}
 
       - run: flutter pub get
 
@@ -184,7 +203,11 @@ jobs:
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=ios/ExportOptionsCI-dev.plist
 
-      - name: Upload to TestFlight (ALRT Dev)
+      # ci_upload_dev (not the production ci_upload lane) pins the App Store
+      # Connect record to com.safetyalrt.alrt.dev / "ALRT Dev" and refuses any
+      # ipa whose bundle id is not exactly that, so this step can never reach
+      # the live ALRT app. The production lane is untouched.
+      - name: Upload to TestFlight (ALRT Dev only)
         working-directory: frontend/ios
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -194,7 +217,7 @@ jobs:
           IPA_PATH="$(ls "$GITHUB_WORKSPACE"/frontend/build/ios/ipa/*.ipa | head -1)"
           echo "Uploading $IPA_PATH"
           export IPA_PATH
-          bundle exec fastlane ci_upload
+          bundle exec fastlane ci_upload_dev
 
       # Keep the ipa on the run page too, in case the upload step needs a
       # retry. upload-artifact's `path:` always resolves against the

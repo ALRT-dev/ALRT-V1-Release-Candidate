@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <!-- TEST (dev flavour, com.safetyalrt.alrt.dev) Info.plist, selected per
+       build configuration via INFOPLIST_FILE in project.pbxproj
+       (Debug-dev / Release-dev / Profile-dev). It is Info.plist with every
+       production Google Sign-In value removed: no GIDClientID, no
+       Google reversed-client-id URL scheme, no matching
+       LSApplicationQueriesSchemes entry. A TEST build therefore carries no
+       production Google OAuth identity; Google Sign-In is simply
+       unavailable on it (the app tolerates that - the button fails
+       gracefully, email/password login is unaffected). If a TEST-only
+       iOS OAuth client is ever created, add ITS values here, never the
+       production ones. Keep every other key in step with Info.plist. -->
+  <dict>
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true />
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleDisplayName</key>
+    <string>$(APP_DISPLAY_NAME)</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>ALRT</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(FLUTTER_BUILD_NAME)</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>msauth.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+        </array>
+      </dict>
+    </array>
+    <key>CFBundleVersion</key>
+    <string>$(FLUTTER_BUILD_NUMBER)</string>
+    <key>GMSApiKey</key>
+    <string>$(GOOGLE_MAPS_API_KEY)</string>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+      <string>google</string>
+      <string>com.google</string>
+      <string>com.google.gppconsent</string>
+      <string>msauthv2</string>
+      <string>msauthv3</string>
+      <string>microsoftauthenticator</string>
+      <string>https</string>
+    </array>
+    <key>LSRequiresIPhoneOS</key>
+    <true />
+    <key>NSCameraUsageDescription</key>
+	<string>ALRT uses the camera only when you choose to attach a photo to a community safety report, set a profile picture, or scan a family invite code.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>This app needs access to your location to show nearby alerts and help you navigate to
+      safety.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>ALRT uses the microphone only while you hold to talk, to turn your speech into a search. Audio is never recorded or stored.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Speech is recognised on your device to fill the search box. ALRT never records, stores or sends audio.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+	<string>ALRT accesses photos you pick to attach them to a community safety report or use as your profile picture.</string>
+    <key>UIApplicationSupportsIndirectInputEvents</key>
+    <true />
+    <key>UIBackgroundModes</key>
+    <array>
+      <string>fetch</string>
+      <string>remote-notification</string>
+    </array>
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    <key>UIMainStoryboardFile</key>
+    <string>Main</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+      <string>UIInterfaceOrientationPortrait</string>
+      <string>UIInterfaceOrientationLandscapeLeft</string>
+      <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+      <string>UIInterfaceOrientationPortrait</string>
+      <string>UIInterfaceOrientationPortraitUpsideDown</string>
+      <string>UIInterfaceOrientationLandscapeLeft</string>
+      <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+  	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

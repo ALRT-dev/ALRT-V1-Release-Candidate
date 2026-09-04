@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 /// Shared constants for the ALRT home-screen widget (iOS WidgetKit +
 /// Android App Widget), bridged through the `home_widget` plugin.
 ///
@@ -8,9 +10,19 @@ class HomeWidgetKeys {
   const HomeWidgetKeys._();
 
   /// App Group used to share data between the Flutter app and the iOS widget
-  /// extension. Must match the App Group added in Xcode to BOTH the Runner
-  /// target and the AlrtWidget extension target.
-  static const appGroupId = 'group.com.safetyalrt.alrt';
+  /// extension. Must match the App Group in the entitlements of BOTH the
+  /// Runner target and the AlrtWidget extension target for the SAME flavour.
+  ///
+  /// Flavour-specific: the TEST build (dev flavour, com.safetyalrt.alrt.dev)
+  /// uses the separate `group.com.safetyalrt.alrt.dev`
+  /// (ios/Runner/Runner-dev.entitlements) so it can never read or write the
+  /// live app's shared widget data; production keeps
+  /// `group.com.safetyalrt.alrt` (Runner.entitlements). Mirrors
+  /// `AlrtWidgetConfig.appGroup`, which derives the same answer from the
+  /// bundle id on the Swift side.
+  static String get appGroupId => appFlavor == 'dev'
+      ? 'group.com.safetyalrt.alrt.dev'
+      : 'group.com.safetyalrt.alrt';
 
   /// The single JSON payload the Nearby Alerts widget renders from. One key
   /// keeps the Dart/Kotlin/Swift contract trivial to reason about.

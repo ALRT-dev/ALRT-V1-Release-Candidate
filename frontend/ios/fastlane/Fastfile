@@ -133,6 +133,33 @@ platform :ios do
     )
   end
 
+  desc "CI: upload the already-built TEST (dev-flavour) ipa to the separate ALRT Dev TestFlight app - never the live ALRT app"
+  lane :ci_upload_dev do
+    # Same as ci_upload, with the App Store Connect record pinned explicitly.
+    # Without app_identifier, pilot falls back to the Appfile default -
+    # com.safetyalrt.alrt, the LIVE app - looks that record up, and tries to
+    # push a .dev ipa into it (Apple rejects the bundle-id mismatch, so the
+    # TEST upload would fail every time, but it must never even be
+    # attempted). Kept separate from ci_upload so the production upload lane
+    # is byte-for-byte unchanged.
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+      is_key_content_base64: true
+    )
+    ipa_path = ENV.fetch("IPA_PATH")
+    ipa_bundle_id = FastlaneCore::IpaFileAnalyser.fetch_app_identifier(ipa_path)
+    UI.user_error!("ci_upload_dev refuses to upload '#{ipa_bundle_id}' - only com.safetyalrt.alrt.dev may go to ALRT Dev") unless ipa_bundle_id == "com.safetyalrt.alrt.dev"
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: "com.safetyalrt.alrt.dev",
+      ipa: ipa_path,
+      changelog: "TEST build - isolated api-test backend",
+      skip_waiting_for_build_processing: true
+    )
+  end
+
   desc "Uploads the dSYM files to Crashlytics"
   lane :upload_dsym do
     upload_symbols_to_crashlytics(

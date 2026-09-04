@@ -52,6 +52,15 @@ class DefaultFirebaseOptionsDev {
   );
 
   // Same values as firebase_options.dart's `ios` block - see file header.
+  // KNOWN GAP (see ios/TEST_IOS_SETUP.md §1): no iOS app for
+  // com.safetyalrt.alrt.dev exists in Firebase project alrt-a6539 yet, so
+  // this block still carries the PRODUCTION iOS app's values, inherited
+  // unchanged from before the flavour split. Consequences on the iOS TEST
+  // build until it is fixed: APNs push cannot work (the .dev bundle has no
+  // APNs registration under this app id) and analytics/Crashlytics attribute
+  // to the live app. Deliberately NOT replaced with invented values - Firebase
+  // assigns apiKey/appId at registration. Paste the real "ALRT Dev" iOS values
+  // here once registered; nothing else needs to change.
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB-GtMYnTstiRxikCgUhZB_ENnyIAXzF54',
     appId: '1:705221000399:ios:42910fba9ef33a48858bba',

@@ -41,7 +41,11 @@ hand-written).
 ## Notes
 - The widget reads from `UserDefaults(suiteName: "group.com.safetyalrt.alrt")`,
   key `alrt_widget_payload`. The Flutter side writes it via `HomeWidgetService`.
-- If you ship a separate **dev** flavor (`com.safetyalrt.alrt.dev`) and want the
-  widget there too, create a second App Group (e.g.
-  `group.com.safetyalrt.alrt.dev`) and switch `AlrtWidgetConfig.appGroup` +
-  `HomeWidgetKeys.appGroupId` per build configuration.
+- The **dev** flavor (`com.safetyalrt.alrt.dev`, the TEST build) uses the
+  separate App Group `group.com.safetyalrt.alrt.dev`: `Runner-dev.entitlements`
+  and `AlrtWidget-dev.entitlements` carry it, `AlrtWidgetConfig.appGroup`
+  derives it from the bundle id at runtime, and `HomeWidgetKeys.appGroupId`
+  derives it from the Flutter flavour. When adding the AlrtWidget target, set
+  its dev build configurations' Code Signing Entitlements to
+  `AlrtWidget/AlrtWidget-dev.entitlements`, and register BOTH App Groups in the
+  Apple Developer Portal (the `.dev` group on the `.dev` App IDs only).
