@@ -336,12 +336,39 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     );
   }
 
+  /// An SOS ended (stood down by hand, or lapsed server-side). It leaves the
+  /// active list and moves straight into [FamilyProviderState.sosHistory]
+  /// with every acknowledgment it collected, so the record stays on screen
+  /// without waiting for a refetch. Locations are dropped on the way: the
+  /// retained history is who/when, never where. The server copy is then
+  /// refreshed so the entry matches what every other member sees.
   void _onSosResolved(final FamilySosEvent sosEvent) {
+    final ended = state.activeSosEvents
+        .where((event) => event.id == sosEvent.id)
+        .firstOrNull;
+    final source = ended ?? sosEvent;
+    final historyEntry = source.copyWith(
+      status: sosEvent.status == FamilySosStatus.active
+          ? FamilySosStatus.resolved
+          : sosEvent.status,
+      resolvedAt: sosEvent.resolvedAt ?? source.resolvedAt ?? DateTime.now(),
+      responses: source.responses.isNotEmpty
+          ? source.responses
+          : sosEvent.responses,
+      latitude: null,
+      longitude: null,
+      locationLabel: null,
+    );
     state = state.copyWith(
       activeSosEvents: state.activeSosEvents
           .where((event) => event.id != sosEvent.id)
           .toList(),
+      sosHistory: [
+        historyEntry,
+        ...state.sosHistory.where((event) => event.id != sosEvent.id),
+      ],
     );
+    unawaited(_refreshSosHistory());
   }
 
   void _onHazardProximity(final Map<String, dynamic> payload) {
@@ -383,6 +410,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
           await Future.wait([
             _refreshRecentCheckIns(),
             _refreshActiveSosEvents(),
+            _refreshSosHistory(),
             _checkPendingLocationRequests(),
           ]);
         }
@@ -906,7 +934,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   // ---------------------------- CHECK-INS ----------------------------
 
-  /// Sends a check-in with the user's current (last known) location attached.
+  /// Sends a check-in, with a location snapshot only when [shareLocation].
   ///
   /// A check-in answering a specific request (`requestId` set, e.g. a
   /// scheduled prompt or someone's "ask everyone") stays scoped to that
@@ -917,15 +945,17 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// the feature, so it fans out to every circle the user belongs to.
   ///
   /// [shareLocation] gates whether this check-in attaches a location
-  /// snapshot at all. It defaults true for the proactive "I'm Safe" tap
-  /// (unchanged behaviour). When answering someone else's check-in
-  /// request, the caller must pass the recipient's own explicit choice
-  /// here — a check-in request never requires or implies location, so
-  /// nothing is fetched unless the recipient said yes.
+  /// snapshot at all, and it has NO default on purpose: every caller must
+  /// pass the person's own explicit choice (locked rule - location leaves
+  /// a phone only by the owner's action). Interactive callers collect it
+  /// with showCheckInConsentSheet; background callers with no UI to ask
+  /// (notification quick actions) pass false. A check-in never requires
+  /// or implies location, so nothing is fetched unless the person said
+  /// yes in this very moment.
   Future<void> checkIn({
     final FamilyCheckInStatus status = FamilyCheckInStatus.safe,
     final String? message,
-    final bool shareLocation = true,
+    required final bool shareLocation,
   }) async {
     state = state.copyWith(checkInState: const FamilyActionState.loading());
 
@@ -1644,6 +1674,16 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       sosEventId: sosEventId,
     );
     return result.when((trail) => trail, (_) => null);
+  }
+
+  Future<void> _refreshSosHistory() async {
+    final result = await _familyService.getFamilySosHistory();
+    if (!mounted) return;
+
+    result.whenSuccess((events) {
+      state = state.copyWith(sosHistory: events);
+      return null;
+    });
   }
 
   Future<void> _refreshActiveSosEvents() async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
@@ -9,8 +10,9 @@ import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// "Tell your family you're safe" strip on the alert detail screen.
-/// Shown only to members of a family circle; one tap sends a safe check-in
-/// referencing this alert so the whole circle stops worrying.
+/// Shown only to members of a family circle. Tapping it asks the consent
+/// question first (check in only, or share a snapshot too), then sends a
+/// safe check-in referencing this alert so the whole circle stops worrying.
 class FamilySafeStrip extends ConsumerStatefulWidget {
   const FamilySafeStrip({super.key, required this.hazard});
 
@@ -104,8 +106,14 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
 
   Future<void> _sendSafeCheckIn() async {
     final title = widget.hazard.title;
+    final choice = await showCheckInConsentSheet(
+      context,
+      contextLine: title == null ? null : 'About the alert: $title',
+    );
+    if (choice == null || !mounted) return;
     await ref.read(providerOfFamily.notifier).checkIn(
       message: title == null ? "I'm safe" : 'Safe — near "$title"',
+      shareLocation: choice == CheckInConsentChoice.checkInAndShareLocation,
     );
     if (!mounted) return;
 

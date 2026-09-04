@@ -186,6 +186,9 @@ class LocalNotificationService {
   /// Band-matched action buttons. Only hazard pushes (payloads carrying a
   /// severityBand) get actions; family/system pushes render button-free —
   /// except the scheduled check-in prompt, which gets one-tap "I'm safe".
+  /// Every "I'm safe" action here checks in WITHOUT location (see
+  /// NotificationService._handleImSafeAction): a button on a notification
+  /// cannot ask the consent question, so it never shares a snapshot.
   List<AndroidNotificationAction>? _actionsFor(Map<String, dynamic> data) {
     if (data['notificationType'] == _typeScheduledCheckInPrompt) {
       return const [

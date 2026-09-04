@@ -17,6 +17,7 @@ import 'package:hazard_app/features/family/views/screens/family_places_screen.da
 import 'package:hazard_app/features/family/views/screens/family_sharing_level_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
+import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
@@ -988,30 +989,25 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// Answering someone's check-in ask is a distinct moment from a
-  /// spontaneous "I'm Safe": it is the one place a recipient can be misled
-  /// into thinking they must also share their location. This always asks
-  /// first, and "Just check in" — the no-location choice — is the primary
-  /// button, since that's what a check-in request actually asks for.
-  Future<void> _answerCheckInRequest(
+  /// Every check-in from this screen - answering someone's ask or a
+  /// spontaneous "I'm Safe" - goes through the same consent sheet first
+  /// (locked rule: location leaves a phone only by the owner's action).
+  /// "Just check in" is the primary button; sharing a snapshot is the
+  /// deliberate extra step, and dismissing the sheet sends nothing.
+  Future<void> _checkInWithConsent(
     final BuildContext context,
-    final WidgetRef ref,
-    final String who,
-  ) {
-    return showConfirmationSheet(
-      context: context,
-      title: 'Check in as safe',
-      description:
-          "$who will see that you checked in, not where you are. Share "
-          "your location too if you want them to see it for the next "
-          "hour — it's entirely your choice.",
-      confirmButtonText: 'Just check in',
-      cancelButtonText: 'Share location too',
-      onPressedConfirm: (_, ref) =>
-          ref.read(providerOfFamily.notifier).checkIn(shareLocation: false),
-      onPressedCancel: (_, ref) =>
-          ref.read(providerOfFamily.notifier).checkIn(shareLocation: true),
+    final WidgetRef ref, {
+    final String? requesterName,
+  }) async {
+    final choice = await showCheckInConsentSheet(
+      context,
+      requesterName: requesterName,
     );
+    if (choice == null || !context.mounted) return;
+    await ref.read(providerOfFamily.notifier).checkIn(
+          shareLocation:
+              choice == CheckInConsentChoice.checkInAndShareLocation,
+        );
   }
 
   /// Someone asked the circle to check in. That ask used to arrive with no
@@ -1153,7 +1149,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     ),
                     onPressed: checkInState.isLoading
                         ? null
-                        : () => _answerCheckInRequest(context, ref, who),
+                        : () => _checkInWithConsent(
+                              context,
+                              ref,
+                              requesterName: who,
+                            ),
                     icon: Icon(Icons.check, size: 20.spMin),
                     label: Text(
                       "I'm Safe · lets $who know",
@@ -1233,14 +1233,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           ),
           onPressed: checkInState.isLoading
               ? null
-              : () {
-                  final owedTo = _requesterNameStillOwedAnAnswer(circle);
-                  if (owedTo != null) {
-                    _answerCheckInRequest(context, ref, owedTo);
-                  } else {
-                    ref.read(providerOfFamily.notifier).checkIn();
-                  }
-                },
+              : () => _checkInWithConsent(
+                    context,
+                    ref,
+                    requesterName: _requesterNameStillOwedAnAnswer(circle),
+                  ),
           icon: checkInState.isLoading
               ? SizedBox(
                   width: 18.spMin,

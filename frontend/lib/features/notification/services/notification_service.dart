@@ -165,18 +165,20 @@ class NotificationService {
     }
   }
 
-  /// "I'm safe" on an ACTION/CRITICAL notification fires the same family
-  /// check-in as the in-app button when a circle exists; without one it just
-  /// lands on the family tab so the user can set a circle up.
+  /// "I'm safe" on an ACTION/CRITICAL alert notification or a scheduled
+  /// check-in prompt sends a safe check-in when a circle exists; without
+  /// one it just lands on the family tab so the user can set a circle up.
   ///
-  /// Skipped when it would also answer someone's outstanding check-in
-  /// request: that always needs the recipient's own location-share
-  /// consent choice, which this background action has no UI to collect,
-  /// so it lands on the family tab instead and lets the real button ask.
+  /// A notification button has no UI to collect a location-share choice,
+  /// so this path NEVER attaches a location (locked rule: location leaves
+  /// a phone only by the owner's action). It still answers any outstanding
+  /// check-in request - a check-in without location is exactly what a
+  /// request asks for. Sharing a snapshot stays an in-app, deliberate
+  /// choice on the Family tab this lands on.
   void _handleImSafeAction() {
     final circle = _ref.read(providerOfFamily).circle;
-    if (circle != null && circle.checkInRequestOwedByMe == null) {
-      _ref.read(providerOfFamily.notifier).checkIn();
+    if (circle != null) {
+      _ref.read(providerOfFamily.notifier).checkIn(shareLocation: false);
     }
     _goToHomeTab(HomeTab.family);
   }
