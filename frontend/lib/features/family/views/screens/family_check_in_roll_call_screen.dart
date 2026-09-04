@@ -42,13 +42,24 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
     // Answered means: checked in since the ask. With no ask on record, the
     // usual 24-hour "recently" window stands in.
     bool hasAnswered(final FamilyMember member) {
+      // The asker is never waiting on themself.
+      if (request != null && member.id == request.requestedById) return true;
       final last = member.lastCheckInAt;
       if (last == null) return false;
       if (askedAt == null) return member.isCheckedInRecently;
       return last.isAfter(askedAt);
     }
 
-    final members = [...circle.members]..sort((a, b) {
+    // A targeted ask is a roll of the people it named (plus the asker);
+    // an untargeted one is the whole circle.
+    final members = [
+      ...circle.members.where(
+        (m) =>
+            request == null ||
+            request.isAimedAt(m.id) ||
+            m.id == request.requestedById,
+      ),
+    ]..sort((a, b) {
         final answeredA = hasAnswered(a);
         final answeredB = hasAnswered(b);
         // Waiting first: the point of this screen is who is outstanding.
@@ -145,7 +156,11 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
           Expanded(
             child: Text(
               [
-                '$who asked for a check-in',
+                request.targetMemberIds.isEmpty
+                    ? '$who asked everyone for a check-in'
+                    : '$who asked ${request.targetMemberIds.length} '
+                          '${request.targetMemberIds.length == 1 ? 'person' : 'people'} '
+                          'for a check-in',
                 if (when != null) timeago.format(when),
               ].join(' · '),
               style: TextStyle(

@@ -917,6 +917,10 @@ model FamilyCheckInRequest {
   requestedById String // FamilyMember id
   hazardId      String? // Set when the request was prompted by a specific hazard
   message       String?
+  // FamilyMember ids this ask is aimed at. Empty = everyone in the circle
+  // (the only kind of ask that existed before 2026-09-04). Only the
+  // targets are notified, and only they see it as owed.
+  targetMemberIds String[] @default([])
 
   circle      FamilyCircle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
   requestedBy FamilyMember    @relation(fields: [requestedById], references: [id], onDelete: Cascade)

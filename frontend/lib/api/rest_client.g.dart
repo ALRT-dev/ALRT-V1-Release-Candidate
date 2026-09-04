@@ -1948,13 +1948,18 @@ class _RestClient implements RestClient {
   Future<FamilyCheckInRequest> requestFamilyCheckIn({
     String? message,
     String? hazardId,
+    List<String>? memberIds,
     String? circleId,
   }) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{r'circleId': circleId};
     queryParameters.removeWhere((k, v) => v == null);
     final _headers = <String, dynamic>{};
-    final _data = {'message': message, 'hazardId': hazardId};
+    final _data = {
+      'message': message,
+      'hazardId': hazardId,
+      'memberIds': memberIds,
+    };
     _data.removeWhere((k, v) => v == null);
     final _options = _setStreamType<FamilyCheckInRequest>(
       Options(method: 'POST', headers: _headers, extra: _extra)

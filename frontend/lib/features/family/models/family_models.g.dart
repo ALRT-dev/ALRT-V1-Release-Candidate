@@ -552,6 +552,11 @@ _FamilyCheckInRequest _$FamilyCheckInRequestFromJson(
           ?.map((e) => FamilyCheckIn.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const <FamilyCheckIn>[],
+  targetMemberIds:
+      (json['targetMemberIds'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const <String>[],
   createdAt: json['createdAt'] == null
       ? null
       : DateTime.parse(json['createdAt'] as String),
@@ -567,6 +572,7 @@ Map<String, dynamic> _$FamilyCheckInRequestToJson(
   'message': ?instance.message,
   'requestedBy': ?instance.requestedBy?.toJson(),
   'checkIns': instance.checkIns.map((e) => e.toJson()).toList(),
+  'targetMemberIds': instance.targetMemberIds,
   'createdAt': ?instance.createdAt?.toIso8601String(),
 };
 

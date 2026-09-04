@@ -13,6 +13,7 @@ class CheckInRoll {
     required this.notYet,
     required this.askedAt,
     required this.requesterId,
+    this.targetMemberIds = const [],
   });
 
   /// Members who have answered (or asked), in circle order.
@@ -27,6 +28,10 @@ class CheckInRoll {
 
   /// Who asked, when [askedAt] is set.
   final String? requesterId;
+
+  /// Members [askedAt] is aimed at (see FamilyCheckInRequest.targetMemberIds);
+  /// empty = everyone. Only meaningful when [askedAt] is set.
+  final List<String> targetMemberIds;
 
   bool get everyoneAccountedFor => notYet.isEmpty;
 
@@ -52,9 +57,12 @@ class CheckInRoll {
       final bool answered;
       if (member.id == requesterId) {
         answered = true;
-      } else if (askedAt != null) {
+      } else if (askedAt != null && request!.isAimedAt(member.id)) {
+        // Asked (everyone, or this person by name): only a check-in
+        // AFTER the ask counts.
         answered = last != null && last.isAfter(askedAt);
       } else {
+        // Not asked by this request: the plain "checked in today" reading.
         answered = last != null && at.difference(last) < _askFreshFor;
       }
       (answered ? checkedIn : notYet).add(member);
@@ -64,6 +72,7 @@ class CheckInRoll {
       notYet: notYet,
       askedAt: askedAt,
       requesterId: requesterId,
+      targetMemberIds: askedAt == null ? const [] : request!.targetMemberIds,
     );
   }
 }

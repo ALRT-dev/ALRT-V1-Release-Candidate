@@ -63,6 +63,32 @@ void main() {
     expect(roll.notYet.map((m) => m.id), ['me']);
   });
 
+  test('a targeted ask binds only its targets; others keep the plain reading', () {
+    final askedAt = now.subtract(const Duration(minutes: 10));
+    final roll = CheckInRoll.of(
+      circle(
+        [
+          member('me', last: now.subtract(const Duration(hours: 1))),
+          member('Tom', last: now.subtract(const Duration(hours: 1))),
+          member('Amy', last: now.subtract(const Duration(hours: 1))),
+        ],
+        ask: FamilyCheckInRequest(
+          id: 'r1',
+          circleId: 'c1',
+          requestedById: 'me',
+          targetMemberIds: const ['Amy'],
+          createdAt: askedAt,
+        ),
+      ),
+      now: now,
+    );
+    // Amy was asked and has not answered since; Tom was not asked, and his
+    // check-in an hour ago still counts for the day.
+    expect(roll.notYet.map((m) => m.id), ['Amy']);
+    expect(roll.checkedIn.map((m) => m.id), ['me', 'Tom']);
+    expect(roll.targetMemberIds, ['Amy']);
+  });
+
   test('an ask older than a day falls back to the plain reading', () {
     final roll = CheckInRoll.of(
       circle(

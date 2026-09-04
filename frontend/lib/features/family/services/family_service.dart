@@ -204,10 +204,12 @@ class FamilyService {
   Future<Either<FamilyCheckInRequest, AppError>> requestFamilyCheckIn({
     final String? message,
     final String? hazardId,
+    final List<String>? memberIds,
   }) {
     return _familyRepository.requestFamilyCheckIn(
       message: message,
       hazardId: hazardId,
+      memberIds: memberIds,
     );
   }
 

@@ -156,9 +156,16 @@ export const serializeMember = (
 export const getCircleUserIds = async (
   circleId: string,
   excludeMemberIds: string[] = [],
+  onlyMemberIds?: string[],
 ): Promise<string[]> => {
   const members = await prisma.familyMember.findMany({
-    where: { circleId, id: { notIn: excludeMemberIds } },
+    where: {
+      circleId,
+      id: {
+        notIn: excludeMemberIds,
+        ...(onlyMemberIds ? { in: onlyMemberIds } : {}),
+      },
+    },
     select: { userId: true },
   });
   return members.map((m) => m.userId);
@@ -167,6 +174,7 @@ export const getCircleUserIds = async (
 export const notifyCircle = async ({
   circleId,
   excludeMemberIds = [],
+  onlyMemberIds,
   title,
   body,
   data,
@@ -176,6 +184,8 @@ export const notifyCircle = async ({
 }: {
   circleId: string;
   excludeMemberIds?: string[];
+  /** When set, only these members (still minus excludeMemberIds) hear it. */
+  onlyMemberIds?: string[];
   title?: string;
   body?: string;
   data?: object;
@@ -183,7 +193,11 @@ export const notifyCircle = async ({
   socketEvent?: SocketEvent;
   socketData?: any;
 }) => {
-  const userIds = await getCircleUserIds(circleId, excludeMemberIds);
+  const userIds = await getCircleUserIds(
+    circleId,
+    excludeMemberIds,
+    onlyMemberIds,
+  );
   if (userIds.length === 0) return;
 
   if (socketEvent) {
@@ -372,10 +386,30 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
   });
   if (!circle) return null;
 
+  // The latest ask that concerns THIS member: aimed at everyone, aimed at
+  // them, or sent by them (their own tracker). An ask aimed only at
+  // someone else is not theirs to see or answer.
   const latestRequest = await prisma.familyCheckInRequest.findFirst({
-    where: { circleId: circle.id },
+    where: {
+      circleId: circle.id,
+      OR: [
+        { targetMemberIds: { isEmpty: true } },
+        { targetMemberIds: { has: membership.id } },
+        { requestedById: membership.id },
+      ],
+    },
     orderBy: { createdAt: "desc" },
-    include: { checkIns: { select: { memberId: true } } },
+    include: {
+      checkIns: { select: { memberId: true } },
+      // Who asked, by name only - never their location (see requestCheckIn).
+      requestedBy: {
+        select: {
+          id: true,
+          nickname: true,
+          user: { select: { id: true, name: true, profilePictureUrl: true } },
+        },
+      },
+    },
   });
 
   // Paused = the host's ALRT+ lapsed (only possible once billing is on).
@@ -1202,16 +1236,43 @@ export const createCheckIn = async (
 
 export const requestCheckIn = async (
   userId: string,
-  input: { message?: string | undefined; hazardId?: string | undefined },
+  input: {
+    message?: string | undefined;
+    hazardId?: string | undefined;
+    memberIds?: string[] | undefined;
+  },
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
   await assertCircleNotPaused(membership.circleId);
 
+  // Targets: only real members of THIS circle, never the requester
+  // (nobody is waiting on themself), de-duplicated. An ask that names
+  // nobody valid is a mistake, not a broadcast - refuse it rather than
+  // quietly asking everyone.
+  const requestedIds = Array.from(new Set(input.memberIds ?? [])).filter(
+    (id) => id !== membership.id,
+  );
+  let targetMemberIds: string[] = [];
+  if (input.memberIds && input.memberIds.length > 0) {
+    const targets = await prisma.familyMember.findMany({
+      where: { circleId: membership.circleId, id: { in: requestedIds } },
+      select: { id: true },
+    });
+    targetMemberIds = targets.map((t) => t.id);
+    if (targetMemberIds.length === 0) {
+      throw new HttpError(400, "None of those people are in this circle");
+    }
+    if (targetMemberIds.length !== requestedIds.length) {
+      throw new HttpError(400, "Some of those people are not in this circle");
+    }
+  }
+
   const request = await prisma.familyCheckInRequest.create({
     data: {
       circleId: membership.circleId,
       requestedById: membership.id,
+      targetMemberIds,
       ...(input.message && { message: input.message }),
       ...(input.hazardId && { hazardId: input.hazardId }),
     },
@@ -1235,12 +1296,19 @@ export const requestCheckIn = async (
     request.requestedBy.user.name ||
     "A family member";
 
+  const isTargeted = targetMemberIds.length > 0;
   await notifyCircle({
     circleId: membership.circleId,
     excludeMemberIds: [membership.id],
+    // A targeted ask reaches its targets only: nobody else is asked, so
+    // nobody else is told.
+    ...(isTargeted ? { onlyMemberIds: targetMemberIds } : {}),
     title: "Check-in requested",
     body:
-      input.message || `${requesterName} asked everyone to check in. Are you safe?`,
+      input.message ||
+      (isTargeted
+        ? `${requesterName} asked you to check in. Are you safe?`
+        : `${requesterName} asked everyone to check in. Are you safe?`),
     data: { circleId: membership.circleId, requestId: request.id },
     type: PushNotificationType.familyCheckInRequest,
     socketEvent: SocketEvent.familyCheckInRequest,

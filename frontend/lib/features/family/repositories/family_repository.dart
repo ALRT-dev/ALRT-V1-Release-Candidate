@@ -130,6 +130,7 @@ abstract class FamilyRepository {
   Future<Either<FamilyCheckInRequest, AppError>> requestFamilyCheckIn({
     final String? message,
     final String? hazardId,
+    final List<String>? memberIds,
   });
 
   Future<Either<void, AppError>> cancelFamilyCheckInRequest({
@@ -692,6 +693,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
   Future<Either<FamilyCheckInRequest, AppError>> requestFamilyCheckIn({
     String? message,
     String? hazardId,
+    List<String>? memberIds,
   }) {
     return runAsyncCall(
       name: 'requestFamilyCheckIn',
@@ -699,6 +701,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
         final result = await _restClient.requestFamilyCheckIn(
           message: message,
           hazardId: hazardId,
+          memberIds: memberIds,
           circleId: _circleId,
         );
         return Success(result);

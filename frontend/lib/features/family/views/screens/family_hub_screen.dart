@@ -20,6 +20,7 @@ import 'package:hazard_app/features/family/views/screens/family_sos_receiver_scr
 import 'package:hazard_app/features/family/views/screens/family_sos_resolved_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
@@ -1359,9 +1360,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         );
   }
 
-  /// Someone asked the circle to check in. That ask used to arrive with no
-  /// evidence on screen at all — it was held in state and never drawn. It
-  /// now sits above everything with the answer one tap away.
+  /// Someone asked for a check-in - or you did. The two sides read
+  /// completely differently: the person who ASKED is watching answers
+  /// come in (a tracker, by name), the people asked are being asked to
+  /// answer (one tap). Showing the requester their own green "I'm Safe"
+  /// button was the single most confusing thing in two-phone testing.
   Widget _checkInRequestBannerBuilder(
     final FamilyCircle circle,
     final FamilyActionState checkInState,
@@ -1370,37 +1373,48 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     if (request == null) return const SizedBox.shrink();
 
     final askedAt = request.createdAt;
-    final myLastCheckIn = circle.me?.lastCheckInAt;
-    // The two sides of the same ask read completely differently: the
-    // person who ASKED is waiting on answers, not being asked to answer.
-    // Showing the requester their own green "I'm Safe" button was the
-    // single most confusing thing in two-phone testing.
     final iAsked = request.requestedById == circle.myMemberId;
+    // An ask aimed at other people is not mine to answer (the server only
+    // sends me those I am in, but a stale circle can still hold one).
+    if (!iAsked && !request.isAimedAt(circle.myMemberId)) {
+      return const SizedBox.shrink();
+    }
 
-    // Once you have checked in since the ask, it stops nagging — but the
-    // requester's card is their waiting TRACKER, so their own check-in
-    // must not dismiss it while others still owe an answer.
-    final alreadyAnswered =
-        !iAsked &&
-        askedAt != null &&
-        myLastCheckIn != null &&
-        myLastCheckIn.isAfter(askedAt);
-    if (alreadyAnswered) return const SizedBox.shrink();
+    final roll = CheckInRoll.of(circle);
+    // Once you have checked in since the ask, it stops nagging.
+    if (!iAsked && roll.hasAnswered(circle.me ?? circle.members.first)) {
+      return const SizedBox.shrink();
+    }
+
+    // Who this ask is waiting on: its targets, or everyone but the asker.
+    final asked = circle.members
+        .where((m) => m.id != request.requestedById && request.isAimedAt(m.id))
+        .toList();
+    final outstanding = asked.where((m) => !roll.hasAnswered(m)).toList();
+    final answered = asked.where(roll.hasAnswered).toList();
+
+    // The requester's job ends when the last answer lands.
+    if (iAsked && outstanding.isEmpty) return const SizedBox.shrink();
 
     final who = request.requestedBy?.displayName ?? 'Someone';
     final when = askedAt == null ? null : timeago.format(askedAt);
-    // Everyone but the requester is expected to answer, the viewer
-    // included — counting circle.others here undercounted whenever the
-    // requester had since checked in themself.
-    final waitingOn = circle.members.where((member) {
-      if (member.id == request.requestedById) return false;
-      final last = member.lastCheckInAt;
-      if (askedAt == null) return !member.isCheckedInRecently;
-      return last == null || !last.isAfter(askedAt);
-    }).length;
-
-    // The requester's job ends when the last answer lands.
-    if (iAsked && waitingOn == 0) return const SizedBox.shrink();
+    final targeted = request.targetMemberIds.isNotEmpty;
+    final String title;
+    if (iAsked) {
+      title = targeted
+          ? 'You asked ${namesLabel(asked.map((m) => m.name).toList())} to check in'
+          : 'You asked everyone to check in';
+    } else if (targeted) {
+      title = '$who asked you to check in';
+    } else {
+      title = outstanding.length > 1
+          ? '$who asked everyone to check in · ${outstanding.length} still to answer'
+          : '$who asked everyone to check in';
+    }
+    final detail = [
+      if (when != null) when,
+      if ((request.message ?? '').isNotEmpty) '"${request.message}"',
+    ].join(' · ');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1416,24 +1430,20 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    LucideIcons.bellRing,
-                    size: 18.spMin,
-                    color: FamilyColors.amber,
+                  Padding(
+                    padding: EdgeInsets.only(top: 2.spMin),
+                    child: Icon(
+                      LucideIcons.bellRing,
+                      size: 18.spMin,
+                      color: FamilyColors.amber,
+                    ),
                   ),
                   SizedBox(width: 10.spMin),
                   Expanded(
                     child: Text(
-                      // Never "everyone": the requester is not waiting on
-                      // themself, and the count is what people act on.
-                      iAsked
-                          ? 'You asked for a check-in · waiting on '
-                                '$waitingOn'
-                          : (waitingOn > 1
-                                ? '$who asked if you are OK · $waitingOn '
-                                      'still to answer'
-                                : '$who asked if you are OK'),
+                      title,
                       style: TextStyle(
                         fontSize: 15.spMin,
                         fontWeight: FontWeight.w800,
@@ -1443,47 +1453,64 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   ),
                 ],
               ),
-              if (when != null || (request.message ?? '').isNotEmpty) ...[
+              if (detail.isNotEmpty) ...[
                 SizedBox(height: 6.spMin),
-                Text(
-                  [
-                    if (when != null) when,
-                    if ((request.message ?? '').isNotEmpty) request.message!,
-                  ].join(' · '),
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    color: AppColors.mediumGrey,
+                Padding(
+                  padding: EdgeInsets.only(left: 28.spMin),
+                  child: Text(
+                    detail,
+                    style: TextStyle(
+                      fontSize: 12.5.spMin,
+                      color: AppColors.mediumGrey,
+                    ),
                   ),
                 ),
               ],
-              SizedBox(height: 12.spMin),
-              if (iAsked)
-                // The requester's one job is watching answers come in.
-                SizedBox(
-                  height: 46.spMin,
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: FamilyColors.amber,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14.spMin),
-                      ),
-                    ),
-                    onPressed: () =>
-                        context.push(FamilyCheckInRollCallScreen.route),
-                    icon: Icon(LucideIcons.users, size: 18.spMin),
-                    label: Text(
-                      "See who's answered",
-                      style: TextStyle(
-                        fontSize: 16.spMin,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+              if (iAsked) ...[
+                // The tracker: every person asked, by name, with their
+                // answer or the lack of it. Never a bare count.
+                SizedBox(height: 10.spMin),
+                Padding(
+                  padding: EdgeInsets.only(left: 28.spMin),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final member in answered)
+                        _askAnswerRowBuilder(member, answered: true),
+                      for (final member in outstanding)
+                        _askAnswerRowBuilder(member, answered: false),
+                    ],
                   ),
-                )
-              else ...[
+                ),
+                SizedBox(height: 12.spMin),
+                Padding(
+                  padding: EdgeInsets.only(left: 28.spMin),
+                  child: Wrap(
+                    spacing: 8.spMin,
+                    runSpacing: 8.spMin,
+                    children: [
+                      _askActionBuilder(
+                        label:
+                            'Nudge ${namesLabel(outstanding.map((m) => m.name).toList())}',
+                        filled: true,
+                        onTap: () => _nudge(outstanding, request),
+                      ),
+                      _askActionBuilder(
+                        label: 'Cancel ask',
+                        filled: false,
+                        onTap: () => _cancelAsk(request),
+                      ),
+                      _askActionBuilder(
+                        label: 'Details',
+                        filled: false,
+                        onTap: () =>
+                            context.push(FamilyCheckInRollCallScreen.route),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                SizedBox(height: 12.spMin),
                 SizedBox(
                   height: 46.spMin,
                   width: double.infinity,
@@ -1513,22 +1540,24 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     ),
                   ),
                 ),
-                SizedBox(height: 4.spMin),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: () =>
-                        context.push(FamilyCheckInRollCallScreen.route),
-                    child: Text(
-                      "See who's answered",
-                      style: TextStyle(
-                        fontSize: 13.spMin,
-                        fontWeight: FontWeight.w700,
-                        color: FamilyColors.amber,
+                if (!targeted) ...[
+                  SizedBox(height: 4.spMin),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: () =>
+                          context.push(FamilyCheckInRollCallScreen.route),
+                      child: Text(
+                        "See who's answered",
+                        style: TextStyle(
+                          fontSize: 13.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: FamilyColors.amber,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
             ],
           ),
@@ -1536,6 +1565,110 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         SizedBox(height: 16.spMin),
       ],
     );
+  }
+
+  /// One line of the requester's tracker: "Tom answered · 2 min ago" with
+  /// a green tick, or "Amy hasn't answered yet" with an amber clock.
+  Widget _askAnswerRowBuilder(
+    final FamilyMember member, {
+    required final bool answered,
+  }) {
+    final last = member.lastCheckInAt;
+    final text = answered
+        ? '${member.name} answered${last == null ? '' : ' · ${timeago.format(last)}'}'
+        : "${member.name} hasn't answered yet";
+    return Padding(
+      padding: EdgeInsets.only(bottom: 6.spMin),
+      child: Row(
+        children: [
+          Container(
+            width: 18.spMin,
+            height: 18.spMin,
+            decoration: BoxDecoration(
+              color: answered ? FamilyColors.safeGreen : const Color(0xFFFBBF24),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              answered ? Icons.check : LucideIcons.clock,
+              size: 11.spMin,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(width: 8.spMin),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: member.name,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  TextSpan(text: text.substring(member.name.length)),
+                ],
+              ),
+              style: TextStyle(fontSize: 13.spMin, color: AppColors.black),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _askActionBuilder({
+    required final String label,
+    required final bool filled,
+    required final VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 9.spMin),
+        decoration: BoxDecoration(
+          color: filled ? FamilyColors.amber : Colors.transparent,
+          borderRadius: BorderRadius.circular(12.spMin),
+          border: Border.all(color: FamilyColors.amber, width: 1.4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13.spMin,
+            fontWeight: FontWeight.w800,
+            color: filled ? Colors.white : FamilyColors.amber,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A fresh ask to exactly the people still outstanding, with the same
+  /// note. They are notified again; nobody who has answered is bothered.
+  Future<void> _nudge(
+    final List<FamilyMember> outstanding,
+    final FamilyCheckInRequest request,
+  ) async {
+    if (outstanding.isEmpty) return;
+    final sent = await ref.read(providerOfFamily.notifier).requestCheckIn(
+          message: request.message,
+          memberIds: outstanding.map((m) => m.id).toList(),
+        );
+    if (!mounted || !sent) return;
+    context.showSuccessToast(
+      message:
+          'Nudged ${namesLabel(outstanding.map((m) => m.name).toList())}.',
+    );
+  }
+
+  Future<void> _cancelAsk(final FamilyCheckInRequest request) async {
+    var confirmed = false;
+    await showConfirmationSheet(
+      context: context,
+      title: 'Cancel this check-in ask?',
+      description: 'Nobody will be nagged about it any more.',
+      confirmButtonText: 'Cancel ask',
+      onPressedConfirm: (_, __) => confirmed = true,
+    );
+    if (!confirmed || !mounted) return;
+    await ref.read(providerOfFamily.notifier).cancelCheckInRequest(request.id);
   }
 
   /// Who this "I'm Safe" tap would actually be answering, if anyone.
@@ -1632,13 +1765,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 tint: const Color(0xFFE8F4FF),
                 // 1D7FE0 on the tint is ~4.6:1, the old 4DA8FF was ~2.6:1.
                 ink: const Color(0xFF1D7FE0),
-                onTap: () async {
-                  await ref.read(providerOfFamily.notifier).requestCheckIn();
-                  if (!context.mounted) return;
-                  // Straight to the roll call: asking without being able to
-                  // see who answered was the gap people hit in testing.
-                  context.push(FamilyCheckInRollCallScreen.route);
-                },
+                // Everyone, or exactly the people you pick: the sheet names
+                // who will be asked before anything is sent, and the
+                // tracker card above shows the answers as they land.
+                onTap: () => showFamilyAskCheckInSheet(context, ref),
               ),
             ),
             Expanded(
@@ -1930,16 +2060,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// "Ask" on one row: a check-in request to THAT person only. Wired to
-  /// the targeted request in the next change; until then it asks the
-  /// group, which is the only ask the server knows, and says so.
+  /// "Ask" on one row: a check-in request to THAT person only. Nobody
+  /// else is notified or sees it as owed.
   Future<void> _askMemberToCheckIn(final FamilyMember member) async {
-    await ref.read(providerOfFamily.notifier).requestCheckIn();
-    if (!mounted) return;
-    // Honest until the targeted ask lands: today the server only knows a
-    // whole-group ask, so say exactly who was asked.
+    final sent = await ref
+        .read(providerOfFamily.notifier)
+        .requestCheckIn(memberIds: [member.id]);
+    if (!mounted || !sent) return;
     context.showSuccessToast(
-      message: 'Everyone has been asked to check in, ${member.name} included.',
+      message: '${member.name} has been asked to check in.',
     );
   }
 

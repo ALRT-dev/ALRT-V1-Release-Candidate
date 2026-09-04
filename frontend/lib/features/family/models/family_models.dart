@@ -121,6 +121,7 @@ abstract class FamilyCircle with _$FamilyCircle {
     final request = latestCheckInRequest;
     if (request == null) return null;
     if (request.requestedById == myMemberId) return null;
+    if (!request.isAimedAt(myMemberId)) return null;
     final askedAt = request.createdAt;
     final myLastCheckIn = me?.lastCheckInAt;
     final alreadyAnswered =
@@ -441,8 +442,17 @@ abstract class FamilyCheckInRequest with _$FamilyCheckInRequest {
     final String? message,
     final FamilyMemberSnippet? requestedBy,
     @Default(<FamilyCheckIn>[]) final List<FamilyCheckIn> checkIns,
+
+    /// Who this ask is aimed at. Empty = everyone in the circle.
+    @Default(<String>[]) final List<String> targetMemberIds,
     final DateTime? createdAt,
   }) = _FamilyCheckInRequest;
+
+  const FamilyCheckInRequest._();
+
+  /// Whether [memberId] is one of the people this ask is waiting on.
+  bool isAimedAt(final String memberId) =>
+      targetMemberIds.isEmpty || targetMemberIds.contains(memberId);
 
   factory FamilyCheckInRequest.fromJson(Map<String, dynamic> json) =>
       _$FamilyCheckInRequestFromJson(json);

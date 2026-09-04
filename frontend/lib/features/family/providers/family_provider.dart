@@ -235,9 +235,14 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       final waitingOn = circle.others
           .where((m) => !m.isCheckedInRecently)
           .length;
+      // The server sends a targeted ask to its targets only, so one that
+      // names people and reached this phone is aimed at me.
+      final targeted = request.targetMemberIds.isNotEmpty;
       _showBigAlert(
-        title: '$name asked for a check-in',
-        body: waitingOn > 1
+        title: targeted
+            ? '$name asked you to check in'
+            : '$name asked for a check-in',
+        body: !targeted && waitingOn > 1
             ? 'Waiting on $waitingOn people. One tap says you are safe.'
             : 'One tap to let them know you are safe.',
         isSos: false,
@@ -1083,25 +1088,36 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     );
   }
 
-  Future<void> requestCheckIn({final String? message}) async {
+  /// Asks for a check-in: everyone in the circle, or only [memberIds]
+  /// ("Ask Amy"). Only the people asked are notified and see it as owed;
+  /// the requester keeps it as their tracker. Returns true when sent.
+  Future<bool> requestCheckIn({
+    final String? message,
+    final List<String>? memberIds,
+  }) async {
     state = state.copyWith(
       requestCheckInState: const FamilyActionState.loading(),
     );
 
-    final result = await _familyService.requestFamilyCheckIn(message: message);
-    if (!mounted) return;
+    final result = await _familyService.requestFamilyCheckIn(
+      message: message,
+      memberIds: memberIds,
+    );
+    if (!mounted) return false;
 
-    result.when(
+    return result.when(
       (request) {
         state = state.copyWith(
           circle: state.circle?.copyWith(latestCheckInRequest: request),
           requestCheckInState: const FamilyActionState.success(),
         );
+        return true;
       },
       (error) {
         state = state.copyWith(
           requestCheckInState: FamilyActionState.error(error),
         );
+        return false;
       },
     );
   }

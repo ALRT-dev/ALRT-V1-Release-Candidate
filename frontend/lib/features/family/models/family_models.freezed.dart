@@ -4424,7 +4424,8 @@ $FamilyMemberSnippetCopyWith<$Res>? get member {
 /// @nodoc
 mixin _$FamilyCheckInRequest {
 
- String get id; String get circleId; String get requestedById; String? get hazardId; String? get message; FamilyMemberSnippet? get requestedBy; List<FamilyCheckIn> get checkIns; DateTime? get createdAt;
+ String get id; String get circleId; String get requestedById; String? get hazardId; String? get message; FamilyMemberSnippet? get requestedBy; List<FamilyCheckIn> get checkIns;/// Who this ask is aimed at. Empty = everyone in the circle.
+ List<String> get targetMemberIds; DateTime? get createdAt;
 /// Create a copy of FamilyCheckInRequest
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -4437,16 +4438,16 @@ $FamilyCheckInRequestCopyWith<FamilyCheckInRequest> get copyWith => _$FamilyChec
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilyCheckInRequest&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.requestedById, requestedById) || other.requestedById == requestedById)&&(identical(other.hazardId, hazardId) || other.hazardId == hazardId)&&(identical(other.message, message) || other.message == message)&&(identical(other.requestedBy, requestedBy) || other.requestedBy == requestedBy)&&const DeepCollectionEquality().equals(other.checkIns, checkIns)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilyCheckInRequest&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.requestedById, requestedById) || other.requestedById == requestedById)&&(identical(other.hazardId, hazardId) || other.hazardId == hazardId)&&(identical(other.message, message) || other.message == message)&&(identical(other.requestedBy, requestedBy) || other.requestedBy == requestedBy)&&const DeepCollectionEquality().equals(other.checkIns, checkIns)&&const DeepCollectionEquality().equals(other.targetMemberIds, targetMemberIds)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,circleId,requestedById,hazardId,message,requestedBy,const DeepCollectionEquality().hash(checkIns),createdAt);
+int get hashCode => Object.hash(runtimeType,id,circleId,requestedById,hazardId,message,requestedBy,const DeepCollectionEquality().hash(checkIns),const DeepCollectionEquality().hash(targetMemberIds),createdAt);
 
 @override
 String toString() {
-  return 'FamilyCheckInRequest(id: $id, circleId: $circleId, requestedById: $requestedById, hazardId: $hazardId, message: $message, requestedBy: $requestedBy, checkIns: $checkIns, createdAt: $createdAt)';
+  return 'FamilyCheckInRequest(id: $id, circleId: $circleId, requestedById: $requestedById, hazardId: $hazardId, message: $message, requestedBy: $requestedBy, checkIns: $checkIns, targetMemberIds: $targetMemberIds, createdAt: $createdAt)';
 }
 
 
@@ -4457,7 +4458,7 @@ abstract mixin class $FamilyCheckInRequestCopyWith<$Res>  {
   factory $FamilyCheckInRequestCopyWith(FamilyCheckInRequest value, $Res Function(FamilyCheckInRequest) _then) = _$FamilyCheckInRequestCopyWithImpl;
 @useResult
 $Res call({
- String id, String circleId, String requestedById, String? hazardId, String? message, FamilyMemberSnippet? requestedBy, List<FamilyCheckIn> checkIns, DateTime? createdAt
+ String id, String circleId, String requestedById, String? hazardId, String? message, FamilyMemberSnippet? requestedBy, List<FamilyCheckIn> checkIns, List<String> targetMemberIds, DateTime? createdAt
 });
 
 
@@ -4474,7 +4475,7 @@ class _$FamilyCheckInRequestCopyWithImpl<$Res>
 
 /// Create a copy of FamilyCheckInRequest
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? circleId = null,Object? requestedById = null,Object? hazardId = freezed,Object? message = freezed,Object? requestedBy = freezed,Object? checkIns = null,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? circleId = null,Object? requestedById = null,Object? hazardId = freezed,Object? message = freezed,Object? requestedBy = freezed,Object? checkIns = null,Object? targetMemberIds = null,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,circleId: null == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
@@ -4483,7 +4484,8 @@ as String,hazardId: freezed == hazardId ? _self.hazardId : hazardId // ignore: c
 as String?,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String?,requestedBy: freezed == requestedBy ? _self.requestedBy : requestedBy // ignore: cast_nullable_to_non_nullable
 as FamilyMemberSnippet?,checkIns: null == checkIns ? _self.checkIns : checkIns // ignore: cast_nullable_to_non_nullable
-as List<FamilyCheckIn>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as List<FamilyCheckIn>,targetMemberIds: null == targetMemberIds ? _self.targetMemberIds : targetMemberIds // ignore: cast_nullable_to_non_nullable
+as List<String>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,
   ));
 }
@@ -4581,10 +4583,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String circleId,  String requestedById,  String? hazardId,  String? message,  FamilyMemberSnippet? requestedBy,  List<FamilyCheckIn> checkIns,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String circleId,  String requestedById,  String? hazardId,  String? message,  FamilyMemberSnippet? requestedBy,  List<FamilyCheckIn> checkIns,  List<String> targetMemberIds,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FamilyCheckInRequest() when $default != null:
-return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that.message,_that.requestedBy,_that.checkIns,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that.message,_that.requestedBy,_that.checkIns,_that.targetMemberIds,_that.createdAt);case _:
   return orElse();
 
 }
@@ -4602,10 +4604,10 @@ return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String circleId,  String requestedById,  String? hazardId,  String? message,  FamilyMemberSnippet? requestedBy,  List<FamilyCheckIn> checkIns,  DateTime? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String circleId,  String requestedById,  String? hazardId,  String? message,  FamilyMemberSnippet? requestedBy,  List<FamilyCheckIn> checkIns,  List<String> targetMemberIds,  DateTime? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _FamilyCheckInRequest():
-return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that.message,_that.requestedBy,_that.checkIns,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that.message,_that.requestedBy,_that.checkIns,_that.targetMemberIds,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -4622,10 +4624,10 @@ return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String circleId,  String requestedById,  String? hazardId,  String? message,  FamilyMemberSnippet? requestedBy,  List<FamilyCheckIn> checkIns,  DateTime? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String circleId,  String requestedById,  String? hazardId,  String? message,  FamilyMemberSnippet? requestedBy,  List<FamilyCheckIn> checkIns,  List<String> targetMemberIds,  DateTime? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _FamilyCheckInRequest() when $default != null:
-return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that.message,_that.requestedBy,_that.checkIns,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that.message,_that.requestedBy,_that.checkIns,_that.targetMemberIds,_that.createdAt);case _:
   return null;
 
 }
@@ -4636,8 +4638,8 @@ return $default(_that.id,_that.circleId,_that.requestedById,_that.hazardId,_that
 /// @nodoc
 @JsonSerializable()
 
-class _FamilyCheckInRequest implements FamilyCheckInRequest {
-  const _FamilyCheckInRequest({required this.id, required this.circleId, required this.requestedById, this.hazardId, this.message, this.requestedBy, final  List<FamilyCheckIn> checkIns = const <FamilyCheckIn>[], this.createdAt}): _checkIns = checkIns;
+class _FamilyCheckInRequest extends FamilyCheckInRequest {
+  const _FamilyCheckInRequest({required this.id, required this.circleId, required this.requestedById, this.hazardId, this.message, this.requestedBy, final  List<FamilyCheckIn> checkIns = const <FamilyCheckIn>[], final  List<String> targetMemberIds = const <String>[], this.createdAt}): _checkIns = checkIns,_targetMemberIds = targetMemberIds,super._();
   factory _FamilyCheckInRequest.fromJson(Map<String, dynamic> json) => _$FamilyCheckInRequestFromJson(json);
 
 @override final  String id;
@@ -4651,6 +4653,15 @@ class _FamilyCheckInRequest implements FamilyCheckInRequest {
   if (_checkIns is EqualUnmodifiableListView) return _checkIns;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_checkIns);
+}
+
+/// Who this ask is aimed at. Empty = everyone in the circle.
+ final  List<String> _targetMemberIds;
+/// Who this ask is aimed at. Empty = everyone in the circle.
+@override@JsonKey() List<String> get targetMemberIds {
+  if (_targetMemberIds is EqualUnmodifiableListView) return _targetMemberIds;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_targetMemberIds);
 }
 
 @override final  DateTime? createdAt;
@@ -4668,16 +4679,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilyCheckInRequest&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.requestedById, requestedById) || other.requestedById == requestedById)&&(identical(other.hazardId, hazardId) || other.hazardId == hazardId)&&(identical(other.message, message) || other.message == message)&&(identical(other.requestedBy, requestedBy) || other.requestedBy == requestedBy)&&const DeepCollectionEquality().equals(other._checkIns, _checkIns)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilyCheckInRequest&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.requestedById, requestedById) || other.requestedById == requestedById)&&(identical(other.hazardId, hazardId) || other.hazardId == hazardId)&&(identical(other.message, message) || other.message == message)&&(identical(other.requestedBy, requestedBy) || other.requestedBy == requestedBy)&&const DeepCollectionEquality().equals(other._checkIns, _checkIns)&&const DeepCollectionEquality().equals(other._targetMemberIds, _targetMemberIds)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,circleId,requestedById,hazardId,message,requestedBy,const DeepCollectionEquality().hash(_checkIns),createdAt);
+int get hashCode => Object.hash(runtimeType,id,circleId,requestedById,hazardId,message,requestedBy,const DeepCollectionEquality().hash(_checkIns),const DeepCollectionEquality().hash(_targetMemberIds),createdAt);
 
 @override
 String toString() {
-  return 'FamilyCheckInRequest(id: $id, circleId: $circleId, requestedById: $requestedById, hazardId: $hazardId, message: $message, requestedBy: $requestedBy, checkIns: $checkIns, createdAt: $createdAt)';
+  return 'FamilyCheckInRequest(id: $id, circleId: $circleId, requestedById: $requestedById, hazardId: $hazardId, message: $message, requestedBy: $requestedBy, checkIns: $checkIns, targetMemberIds: $targetMemberIds, createdAt: $createdAt)';
 }
 
 
@@ -4688,7 +4699,7 @@ abstract mixin class _$FamilyCheckInRequestCopyWith<$Res> implements $FamilyChec
   factory _$FamilyCheckInRequestCopyWith(_FamilyCheckInRequest value, $Res Function(_FamilyCheckInRequest) _then) = __$FamilyCheckInRequestCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String circleId, String requestedById, String? hazardId, String? message, FamilyMemberSnippet? requestedBy, List<FamilyCheckIn> checkIns, DateTime? createdAt
+ String id, String circleId, String requestedById, String? hazardId, String? message, FamilyMemberSnippet? requestedBy, List<FamilyCheckIn> checkIns, List<String> targetMemberIds, DateTime? createdAt
 });
 
 
@@ -4705,7 +4716,7 @@ class __$FamilyCheckInRequestCopyWithImpl<$Res>
 
 /// Create a copy of FamilyCheckInRequest
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? circleId = null,Object? requestedById = null,Object? hazardId = freezed,Object? message = freezed,Object? requestedBy = freezed,Object? checkIns = null,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? circleId = null,Object? requestedById = null,Object? hazardId = freezed,Object? message = freezed,Object? requestedBy = freezed,Object? checkIns = null,Object? targetMemberIds = null,Object? createdAt = freezed,}) {
   return _then(_FamilyCheckInRequest(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,circleId: null == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
@@ -4714,7 +4725,8 @@ as String,hazardId: freezed == hazardId ? _self.hazardId : hazardId // ignore: c
 as String?,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String?,requestedBy: freezed == requestedBy ? _self.requestedBy : requestedBy // ignore: cast_nullable_to_non_nullable
 as FamilyMemberSnippet?,checkIns: null == checkIns ? _self._checkIns : checkIns // ignore: cast_nullable_to_non_nullable
-as List<FamilyCheckIn>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as List<FamilyCheckIn>,targetMemberIds: null == targetMemberIds ? _self._targetMemberIds : targetMemberIds // ignore: cast_nullable_to_non_nullable
+as List<String>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,
   ));
 }

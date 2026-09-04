@@ -421,6 +421,7 @@ abstract class RestClient {
   Future<FamilyCheckInRequest> requestFamilyCheckIn({
     @Field() final String? message,
     @Field() final String? hazardId,
+    @Field() final List<String>? memberIds,
     @Query('circleId') final String? circleId,
   });
 
