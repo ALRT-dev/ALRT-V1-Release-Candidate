@@ -30,6 +30,7 @@ import {
   handleReportReviewOutcome,
 } from "../services/xp_ledger.service.js";
 import { calculateUserReportsStatus } from "../services/user.service.js";
+import { config } from "../utils/config.js";
 import {
   calculateConfidenceScore,
   recalculateHazardConfidenceScore,
@@ -327,13 +328,23 @@ export const createHazard = async (
       longitude,
       locationName,
       occurredAt,
+      useDummyAi,
     } = hazardData;
     const { userId } = res;
+
+    // Opt-in only, and hard-gated to the TEST environment regardless of
+    // what the request body says - config.env comes from NODE_ENV on
+    // the running server, never from client input, so this can never
+    // evaluate true against a production deployment even if a client
+    // sends useDummyAi: true. Skips both AI calls below (category
+    // suggestion and review) for a TEST-only "post an alert" flow with
+    // zero AI/external calls - see reviewHazard's useDummy branch.
+    const useDummy = useDummyAi === true && config.env === "test";
 
     // Overwrite category using AI suggestion <----------------------------------------------------------------------------------
     let category: HazardCategory | null = null;
     try {
-      if (title || description) {
+      if (!useDummy && (title || description)) {
         const availableCategories =
           await getAllMainHazardCategoriesWithoutSubcategories();
         const suggestedCategory = await getSuggestedCategory({
@@ -417,6 +428,7 @@ export const createHazard = async (
         severityBand:
           (description && getSeverityBandFromDescription(description)) ||
           HazardSeverityBand.info,
+        useDummy,
       });
     } catch (error) {
       console.log("Error during hazard review:", error);

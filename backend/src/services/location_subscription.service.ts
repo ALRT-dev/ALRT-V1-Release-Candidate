@@ -237,8 +237,22 @@ export const upsertUserOwnLocationSubscription = async ({
     address: locationName || null,
   };
 
+  // Check for an existing own-location row first, so a normal call (every
+  // login/GPS update) updates in place instead of relying on the database
+  // to reject a duplicate insert.
+  const existing = await prisma.locationSubscription.findFirst({
+    where: { userId, isOwnLocation: true },
+  });
+  if (existing) {
+    return await prisma.locationSubscription.update({
+      where: { id: existing.id },
+      data,
+    });
+  }
+
   try {
-    // Try to create first - the partial unique index will prevent duplicates
+    // No existing row found - create one. The partial unique index still
+    // guards the race where two concurrent calls both pass the check above.
     return await prisma.locationSubscription.create({
       data: {
         userId,
@@ -247,18 +261,19 @@ export const upsertUserOwnLocationSubscription = async ({
       },
     });
   } catch (error: unknown) {
-    // If unique constraint violation (race condition), find and update instead
+    // Unique constraint violation from the race above - find and update
+    // whichever row won instead.
     if (
       error instanceof Error &&
       "code" in error &&
       (error as { code: string }).code === "P2002"
     ) {
-      const existing = await prisma.locationSubscription.findFirst({
+      const winner = await prisma.locationSubscription.findFirst({
         where: { userId, isOwnLocation: true },
       });
-      if (existing) {
+      if (winner) {
         return await prisma.locationSubscription.update({
-          where: { id: existing.id },
+          where: { id: winner.id },
           data,
         });
       }

@@ -17,6 +17,8 @@ import type {
   DashboardStats,
   HazardCategory,
   HazardReviewStatus,
+  HazardSeverity,
+  HazardSeverityBand,
   LoginResponse,
   WebhookApiKeyCreatedResponse,
   WebhookApiKeyListItem,
@@ -83,10 +85,36 @@ export const reviewHazard = (
 export const deleteHazard = (hazardId: string) =>
   apiDelete<{ message: string }>(`/api/admin/hazards/${hazardId}`);
 
+// Used only by the TEST-only "Create Test Alert" picker (AlertsPage.tsx,
+// gated on VITE_ENABLE_DUMMY_ALERTS). reviewStatus is hardcoded to
+// "accepted" by this endpoint regardless of caller. useDummyAi, when true,
+// skips the AI summarization call entirely (summarizeHazard's pre-existing
+// useDummy passthrough mode) - every preset except Air Quality sets this,
+// since Air Quality's categoryId ("airQualityAlert") already routes through
+// its own deterministic template instead of AI, with or without this flag.
+export const createHazard = (data: {
+  title: string;
+  description: string;
+  sourceId: string;
+  categoryId: string;
+  latitude: number;
+  longitude: number;
+  severity?: HazardSeverity;
+  severityBand?: HazardSeverityBand;
+  expiresAt?: string;
+  useDummyAi?: boolean;
+}) => apiPost<AdminHazard>("/api/admin/hazards", data);
+
 // --- Hazard sources ----------------------------------------------------
 
 export const listHazardSources = (params: { page?: number; pageSize?: number; searchString?: string } = {}) =>
   apiGet<AdminHazardSource[]>(`/api/admin/hazard-sources${buildQuery(params)}`);
+
+// Used only by the TEST-only "Create Dummy Alert" button, to lazily
+// create the disposable "test-dummy" source it attaches every dummy
+// alert to. A plain POST, same as any real admin creating a real source.
+export const createHazardSource = (data: { id: string; name: string; url: string }) =>
+  apiPost<AdminHazardSource>("/api/admin/hazard-sources", data);
 
 export const updateHazardSource = (
   sourceId: string,

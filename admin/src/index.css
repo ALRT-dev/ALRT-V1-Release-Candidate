@@ -371,6 +371,13 @@ pre {
   margin-top: 16px;
 }
 
+.test-alert-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 /* --- Toasts ------------------------------------------------------- */
 
 .toast-stack {

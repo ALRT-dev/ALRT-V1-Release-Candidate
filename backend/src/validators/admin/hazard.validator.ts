@@ -5,9 +5,13 @@ import { FireStatus, HazardSeverity, HazardSeverityBand } from "@prisma/client";
 export const getHazardsForAdminQuerySchema = z.object({
   searchString: z.string().optional(),
 
-  categoryIds: z.string().optional(),
+  // Same array-or-comma-string compatibility as getHazardsQuerySchema
+  // (hazard.validator.ts) - buildHazardsWhereClauseRaw, which this
+  // endpoint shares with the community hazard list, already handles both
+  // shapes.
+  categoryIds: z.union([z.string(), z.array(z.string())]).optional(),
 
-  sourceIds: z.string().optional(),
+  sourceIds: z.union([z.string(), z.array(z.string())]).optional(),
 
   awsEmergency: z
     .string()
@@ -192,6 +196,14 @@ export const createHazardForAdminBodySchema = z.object({
   occurredAt: z.iso.datetime().optional(),
 
   expiresAt: z.iso.datetime().optional(),
+
+  // Opt-in only - existing callers that omit this get the exact same
+  // behaviour as before (an AI summarization call, unless categoryId is
+  // airQualityAlert). When true, summarizeHazard's pre-existing
+  // useDummy mode is used instead, which never calls the AI model for
+  // any category - see the TEST Alert picker in the Admin Portal, the
+  // only caller that sets this today.
+  useDummyAi: z.boolean().optional(),
 });
 
 export type CreateHazardForAdminBody = z.infer<

@@ -116,11 +116,35 @@ if [ "$CONFIRM" != true ]; then
 fi
 
 echo
-echo "== Step 1/3: building the schema (prisma db push) =="
+echo "== Step 1/4: building the schema (prisma db push) =="
 npx prisma db push --skip-generate --schema=prisma/schema.prisma
 
 echo
-echo "== Step 2/3: recording migration history (prisma migrate resolve --applied) =="
+echo "== Step 2/4: applying raw SQL for migrations not representable in schema.prisma =="
+#
+# 'prisma db push' above builds the schema purely from prisma/schema.prisma,
+# so any migration whose SQL does something the Prisma schema DSL cannot
+# express - e.g. a partial unique index - is silently never created. Step
+# 3 below then marks that migration "applied" without ever running its SQL,
+# so the constraint would otherwise never exist in TEST at all (see
+# 20260202080000_add_partial_unique_index_own_location - its
+# `CREATE UNIQUE INDEX ... WHERE "isOwnLocation" = true` is a partial
+# index, which schema.prisma's @@index/@@unique cannot represent). Run
+# each such migration's SQL directly against the datasource before it is
+# recorded as applied.
+RAW_SQL_MIGRATIONS=(
+  "20260202080000_add_partial_unique_index_own_location"
+)
+
+for name in "${RAW_SQL_MIGRATIONS[@]}"; do
+  echo "Applying $name..."
+  npx prisma db execute \
+    --file "prisma/migrations/$name/migration.sql" \
+    --schema=prisma/schema.prisma
+done
+
+echo
+echo "== Step 3/4: recording migration history (prisma migrate resolve --applied) =="
 
 # The two migrations misdated a year early (see header comment above) -
 # never renamed in the repo, only repositioned here, in memory, for the
@@ -152,7 +176,7 @@ done
 echo "Recorded $count migrations as applied."
 
 echo
-echo "== Step 3/3: verifying =="
+echo "== Step 4/4: verifying =="
 npx prisma migrate status --schema=prisma/schema.prisma
 
 echo

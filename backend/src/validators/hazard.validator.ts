@@ -30,6 +30,15 @@ export const createHazardDataSchema = z.object({
     .optional(),
 
   occurredAt: z.string().datetime().optional(),
+
+  // Opt-in only, and hard-gated server-side to the TEST environment
+  // regardless of what a client sends - see createHazard's useDummy
+  // computation in hazard.controller.ts. Omitted/false is identical to
+  // existing behaviour for every caller, including production. Lets a
+  // tester exercise the real community report UI end-to-end without a
+  // real AI review call - see reviewHazard's useDummy branch in
+  // hazard.service.ts.
+  useDummyAi: z.boolean().optional(),
 });
 
 export const createHazardSchema = z.object({
@@ -123,9 +132,18 @@ export type VoteHazardInput = z.infer<typeof voteHazardSchema>;
 export const getHazardsQuerySchema = z.object({
   searchString: z.string().optional(),
 
-  categoryIds: z.string().optional(),
+  // Accepts either shape a query-string library can produce for a
+  // multi-value param: one comma-joined string (?categoryIds=a,b) or an
+  // array from repeated keys (?categoryIds=a&categoryIds=b, what the
+  // Android app's Dio client actually sends and Express's default query
+  // parser turns into a real array). buildHazardsWhereClauseRaw already
+  // handles both shapes (splits the string case on comma) - this schema
+  // used to only accept the string shape and rejected the array shape
+  // outright with "Invalid input: expected string, received array"
+  // before the request ever reached that logic.
+  categoryIds: z.union([z.string(), z.array(z.string())]).optional(),
 
-  sourceIds: z.string().optional(),
+  sourceIds: z.union([z.string(), z.array(z.string())]).optional(),
 
   awsEmergency: z.enum(["true", "false"]).default("true").optional(),
 
