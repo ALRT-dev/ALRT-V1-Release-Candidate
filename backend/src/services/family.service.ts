@@ -213,25 +213,34 @@ export const notifyCircle = async ({
 // Circle CRUD
 // ---------------------------------------------------------------------------
 
-// Seat model (locked spec): ALRT+ grants 8 seats spendable across up to 4
-// owned circles. A seat is a (person, circle) pair in a circle you own —
-// the same person in two of your circles uses two seats. Joining someone
-// else's circle consumes nothing of your own.
+// Seat model (locked spec, seat rule confirmed by the product owner
+// 2026-09-03): ALRT+ grants 8 seats spendable across up to 4 owned
+// circles. A seat is an INVITED, non-guest (person, circle) pair in a
+// circle you own — the same person in two of your circles uses two seats.
+// The paying host's own membership never uses a seat; guests never use a
+// seat; joining someone else's circle consumes nothing of your own.
 const MAX_OWNED_CIRCLES = 4;
 const MAX_SEATS_TOTAL = 8;
+
+/** Roles that hold a seat on the owner's plan: invited full members only. */
+const SEAT_FREE_ROLES: FamilyRole[] = ["owner", "guest"];
 
 /** Days a paused circle keeps everything before anything is removed. */
 const GRACE_PERIOD_DAYS = 30;
 
 /**
- * Seats used across every circle the user owns (each membership row = 1).
- *
- * Guests are free: they receive alerts and can say "I'm Safe", but they hold
- * no seat, so inviting one never costs the owner anything.
+ * Seats used across every circle the user owns: one per invited full
+ * member (adult/child). The host is the payer, so their own membership in
+ * each circle they own is free; guests are free too (they receive alerts
+ * and can say "I'm Safe" but hold no seat), so inviting one never costs
+ * the owner anything.
  */
 export const countOwnedSeats = async (ownerUserId: string) => {
   return prisma.familyMember.count({
-    where: { circle: { createdById: ownerUserId }, role: { not: "guest" } },
+    where: {
+      circle: { createdById: ownerUserId },
+      role: { notIn: SEAT_FREE_ROLES },
+    },
   });
 };
 
@@ -276,15 +285,9 @@ export const createCircle = async (userId: string, name: string) => {
     );
   }
 
-  // The creator's own membership in the new circle consumes a seat.
-  const seatsUsed = await countOwnedSeats(userId);
-  if (seatsUsed >= MAX_SEATS_TOTAL) {
-    throw new HttpError(
-      400,
-      `All ${MAX_SEATS_TOTAL} seats on your plan are in use. Remove a member or delete a circle first.`,
-    );
-  }
-
+  // The creator's own membership costs nothing (the host never uses a
+  // seat), so a full seat ledger is no bar to opening another circle -
+  // only the 4-circle cap above is. Seats are checked when people JOIN.
   return prisma.familyCircle.create({
     data: {
       name,
@@ -310,13 +313,14 @@ export const listCirclesForUser = async (userId: string) => {
     },
   });
 
-  // Guests hold no seat, so the ledger counts everyone else. Counted
-  // separately because a filtered _count would replace the headcount.
+  // Only invited full members hold a seat - never the host, never a
+  // guest - so the ledger counts exactly those. Counted separately because
+  // a filtered _count would replace the headcount.
   const seatCounts = await prisma.familyMember.groupBy({
     by: ["circleId"],
     where: {
       circleId: { in: memberships.map((m) => m.circleId) },
-      role: { not: "guest" },
+      role: { notIn: SEAT_FREE_ROLES },
     },
     _count: { _all: true },
   });
@@ -523,12 +527,23 @@ export const leaveCircle = async (userId: string, circleId?: string) => {
 /**
  * Why a member cannot take over the circle, or `null` when they can.
  * §29: eligible = active subscription + enough free seats. Taking over
- * means every membership of this circle moves onto the candidate's own
- * 8-seat / 4-circle pool.
+ * means every seat-holding membership of this circle moves onto the
+ * candidate's own 8-seat / 4-circle pool. [seatsNeeded] is the number of
+ * seats the circle will occupy on the candidate's plan once they host it:
+ * every non-guest member except the candidate themself (the new host is
+ * free; the old host becomes an adult and now holds a seat).
  */
+const seatsNeededForNewHost = (
+  members: { id: string; role: FamilyRole }[],
+  newHostMemberId: string,
+): number =>
+  members.filter(
+    (member) => member.role !== "guest" && member.id !== newHostMemberId,
+  ).length;
+
 const transferIneligibilityReason = async (
   candidateUserId: string,
-  circleMemberCount: number,
+  seatsNeeded: number,
   candidateRole?: FamilyRole,
 ): Promise<string | null> => {
   // A guest holds no seat and never hosts; they stay listed but greyed (§29).
@@ -545,8 +560,8 @@ const transferIneligibilityReason = async (
     return `Already owns ${MAX_OWNED_CIRCLES} circles`;
   }
   const seatsFree = MAX_SEATS_TOTAL - (await countOwnedSeats(candidateUserId));
-  if (seatsFree < circleMemberCount) {
-    return `Needs ${circleMemberCount} free seats, has ${seatsFree}`;
+  if (seatsFree < seatsNeeded) {
+    return `Needs ${seatsNeeded} free seats, has ${seatsFree}`;
   }
   return null;
 };
@@ -578,7 +593,7 @@ export const listTransferCandidates = async (
     if (member.id === membership.id) continue;
     const reason = await transferIneligibilityReason(
       member.userId,
-      memberCount,
+      seatsNeededForNewHost(members, member.id),
       member.role,
     );
     candidates.push({
@@ -693,12 +708,13 @@ export const takeOverCircle = async (userId: string, circleId?: string) => {
     );
   }
 
-  const memberCount = await prisma.familyMember.count({
+  const members = await prisma.familyMember.findMany({
     where: { circleId: membership.circleId },
+    select: { id: true, role: true },
   });
   const reason = await transferIneligibilityReason(
     userId,
-    memberCount,
+    seatsNeededForNewHost(members, membership.id),
     membership.role,
   );
   if (reason) {

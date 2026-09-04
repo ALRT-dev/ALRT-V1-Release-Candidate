@@ -31,10 +31,13 @@ explicit instruction from the product owner in the current session.
 ## Commercial rules
 
 - Invited members never hit a paywall; join-by-code is free.
-- Seats: ALRT+ = 8 seats across up to 4 owned circles (MAX_SEATS_TOTAL=8,
-  MAX_OWNED_CIRCLES=4 in family.service.ts). A seat is a (person, circle)
-  pair in an owned circle; the host's own membership consumes a seat;
-  joining someone else's circle consumes nothing of the joiner's.
+- Seats (product owner 2026-09-03): ALRT+ = 8 seats across up to 4 owned
+  circles (MAX_SEATS_TOTAL=8, MAX_OWNED_CIRCLES=4 in family.service.ts).
+  A seat is an invited, non-guest (person, circle) pair in an owned
+  circle. The paying host's own membership never uses a seat; invited
+  adults/children use one each; guests use none; joining someone else's
+  circle consumes nothing of the joiner's. Seats are checked on join, not
+  on circle creation.
 - Billing is not launched: every circle defaults to plan `plus`. When the
   entitlement system ships, new circles default to `free`.
 - Ownership transfer (§29): eligible = active subscription + enough free

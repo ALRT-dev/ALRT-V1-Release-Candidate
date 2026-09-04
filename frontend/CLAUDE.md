@@ -70,7 +70,13 @@ explicit instruction from the product owner in the current session.
   ended" — never "On my way", "Emergency ended", or "SOS resolved". "On my
   way" is removed from the flow entirely (button and history entry both);
   there is no other deliberate response and deliberately no Monitoring
-  option.
+  option. The one-tap local-emergency-call button is removed from both the
+  sender's active-SOS screen and the receiver's response screen — this
+  overrides the "always one tap" call guarantee above for this flow only;
+  "WHAT THIS DOES" copy still tells the sender to call themselves if
+  needed. `FamilySosResponseType.onMyWay`/`.called` stay in the shared
+  model (backend contract, historical data) even though the UI no longer
+  offers or displays them.
 - SOS acknowledgment (product-owner instruction 2026-09-03, supersedes the
   2026-08-30 automatic-on-open behaviour): "I've seen this" is an explicit
   tap by the recipient, never posted automatically when the screen opens.
@@ -78,13 +84,7 @@ explicit instruction from the product owner in the current session.
   screen), never a bare count. When an SOS ends its acknowledgment list is
   a closed record: the server refuses late acknowledgments, and the list is
   kept in the retained SOS history (GET /api/family/sos/history, "Past
-  SOS" on the hub) with who/when only - never locations. The one-tap local-emergency-call button is removed from both the
-  sender's active-SOS screen and the receiver's response screen — this
-  overrides the "always one tap" call guarantee above for this flow only;
-  "WHAT THIS DOES" copy still tells the sender to call themselves if
-  needed. `FamilySosResponseType.onMyWay`/`.called` stay in the shared
-  model (backend contract, historical data) even though the UI no longer
-  offers or displays them.
+  SOS" on the hub) with who/when only - never locations.
 - Guests never request locations. There is no mute/snooze for circle SOS
   receipt — leaving is the only opt-out.
 - The leaderboard never shows other users' identities.
@@ -94,9 +94,11 @@ explicit instruction from the product owner in the current session.
 - Invited members never see a paywall; joining via a code is always free.
 - The paywall appears only at group creation. Alerts, the map and 000
   guidance stay free, always.
-- Seats: ALRT+ = 8 seats across up to 4 owned circles. A seat is a
-  (person, circle) pair in a circle you own — the host's own membership
-  consumes a seat; joiners consume nothing of their own.
+- Seats (product owner 2026-09-03): ALRT+ = 8 seats across up to 4 owned
+  circles. A seat is an invited, non-guest (person, circle) pair in a
+  circle you own — the paying host never uses a seat, invited full
+  members use one each, guests use none; joiners consume nothing of
+  their own.
 - Prices come from the store (RevenueCat), never hardcoded.
 
 ## Google Maps architecture (decided Stage 5, 2026-08-22)
