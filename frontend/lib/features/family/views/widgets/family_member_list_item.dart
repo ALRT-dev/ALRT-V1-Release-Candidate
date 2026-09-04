@@ -17,12 +17,27 @@ class FamilyMemberListItem extends StatelessWidget {
     this.isNearAlert = false,
     this.onLongPress,
     this.onRequestLocation,
+    this.hasAnswered,
+    this.askedAt,
+    this.onAskToCheckIn,
   });
 
   final FamilyMember member;
   final bool isMe;
   final bool isNearAlert;
   final VoidCallback? onLongPress;
+
+  /// Whether this member has checked in on the current roll (see
+  /// CheckInRoll). Null keeps the old 24-hour reading.
+  final bool? hasAnswered;
+
+  /// When there is an outstanding ask this member has not answered, the
+  /// time it was sent, so the row says "Asked 3 min ago" instead of a
+  /// stale "Checked in yesterday".
+  final DateTime? askedAt;
+
+  /// "Ask" on a row that still owes a check-in: asks THIS person only.
+  final VoidCallback? onAskToCheckIn;
 
   /// Shown as a "Request" action — asks this member for a one-time snapshot.
   final VoidCallback? onRequestLocation;
@@ -87,6 +102,30 @@ class FamilyMemberListItem extends StatelessWidget {
               ),
             ),
             SizedBox(width: 8.spMin),
+            if (onAskToCheckIn != null) ...[
+              GestureDetector(
+                onTap: onAskToCheckIn,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.spMin,
+                    vertical: 7.spMin,
+                  ),
+                  decoration: BoxDecoration(
+                    color: FamilyColors.indigo,
+                    borderRadius: BorderRadius.circular(10.spMin),
+                  ),
+                  child: Text(
+                    'Ask',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.spMin,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 6.spMin),
+            ],
             if (onRequestLocation != null) ...[
               GestureDetector(
                 onTap: onRequestLocation,
@@ -125,6 +164,15 @@ class FamilyMemberListItem extends StatelessWidget {
   }
 
   String get _subtitleText {
+    // An unanswered ask is the most important thing to say about a row.
+    final asked = askedAt;
+    if (asked != null && hasAnswered == false) {
+      final last = member.lastCheckInAt;
+      final lastLabel = last == null
+          ? 'no check-in yet'
+          : 'last check-in ${timeago.format(last)}';
+      return 'Asked ${timeago.format(asked)} · $lastLabel';
+    }
     final label = member.locationLabel;
     final sharedAt = member.locationUpdatedAt;
     if (label != null && label.isNotEmpty) {
@@ -177,14 +225,14 @@ class FamilyMemberListItem extends StatelessWidget {
       text = 'Near';
       background = FamilyColors.amberLight;
       foreground = FamilyColors.amber;
-    } else if (member.isCheckedInRecently) {
+    } else if (hasAnswered ?? member.isCheckedInRecently) {
       text = 'Safe';
       background = FamilyColors.safeGreenLight;
       foreground = FamilyColors.safeGreen;
     } else {
-      text = 'Wait';
-      background = const Color(0xFFF0F0F2);
-      foreground = AppColors.grey;
+      text = 'Not yet';
+      background = FamilyColors.amberLight;
+      foreground = FamilyColors.amber;
     }
 
     return Container(

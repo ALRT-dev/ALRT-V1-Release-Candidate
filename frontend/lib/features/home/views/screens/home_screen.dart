@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/family/views/screens/family_tab_view.dart';
+import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_sos_strip.dart';
 import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_location_request_sheet.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
@@ -141,17 +143,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         children: [
           SafeArea(
             top: false,
-            child: TabBarView(
-              controller: _tabController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                const MapScreen(),
-                const HazardSearchScreen(),
-                const CreateUpdateReportScreen(),
-                const NotificationsScreen(),
-                const FamilyTabView(),
-                const ProfileScreen(),
-              ],
+            child: _withSosStrip(
+              TabBarView(
+                controller: _tabController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  const MapScreen(),
+                  const HazardSearchScreen(),
+                  const CreateUpdateReportScreen(),
+                  const NotificationsScreen(),
+                  const FamilyTabView(),
+                  const ProfileScreen(),
+                ],
+              ),
             ).pB(HomeTabbar.height - 20.0),
           ),
           Positioned(
@@ -164,6 +168,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ],
       ),
+    );
+  }
+
+  /// While any family SOS is running, a red strip sits above whichever tab
+  /// is showing. The strip takes the status-bar inset itself, so the tab
+  /// below is told there is no top inset left to pad for; with no SOS the
+  /// tabs render exactly as they always have.
+  Widget _withSosStrip(final Widget tabs) {
+    final hasSos = ref.watch(
+      providerOfFamily.select((s) => s.activeSosEvents.isNotEmpty),
+    );
+    if (!hasSos) return tabs;
+    return Column(
+      children: [
+        Container(
+          color: FamilyColors.sosRed,
+          child: const SafeArea(bottom: false, child: FamilySosStrip()),
+        ),
+        Expanded(
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: tabs,
+          ),
+        ),
+      ],
     );
   }
 

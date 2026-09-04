@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/utils/check_in_roll.dart';
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_check_in_roll_call_screen.dart';
@@ -30,6 +31,7 @@ import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dar
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/subscription/views/widgets/billing_issue_banner.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -366,13 +368,39 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     final FamilyCircle circle,
     final Set<String> memberIdsNearAlert,
   ) {
-    final others = circle.others;
-    final checkedIn = others.where((m) => m.isCheckedInRecently).length;
-    final allAccounted =
-        others.isNotEmpty &&
-        checkedIn == others.length &&
-        memberIdsNearAlert.isEmpty;
+    // One roll for the title, the sentence and the chips, so the header
+    // never says "waiting" over a list that says everyone is in.
+    final roll = CheckInRoll.of(circle);
+    final myId = circle.myMemberId;
+    final notYetOthers =
+        roll.notYet.where((m) => m.id != myId).map((m) => m.name).toList();
+    final checkedInOthers =
+        roll.checkedIn.where((m) => m.id != myId).map((m) => m.name).toList();
+    final iAnswered = roll.checkedIn.any((m) => m.id == myId);
     final nearCount = memberIdsNearAlert.length;
+    final allAccounted = roll.everyoneAccountedFor && nearCount == 0;
+
+    final String title;
+    if (allAccounted) {
+      title = 'Everyone is accounted for';
+    } else if (notYetOthers.isEmpty && !iAnswered) {
+      title = 'Your check-in is owed';
+    } else if (notYetOthers.isEmpty) {
+      title = '$nearCount near an active alert';
+    } else {
+      title = waitingOnLabel(notYetOthers);
+    }
+    final sentence = [
+      checkedInLabel(checkedInOthers, meIncluded: iAnswered),
+      '${roll.checkedIn.length} of ${circle.members.length}',
+      if (nearCount > 0) '$nearCount near an active alert',
+    ].join(' · ');
+
+    // Others first, then me, so the people you are waiting on lead.
+    final chipMembers = [
+      ...circle.members.where((m) => m.id != myId),
+      ...circle.members.where((m) => m.id == myId),
+    ];
 
     return SliverToBoxAdapter(
       // Uses the shared family header blend (FamilyColors.headerGradient +
@@ -426,55 +454,131 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     color: Colors.white.withValues(alpha: 0.2),
                   ),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 40.spMin,
-                      height: 40.spMin,
-                      decoration: BoxDecoration(
-                        color: allAccounted
-                            ? FamilyColors.safeGreen
-                            : FamilyColors.amber,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        allAccounted ? Icons.check : LucideIcons.clock,
-                        color: Colors.white,
-                        size: 22.spMin,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 40.spMin,
+                          height: 40.spMin,
+                          decoration: BoxDecoration(
+                            color: allAccounted
+                                ? FamilyColors.safeGreen
+                                : FamilyColors.amber,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            allAccounted ? Icons.check : LucideIcons.clock,
+                            color: Colors.white,
+                            size: 22.spMin,
+                          ),
+                        ),
+                        SizedBox(width: 12.spMin),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16.spMin,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                sentence,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 12.spMin,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 12.spMin),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    if (circle.members.length > 1) ...[
+                      SizedBox(height: 12.spMin),
+                      Wrap(
+                        spacing: 6.spMin,
+                        runSpacing: 6.spMin,
                         children: [
-                          Text(
-                            allAccounted
-                                ? 'Everyone is accounted for'
-                                : 'Waiting on check-ins',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16.spMin,
-                              fontWeight: FontWeight.w700,
+                          for (final member in chipMembers)
+                            _memberStateChipBuilder(
+                              member,
+                              isMe: member.id == myId,
+                              answered: roll.hasAnswered(member),
                             ),
-                          ),
-                          Text(
-                            '$checkedIn of ${others.length} checked in'
-                            '${nearCount > 0 ? ' · $nearCount near an active alert' : ''}',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 12.spMin,
-                            ),
-                          ),
                         ],
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// One chip per member: "Tom · 8:10 am" in green when they have checked
+  /// in on this roll, "Amy · not yet" outlined in amber when they have
+  /// not. The names are the point - a count never told anyone who to ring.
+  Widget _memberStateChipBuilder(
+    final FamilyMember member, {
+    required final bool isMe,
+    required final bool answered,
+  }) {
+    final name = isMe ? 'You' : member.name;
+    final last = member.lastCheckInAt;
+    final String when;
+    if (!answered) {
+      when = 'not yet';
+    } else if (last == null) {
+      when = 'checked in';
+    } else {
+      final now = DateTime.now();
+      final sameDay =
+          last.year == now.year && last.month == now.month && last.day == now.day;
+      when = sameDay ? DateFormat.jm().format(last) : timeago.format(last);
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 6.spMin),
+      decoration: BoxDecoration(
+        color: answered
+            ? FamilyColors.safeGreen.withValues(alpha: 0.35)
+            : Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(12.spMin),
+        border: answered
+            ? null
+            : Border.all(color: Colors.white.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8.spMin,
+            height: 8.spMin,
+            decoration: BoxDecoration(
+              color: answered
+                  ? const Color(0xFF6EE7A0)
+                  : const Color(0xFFFBBF24),
+              shape: BoxShape.circle,
+            ),
+          ),
+          SizedBox(width: 6.spMin),
+          Text(
+            '$name · $when',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1734,6 +1838,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
+  /// The member list, split by state instead of one flat list: who still
+  /// owes a check-in sits on top with an Ask button per row, who has
+  /// answered sits below. Both halves read from the same CheckInRoll as
+  /// the header. With nobody outstanding it is one plain "Members" card.
   Widget _membersSectionBuilder(
     final FamilyCircle circle,
     final Set<String> memberIdsNearAlert,
@@ -1741,19 +1849,61 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     final isOwner = circle.me?.role == FamilyRole.owner;
     // Guests never request locations, so they never see the affordance.
     final iAmGuest = circle.me?.role == FamilyRole.guest;
+    final roll = CheckInRoll.of(circle);
+    final split = roll.notYet.isNotEmpty;
+
+    Widget rowFor(final FamilyMember member) {
+      final isMe = member.id == circle.myMemberId;
+      return FamilyMemberListItem(
+        member: member,
+        isMe: isMe,
+        isNearAlert: memberIdsNearAlert.contains(member.id),
+        hasAnswered: roll.hasAnswered(member),
+        askedAt: roll.askedAt,
+        onLongPress: isOwner && !isMe ? () => _confirmRemoveMember(member) : null,
+        onRequestLocation:
+            !iAmGuest && !isMe ? () => _requestLocationSnapshot(member) : null,
+        onAskToCheckIn: !isMe && !roll.hasAnswered(member)
+            ? () => _askMemberToCheckIn(member)
+            : null,
+      );
+    }
+
+    Widget card(final List<FamilyMember> members) {
+      return _cardBuilder(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            for (final (index, member) in members.indexed) ...[
+              if (index > 0)
+                Divider(
+                  height: 1,
+                  indent: 70.spMin,
+                  color: const Color(0xFFF0F0F2),
+                ),
+              rowFor(member),
+            ],
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _sectionLabelBuilder('Members', count: circle.members.length),
+            _sectionLabelBuilder(
+              split ? 'Not yet checked in' : 'Members',
+              count: split ? roll.notYet.length : circle.members.length,
+            ),
             Row(
               children: [
                 if (!iAmGuest && circle.members.length > 1)
                   TextButton(
                     onPressed: () => _requestEveryoneLocation(circle),
-                    child: const Text('Ask everyone'),
+                    child: const Text('Ask for snapshots'),
                   ),
                 if (isOwner)
                   TextButton.icon(
@@ -1766,37 +1916,32 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           ],
         ),
         SizedBox(height: 10.spMin),
-        _cardBuilder(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final (index, member) in circle.members.indexed) ...[
-                if (index > 0)
-                  Divider(
-                    height: 1,
-                    indent: 70.spMin,
-                    color: const Color(0xFFF0F0F2),
-                  ),
-                FamilyMemberListItem(
-                  member: member,
-                  isMe: member.id == circle.myMemberId,
-                  isNearAlert: memberIdsNearAlert.contains(member.id),
-                  onLongPress: isOwner && member.id != circle.myMemberId
-                      ? () => _confirmRemoveMember(member)
-                      : null,
-                  onRequestLocation:
-                      !iAmGuest && member.id != circle.myMemberId
-                      ? () => _requestLocationSnapshot(member)
-                      : null,
-                ),
-              ],
-            ],
-          ),
-        ),
+        if (split) ...[
+          card(roll.notYet),
+          if (roll.checkedIn.isNotEmpty) ...[
+            SizedBox(height: 16.spMin),
+            _sectionLabelBuilder('Checked in', count: roll.checkedIn.length),
+            SizedBox(height: 10.spMin),
+            card(roll.checkedIn),
+          ],
+        ] else
+          card(circle.members),
       ],
     );
   }
 
+  /// "Ask" on one row: a check-in request to THAT person only. Wired to
+  /// the targeted request in the next change; until then it asks the
+  /// group, which is the only ask the server knows, and says so.
+  Future<void> _askMemberToCheckIn(final FamilyMember member) async {
+    await ref.read(providerOfFamily.notifier).requestCheckIn();
+    if (!mounted) return;
+    // Honest until the targeted ask lands: today the server only knows a
+    // whole-group ask, so say exactly who was asked.
+    context.showSuccessToast(
+      message: 'Everyone has been asked to check in, ${member.name} included.',
+    );
+  }
 
   Future<void> _requestLocationSnapshot(final FamilyMember member) async {
     final sent = await ref
