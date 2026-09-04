@@ -18,22 +18,33 @@ const _shareMessage =
     'reports from people nearby.';
 
 /// Opens the Share ALRT sheet: a QR code to scan and the link to send.
+///
+/// This shares the APP only. It is not how someone joins a family circle:
+/// that is a Family invite code (FamilyInviteScreen), which never involves
+/// a website link at all.
 Future<void> showShareAlrtSheet(final BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const ShareAlrtSheet(),
+    builder: (context) => ShareAlrtSheet(link: AppLinks.shareApp),
   );
 }
 
 /// Share ALRT with someone standing next to you (QR) or anywhere else
 /// (copy the link, or hand it to the OS share sheet).
+///
+/// [link] is null on a TEST build: a sideloaded TEST APK must never send
+/// a recipient to the production website or a store, so the sheet says so
+/// instead of showing a QR or a share button (AppLinks.shareAppLinkForFlavor).
 class ShareAlrtSheet extends StatelessWidget {
-  const ShareAlrtSheet({super.key});
+  const ShareAlrtSheet({super.key, required this.link});
+
+  final String? link;
 
   @override
   Widget build(BuildContext context) {
+    final link = this.link;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -68,78 +79,153 @@ class ShareAlrtSheet extends StatelessWidget {
             ),
             6.hSizedBox,
             Text(
-              'They scan this, or you send them the link.',
+              link == null
+                  ? 'Tell someone about the app.'
+                  : 'They scan this, or you send them the link.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.spMin,
                 color: AppColors.mediumGrey,
               ),
             ),
+            12.hSizedBox,
+            _notAnInviteNoteBuilder(),
             20.hSizedBox,
-            Center(
-              child: Container(
-                padding: EdgeInsets.all(16.spMin),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(20.spMin),
-                  border: Border.all(color: AppColors.lightGrey),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.shadowColorLight,
-                      blurRadius: 12.0,
-                      offset: const Offset(0, 3),
+            if (link == null)
+              _testBuildNoticeBuilder()
+            else ...[
+              Center(
+                child: Container(
+                  padding: EdgeInsets.all(16.spMin),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(20.spMin),
+                    border: Border.all(color: AppColors.lightGrey),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.shadowColorLight,
+                        blurRadius: 12.0,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: QrImageView(
+                    data: link,
+                    size: 200.spMin,
+                    backgroundColor: AppColors.white,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: AppColors.black,
                     ),
-                  ],
-                ),
-                child: QrImageView(
-                  data: AppLinks.shareApp,
-                  size: 200.spMin,
-                  backgroundColor: AppColors.white,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: AppColors.black,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: AppColors.black,
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: AppColors.black,
+                    ),
                   ),
                 ),
               ),
-            ),
-            18.hSizedBox,
-            _linkRowBuilder(context),
-            14.hSizedBox,
-            SizedBox(
-              height: 50.spMin,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orange,
-                  foregroundColor: AppColors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.spMin),
+              18.hSizedBox,
+              _linkRowBuilder(context, link),
+              14.hSizedBox,
+              SizedBox(
+                height: 50.spMin,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.orange,
+                    foregroundColor: AppColors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.spMin),
+                    ),
                   ),
-                ),
-                onPressed: () => _share(context),
-                icon: Icon(LucideIcons.share, size: 18.spMin),
-                label: Text(
-                  'Share link',
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w700,
+                  onPressed: () => _share(context, link),
+                  icon: Icon(LucideIcons.share, size: 18.spMin),
+                  label: Text(
+                    'Share link',
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
     );
   }
 
+  /// Said on the sheet itself, because testers mixed the two up: this is
+  /// about the app, not about joining a circle.
+  Widget _notAnInviteNoteBuilder() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 10.spMin),
+      decoration: BoxDecoration(
+        color: AppColors.extraLightGrey,
+        borderRadius: BorderRadius.circular(12.spMin),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.info, size: 16.spMin, color: AppColors.mediumGrey),
+          SizedBox(width: 8.spMin),
+          Expanded(
+            child: Text(
+              'This shares the app itself. To add someone to your family '
+              'circle, use Family → Add member and give them an invite code.',
+              style: TextStyle(
+                fontSize: 12.spMin,
+                height: 1.4,
+                color: AppColors.mediumGrey,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// TEST builds have nothing safe to link to: the app they run is a
+  /// sideloaded internal build, and the production site/stores are off
+  /// limits from here.
+  Widget _testBuildNoticeBuilder() {
+    return Container(
+      padding: EdgeInsets.all(14.spMin),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E8),
+        borderRadius: BorderRadius.circular(14.spMin),
+        border: Border.all(color: const Color(0xFFF5C9A5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.science_outlined,
+            size: 20.spMin,
+            color: AppColors.orange,
+          ),
+          SizedBox(width: 10.spMin),
+          Expanded(
+            child: Text(
+              'TEST build: sharing links are switched off. This build is '
+              'not in the stores, so there is no link to send - testers get '
+              'the app from the internal TEST build, not from a store.',
+              style: TextStyle(
+                fontSize: 13.spMin,
+                height: 1.45,
+                color: const Color(0xFF7A3E00),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// The link itself, always visible and one tap to copy, so it can be
   /// pasted anywhere the OS share sheet does not reach.
-  Widget _linkRowBuilder(final BuildContext context) {
+  Widget _linkRowBuilder(final BuildContext context, final String link) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 14.spMin,
@@ -155,7 +241,7 @@ class ShareAlrtSheet extends StatelessWidget {
           SizedBox(width: 10.spMin),
           Expanded(
             child: Text(
-              AppLinks.shareAppDisplay,
+              AppLinks.websiteDisplay,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -167,7 +253,7 @@ class ShareAlrtSheet extends StatelessWidget {
           ),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => _copy(context),
+            onTap: () => _copy(context, link),
             child: Padding(
               padding: EdgeInsets.all(4.spMin),
               child: Text(
@@ -185,17 +271,17 @@ class ShareAlrtSheet extends StatelessWidget {
     );
   }
 
-  void _copy(final BuildContext context) {
-    Clipboard.setData(const ClipboardData(text: AppLinks.shareApp));
+  void _copy(final BuildContext context, final String link) {
+    Clipboard.setData(ClipboardData(text: link));
     AnalyticsService.appShared(from: 'profile_copy');
     context.showSuccessToast(message: 'Link copied');
   }
 
-  Future<void> _share(final BuildContext context) async {
+  Future<void> _share(final BuildContext context, final String link) async {
     AnalyticsService.appShared(from: 'profile_share');
     await SharePlus.instance.share(
       ShareParams(
-        text: '$_shareMessage\n\n${AppLinks.shareApp}',
+        text: '$_shareMessage\n\n$link',
         subject: 'ALRT — safety alerts for where you are',
       ),
     );
