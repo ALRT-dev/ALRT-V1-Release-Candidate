@@ -81,17 +81,10 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          // 165 degrees in the prototype: near-vertical, tilted right.
-          begin: Alignment(-0.35, -1),
-          end: Alignment(0.35, 1),
-          colors: [
-            FamilyColors.v31HeaderTop,
-            FamilyColors.v31HeaderMid,
-            FamilyColors.v31HeaderDeep,
-          ],
-          stops: [0.0, 0.55, 1.0],
-        ),
+        // The shared family header blend (FamilyColors.headerGradient), so
+        // this screen matches the hub, the invite screen and the rest of
+        // the section instead of carrying its own copy of the stops.
+        gradient: FamilyColors.headerGradient,
       ),
       child: Stack(
         children: [

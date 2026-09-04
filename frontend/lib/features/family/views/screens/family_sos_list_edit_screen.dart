@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 
 class FamilySosListEditScreenArgs {
@@ -127,8 +128,9 @@ class _FamilySosListEditScreenState
   }
 
   Widget _headerBuilder() {
-    return Container(
-      color: Colors.white,
+    // The shared family header band (FamilyHeaderSurface), so this editor
+    // stops being the one white-topped screen in the section.
+    return FamilyHeaderSurface(
       padding: EdgeInsets.fromLTRB(16.spMin, 52.spMin, 16.spMin, 16.spMin),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,13 +142,14 @@ class _FamilySosListEditScreenState
                 child: Container(
                   width: 30.spMin,
                   height: 30.spMin,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF1EEF4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     size: 14.spMin,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -161,13 +164,14 @@ class _FamilySosListEditScreenState
                         fontSize: 20.spMin,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.4,
+                        color: Colors.white,
                       ),
                     ),
                     Text(
                       'Pick exactly who, in which group, this SOS reaches',
                       style: TextStyle(
                         fontSize: 11.5.spMin,
-                        color: FamilyColors.v31Ink,
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -182,7 +186,7 @@ class _FamilySosListEditScreenState
               vertical: 4.spMin,
             ),
             decoration: BoxDecoration(
-              color: _page,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12.spMin),
             ),
             child: Row(

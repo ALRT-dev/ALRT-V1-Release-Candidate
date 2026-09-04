@@ -406,7 +406,9 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
   }
 
   /// The seat arithmetic, spelled out. Only circles you own spend your seats,
-  /// so joined groups are deliberately absent from the breakdown.
+  /// so joined groups are deliberately absent from the breakdown. A seat is
+  /// an invited full member: you never use one yourself as host, and guests
+  /// never use one (product owner 2026-09-03).
   Widget _seatCardBuilder(final List<FamilyCircleSummary> circles) {
     final owned = circles.where((c) => c.isOwned).toList();
     final used = owned.fold<int>(0, (sum, c) => sum + c.seatCount);
@@ -468,7 +470,8 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
                 ? "You don't host a group yet, so none of your seats are "
                       'in use.'
                 : '${owned.map((c) => '${c.name} ${c.seatCount}').join(' · ')}'
-                      '\n$spare spare',
+                      '\n$spare spare · you never use a seat yourself, '
+                      'and guests are free',
             style: TextStyle(
               fontSize: 12.spMin,
               height: 1.5,

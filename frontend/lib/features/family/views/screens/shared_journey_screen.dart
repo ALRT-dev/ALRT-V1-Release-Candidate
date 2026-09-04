@@ -87,16 +87,10 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment(-0.35, -1),
-          end: Alignment(0.35, 1),
-          colors: [
-            FamilyColors.v31HeaderTop,
-            FamilyColors.v31HeaderMid,
-            FamilyColors.v31HeaderDeep,
-          ],
-          stops: [0.0, 0.55, 1.0],
-        ),
+        // The shared family header blend (FamilyColors.headerGradient), so
+        // this screen matches the hub, the invite screen and the rest of
+        // the section instead of carrying its own copy of the stops.
+        gradient: FamilyColors.headerGradient,
       ),
       child: SafeArea(
         bottom: false,

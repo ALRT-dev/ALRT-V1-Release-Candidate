@@ -842,8 +842,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               ),
               SizedBox(height: 4.spMin),
               Text(
-                'The new host covers everyone here with their own ALRT+ '
-                'seats. You stay on as a member.',
+                'The new host covers every invited member here with their '
+                'own ALRT+ seats (guests and the host are free). You stay on '
+                'as a member.',
                 style: TextStyle(
                   fontSize: 12.5.spMin,
                   color: AppColors.mediumGrey,
@@ -919,9 +920,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       context: context,
       title: 'Hand the circle to ${picked.name}?',
       description:
-          'Your ${candidates.memberCount} seats here move to '
-          '${picked.name}\'s plan and everything keeps working. You stay '
-          'on as a member — only ${picked.name} can hand hosting back.',
+          'Everyone here moves onto ${picked.name}\'s ALRT+ seats and '
+          'everything keeps working. You stay on as a member and use one of '
+          'their seats; ${picked.name} uses none as the new host — only '
+          'they can hand hosting back.',
       confirmButtonText: 'Transfer hosting',
       onPressedConfirm: (_, __) => confirmed = true,
     );
@@ -1468,7 +1470,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 icon: LucideIcons.bellRing,
                 label: 'Check-in',
                 tint: const Color(0xFFE8F4FF),
-                ink: const Color(0xFF4DA8FF),
+                // 1D7FE0 on the tint is ~4.6:1, the old 4DA8FF was ~2.6:1.
+                ink: const Color(0xFF1D7FE0),
                 onTap: () async {
                   await ref.read(providerOfFamily.notifier).requestCheckIn();
                   if (!context.mounted) return;

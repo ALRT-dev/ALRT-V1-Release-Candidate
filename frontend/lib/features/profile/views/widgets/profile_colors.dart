@@ -53,14 +53,29 @@ class ProfileColors {
     Color(0xFFE86A00),
   );
 
-  /// The premium ALRT+ treatment: a genuine three-stop warm gold -> orange
-  /// -> coral gradient. F5A000 (the middle stop) is the ALRT+ amber
-  /// approved earlier in this project - kept, not replaced. No red: red
-  /// stays reserved for [dangerAction] so it never reads as a warning.
+  /// The premium ALRT+ card (approved redesign 2026-09-03): a dark,
+  /// blended purple surface - deep indigo-violet rising to a brighter
+  /// purple - with white text. Dark on purpose so it reads as membership,
+  /// distinct from every light safety card around it, and never as a
+  /// warning (red stays reserved for [dangerAction]).
+  static const alrtPlusCardGradient = <Color>[
+    Color(0xFF241A66),
+    Color(0xFF3D2A9E),
+    Color(0xFF6A3FD1),
+  ];
+
+  /// The crown on the ALRT+ card: cream -> gold, the only warm accent on
+  /// that dark surface.
+  static const alrtPlusCrown = ProfileRowAccent(
+    Color(0xFFFFF3C4),
+    Color(0xFFE9B949),
+  );
+
+  /// The tinted-icon accent for ALRT+ rows outside the card (the QA-only
+  /// paywall preview row, the TEST chip).
   static const alrtPlusMembership = ProfileRowAccent(
-    Color(0xFFFFD166),
-    Color(0xFFFF6F59),
-    mid: Color(0xFFF5A000),
+    Color(0xFFF3E9FF),
+    Color(0xFF6A3FD1),
   );
 
   static const helpAndFeedback = ProfileRowAccent(

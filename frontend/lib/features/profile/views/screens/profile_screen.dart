@@ -410,14 +410,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 10.spMin,
           children: [
-            Text(
-              'Recent ALRTs'.toUpperCase(),
-              style: TextStyle(
-                fontSize: 14.spMin,
-                fontWeight: FontWeight.w600,
-                color: context.onSurfaceMuted.withValues(alpha: 0.6),
-              ),
-            ),
+            Text('Recent ALRTs'.toUpperCase(), style: _sectionLabelStyle()),
             MyAcceptedHazardsList(
               limit: 3,
               shinkWrap: true,
@@ -447,14 +440,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           spacing: 10.spMin,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Needs Update'.toUpperCase(),
-              style: TextStyle(
-                fontSize: 14.spMin,
-                fontWeight: FontWeight.w600,
-                color: context.onSurfaceMuted.withValues(alpha: 0.6),
-              ),
-            ),
+            Text('Needs Update'.toUpperCase(), style: _sectionLabelStyle()),
             MyRejectedHazardsList(
               limit: 3,
               shinkWrap: true,
@@ -516,29 +502,116 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// ALRT+ membership — the deliberately premium card: a warm three-stop
-  /// gold -> orange -> coral gradient wash (ProfileColors.alrtPlusMembership),
-  /// not a flat tint, so it reads as membership rather than another safety
-  /// row. Subtitle and TEST chip reuse the exact same real entitlement
-  /// state as before - no invented offers, no gating changes.
+  /// ALRT+ membership — the premium card (approved redesign 2026-09-03):
+  /// a dark, blended purple surface (ProfileColors.alrtPlusCardGradient)
+  /// with white text and a cream-to-gold crown, so it reads unmistakably
+  /// as membership next to the light safety cards around it. Subtitle and
+  /// TEST chip reuse the exact same real entitlement state as before - no
+  /// invented offers, no gating changes.
   Widget _buildAlrtPlusHighlightCard() {
     return Consumer(
       builder: (context, ref, child) {
         final isSubscribed = ref.watch(providerOfAlrtPlus).value == true;
-        return _buildHighlightCard(
-          icon: LucideIcons.crown,
-          accent: ProfileColors.alrtPlusMembership,
-          backgroundTint: 0.16,
-          borderTint: 0.42,
-          premium: true,
-          title: 'ALRT+ membership',
-          subtitle: isSubscribed
-              ? 'Plan, seats and billing'
-              : 'You pay once, everyone else joins free',
-          trailing: isAlrtPlusTestUnlocked
-              ? _buildTextChip('TEST', ProfileColors.alrtPlusMembership)
-              : null,
-          onTap: () => context.push(
+        return Container(
+          padding: EdgeInsets.all(16.spMin),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              stops: [0.0, 0.55, 1.0],
+              colors: ProfileColors.alrtPlusCardGradient,
+            ),
+            borderRadius: BorderRadius.circular(18.spMin),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            boxShadow: [
+              BoxShadow(
+                color: ProfileColors.alrtPlusCardGradient.first
+                    .withValues(alpha: 0.35),
+                blurRadius: 16.0,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46.spMin,
+                height: 46.spMin,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13.spMin),
+                  border: Border.all(
+                    color: ProfileColors.alrtPlusCrown.end
+                        .withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Center(
+                  child: ProfileGradientIcon(
+                    icon: LucideIcons.crown,
+                    accent: ProfileColors.alrtPlusCrown,
+                    size: 24.0,
+                    gradient: true,
+                  ),
+                ),
+              ),
+              12.wSizedBox,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ALRT+ membership',
+                      style: TextStyle(
+                        fontSize: 16.5.spMin,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    2.spMin.hSizedBox,
+                    Text(
+                      isSubscribed
+                          ? 'Plan, seats and billing'
+                          : 'You pay once, everyone else joins free',
+                      style: TextStyle(
+                        fontSize: 12.5.spMin,
+                        color: Colors.white.withValues(alpha: 0.82),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isAlrtPlusTestUnlocked) ...[
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 8.spMin,
+                    vertical: 3.spMin,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ProfileColors.alrtPlusCrown.start
+                        .withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(20.spMin),
+                  ),
+                  child: Text(
+                    'TEST',
+                    style: TextStyle(
+                      fontSize: 10.5.spMin,
+                      fontWeight: FontWeight.w800,
+                      color: ProfileColors.alrtPlusCrown.start,
+                    ),
+                  ),
+                ),
+                6.wSizedBox,
+              ],
+              Icon(
+                Icons.chevron_right,
+                color: Colors.white.withValues(alpha: 0.75),
+                size: 19.spMin,
+              ),
+            ],
+          ),
+        ).onPressed(
+          () => context.push(
             isSubscribed
                 ? AlrtPlusManageScreen.route
                 : AlrtPlusPaywallScreen.route,
@@ -548,13 +621,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Shared shape for the two promoted cards. Both now wash in a soft
-  /// gradient of [accent]'s own stops (two for Family, three for ALRT+) -
-  /// [premium] only controls how strongly that wash reads: a deeper end
-  /// stop, a heavier border, a slightly larger icon badge with a stronger
-  /// shadow, and a bolder heading - so ALRT+ still feels distinctly
-  /// premium next to Family's calmer, more restrained version of the same
-  /// shape, rather than two unrelated treatments.
+  /// The light highlight-card shape (Family & check-ins): a soft gradient
+  /// wash of [accent]'s own stops behind a gradient icon badge. ALRT+ has
+  /// its own dark premium card above and no longer shares this shape.
   Widget _buildHighlightCard({
     required final IconData icon,
     required final ProfileRowAccent accent,
@@ -648,12 +717,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ).onPressed(onTap);
   }
 
-  /// SAFETY: saved locations, journey sharing. Family & check-ins is now
-  /// its own highlight card above, not a row in this list.
+  /// SAFETY: safety profile first, then saved locations and journey
+  /// sharing. Family & check-ins is its own highlight card above, not a
+  /// row in this list. Safety profile moved here from Privacy (approved
+  /// redesign 2026-09-03): it is the thing that tailors every alert, so
+  /// it belongs at the top of Safety, not among the privacy controls.
   Widget _buildSafetySection() {
     return _buildSectionCard(
       label: 'Safety',
       rows: [
+        _buildProfileRow(
+          title: 'Safety profile',
+          subtitle: 'Tailored For You guidance · stays on your phone',
+          icon: LucideIcons.shieldCheck,
+          accent: const ProfileRowAccent(Color(0xFF6199FF), AppColors.blue),
+          onTap: () => context.push(SafetyProfileScreen.route),
+        ),
         Consumer(
           builder: (context, ref, child) {
             final savedCount = ref.watch(
@@ -763,19 +842,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// PRIVACY & SAFETY: everything else safety/privacy-adjacent that was
-  /// already in Profile before this redesign.
+  /// PRIVACY: who can see what, and the legal texts. Safety profile now
+  /// lives at the top of the Safety section above.
   Widget _buildPrivacySafetySection() {
     return _buildSectionCard(
-      label: 'Privacy & Safety',
+      label: 'Privacy',
       rows: [
-        _buildProfileRow(
-          title: 'Safety profile',
-          subtitle: 'Tailored For You guidance · stays on your phone',
-          icon: LucideIcons.shieldCheck,
-          accent: const ProfileRowAccent(Color(0xFF6199FF), AppColors.blue),
-          onTap: () => context.push(SafetyProfileScreen.route),
-        ),
         _buildProfileRow(
           title: 'Child mode',
           subtitle: 'Map, SOS and check-ins only on this phone',
@@ -1081,7 +1153,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// A grouped-card section: an uppercase label above a single white
+  /// Section headings (approved redesign 2026-09-03): dark, bold and
+  /// letter-spaced so each group reads as a real heading, not a faint
+  /// caption. Primary text colour, never a washed-out grey - the old 60%
+  /// grey fell below the contrast a heading needs.
+  TextStyle _sectionLabelStyle() => TextStyle(
+        fontSize: 13.spMin,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.8,
+        color: context.onSurface,
+      );
+
+  /// A grouped-card section: an uppercase heading above a single white
   /// rounded card holding [rows] — the shared shape every Profile section
   /// below the header uses.
   Widget _buildSectionCard({
@@ -1093,14 +1176,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 10.spMin,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            fontSize: 14.spMin,
-            fontWeight: FontWeight.w600,
-            color: context.onSurfaceMuted.withValues(alpha: 0.6),
-          ),
-        ),
+        Text(label.toUpperCase(), style: _sectionLabelStyle()),
         Container(
           decoration: BoxDecoration(
             color: context.surfaceCard,
@@ -1170,26 +1246,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
     ).onPressed(onTap);
-  }
-
-  /// Small tinted text pill (e.g. "ALRT+", "TEST") — never the warm red,
-  /// that stays reserved for the danger zone.
-  Widget _buildTextChip(final String text, final ProfileRowAccent accent) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.spMin, vertical: 3.spMin),
-      decoration: BoxDecoration(
-        color: accent.end.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20.spMin),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 10.5.spMin,
-          fontWeight: FontWeight.w700,
-          color: accent.end,
-        ),
-      ),
-    );
   }
 
   /// Neutral count pill for Saved locations — a real count, never an
