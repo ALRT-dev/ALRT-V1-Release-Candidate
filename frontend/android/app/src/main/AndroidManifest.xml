@@ -5,6 +5,12 @@
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- Camera: used only by the Family "Scan invite QR" flow (mobile_scanner)
+       and the existing photo picker, and only after the user taps the
+       corresponding button. mobile_scanner's own manifest merges this same
+       permission; it is declared here too so the app's permission set is
+       visible in one place. -->
+  <uses-permission android:name="android.permission.CAMERA" />
   <!-- Tap-to-talk voice search (on-device speech recognition). -->
   <uses-permission android:name="android.permission.RECORD_AUDIO" />
 

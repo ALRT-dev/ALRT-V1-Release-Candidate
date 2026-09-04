@@ -56,6 +56,24 @@ Future<void> showJoinGroupSheet(
   );
 }
 
+/// "Scan invite QR": straight to the scanner, no sheet first. Sits beside
+/// "I have an invite code" on the onboarding screen and the group switcher.
+/// The camera (and its permission prompt) starts only when this is tapped.
+/// A valid code goes through the exact same join() as a typed one; nothing
+/// is sent for a cancelled or unreadable scan. Errors from the server
+/// (unknown / revoked / expired / used-up code, full circle, already a
+/// member, no free seats) surface through the screens' existing
+/// joinCircleState listeners, word for word.
+Future<void> scanInviteQrAndJoin(
+  final BuildContext context,
+  final WidgetRef ref,
+) async {
+  final code = await showFamilyInviteScannerSheet(context);
+  if (code == null || !context.mounted) return;
+  context.showSuccessToast(message: 'Code $code scanned - joining...');
+  await ref.read(providerOfFamily.notifier).join(code: code);
+}
+
 Future<void> showCreateGroupSheet(
   final BuildContext context,
   final WidgetRef ref,

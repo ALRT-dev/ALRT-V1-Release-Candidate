@@ -23,12 +23,12 @@ import 'package:timeago/timeago.dart' as timeago;
 /// website or a store: the code is the whole payload, so it works the same
 /// on a TEST build (sideloaded APK) as it will on a store build.
 ///
-/// The QR is NOT a scan-to-join journey yet (product owner 2026-09-03): it
-/// encodes the bare code so a phone camera shows the code to read off and
-/// type. Manual code entry is the one join path today; an in-app scanner
-/// is a separate, approved-first change (camera dependency + permission).
-/// Joining with a code is always free; only the host's plan is involved
-/// (see the seat rule in family.service.ts).
+/// The QR encodes the bare invite code and nothing else. The joiner scans
+/// it in-app (Family → "Scan invite QR", FamilyInviteScannerSheet) and the
+/// code goes through the very same join call a typed code does; a phone
+/// camera outside the app simply shows the code as text to type. Joining
+/// with a code is always free; only the host's plan is involved (see the
+/// seat rule in family.service.ts).
 class FamilyInviteScreen extends ConsumerStatefulWidget {
   const FamilyInviteScreen({super.key});
 
@@ -272,12 +272,15 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
           ),
           SizedBox(height: 10.spMin),
           step(1, 'They open ALRT on their own phone and go to Family.'),
-          step(2, 'They tap "I have an invite code".'),
+          step(
+            2,
+            'They tap "Scan invite QR" and point their camera at this code, '
+            'or tap "I have an invite code" and type it.',
+          ),
           step(
             3,
-            'They type the code in (the QR just shows it to them - it is '
-            'not scanned to join yet). No website, no link - the code is '
-            'all they need.',
+            'They are in. No website, no link, no store - the code is all '
+            'they need, on a TEST build or a store build alike.',
           ),
         ],
       ),
@@ -295,8 +298,8 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
       child: Column(
         children: [
           Text(
-            'Show this to the person you are inviting - they read the code '
-            'off it and type it in',
+            'Show this to the person you are inviting - they scan it in ALRT '
+            'or type the code in',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13.spMin, color: AppColors.grey),
           ),
@@ -307,9 +310,9 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(16.spMin),
             ),
-            // The QR encodes the bare code - scanning it with a phone
-            // camera shows the code to type; there is no website or store
-            // link behind it.
+            // The QR encodes the bare code. The in-app scanner reads it
+            // straight into the join flow; a plain phone camera just shows
+            // the code as text. There is no website or store link behind it.
             child: QrImageView(
               data: code,
               size: 172.spMin,

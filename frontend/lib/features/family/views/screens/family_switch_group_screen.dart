@@ -97,28 +97,71 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 48.spMin,
-            child: TextButton(
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15.spMin),
-                  side: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.16),
+          // Type a code or scan the host's QR - two equal ways in. The
+          // camera is only touched when the scan button itself is tapped.
+          Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: SizedBox(
+                  height: 48.spMin,
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15.spMin),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.16),
+                        ),
+                      ),
+                    ),
+                    onPressed: () => showJoinGroupSheet(context, ref),
+                    child: Text(
+                      'Join with a code',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.spMin,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
               ),
-              onPressed: () => showJoinGroupSheet(context, ref),
-              child: Text(
-                'Join another group with a code',
-                style: TextStyle(
-                  fontSize: 14.spMin,
-                  fontWeight: FontWeight.w800,
+              SizedBox(width: 9.spMin),
+              Expanded(
+                flex: 4,
+                child: SizedBox(
+                  height: 48.spMin,
+                  child: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15.spMin),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.16),
+                        ),
+                      ),
+                    ),
+                    onPressed: () => scanInviteQrAndJoin(context, ref),
+                    icon: Icon(Icons.qr_code_scanner_rounded, size: 18.spMin),
+                    label: Text(
+                      'Scan invite QR',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.spMin,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
           SizedBox(height: 9.spMin),
           SizedBox(

@@ -204,39 +204,86 @@ class _FamilyOnboardingScreenState
                   ),
                 ),
                 SizedBox(height: 9.spMin),
-                SizedBox(
-                  height: 48.spMin,
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF1D1D21),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15.spMin),
-                        side: const BorderSide(
-                          color: Color(0xFFE8E4EE),
-                          width: 1.5,
+                // Two equal ways in with a host's invite: type the code, or
+                // scan the QR on their phone. The camera is only touched
+                // when the scan button itself is tapped.
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: SizedBox(
+                        height: 48.spMin,
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF1D1D21),
+                            padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15.spMin),
+                              side: const BorderSide(
+                                color: Color(0xFFE8E4EE),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          onPressed: joinState.isLoading
+                              ? null
+                              : () => showJoinGroupSheet(context, ref),
+                          child: joinState.isLoading
+                              ? SizedBox(
+                                  width: 20.spMin,
+                                  height: 20.spMin,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  'I have an invite code',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14.spMin,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                         ),
                       ),
                     ),
-                    onPressed: joinState.isLoading
-                        ? null
-                        : () => showJoinGroupSheet(context, ref),
-                    child: joinState.isLoading
-                        ? SizedBox(
-                            width: 20.spMin,
-                            height: 20.spMin,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
+                    SizedBox(width: 9.spMin),
+                    Expanded(
+                      flex: 4,
+                      child: SizedBox(
+                        height: 48.spMin,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: FamilyColors.indigo,
+                            padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15.spMin),
+                              side: BorderSide(
+                                color: FamilyColors.indigo.withValues(alpha: 0.4),
+                                width: 1.5,
+                              ),
                             ),
-                          )
-                        : Text(
-                            'I have an invite code',
+                          ),
+                          onPressed: joinState.isLoading
+                              ? null
+                              : () => scanInviteQrAndJoin(context, ref),
+                          icon: Icon(Icons.qr_code_scanner_rounded, size: 18.spMin),
+                          label: Text(
+                            'Scan invite QR',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 14.spMin,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                  ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
