@@ -67,6 +67,7 @@ class FamilyProviderState {
     this.sosRespondState = const FamilyActionState.initial(),
     this.activeJourney,
     this.journeyState = const FamilyActionState.initial(),
+    this.sharedJourneys = const <FamilyJourney>[],
   });
 
   /// The user's family circle. `null` when the user has no circle.
@@ -91,6 +92,13 @@ class FamilyProviderState {
 
   /// Start/extend/stop progress for the journey screen.
   final FamilyActionState journeyState;
+
+  /// Other members' journeys currently shared with the caller. Populated
+  /// on every [FamilyProvider.load] (and its socket-triggered silent
+  /// reloads), so a recipient sees this even if they missed the "shared
+  /// with you" push notification and never had reason to visit a
+  /// journey screen this session.
+  final List<FamilyJourney> sharedJourneys;
 
   /// The most recent check-ins of the circle (newest first).
   final List<FamilyCheckIn> recentCheckIns;
@@ -153,6 +161,7 @@ class FamilyProviderState {
     final FamilyActionState? sosRespondState,
     final Object? activeJourney = _unset,
     final FamilyActionState? journeyState,
+    final List<FamilyJourney>? sharedJourneys,
   }) {
     return FamilyProviderState(
       circle: circle == _unset ? this.circle : circle as FamilyCircle?,
@@ -164,6 +173,7 @@ class FamilyProviderState {
           ? this.activeJourney
           : activeJourney as FamilyJourney?,
       journeyState: journeyState ?? this.journeyState,
+      sharedJourneys: sharedJourneys ?? this.sharedJourneys,
       recentCheckIns: recentCheckIns ?? this.recentCheckIns,
       scheduledCheckIns: scheduledCheckIns ?? this.scheduledCheckIns,
       circles: circles ?? this.circles,

@@ -20,6 +20,7 @@ import 'package:hazard_app/features/family/views/screens/family_sharing_level_sc
 import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_resolved_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
+import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
@@ -66,6 +67,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     final checkInState = ref.watch(
       providerOfFamily.select((s) => s.checkInState),
     );
+    final sharedJourneys = ref
+        .watch(providerOfFamily.select((s) => s.sharedJourneys))
+        .where((j) => j.isActive)
+        .toList();
 
     return Scaffold(
       backgroundColor: FamilyColors.v31Page,
@@ -90,6 +95,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     ],
                     if (circle.isPaused) ...[
                       _pausedBannerBuilder(circle),
+                      SizedBox(height: 12.spMin),
+                    ],
+                    for (final journey in sharedJourneys) ...[
+                      _sharedJourneyCardBuilder(journey),
                       SizedBox(height: 12.spMin),
                     ],
                     _checkInRequestBannerBuilder(circle, checkInState),
@@ -344,6 +353,64 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               size: 16.spMin,
               color: Colors.white,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A member is sharing a journey with the caller. This is the whole point
+  /// of this card: before it existed, the only way to find out was catching
+  /// the "shared with you" push notification the moment it landed — miss it
+  /// or dismiss it, and there was no other way into the private viewer from
+  /// the Family tab. Shows only what the backend actually returns (name,
+  /// status, last-updated time) — never a destination, route, ETA or trail,
+  /// since the journey model carries none of those.
+  Widget _sharedJourneyCardBuilder(final FamilyJourney journey) {
+    final label = journey.isLive ? 'Live journey' : 'Journey';
+    final updatedAt = journey.createdAt;
+    return GestureDetector(
+      onTap: () => context.push(
+        SharedJourneyScreen.route,
+        extra: SharedJourneyScreenArgs(journeyId: journey.id),
+      ),
+      child: Container(
+        padding: EdgeInsets.all(14.spMin),
+        decoration: BoxDecoration(
+          gradient: FamilyColors.headerGradient,
+          borderRadius: BorderRadius.circular(16.spMin),
+        ),
+        child: Row(
+          children: [
+            Icon(LucideIcons.navigation, color: Colors.white, size: 22.spMin),
+            SizedBox(width: 10.spMin),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${journey.memberName} is sharing a $label with you',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.spMin,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 2.spMin),
+                  Text(
+                    [
+                      '${journey.remaining.inMinutes} min left',
+                      if (updatedAt != null) 'started ${timeago.format(updatedAt)}',
+                    ].join(' · '),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      fontSize: 12.spMin,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, color: Colors.white, size: 20.spMin),
           ],
         ),
       ),

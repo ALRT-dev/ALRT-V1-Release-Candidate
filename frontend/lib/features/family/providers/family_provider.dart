@@ -482,6 +482,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
             _refreshActiveSosEvents(),
             _refreshSosHistory(),
             _checkPendingLocationRequests(),
+            _refreshSharedJourneys(),
           ]);
         }
       },
@@ -1763,6 +1764,21 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
     result.whenSuccess((events) {
       state = state.copyWith(sosHistory: events);
+      return null;
+    });
+  }
+
+  /// Other members' journeys currently shared with the caller — refreshed
+  /// on every load so a recipient sees an active share even if they never
+  /// saw or opened the "shared with you" notification. A failure here
+  /// stays silent (same reasoning as the other background refreshes in
+  /// [load]): it is a supplementary card, not the circle itself.
+  Future<void> _refreshSharedJourneys() async {
+    final result = await _familyService.getFamilyJourneysSharedWithMe();
+    if (!mounted) return;
+
+    result.whenSuccess((journeys) {
+      state = state.copyWith(sharedJourneys: journeys);
       return null;
     });
   }
