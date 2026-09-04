@@ -91,7 +91,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     _imSafeButtonBuilder(circle, checkInState),
                     SizedBox(height: 10.spMin),
                     _quickTilesRowBuilder(),
-                    SizedBox(height: 16.spMin),
+                    SizedBox(height: 12.spMin),
+                    _addMemberCardBuilder(circle),
                     _setUpCardBuilder(),
                     SizedBox(height: 16.spMin),
                     _privacyBannerBuilder(),
@@ -422,6 +423,91 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
+  /// The one thing a new host needs first and previously could only find
+  /// inside the overflow menu: adding people. Owner-only, because joiners
+  /// use the OWNER's seats and the server refuses invites from anyone else.
+  /// Opens the Family invite flow (code + QR + copy/send + revoke), which
+  /// is deliberately separate from Profile's "Share ALRT".
+  Widget _addMemberCardBuilder(final FamilyCircle circle) {
+    if (circle.me?.role != FamilyRole.owner) return const SizedBox.shrink();
+    final alone = circle.members.length <= 1;
+    return Padding(
+      padding: EdgeInsets.only(bottom: 16.spMin),
+      child: GestureDetector(
+        onTap: () => context.push(FamilyInviteScreen.route),
+        child: Container(
+          padding: EdgeInsets.all(14.spMin),
+          decoration: BoxDecoration(
+            color: alone ? FamilyColors.indigo : Colors.white,
+            borderRadius: BorderRadius.circular(16.spMin),
+            border: alone
+                ? null
+                : Border.all(color: FamilyColors.indigo.withValues(alpha: 0.35)),
+            boxShadow: [
+              BoxShadow(
+                color: alone
+                    ? FamilyColors.indigo.withValues(alpha: 0.3)
+                    : FamilyColors.v31CardShadow,
+                blurRadius: 12.0,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40.spMin,
+                height: 40.spMin,
+                decoration: BoxDecoration(
+                  color: alone
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : FamilyColors.indigoLight,
+                  borderRadius: BorderRadius.circular(12.spMin),
+                ),
+                child: Icon(
+                  LucideIcons.userPlus,
+                  size: 20.spMin,
+                  color: alone ? Colors.white : FamilyColors.indigo,
+                ),
+              ),
+              SizedBox(width: 12.spMin),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      alone ? 'Add your first member' : 'Add member',
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w800,
+                        color: alone ? Colors.white : AppColors.black,
+                      ),
+                    ),
+                    SizedBox(height: 2.spMin),
+                    Text(
+                      'Invite code or QR · joining is always free',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        color: alone
+                            ? Colors.white.withValues(alpha: 0.85)
+                            : AppColors.mediumGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                LucideIcons.chevronRight,
+                size: 18.spMin,
+                color: alone ? Colors.white : FamilyColors.indigo,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// The three things people set up once and could not find: their own
   /// name and picture in the group, their daily check-in, and who their
   /// SOS reaches. All three were only in the overflow menu, which is why
@@ -546,7 +632,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         // may invite people into another payer's group (product owner
         // 2026-08-07). The server enforces the same rule.
         if (isOwner)
-          const PopupMenuItem(value: 'invite', child: Text('Invite members')),
+          const PopupMenuItem(value: 'invite', child: Text('Add member')),
         const PopupMenuItem(value: 'sharing', child: Text('My sharing level')),
         const PopupMenuItem(value: 'profile', child: Text('My circle profile')),
         if (isOwner)
@@ -1603,11 +1689,21 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _sectionLabelBuilder('Members', count: circle.members.length),
-            if (!iAmGuest && circle.members.length > 1)
-              TextButton(
-                onPressed: () => _requestEveryoneLocation(circle),
-                child: const Text('Ask everyone'),
-              ),
+            Row(
+              children: [
+                if (!iAmGuest && circle.members.length > 1)
+                  TextButton(
+                    onPressed: () => _requestEveryoneLocation(circle),
+                    child: const Text('Ask everyone'),
+                  ),
+                if (isOwner)
+                  TextButton.icon(
+                    onPressed: () => context.push(FamilyInviteScreen.route),
+                    icon: Icon(LucideIcons.userPlus, size: 16.spMin),
+                    label: const Text('Add member'),
+                  ),
+              ],
+            ),
           ],
         ),
         SizedBox(height: 10.spMin),
