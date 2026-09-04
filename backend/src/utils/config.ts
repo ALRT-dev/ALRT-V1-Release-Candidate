@@ -29,6 +29,16 @@ export const config = {
   env: getOptionalEnv("NODE_ENV", "dev"),
   port: parseInt(getOptionalEnv("PORT", "3000"), 10),
 
+  // TEST-only switch for the in-process scheduled jobs (hazard ingestion,
+  // expiry sweeps, scheduled check-ins, SOS 4-hour auto-end, location
+  // purge). Off by default. Honoured ONLY when NODE_ENV=test - see
+  // shouldRunScheduledJobs() in index.ts - so it can never turn jobs on in
+  // dev by accident, and production ignores it entirely (prod always runs
+  // them, as before). Lets a tester exercise automated check-ins and SOS
+  // auto-end intentionally on the isolated TEST backend.
+  runScheduledJobsInTest:
+    getOptionalEnv("RUN_SCHEDULED_JOBS_IN_TEST", "false") === "true",
+
   // CORS / Socket.IO — comma-separated origins; localhost/127.0.0.1 still allowed in non-prod when list does not match
   cors: {
     allowedOrigins: getOptionalEnv(

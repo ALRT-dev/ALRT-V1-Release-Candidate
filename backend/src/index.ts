@@ -30,6 +30,7 @@ import { unknownRouteMiddleware } from "./middlewares/unknown_route.middleware.j
 import { initSocket } from "./utils/socket_client.util.js";
 import { requireSocketAuth } from "./middlewares/auth.middleware.js";
 import { initializeScheduledTasks } from "./services/scheduler.service.js";
+import { shouldRunScheduledJobs } from "./utils/scheduled_jobs.util.js";
 import { initializeDatabase } from "./services/database_initialization.service.js";
 import { initCacheClient } from "./utils/cache_client.util.js";
 import {
@@ -162,11 +163,15 @@ server.listen(config.port, async () => {
     console.error("Failed to initialize cache client:", error);
   }
 
-  // Whether to run scheduled tasks in development environment
-  const runScheduledTasksInDev = false;
-
-  if (runScheduledTasksInDev || config.env === "prod") {
-    // Initialize scheduled tasks only in production or if explicitly enabled in development
+  if (shouldRunScheduledJobs(config.env, config.runScheduledJobsInTest)) {
     initializeScheduledTasks();
+  } else {
+    console.log(
+      `Scheduled jobs are OFF for ${config.env.toUpperCase()}` +
+        (config.env === "test"
+          ? " (set RUN_SCHEDULED_JOBS_IN_TEST=true to run them on this TEST backend)"
+          : ""),
+    );
   }
 });
+
