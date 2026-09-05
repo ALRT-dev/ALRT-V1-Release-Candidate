@@ -66,8 +66,8 @@ class _FamilyOnboardingScreenState
                 ),
                 SizedBox(height: 5.spMin),
                 Text(
-                  'Know the people you care about are OK, '
-                  'without ever tracking them.',
+                  'Know the people you care about are OK. Location is '
+                  'shared only when someone chooses it.',
                   style: TextStyle(
                     fontSize: 13.spMin,
                     height: 1.5,
@@ -98,7 +98,7 @@ class _FamilyOnboardingScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'What a group gives you',
+                  'What a Family circle gives you',
                   style: TextStyle(
                     fontSize: 15.spMin,
                     fontWeight: FontWeight.w800,
@@ -136,8 +136,9 @@ class _FamilyOnboardingScreenState
               border: Border.all(color: const Color(0xFFECD9F4)),
             ),
             child: Text(
-              'ALRT never live-tracks anyone. Snapshots are one moment, '
-              'sent on purpose, and they expire after an hour.',
+              'Location is shared only when someone chooses it—for a '
+              'one-time snapshot, an active SOS, or an active journey. '
+              'Live sharing can be stopped at any time.',
               style: TextStyle(
                 fontSize: 12.spMin,
                 height: 1.7,

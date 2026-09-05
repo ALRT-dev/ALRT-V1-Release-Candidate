@@ -293,7 +293,7 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
         8.hSizedBox,
         Text(
           snapPointsOnly
-              ? 'This group is set to snap points only: your circle sees '
+              ? 'This circle is set to snap points only: your circle sees '
                     'your departure, a point about every 10 minutes, and '
                     'your arrival.'
               : _isLive

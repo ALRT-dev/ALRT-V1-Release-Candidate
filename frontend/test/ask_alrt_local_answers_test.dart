@@ -18,8 +18,14 @@ void main() {
     });
 
     test('privacy questions', () {
-      expect(ask('do you track me'), contains('never live-tracks'));
-      expect(ask('is my location shared'), contains('only when you send it'));
+      expect(
+        ask('do you track me'),
+        contains('shared only when someone chooses it'),
+      );
+      expect(
+        ask('is my location shared'),
+        contains('shared only when someone chooses it'),
+      );
     });
 
     test('family and pricing', () {

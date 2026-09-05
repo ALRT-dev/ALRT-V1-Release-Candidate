@@ -11,7 +11,7 @@ import 'package:hazard_app/features/shared/enums/alrt_media_source_types.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 
-/// Group settings: the beacon colour, and how this group sees you.
+/// Circle settings: the beacon colour, and how this circle sees you.
 ///
 /// The header previews the beacon colour live, so the choice is visible in
 /// the place it will actually be felt rather than only as a swatch.
@@ -124,7 +124,7 @@ class _FamilyGroupSettingsScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'GROUPS',
+                        'FAMILY CIRCLES',
                         style: TextStyle(
                           fontSize: 11.spMin,
                           fontWeight: FontWeight.w800,
@@ -133,7 +133,7 @@ class _FamilyGroupSettingsScreenState
                         ),
                       ),
                       Text(
-                        'Group settings',
+                        'Circle settings',
                         style: TextStyle(
                           fontSize: 21.spMin,
                           fontWeight: FontWeight.w800,
@@ -201,7 +201,7 @@ class _FamilyGroupSettingsScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'GROUP PICTURE',
+            'CIRCLE PICTURE',
             style: TextStyle(
               fontSize: 10.spMin,
               fontWeight: FontWeight.w800,
@@ -409,7 +409,7 @@ class _FamilyGroupSettingsScreenState
             children: [
               Expanded(
                 child: Text(
-                  'HOW THIS GROUP SEES YOU',
+                  'HOW THIS CIRCLE SEES YOU',
                   style: TextStyle(
                     fontSize: 10.spMin,
                     fontWeight: FontWeight.w800,
@@ -428,7 +428,7 @@ class _FamilyGroupSettingsScreenState
                   borderRadius: BorderRadius.circular(11.spMin),
                 ),
                 child: Text(
-                  'Per group',
+                  'Per circle',
                   style: TextStyle(
                     fontSize: 9.5.spMin,
                     fontWeight: FontWeight.w800,
@@ -553,7 +553,7 @@ class _FamilyGroupSettingsScreenState
     setState(() => _isSaving = false);
 
     uploaded
-        ? context.showSuccessToast(message: 'Group picture updated.')
+        ? context.showSuccessToast(message: 'Circle picture updated.')
         : context.showErrorToast(
             message: 'Could not upload the picture. Please try again.',
           );
@@ -568,7 +568,7 @@ class _FamilyGroupSettingsScreenState
     setState(() => _isSaving = false);
 
     removed
-        ? context.showSuccessToast(message: 'Group picture removed.')
+        ? context.showSuccessToast(message: 'Circle picture removed.')
         : context.showErrorToast(
             message: 'Could not remove the picture. Please try again.',
           );
@@ -589,7 +589,7 @@ class _FamilyGroupSettingsScreenState
     setState(() => _isSaving = false);
 
     if (ok) {
-      context.showSuccessToast(message: 'Group settings saved');
+      context.showSuccessToast(message: 'Circle settings saved');
       Navigator.of(context).maybePop();
     } else {
       context.showErrorToast(message: 'Could not save. Please try again.');

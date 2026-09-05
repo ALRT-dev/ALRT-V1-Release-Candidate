@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Family identity card: the same deep-indigo -> bright-purple gradient as
+     FamilyColors.headerGradient in the app (dark_purple, not a flat fill),
+     used for every non-critical, non-"everyone safe" state. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:startColor="#7A4BF5"
+        android:centerColor="#5238DE"
+        android:endColor="#1B1470" />
+    <corners android:radius="18dp" />
+</shape>

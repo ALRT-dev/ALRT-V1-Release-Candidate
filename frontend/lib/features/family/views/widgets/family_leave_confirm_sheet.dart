@@ -128,7 +128,7 @@ class _FamilyLeaveConfirmSheet extends StatelessWidget {
                   ),
                   onPressed: () => Navigator.of(context).pop(true),
                   child: Text(
-                    'Leave group',
+                    'Leave circle',
                     style: TextStyle(
                       fontSize: 14.spMin,
                       fontWeight: FontWeight.w800,

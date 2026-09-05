@@ -156,7 +156,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _sectionLabelBuilder('Your groups', count: circles.length),
+                  _sectionLabelBuilder(
+                    'Your Family circles',
+                    count: circles.length,
+                  ),
                   GestureDetector(
                     onTap: () => context.push(FamilySwitchGroupScreen.route),
                     child: Text(
@@ -450,9 +453,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         child: Row(
           children: [
             Text(
-              // Names the thing people come here for. A group can be made
+              // Names the thing people come here for. A circle can be made
               // any time and stands on its own until someone accepts.
-              'Add or manage groups',
+              'Add or manage circles',
               style: TextStyle(
                 fontSize: 13.spMin,
                 fontWeight: FontWeight.w700,
@@ -840,7 +843,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           _setUpRowBuilder(
             icon: LucideIcons.userRoundPen,
             label: 'My name & picture here',
-            sub: 'What this group sees you as',
+            sub: 'What this circle sees you as',
             onTap: () => context.push(
               FamilyCircleProfileScreen.route,
               extra: const FamilyCircleProfileArgs(),
@@ -872,7 +875,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           _setUpRowBuilder(
             icon: LucideIcons.siren,
             label: 'Who your SOS reaches',
-            sub: 'Chosen in advance, across all your groups',
+            sub: 'Chosen in advance, across all your circles',
             onTap: () => context.push(FamilySosListsScreen.route),
           ),
         ],
@@ -941,7 +944,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       itemBuilder: (context) => [
         const PopupMenuItem(
           value: 'switchGroups',
-          child: Text('Add, join or switch groups'),
+          child: Text('Add, join or switch circles'),
         ),
         const PopupMenuItem(
           value: 'sosLists',
@@ -958,7 +961,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         if (isOwner)
           const PopupMenuItem(
             value: 'groupSettings',
-            child: Text('Group name & rules'),
+            child: Text('Circle name & rules'),
           ),
         if (isOwner)
           const PopupMenuItem(
@@ -1008,7 +1011,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Group settings',
+                'Circle settings',
                 style: TextStyle(
                   fontSize: 17.spMin,
                   fontWeight: FontWeight.w700,
@@ -1020,7 +1023,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 maxLength: 50,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
-                  labelText: 'Group name',
+                  labelText: 'Circle name',
                   counterText: '',
                 ),
               ),
@@ -1049,7 +1052,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 onChanged: (value) =>
                     setSheetState(() => sosWholeGroup = value),
                 title: Text(
-                  'SOS goes to the whole group',
+                  'SOS goes to the whole circle',
                   style: TextStyle(fontSize: 14.spMin),
                 ),
                 subtitle: Text(
@@ -1113,7 +1116,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         );
     if (!mounted) return;
     ok
-        ? context.showSuccessToast(message: 'Group settings saved.')
+        ? context.showSuccessToast(message: 'Circle settings saved.')
         : context.showErrorToast(
             message: 'Could not save settings. Please try again.',
           );
@@ -1852,12 +1855,12 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF078551), Color(0xFF0FBE70)],
+          colors: [Color(0xFF059669), Color(0xFF2DD4A7)],
         ),
         borderRadius: BorderRadius.circular(16.spMin),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF12B476).withValues(alpha: 0.3),
+            color: const Color(0xFF2DD4A7).withValues(alpha: 0.35),
             blurRadius: 20.0,
             offset: const Offset(0, 8),
           ),
@@ -2105,14 +2108,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               TextSpan(
                 children: [
                   TextSpan(
-                    text: 'ALRT never live-tracks. ',
+                    text: 'Location is shared only when someone chooses it. ',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const TextSpan(
                     text:
-                        'What you see is each member\'s last shared snapshot. '
-                        'Ask for a fresh one anytime; they choose whether to '
-                        'send it.',
+                        'What you see is each member\'s last shared snapshot, '
+                        'an active SOS, or an active journey. Ask for a '
+                        'fresh snapshot anytime; they choose whether to send '
+                        'it, and live sharing can be stopped at any time.',
                   ),
                 ],
               ),
@@ -2191,9 +2195,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             Row(
               children: [
                 if (!iAmGuest && circle.members.length > 1)
-                  TextButton(
+                  TextButton.icon(
                     onPressed: () => _requestEveryoneLocation(circle),
-                    child: const Text('Ask for snapshots'),
+                    icon: Icon(LucideIcons.mapPin, size: 16.spMin),
+                    label: const Text('Request location'),
                   ),
                 if (isOwner)
                   TextButton.icon(
@@ -2296,7 +2301,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     }
 
     final state = ref.read(providerOfFamily);
-    final circleName = state.circle?.name ?? 'this group';
+    final circleName = state.circle?.name ?? 'this circle';
     final myMemberId = state.circle?.myMemberId;
     // How many of your own SOS lists you drop off by leaving.
     final sosListCount = myMemberId == null

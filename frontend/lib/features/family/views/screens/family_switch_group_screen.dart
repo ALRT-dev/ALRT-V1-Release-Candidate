@@ -190,7 +190,7 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
                 ),
                 onPressed: () => showCreateGroupSheet(context, ref),
                 child: Text(
-                  'Create another group',
+                  'Create another circle',
                   style: TextStyle(
                     fontSize: 14.spMin,
                     fontWeight: FontWeight.w800,
@@ -202,8 +202,8 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
           Padding(
             padding: EdgeInsets.only(top: 10.spMin),
             child: Text(
-              'Joining with a code is always free, in as many groups as '
-              'you like. Your ALRT+ seats can host up to 4 groups.',
+              'Joining with a code is always free, in as many Family circles '
+              'as you like. Your ALRT+ seats can host up to 4 circles.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11.spMin,
@@ -243,7 +243,7 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'YOUR GROUPS',
+                      'YOUR FAMILY CIRCLES',
                       style: TextStyle(
                         fontSize: 11.spMin,
                         fontWeight: FontWeight.w800,
@@ -252,7 +252,7 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      'Switch between groups',
+                      'Switch between circles',
                       style: TextStyle(
                         fontSize: 23.spMin,
                         fontWeight: FontWeight.w800,
@@ -577,7 +577,7 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
                 child: Padding(
                   padding: EdgeInsets.only(top: 4.spMin),
                   child: Text(
-                    'SEATS ACROSS YOUR GROUPS',
+                    'SEATS ACROSS YOUR CIRCLES',
                     style: TextStyle(
                       fontSize: 10.spMin,
                       fontWeight: FontWeight.w800,
@@ -613,7 +613,7 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
           SizedBox(height: 9.spMin),
           Text(
             owned.isEmpty
-                ? "You don't host a group yet, so none of your seats are "
+                ? "You don't host a circle yet, so none of your seats are "
                       'in use.'
                 : '${owned.map((c) => '${c.name} ${c.seatCount}').join(' · ')}'
                       '\n$spare spare · you never use a seat yourself, '

@@ -41,6 +41,21 @@ class FamilyWidgetSync {
     _pending = _pending.then((_) => _pushWithIcons(state, payload));
   }
 
+  /// Clears the widget on sign-out, so a signed-out phone never keeps
+  /// showing the last signed-in person's circle state — and so the next
+  /// person to sign in on this device does not briefly inherit it either.
+  static Future<void> clear() {
+    _lastSignature = null;
+    return HomeWidgetService.updateFamily(
+      const FamilyWidgetPayload(
+        state: 'signed_out',
+        headline: 'Signed out',
+        sub: 'Open ALRT and sign in to see your Family circle',
+        deeplink: _familyDeeplink,
+      ),
+    );
+  }
+
   /// Renders each group's icon to a file the widget process can read, then
   /// writes the payload. The text is never held hostage by an image: a
   /// failed render just leaves that slot without an icon.
@@ -114,21 +129,16 @@ class FamilyWidgetSync {
       );
     }
 
-    // Live SOS from someone else is the one critical state.
+    // Live SOS from someone else is the one critical state. The home
+    // screen is a shared, glanceable surface, so it says only that SOS is
+    // active — never who, and never their location. Anyone wanting those
+    // details opens the app, which is what the tap does.
     final sos = state.activeSosFromOthers.firstOrNull;
     if (sos != null) {
-      final member =
-          circle.members.firstWhereOrNull((m) => m.id == sos.memberId);
-      final name = member?.name ?? 'A family member';
-      final when = sos.createdAt != null ? timeago.format(sos.createdAt!) : null;
-      final sub = [sos.locationLabel, when]
-          .whereType<String>()
-          .where((s) => s.isNotEmpty)
-          .join('  ·  ');
       return FamilyWidgetPayload(
         state: 'sos',
-        headline: '$name needs help',
-        sub: sub.isEmpty ? 'SOS active' : sub,
+        headline: 'SOS active in your circle',
+        sub: 'Tap to see who and respond',
         deeplink: _sosDeeplink,
         circleName: circle.name,
       );
@@ -136,14 +146,15 @@ class FamilyWidgetSync {
 
     // A check-in the user has not answered outranks the roll call: the
     // widget is where they will see it if the app is closed, and the
-    // action they owe is their own.
+    // action they owe is their own. Naming who asked is skipped here too
+    // — this is the user's own outstanding action, not another member's
+    // status.
     final request = circle.latestCheckInRequest;
     final askedAt = request?.createdAt;
     if (request != null && !_hasAnsweredSince(circle.me, askedAt)) {
-      final who = request.requestedBy?.displayName ?? 'Your circle';
       return FamilyWidgetPayload(
         state: 'check_in_requested',
-        headline: '$who asked for a check-in',
+        headline: 'Your circle asked you to check in',
         sub: askedAt == null
             ? 'Tap to say you are safe'
             : '${timeago.format(askedAt)} · tap to say you are safe',

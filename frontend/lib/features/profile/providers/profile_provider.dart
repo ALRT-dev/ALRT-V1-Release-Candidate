@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/auth/providers/service_providers.dart';
 import 'package:hazard_app/features/auth/services/auth_service.dart';
+import 'package:hazard_app/features/home_screen_widget/family_widget_sync.dart';
 import 'package:hazard_app/features/profile/providers/states/profile_provider_state.dart';
 import 'package:hazard_app/features/profile/providers/xp_summary_provider.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_badges_card.dart';
@@ -210,6 +211,9 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
         // Drop the Firebase session too, or the next person to sign in on
         // this phone inherits the previous user's Ask ALRT identity.
         FirebaseSessionService.signOut();
+        // Clear the Family widget too, or a signed-out phone keeps
+        // showing the last signed-in person's circle state.
+        FamilyWidgetSync.clear();
         state = state.copyWith(
           logoutState: const LogoutState.success(),
         );

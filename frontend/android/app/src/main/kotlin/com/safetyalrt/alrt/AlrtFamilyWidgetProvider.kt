@@ -157,26 +157,35 @@ class AlrtFamilyWidgetProvider : HomeWidgetProvider() {
         views.setTextViewText(R.id.family_headline, headline)
         views.setTextViewText(R.id.family_sub, sub)
 
-        if (isCritical) {
-            views.setInt(R.id.family_root, "setBackgroundResource", R.drawable.alrt_widget_bg_critical)
-            views.setTextColor(R.id.family_kicker, 0xFFFFD9D5.toInt())
-            views.setTextColor(R.id.family_headline, 0xFFFFFFFF.toInt())
-            views.setTextColor(R.id.family_sub, 0xFFFFE3E0.toInt())
-        } else {
-            views.setInt(R.id.family_root, "setBackgroundResource", R.drawable.alrt_widget_bg)
-            views.setTextColor(R.id.family_kicker, 0xFFB7B7C0.toInt())
-            // "Everyone's safe" reads in success green, an unanswered
-            // check-in in the family amber so it asks for something; other
-            // states stay white.
-            views.setTextColor(
-                R.id.family_headline,
-                when (state) {
-                    "safe" -> 0xFF1EE28C.toInt()
-                    "check_in_requested" -> 0xFFF5C518.toInt()
-                    else -> 0xFFFFFFFF.toInt()
-                }
-            )
-            views.setTextColor(R.id.family_sub, 0xFFC9C9D2.toInt())
+        when {
+            isCritical -> {
+                views.setInt(R.id.family_root, "setBackgroundResource", R.drawable.alrt_widget_bg_critical)
+                views.setTextColor(R.id.family_kicker, 0xFFFFD9D5.toInt())
+                views.setTextColor(R.id.family_headline, 0xFFFFFFFF.toInt())
+                views.setTextColor(R.id.family_sub, 0xFFFFE3E0.toInt())
+            }
+            state == "safe" -> {
+                // Everyone's safe: the same bright green -> teal identity as
+                // the in-app I'm Safe action, not just coloured text on the
+                // default card.
+                views.setInt(R.id.family_root, "setBackgroundResource", R.drawable.alrt_widget_bg_safe)
+                views.setTextColor(R.id.family_kicker, 0xFFDFFDF2.toInt())
+                views.setTextColor(R.id.family_headline, 0xFFFFFFFF.toInt())
+                views.setTextColor(R.id.family_sub, 0xFFE3FBF2.toInt())
+            }
+            else -> {
+                // Every other state: the Family identity purple, matching
+                // FamilyColors.headerGradient in the app.
+                views.setInt(R.id.family_root, "setBackgroundResource", R.drawable.alrt_widget_bg_purple)
+                views.setTextColor(R.id.family_kicker, 0xFFD9D0F7.toInt())
+                // An unanswered check-in reads in amber, so it still asks
+                // for something on the purple card; other states are white.
+                views.setTextColor(
+                    R.id.family_headline,
+                    if (state == "check_in_requested") 0xFFF5C518.toInt() else 0xFFFFFFFF.toInt()
+                )
+                views.setTextColor(R.id.family_sub, 0xFFCFC7EC.toInt())
+            }
         }
     }
 }

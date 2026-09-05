@@ -79,7 +79,8 @@ class _DeletedAccountInfoScreenState
         ),
         12.hSizedBox,
         Text(
-          'Your account is currently inactive and will be permanently deleted soon.',
+          'Your account still works normally until the date below, when it '
+          'will be permanently deleted.',
           style: TextStyle(
             fontSize: 15.spMin,
             color: AppColors.grey,
@@ -188,7 +189,9 @@ class _DeletedAccountInfoScreenState
         _buildStatusItem(
           icon: Icons.visibility_off_outlined,
           title: 'Content Hidden',
-          description: 'Your ALRTs and content are not visible to other users.',
+          description:
+              "Your ALRTs are hidden from the public feed. Anyone you've "
+              'already shared one with directly keeps that link.',
           color: AppColors.orange,
         ),
         12.hSizedBox,

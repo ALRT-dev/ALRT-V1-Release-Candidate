@@ -142,11 +142,11 @@ abstract final class AskAlrtLocalAnswers {
       ],
       keywords: ['track', 'tracking', 'location', 'privacy', 'continuous'],
       answer:
-          'ALRT never live-tracks anyone. Your location leaves your phone '
-          'only when you send it: a snapshot you choose to share, a check '
-          'in, or an SOS. Snapshots are one moment and expire after an '
-          'hour. SOS live sharing stops after 4 hours at the latest and the '
-          'trail is deleted when you stand down.',
+          'Location is shared only when someone chooses it—for a one-time '
+          'snapshot, an active SOS, or an active journey. Snapshots are '
+          'one moment and expire after an hour. SOS live sharing stops '
+          'after 4 hours at the latest and the trail is deleted when you '
+          'stand down. Live sharing can be stopped at any time.',
     ),
     AskAlrtLocalAnswer(
       id: 'snapshot',

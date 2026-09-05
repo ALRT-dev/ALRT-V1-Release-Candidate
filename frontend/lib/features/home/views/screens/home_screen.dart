@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
+import 'package:hazard_app/features/family/views/screens/family_check_in_roll_call_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_tab_view.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_sos_strip.dart';
@@ -301,8 +302,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ref.read(providerOfFamily.notifier).load(silent: true);
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
               return;
-            case PushNotificationType.familyCheckIn:
             case PushNotificationType.familyCheckInRequest:
+              // A specific ask deserves the response flow, not a generic
+              // landing on the hub — open the roll call directly.
+              ref.read(providerOfFamily.notifier).load(silent: true);
+              ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+              return _gotoFamilyCheckInRollCallScreen();
+            case PushNotificationType.familyCheckIn:
             case PushNotificationType.familyScheduledCheckInPrompt:
             case PushNotificationType.familyPlaceEvent:
             case PushNotificationType.familySos:
@@ -381,5 +387,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       SharedJourneyScreen.route,
       extra: SharedJourneyScreenArgs(journeyId: journeyId),
     );
+  }
+
+  /// Opens the roll call so a check-in ask leads straight to "who's
+  /// answered", instead of landing on the hub and making the recipient
+  /// find the request themselves.
+  void _gotoFamilyCheckInRollCallScreen() {
+    context.push(FamilyCheckInRollCallScreen.route);
   }
 }

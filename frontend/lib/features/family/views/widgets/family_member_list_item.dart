@@ -175,11 +175,16 @@ class FamilyMemberListItem extends StatelessWidget {
     }
     final label = member.locationLabel;
     final sharedAt = member.locationUpdatedAt;
+    final expiresAt = member.locationExpiresAt;
     if (label != null && label.isNotEmpty) {
-      // Snapshots are explicit shares — say when it was shared, honestly.
+      // Snapshots are explicit shares — say when it was shared, and when it
+      // expires, both honestly.
+      final expiryLabel = expiresAt != null && expiresAt.isAfter(DateTime.now())
+          ? ' · expires ${timeago.format(expiresAt, allowFromNow: true)}'
+          : '';
       return sharedAt != null
-          ? '$label · shared ${timeago.format(sharedAt)}'
-          : label;
+          ? '$label · shared ${timeago.format(sharedAt)}$expiryLabel'
+          : '$label$expiryLabel';
     }
     if (member.sharingLevel == FamilySharingLevel.off ||
         member.sharingLevel == FamilySharingLevel.alertsOnly) {

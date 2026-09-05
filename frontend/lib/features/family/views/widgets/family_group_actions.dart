@@ -31,9 +31,9 @@ Future<void> showJoinGroupSheet(
     context: context,
     title: 'Join with a code',
     subtitle: 'Got an invite code? Type it, or scan the host\'s QR. Joining '
-        'is always free, and you can be in as many groups as you like.',
+        'is always free, and you can be in as many Family circles as you like.',
     hint: 'e.g. ALRT-7F3K2',
-    buttonLabel: 'Join group',
+    buttonLabel: 'Join circle',
     capitalization: TextCapitalization.characters,
     scanButtonLabel: 'Scan a code',
     onScan: showFamilyInviteScannerSheet,
@@ -80,14 +80,14 @@ Future<void> showCreateGroupSheet(
 ) {
   return _showFieldSheet(
     context: context,
-    title: 'Name your group',
+    title: 'Name your Family circle',
     subtitle: 'e.g. Nixon Family, Netball Mums, Site Crew. Your ALRT+ seats '
-        'can be split across up to 4 groups you host.',
-    hint: 'Group name',
-    buttonLabel: 'Create a group',
+        'can be split across up to 4 Family circles you host.',
+    hint: 'Circle name',
+    buttonLabel: 'Create a Family circle',
     onSubmit: (final name) {
       if (name.isEmpty) {
-        context.showErrorToast(message: 'Give your group a name first');
+        context.showErrorToast(message: 'Give your Family circle a name first');
         return false;
       }
       _createGated(context, ref, name);

@@ -68,8 +68,21 @@ private let familyCriticalGradient = LinearGradient(
              Color(red: 0xB8/255, green: 0x00/255, blue: 0x00/255)],
     startPoint: .top, endPoint: .bottom
 )
-private let familyDarkCard = Color(red: 0x16/255, green: 0x17/255, blue: 0x1C/255)
-private let familySuccessGreen = Color(red: 0x1E/255, green: 0xE2/255, blue: 0x8C/255)
+/// Family identity: the same deep-indigo -> bright-purple gradient as
+/// FamilyColors.headerGradient in the app.
+private let familyPurpleGradient = LinearGradient(
+    colors: [Color(red: 0x7A/255, green: 0x4B/255, blue: 0xF5/255),
+             Color(red: 0x52/255, green: 0x38/255, blue: 0xDE/255),
+             Color(red: 0x1B/255, green: 0x14/255, blue: 0x70/255)],
+    startPoint: .topLeading, endPoint: .bottomTrailing
+)
+/// "Everyone's safe": the same bright green -> teal gradient as the in-app
+/// I'm Safe action, not just coloured text on the identity card.
+private let familySafeGradient = LinearGradient(
+    colors: [Color(red: 0x05/255, green: 0x96/255, blue: 0x69/255),
+             Color(red: 0x2D/255, green: 0xD4/255, blue: 0xA7/255)],
+    startPoint: .topLeading, endPoint: .bottomTrailing
+)
 /// The Monitor band amber, for a check-in the user still owes an answer to.
 private let familyRequestAmber = Color(red: 0xF5/255, green: 0xC5/255, blue: 0x18/255)
 
@@ -84,12 +97,12 @@ private struct FamilyWidgetView: View {
 
     var body: some View {
         ZStack {
-            (isCritical ? AnyView(familyCriticalGradient) : AnyView(familyDarkCard))
+            background
             VStack(alignment: .leading, spacing: 4) {
                 Text((entry.payload?.circleName ?? "Family").uppercased())
                     .font(.system(size: 10, weight: .bold))
                     .kerning(1.2)
-                    .foregroundColor(isCritical ? Color.white.opacity(0.85) : Color(white: 0.72))
+                    .foregroundColor(kickerColor)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 Text(entry.payload?.headline ?? "No family circle")
@@ -98,7 +111,7 @@ private struct FamilyWidgetView: View {
                     .lineLimit(2)
                 Text(entry.payload?.sub ?? "Set up in the app")
                     .font(.system(size: 12))
-                    .foregroundColor(isCritical ? Color(white: 1, opacity: 0.9) : Color(white: 0.8))
+                    .foregroundColor(subColor)
                     .lineLimit(2)
                 groupRow
                 Spacer(minLength: 0)
@@ -106,6 +119,31 @@ private struct FamilyWidgetView: View {
             .padding(14)
         }
         .widgetURL(URL(string: entry.payload?.deeplink ?? "alrtwidget://open?screen=family"))
+    }
+
+    /// The critical red gradient stays locked to a live SOS (rule 6); a
+    /// safe circle gets the same green -> teal identity as the in-app I'm
+    /// Safe action; everything else carries the Family purple identity.
+    @ViewBuilder private var background: some View {
+        if isCritical {
+            familyCriticalGradient
+        } else if isSafe {
+            familySafeGradient
+        } else {
+            familyPurpleGradient
+        }
+    }
+
+    private var kickerColor: Color {
+        if isCritical { return Color.white.opacity(0.85) }
+        if isSafe { return Color(red: 0xDF/255, green: 0xFD/255, blue: 0xF2/255) }
+        return Color(red: 0xD9/255, green: 0xD0/255, blue: 0xF7/255)
+    }
+
+    private var subColor: Color {
+        if isCritical { return Color(white: 1, opacity: 0.9) }
+        if isSafe { return Color(red: 0xE3/255, green: 0xFB/255, blue: 0xF2/255) }
+        return Color(red: 0xCF/255, green: 0xC7/255, blue: 0xEC/255)
     }
 
     /// One icon per group the user is in, so every group is visible from
@@ -134,9 +172,10 @@ private struct FamilyWidgetView: View {
     }
 
     private var headlineColor: Color {
-        if isCritical { return .white }
-        if isSafe { return familySuccessGreen }
-        if isCheckInRequested { return familyRequestAmber }
+        // Safe and critical both carry their colour on the background now,
+        // so the headline stays white on either; only an unanswered
+        // check-in still needs its own amber to stand out on purple.
+        if !isCritical && !isSafe && isCheckInRequested { return familyRequestAmber }
         return .white
     }
 }

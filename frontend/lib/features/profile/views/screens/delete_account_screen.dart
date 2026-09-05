@@ -4,14 +4,21 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/profile/providers/profile_provider.dart';
 import 'package:hazard_app/features/profile/providers/states/profile_provider_state.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_colors.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_gradient_icon.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/views/widgets/button.dart';
-import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:hazard_app/others/app_theme.dart';
 import 'package:hazard_app/others/app_wrapper.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// Deleting an account, told straight: what changes today, what you can
+/// still do for 30 days, and what is actually gone for good after that.
+/// Every line here matches what the backend does — nothing is claimed
+/// that `requestAccountDeletion`/`executeAccountDeletion` don't do.
 class DeleteAccountScreen extends ConsumerStatefulWidget {
   const DeleteAccountScreen({super.key});
 
@@ -37,15 +44,14 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
     _listenToDeleteAccountState();
 
     return Scaffold(
+      backgroundColor: context.theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'Delete Account',
-          style: TextStyle(
-            color: AppColors.black,
-          ),
+          style: TextStyle(color: context.onSurface),
         ),
         backgroundColor: context.theme.scaffoldBackgroundColor,
-        foregroundColor: AppColors.black,
+        foregroundColor: context.onSurface,
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(20.spMin),
@@ -54,7 +60,11 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
           children: [
             _buildWarningHeader(),
             24.hSizedBox,
-            _buildConsequencesSection(),
+            _buildNowSection(),
+            16.hSizedBox,
+            _buildRecoverySection(),
+            24.hSizedBox,
+            _buildAfter30DaysSection(),
             24.hSizedBox,
             _buildConfirmationSection(),
             32.hSizedBox,
@@ -73,51 +83,37 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
       width: double.infinity,
       padding: EdgeInsets.all(20.spMin),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.red.withValues(alpha: 0.1),
-            AppColors.red500.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(
-          color: AppColors.red.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
+        color: context.surfaceCard,
+        borderRadius: BorderRadius.circular(20.spMin),
+        boxShadow: [
+          BoxShadow(color: context.cardShadow, blurRadius: 2.0),
+        ],
       ),
       child: Column(
         children: [
-          Container(
-            width: 72.spMin,
-            height: 72.spMin,
-            decoration: BoxDecoration(
-              color: AppColors.red.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.warning_amber_rounded,
-              color: AppColors.red,
-              size: 40.spMin,
-            ),
+          Icon(
+            LucideIcons.triangleAlert,
+            color: ProfileColors.dangerAction,
+            size: 40.spMin,
           ),
           16.hSizedBox,
           Text(
-            'Delete Your Account?',
+            'Delete your account?',
             style: TextStyle(
-              fontSize: 22.spMin,
-              fontWeight: FontWeight.bold,
-              color: AppColors.red,
+              fontSize: 20.spMin,
+              fontWeight: FontWeight.w800,
+              color: context.onSurface,
             ),
             textAlign: TextAlign.center,
           ),
           8.hSizedBox,
           Text(
-            'Your account will become inactive immediately and will be permanently deleted after 30 days.',
+            'Your account is scheduled for permanent deletion in 30 days. '
+            'Until then ALRT keeps working normally, and you can cancel '
+            'any time.',
             style: TextStyle(
               fontSize: 14.spMin,
-              color: AppColors.grey,
+              color: context.onSurfaceMuted,
               height: 1.5,
             ),
             textAlign: TextAlign.center,
@@ -127,127 +123,59 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
     );
   }
 
-  Widget _buildConsequencesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Immediate effects section
-        _buildSectionHeader(
-          icon: Icons.flash_on_outlined,
-          title: 'What happens immediately',
-        ),
-        16.hSizedBox,
-        _buildConsequenceItem(
-          icon: Icons.visibility_off_outlined,
-          title: 'Content Hidden',
+  Widget _buildNowSection() {
+    return _buildSectionCard(
+      label: 'What happens now',
+      rows: [
+        _buildConsequenceRow(
+          icon: LucideIcons.eyeOff,
+          title: 'Hidden from the community',
           description:
-              'All your Alrts and content will be hidden from public view immediately.',
-          color: AppColors.orange,
+              'Your ALRT reports stop showing in the public feed. Anyone '
+              "you've already shared a report or a location with directly "
+              'keeps that link.',
+          accent: ProfileColors.notifications,
         ),
-        12.hSizedBox,
-        _buildConsequenceItem(
-          icon: Icons.person_off_outlined,
-          title: 'Account Inactive',
+        _buildDivider(),
+        _buildConsequenceRow(
+          icon: LucideIcons.bellOff,
+          title: 'Notifications stop',
           description:
-              'Your account will be marked as inactive and you will be logged out.',
-          color: AppColors.grey,
+              "You'll stop receiving alerts, Family, and check-in "
+              'notifications.',
+          accent: ProfileColors.notifications,
         ),
-        12.hSizedBox,
-        _buildConsequenceItem(
-          icon: Icons.notifications_off_outlined,
-          title: 'Notifications Stopped',
-          description: 'You will stop receiving all notifications and alerts.',
-          color: AppColors.blue,
-        ),
-        24.hSizedBox,
-        // Recovery info
-        _buildRecoveryInfoCard(),
-        24.hSizedBox,
-        // After 30 days section
-        _buildSectionHeader(
-          icon: Icons.warning_amber_outlined,
-          title: 'After 30 days (permanent)',
-        ),
-        16.hSizedBox,
-        _buildConsequenceItem(
-          icon: Icons.delete_forever_outlined,
-          title: 'Permanent Deletion',
+        _buildDivider(),
+        _buildConsequenceRow(
+          icon: LucideIcons.shieldCheck,
+          title: 'Everything else keeps working',
           description:
-              'Your account and all associated data will be permanently deleted and cannot be recovered.',
-          color: AppColors.red,
-        ),
-        12.hSizedBox,
-        _buildConsequenceItem(
-          icon: Icons.report_off_outlined,
-          title: 'Alrts Removed',
-          description:
-              'All hazard reports you\'ve submitted will be permanently removed from the system.',
-          color: AppColors.red,
-        ),
-        12.hSizedBox,
-        _buildConsequenceItem(
-          icon: Icons.star_outline,
-          title: 'Progress Lost',
-          description:
-              'Your XP score, achievements, and reliability score will be lost forever.',
-          color: AppColors.red,
+              'Signing in, Family, check-ins and reporting all work '
+              'normally until day 30 — deletion only takes effect then.',
+          accent: ProfileColors.familyAndCheckIns,
         ),
       ],
     );
   }
 
-  Widget _buildSectionHeader({
-    required IconData icon,
-    required String title,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 20.spMin,
-          color: AppColors.grey,
-        ),
-        8.spMin.wSizedBox,
-        Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 16.spMin,
-              fontWeight: FontWeight.bold,
-              color: AppColors.black,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecoveryInfoCard() {
+  Widget _buildRecoverySection() {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
-        color: AppColors.green.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12.spMin),
+        color: ProfileColors.familyAndCheckIns.end.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16.spMin),
         border: Border.all(
-          color: AppColors.green.withValues(alpha: 0.3),
+          color: ProfileColors.familyAndCheckIns.end.withValues(alpha: 0.25),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44.spMin,
-            height: 44.spMin,
-            decoration: BoxDecoration(
-              color: AppColors.green.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10.spMin),
-            ),
-            child: Icon(
-              Icons.restore_rounded,
-              color: AppColors.green,
-              size: 24.spMin,
-            ),
+          ProfileGradientIcon(
+            icon: LucideIcons.rotateCcw,
+            accent: ProfileColors.familyAndCheckIns,
+            gradient: true,
           ),
           12.wSizedBox,
           Expanded(
@@ -255,19 +183,21 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Recover Within 30 Days',
+                  'Changed your mind? You have 30 days',
                   style: TextStyle(
                     fontSize: 15.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.darkGreen,
+                    fontWeight: FontWeight.w700,
+                    color: context.onSurface,
                   ),
                 ),
                 4.hSizedBox,
                 Text(
-                  'Changed your mind? Simply log back in within 30 days to reactivate your account. All your data and content will be restored.',
+                  'Sign in any time before day 30 and choose to recover '
+                  "your account — signing in alone doesn't cancel the "
+                  'deletion, you\'ll be asked to confirm.',
                   style: TextStyle(
                     fontSize: 13.spMin,
-                    color: AppColors.grey,
+                    color: context.onSurfaceMuted,
                     height: 1.4,
                   ),
                 ),
@@ -279,38 +209,104 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
     );
   }
 
-  Widget _buildConsequenceItem({
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(16.spMin),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12.spMin),
-        border: Border.all(
-          color: color.withValues(alpha: 0.2),
+  Widget _buildAfter30DaysSection() {
+    return _buildSectionCard(
+      label: 'After 30 days — permanent',
+      rows: [
+        _buildConsequenceRow(
+          icon: LucideIcons.trash2,
+          title: 'Permanent deletion',
+          description:
+              'Your account and profile data are permanently deleted and '
+              'cannot be recovered after this point.',
+          accent: const ProfileRowAccent(
+            ProfileColors.dangerAction,
+            ProfileColors.dangerAction,
+          ),
+          titleColor: ProfileColors.dangerAction,
         ),
-      ),
+        _buildDivider(),
+        _buildConsequenceRow(
+          icon: LucideIcons.flagOff,
+          title: 'Reports stay, no longer yours',
+          description:
+              "Hazard reports you've submitted remain visible to the "
+              "community, but are no longer linked to your name.",
+          accent: const ProfileRowAccent(
+            ProfileColors.dangerAction,
+            ProfileColors.dangerAction,
+          ),
+        ),
+        _buildDivider(),
+        _buildConsequenceRow(
+          icon: LucideIcons.star,
+          title: 'Progress lost',
+          description:
+              'Your XP score, achievements, and reliability score are '
+              'gone for good.',
+          accent: const ProfileRowAccent(
+            ProfileColors.dangerAction,
+            ProfileColors.dangerAction,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A grouped-card section, matching the Profile screen's own shape: an
+  /// uppercase heading over one card holding [rows].
+  Widget _buildSectionCard({
+    required final String label,
+    required final List<Widget> rows,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 10.spMin,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 13.spMin,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: context.onSurface,
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: context.surfaceCard,
+            borderRadius: BorderRadius.circular(20.spMin),
+            boxShadow: [
+              BoxShadow(color: context.cardShadow, blurRadius: 2.0),
+            ],
+          ),
+          child: Column(children: rows),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDivider() {
+    return Divider(height: 1, indent: 68.spMin, color: context.outline);
+  }
+
+  /// One consequence row: colour lives on the icon only, matching the
+  /// Profile screen's own restrained treatment — never a filled row
+  /// background, even for the danger-accent rows.
+  Widget _buildConsequenceRow({
+    required final IconData icon,
+    required final String title,
+    required final String description,
+    required final ProfileRowAccent accent,
+    final Color? titleColor,
+  }) {
+    return Padding(
+      padding: EdgeInsets.all(16.spMin),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40.spMin,
-            height: 40.spMin,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10.spMin),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 22.spMin,
-            ),
-          ),
-          12.wSizedBox,
+          ProfileGradientIcon(icon: icon, accent: accent),
+          16.wSizedBox,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +316,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                   style: TextStyle(
                     fontSize: 15.spMin,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.black,
+                    color: titleColor ?? context.onSurface,
                   ),
                 ),
                 4.hSizedBox,
@@ -328,7 +324,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                   description,
                   style: TextStyle(
                     fontSize: 13.spMin,
-                    color: AppColors.grey,
+                    color: context.onSurfaceMuted,
                     height: 1.4,
                   ),
                 ),
@@ -353,18 +349,21 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.verified_user_outlined,
-                  size: 20.spMin,
-                  color: AppColors.grey,
+                ProfileGradientIcon(
+                  icon: LucideIcons.userCheck,
+                  accent: const ProfileRowAccent(
+                    ProfileColors.dangerAction,
+                    ProfileColors.dangerAction,
+                  ),
+                  size: 20,
                 ),
                 8.spMin.wSizedBox,
                 Text(
-                  'Confirm Your Decision',
+                  'Confirm your decision',
                   style: TextStyle(
                     fontSize: 16.spMin,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.black,
+                    fontWeight: FontWeight.w800,
+                    color: context.onSurface,
                   ),
                 ),
               ],
@@ -373,8 +372,11 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
             Container(
               padding: EdgeInsets.all(16.spMin),
               decoration: BoxDecoration(
-                color: AppColors.extraLightGrey,
-                borderRadius: BorderRadius.circular(12.spMin),
+                color: context.surfaceCard,
+                borderRadius: BorderRadius.circular(16.spMin),
+                boxShadow: [
+                  BoxShadow(color: context.cardShadow, blurRadius: 2.0),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,20 +385,20 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                     text: TextSpan(
                       style: TextStyle(
                         fontSize: 14.spMin,
-                        color: AppColors.black,
+                        color: context.onSurface,
                         height: 1.5,
                         fontFamily: AppTheme.defaultFontFamily,
                       ),
                       children: [
-                        TextSpan(text: 'To confirm deletion, type '),
+                        const TextSpan(text: 'To confirm deletion, type '),
                         TextSpan(
                           text: '"$confirmationText"',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: AppColors.red,
+                            color: ProfileColors.dangerAction,
                           ),
                         ),
-                        TextSpan(text: ' in the field below:'),
+                        const TextSpan(text: ' in the field below:'),
                       ],
                     ),
                   ),
@@ -405,30 +407,33 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                     controller: _confirmationController,
                     textCapitalization: TextCapitalization.characters,
                     style: TextStyle(
-                      color: AppColors.black,
+                      color: context.onSurface,
                       fontWeight: FontWeight.w600,
                       fontSize: 16.spMin,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Type $confirmationText to confirm',
                       hintStyle: TextStyle(
-                        color: AppColors.grey,
+                        color: context.onSurfaceMuted,
                         fontWeight: FontWeight.normal,
                       ),
                       filled: true,
-                      fillColor: AppColors.white,
+                      fillColor: context.theme.scaffoldBackgroundColor,
                       contentPadding: EdgeInsets.all(16.spMin),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10.spMin),
-                        borderSide: BorderSide(color: AppColors.lightGrey),
+                        borderSide: BorderSide(color: context.outline),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10.spMin),
-                        borderSide: BorderSide(color: AppColors.lightGrey),
+                        borderSide: BorderSide(color: context.outline),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10.spMin),
-                        borderSide: BorderSide(color: AppColors.red, width: 2),
+                        borderSide: BorderSide(
+                          color: ProfileColors.dangerAction,
+                          width: 2,
+                        ),
                       ),
                     ),
                     onChanged: (value) {
@@ -460,8 +465,8 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
 
         return Button.filled(
           value: 'Delete Account',
-          color: AppColors.red,
-          icon: Icon(Icons.delete_forever_rounded),
+          color: ProfileColors.dangerAction,
+          icon: const Icon(LucideIcons.trash2),
           isLoading: isLoading,
           onPressed: _hasConfirmed ? _handleDeleteAccount : null,
         );
@@ -472,7 +477,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
   Widget _buildCancelButton() {
     return Button.bordered(
       value: 'Cancel',
-      icon: Icon(Icons.arrow_back_rounded),
+      icon: const Icon(LucideIcons.arrowLeft),
       onPressed: () => context.pop(),
     );
   }

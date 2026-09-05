@@ -25,7 +25,7 @@ class FamilyCircleProfileArgs {
   final FamilyProfileSection section;
 }
 
-/// Everything a member sets for themselves in one group: their picture and
+/// Everything a member sets for themselves in one circle: their picture and
 /// nickname here, their accent colour, their daily check-in, and who their
 /// SOS reaches.
 class FamilyCircleProfileScreen extends ConsumerStatefulWidget {
@@ -107,7 +107,7 @@ class _FamilyCircleProfileScreenState
 
     return Scaffold(
       backgroundColor: FamilyColors.v31Page,
-      appBar: const FamilyAppBar(title: 'My profile in this group'),
+      appBar: const FamilyAppBar(title: 'My profile in this circle'),
       // Not a ListView: lazy lists only build what is on screen, so the
       // section keys below the fold had no context and the deep links from
       // the hub silently landed at the top. This screen is small; building

@@ -151,8 +151,9 @@ class _FamilyLocationRequestSheetState
             ),
             SizedBox(height: 8.spMin),
             Text(
-              'Declining sends nothing. ALRT does not track you and never '
-              'shares your location without this tap.',
+              'Declining sends nothing. Location is shared only when '
+              'someone chooses it, and live sharing can be stopped at any '
+              'time.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11.spMin,
