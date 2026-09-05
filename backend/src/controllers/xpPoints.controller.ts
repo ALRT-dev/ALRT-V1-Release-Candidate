@@ -213,7 +213,10 @@ export const getXpLeaderboard = async (
 
     const { userId: callerUserId } = res;
 
+    // Exclude users who have initiated account deletion (scheduledDeletionAt
+    // is set) — matching notification.service.ts's push-token exclusion.
     const topUsers = await prisma.user.findMany({
+      where: { scheduledDeletionAt: null },
       select: {
         id: true,
         name: true,
@@ -230,7 +233,9 @@ export const getXpLeaderboard = async (
       take: limit,
     });
 
-    const totalUsers = await prisma.user.count();
+    const totalUsers = await prisma.user.count({
+      where: { scheduledDeletionAt: null },
+    });
     const totalPages = Math.ceil(totalUsers / limit);
 
     // Privacy: other users are never identifiable on the leaderboard.
