@@ -491,8 +491,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return _buildHighlightCard(
           icon: LucideIcons.users,
           accent: ProfileColors.familyAndCheckIns,
-          backgroundTint: 0.10,
-          borderTint: 0.28,
+          backgroundTint: 0.14,
+          borderTint: 0.32,
+          premium: true,
           title: 'Family & check-ins',
           subtitle: subtitle,
           onTap: () =>

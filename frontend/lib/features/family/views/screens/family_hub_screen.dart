@@ -93,8 +93,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                       _sosBannerBuilder(sos),
                       SizedBox(height: 12.spMin),
                     ],
-                    if (circle.isPaused) ...[
-                      _pausedBannerBuilder(circle),
+                    if (circle.hostTransitionActive) ...[
+                      _hostTransitionBannerBuilder(circle),
                       SizedBox(height: 12.spMin),
                     ],
                     for (final journey in sharedJourneys) ...[
@@ -291,12 +291,12 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// The amber strip that says the group is paused and opens the ways
-  /// forward. Renders only when the backend says so, which can only happen
-  /// once billing is switched on.
-  Widget _pausedBannerBuilder(final FamilyCircle circle) {
+  /// The amber strip that says this circle needs a new host and opens the
+  /// ways forward. Never implies SOS, check-ins or journeys have stopped —
+  /// they haven't, for anyone, at any point in this window.
+  Widget _hostTransitionBannerBuilder(final FamilyCircle circle) {
     return GestureDetector(
-      onTap: _openPausedScreen,
+      onTap: _openHostTransitionScreen,
       child: Container(
         padding: EdgeInsets.all(13.spMin),
         decoration: BoxDecoration(
@@ -333,7 +333,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${circle.name} is paused',
+                    circle.hostTransitionLocked
+                        ? '${circle.name} needs a new host'
+                        : '${circle.name} needs a new host soon',
                     style: TextStyle(
                       fontSize: 12.5.spMin,
                       fontWeight: FontWeight.w700,
@@ -341,8 +343,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     ),
                   ),
                   Text(
-                    "${circle.pausedHostName ?? 'The host'}'s ALRT+ ended — "
-                    'see what that means and the ways forward',
+                    circle.hostTransitionLocked
+                        ? 'Invites and circle settings are locked until '
+                              'then. SOS, check-ins and journeys still work'
+                        : '${circle.hostTransitionDaysLeft ?? 7} days left '
+                              'to choose one — everything else keeps working',
                     style: TextStyle(
                       fontSize: 10.5.spMin,
                       color: Colors.white.withValues(alpha: 0.9),
@@ -420,10 +425,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// The paused screen hands its host-side choices back as a pop result so
-  /// the existing transfer sheet and delete flow stay the single owners of
-  /// those actions.
-  void _openPausedScreen() async {
+  /// The host-transition screen hands its host-side choices back as a pop
+  /// result so the existing transfer sheet and delete flow stay the single
+  /// owners of those actions.
+  void _openHostTransitionScreen() async {
     final action = await context.push(FamilyGroupPausedScreen.route);
     if (!mounted) return;
     final circle = ref.read(providerOfFamily).circle;
@@ -937,6 +942,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             context.push(FamilySosListsScreen.route);
           case 'transferHosting':
             _showTransferHostingSheet(circle);
+          case 'stepBackAsHost':
+            _confirmStepBackAsHost(circle);
           case 'leave':
             _confirmLeaveOrDelete(isOwner: isOwner);
         }
@@ -972,6 +979,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           const PopupMenuItem(
             value: 'transferHosting',
             child: Text('Transfer hosting'),
+          ),
+        // Leaving without naming a successor starts a 7-day host-transition
+        // window instead of deleting the circle — a real, separate choice
+        // from "Delete circle" below, only offered when there's someone
+        // left to keep the circle running for.
+        if (isOwner && circle.members.length > 1)
+          const PopupMenuItem(
+            value: 'stepBackAsHost',
+            child: Text('Step back as host'),
           ),
         PopupMenuItem(
           value: 'leave',
@@ -2283,6 +2299,24 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       onPressedConfirm: (_, __) => ref
           .read(providerOfFamily.notifier)
           .removeMember(memberId: member.id),
+    );
+  }
+
+  /// The owner leaving without naming a successor first: the circle stays
+  /// active for everyone else, with a 7-day window for an eligible member
+  /// to take over before invites and settings lock. A real alternative to
+  /// deleting the circle outright, and worded so the two are never confused.
+  Future<void> _confirmStepBackAsHost(final FamilyCircle circle) async {
+    await showConfirmationSheet(
+      context: context,
+      title: 'Step back as host of ${circle.name}?',
+      description:
+          "You'll leave the circle. Everyone else keeps SOS, check-ins, "
+          'journeys and the member list. An eligible member has 7 days '
+          "to take over hosting; if nobody does, invites and circle "
+          "settings lock, but nothing else changes and nobody is removed.",
+      confirmButtonText: 'Step back',
+      onPressedConfirm: (_, __) => ref.read(providerOfFamily.notifier).leave(),
     );
   }
 

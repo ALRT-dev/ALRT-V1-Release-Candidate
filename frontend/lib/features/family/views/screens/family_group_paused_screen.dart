@@ -6,14 +6,17 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 
-/// The paused group: the host's ALRT+ lapsed and safety features stopped.
+/// The host-transition screen: this circle has no current, entitled host —
+/// the owner's ALRT+ lapsed, or they left/deleted their account.
 ///
-/// Unreachable until billing ships — isPaused can only be true once
-/// BILLING_ENABLED is on — but built now so flipping that switch needs no
-/// app release. The tone is deliberate: nothing is deleted, nobody is
-/// blamed, and the two ways forward are stated as facts. Taking over is
-/// offered to members; the backend is the judge of eligibility, so the
-/// button always tries and the refusal reason comes back in plain words.
+/// The tone is deliberate: nothing is deleted, nobody is blamed, SOS/
+/// check-ins/journeys keep working the entire time, and the two ways
+/// forward are stated as facts. Taking over is offered to members; the
+/// backend is the judge of eligibility, so the button always tries and the
+/// refusal reason comes back in plain words. The entitlement-lapse reason
+/// is unreachable until billing ships (hostTransitionActive can only be
+/// true for that reason once BILLING_ENABLED is on); the owner-left/
+/// deleted reason applies regardless of billing.
 class FamilyGroupPausedScreen extends ConsumerStatefulWidget {
   const FamilyGroupPausedScreen({super.key});
 
@@ -57,8 +60,12 @@ class _FamilyGroupPausedScreenState
   }
 
   Widget _headerBuilder(final FamilyCircle circle) {
-    final host = circle.pausedHostName ?? 'The host';
-    final days = circle.graceDaysLeft;
+    final host = circle.hostTransitionHostName ?? 'The host';
+    final days = circle.hostTransitionDaysLeft;
+    final locked = circle.hostTransitionLocked;
+    final leftOrLapsed = circle.hostTransitionReason == 'owner_left'
+        ? '$host left as host'
+        : "$host's ALRT+ ended";
 
     return Container(
       padding: EdgeInsets.fromLTRB(16.spMin, 52.spMin, 16.spMin, 18.spMin),
@@ -90,7 +97,7 @@ class _FamilyGroupPausedScreenState
           ),
           SizedBox(height: 10.spMin),
           Text(
-            '${circle.name} is paused',
+            '${circle.name} needs a new host',
             style: TextStyle(
               fontSize: 20.spMin,
               fontWeight: FontWeight.w800,
@@ -100,11 +107,11 @@ class _FamilyGroupPausedScreenState
           ),
           SizedBox(height: 3.spMin),
           Text(
-            days == null
-                ? "$host's ALRT+ ended"
-                : "$host's ALRT+ ended · $days "
-                      '${days == 1 ? 'day' : 'days'} before anything '
-                      'is removed',
+            locked || days == null
+                ? '$leftOrLapsed. Invites and settings are locked until '
+                      'a new host is chosen.'
+                : '$leftOrLapsed · $days ${days == 1 ? 'day' : 'days'} '
+                      'left to choose a new host',
             style: TextStyle(
               fontSize: 12.spMin,
               color: Colors.white.withValues(alpha: 0.9),
@@ -139,9 +146,11 @@ class _FamilyGroupPausedScreenState
           ),
           SizedBox(height: 4.spMin),
           Text(
-            'Check-ins, snapshots and SOS are paused for this group. '
-            'Everyone still gets their own alerts and map as normal. '
-            'Nothing has been deleted.',
+            'SOS, check-ins, journeys and the member list all keep working '
+            'exactly as before, for everyone. Nothing is deleted and '
+            'nobody is removed automatically — only inviting new people '
+            'and changing circle settings need a host, and only once the '
+            'window above has passed.',
             style: TextStyle(
               fontSize: 12.spMin,
               height: 1.7,
@@ -177,8 +186,8 @@ class _FamilyGroupPausedScreenState
           ),
           SizedBox(height: 4.spMin),
           Text(
-            'Taking over makes you the host, moves this group onto your '
-            'ALRT+ seats, and everything switches back on for everyone. '
+            'Taking over makes you the host and moves this circle onto '
+            "your ALRT+ seats, so invites and settings unlock again. "
             "You'll need an active subscription and enough free seats "
             'for all ${circle.members.length} members.',
             style: TextStyle(
@@ -232,8 +241,10 @@ class _FamilyGroupPausedScreenState
           SizedBox(height: 7.spMin),
           Center(
             child: Text(
-              '${circle.pausedHostName ?? 'The current host'} stays in the '
-              'group as a member.',
+              circle.hostTransitionReason == 'owner_left'
+                  ? 'The previous host has already left this circle.'
+                  : '${circle.hostTransitionHostName ?? 'The current host'} '
+                        'stays in the circle as a member.',
               style: TextStyle(
                 fontSize: 10.spMin,
                 color: FamilyColors.v31Ink,
@@ -279,7 +290,7 @@ class _FamilyGroupPausedScreenState
           children: [
             ListTile(
               title: Text(
-                'Hand the group to someone',
+                'Hand the circle to someone',
                 style: TextStyle(
                   fontSize: 13.spMin,
                   fontWeight: FontWeight.w700,
@@ -287,7 +298,7 @@ class _FamilyGroupPausedScreenState
               ),
               subtitle: Text(
                 'An eligible member takes over hosting and their '
-                'subscription carries the group',
+                'subscription carries the circle',
                 style: TextStyle(
                   fontSize: 10.5.spMin,
                   color: FamilyColors.v31Ink,
@@ -299,7 +310,7 @@ class _FamilyGroupPausedScreenState
             const Divider(height: 1, color: FamilyColors.v31Divider),
             ListTile(
               title: Text(
-                'Close the group',
+                'Close the circle',
                 style: TextStyle(
                   fontSize: 13.spMin,
                   fontWeight: FontWeight.w700,
@@ -329,7 +340,7 @@ class _FamilyGroupPausedScreenState
     setState(() => _takingOver = false);
     if (refusal == null) {
       context.showSuccessToast(
-        message: "You're hosting now — everything is back on",
+        message: "You're hosting now — invites and settings are unlocked",
       );
       Navigator.of(context).maybePop();
     } else {

@@ -20,12 +20,21 @@ mixin _$FamilyCircle {
 /// journey points and the widget.
  String? get themeColor;/// The group picture, set by the owner. Null means the circle is drawn
 /// as its initial on [themeColor], which is the default look.
- String? get photoUrl;/// True when the host's ALRT+ lapsed: check-ins, snapshots and SOS are
-/// paused for this circle, nothing deleted. Only ever true once
-/// billing is switched on.
- bool get isPaused;/// Who lapsed, and how many of the 30 grace days remain. Only set
-/// while [isPaused].
- String? get pausedHostName; int? get graceDaysLeft; bool get anyoneCanRequestSnapshot; bool get sosToWholeGroup; bool get journeysSnapPointsOnly; String get myMemberId; List<FamilyMember> get members; List<FamilySavedPlace> get places; List<FamilySosEvent> get activeSosEvents; FamilyCheckInRequest? get latestCheckInRequest; DateTime? get createdAt;
+ String? get photoUrl;/// True while this circle has no current, entitled host: the owner's
+/// ALRT+ lapsed, or they left/deleted their account. SOS, check-ins,
+/// journeys and the member list are never gated on this — only
+/// [hostTransitionLocked] restricts anything, and only invites/circle
+/// settings.
+ bool get hostTransitionActive;/// 'owner_left' or 'entitlement_lapsed'. Only set while
+/// [hostTransitionActive].
+ String? get hostTransitionReason;/// The departed/lapsed host's name, when known. Only set while
+/// [hostTransitionActive].
+ String? get hostTransitionHostName;/// Days left before host-admin actions lock, counting down from 7.
+/// Only meaningful while [hostTransitionActive].
+ int? get hostTransitionDaysLeft;/// True once the 7-day window has passed with nobody taking over:
+/// invites and circle settings lock, but every safety feature and the
+/// member list keep working, and nothing is removed automatically.
+ bool get hostTransitionLocked; bool get anyoneCanRequestSnapshot; bool get sosToWholeGroup; bool get journeysSnapPointsOnly; String get myMemberId; List<FamilyMember> get members; List<FamilySavedPlace> get places; List<FamilySosEvent> get activeSosEvents; FamilyCheckInRequest? get latestCheckInRequest; DateTime? get createdAt;
 /// Create a copy of FamilyCircle
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -38,16 +47,16 @@ $FamilyCircleCopyWith<FamilyCircle> get copyWith => _$FamilyCircleCopyWithImpl<F
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilyCircle&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.maxMembers, maxMembers) || other.maxMembers == maxMembers)&&(identical(other.themeColor, themeColor) || other.themeColor == themeColor)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused)&&(identical(other.pausedHostName, pausedHostName) || other.pausedHostName == pausedHostName)&&(identical(other.graceDaysLeft, graceDaysLeft) || other.graceDaysLeft == graceDaysLeft)&&(identical(other.anyoneCanRequestSnapshot, anyoneCanRequestSnapshot) || other.anyoneCanRequestSnapshot == anyoneCanRequestSnapshot)&&(identical(other.sosToWholeGroup, sosToWholeGroup) || other.sosToWholeGroup == sosToWholeGroup)&&(identical(other.journeysSnapPointsOnly, journeysSnapPointsOnly) || other.journeysSnapPointsOnly == journeysSnapPointsOnly)&&(identical(other.myMemberId, myMemberId) || other.myMemberId == myMemberId)&&const DeepCollectionEquality().equals(other.members, members)&&const DeepCollectionEquality().equals(other.places, places)&&const DeepCollectionEquality().equals(other.activeSosEvents, activeSosEvents)&&(identical(other.latestCheckInRequest, latestCheckInRequest) || other.latestCheckInRequest == latestCheckInRequest)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilyCircle&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.maxMembers, maxMembers) || other.maxMembers == maxMembers)&&(identical(other.themeColor, themeColor) || other.themeColor == themeColor)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.hostTransitionActive, hostTransitionActive) || other.hostTransitionActive == hostTransitionActive)&&(identical(other.hostTransitionReason, hostTransitionReason) || other.hostTransitionReason == hostTransitionReason)&&(identical(other.hostTransitionHostName, hostTransitionHostName) || other.hostTransitionHostName == hostTransitionHostName)&&(identical(other.hostTransitionDaysLeft, hostTransitionDaysLeft) || other.hostTransitionDaysLeft == hostTransitionDaysLeft)&&(identical(other.hostTransitionLocked, hostTransitionLocked) || other.hostTransitionLocked == hostTransitionLocked)&&(identical(other.anyoneCanRequestSnapshot, anyoneCanRequestSnapshot) || other.anyoneCanRequestSnapshot == anyoneCanRequestSnapshot)&&(identical(other.sosToWholeGroup, sosToWholeGroup) || other.sosToWholeGroup == sosToWholeGroup)&&(identical(other.journeysSnapPointsOnly, journeysSnapPointsOnly) || other.journeysSnapPointsOnly == journeysSnapPointsOnly)&&(identical(other.myMemberId, myMemberId) || other.myMemberId == myMemberId)&&const DeepCollectionEquality().equals(other.members, members)&&const DeepCollectionEquality().equals(other.places, places)&&const DeepCollectionEquality().equals(other.activeSosEvents, activeSosEvents)&&(identical(other.latestCheckInRequest, latestCheckInRequest) || other.latestCheckInRequest == latestCheckInRequest)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,plan,maxMembers,themeColor,photoUrl,isPaused,pausedHostName,graceDaysLeft,anyoneCanRequestSnapshot,sosToWholeGroup,journeysSnapPointsOnly,myMemberId,const DeepCollectionEquality().hash(members),const DeepCollectionEquality().hash(places),const DeepCollectionEquality().hash(activeSosEvents),latestCheckInRequest,createdAt);
+int get hashCode => Object.hashAll([runtimeType,id,name,plan,maxMembers,themeColor,photoUrl,hostTransitionActive,hostTransitionReason,hostTransitionHostName,hostTransitionDaysLeft,hostTransitionLocked,anyoneCanRequestSnapshot,sosToWholeGroup,journeysSnapPointsOnly,myMemberId,const DeepCollectionEquality().hash(members),const DeepCollectionEquality().hash(places),const DeepCollectionEquality().hash(activeSosEvents),latestCheckInRequest,createdAt]);
 
 @override
 String toString() {
-  return 'FamilyCircle(id: $id, name: $name, plan: $plan, maxMembers: $maxMembers, themeColor: $themeColor, photoUrl: $photoUrl, isPaused: $isPaused, pausedHostName: $pausedHostName, graceDaysLeft: $graceDaysLeft, anyoneCanRequestSnapshot: $anyoneCanRequestSnapshot, sosToWholeGroup: $sosToWholeGroup, journeysSnapPointsOnly: $journeysSnapPointsOnly, myMemberId: $myMemberId, members: $members, places: $places, activeSosEvents: $activeSosEvents, latestCheckInRequest: $latestCheckInRequest, createdAt: $createdAt)';
+  return 'FamilyCircle(id: $id, name: $name, plan: $plan, maxMembers: $maxMembers, themeColor: $themeColor, photoUrl: $photoUrl, hostTransitionActive: $hostTransitionActive, hostTransitionReason: $hostTransitionReason, hostTransitionHostName: $hostTransitionHostName, hostTransitionDaysLeft: $hostTransitionDaysLeft, hostTransitionLocked: $hostTransitionLocked, anyoneCanRequestSnapshot: $anyoneCanRequestSnapshot, sosToWholeGroup: $sosToWholeGroup, journeysSnapPointsOnly: $journeysSnapPointsOnly, myMemberId: $myMemberId, members: $members, places: $places, activeSosEvents: $activeSosEvents, latestCheckInRequest: $latestCheckInRequest, createdAt: $createdAt)';
 }
 
 
@@ -58,7 +67,7 @@ abstract mixin class $FamilyCircleCopyWith<$Res>  {
   factory $FamilyCircleCopyWith(FamilyCircle value, $Res Function(FamilyCircle) _then) = _$FamilyCircleCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String plan, int maxMembers, String? themeColor, String? photoUrl, bool isPaused, String? pausedHostName, int? graceDaysLeft, bool anyoneCanRequestSnapshot, bool sosToWholeGroup, bool journeysSnapPointsOnly, String myMemberId, List<FamilyMember> members, List<FamilySavedPlace> places, List<FamilySosEvent> activeSosEvents, FamilyCheckInRequest? latestCheckInRequest, DateTime? createdAt
+ String id, String name, String plan, int maxMembers, String? themeColor, String? photoUrl, bool hostTransitionActive, String? hostTransitionReason, String? hostTransitionHostName, int? hostTransitionDaysLeft, bool hostTransitionLocked, bool anyoneCanRequestSnapshot, bool sosToWholeGroup, bool journeysSnapPointsOnly, String myMemberId, List<FamilyMember> members, List<FamilySavedPlace> places, List<FamilySosEvent> activeSosEvents, FamilyCheckInRequest? latestCheckInRequest, DateTime? createdAt
 });
 
 
@@ -75,7 +84,7 @@ class _$FamilyCircleCopyWithImpl<$Res>
 
 /// Create a copy of FamilyCircle
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? plan = null,Object? maxMembers = null,Object? themeColor = freezed,Object? photoUrl = freezed,Object? isPaused = null,Object? pausedHostName = freezed,Object? graceDaysLeft = freezed,Object? anyoneCanRequestSnapshot = null,Object? sosToWholeGroup = null,Object? journeysSnapPointsOnly = null,Object? myMemberId = null,Object? members = null,Object? places = null,Object? activeSosEvents = null,Object? latestCheckInRequest = freezed,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? plan = null,Object? maxMembers = null,Object? themeColor = freezed,Object? photoUrl = freezed,Object? hostTransitionActive = null,Object? hostTransitionReason = freezed,Object? hostTransitionHostName = freezed,Object? hostTransitionDaysLeft = freezed,Object? hostTransitionLocked = null,Object? anyoneCanRequestSnapshot = null,Object? sosToWholeGroup = null,Object? journeysSnapPointsOnly = null,Object? myMemberId = null,Object? members = null,Object? places = null,Object? activeSosEvents = null,Object? latestCheckInRequest = freezed,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -83,10 +92,12 @@ as String,plan: null == plan ? _self.plan : plan // ignore: cast_nullable_to_non
 as String,maxMembers: null == maxMembers ? _self.maxMembers : maxMembers // ignore: cast_nullable_to_non_nullable
 as int,themeColor: freezed == themeColor ? _self.themeColor : themeColor // ignore: cast_nullable_to_non_nullable
 as String?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
-as String?,isPaused: null == isPaused ? _self.isPaused : isPaused // ignore: cast_nullable_to_non_nullable
-as bool,pausedHostName: freezed == pausedHostName ? _self.pausedHostName : pausedHostName // ignore: cast_nullable_to_non_nullable
-as String?,graceDaysLeft: freezed == graceDaysLeft ? _self.graceDaysLeft : graceDaysLeft // ignore: cast_nullable_to_non_nullable
-as int?,anyoneCanRequestSnapshot: null == anyoneCanRequestSnapshot ? _self.anyoneCanRequestSnapshot : anyoneCanRequestSnapshot // ignore: cast_nullable_to_non_nullable
+as String?,hostTransitionActive: null == hostTransitionActive ? _self.hostTransitionActive : hostTransitionActive // ignore: cast_nullable_to_non_nullable
+as bool,hostTransitionReason: freezed == hostTransitionReason ? _self.hostTransitionReason : hostTransitionReason // ignore: cast_nullable_to_non_nullable
+as String?,hostTransitionHostName: freezed == hostTransitionHostName ? _self.hostTransitionHostName : hostTransitionHostName // ignore: cast_nullable_to_non_nullable
+as String?,hostTransitionDaysLeft: freezed == hostTransitionDaysLeft ? _self.hostTransitionDaysLeft : hostTransitionDaysLeft // ignore: cast_nullable_to_non_nullable
+as int?,hostTransitionLocked: null == hostTransitionLocked ? _self.hostTransitionLocked : hostTransitionLocked // ignore: cast_nullable_to_non_nullable
+as bool,anyoneCanRequestSnapshot: null == anyoneCanRequestSnapshot ? _self.anyoneCanRequestSnapshot : anyoneCanRequestSnapshot // ignore: cast_nullable_to_non_nullable
 as bool,sosToWholeGroup: null == sosToWholeGroup ? _self.sosToWholeGroup : sosToWholeGroup // ignore: cast_nullable_to_non_nullable
 as bool,journeysSnapPointsOnly: null == journeysSnapPointsOnly ? _self.journeysSnapPointsOnly : journeysSnapPointsOnly // ignore: cast_nullable_to_non_nullable
 as bool,myMemberId: null == myMemberId ? _self.myMemberId : myMemberId // ignore: cast_nullable_to_non_nullable
@@ -192,10 +203,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String plan,  int maxMembers,  String? themeColor,  String? photoUrl,  bool isPaused,  String? pausedHostName,  int? graceDaysLeft,  bool anyoneCanRequestSnapshot,  bool sosToWholeGroup,  bool journeysSnapPointsOnly,  String myMemberId,  List<FamilyMember> members,  List<FamilySavedPlace> places,  List<FamilySosEvent> activeSosEvents,  FamilyCheckInRequest? latestCheckInRequest,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String plan,  int maxMembers,  String? themeColor,  String? photoUrl,  bool hostTransitionActive,  String? hostTransitionReason,  String? hostTransitionHostName,  int? hostTransitionDaysLeft,  bool hostTransitionLocked,  bool anyoneCanRequestSnapshot,  bool sosToWholeGroup,  bool journeysSnapPointsOnly,  String myMemberId,  List<FamilyMember> members,  List<FamilySavedPlace> places,  List<FamilySosEvent> activeSosEvents,  FamilyCheckInRequest? latestCheckInRequest,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FamilyCircle() when $default != null:
-return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor,_that.photoUrl,_that.isPaused,_that.pausedHostName,_that.graceDaysLeft,_that.anyoneCanRequestSnapshot,_that.sosToWholeGroup,_that.journeysSnapPointsOnly,_that.myMemberId,_that.members,_that.places,_that.activeSosEvents,_that.latestCheckInRequest,_that.createdAt);case _:
+return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor,_that.photoUrl,_that.hostTransitionActive,_that.hostTransitionReason,_that.hostTransitionHostName,_that.hostTransitionDaysLeft,_that.hostTransitionLocked,_that.anyoneCanRequestSnapshot,_that.sosToWholeGroup,_that.journeysSnapPointsOnly,_that.myMemberId,_that.members,_that.places,_that.activeSosEvents,_that.latestCheckInRequest,_that.createdAt);case _:
   return orElse();
 
 }
@@ -213,10 +224,10 @@ return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String plan,  int maxMembers,  String? themeColor,  String? photoUrl,  bool isPaused,  String? pausedHostName,  int? graceDaysLeft,  bool anyoneCanRequestSnapshot,  bool sosToWholeGroup,  bool journeysSnapPointsOnly,  String myMemberId,  List<FamilyMember> members,  List<FamilySavedPlace> places,  List<FamilySosEvent> activeSosEvents,  FamilyCheckInRequest? latestCheckInRequest,  DateTime? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String plan,  int maxMembers,  String? themeColor,  String? photoUrl,  bool hostTransitionActive,  String? hostTransitionReason,  String? hostTransitionHostName,  int? hostTransitionDaysLeft,  bool hostTransitionLocked,  bool anyoneCanRequestSnapshot,  bool sosToWholeGroup,  bool journeysSnapPointsOnly,  String myMemberId,  List<FamilyMember> members,  List<FamilySavedPlace> places,  List<FamilySosEvent> activeSosEvents,  FamilyCheckInRequest? latestCheckInRequest,  DateTime? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _FamilyCircle():
-return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor,_that.photoUrl,_that.isPaused,_that.pausedHostName,_that.graceDaysLeft,_that.anyoneCanRequestSnapshot,_that.sosToWholeGroup,_that.journeysSnapPointsOnly,_that.myMemberId,_that.members,_that.places,_that.activeSosEvents,_that.latestCheckInRequest,_that.createdAt);case _:
+return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor,_that.photoUrl,_that.hostTransitionActive,_that.hostTransitionReason,_that.hostTransitionHostName,_that.hostTransitionDaysLeft,_that.hostTransitionLocked,_that.anyoneCanRequestSnapshot,_that.sosToWholeGroup,_that.journeysSnapPointsOnly,_that.myMemberId,_that.members,_that.places,_that.activeSosEvents,_that.latestCheckInRequest,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -233,10 +244,10 @@ return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String plan,  int maxMembers,  String? themeColor,  String? photoUrl,  bool isPaused,  String? pausedHostName,  int? graceDaysLeft,  bool anyoneCanRequestSnapshot,  bool sosToWholeGroup,  bool journeysSnapPointsOnly,  String myMemberId,  List<FamilyMember> members,  List<FamilySavedPlace> places,  List<FamilySosEvent> activeSosEvents,  FamilyCheckInRequest? latestCheckInRequest,  DateTime? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String plan,  int maxMembers,  String? themeColor,  String? photoUrl,  bool hostTransitionActive,  String? hostTransitionReason,  String? hostTransitionHostName,  int? hostTransitionDaysLeft,  bool hostTransitionLocked,  bool anyoneCanRequestSnapshot,  bool sosToWholeGroup,  bool journeysSnapPointsOnly,  String myMemberId,  List<FamilyMember> members,  List<FamilySavedPlace> places,  List<FamilySosEvent> activeSosEvents,  FamilyCheckInRequest? latestCheckInRequest,  DateTime? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _FamilyCircle() when $default != null:
-return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor,_that.photoUrl,_that.isPaused,_that.pausedHostName,_that.graceDaysLeft,_that.anyoneCanRequestSnapshot,_that.sosToWholeGroup,_that.journeysSnapPointsOnly,_that.myMemberId,_that.members,_that.places,_that.activeSosEvents,_that.latestCheckInRequest,_that.createdAt);case _:
+return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor,_that.photoUrl,_that.hostTransitionActive,_that.hostTransitionReason,_that.hostTransitionHostName,_that.hostTransitionDaysLeft,_that.hostTransitionLocked,_that.anyoneCanRequestSnapshot,_that.sosToWholeGroup,_that.journeysSnapPointsOnly,_that.myMemberId,_that.members,_that.places,_that.activeSosEvents,_that.latestCheckInRequest,_that.createdAt);case _:
   return null;
 
 }
@@ -248,7 +259,7 @@ return $default(_that.id,_that.name,_that.plan,_that.maxMembers,_that.themeColor
 @JsonSerializable()
 
 class _FamilyCircle extends FamilyCircle {
-  const _FamilyCircle({required this.id, required this.name, this.plan = 'plus', this.maxMembers = 10, this.themeColor, this.photoUrl, this.isPaused = false, this.pausedHostName, this.graceDaysLeft, this.anyoneCanRequestSnapshot = true, this.sosToWholeGroup = true, this.journeysSnapPointsOnly = true, required this.myMemberId, final  List<FamilyMember> members = const <FamilyMember>[], final  List<FamilySavedPlace> places = const <FamilySavedPlace>[], final  List<FamilySosEvent> activeSosEvents = const <FamilySosEvent>[], this.latestCheckInRequest, this.createdAt}): _members = members,_places = places,_activeSosEvents = activeSosEvents,super._();
+  const _FamilyCircle({required this.id, required this.name, this.plan = 'plus', this.maxMembers = 10, this.themeColor, this.photoUrl, this.hostTransitionActive = false, this.hostTransitionReason, this.hostTransitionHostName, this.hostTransitionDaysLeft, this.hostTransitionLocked = false, this.anyoneCanRequestSnapshot = true, this.sosToWholeGroup = true, this.journeysSnapPointsOnly = true, required this.myMemberId, final  List<FamilyMember> members = const <FamilyMember>[], final  List<FamilySavedPlace> places = const <FamilySavedPlace>[], final  List<FamilySosEvent> activeSosEvents = const <FamilySosEvent>[], this.latestCheckInRequest, this.createdAt}): _members = members,_places = places,_activeSosEvents = activeSosEvents,super._();
   factory _FamilyCircle.fromJson(Map<String, dynamic> json) => _$FamilyCircleFromJson(json);
 
 @override final  String id;
@@ -262,14 +273,25 @@ class _FamilyCircle extends FamilyCircle {
 /// The group picture, set by the owner. Null means the circle is drawn
 /// as its initial on [themeColor], which is the default look.
 @override final  String? photoUrl;
-/// True when the host's ALRT+ lapsed: check-ins, snapshots and SOS are
-/// paused for this circle, nothing deleted. Only ever true once
-/// billing is switched on.
-@override@JsonKey() final  bool isPaused;
-/// Who lapsed, and how many of the 30 grace days remain. Only set
-/// while [isPaused].
-@override final  String? pausedHostName;
-@override final  int? graceDaysLeft;
+/// True while this circle has no current, entitled host: the owner's
+/// ALRT+ lapsed, or they left/deleted their account. SOS, check-ins,
+/// journeys and the member list are never gated on this — only
+/// [hostTransitionLocked] restricts anything, and only invites/circle
+/// settings.
+@override@JsonKey() final  bool hostTransitionActive;
+/// 'owner_left' or 'entitlement_lapsed'. Only set while
+/// [hostTransitionActive].
+@override final  String? hostTransitionReason;
+/// The departed/lapsed host's name, when known. Only set while
+/// [hostTransitionActive].
+@override final  String? hostTransitionHostName;
+/// Days left before host-admin actions lock, counting down from 7.
+/// Only meaningful while [hostTransitionActive].
+@override final  int? hostTransitionDaysLeft;
+/// True once the 7-day window has passed with nobody taking over:
+/// invites and circle settings lock, but every safety feature and the
+/// member list keep working, and nothing is removed automatically.
+@override@JsonKey() final  bool hostTransitionLocked;
 @override@JsonKey() final  bool anyoneCanRequestSnapshot;
 @override@JsonKey() final  bool sosToWholeGroup;
 @override@JsonKey() final  bool journeysSnapPointsOnly;
@@ -311,16 +333,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilyCircle&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.maxMembers, maxMembers) || other.maxMembers == maxMembers)&&(identical(other.themeColor, themeColor) || other.themeColor == themeColor)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused)&&(identical(other.pausedHostName, pausedHostName) || other.pausedHostName == pausedHostName)&&(identical(other.graceDaysLeft, graceDaysLeft) || other.graceDaysLeft == graceDaysLeft)&&(identical(other.anyoneCanRequestSnapshot, anyoneCanRequestSnapshot) || other.anyoneCanRequestSnapshot == anyoneCanRequestSnapshot)&&(identical(other.sosToWholeGroup, sosToWholeGroup) || other.sosToWholeGroup == sosToWholeGroup)&&(identical(other.journeysSnapPointsOnly, journeysSnapPointsOnly) || other.journeysSnapPointsOnly == journeysSnapPointsOnly)&&(identical(other.myMemberId, myMemberId) || other.myMemberId == myMemberId)&&const DeepCollectionEquality().equals(other._members, _members)&&const DeepCollectionEquality().equals(other._places, _places)&&const DeepCollectionEquality().equals(other._activeSosEvents, _activeSosEvents)&&(identical(other.latestCheckInRequest, latestCheckInRequest) || other.latestCheckInRequest == latestCheckInRequest)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilyCircle&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.maxMembers, maxMembers) || other.maxMembers == maxMembers)&&(identical(other.themeColor, themeColor) || other.themeColor == themeColor)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.hostTransitionActive, hostTransitionActive) || other.hostTransitionActive == hostTransitionActive)&&(identical(other.hostTransitionReason, hostTransitionReason) || other.hostTransitionReason == hostTransitionReason)&&(identical(other.hostTransitionHostName, hostTransitionHostName) || other.hostTransitionHostName == hostTransitionHostName)&&(identical(other.hostTransitionDaysLeft, hostTransitionDaysLeft) || other.hostTransitionDaysLeft == hostTransitionDaysLeft)&&(identical(other.hostTransitionLocked, hostTransitionLocked) || other.hostTransitionLocked == hostTransitionLocked)&&(identical(other.anyoneCanRequestSnapshot, anyoneCanRequestSnapshot) || other.anyoneCanRequestSnapshot == anyoneCanRequestSnapshot)&&(identical(other.sosToWholeGroup, sosToWholeGroup) || other.sosToWholeGroup == sosToWholeGroup)&&(identical(other.journeysSnapPointsOnly, journeysSnapPointsOnly) || other.journeysSnapPointsOnly == journeysSnapPointsOnly)&&(identical(other.myMemberId, myMemberId) || other.myMemberId == myMemberId)&&const DeepCollectionEquality().equals(other._members, _members)&&const DeepCollectionEquality().equals(other._places, _places)&&const DeepCollectionEquality().equals(other._activeSosEvents, _activeSosEvents)&&(identical(other.latestCheckInRequest, latestCheckInRequest) || other.latestCheckInRequest == latestCheckInRequest)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,plan,maxMembers,themeColor,photoUrl,isPaused,pausedHostName,graceDaysLeft,anyoneCanRequestSnapshot,sosToWholeGroup,journeysSnapPointsOnly,myMemberId,const DeepCollectionEquality().hash(_members),const DeepCollectionEquality().hash(_places),const DeepCollectionEquality().hash(_activeSosEvents),latestCheckInRequest,createdAt);
+int get hashCode => Object.hashAll([runtimeType,id,name,plan,maxMembers,themeColor,photoUrl,hostTransitionActive,hostTransitionReason,hostTransitionHostName,hostTransitionDaysLeft,hostTransitionLocked,anyoneCanRequestSnapshot,sosToWholeGroup,journeysSnapPointsOnly,myMemberId,const DeepCollectionEquality().hash(_members),const DeepCollectionEquality().hash(_places),const DeepCollectionEquality().hash(_activeSosEvents),latestCheckInRequest,createdAt]);
 
 @override
 String toString() {
-  return 'FamilyCircle(id: $id, name: $name, plan: $plan, maxMembers: $maxMembers, themeColor: $themeColor, photoUrl: $photoUrl, isPaused: $isPaused, pausedHostName: $pausedHostName, graceDaysLeft: $graceDaysLeft, anyoneCanRequestSnapshot: $anyoneCanRequestSnapshot, sosToWholeGroup: $sosToWholeGroup, journeysSnapPointsOnly: $journeysSnapPointsOnly, myMemberId: $myMemberId, members: $members, places: $places, activeSosEvents: $activeSosEvents, latestCheckInRequest: $latestCheckInRequest, createdAt: $createdAt)';
+  return 'FamilyCircle(id: $id, name: $name, plan: $plan, maxMembers: $maxMembers, themeColor: $themeColor, photoUrl: $photoUrl, hostTransitionActive: $hostTransitionActive, hostTransitionReason: $hostTransitionReason, hostTransitionHostName: $hostTransitionHostName, hostTransitionDaysLeft: $hostTransitionDaysLeft, hostTransitionLocked: $hostTransitionLocked, anyoneCanRequestSnapshot: $anyoneCanRequestSnapshot, sosToWholeGroup: $sosToWholeGroup, journeysSnapPointsOnly: $journeysSnapPointsOnly, myMemberId: $myMemberId, members: $members, places: $places, activeSosEvents: $activeSosEvents, latestCheckInRequest: $latestCheckInRequest, createdAt: $createdAt)';
 }
 
 
@@ -331,7 +353,7 @@ abstract mixin class _$FamilyCircleCopyWith<$Res> implements $FamilyCircleCopyWi
   factory _$FamilyCircleCopyWith(_FamilyCircle value, $Res Function(_FamilyCircle) _then) = __$FamilyCircleCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String plan, int maxMembers, String? themeColor, String? photoUrl, bool isPaused, String? pausedHostName, int? graceDaysLeft, bool anyoneCanRequestSnapshot, bool sosToWholeGroup, bool journeysSnapPointsOnly, String myMemberId, List<FamilyMember> members, List<FamilySavedPlace> places, List<FamilySosEvent> activeSosEvents, FamilyCheckInRequest? latestCheckInRequest, DateTime? createdAt
+ String id, String name, String plan, int maxMembers, String? themeColor, String? photoUrl, bool hostTransitionActive, String? hostTransitionReason, String? hostTransitionHostName, int? hostTransitionDaysLeft, bool hostTransitionLocked, bool anyoneCanRequestSnapshot, bool sosToWholeGroup, bool journeysSnapPointsOnly, String myMemberId, List<FamilyMember> members, List<FamilySavedPlace> places, List<FamilySosEvent> activeSosEvents, FamilyCheckInRequest? latestCheckInRequest, DateTime? createdAt
 });
 
 
@@ -348,7 +370,7 @@ class __$FamilyCircleCopyWithImpl<$Res>
 
 /// Create a copy of FamilyCircle
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? plan = null,Object? maxMembers = null,Object? themeColor = freezed,Object? photoUrl = freezed,Object? isPaused = null,Object? pausedHostName = freezed,Object? graceDaysLeft = freezed,Object? anyoneCanRequestSnapshot = null,Object? sosToWholeGroup = null,Object? journeysSnapPointsOnly = null,Object? myMemberId = null,Object? members = null,Object? places = null,Object? activeSosEvents = null,Object? latestCheckInRequest = freezed,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? plan = null,Object? maxMembers = null,Object? themeColor = freezed,Object? photoUrl = freezed,Object? hostTransitionActive = null,Object? hostTransitionReason = freezed,Object? hostTransitionHostName = freezed,Object? hostTransitionDaysLeft = freezed,Object? hostTransitionLocked = null,Object? anyoneCanRequestSnapshot = null,Object? sosToWholeGroup = null,Object? journeysSnapPointsOnly = null,Object? myMemberId = null,Object? members = null,Object? places = null,Object? activeSosEvents = null,Object? latestCheckInRequest = freezed,Object? createdAt = freezed,}) {
   return _then(_FamilyCircle(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -356,10 +378,12 @@ as String,plan: null == plan ? _self.plan : plan // ignore: cast_nullable_to_non
 as String,maxMembers: null == maxMembers ? _self.maxMembers : maxMembers // ignore: cast_nullable_to_non_nullable
 as int,themeColor: freezed == themeColor ? _self.themeColor : themeColor // ignore: cast_nullable_to_non_nullable
 as String?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
-as String?,isPaused: null == isPaused ? _self.isPaused : isPaused // ignore: cast_nullable_to_non_nullable
-as bool,pausedHostName: freezed == pausedHostName ? _self.pausedHostName : pausedHostName // ignore: cast_nullable_to_non_nullable
-as String?,graceDaysLeft: freezed == graceDaysLeft ? _self.graceDaysLeft : graceDaysLeft // ignore: cast_nullable_to_non_nullable
-as int?,anyoneCanRequestSnapshot: null == anyoneCanRequestSnapshot ? _self.anyoneCanRequestSnapshot : anyoneCanRequestSnapshot // ignore: cast_nullable_to_non_nullable
+as String?,hostTransitionActive: null == hostTransitionActive ? _self.hostTransitionActive : hostTransitionActive // ignore: cast_nullable_to_non_nullable
+as bool,hostTransitionReason: freezed == hostTransitionReason ? _self.hostTransitionReason : hostTransitionReason // ignore: cast_nullable_to_non_nullable
+as String?,hostTransitionHostName: freezed == hostTransitionHostName ? _self.hostTransitionHostName : hostTransitionHostName // ignore: cast_nullable_to_non_nullable
+as String?,hostTransitionDaysLeft: freezed == hostTransitionDaysLeft ? _self.hostTransitionDaysLeft : hostTransitionDaysLeft // ignore: cast_nullable_to_non_nullable
+as int?,hostTransitionLocked: null == hostTransitionLocked ? _self.hostTransitionLocked : hostTransitionLocked // ignore: cast_nullable_to_non_nullable
+as bool,anyoneCanRequestSnapshot: null == anyoneCanRequestSnapshot ? _self.anyoneCanRequestSnapshot : anyoneCanRequestSnapshot // ignore: cast_nullable_to_non_nullable
 as bool,sosToWholeGroup: null == sosToWholeGroup ? _self.sosToWholeGroup : sosToWholeGroup // ignore: cast_nullable_to_non_nullable
 as bool,journeysSnapPointsOnly: null == journeysSnapPointsOnly ? _self.journeysSnapPointsOnly : journeysSnapPointsOnly // ignore: cast_nullable_to_non_nullable
 as bool,myMemberId: null == myMemberId ? _self.myMemberId : myMemberId // ignore: cast_nullable_to_non_nullable

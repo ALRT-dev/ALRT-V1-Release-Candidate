@@ -85,15 +85,29 @@ abstract class FamilyCircle with _$FamilyCircle {
     /// as its initial on [themeColor], which is the default look.
     final String? photoUrl,
 
-    /// True when the host's ALRT+ lapsed: check-ins, snapshots and SOS are
-    /// paused for this circle, nothing deleted. Only ever true once
-    /// billing is switched on.
-    @Default(false) final bool isPaused,
+    /// True while this circle has no current, entitled host: the owner's
+    /// ALRT+ lapsed, or they left/deleted their account. SOS, check-ins,
+    /// journeys and the member list are never gated on this — only
+    /// [hostTransitionLocked] restricts anything, and only invites/circle
+    /// settings.
+    @Default(false) final bool hostTransitionActive,
 
-    /// Who lapsed, and how many of the 30 grace days remain. Only set
-    /// while [isPaused].
-    final String? pausedHostName,
-    final int? graceDaysLeft,
+    /// 'owner_left' or 'entitlement_lapsed'. Only set while
+    /// [hostTransitionActive].
+    final String? hostTransitionReason,
+
+    /// The departed/lapsed host's name, when known. Only set while
+    /// [hostTransitionActive].
+    final String? hostTransitionHostName,
+
+    /// Days left before host-admin actions lock, counting down from 7.
+    /// Only meaningful while [hostTransitionActive].
+    final int? hostTransitionDaysLeft,
+
+    /// True once the 7-day window has passed with nobody taking over:
+    /// invites and circle settings lock, but every safety feature and the
+    /// member list keep working, and nothing is removed automatically.
+    @Default(false) final bool hostTransitionLocked,
     @Default(true) final bool anyoneCanRequestSnapshot,
     @Default(true) final bool sosToWholeGroup,
     @Default(true) final bool journeysSnapPointsOnly,

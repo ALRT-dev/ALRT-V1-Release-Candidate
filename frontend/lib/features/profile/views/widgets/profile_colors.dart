@@ -30,12 +30,13 @@ class ProfileColors {
     Color(0xFF1B54CC),
   );
 
-  /// Family & check-ins - a calm green/teal safety accent. Deliberately
+  /// Family & check-ins - the same bright green -> teal identity as the
+  /// in-app I'm Safe action, so the two read as one colour. Deliberately
   /// stays a two-stop gradient (not the three-stop premium treatment
   /// below): Family reads as safety, not membership.
   static const familyAndCheckIns = ProfileRowAccent(
-    Color(0xFF29C48D),
-    Color(0xFF068257),
+    Color(0xFF059669),
+    Color(0xFF2DD4A7),
   );
 
   static const journeySharing = ProfileRowAccent(

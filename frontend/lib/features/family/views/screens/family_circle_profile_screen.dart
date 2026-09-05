@@ -117,32 +117,7 @@ class _FamilyCircleProfileScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          Center(
-            child: Column(
-              children: [
-                FamilyMemberAvatar(
-                  member: preview,
-                  size: 96,
-                  showStatusDot: false,
-                ),
-                SizedBox(height: 12.spMin),
-                TextButton.icon(
-                  onPressed: _changePhoto,
-                  icon: Icon(LucideIcons.camera, size: 16.spMin),
-                  label: Text(
-                    'Change photo',
-                    style: TextStyle(
-                      fontSize: 14.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: FamilyColors.indigo,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _identityHeroBuilder(preview),
           SizedBox(height: 16.spMin),
           Text(
             'NICKNAME',
@@ -587,6 +562,50 @@ class _FamilyCircleProfileScreenState
         : context.showErrorToast(
             message: 'Could not save the list. Please try again.',
           );
+  }
+
+  /// The identity surface: the same dark indigo-to-purple gradient as the
+  /// Family header and the ALRT+ premium treatment, so this profile reads
+  /// as Family identity rather than a plain settings row.
+  Widget _identityHeroBuilder(final FamilyMember preview) {
+    return FamilyHeaderSurface(
+      borderRadius: BorderRadius.circular(20.spMin),
+      padding: EdgeInsets.symmetric(vertical: 24.spMin),
+      child: Center(
+        child: Column(
+          children: [
+            FamilyMemberAvatar(
+              member: preview,
+              size: 96,
+              showStatusDot: false,
+            ),
+            SizedBox(height: 12.spMin),
+            TextButton.icon(
+              onPressed: _changePhoto,
+              icon: Icon(
+                LucideIcons.camera,
+                size: 16.spMin,
+                color: Colors.white,
+              ),
+              label: Text(
+                'Change photo',
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white.withValues(alpha: 0.16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20.spMin),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _swatchBuilder(final Color color) {
