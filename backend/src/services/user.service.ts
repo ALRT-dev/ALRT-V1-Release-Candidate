@@ -8,6 +8,9 @@ import {
   generatePresignedUrl,
 } from "./s3.service.js";
 import type { PushNotificationSettings } from "../models/push_notification_settings_interface.js";
+import { notifyCircle } from "./family.service.js";
+import { PushNotificationType } from "../models/push_notification_types.js";
+import { SocketEvent } from "../models/socket_event_types.js";
 
 /** Grace period in days before account is permanently deleted */
 const DELETION_GRACE_PERIOD_DAYS = 30;
@@ -296,6 +299,7 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
     where: { id: userId },
     select: {
       id: true,
+      name: true,
       profilePictureUrl: true,
     },
   });
@@ -346,6 +350,10 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
     }
   }
 
+  // Circles left in a host transition by this deletion — notified once the
+  // transaction (and the user row) is committed.
+  const circlesEnteringHostTransition: string[] = [];
+
   // Use a transaction for database operations
   await prisma.$transaction(async (tx) => {
     // Step 3: Anonymize hazards reported by user (set reportedById to null)
@@ -354,6 +362,32 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
       data: { reportedById: null },
     });
     console.log(`Anonymized hazards for user ${userId}`);
+
+    // Step 3.5: Resolve Family circles this user owns before their own
+    // membership cascades away with the user record below. A circle where
+    // they were the only member has nothing left to keep, so it goes with
+    // them (matching leaveCircle's own rule); a circle with other members
+    // survives and starts its 7-day host-transition window instead of
+    // being silently left without an owner.
+    const ownedCircles = await tx.familyCircle.findMany({
+      where: { createdById: userId },
+      select: { id: true, _count: { select: { members: true } } },
+    });
+    for (const circle of ownedCircles) {
+      if (circle._count.members <= 1) {
+        await tx.familyCircle.delete({ where: { id: circle.id } });
+      } else {
+        await tx.familyCircle.update({
+          where: { id: circle.id },
+          data: {
+            hostTransitionStartedAt: new Date(),
+            hostTransitionHostName: user.name,
+          },
+        });
+        circlesEnteringHostTransition.push(circle.id);
+      }
+    }
+    console.log(`Resolved ${ownedCircles.length} owned family circle(s) for user ${userId}`);
 
     // Step 4: Delete related records
     // Delete hazard votes by user
@@ -393,6 +427,22 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
 
     console.log(`Successfully deleted user ${userId} and all associated data`);
   });
+
+  // Best-effort: tell the remaining members of each circle that lost its
+  // host. Never blocks the deletion itself on a notification failure.
+  await Promise.allSettled(
+    circlesEnteringHostTransition.map((circleId) =>
+      notifyCircle({
+        circleId,
+        title: "Family circle update",
+        body:
+          "Your host's account was deleted. Choose a new host within 7 days.",
+        type: PushNotificationType.familyCircleUpdate,
+        socketEvent: SocketEvent.familyCircleUpdate,
+        socketData: { circleId },
+      }),
+    ),
+  );
 };
 
 /**

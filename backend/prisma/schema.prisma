@@ -733,6 +733,15 @@ model FamilyCircle {
 
   createdById String
 
+  // Host-transition (7-day grace period): set when the circle is left
+  // without a host — the owner's entitlement lapsed, they left, or their
+  // account was deleted. Core safety features (SOS, check-ins, journeys)
+  // are never gated on this; only host-only administration (invites,
+  // circle settings) locks once the window has passed. Cleared the moment
+  // a new host is in place (transfer or take-over).
+  hostTransitionStartedAt DateTime?
+  hostTransitionHostName  String? // display name of the departed host, when known
+
   members         FamilyMember[]
   invites         FamilyInvite[]
   places          FamilySavedPlace[]
