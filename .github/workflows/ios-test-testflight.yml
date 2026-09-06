@@ -33,12 +33,58 @@
 # android-test.yml's own comment on this exact point). Nothing about what
 # the workflow DOES changed by this - purely where its paths point.
 #
+# Phase 1 TEST IPA scope (matching android-test.yml's own "Phase 1 TEST APK
+# scope" decision exactly, for the same reason - an isolated build that
+# talks to nothing but the isolated TEST backend): Google Sign-In and Google
+# Maps are deliberately blanked below (both the Dart-level .env value and
+# the native ios/Flutter/Maps.xcconfig value, since iOS reads the Maps key
+# from two places - see AppDelegate.swift/Info.plist's GMSApiKey). Unlike
+# the nested copy, this file does NOT reuse the shared, real
+# GOOGLE_MAPS_API_KEY/GOOGLE_OAUTH_SERVER_CLIENT_ID/REVENUECAT_API_KEY_APPLE/
+# REVENUECAT_API_KEY_GOOGLE secrets production's ios-testflight.yml uses -
+# this build embeds none of those real, shared third-party credentials.
+#
+# billing_mode input (mirrors android-test.yml's own input of the same name
+# and meaning - see that file's header comment for the full history):
+# - "bypass" (default): unchanged from before this input existed -
+#   ALRT_PLUS_TEST_UNLOCK=true, RevenueCat never contacted,
+#   REVENUECAT_API_KEY_APPLE stays blank.
+# - "test_store": ALRT_PLUS_TEST_UNLOCK=false (so the app actually calls
+#   RevenueCat's ensureConfigured/isPlus instead of bypassing it), and
+#   REVENUECAT_API_KEY_APPLE is read from the repository-level Secret
+#   TEST_REVENUECAT_API_KEY_APPLE (Settings > Secrets and variables >
+#   Actions > Secrets - not an Environment secret/variable, matching
+#   android-test.yml's TEST_REVENUECAT_API_KEY_GOOGLE placement exactly,
+#   for the same reasons that file documents: a publishable SDK key that
+#   still needs the automatic step-level "env:" debug-listing mask a
+#   Secret gets and a Variable does not, and to sidestep this repo's
+#   unexplained history of "test" Environment secrets resolving empty). A
+#   guard step refuses the build if test_store is selected but the Secret
+#   is empty, so this can never silently fall back to a blank RevenueCat
+#   key. REVENUECAT_API_KEY_GOOGLE stays blank either way - this workflow
+#   only ever builds the iOS app.
+#
+#   Caveat this file cannot verify without a real run: android-test.yml's
+#   test_store mode builds --debug instead of --release, because
+#   RevenueCat's SDK is documented to refuse a Test Store key in a release
+#   build. This workflow still builds --release for both modes (unchanged)
+#   - switching iOS to a --debug IPA would also change its code-signing/
+#   export story (ExportOptionsCI-dev.plist's app-store method, manual
+#   signing, the AppStore-type match profile), which is not something to
+#   guess at without being able to run it. If a real test_store run shows
+#   RevenueCat refusing to initialize here too, building --debug (with
+#   whatever export-options change that requires) is the next thing to
+#   try - deliberately left for a follow-up informed by that result.
+#
 # Uses the existing "dev" Xcode scheme exactly as android-test.yml's Android
 # counterpart does - same app id (com.safetyalrt.alrt.dev). The signing/
 # certificate/upload steps below (ci_certs_dev, ExportOptionsCI-dev.plist,
-# ci_upload) are otherwise UNCHANGED from the nested copy - this file does
-# not create, rotate, or touch any Apple certificate, provisioning profile,
-# App Store Connect app, tester group, or API key.
+# ci_upload_dev) are otherwise UNCHANGED from before this input existed -
+# this file still does not create, rotate, or touch any Apple certificate,
+# provisioning profile, App Store Connect app, tester group, or API key, and
+# ci_upload_dev still refuses any ipa whose bundle id is not exactly
+# com.safetyalrt.alrt.dev / "ALRT Dev" - so neither billing_mode value can
+# ever reach the production ALRT App Store Connect app.
 #
 # DEV_BASE_URL below is a hardcoded literal, not a secret lookup - mirroring
 # android-test.yml's own DEV_BASE_URL history exactly: it was originally
@@ -52,21 +98,6 @@
 # way for it to resolve to the production URL instead. The "Verify the
 # isolated test backend URL is configured" guard step from the nested copy
 # is removed here - there is no secret left to check.
-#
-# Phase 1 TEST IPA scope (matching android-test.yml's own "Phase 1 TEST APK
-# scope" decision exactly, for the same reason - an isolated build that
-# talks to nothing but the isolated TEST backend): Google Sign-In and Google
-# Maps are deliberately blanked below (both the Dart-level .env value and
-# the native ios/Flutter/Maps.xcconfig value, since iOS reads the Maps key
-# from two places - see AppDelegate.swift/Info.plist's GMSApiKey), and
-# RevenueCat is bypassed via ALRT_PLUS_TEST_UNLOCK=true, same mechanism
-# android-test.yml's bypass mode already uses (alrt_plus_provider.dart's
-# isAlrtPlusTestUnlocked gate short-circuits ensureConfigured() before
-# either RevenueCat key would ever be read). Unlike the nested copy, this
-# file does NOT reuse the shared, real GOOGLE_MAPS_API_KEY/
-# GOOGLE_OAUTH_SERVER_CLIENT_ID/REVENUECAT_API_KEY_APPLE/
-# REVENUECAT_API_KEY_GOOGLE secrets production's ios-testflight.yml uses -
-# this build embeds none of those real, shared third-party credentials.
 #
 # Everything else - the Apple signing/upload chain (APP_STORE_CONNECT_*,
 # MATCH_*), Firebase configuration, and the "test" GitHub Environment - is
@@ -95,6 +126,14 @@ on:
         description: "Build number override (blank = automatic)"
         required: false
         default: ""
+      billing_mode:
+        description: "bypass (default, ALRT_PLUS_TEST_UNLOCK=true) or test_store (real RevenueCat Test Store paywall)"
+        required: false
+        default: "bypass"
+        type: choice
+        options:
+          - bypass
+          - test_store
 
 # The actual Flutter/iOS project lives in frontend/, not the repo root -
 # see the header comment above. Applies to every plain `run:` step below;
@@ -127,31 +166,56 @@ jobs:
           bundler-cache: true
           working-directory: frontend/ios
 
+      # Only relevant when billing_mode=test_store - see the billing_mode
+      # comment at the top of this file. Checks presence by length only; the
+      # value itself is never printed. Sourced from a repository-level
+      # Secret (not an Environment secret/variable), mirroring
+      # android-test.yml's own equivalent guard step exactly.
+      - name: Verify the RevenueCat Test Store key is configured
+        if: ${{ inputs.billing_mode == 'test_store' }}
+        run: |
+          if [ -z "$REVENUECAT_API_KEY_APPLE" ]; then
+            echo "::error::billing_mode=test_store requires the repository Secret TEST_REVENUECAT_API_KEY_APPLE to be set (Settings > Secrets and variables > Actions > Secrets)."
+            echo "This workflow refuses to build test_store with a blank RevenueCat key - that would silently disable the paywall instead of testing it."
+            exit 1
+          fi
+          echo "REVENUECAT_API_KEY_APPLE is set (length: ${#REVENUECAT_API_KEY_APPLE} characters). Value itself is never printed."
+        env:
+          REVENUECAT_API_KEY_APPLE: ${{ secrets.TEST_REVENUECAT_API_KEY_APPLE }}
+
       # Google Sign-In is blanked at the Dart layer here, and the dev-flavour
       # build configurations use ios/Runner/Info-dev.plist, which carries no
       # GIDClientID / Google URL scheme at all (see that file's header) - so
       # this build embeds no production Google OAuth identity anywhere.
       # DEV_BASE_URL is the hardcoded isolated TEST backend URL - see the
       # comment at the top of this file for why this is a literal, not a
-      # secret lookup. ALRT_PLUS_TEST_UNLOCK=true bypasses RevenueCat
-      # entirely (both keys blank), matching android-test.yml's bypass mode.
-      # GOOGLE_MAPS_API_KEY (Dart layer) mirrors the native xcconfig below.
-      # USE_DUMMY_AI_FOR_REPORTS=true matches the Android TEST build: the
-      # backend honours it only when it is itself running as TEST.
+      # secret lookup. GOOGLE_MAPS_API_KEY (Dart layer) mirrors the native
+      # xcconfig below. USE_DUMMY_AI_FOR_REPORTS=true matches the Android
+      # TEST build: the backend honours it only when it is itself running as
+      # TEST. REVENUECAT_API_KEY_APPLE and ALRT_PLUS_TEST_UNLOCK depend on
+      # billing_mode - see the billing_mode comment at the top of this file.
       - name: Create .env pointed at the isolated test backend
         run: |
+          if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
+            REVENUECAT_APPLE_VALUE="$REVENUECAT_API_KEY_APPLE"
+            TEST_UNLOCK_VALUE="false"
+          else
+            REVENUECAT_APPLE_VALUE=""
+            TEST_UNLOCK_VALUE="true"
+          fi
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
             echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS"
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
-            echo "REVENUECAT_API_KEY_APPLE="
+            echo "REVENUECAT_API_KEY_APPLE=$REVENUECAT_APPLE_VALUE"
             echo "REVENUECAT_API_KEY_GOOGLE="
             echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
-            echo "ALRT_PLUS_TEST_UNLOCK=true"
+            echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
             echo "USE_DUMMY_AI_FOR_REPORTS=true"
           } > .env
         env:
+          REVENUECAT_API_KEY_APPLE: ${{ secrets.TEST_REVENUECAT_API_KEY_APPLE }}
           GOOGLE_MAPS_API_KEY_IOS: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY_IOS }}
 
       # iOS reads the Maps key from this xcconfig too (see AppDelegate.swift
