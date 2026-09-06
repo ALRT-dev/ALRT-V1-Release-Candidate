@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:hazard_app/features/subscription/utils/expiry.dart';
 import 'package:hazard_app/others/env.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
@@ -96,6 +97,12 @@ class RevenueCatService {
   Future<EntitlementInfo?> plusEntitlement() async {
     final info = await customerInfo();
     return info?.entitlements.active[entitlementId];
+  }
+
+  /// The ALRT+ entitlement if this customer was subscribed before but it
+  /// has since lapsed — see [expiredEntitlementOf] for the exact rule.
+  Future<EntitlementInfo?> expiredEntitlement() async {
+    return expiredEntitlementOf(await customerInfo(), entitlementId);
   }
 
   /// The store's subscription-management URL for this customer, if known.

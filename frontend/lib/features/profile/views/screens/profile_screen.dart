@@ -13,6 +13,7 @@ import 'package:hazard_app/features/profile/enums/my_hazards_tab_types.dart';
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_expired_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/support_request_screen.dart';
@@ -513,6 +514,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Consumer(
       builder: (context, ref, child) {
         final isSubscribed = ref.watch(providerOfAlrtPlus).value == true;
+        final expiredEntitlement =
+            ref.watch(providerOfExpiredAlrtPlus).value;
         return Container(
           padding: EdgeInsets.all(16.spMin),
           decoration: BoxDecoration(
@@ -572,7 +575,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Text(
                       isSubscribed
                           ? 'Plan, seats and billing'
-                          : 'You pay once, everyone else joins free',
+                          : expiredEntitlement != null
+                              ? "You're on the free plan"
+                              : 'You pay once, everyone else joins free',
                       style: TextStyle(
                         fontSize: 12.5.spMin,
                         color: Colors.white.withValues(alpha: 0.82),
@@ -615,7 +620,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           () => context.push(
             isSubscribed
                 ? AlrtPlusManageScreen.route
-                : AlrtPlusPaywallScreen.route,
+                : expiredEntitlement != null
+                    ? AlrtPlusExpiredScreen.route
+                    : AlrtPlusPaywallScreen.route,
+            extra: expiredEntitlement,
           ),
         );
       },

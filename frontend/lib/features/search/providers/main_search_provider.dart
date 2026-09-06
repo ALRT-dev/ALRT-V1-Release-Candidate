@@ -16,6 +16,7 @@ import 'package:hazard_app/features/shared/providers/navigator_key_provider.dart
 import 'package:hazard_app/features/shared/services/user_service.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
+import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_sheet.dart';
 
 final providerOfMainSearch =
     StateNotifierProvider.autoDispose<
@@ -292,7 +293,8 @@ class MainSearchProvider extends StateNotifier<MainSearchProviderState> {
     final subscriptionId = state.subscriptionId;
     if (subscriptionId == null) {
       // Free tier saves at most 1 location, no matter what; the second
-      // save opens the ALRT+ paywall. Own-location follow never counts.
+      // save shows a friendly explanation, then the ALRT+ paywall. Own-
+      // location follow never counts.
       final savedCount = _ref
           .read(providerOfMyLocationSubscriptions)
           .locationSubscriptions
@@ -306,8 +308,18 @@ class MainSearchProvider extends StateNotifier<MainSearchProviderState> {
               .read(providerOfGlobalNavigatorKey)
               .currentContext;
           if (context == null || !context.mounted) return;
-          final purchased = await context.push<bool>(
-            AlrtPlusPaywallScreen.route,
+          final purchased = await showAlrtPlusUpsellSheet(
+            context: context,
+            icon: AlrtPlusUpsellIcons.savedLocation,
+            title: 'One free saved location',
+            message:
+                'Free accounts can save $kFreeSavedLocationsLimit location. '
+                'ALRT+ removes the limit, so you can save as many as you '
+                'like.',
+            primaryLabel: 'See ALRT+',
+            onPrimary: (ctx) => ctx
+                .push<bool>(AlrtPlusPaywallScreen.route)
+                .then((value) => value ?? false),
           );
           if (!mounted || purchased != true) return;
         }

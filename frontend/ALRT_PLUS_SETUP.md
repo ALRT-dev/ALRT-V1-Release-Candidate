@@ -24,7 +24,7 @@ top to bottom.
 4. Add two subscriptions in that group:
    - **Monthly** — product id `alrt_plus_monthly`, price **$9.99**
    - **Yearly** — product id `alrt_plus_yearly`, price **$99.99**
-5. On each, add an **Introductory Offer → Free Trial → 1 month**.
+5. On each, add an **Introductory Offer → Free Trial → 14 days**.
 
 ## 2. Google Play Console (Android) — create the products
 1. **Setup → Payments profile** → add **bank account + tax info**. *(Google pays
@@ -32,7 +32,7 @@ top to bottom.
 2. **Monetise → Subscriptions** → create subscription `alrt_plus_monthly`
    (base plan monthly, **$9.99**) and `alrt_plus_yearly` (base plan yearly,
    **$99.99**).
-3. On each base plan add an **Offer → Free trial → 1 month**.
+3. On each base plan add an **Offer → Free trial → 14 days**.
 4. Keep the **product ids identical to Apple's** (`alrt_plus_monthly`,
    `alrt_plus_yearly`).
 
@@ -83,11 +83,11 @@ top to bottom.
 - **Store fee:** ~**15%** of each subscription (Small Business Program / Google
   subscription rate). You keep ~85%.
 - **RevenueCat:** free until ~US$2.5k/month of tracked revenue.
-- **Free trial:** the first month costs the user nothing; you're not charged a fee
+- **Free trial:** the first 14 days cost the user nothing; you're not charged a fee
   on $0.
 
 ## What the customer experiences
-Creating a family circle they host → a dark **ALRT+** paywall → "Start your free
-month", Yearly (Best value) / Monthly with live store prices → subscribe → 1 month
-free, then billed by their app store. Joining someone else's circle is always free
-and never shows this.
+Creating a family circle they host → a dark **ALRT+** paywall → "Start your 14-day
+free trial", Yearly (Best value) / Monthly with live store prices → subscribe →
+14 days free, then billed by their app store. Joining someone else's circle is
+always free and never shows this.

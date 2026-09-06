@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
 import 'package:flutter/services.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 final providerOfRevenueCat = Provider<RevenueCatService>(
   (ref) => RevenueCatService(),
@@ -53,6 +54,23 @@ final providerOfAlrtPlusBillingIssue = FutureProvider.autoDispose<bool>((
   await rc.ensureConfigured(userId);
   final entitlement = await rc.plusEntitlement();
   return entitlement?.billingIssueDetectedAt != null;
+});
+
+/// The lapsed ALRT+ entitlement, if this customer was subscribed before but
+/// it has since expired or been cancelled-and-ended — null both when never
+/// subscribed and while ALRT+ is currently active. Lets the profile screen
+/// route a "was on ALRT+, now on the free plan" user to an explanation
+/// screen instead of the plain paywall, with no backend change.
+final providerOfExpiredAlrtPlus =
+    FutureProvider.autoDispose<EntitlementInfo?>((ref) async {
+  final userId = ref.watch(providerOfLoggedInUser)?.id;
+  if (userId == null) return null;
+  // Test-build escape hatch, matching providerOfAlrtPlus above: a QA build
+  // has no real store subscription to have ever lapsed.
+  if (isAlrtPlusTestUnlocked) return null;
+  final rc = ref.watch(providerOfRevenueCat);
+  await rc.ensureConfigured(userId);
+  return rc.expiredEntitlement();
 });
 
 /// One-shot intent: set by the welcome screen's "Invite your family" CTA,

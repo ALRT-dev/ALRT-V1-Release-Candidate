@@ -8,6 +8,7 @@ import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_invite_scanner_sheet.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
+import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_sheet.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -96,19 +97,62 @@ Future<void> showCreateGroupSheet(
   );
 }
 
-/// ALRT+ moment: hosting needs a subscription (1-month free trial). The
-/// paywall shows only here, never on a join.
+/// Owned-circle cap, matching MAX_OWNED_CIRCLES in family.service.ts —
+/// applies regardless of plan tier, since there is only one paid tier.
+const _kMaxOwnedCircles = 4;
+
+/// ALRT+ moment: hosting needs a subscription (with its free trial). The
+/// paywall shows only here, never on a join. A friendly sheet explains why
+/// before the paywall opens; a second sheet catches the owned-circle cap,
+/// which a subscription cannot raise, so it never suggests upgrading.
 Future<void> _createGated(
   final BuildContext context,
   final WidgetRef ref,
   final String name,
 ) async {
   final isPlus = await ref.read(providerOfAlrtPlus.future);
+  if (!context.mounted) return;
   if (!isPlus) {
-    if (!context.mounted) return;
-    final subscribed = await context.push<bool>(AlrtPlusPaywallScreen.route);
-    if (subscribed != true) return;
+    final subscribed = await showAlrtPlusUpsellSheet(
+      context: context,
+      icon: AlrtPlusUpsellIcons.hostCircle,
+      iconGradient: familyUpsellGradient,
+      title: 'Hosting needs ALRT+',
+      message:
+          'Joining a Family circle is always free. Hosting your own — '
+          'invites, seats, circle settings — needs ALRT+.',
+      primaryLabel: 'See ALRT+',
+      onPrimary: (ctx) => ctx
+          .push<bool>(AlrtPlusPaywallScreen.route)
+          .then((value) => value ?? false),
+    );
+    if (!subscribed || !context.mounted) return;
   }
+
+  final ownedCircles = ref
+      .read(providerOfFamily)
+      .circles
+      .where((circle) => circle.isOwned)
+      .length;
+  if (ownedCircles >= _kMaxOwnedCircles) {
+    if (!context.mounted) return;
+    await showAlrtPlusUpsellSheet(
+      context: context,
+      icon: AlrtPlusUpsellIcons.circleLimit,
+      iconGradient: familyUpsellGradient,
+      title: 'You already host $_kMaxOwnedCircles circles',
+      message:
+          'ALRT+ covers up to $_kMaxOwnedCircles Family circles per host. '
+          'To create a new one, delete or hand off hosting of an '
+          'existing circle first.',
+      primaryLabel: 'Manage your circles',
+      onPrimary: (ctx) => ctx
+          .push<bool>('/family-switch-group')
+          .then((_) => false),
+    );
+    return;
+  }
+
   ref.read(providerOfFamily.notifier).createCircle(name: name);
 }
 

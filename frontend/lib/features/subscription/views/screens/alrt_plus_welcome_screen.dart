@@ -5,17 +5,31 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
 
+/// Arguments for [AlrtPlusWelcomeScreen].
+class AlrtPlusWelcomeScreenArgs {
+  const AlrtPlusWelcomeScreenArgs({this.trialPhrase});
+
+  /// The purchased product's own trial phrase (e.g. "14-day free trial"),
+  /// read from real store data by the paywall. Null when the store hasn't
+  /// configured a free trial for what was purchased — in which case this
+  /// screen never claims one.
+  final String? trialPhrase;
+}
+
 /// Shown once, right after an ALRT+ purchase: celebrate briefly, show the
 /// open seats, and push the single highest-value action — inviting family.
 class AlrtPlusWelcomeScreen extends ConsumerWidget {
-  const AlrtPlusWelcomeScreen({super.key});
+  const AlrtPlusWelcomeScreen({super.key, this.args});
 
   static const route = '/alrt-plus/welcome';
 
   static const _totalSeats = 8;
 
+  final AlrtPlusWelcomeScreenArgs? args;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final trialPhrase = args?.trialPhrase;
     return Scaffold(
       backgroundColor: AlrtPlusStyle.body,
       body: Column(
@@ -48,8 +62,14 @@ class AlrtPlusWelcomeScreen extends ConsumerWidget {
                     ),
                     SizedBox(height: 7.spMin),
                     Text(
-                      'Your free month has started. The family layer is on, '
-                      'and there are ${_totalSeats - 1} seats waiting for your people.',
+                      trialPhrase != null
+                          ? 'Your $trialPhrase has started. The family '
+                                'layer is on, and there are '
+                                '${_totalSeats - 1} seats waiting for your '
+                                'people.'
+                          : 'ALRT + is active. The family layer is on, and '
+                                'there are ${_totalSeats - 1} seats waiting '
+                                'for your people.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13.spMin,
@@ -60,10 +80,13 @@ class AlrtPlusWelcomeScreen extends ConsumerWidget {
                     SizedBox(height: 18.spMin),
                     _seatRowBuilder(),
                     SizedBox(height: 18.spMin),
-                    const AlrtPlusLavNote(
+                    AlrtPlusLavNote(
                       lead: 'No surprises.',
-                      text: 'We remind you a week before your free month ends, '
-                          'and you can cancel anytime in your app store.',
+                      text: trialPhrase != null
+                          ? "You won't be charged until your trial ends, "
+                                'and you can cancel anytime in your app '
+                                'store before then.'
+                          : 'You can cancel anytime in your app store.',
                     ),
                     const Spacer(),
                     AlrtPlusCta(

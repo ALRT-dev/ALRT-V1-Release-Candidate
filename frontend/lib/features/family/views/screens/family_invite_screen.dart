@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_sheet.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -456,7 +458,39 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
     );
   }
 
+  /// Seat cap across every circle the caller owns, matching
+  /// MAX_SEATS_TOTAL in family.service.ts. There is only one paid tier, so
+  /// hitting this is never fixed by upgrading — only by freeing a seat.
+  static const _kMaxSeats = 8;
+
   void _onGenerate() async {
+    // Guest invites never use a seat, so they can't hit this. A non-guest
+    // invite generated at seat capacity would just fail for whoever tries
+    // to redeem it — check here, where the owner can actually act on it.
+    if (!_inviteAsGuest) {
+      final seatsUsed = ref
+          .read(providerOfFamily)
+          .circles
+          .where((circle) => circle.isOwned)
+          .fold<int>(0, (sum, circle) => sum + circle.seatCount);
+      if (seatsUsed >= _kMaxSeats) {
+        await showAlrtPlusUpsellSheet(
+          context: context,
+          icon: AlrtPlusUpsellIcons.seatsFull,
+          iconGradient: familyUpsellGradient,
+          title: 'All $_kMaxSeats seats are in use',
+          message:
+              'Your ALRT+ plan covers $_kMaxSeats seats across your '
+              "circles, and they're all filled. Free up a seat by "
+              'removing a member, or check your seat ledger.',
+          primaryLabel: 'Manage seats',
+          onPrimary: (ctx) =>
+              ctx.push<bool>('/alrt-plus/manage').then((_) => false),
+        );
+        return;
+      }
+    }
+
     final invite = await ref
         .read(providerOfFamily.notifier)
         .createInvite(isGuestInvite: _inviteAsGuest);

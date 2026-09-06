@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/utils/trial_copy.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_welcome_screen.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -72,13 +73,29 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     });
   }
 
+  /// The trial phrase to show, built from the real selected product's own
+  /// introductory-offer data — never assumed. Null means the store hasn't
+  /// configured a free trial for this product, so nothing claims one. The
+  /// dummy/QA path has no real product to read, so it shows the confirmed
+  /// commercial offer's trial length as a preview of the intended real one.
+  String? get _trialPhrase {
+    if (_dummy) return kConfiguredFreeTrialPhrase;
+    final selected = _selected;
+    return selected == null ? null : freeTrialPhrase(selected.storeProduct);
+  }
+
   Future<void> _finishEntitled() async {
     ref.invalidate(providerOfAlrtPlus);
     if (!mounted) return;
     // The welcome moment is for new hosts; a plan change from an existing
     // circle skips straight back.
     final hasCircle = ref.read(providerOfFamily).circle != null;
-    if (!hasCircle) await context.push(AlrtPlusWelcomeScreen.route);
+    if (!hasCircle) {
+      await context.push(
+        AlrtPlusWelcomeScreen.route,
+        extra: AlrtPlusWelcomeScreenArgs(trialPhrase: _trialPhrase),
+      );
+    }
     if (mounted) Navigator.of(context).pop(true);
   }
 
@@ -177,7 +194,9 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                         ),
                       SizedBox(height: 14.spMin),
                       AlrtPlusCta(
-                        label: 'Start free month',
+                        label: _trialPhrase != null
+                            ? 'Start ${_trialPhrase!}'
+                            : 'Subscribe now',
                         busy: _busy,
                         onPressed:
                             (_selected == null && !_dummy) ? null : _subscribe,
@@ -208,8 +227,12 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                         ),
                       ),
                       Text(
-                        'Billed through your app store after the free month. '
-                        'Cancel anytime in your store account.',
+                        _trialPhrase != null
+                            ? 'Billed through your app store after your '
+                                  'free trial. Cancel anytime in your store '
+                                  'account.'
+                            : 'Billed through your app store. Cancel '
+                                  'anytime in your store account.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 10.spMin,
@@ -495,9 +518,17 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
         _dummy ? '\$9.99' : _offering?.monthly?.storeProduct.priceString;
     final annual =
         _dummy ? '\$99.99' : _offering?.annual?.storeProduct.priceString;
-    final pricePart = (monthly != null && annual != null)
-        ? '1 month free, then $monthly a month or $annual a year'
-        : '1 month free, then the price shown above';
+    final trial = _trialPhrase;
+    final String pricePart;
+    if (monthly != null && annual != null) {
+      pricePart = trial != null
+          ? '$trial, then $monthly a month or $annual a year'
+          : '$monthly a month or $annual a year';
+    } else {
+      pricePart = trial != null
+          ? '$trial, then the price shown above'
+          : 'Price shown above';
+    }
     return Text(
       '$pricePart · 8 seats · cancel anytime',
       textAlign: TextAlign.center,

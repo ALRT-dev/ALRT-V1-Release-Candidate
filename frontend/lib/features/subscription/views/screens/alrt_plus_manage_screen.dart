@@ -8,6 +8,7 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/utils/seat_count.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
 import 'package:intl/intl.dart';
@@ -272,11 +273,8 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
       // Guests join free, so they never appear against a seat.
       return owned.fold(0, (sum, c) => sum + c.seatCount);
     }
-    // Fallback before the circles list has loaded.
-    return circle?.members
-            .where((m) => m.role != FamilyRole.guest)
-            .length ??
-        1;
+    // Fallback before the circles list has loaded: see fallbackSeatsUsed.
+    return fallbackSeatsUsed(circle);
   }
 
   Widget _sectionLabelBuilder(
