@@ -44,37 +44,52 @@
 # REVENUECAT_API_KEY_GOOGLE secrets production's ios-testflight.yml uses -
 # this build embeds none of those real, shared third-party credentials.
 #
-# billing_mode input (mirrors android-test.yml's own input of the same name
-# and meaning - see that file's header comment for the full history):
+# billing_mode input - NOT the same design as android-test.yml's input of
+# the same name, on purpose. RevenueCat's "Test Store" (what
+# android-test.yml's own "test_store" option drives) is a debug/development-
+# only virtual store with no relationship to Apple's real purchase pipeline
+# - it cannot be tested through TestFlight at all, since TestFlight installs
+# a genuine App Store Connect build through Apple's own distribution path,
+# which a Test Store key rejects outright (RevenueCat's SDK force-closes a
+# release build configured with one, by design). TestFlight subscription
+# testing has to go through Apple's real StoreKit sandbox instead - the same
+# App Store Connect sandbox testers use against a live App Store build, just
+# against the isolated "ALRT Dev" app/App ID rather than the production one.
+# That is what this input's non-bypass option now names and does:
 # - "bypass" (default): unchanged from before this input existed -
 #   ALRT_PLUS_TEST_UNLOCK=true, RevenueCat never contacted,
 #   REVENUECAT_API_KEY_APPLE stays blank.
-# - "test_store": ALRT_PLUS_TEST_UNLOCK=false (so the app actually calls
-#   RevenueCat's ensureConfigured/isPlus instead of bypassing it), and
+# - "platform_sandbox": ALRT_PLUS_TEST_UNLOCK=false (so the app actually
+#   calls RevenueCat's ensureConfigured/isPlus instead of bypassing it), and
 #   REVENUECAT_API_KEY_APPLE is read from the repository-level Secret
 #   TEST_REVENUECAT_API_KEY_APPLE (Settings > Secrets and variables >
 #   Actions > Secrets - not an Environment secret/variable, matching
-#   android-test.yml's TEST_REVENUECAT_API_KEY_GOOGLE placement exactly,
-#   for the same reasons that file documents: a publishable SDK key that
-#   still needs the automatic step-level "env:" debug-listing mask a
-#   Secret gets and a Variable does not, and to sidestep this repo's
-#   unexplained history of "test" Environment secrets resolving empty). A
-#   guard step refuses the build if test_store is selected but the Secret
-#   is empty, so this can never silently fall back to a blank RevenueCat
-#   key. REVENUECAT_API_KEY_GOOGLE stays blank either way - this workflow
-#   only ever builds the iOS app.
+#   android-test.yml's own equivalent Secret placement, for the same
+#   reasons that file documents: a publishable SDK key that still needs the
+#   automatic step-level "env:" debug-listing mask a Secret gets and a
+#   Variable does not, and to sidestep this repo's unexplained history of
+#   "test" Environment secrets resolving empty).
 #
-#   Caveat this file cannot verify without a real run: android-test.yml's
-#   test_store mode builds --debug instead of --release, because
-#   RevenueCat's SDK is documented to refuse a Test Store key in a release
-#   build. This workflow still builds --release for both modes (unchanged)
-#   - switching iOS to a --debug IPA would also change its code-signing/
-#   export story (ExportOptionsCI-dev.plist's app-store method, manual
-#   signing, the AppStore-type match profile), which is not something to
-#   guess at without being able to run it. If a real test_store run shows
-#   RevenueCat refusing to initialize here too, building --debug (with
-#   whatever export-options change that requires) is the next thing to
-#   try - deliberately left for a follow-up informed by that result.
+#   IMPORTANT - what TEST_REVENUECAT_API_KEY_APPLE must actually be: the
+#   normal, platform-specific PUBLIC RevenueCat API key for the isolated
+#   "ALRT Dev" app's RevenueCat project/configuration (the same kind of key
+#   Env.dart's own comment already documents as safe to ship - a
+#   publishable key, not a secret in the security sense). It must NOT be:
+#   (a) a RevenueCat "Test Store" key - those only work in a debug build
+#   and have no connection to Apple's StoreKit sandbox TestFlight actually
+#   exercises; or (b) production's real REVENUECAT_API_KEY_APPLE - this
+#   build must never carry that shared, live credential. A guard step
+#   refuses the build if platform_sandbox is selected but the Secret is
+#   empty, so this can never silently fall back to a blank RevenueCat key.
+#   REVENUECAT_API_KEY_GOOGLE stays blank either way - this workflow only
+#   ever builds the iOS app.
+#
+#   Because this is Apple's real sandbox reached through a real TestFlight
+#   build, not a debug-only virtual store, this workflow keeps building
+#   --release for both billing_mode values, unchanged - there is no
+#   RevenueCat restriction here to accommodate the way android-test.yml's
+#   test_store mode has to (that restriction is specific to Test Store
+#   keys, which platform_sandbox deliberately never uses).
 #
 # Uses the existing "dev" Xcode scheme exactly as android-test.yml's Android
 # counterpart does - same app id (com.safetyalrt.alrt.dev). The signing/
@@ -127,13 +142,13 @@ on:
         required: false
         default: ""
       billing_mode:
-        description: "bypass (default, ALRT_PLUS_TEST_UNLOCK=true) or test_store (real RevenueCat Test Store paywall)"
+        description: "bypass (default, ALRT_PLUS_TEST_UNLOCK=true) or platform_sandbox (real Apple/StoreKit sandbox paywall via TestFlight - NOT a RevenueCat Test Store key, see header comment)"
         required: false
         default: "bypass"
         type: choice
         options:
           - bypass
-          - test_store
+          - platform_sandbox
 
 # The actual Flutter/iOS project lives in frontend/, not the repo root -
 # see the header comment above. Applies to every plain `run:` step below;
@@ -166,17 +181,22 @@ jobs:
           bundler-cache: true
           working-directory: frontend/ios
 
-      # Only relevant when billing_mode=test_store - see the billing_mode
-      # comment at the top of this file. Checks presence by length only; the
-      # value itself is never printed. Sourced from a repository-level
-      # Secret (not an Environment secret/variable), mirroring
-      # android-test.yml's own equivalent guard step exactly.
-      - name: Verify the RevenueCat Test Store key is configured
-        if: ${{ inputs.billing_mode == 'test_store' }}
+      # Only relevant when billing_mode=platform_sandbox - see the
+      # billing_mode comment at the top of this file, and DO NOT put a
+      # RevenueCat "Test Store" key in TEST_REVENUECAT_API_KEY_APPLE - that
+      # kind of key cannot be exercised through TestFlight at all (see the
+      # header comment for why). This must be the normal, platform-specific
+      # PUBLIC RevenueCat API key for the isolated "ALRT Dev"
+      # app/configuration - never production's REVENUECAT_API_KEY_APPLE.
+      # Checks presence by length only; the value itself is never printed.
+      # Sourced from a repository-level Secret (not an Environment secret/
+      # variable), mirroring android-test.yml's own equivalent guard step.
+      - name: Verify the platform-sandbox RevenueCat Apple key is configured
+        if: ${{ inputs.billing_mode == 'platform_sandbox' }}
         run: |
           if [ -z "$REVENUECAT_API_KEY_APPLE" ]; then
-            echo "::error::billing_mode=test_store requires the repository Secret TEST_REVENUECAT_API_KEY_APPLE to be set (Settings > Secrets and variables > Actions > Secrets)."
-            echo "This workflow refuses to build test_store with a blank RevenueCat key - that would silently disable the paywall instead of testing it."
+            echo "::error::billing_mode=platform_sandbox requires the repository Secret TEST_REVENUECAT_API_KEY_APPLE to be set (Settings > Secrets and variables > Actions > Secrets) - the isolated ALRT Dev app's own public RevenueCat API key, NOT a RevenueCat Test Store key and NOT production's key."
+            echo "This workflow refuses to build platform_sandbox with a blank RevenueCat key - that would silently disable the paywall instead of testing it."
             exit 1
           fi
           echo "REVENUECAT_API_KEY_APPLE is set (length: ${#REVENUECAT_API_KEY_APPLE} characters). Value itself is never printed."
@@ -196,7 +216,7 @@ jobs:
       # billing_mode - see the billing_mode comment at the top of this file.
       - name: Create .env pointed at the isolated test backend
         run: |
-          if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
+          if [ "${{ inputs.billing_mode }}" = "platform_sandbox" ]; then
             REVENUECAT_APPLE_VALUE="$REVENUECAT_API_KEY_APPLE"
             TEST_UNLOCK_VALUE="false"
           else
