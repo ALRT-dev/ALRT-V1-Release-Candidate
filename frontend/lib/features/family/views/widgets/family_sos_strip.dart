@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
-import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -186,11 +185,12 @@ class _FamilySosStripState extends ConsumerState<FamilySosStrip> {
     return [if (started != null) started, tail].join(' · ');
   }
 
+  /// Always the receiver screen, sender included: it is the one screen that
+  /// shows both sides of a live SOS — the sender's map + stand-down control,
+  /// and everyone else's "seen this" response — so tapping the strip on your
+  /// own SOS must not send you back to the create screen with no way to
+  /// stand down.
   void _open(final FamilySosEvent sos, {required final bool isMine}) {
-    if (isMine) {
-      context.push(FamilySosScreen.route);
-      return;
-    }
     context.push(
       FamilySosReceiverScreen.route,
       extra: FamilySosReceiverScreenArgs(sosEvent: sos),

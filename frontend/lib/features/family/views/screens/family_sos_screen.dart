@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_lists_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/home/enums/home_tab_types.dart';
+import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/shared/services/emergency_number.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 
@@ -199,7 +201,16 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
               _whatThisDoesBuilder(emergencyNumber),
               SizedBox(height: 8.spMin),
               TextButton(
-                onPressed: () => context.pop(),
+                onPressed: () {
+                  // Wherever this SOS was started from, "Done" always lands
+                  // back on the Family tab — the sender's own SOS lives
+                  // there, not on whichever tab happened to be open before.
+                  if (_sent) {
+                    ref.read(providerOfHomeTab.notifier).state =
+                        HomeTab.family;
+                  }
+                  context.pop();
+                },
                 child: Text(
                   _sent ? 'Done' : 'Cancel',
                   style: TextStyle(

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/home/enums/home_tab_types.dart';
+import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
@@ -50,7 +52,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: FamilyColors.v31Page,
-      bottomNavigationBar: _backBarBuilder(context),
+      bottomNavigationBar: _backBarBuilder(context, ref),
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -318,7 +320,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
     );
   }
 
-  Widget _backBarBuilder(final BuildContext context) {
+  Widget _backBarBuilder(final BuildContext context, final WidgetRef ref) {
     return SafeArea(
       top: false,
       child: Padding(
@@ -334,7 +336,13 @@ class FamilySosResolvedScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(15.spMin),
               ),
             ),
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: () {
+              // "Back to Family" has to mean the Family tab, not whichever
+              // tab happened to be open when the SOS was opened from the
+              // strip — the strip shows on every tab.
+              ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+              Navigator.of(context).maybePop();
+            },
             child: Text(
               'Back to Family',
               style: TextStyle(
