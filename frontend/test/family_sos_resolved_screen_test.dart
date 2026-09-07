@@ -91,11 +91,7 @@ void main() {
       expect(find.text('Back to Family'), findsOneWidget);
       expect(container.read(providerOfHomeTab), HomeTab.map);
 
-      // Invokes the button's own onPressed directly rather than simulating
-      // a tap: this is the exact same production closure, without any
-      // dependency on the button's on-screen hit-testing geometry.
-      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-      button.onPressed!();
+      await tester.tap(find.text('Back to Family'));
       await tester.pumpAndSettle();
 
       expect(
