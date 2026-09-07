@@ -316,7 +316,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
             children: [
               Text(
                 owned.length > 1
-                    ? 'Your ${owned.length} groups'
+                    ? 'Your ${owned.length} circles'
                     : (owned.firstOrNull?.name ?? circle?.name ?? 'Your circle'),
                 style: TextStyle(
                   fontSize: 13.5.spMin,

@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/views/screens/family_sos_list_edit_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
@@ -113,7 +115,12 @@ class _FamilyCircleProfileScreenState
       // the hub silently landed at the top. This screen is small; building
       // it all makes Scrollable.ensureVisible reliable.
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(20.spMin),
+        padding: EdgeInsets.fromLTRB(
+          20.spMin,
+          20.spMin,
+          20.spMin,
+          20.spMin + MediaQuery.viewPaddingOf(context).bottom,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -432,136 +439,13 @@ class _FamilyCircleProfileScreenState
     );
   }
 
-  /// Multi-select checkbox editor (§28: the ONLY place checkboxes exist).
-  Future<void> _editSosList({final FamilySosList? existing}) async {
-    final members = ref.read(providerOfFamily).circle?.others ?? [];
-    if (members.isEmpty) {
-      context.showWarningToast(
-        message: 'Invite family members first — an SOS list needs people.',
-      );
-      return;
-    }
-
-    final nameController = TextEditingController(text: existing?.name ?? '');
-    final selected = {...?existing?.memberIds};
-    var isDefault = existing?.isDefault ?? false;
-
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.spMin)),
-      ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20.spMin,
-            20.spMin,
-            20.spMin,
-            MediaQuery.of(sheetContext).viewInsets.bottom + 20.spMin,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                existing == null ? 'New SOS list' : 'Edit ${existing.name}',
-                style: TextStyle(
-                  fontSize: 17.spMin,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 12.spMin),
-              TextField(
-                controller: nameController,
-                maxLength: 40,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  hintText: 'List name, e.g. Family only',
-                  counterText: '',
-                ),
-              ),
-              SizedBox(height: 8.spMin),
-              for (final member in members)
-                CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  activeColor: FamilyColors.indigo,
-                  value: selected.contains(member.id),
-                  onChanged: (checked) => setSheetState(() {
-                    checked == true
-                        ? selected.add(member.id)
-                        : selected.remove(member.id);
-                  }),
-                  title: Text(
-                    member.name,
-                    style: TextStyle(fontSize: 14.spMin),
-                  ),
-                ),
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeThumbColor: FamilyColors.indigo,
-                value: isDefault,
-                onChanged: (value) =>
-                    setSheetState(() => isDefault = value),
-                title: Text(
-                  'Preselect this list on the SOS screen',
-                  style: TextStyle(fontSize: 14.spMin),
-                ),
-              ),
-              SizedBox(height: 10.spMin),
-              SizedBox(
-                height: 48.spMin,
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: FamilyColors.indigo,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.spMin),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(sheetContext).pop(true),
-                  child: Text(
-                    'Save list',
-                    style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+  /// One editor for SOS lists, shared with the SOS-lists screen: the
+  /// per-circle checkbox editor (§28). This screen only opens it.
+  void _editSosList({final FamilySosList? existing}) {
+    context.push(
+      FamilySosListEditScreen.route,
+      extra: FamilySosListEditScreenArgs(list: existing),
     );
-
-    final name = nameController.text.trim();
-    if (saved != true || !mounted) return;
-    if (name.isEmpty || selected.isEmpty) {
-      context.showErrorToast(
-        message: 'Give the list a name and at least one person.',
-      );
-      return;
-    }
-
-    final ok = await ref.read(providerOfFamily.notifier).saveSosList(
-          sosListId: existing?.id,
-          name: name,
-          memberIds: selected.toList(),
-          isDefault: isDefault,
-        );
-    if (!mounted) return;
-    ok
-        ? context.showSuccessToast(message: 'SOS list saved.')
-        : context.showErrorToast(
-            message: 'Could not save the list. Please try again.',
-          );
   }
 
   /// The identity surface: the same dark indigo-to-purple gradient as the

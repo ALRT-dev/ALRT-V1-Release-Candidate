@@ -87,7 +87,12 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
         subtitle: 'Invite someone to $circleName',
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(20.spMin),
+        padding: EdgeInsets.fromLTRB(
+          20.spMin,
+          20.spMin,
+          20.spMin,
+          20.spMin + MediaQuery.viewPaddingOf(context).bottom,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

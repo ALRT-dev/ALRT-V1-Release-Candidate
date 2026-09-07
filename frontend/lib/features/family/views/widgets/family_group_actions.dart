@@ -255,7 +255,13 @@ class _FieldSheetBodyState extends State<_FieldSheetBody> {
         20.spMin,
         20.spMin,
         20.spMin,
-        MediaQuery.of(context).viewInsets.bottom + 20.spMin,
+        // Keyboard or home indicator, whichever is taller, so the Join /
+        // Create button is never under either.
+        (MediaQuery.viewInsetsOf(context).bottom >
+                    MediaQuery.viewPaddingOf(context).bottom
+                ? MediaQuery.viewInsetsOf(context).bottom
+                : MediaQuery.viewPaddingOf(context).bottom) +
+            20.spMin,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

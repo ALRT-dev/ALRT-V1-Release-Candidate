@@ -47,7 +47,7 @@ class _FamilySosListsScreenState extends ConsumerState<FamilySosListsScreen> {
   Widget build(BuildContext context) {
     final lists = ref.watch(providerOfFamily.select((s) => s.sosLists));
     final circleName = ref.watch(
-      providerOfFamily.select((s) => s.circle?.name ?? 'your group'),
+      providerOfFamily.select((s) => s.circle?.name ?? 'your circle'),
     );
     final hasDefaultList = lists.any((l) => l.isDefault);
 
@@ -124,7 +124,7 @@ class _FamilySosListsScreenState extends ConsumerState<FamilySosListsScreen> {
                   const TextSpan(
                     text:
                         'Recipients change only by explicit action, and '
-                        'anyone who leaves a group drops off every list '
+                        'anyone who leaves a circle drops off every list '
                         'automatically.',
                   ),
                 ],
@@ -170,7 +170,7 @@ class _FamilySosListsScreenState extends ConsumerState<FamilySosListsScreen> {
                     ),
                   ),
                   Text(
-                    'Your whole group at the time you send',
+                    'Your whole circle at the time you send',
                     style: TextStyle(
                       fontSize: 10.5.spMin,
                       color: FamilyColors.v31Ink,

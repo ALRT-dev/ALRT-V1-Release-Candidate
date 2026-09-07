@@ -134,7 +134,7 @@ class _JourneyShareSheetState extends ConsumerState<_JourneyShareSheet> {
       children: [
         _titleBuilder(
           'Share a journey',
-          sub: 'Journeys are shared with a family group. Set one up first, '
+          sub: 'Journeys are shared with a Family circle. Set one up first, '
               'then you can share from here.',
         ),
         SizedBox(height: 16.spMin),
@@ -178,7 +178,7 @@ class _JourneyShareSheetState extends ConsumerState<_JourneyShareSheet> {
       SizedBox(height: 18.spMin),
       // Only worth asking which group when there is more than one.
       if (circles.length > 1) ...[
-        _labelBuilder('Group'),
+        _labelBuilder('Circle'),
         Wrap(
           spacing: 8.spMin,
           runSpacing: 8.spMin,
@@ -263,7 +263,7 @@ class _JourneyShareSheetState extends ConsumerState<_JourneyShareSheet> {
             ),
             Text(
               snapPointsOnly
-                  ? 'This group is set to snap points only.'
+                  ? 'This circle is set to snap points only.'
                   : _isLive
                       ? 'Your position updates as you move, until the '
                             'journey stops.'

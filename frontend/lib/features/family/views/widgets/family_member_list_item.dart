@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
+import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
 /// A member row for the family hub: avatar, name, location/check-in context
 /// and a Safe / Near alert chip.
@@ -15,7 +15,7 @@ class FamilyMemberListItem extends StatelessWidget {
     required this.member,
     required this.isMe,
     this.isNearAlert = false,
-    this.onLongPress,
+    this.onTap,
     this.onRequestLocation,
     this.hasAnswered,
     this.askedAt,
@@ -25,7 +25,10 @@ class FamilyMemberListItem extends StatelessWidget {
   final FamilyMember member;
   final bool isMe;
   final bool isNearAlert;
-  final VoidCallback? onLongPress;
+
+  /// Opens the member's details (status, and every action the tapper may
+  /// take on them). Visible actions, never long-press-only.
+  final VoidCallback? onTap;
 
   /// Whether this member has checked in on the current roll (see
   /// CheckInRoll). Null keeps the old 24-hour reading.
@@ -45,7 +48,8 @@ class FamilyMemberListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onLongPress: onLongPress,
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
         child: Row(
@@ -167,39 +171,12 @@ class FamilyMemberListItem extends StatelessWidget {
     return LucideIcons.clock;
   }
 
-  String get _subtitleText {
-    // An unanswered ask is the most important thing to say about a row.
-    final asked = askedAt;
-    if (asked != null && hasAnswered == false) {
-      final last = member.lastCheckInAt;
-      final lastLabel = last == null
-          ? 'no check-in yet'
-          : 'last check-in ${timeago.format(last)}';
-      return 'Asked ${timeago.format(asked)} · $lastLabel';
-    }
-    final label = member.locationLabel;
-    final sharedAt = member.locationUpdatedAt;
-    final expiresAt = member.locationExpiresAt;
-    if (label != null && label.isNotEmpty) {
-      // Snapshots are explicit shares — say when it was shared, and when it
-      // expires, both honestly.
-      final expiryLabel = expiresAt != null && expiresAt.isAfter(DateTime.now())
-          ? ' · expires ${timeago.format(expiresAt, allowFromNow: true)}'
-          : '';
-      return sharedAt != null
-          ? '$label · shared ${timeago.format(sharedAt)}$expiryLabel'
-          : '$label$expiryLabel';
-    }
-    if (member.sharingLevel == FamilySharingLevel.off ||
-        member.sharingLevel == FamilySharingLevel.alertsOnly) {
-      return 'Location hidden';
-    }
-    final lastCheckIn = member.lastCheckInAt;
-    if (lastCheckIn != null) {
-      return 'Checked in ${timeago.format(lastCheckIn)}';
-    }
-    return 'No snapshot yet';
-  }
+  String get _subtitleText => memberStatusLine(
+        member: member,
+        hasAnswered: hasAnswered,
+        askedAt: askedAt,
+        now: DateTime.now(),
+      );
 
   /// Marks a guest so the circle can see at a glance who is along for the
   /// alerts only. Outlined, never a filled chip: it is not a status.
@@ -226,23 +203,14 @@ class FamilyMemberListItem extends StatelessWidget {
   }
 
   Widget _statusChipBuilder() {
-    final String text;
-    final Color background;
-    final Color foreground;
-
-    if (isNearAlert) {
-      text = 'Near';
-      background = FamilyColors.amberLight;
-      foreground = FamilyColors.amber;
-    } else if (hasAnswered ?? member.isCheckedInRecently) {
-      text = 'Safe';
-      background = FamilyColors.safeGreenLight;
-      foreground = FamilyColors.safeGreen;
-    } else {
-      text = 'Not yet';
-      background = FamilyColors.amberLight;
-      foreground = FamilyColors.amber;
-    }
+    final text = memberStatusChip(
+      member: member,
+      hasAnswered: hasAnswered,
+      isNearAlert: isNearAlert,
+    );
+    final safe = text == 'Safe';
+    final background = safe ? FamilyColors.safeGreenLight : FamilyColors.amberLight;
+    final foreground = safe ? FamilyColors.safeGreen : FamilyColors.amber;
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 6.spMin),

@@ -4,8 +4,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 
-/// Rounded-square member avatar with initials (or profile photo) in a
-/// stable per-member color, plus an optional status dot.
+/// Circular member avatar with initials (or profile photo) in a stable
+/// per-member color, plus an optional status dot. Circular everywhere —
+/// rows, chips, the details sheet — so people never read as places.
 class FamilyMemberAvatar extends StatelessWidget {
   const FamilyMemberAvatar({
     super.key,
@@ -41,7 +42,7 @@ class FamilyMemberAvatar extends StatelessWidget {
       height: size.spMin,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(size * 0.3),
+        shape: BoxShape.circle,
         // The chosen colour stays visible as a ring around the photo.
         border: photoUrl != null && photoUrl.isNotEmpty
             ? Border.all(color: color, width: 2)

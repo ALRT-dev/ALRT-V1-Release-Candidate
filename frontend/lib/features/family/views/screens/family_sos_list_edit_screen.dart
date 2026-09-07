@@ -110,8 +110,8 @@ class _FamilySosListEditScreenState
                 border: Border.all(color: _noteBorder),
               ),
               child: Text(
-                'Each group is separate — a person picked in two groups is '
-                'counted once. If someone leaves a group, they drop off '
+                'Each circle is separate — a person picked in two circles is '
+                'counted once. If someone leaves a circle, they drop off '
                 'this list automatically.',
                 style: TextStyle(
                   fontSize: 12.spMin,
@@ -168,7 +168,7 @@ class _FamilySosListEditScreenState
                       ),
                     ),
                     Text(
-                      'Pick exactly who, in which group, this SOS reaches',
+                      'Pick exactly who, in which circle, this SOS reaches',
                       style: TextStyle(
                         fontSize: 11.5.spMin,
                         color: Colors.white.withValues(alpha: 0.8),
@@ -285,7 +285,7 @@ class _FamilySosListEditScreenState
           borderRadius: BorderRadius.circular(16.spMin),
         ),
         child: Text(
-          "You're the only member of this group.",
+          "You're the only member of this circle.",
           style: TextStyle(fontSize: 12.spMin, color: FamilyColors.v31Ink),
         ),
       );
@@ -394,7 +394,7 @@ class _FamilySosListEditScreenState
       child: Column(
         children: [
           Text(
-            "Couldn't load your groups.",
+            "Couldn't load your circles.",
             style: TextStyle(fontSize: 13.spMin, color: FamilyColors.v31Ink),
           ),
           SizedBox(height: 10.spMin),

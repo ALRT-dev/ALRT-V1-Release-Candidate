@@ -107,13 +107,12 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
               : 'Ask ${namesLabel(chosen.map((m) => m.name).toList())}')
         : 'Ask everyone in ${circle.name}';
 
+    final media = MediaQuery.of(context);
+    final bottom = media.viewInsets.bottom > media.viewPadding.bottom
+        ? media.viewInsets.bottom
+        : media.viewPadding.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20.spMin,
-        16.spMin,
-        20.spMin,
-        MediaQuery.of(context).viewInsets.bottom + 20.spMin,
-      ),
+      padding: EdgeInsets.fromLTRB(20.spMin, 16.spMin, 20.spMin, bottom + 20.spMin),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -220,7 +219,7 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
             if (others.isEmpty) ...[
               SizedBox(height: 8.spMin),
               Text(
-                'There is nobody else in this group yet.',
+                'There is nobody else in this circle yet.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
               ),

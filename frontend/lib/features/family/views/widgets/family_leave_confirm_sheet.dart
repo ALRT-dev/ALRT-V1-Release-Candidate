@@ -98,11 +98,11 @@ class _FamilyLeaveConfirmSheet extends StatelessWidget {
               isKept: true,
               lead: 'You ',
               strong: 'keep your own alerts, map and emergency guidance',
-              tail: ', and your other groups.',
+              tail: ', and your other circles.',
             ),
             _lineBuilder(
               isNeutral: true,
-              lead: 'The group sees your name disappear from the list. ',
+              lead: 'The circle sees your name disappear from the list. ',
               strong: 'No announcement is sent.',
               tail: '',
             ),

@@ -3,15 +3,24 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/views/screens/family_circle_profile_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_source_types.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 
-/// Circle settings: the beacon colour, and how this circle sees you.
+/// Circle settings: the ONE place a circle's name, rules, picture and
+/// beacon colour are edited. The hub's overflow menu and its shortcuts all
+/// land here; nothing else edits these fields.
+///
+/// The host edits; everyone else sees the same screen read-only, so a
+/// member learns where the settings live rather than finding a menu item
+/// that fails. "How this circle sees you" is a per-member thing and lives
+/// on the circle profile screen, linked at the bottom.
 ///
 /// The header previews the beacon colour live, so the choice is visible in
 /// the place it will actually be felt rather than only as a swatch.
@@ -31,8 +40,6 @@ class _FamilyGroupSettingsScreenState
   static const _label = Color(0xFFB84500);
   static const _perGroupLabel = Color(0xFF8E24AA);
   static const _muted = Color(0xFF8A8792);
-  static const _perGroupPillBackground = Color(0xFFE4F7EE);
-  static const _perGroupPillInk = Color(0xFF0A8A58);
 
   /// The ten beacons a group can wear. Colours another group already uses
   /// are labelled rather than hidden, so every group stays distinct.
@@ -50,15 +57,45 @@ class _FamilyGroupSettingsScreenState
   ];
 
   Color? _picked;
-  bool _usePhoto = false;
   bool _isSaving = false;
+
+  // Name and rules are held here until SAVE, like the beacon colour, so one
+  // tap saves everything and Back discards everything.
+  late final TextEditingController _nameController;
+  bool? _anyoneCanRequest;
+  bool? _sosWholeCircle;
+  bool? _snapPointsOnly;
+  String? _seededForCircleId;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _seedFrom(final FamilyCircle circle) {
+    if (_seededForCircleId == circle.id) return;
+    _seededForCircleId = circle.id;
+    _nameController.text = circle.name;
+    _anyoneCanRequest = circle.anyoneCanRequestSnapshot;
+    _sosWholeCircle = circle.sosToWholeGroup;
+    _snapPointsOnly = circle.journeysSnapPointsOnly;
+  }
 
   @override
   Widget build(BuildContext context) {
     final circle = ref.watch(providerOfFamily.select((s) => s.circle));
     final circles = ref.watch(providerOfFamily.select((s) => s.circles));
     if (circle == null) return const SizedBox.shrink();
+    _seedFrom(circle);
 
+    final isOwner = circle.me?.role == FamilyRole.owner;
     final selected = _picked ?? _colorOf(circle.themeColor) ?? _swatches.first;
 
     // Which colours the user's other groups already wear, so they can be
@@ -72,22 +109,151 @@ class _FamilyGroupSettingsScreenState
           other.name.split(RegExp(r'\s+')).first.toUpperCase();
     }
 
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomSafe = MediaQuery.viewPaddingOf(context).bottom;
     return Scaffold(
       backgroundColor: _page,
       body: ListView(
-        padding: EdgeInsets.zero,
+        padding: EdgeInsets.only(
+          bottom: 24.spMin + (bottomInset > bottomSafe ? bottomInset : bottomSafe),
+        ),
         children: [
-          _headerBuilder(circle, selected),
+          _headerBuilder(circle, selected, isOwner: isOwner),
+          _nameAndRulesCardBuilder(circle, isOwner: isOwner),
           _groupPictureCardBuilder(circle, selected),
-          _beaconCardBuilder(selected, takenLabels),
-          _seesYouCardBuilder(circle),
-          SizedBox(height: 24.spMin),
+          _beaconCardBuilder(selected, takenLabels, isOwner: isOwner),
+          _myProfileLinkBuilder(circle),
         ],
       ),
     );
   }
 
-  Widget _headerBuilder(final FamilyCircle circle, final Color beacon) {
+  /// Name and the three locked rules. Editable by the host only; members
+  /// see the values so the rules are never a mystery.
+  Widget _nameAndRulesCardBuilder(
+    final FamilyCircle circle, {
+    required final bool isOwner,
+  }) {
+    return _cardBuilder(
+      topMargin: 13,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'NAME & RULES',
+            style: TextStyle(
+              fontSize: 10.spMin,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              color: _label,
+            ),
+          ),
+          SizedBox(height: 8.spMin),
+          if (isOwner)
+            TextField(
+              controller: _nameController,
+              maxLength: 50,
+              textCapitalization: TextCapitalization.words,
+              enabled: !_isSaving,
+              decoration: const InputDecoration(
+                labelText: 'Circle name',
+                counterText: '',
+              ),
+            )
+          else
+            Text(
+              circle.name,
+              style: TextStyle(
+                fontSize: 16.spMin,
+                fontWeight: FontWeight.w800,
+                color: FamilyColors.v31Ink,
+              ),
+            ),
+          SizedBox(height: 6.spMin),
+          _ruleBuilder(
+            title: 'Anyone can ask for a snapshot',
+            subtitle: 'Off: only the host can send location requests',
+            value: _anyoneCanRequest ?? circle.anyoneCanRequestSnapshot,
+            isOwner: isOwner,
+            onChanged: (value) => setState(() => _anyoneCanRequest = value),
+          ),
+          _ruleBuilder(
+            title: 'SOS goes to the whole circle',
+            subtitle: 'Off: members are nudged to pick an SOS list',
+            value: _sosWholeCircle ?? circle.sosToWholeGroup,
+            isOwner: isOwner,
+            onChanged: (value) => setState(() => _sosWholeCircle = value),
+          ),
+          _ruleBuilder(
+            title: 'Journeys are snap points only',
+            subtitle: 'Never a live trail — departure, ~10 min points, arrival',
+            value: _snapPointsOnly ?? circle.journeysSnapPointsOnly,
+            isOwner: isOwner,
+            onChanged: (value) => setState(() => _snapPointsOnly = value),
+          ),
+          if (!isOwner) ...[
+            SizedBox(height: 6.spMin),
+            Text(
+              'Only the host can change these.',
+              style: TextStyle(fontSize: 11.spMin, color: _muted),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _ruleBuilder({
+    required final String title,
+    required final String subtitle,
+    required final bool value,
+    required final bool isOwner,
+    required final ValueChanged<bool> onChanged,
+  }) {
+    return SwitchListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      activeThumbColor: FamilyColors.indigo,
+      value: value,
+      onChanged: isOwner && !_isSaving ? onChanged : null,
+      title: Text(
+        title,
+        style: TextStyle(fontSize: 14.spMin, color: FamilyColors.v31Ink),
+      ),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 11.5.spMin)),
+    );
+  }
+
+  /// Per-member identity is not a circle setting; point at where it lives
+  /// instead of duplicating (or, as before, faking) an editor here.
+  Widget _myProfileLinkBuilder(final FamilyCircle circle) {
+    return _cardBuilder(
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        onTap: () => context.push(
+          FamilyCircleProfileScreen.route,
+          extra: const FamilyCircleProfileArgs(),
+        ),
+        leading: Icon(Icons.person_outline, color: _perGroupLabel),
+        title: Text(
+          'How this circle sees you',
+          style: TextStyle(fontSize: 14.5.spMin, fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          'Your name, picture and colour in ${circle.name} — per circle, '
+          'never shared with location data.',
+          style: TextStyle(fontSize: 11.5.spMin, color: _muted),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
+  }
+
+  Widget _headerBuilder(
+    final FamilyCircle circle,
+    final Color beacon, {
+    required final bool isOwner,
+  }) {
     return Container(
       width: double.infinity,
       // The header IS the preview: it wears the colour being chosen.
@@ -144,6 +310,7 @@ class _FamilyGroupSettingsScreenState
                     ],
                   ),
                 ),
+                if (isOwner)
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: _isSaving ? null : _handleSave,
@@ -171,7 +338,9 @@ class _FamilyGroupSettingsScreenState
             ),
             SizedBox(height: 6.spMin),
             Text(
-              '${circle.name} · live preview above',
+              isOwner
+                  ? '${circle.name} · live preview above'
+                  : '${circle.name} · set by the host',
               style: TextStyle(
                 fontSize: 12.spMin,
                 color: Colors.white.withValues(alpha: 0.85),
@@ -223,9 +392,9 @@ class _FamilyGroupSettingsScreenState
                 child: Text(
                   isOwner
                       ? 'Shown wherever ${circle.name} is listed, including '
-                            'the home-screen widget. Without one the group '
+                            'the home-screen widget. Without one the circle '
                             'wears its initial on the beacon colour.'
-                      : 'Set by the person who owns ${circle.name}.',
+                      : 'Set by the host of ${circle.name}.',
                   style: TextStyle(
                     fontSize: 11.5.spMin,
                     height: 1.5,
@@ -296,8 +465,9 @@ class _FamilyGroupSettingsScreenState
 
   Widget _beaconCardBuilder(
     final Color selected,
-    final Map<int, String> takenLabels,
-  ) {
+    final Map<int, String> takenLabels, {
+    required final bool isOwner,
+  }) {
     return _cardBuilder(
       topMargin: 13,
       child: Column(
@@ -314,7 +484,7 @@ class _FamilyGroupSettingsScreenState
           ),
           SizedBox(height: 6.spMin),
           Text(
-            'This colour marks the group everywhere: member dots, snapshot '
+            'This colour marks the circle everywhere: member dots, snapshot '
             'pins, journey points and the widget.',
             style: TextStyle(
               fontSize: 12.spMin,
@@ -335,13 +505,16 @@ class _FamilyGroupSettingsScreenState
                   swatch: swatch,
                   isSelected: swatch.toARGB32() == selected.toARGB32(),
                   takenBy: takenLabels[swatch.toARGB32()],
+                  enabled: isOwner,
                 ),
             ],
           ),
           SizedBox(height: 13.spMin),
           Text(
-            'Colours used by your other groups are labelled so every group '
-            'stays distinct.',
+            isOwner
+                ? 'Colours used by your other circles are labelled so every '
+                      'circle stays distinct.'
+                : 'Only the host can change the beacon colour.',
             style: TextStyle(
               fontSize: 11.spMin,
               height: 1.6,
@@ -357,9 +530,10 @@ class _FamilyGroupSettingsScreenState
     required final Color swatch,
     required final bool isSelected,
     final String? takenBy,
+    required final bool enabled,
   }) {
     return GestureDetector(
-      onTap: () => setState(() => _picked = swatch),
+      onTap: enabled ? () => setState(() => _picked = swatch) : null,
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -393,120 +567,6 @@ class _FamilyGroupSettingsScreenState
                   color: Colors.white,
                 ),
               ),
-      ),
-    );
-  }
-
-  Widget _seesYouCardBuilder(final FamilyCircle circle) {
-    final me = circle.me;
-    return _cardBuilder(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Expanded(
-                child: Text(
-                  'HOW THIS CIRCLE SEES YOU',
-                  style: TextStyle(
-                    fontSize: 10.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                    color: _perGroupLabel,
-                  ),
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 9.spMin,
-                  vertical: 3.spMin,
-                ),
-                decoration: BoxDecoration(
-                  color: _perGroupPillBackground,
-                  borderRadius: BorderRadius.circular(11.spMin),
-                ),
-                child: Text(
-                  'Per circle',
-                  style: TextStyle(
-                    fontSize: 9.5.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: _perGroupPillInk,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 11.spMin),
-          Row(
-            children: [
-              Container(
-                width: 42.spMin,
-                height: 42.spMin,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: FamilyColors.memberColor(me?.id ?? circle.id),
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  _initialsOf(me?.name ?? 'You'),
-                  style: TextStyle(
-                    fontSize: 13.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              SizedBox(width: 12.spMin),
-              Expanded(
-                child: Text(
-                  'This photo is only visible inside ${circle.name} — no '
-                  'location history, snapshots or SOS data ever attach to it.',
-                  style: TextStyle(
-                    fontSize: 11.spMin,
-                    height: 1.4,
-                    color: FamilyColors.v31Ink,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12.spMin),
-          Row(
-            children: [
-              Expanded(child: _avatarModeBuilder('Initials', !_usePhoto)),
-              SizedBox(width: 8.spMin),
-              Expanded(child: _avatarModeBuilder('Photo', _usePhoto)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _avatarModeBuilder(final String label, final bool isSelected) {
-    return GestureDetector(
-      onTap: () => setState(() => _usePhoto = label == 'Photo'),
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 9.spMin),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFF4EC) : Colors.white,
-          borderRadius: BorderRadius.circular(11.spMin),
-          border: Border.all(
-            color: isSelected ? _label : FamilyColors.v31Border,
-            width: 1.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.spMin,
-            fontWeight: FontWeight.w800,
-            color: isSelected ? _label : FamilyColors.v31Ink,
-          ),
-        ),
       ),
     );
   }
@@ -575,16 +635,38 @@ class _FamilyGroupSettingsScreenState
   }
 
   Future<void> _handleSave() async {
+    final circle = ref.read(providerOfFamily).circle;
+    if (circle == null) return;
+
     final picked = _picked;
-    if (picked == null) {
+    final newName = _nameController.text.trim();
+    final name = newName.isEmpty || newName == circle.name ? null : newName;
+    final themeColor = picked == null ? null : _hexOf(picked);
+    final anyone = _anyoneCanRequest == circle.anyoneCanRequestSnapshot
+        ? null
+        : _anyoneCanRequest;
+    final sosWhole =
+        _sosWholeCircle == circle.sosToWholeGroup ? null : _sosWholeCircle;
+    final snap =
+        _snapPointsOnly == circle.journeysSnapPointsOnly ? null : _snapPointsOnly;
+
+    if (name == null &&
+        themeColor == null &&
+        anyone == null &&
+        sosWhole == null &&
+        snap == null) {
       Navigator.of(context).maybePop();
       return;
     }
 
     setState(() => _isSaving = true);
-    final ok = await ref
-        .read(providerOfFamily.notifier)
-        .updateGroupSettings(themeColor: _hexOf(picked));
+    final ok = await ref.read(providerOfFamily.notifier).updateGroupSettings(
+          name: name,
+          themeColor: themeColor,
+          anyoneCanRequestSnapshot: anyone,
+          sosToWholeGroup: sosWhole,
+          journeysSnapPointsOnly: snap,
+        );
     if (!mounted) return;
     setState(() => _isSaving = false);
 
@@ -607,11 +689,4 @@ class _FamilyGroupSettingsScreenState
   static String _hexOf(final Color color) =>
       '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
-  static String _initialsOf(final String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
-        .toUpperCase();
-  }
 }

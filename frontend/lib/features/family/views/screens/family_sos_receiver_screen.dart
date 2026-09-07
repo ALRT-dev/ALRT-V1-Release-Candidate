@@ -196,7 +196,12 @@ class _FamilySosReceiverScreenState
           _headerBuilder(context, sos, name, isResolved),
           Expanded(
             child: ListView(
-              padding: EdgeInsets.all(20.spMin),
+              padding: EdgeInsets.fromLTRB(
+                20.spMin,
+                20.spMin,
+                20.spMin,
+                20.spMin + MediaQuery.viewPaddingOf(context).bottom,
+              ),
               children: [
                 if (position != null)
                   _mapBuilder(position, isLive: !isResolved && sos.isLive),

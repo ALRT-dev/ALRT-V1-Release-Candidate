@@ -180,7 +180,12 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
     required final bool snapPointsOnly,
   }) {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 28.spMin),
+      padding: EdgeInsets.fromLTRB(
+        16.spMin,
+        16.spMin,
+        16.spMin,
+        28.spMin + MediaQuery.viewPaddingOf(context).bottom,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -427,7 +432,12 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 28.spMin),
+      padding: EdgeInsets.fromLTRB(
+        16.spMin,
+        16.spMin,
+        16.spMin,
+        28.spMin + MediaQuery.viewPaddingOf(context).bottom,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

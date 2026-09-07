@@ -195,7 +195,7 @@ class _FamilyOnboardingScreenState
                               ),
                             )
                           : Text(
-                              'Create a group',
+                              'Create a circle',
                               style: TextStyle(
                                 fontSize: 15.spMin,
                                 fontWeight: FontWeight.w800,

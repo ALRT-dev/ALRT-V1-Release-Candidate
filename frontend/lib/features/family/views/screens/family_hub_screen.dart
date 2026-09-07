@@ -6,6 +6,7 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/check_in_roll.dart';
 import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
+import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
 import 'package:hazard_app/features/family/utils/group_state.dart';
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
@@ -25,9 +26,11 @@ import 'package:hazard_app/features/family/views/screens/shared_journey_screen.d
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_group_actions.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/family/views/widgets/family_leave_confirm_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_member_details_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_list_item.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
@@ -148,7 +151,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
 
     return SliverToBoxAdapter(
       child: Container(
-        color: Colors.white,
+        color: context.surfaceCard,
         padding: EdgeInsets.fromLTRB(0, 12.spMin, 0, 12.spMin),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,7 +273,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     style: TextStyle(
                       fontSize: 13.spMin,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.black,
+                      color: context.onSurface,
                     ),
                   ),
                 ),
@@ -687,8 +690,106 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   ],
                 ),
               ),
+              SizedBox(height: 12.spMin),
+              _entryPointsBuilder(circle),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// The ways in and across, where a new host or joiner looks first:
+  /// the host gets "Add a person" (invites spend the HOST's seats, so nobody
+  /// else may invite) and "Join with a code"; everyone else gets "Join with
+  /// a code" and "Switch circle". Under it, one honest line about seats:
+  /// hosts see their seats across every circle they host, joiners see who
+  /// hosts this one. Billing rules are unchanged — this only shows them.
+  Widget _entryPointsBuilder(final FamilyCircle circle) {
+    final isOwner = circle.me?.role == FamilyRole.owner;
+    final circles = ref.watch(providerOfFamily.select((s) => s.circles));
+    final host = circle.members
+        .where((m) => m.role == FamilyRole.owner)
+        .map((m) => m.name)
+        .firstOrNull;
+    final line = isOwner
+        ? hostedSeatLine(seatsUsed: seatsUsedAcrossHostedCircles(circles))
+        : hostedByLine(host);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          spacing: 8.spMin,
+          children: [
+            if (isOwner)
+              Expanded(
+                child: _entryPointButtonBuilder(
+                  icon: LucideIcons.userPlus,
+                  label: 'Add a person',
+                  filled: true,
+                  onTap: () => context.push(FamilyInviteScreen.route),
+                ),
+              ),
+            Expanded(
+              child: _entryPointButtonBuilder(
+                icon: LucideIcons.ticket,
+                label: 'Join with a code',
+                filled: !isOwner,
+                onTap: () => showJoinGroupSheet(context, ref),
+              ),
+            ),
+            if (!isOwner)
+              Expanded(
+                child: _entryPointButtonBuilder(
+                  icon: LucideIcons.arrowLeftRight,
+                  label: 'Switch circle',
+                  filled: false,
+                  onTap: () => context.push(FamilySwitchGroupScreen.route),
+                ),
+              ),
+          ],
+        ),
+        SizedBox(height: 8.spMin),
+        Text(
+          line,
+          style: TextStyle(
+            fontSize: 12.spMin,
+            color: Colors.white.withValues(alpha: 0.85),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _entryPointButtonBuilder({
+    required final IconData icon,
+    required final String label,
+    required final bool filled,
+    required final VoidCallback onTap,
+  }) {
+    return SizedBox(
+      height: 42.spMin,
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+          foregroundColor: filled ? FamilyColors.indigo : Colors.white,
+          backgroundColor:
+              filled ? Colors.white : Colors.white.withValues(alpha: 0.14),
+          side: filled
+              ? null
+              : BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+          padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.spMin),
+          ),
+        ),
+        onPressed: onTap,
+        icon: Icon(icon, size: 16.spMin),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 12.5.spMin, fontWeight: FontWeight.w800),
         ),
       ),
     );
@@ -761,6 +862,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   Widget _addMemberCardBuilder(final FamilyCircle circle) {
     if (circle.me?.role != FamilyRole.owner) return const SizedBox.shrink();
     final alone = circle.members.length <= 1;
+    // Once there is someone else, "Add a person" lives in the header; a
+    // second card saying the same thing was a duplicate control.
+    if (!alone) return const SizedBox.shrink();
     return Padding(
       padding: EdgeInsets.only(bottom: 16.spMin),
       child: GestureDetector(
@@ -920,7 +1024,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     final isOwner = circle.me?.role == FamilyRole.owner;
     return PopupMenuButton<String>(
       icon: Icon(LucideIcons.ellipsisVertical, color: Colors.white, size: 22.spMin),
-      color: Colors.white,
+      color: context.surfaceCard,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14.spMin),
       ),
@@ -928,15 +1032,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         switch (value) {
           case 'places':
             context.push(FamilyPlacesScreen.route);
-          case 'invite':
-            context.push(FamilyInviteScreen.route);
           case 'sharing':
             context.push(FamilySharingLevelScreen.route);
           case 'profile':
             context.push(FamilyCircleProfileScreen.route);
-          case 'groupSettings':
-            _showGroupSettingsSheet(circle);
-          case 'beacon':
+          case 'circleSettings':
             context.push(FamilyGroupSettingsScreen.route);
           case 'switchGroups':
             context.push(FamilySwitchGroupScreen.route);
@@ -960,23 +1060,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           child: Text('Who your SOS reaches'),
         ),
         const PopupMenuItem(value: 'places', child: Text('Places')),
-        // Owner-only: joiners consume the OWNER's paid seats, so nobody
-        // may invite people into another payer's group (product owner
-        // 2026-08-07). The server enforces the same rule.
-        if (isOwner)
-          const PopupMenuItem(value: 'invite', child: Text('Add member')),
         const PopupMenuItem(value: 'sharing', child: Text('My sharing level')),
         const PopupMenuItem(value: 'profile', child: Text('My circle profile')),
-        if (isOwner)
-          const PopupMenuItem(
-            value: 'groupSettings',
-            child: Text('Circle name & rules'),
-          ),
-        if (isOwner)
-          const PopupMenuItem(
-            value: 'beacon',
-            child: Text('Beacon colour'),
-          ),
+        // One destination for name, rules, picture and beacon colour.
+        // Members can open it too: they see the circle's settings without
+        // the controls, instead of a menu that hides where they live.
+        const PopupMenuItem(
+          value: 'circleSettings',
+          child: Text('Circle settings'),
+        ),
         if (isOwner)
           const PopupMenuItem(
             value: 'transferHosting',
@@ -1000,144 +1092,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         ),
       ],
     );
-  }
-
-  /// Owner-only sheet: group name + the locked rule toggles.
-  Future<void> _showGroupSettingsSheet(final FamilyCircle circle) async {
-    final nameController = TextEditingController(text: circle.name);
-    var anyoneCanRequest = circle.anyoneCanRequestSnapshot;
-    var sosWholeGroup = circle.sosToWholeGroup;
-    var snapPointsOnly = circle.journeysSnapPointsOnly;
-
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.spMin)),
-      ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20.spMin,
-            20.spMin,
-            20.spMin,
-            MediaQuery.of(sheetContext).viewInsets.bottom + 20.spMin,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Circle settings',
-                style: TextStyle(
-                  fontSize: 17.spMin,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 12.spMin),
-              TextField(
-                controller: nameController,
-                maxLength: 50,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Circle name',
-                  counterText: '',
-                ),
-              ),
-              SizedBox(height: 6.spMin),
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeThumbColor: FamilyColors.indigo,
-                value: anyoneCanRequest,
-                onChanged: (value) =>
-                    setSheetState(() => anyoneCanRequest = value),
-                title: Text(
-                  'Anyone can ask for a snapshot',
-                  style: TextStyle(fontSize: 14.spMin),
-                ),
-                subtitle: Text(
-                  'Off: only you can send location requests',
-                  style: TextStyle(fontSize: 11.5.spMin),
-                ),
-              ),
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeThumbColor: FamilyColors.indigo,
-                value: sosWholeGroup,
-                onChanged: (value) =>
-                    setSheetState(() => sosWholeGroup = value),
-                title: Text(
-                  'SOS goes to the whole circle',
-                  style: TextStyle(fontSize: 14.spMin),
-                ),
-                subtitle: Text(
-                  'Off: members are nudged to pick an SOS list',
-                  style: TextStyle(fontSize: 11.5.spMin),
-                ),
-              ),
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeThumbColor: FamilyColors.indigo,
-                value: snapPointsOnly,
-                onChanged: (value) =>
-                    setSheetState(() => snapPointsOnly = value),
-                title: Text(
-                  'Journeys are snap points only',
-                  style: TextStyle(fontSize: 14.spMin),
-                ),
-                subtitle: Text(
-                  'Never a live trail — departure, ~10 min points, arrival',
-                  style: TextStyle(fontSize: 11.5.spMin),
-                ),
-              ),
-              SizedBox(height: 10.spMin),
-              SizedBox(
-                height: 48.spMin,
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: FamilyColors.indigo,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.spMin),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(sheetContext).pop(true),
-                  child: Text(
-                    'Save settings',
-                    style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    final newName = nameController.text.trim();
-    if (saved != true || !mounted) return;
-
-    final ok = await ref.read(providerOfFamily.notifier).updateGroupSettings(
-          name: newName.isEmpty || newName == circle.name ? null : newName,
-          anyoneCanRequestSnapshot: anyoneCanRequest,
-          sosToWholeGroup: sosWholeGroup,
-          journeysSnapPointsOnly: snapPointsOnly,
-        );
-    if (!mounted) return;
-    ok
-        ? context.showSuccessToast(message: 'Circle settings saved.')
-        : context.showErrorToast(
-            message: 'Could not save settings. Please try again.',
-          );
   }
 
   /// Owner-only sheet (§29 TRANSFER): hand the circle to an eligible member.
@@ -1693,54 +1647,28 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   ),
                 ),
               ] else ...[
-                SizedBox(height: 12.spMin),
-                // Same bright gradient and dark ink as the main I'm Safe
-                // button, so the answer to an ask reads as the same action.
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        FamilyColors.safeBright,
-                        FamilyColors.safeBrightDeep,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(14.spMin),
-                  ),
-                  child: SizedBox(
-                    height: 46.spMin,
-                    width: double.infinity,
-                    child: TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: FamilyColors.safeInk,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14.spMin),
-                        ),
-                      ),
-                      onPressed: checkInState.isLoading
-                          ? null
-                          : () => _checkInWithConsent(
-                                context,
-                                ref,
-                                requesterName: who,
-                              ),
-                      icon: Icon(Icons.check, size: 20.spMin),
-                      label: Text(
-                        "I'm Safe · lets $who know",
-                        style: TextStyle(
-                          fontSize: 15.spMin,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                // The answer is the one "I'm Safe" button directly below
+                // this card (its label names $who while the ask is open),
+                // so the card never carries a second copy of it.
+                SizedBox(height: 8.spMin),
+                Padding(
+                  padding: EdgeInsets.only(left: 28.spMin),
+                  child: Text(
+                    "Tap I'm Safe below to answer.",
+                    style: TextStyle(
+                      fontSize: 12.5.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
                     ),
                   ),
                 ),
-                if (!targeted) ...[
-                  SizedBox(height: 4.spMin),
+                if (!targeted)
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 28.spMin),
+                      ),
                       onPressed: () =>
                           context.push(FamilyCheckInRollCallScreen.route),
                       child: Text(
@@ -1753,12 +1681,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                       ),
                     ),
                   ),
-                ],
               ],
             ],
           ),
         ),
-        SizedBox(height: 16.spMin),
+        SizedBox(height: 12.spMin),
       ],
     );
   }
@@ -1934,7 +1861,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 )
               : Icon(Icons.check_rounded, size: 20.spMin),
           label: Text(
-            "I'm Safe",
+            imSafeLabel(
+              requesterName: _requesterNameStillOwedAnAnswer(circle),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w800),
           ),
         ),
@@ -1958,11 +1889,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         );
         final isSharing = journey != null && journey.isActive;
 
-        return Row(
-          spacing: 8.spMin,
-          children: [
-            Expanded(
-              child: _quickTileBuilder(
+        final tiles = <Widget>[
+              _quickTileBuilder(
                 icon: LucideIcons.bellRing,
                 label: 'Check-in',
                 tint: const Color(0xFFE8F4FF),
@@ -1973,9 +1901,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 // tracker card above shows the answers as they land.
                 onTap: () => showFamilyAskCheckInSheet(context, ref),
               ),
-            ),
-            Expanded(
-              child: _quickTileBuilder(
+              _quickTileBuilder(
                 icon: LucideIcons.navigation,
                 label: isSharing
                     ? '${journey.remaining.inMinutes} min'
@@ -1985,9 +1911,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 isLit: isSharing,
                 onTap: () => context.push(FamilyJourneyScreen.route),
               ),
-            ),
-            Expanded(
-              child: _quickTileBuilder(
+              _quickTileBuilder(
                 icon: LucideIcons.clock,
                 label: scheduledCount == 0 ? 'Daily' : '$scheduledCount daily',
                 tint: const Color(0xFFFFF3E8),
@@ -2001,8 +1925,38 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   ),
                 ),
               ),
+              _sosTileBuilder(),
+            ];
+
+        // Four across up to a modest text scale; two rows of two past it,
+        // so "Check-in" and "Journey" never clip at the large text sizes
+        // the app allows.
+        final stacked = useStackedQuickTiles(
+          MediaQuery.textScalerOf(context).scale(1.0),
+        );
+        if (!stacked) {
+          return Row(
+            spacing: 8.spMin,
+            children: [for (final tile in tiles) Expanded(child: tile)],
+          );
+        }
+        return Column(
+          spacing: 8.spMin,
+          children: [
+            Row(
+              spacing: 8.spMin,
+              children: [
+                Expanded(child: tiles[0]),
+                Expanded(child: tiles[1]),
+              ],
             ),
-            Expanded(child: _sosTileBuilder()),
+            Row(
+              spacing: 8.spMin,
+              children: [
+                Expanded(child: tiles[2]),
+                Expanded(child: tiles[3]),
+              ],
+            ),
           ],
         );
       },
@@ -2188,18 +2142,37 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
 
     Widget rowFor(final FamilyMember member) {
       final isMe = member.id == circle.myMemberId;
+      final isNearAlert = memberIdsNearAlert.contains(member.id);
+      final hasAnswered = roll.hasAnswered(member);
+      final canAsk = !isMe && !hasAnswered;
+      final canRequest = !iAmGuest && !isMe;
       return FamilyMemberListItem(
         member: member,
         isMe: isMe,
-        isNearAlert: memberIdsNearAlert.contains(member.id),
-        hasAnswered: roll.hasAnswered(member),
+        isNearAlert: isNearAlert,
+        hasAnswered: hasAnswered,
         askedAt: roll.askedAt,
-        onLongPress: isOwner && !isMe ? () => _confirmRemoveMember(member) : null,
+        // Every action on a person — ask, request, and the host's remove —
+        // sits in one visible sheet, permission-checked here. Nothing is
+        // long-press-only any more.
+        onTap: () => showFamilyMemberDetailsSheet(
+          context,
+          member: member,
+          isMe: isMe,
+          isNearAlert: isNearAlert,
+          hasAnswered: hasAnswered,
+          askedAt: roll.askedAt,
+          onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
+          onRequestLocation:
+              canRequest ? () => _requestLocationSnapshot(member) : null,
+          onChangeMySharing: isMe
+              ? () => context.push(FamilySharingLevelScreen.route)
+              : null,
+          onRemove: isOwner && !isMe ? () => _confirmRemoveMember(member) : null,
+        ),
         onRequestLocation:
-            !iAmGuest && !isMe ? () => _requestLocationSnapshot(member) : null,
-        onAskToCheckIn: !isMe && !roll.hasAnswered(member)
-            ? () => _askMemberToCheckIn(member)
-            : null,
+            canRequest ? () => _requestLocationSnapshot(member) : null,
+        onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
       );
     }
 
@@ -2213,7 +2186,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 Divider(
                   height: 1,
                   indent: 70.spMin,
-                  color: const Color(0xFFF0F0F2),
+                  color: context.outline.withValues(alpha: 0.5),
                 ),
               rowFor(member),
             ],
@@ -2232,22 +2205,12 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               split ? 'Not yet checked in' : 'Members',
               count: split ? roll.notYet.length : circle.members.length,
             ),
-            Row(
-              children: [
-                if (!iAmGuest && circle.members.length > 1)
-                  TextButton.icon(
-                    onPressed: () => _requestEveryoneLocation(circle),
-                    icon: Icon(LucideIcons.mapPin, size: 16.spMin),
-                    label: const Text('Request location'),
-                  ),
-                if (isOwner)
-                  TextButton.icon(
-                    onPressed: () => context.push(FamilyInviteScreen.route),
-                    icon: Icon(LucideIcons.userPlus, size: 16.spMin),
-                    label: const Text('Add member'),
-                  ),
-              ],
-            ),
+            if (!iAmGuest && circle.members.length > 1)
+              TextButton.icon(
+                onPressed: () => _requestEveryoneLocation(circle),
+                icon: Icon(LucideIcons.mapPin, size: 16.spMin),
+                label: const Text('Request location'),
+              ),
           ],
         ),
         SizedBox(height: 10.spMin),
