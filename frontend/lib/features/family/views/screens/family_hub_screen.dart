@@ -1997,10 +1997,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 12.spMin, horizontal: 4.spMin),
+        padding: EdgeInsets.symmetric(vertical: 14.spMin, horizontal: 4.spMin),
         decoration: BoxDecoration(
           color: context.surfaceCard,
-          borderRadius: BorderRadius.circular(14.spMin),
+          borderRadius: BorderRadius.circular(16.spMin),
           border: isLit ? Border.all(color: ink, width: 1.5) : null,
           boxShadow: [
             BoxShadow(
@@ -2014,21 +2014,21 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 30.spMin,
-              height: 30.spMin,
+              width: 34.spMin,
+              height: 34.spMin,
               decoration: BoxDecoration(
                 color: tint,
-                borderRadius: BorderRadius.circular(9.spMin),
+                borderRadius: BorderRadius.circular(11.spMin),
               ),
-              child: Icon(icon, size: 16.spMin, color: ink),
+              child: Icon(icon, size: 18.spMin, color: ink),
             ),
-            SizedBox(height: 5.spMin),
+            SizedBox(height: 7.spMin),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10.spMin,
+                fontSize: 11.spMin,
                 fontWeight: FontWeight.w800,
                 color: context.onSurface,
               ),
@@ -2043,7 +2043,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     return GestureDetector(
       onTap: () => context.push(FamilySosScreen.route),
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 12.spMin, horizontal: 4.spMin),
+        padding: EdgeInsets.symmetric(vertical: 14.spMin, horizontal: 4.spMin),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topCenter,
@@ -2051,7 +2051,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             colors: [Color(0xFFFF4B3E), Color(0xFFE01B0F), Color(0xFFB80000)],
             stops: [0.0, 0.55, 1.0],
           ),
-          borderRadius: BorderRadius.circular(14.spMin),
+          borderRadius: BorderRadius.circular(16.spMin),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFFE01B0F).withValues(alpha: 0.45),
@@ -2064,8 +2064,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 30.spMin,
-              height: 30.spMin,
+              width: 34.spMin,
+              height: 34.spMin,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.24),
                 shape: BoxShape.circle,
@@ -2075,15 +2075,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               ),
               child: Icon(
                 LucideIcons.siren,
-                size: 15.spMin,
+                size: 17.spMin,
                 color: Colors.white,
               ),
             ),
-            SizedBox(height: 5.spMin),
+            SizedBox(height: 7.spMin),
             Text(
               'SOS',
               style: TextStyle(
-                fontSize: 10.spMin,
+                fontSize: 11.spMin,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.6,
                 color: Colors.white,

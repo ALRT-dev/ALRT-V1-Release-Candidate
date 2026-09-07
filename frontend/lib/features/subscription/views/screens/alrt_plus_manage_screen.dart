@@ -12,6 +12,7 @@ import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.da
 import 'package:hazard_app/features/subscription/utils/seat_count.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
+import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -115,7 +116,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
     final circles = ref.watch(providerOfFamily.select((s) => s.circles));
 
     return Scaffold(
-      backgroundColor: AlrtPlusStyle.body,
+      backgroundColor: context.surfaceScaffold,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -146,7 +147,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                   style: TextStyle(
                     fontSize: 10.5.spMin,
                     height: 1.5,
-                    color: AlrtPlusStyle.inkFaint,
+                    color: context.onSurfaceMuted.withValues(alpha: 0.75),
                   ),
                 ),
               ],
@@ -320,14 +321,14 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                 style: TextStyle(
                   fontSize: 13.5.spMin,
                   fontWeight: FontWeight.w700,
-                  color: AlrtPlusStyle.ink,
+                  color: context.onSurface,
                 ),
               ),
               Text(
                 '$used used · $free free',
                 style: TextStyle(
                   fontSize: 11.spMin,
-                  color: AlrtPlusStyle.inkSoft,
+                  color: context.onSurfaceMuted,
                 ),
               ),
             ],
@@ -368,7 +369,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
               style: TextStyle(
                 fontSize: 11.spMin,
                 fontWeight: FontWeight.w600,
-                color: AlrtPlusStyle.inkSoft,
+                color: context.onSurfaceMuted,
               ),
             ),
           ],
@@ -377,7 +378,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
             'Members keep the free tier if your plan lapses',
             style: TextStyle(
               fontSize: 10.5.spMin,
-              color: AlrtPlusStyle.inkFaint,
+              color: context.onSurfaceMuted.withValues(alpha: 0.75),
             ),
           ),
         ],
@@ -422,7 +423,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                     style: TextStyle(
                       fontSize: 12.spMin,
                       fontWeight: FontWeight.w600,
-                      color: AlrtPlusStyle.inkSoft,
+                      color: context.onSurfaceMuted,
                     ),
                   ),
                 ),
@@ -433,7 +434,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
             'Their subscription covers your seat while you\'re in the group.',
             style: TextStyle(
               fontSize: 10.5.spMin,
-              color: AlrtPlusStyle.inkFaint,
+              color: context.onSurfaceMuted.withValues(alpha: 0.75),
             ),
           ),
         ],
@@ -495,14 +496,14 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                   style: TextStyle(
                     fontSize: 12.5.spMin,
                     fontWeight: FontWeight.w700,
-                    color: AlrtPlusStyle.ink,
+                    color: context.onSurface,
                   ),
                 ),
                 Text(
                   isPayer ? 'Host · ${circle.name}' : circle.name,
                   style: TextStyle(
                     fontSize: 10.5.spMin,
-                    color: AlrtPlusStyle.inkSoft,
+                    color: context.onSurfaceMuted,
                   ),
                 ),
               ],
@@ -579,13 +580,13 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
               style: TextStyle(
                 fontSize: 12.5.spMin,
                 fontWeight: FontWeight.w600,
-                color: AlrtPlusStyle.ink,
+                color: context.onSurface,
               ),
             ),
             Icon(
               LucideIcons.chevronRight,
               size: 16.spMin,
-              color: const Color(0xFFC9BFD6),
+              color: context.onSurfaceMuted,
             ),
           ],
         ),
@@ -599,11 +600,11 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
       padding: padding ??
           EdgeInsets.symmetric(horizontal: 15.spMin, vertical: 13.spMin),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(16.spMin),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF3A1560).withValues(alpha: 0.07),
+            color: context.cardShadow,
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),

@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
-import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -47,11 +47,15 @@ class FamilyMemberListItem extends StatelessWidget {
     return GestureDetector(
       onLongPress: onLongPress,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 12.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
         child: Row(
           children: [
-            FamilyMemberAvatar(member: member, isNearAlert: isNearAlert),
-            SizedBox(width: 12.spMin),
+            FamilyMemberAvatar(
+              member: member,
+              size: 48.0,
+              isNearAlert: isNearAlert,
+            ),
+            SizedBox(width: 13.spMin),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,25 +68,25 @@ class FamilyMemberListItem extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 15.spMin,
+                            fontSize: 16.spMin,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.black,
+                            color: context.onSurface,
                           ),
                         ),
                       ),
                       if (member.role == FamilyRole.guest) ...[
                         SizedBox(width: 6.spMin),
-                        _guestBadgeBuilder(),
+                        _guestBadgeBuilder(context),
                       ],
                     ],
                   ),
-                  SizedBox(height: 2.spMin),
+                  SizedBox(height: 3.spMin),
                   Row(
                     children: [
                       Icon(
                         _subtitleIcon,
-                        size: 12.spMin,
-                        color: AppColors.grey,
+                        size: 13.spMin,
+                        color: context.onSurfaceMuted,
                       ),
                       SizedBox(width: 4.spMin),
                       Flexible(
@@ -91,8 +95,8 @@ class FamilyMemberListItem extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 12.spMin,
-                            color: AppColors.grey,
+                            fontSize: 12.5.spMin,
+                            color: context.onSurfaceMuted,
                           ),
                         ),
                       ),
@@ -199,7 +203,7 @@ class FamilyMemberListItem extends StatelessWidget {
 
   /// Marks a guest so the circle can see at a glance who is along for the
   /// alerts only. Outlined, never a filled chip: it is not a status.
-  Widget _guestBadgeBuilder() {
+  Widget _guestBadgeBuilder(final BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 7.spMin,
@@ -207,7 +211,7 @@ class FamilyMemberListItem extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6.spMin),
-        border: Border.all(color: AppColors.grey.withValues(alpha: 0.5)),
+        border: Border.all(color: context.onSurfaceMuted.withValues(alpha: 0.5)),
       ),
       child: Text(
         'GUEST',
@@ -215,7 +219,7 @@ class FamilyMemberListItem extends StatelessWidget {
           fontSize: 9.spMin,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.5,
-          color: AppColors.grey,
+          color: context.onSurfaceMuted,
         ),
       ),
     );
