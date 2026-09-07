@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# stand-in for docker: enough of compose/inspect/image/tag/exec to drive the rollout script. State in $FAKE_STATE.
+# Proves control flow only. The SQL path is exercised for real by real-pg-docker (see real-pg-scenarios.sh).
+S="$FAKE_STATE"; OLD="sha256:oldimage000"; NEW="sha256:newimage111"
+running() { cat "$S/running" 2>/dev/null || echo "$OLD"; }
+built()   { cat "$S/built" 2>/dev/null || echo "$OLD"; }
+migrated() { [ -f "$S/migrated" ]; }
+if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
+  case "$1" in
+    ps) echo "NAME  IMAGE  STATUS"; echo "app-test  backend-app  Up";;
+    build) if [ "${SCENARIO:-}" = "build-fail" ]; then echo "fake build error" >&2; exit 17; fi; echo "built"
+           case "${SCENARIO:-}" in same-image) echo "$OLD" > "$S/built";; stale-status) echo "sha256:thirdimage222" > "$S/built";; *) echo "$NEW" > "$S/built";; esac;;
+    config) [ "$2" = "--images" ] && { echo "backend-app"; };;
+    run) # prisma migrate status from the new image
+      if [ "${SCENARIO:-}" = "db-unreachable" ]; then echo "Error: P1001: Can't reach database server"; exit 1; fi
+      if [ "${SCENARIO:-}" = "migration-mismatch" ]; then printf 'Following migration have not yet been applied:\n20260905000000_family_host_transition\n\n'; exit 1; fi
+      if migrated && [ "${SCENARIO:-}" != "stale-status" ]; then echo "Database schema is up to date!"; exit 0; fi
+      printf '2 migrations found in prisma/migrations\n\nFollowing migration have not yet been applied:\n20260904000000_family_check_in_request_targets\n20260905000000_family_host_transition\n\nTo apply migrations in development run prisma migrate dev.\n'; exit 1;;
+    up) echo "$(built)" > "$S/running"; echo "up"; [ "${SCENARIO:-}" = "startup-fail" ] && exit 0; touch "$S/migrated";;
+    logs) if [ "${SCENARIO:-}" = "startup-fail" ]; then echo "Error: something"; else echo "2 migrations found"; echo "Applying migration 20260904000000_family_check_in_request_targets"; echo "TEST server is running at PORT:9000"; echo "Scheduled jobs are OFF for TEST"; fi;;
+    exec) shift; while [[ "$1" == -* ]]; do [ "$1" = "-e" ] && shift; shift; done; shift  # service name
+      case "$*" in
+        *"prisma migrate status"*) migrated && { echo "Database schema is up to date!"; exit 0; } || { echo "pending"; exit 1; };;
+        *sha256sum*) f="${@: -1}"; if [ "${SCENARIO:-}" = "image-drift" ]; then echo "deadbeef  $f"; else (cd "$FAKE_REPO/backend" && sha256sum "$f"); fi;;
+        *"node_modules/.bin/tsx"*) [ "$1" = "sh" ] && exit 0
+          case "$*" in
+            *verify_family_location_consent*) if [ "${SCENARIO:-}" = "consent-fail" ]; then echo "  ok - a"; echo "FAILED: AssertionError"; exit 1; fi; echo "  ok - ..."; echo "All 40 checks passed.";;
+            *verify_sos_history*) if [ "${SCENARIO:-}" = "regress-fail" ]; then echo "FAILED"; exit 1; fi; echo "All 8 checks passed.";;
+            *stage9a*) echo "13 checks passed.";; *targeted*) echo "10 checks passed.";;
+            *circle_list_state*) echo "9 checks passed.";; *seat_rule*) echo "All 7 checks passed.";;
+            *) echo "6 checks passed.";; esac;;
+        *) exit 0;;
+      esac;;
+    *) exit 0;;
+  esac; exit 0
+fi
+case "$1" in
+  inspect) fmt="$3"; name="$4"; case "$fmt" in *Name*) echo "/$name";; *'{{.Image}}'*) r=$(running); echo "${fmt//\{\{.Image\}\}/$r}" | sed "s/{{.State.Status}}/running/;s/{{.State.StartedAt}}/now/;s/{{.RestartCount}}/0/;s/{{.State.ExitCode}}/0/";;
+      *'{{.Id}}'*) t="$S/tag-$(echo "$name" | tr ':/' '__')"; if [ -f "$t" ]; then cat "$t"; else echo "$name"; fi;; *) echo "?";; esac;;
+  image) [ "$2" = inspect ] || exit 1; case "$4" in *Created*) date -u +%FT%TZ;; *) built;; esac;;
+  tag) echo "$2" > "$S/tag-$(echo "$3" | tr ':/' '__')";;
+  exec) shift; sql=""; while [[ "$1" == -* ]]; do [ "$1" = "-e" ] && { shift; export "$1"; }; [ "$1" = "-i" ] && sql=stdin; shift; done; shift  # postgres-test
+    cmd="$*"; input=""; [ "$sql" = stdin ] && input=$(cat)
+    case "$cmd" in
+      *'printf %s "$POSTGRES_DB"'*) printf 'alrt_test';;
+      *pg_dump*) echo "PGDMP-fake";;
+      *createdb*) echo "$SCRATCH" >> "$S/dbs";;
+      *dropdb*) grep -vx "$SCRATCH" "$S/dbs" > "$S/dbs.new" 2>/dev/null; mv "$S/dbs.new" "$S/dbs"; echo "dropped $SCRATCH" >> "$S/dropped";;
+      *pg_restore*) [ "${SCENARIO:-}" = "restore-fail" ] && { echo "pg_restore: error: fake"; exit 1; }; exit 0;;
+      *psql*) case "$input" in
+          *pg_database*) echo "postgres"; echo "alrt_test"; cat "$S/dbs" 2>/dev/null || true;;
+          *"count(*) from _prisma_migrations where"*) echo 0;;
+          *"where migration_name in"*) if migrated; then echo "20260904000000_family_check_in_request_targets:t:t:1"; echo "20260905000000_family_host_transition:t:t:1"; fi;;
+          *information_schema.columns*) if migrated; then echo 3; else echo 0; fi;;
+          *FamilyCircle*) if [ "$TARGET_DB" != "alrt_test" ] && [ "${SCENARIO:-}" = "restore-mismatch" ]; then echo "2,5,5,40,10"; else echo "3,7,7,41,11"; fi;;
+          *"from _prisma_migrations"*) echo "20260902000000_repair_hazard_geom_generated_columns|t|f|1";;
+          *) echo "";; esac;;
+      *) exit 0;;
+    esac;;
+  *) exit 0;;
+esac

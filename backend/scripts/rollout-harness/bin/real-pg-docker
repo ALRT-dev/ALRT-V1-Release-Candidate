@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Like fake-docker for build/compose/inspect, but every `docker exec ... postgres-test sh -c CMD` runs CMD for real
+# against a local PostgreSQL (PG* env), and `compose up` applies the two approved migration SQL files to it the way
+# `prisma migrate deploy` would (SQL + ledger rows). This exercises the script's SQL, pg_dump, createdb, pg_restore,
+# fingerprint comparison and dropdb against a real server.
+HERE=$(cd "$(dirname "$0")" && pwd)
+S="$FAKE_STATE"
+if [ "$1" = "exec" ]; then
+  shift; envs=(); while [[ "$1" == -* ]]; do [ "$1" = "-e" ] && { shift; envs+=("$1"); }; shift; done; shift  # postgres-test
+  [ "$1" = "sh" ] && [ "$2" = "-c" ] || exit 99
+  env "${envs[@]}" POSTGRES_USER="$PGUSER" POSTGRES_DB="$REAL_APP_DB" sh -c "$3"; exit $?
+fi
+if [ "$1" = "compose" ] && [ "$4" = "up" ]; then
+  for m in 20260904000000_family_check_in_request_targets 20260905000000_family_host_transition; do
+    psql -d "$REAL_APP_DB" -v ON_ERROR_STOP=1 -q -f "$REAL_MIGRATIONS/$m/migration.sql" || exit 1
+    psql -d "$REAL_APP_DB" -v ON_ERROR_STOP=1 -Atq -c "insert into _prisma_migrations(id, checksum, finished_at, migration_name, started_at, applied_steps_count) values (gen_random_uuid()::text, 'harness', now(), '$m', now(), 1)" || exit 1
+  done
+  touch "$S/migrated"
+fi
+exec "$HERE/fake-docker" "$@"
