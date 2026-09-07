@@ -228,6 +228,14 @@ const main = async () => {
           assert.ok(m.locationLabel.length > 0, "approximate: suburb label expected");
           assert.equal(typeof m.locationExpiresAt, "string", "approximate: snapshot expiry expected");
         }
+        const upd = lastEvent(aSock.events, "familyLocationUpdate");
+        assert.ok(upd, "approximate: the check-in itself must stamp a snapshot and emit familyLocationUpdate");
+        assert.equal(upd.id, bMemberId);
+        assert.equal(upd.latitude, null, "approximate: familyLocationUpdate must not carry a pin");
+        assert.equal(upd.longitude, null);
+        if (process.env.EXPECT_SUBURB_LABEL === "1") {
+          assert.ok(typeof upd.locationLabel === "string" && upd.locationLabel.length > 0, "approximate: socket suburb label expected");
+        }
       } else {
         assert.equal(m.locationLabel, null);
       }
@@ -261,6 +269,48 @@ const main = async () => {
     assert.equal(ev.latitude, LAT);
   });
 
+  // ------------------------------------------------ approximate via the check-in flow
+  console.log("\nApproximate through the check-in flow (the path Flutter uses; no POST /location)");
+  await setLevel(c.token, "approximate");
+  await check("C has no snapshot before the check-in (clean start)", async () => {
+    const m = await memberFromCircle(a.token, cMemberId);
+    assert.equal(m.latitude, null);
+    assert.equal(m.locationLabel, null);
+  });
+  aSock.events.length = 0;
+  const cApprox = await checkInWithCoords(c.token);
+  await settle(1500); // the snapshot stamp runs after the response (fire-and-forget)
+  await check("HTTP: A's circle view shows C's suburb label and no pin", async () => {
+    const m = await memberFromCircle(a.token, cMemberId);
+    assert.equal(m.latitude, null);
+    assert.equal(m.longitude, null);
+    if (process.env.EXPECT_SUBURB_LABEL === "1") {
+      assert.ok(typeof m.locationLabel === "string" && m.locationLabel.length > 0, "suburb label expected");
+      assert.equal(typeof m.locationExpiresAt, "string", "snapshot expiry expected");
+    }
+  });
+  await check("HTTP: the check-in row and GET /check-ins carry no coordinates", async () => {
+    assert.equal(cApprox.latitude, null);
+    const row = await latestCheckInFor(a.token, cMemberId);
+    assert.equal(row.latitude, null);
+    assert.equal(row.longitude, null);
+    noLocationKeys(row.member, "check-in.member");
+  });
+  await check("socket: familyLocationUpdate delivered the label, not the pin; familyCheckIn had no coordinates", () => {
+    const upd = lastEvent(aSock.events, "familyLocationUpdate");
+    assert.ok(upd, "familyLocationUpdate expected from the check-in stamp");
+    assert.equal(upd.id, cMemberId);
+    assert.equal(upd.latitude, null);
+    assert.equal(upd.longitude, null);
+    if (process.env.EXPECT_SUBURB_LABEL === "1") {
+      assert.ok(typeof upd.locationLabel === "string" && upd.locationLabel.length > 0, "socket suburb label expected");
+    }
+    const ci = lastEvent(aSock.events, "familyCheckIn");
+    assert.ok(ci && ci.memberId === cMemberId);
+    assert.equal(ci.latitude, null);
+    noLocationKeys(ci.member, "socket familyCheckIn.member");
+  });
+
   // ------------------------------------------------------------------ P2
   console.log("\nP2 - nested member rows are identity-only everywhere they ride along");
   await setLevel(b.token, "approximate");
@@ -270,7 +320,7 @@ const main = async () => {
     body: { latitude: LAT, longitude: LNG },
   });
   assert.equal(snap.status, 200, JSON.stringify(snap.body));
-  await check("approximate + POST /location: circle sees B's suburb label, never the pin", async () => {
+  await check("control: approximate + the separate POST /location endpoint also gives label, never the pin", async () => {
     const m = await memberFromCircle(a.token, bMemberId);
     assert.equal(m.latitude, null);
     assert.equal(m.longitude, null);
