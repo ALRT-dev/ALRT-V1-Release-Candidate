@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
@@ -144,9 +145,7 @@ class _FamilySosStripState extends ConsumerState<FamilySosStrip> {
     final String? myUserId,
     final String? myMemberId,
   ) {
-    final senderUserId = sos.member?.user?.id;
-    return (myMemberId != null && sos.memberId == myMemberId) ||
-        (senderUserId != null && senderUserId == myUserId);
+    return isSosMine(sos, myMemberId: myMemberId, myUserId: myUserId);
   }
 
   /// The group the SOS belongs to, by name: the open circle, or any other

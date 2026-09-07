@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_resolved_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
@@ -160,18 +161,13 @@ class _FamilySosReceiverScreenState
     final myUserId = ref.watch(
       providerOfLoggedInUser.select((user) => user?.id),
     );
-    // By user as well as member id: cross-group, the sender's member id
-    // in the SOS's circle never equals their id in the selected circle.
-    final isMine = sos.memberId == myMemberId ||
-        (sos.member?.user?.id != null && sos.member?.user?.id == myUserId);
+    final isMine = isSosMine(sos, myMemberId: myMemberId, myUserId: myUserId);
     final isResolved = sos.status != FamilySosStatus.active;
     final mySeen = sos.responses
         .where(
           (r) =>
               r.type == FamilySosResponseType.seen &&
-              (r.memberId == myMemberId ||
-                  (r.member?.user?.id != null &&
-                      r.member?.user?.id == myUserId)),
+              isSosResponseMine(r, myMemberId: myMemberId, myUserId: myUserId),
         )
         .firstOrNull;
 

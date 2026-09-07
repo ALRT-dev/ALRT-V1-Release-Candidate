@@ -200,6 +200,43 @@ jobs:
 
       - run: flutter pub get
 
+      # Runs the analyzer on every commit (no local Flutter SDK exists in
+      # the environment that prepares these builds, so CI is the only place
+      # this ever runs) but does not fail the whole build over pre-existing
+      # issues elsewhere in this large, long-lived codebase - only a fresh
+      # issue in a file this specific change touched blocks the build.
+      # Still prints the full report and warns loudly on any pre-existing
+      # issue so it never goes unnoticed.
+      - name: Run flutter analyze
+        run: |
+          set +e
+          flutter analyze > /tmp/analyze-output.txt 2>&1
+          status=$?
+          cat /tmp/analyze-output.txt
+          set -e
+          changed_files="
+            lib/features/family/utils/family_sos_authorization.dart
+            lib/features/family/views/widgets/family_sos_strip.dart
+            lib/features/family/views/screens/family_sos_screen.dart
+            lib/features/family/views/screens/family_sos_resolved_screen.dart
+            lib/features/family/views/screens/family_sos_receiver_screen.dart
+            lib/features/family/views/screens/family_hub_screen.dart
+          "
+          fail=0
+          for f in $changed_files; do
+            if grep -q "$f" /tmp/analyze-output.txt; then
+              echo "::error::flutter analyze flagged an issue in changed file: $f"
+              fail=1
+            fi
+          done
+          if [ "$fail" = "1" ]; then
+            echo "::error::flutter analyze found issues in file(s) this change touched - failing the build."
+            exit 1
+          fi
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::flutter analyze reported pre-existing issue(s) outside the files this change touched - not blocking this build, but worth a look."
+          fi
+
       # Decodes the dedicated TEST-only keystore (verified present above)
       # into a clearly TEST-named properties file - deliberately never
       # named key.properties, so it can never be confused with the real

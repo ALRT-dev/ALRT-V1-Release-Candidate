@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/check_in_roll.dart';
+import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
 import 'package:hazard_app/features/family/utils/group_state.dart';
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
@@ -1289,10 +1290,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     // asked to respond. Two-phone testing showed neither could tell
     // which side they were on. "Mine" is checked by user as well as
     // member id, because member ids differ per circle.
-    final isMine =
-        sos.memberId == ref.read(providerOfFamily).circle?.myMemberId ||
-        (sos.member?.user?.id != null &&
-            sos.member?.user?.id == ref.read(providerOfLoggedInUser)?.id);
+    final isMine = isSosMine(
+      sos,
+      myMemberId: ref.read(providerOfFamily).circle?.myMemberId,
+      myUserId: ref.read(providerOfLoggedInUser)?.id,
+    );
     return GestureDetector(
       onTap: () => context.push(
         FamilySosReceiverScreen.route,
