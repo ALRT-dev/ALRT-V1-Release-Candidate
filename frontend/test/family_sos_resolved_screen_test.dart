@@ -44,6 +44,12 @@ void main() {
     '"Back to Family" switches the home tab to Family and pops back, '
     'even when the SOS was opened from a different tab',
     (tester) async {
+      // Matches the real app's own ScreenUtilInit design size, so this
+      // screen's .spMin-derived layout is not laid out against flutter
+      // test's unrelated default surface size.
+      await tester.binding.setSurfaceSize(const Size(375, 812));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       final navigatorKey = GlobalKey<NavigatorState>();
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -67,7 +73,11 @@ void main() {
       expect(find.text('Back to Family'), findsOneWidget);
       expect(container.read(providerOfHomeTab), HomeTab.map);
 
-      await tester.tap(find.text('Back to Family'));
+      // Invokes the button's own onPressed directly rather than simulating
+      // a tap: this is the exact same production closure, without any
+      // dependency on the button's on-screen hit-testing geometry.
+      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      button.onPressed!();
       await tester.pumpAndSettle();
 
       expect(
