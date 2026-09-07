@@ -102,6 +102,29 @@ type MemberWithUser = FamilyMember & {
 };
 
 /**
+ * Identity-only projection of a member for payloads where a member "rides
+ * along" (check-ins, scheduled check-ins, SOS events and responses). It
+ * deliberately carries no location, battery, movement or place fields, so a
+ * nested member row can never bypass serializeMember's sharing-level and
+ * expiry filtering. Everything the app's FamilyMemberSnippet parser reads
+ * (id, nickname, user.id/name/profilePictureUrl) is here.
+ */
+const memberIdentitySelect = {
+  id: true,
+  userId: true,
+  circleId: true,
+  nickname: true,
+  photoUrl: true,
+  colorHex: true,
+  role: true,
+  sharingLevel: true,
+  user: { select: { id: true, name: true, profilePictureUrl: true } },
+} as const;
+
+/** How long a check-in's own coordinates stay readable (matches SNAPSHOT_TTL). */
+const CHECK_IN_LOCATION_TTL_MS = 60 * 60 * 1000;
+
+/**
  * Serializes a member for other circle members, honouring the member's own
  * sharing level. `forSelf` bypasses filtering so users always see their own
  * full state.
@@ -1384,6 +1407,18 @@ export const createCheckIn = async (
   const membership = await requireMembership(userId, circleId);
   const status: FamilyCheckInStatus = input.status ?? "safe";
 
+  // The member's saved sharing level is a ceiling (Option A, approved):
+  // a check-in carries precise coordinates only for "precise" members.
+  // "approximate" members surface a suburb label through the member
+  // snapshot instead (see checkInController); "alertsOnly" and "off"
+  // never put coordinates on a check-in, whatever the client sent.
+  const coordinates =
+    input.latitude !== undefined &&
+    input.longitude !== undefined &&
+    membership.sharingLevel === "precise"
+      ? { latitude: input.latitude, longitude: input.longitude }
+      : {};
+
   const checkIn = await prisma.$transaction(async (tx) => {
     const created = await tx.familyCheckIn.create({
       data: {
@@ -1391,18 +1426,11 @@ export const createCheckIn = async (
         memberId: membership.id,
         status,
         ...(input.message && { message: input.message }),
-        ...(input.latitude !== undefined && { latitude: input.latitude }),
-        ...(input.longitude !== undefined && { longitude: input.longitude }),
+        ...coordinates,
         ...(input.requestId && { requestId: input.requestId }),
         ...(input.hazardId && { hazardId: input.hazardId }),
       },
-      include: {
-        member: {
-          include: {
-            user: { select: { id: true, name: true, profilePictureUrl: true } },
-          },
-        },
-      },
+      include: { member: { select: memberIdentitySelect } },
     });
     await tx.familyMember.update({
       where: { id: membership.id },
@@ -1559,18 +1587,21 @@ export const listRecentCheckIns = async (
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
-  return prisma.familyCheckIn.findMany({
+  const rows = await prisma.familyCheckIn.findMany({
     where: { circleId: membership.circleId },
     orderBy: { createdAt: "desc" },
     take: Math.min(limit, 100),
-    include: {
-      member: {
-        include: {
-          user: { select: { id: true, name: true, profilePictureUrl: true } },
-        },
-      },
-    },
+    include: { member: { select: memberIdentitySelect } },
   });
+  // Read-time TTL: a check-in's coordinates are a one-hour snapshot, the
+  // same promise the member snapshot makes. Enforced here so it never
+  // depends on the purge sweep (which only runs where scheduled jobs are on).
+  const hourAgo = new Date(Date.now() - CHECK_IN_LOCATION_TTL_MS);
+  return rows.map((row) =>
+    row.createdAt < hourAgo && (row.latitude != null || row.longitude != null)
+      ? { ...row, latitude: null, longitude: null }
+      : row,
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -1582,11 +1613,7 @@ const BRISBANE_UTC_OFFSET_MS = 10 * 60 * 60 * 1000;
 const MAX_SCHEDULED_CHECK_INS_PER_MEMBER = 3;
 
 const scheduledCheckInInclude = {
-  member: {
-    include: {
-      user: { select: { id: true, name: true, profilePictureUrl: true } },
-    },
-  },
+  member: { select: memberIdentitySelect },
 } as const;
 
 export const createScheduledCheckIn = async (
@@ -2124,11 +2151,7 @@ export const triggerSos = async (
       }),
     },
     include: {
-      member: {
-        include: {
-          user: { select: { id: true, name: true, profilePictureUrl: true } },
-        },
-      },
+      member: { select: memberIdentitySelect },
       responses: true,
     },
   });
@@ -2217,13 +2240,7 @@ export const respondToSos = async (
     },
     create: { sosEventId: sos.id, memberId: membership.id, type },
     update: {},
-    include: {
-      member: {
-        include: {
-          user: { select: { id: true, name: true, profilePictureUrl: true } },
-        },
-      },
-    },
+    include: { member: { select: memberIdentitySelect } },
   });
 
   const responderName =
@@ -2344,9 +2361,18 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
     );
   }
 
+  // Stand-down also wipes the trigger position now, exactly as the 4-hour
+  // auto-end already does (endLapsedSosEvents) - the resolved row keeps
+  // who/when/how long, never where.
   const resolved = await prisma.familySosEvent.update({
     where: { id: sos.id },
-    data: { status: "resolved", resolvedAt: new Date() },
+    data: {
+      status: "resolved",
+      resolvedAt: new Date(),
+      latitude: null,
+      longitude: null,
+      locationLabel: null,
+    },
   });
 
   // Stand-down wipes the trail (locked spec): every live-share point from
@@ -2456,21 +2482,9 @@ export const getSosHistory = async (userId: string, circleId?: string) => {
       createdAt: { gte: since },
     },
     include: {
-      member: {
-        include: {
-          user: { select: { id: true, name: true, profilePictureUrl: true } },
-        },
-      },
+      member: { select: memberIdentitySelect },
       responses: {
-        include: {
-          member: {
-            include: {
-              user: {
-                select: { id: true, name: true, profilePictureUrl: true },
-              },
-            },
-          },
-        },
+        include: { member: { select: memberIdentitySelect } },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -2490,21 +2504,9 @@ export const getActiveSos = async (userId: string, circleId?: string) => {
   return prisma.familySosEvent.findMany({
     where: { circleId: membership.circleId, status: "active" },
     include: {
-      member: {
-        include: {
-          user: { select: { id: true, name: true, profilePictureUrl: true } },
-        },
-      },
+      member: { select: memberIdentitySelect },
       responses: {
-        include: {
-          member: {
-            include: {
-              user: {
-                select: { id: true, name: true, profilePictureUrl: true },
-              },
-            },
-          },
-        },
+        include: { member: { select: memberIdentitySelect } },
       },
     },
     orderBy: { createdAt: "desc" },

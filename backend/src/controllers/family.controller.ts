@@ -505,7 +505,18 @@ export const checkInController = async (
 
     // Checking in with a location is a deliberate share — stamp it as a
     // snapshot so the circle sees where the check-in came from (1h TTL).
-    if (input.latitude !== undefined && input.longitude !== undefined) {
+    // The saved sharing level is a ceiling (Option A): only "precise" and
+    // "approximate" members get a snapshot from a check-in ("approximate"
+    // is shown as a suburb label by serializeMember). "alertsOnly" and
+    // "off" members never share anything through a check-in, even if the
+    // client sent coordinates.
+    const level = checkIn.member?.sharingLevel;
+    const snapshotAllowed = level === "precise" || level === "approximate";
+    if (
+      snapshotAllowed &&
+      input.latitude !== undefined &&
+      input.longitude !== undefined
+    ) {
       shareLocationSnapshot(
         userId,
         { latitude: input.latitude, longitude: input.longitude, via: "checkIn" },
