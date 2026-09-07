@@ -20,6 +20,14 @@ class FamilyColors {
   /// The green used for "Safe" chips and the "I'm Safe" button.
   static const safeGreen = Color(0xFF27AE60);
 
+  /// The approved mockup's bright I'm Safe gradient, drawn with DARK ink:
+  /// safeInk on safeBright is 7.6:1 and on safeBrightDeep 5.7:1 (AA 4.5:1).
+  /// White ink on any of the app's greens fails AA, which is why these
+  /// buttons use dark text instead of darkening the button.
+  static const safeBright = Color(0xFF4DE49C);
+  static const safeBrightDeep = Color(0xFF22C887);
+  static const safeInk = Color(0xFF103C2C);
+
   /// A light green background for safe banners.
   static const safeGreenLight = Color(0xFFE7F6EE);
 

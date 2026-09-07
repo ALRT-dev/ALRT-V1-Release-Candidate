@@ -1694,31 +1694,44 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 ),
               ] else ...[
                 SizedBox(height: 12.spMin),
-                SizedBox(
-                  height: 46.spMin,
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: FamilyColors.safeGreen,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14.spMin),
-                      ),
+                // Same bright gradient and dark ink as the main I'm Safe
+                // button, so the answer to an ask reads as the same action.
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        FamilyColors.safeBright,
+                        FamilyColors.safeBrightDeep,
+                      ],
                     ),
-                    onPressed: checkInState.isLoading
-                        ? null
-                        : () => _checkInWithConsent(
-                              context,
-                              ref,
-                              requesterName: who,
-                            ),
-                    icon: Icon(Icons.check, size: 20.spMin),
-                    label: Text(
-                      "I'm Safe · lets $who know",
-                      style: TextStyle(
-                        fontSize: 15.spMin,
-                        fontWeight: FontWeight.w800,
+                    borderRadius: BorderRadius.circular(14.spMin),
+                  ),
+                  child: SizedBox(
+                    height: 46.spMin,
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: FamilyColors.safeInk,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14.spMin),
+                        ),
+                      ),
+                      onPressed: checkInState.isLoading
+                          ? null
+                          : () => _checkInWithConsent(
+                                context,
+                                ref,
+                                requesterName: who,
+                              ),
+                      icon: Icon(Icons.check, size: 20.spMin),
+                      label: Text(
+                        "I'm Safe · lets $who know",
+                        style: TextStyle(
+                          fontSize: 15.spMin,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ),
@@ -1872,18 +1885,22 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   ) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        // Vivid mint leading into a rich emerald reads as a confident green;
-        // the previous dark-emerald-into-muted-teal direction was duller by
-        // comparison even though the two pairs share a hue family.
+        // The approved mockup's bright green with DARK green text and icon:
+        // dark ink on this gradient measures 7.6:1 at the light end and
+        // 5.7:1 at the dark end (WCAG AA is 4.5:1). White text on the
+        // previous mint→emerald pair measured 1.9:1 and 3.8:1, and dark
+        // text on that pair's emerald end only 3.3:1, so the dark end is
+        // the mockup's #22C887 rather than #059669. The button stays
+        // bright; only the ink changed.
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF34D399), Color(0xFF059669)],
+          colors: [FamilyColors.safeBright, FamilyColors.safeBrightDeep],
         ),
         borderRadius: BorderRadius.circular(16.spMin),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF34D399).withValues(alpha: 0.4),
+            color: FamilyColors.safeBright.withValues(alpha: 0.4),
             blurRadius: 20.0,
             offset: const Offset(0, 8),
           ),
@@ -1894,7 +1911,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         width: double.infinity,
         child: TextButton.icon(
           style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
+            foregroundColor: FamilyColors.safeInk,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16.spMin),
             ),
@@ -1911,7 +1928,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   width: 18.spMin,
                   height: 18.spMin,
                   child: const CircularProgressIndicator(
-                    color: Colors.white,
+                    color: FamilyColors.safeInk,
                     strokeWidth: 2,
                   ),
                 )
