@@ -33,6 +33,11 @@
  *   NODE_ENV=test npx dotenv -e .env.test -- npx tsx src/scripts/verify_family_location_consent.ts
  * P3 and P5 use direct SQL through Prisma (same DATABASE_URL) to age a row
  * and to read a column the API never exposes.
+ *
+ * EXPECT_SUBURB_LABEL=1 (set it on TEST, where reverse geocoding is
+ * configured) makes the approximate-level checks STRICT: the suburb label
+ * must be present for the circle while precise coordinates stay null. Left
+ * unset, a null label is tolerated (no geocoding key on a laptop).
  */
 
 import assert from "node:assert/strict";
@@ -215,8 +220,14 @@ const main = async () => {
       assert.equal(m.latitude, null);
       assert.equal(m.longitude, null);
       if (level === "approximate") {
-        // suburb label is allowed (may be null if geocoding is unavailable locally)
-        assert.ok(m.locationExpiresAt == null || typeof m.locationExpiresAt === "string");
+        // Authorised suburb-only sharing: the label reaches the circle, the
+        // pin never does. Strict on TEST (EXPECT_SUBURB_LABEL=1), tolerant
+        // locally where no geocoding key exists.
+        if (process.env.EXPECT_SUBURB_LABEL === "1") {
+          assert.equal(typeof m.locationLabel, "string", "approximate: suburb label expected");
+          assert.ok(m.locationLabel.length > 0, "approximate: suburb label expected");
+          assert.equal(typeof m.locationExpiresAt, "string", "approximate: snapshot expiry expected");
+        }
       } else {
         assert.equal(m.locationLabel, null);
       }
@@ -259,6 +270,17 @@ const main = async () => {
     body: { latitude: LAT, longitude: LNG },
   });
   assert.equal(snap.status, 200, JSON.stringify(snap.body));
+  await check("approximate + POST /location: circle sees B's suburb label, never the pin", async () => {
+    const m = await memberFromCircle(a.token, bMemberId);
+    assert.equal(m.latitude, null);
+    assert.equal(m.longitude, null);
+    if (process.env.EXPECT_SUBURB_LABEL === "1") {
+      assert.ok(typeof m.locationLabel === "string" && m.locationLabel.length > 0, "suburb label expected");
+    }
+    const ev = lastEvent(aSock.events, "familyLocationUpdate");
+    assert.ok(ev, "A must receive familyLocationUpdate for B's snapshot");
+    assert.equal(ev.latitude, null, "socket familyLocationUpdate must not carry a precise pin for approximate");
+  });
   await check("GET /check-ins: member has no location keys", async () => {
     const row = await latestCheckInFor(a.token, bMemberId);
     noLocationKeys(row.member, "check-in.member");
