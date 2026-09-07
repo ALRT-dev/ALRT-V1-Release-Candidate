@@ -109,13 +109,18 @@ class FamilyColors {
   static const v31CardShadow = Color(0x0D1E142D);
 
   /// The palette used to derive a stable per-member avatar color.
+  ///
+  /// Neutral/purple family only, on purpose: green is reserved for the
+  /// "safe" status dot ([safeGreen]) and red for SOS ([sosRed]) elsewhere
+  /// on this same avatar, so a member's identity colour can never be
+  /// mistaken for either state.
   static const memberPalette = <Color>[
-    Color(0xFFF26522), // orange
-    Color(0xFF4A90D9), // blue
+    Color(0xFF5238DE), // indigo-violet
     Color(0xFF8E44AD), // purple
-    Color(0xFF27AE60), // green
-    Color(0xFF16A085), // teal
-    Color(0xFFE0475B), // pink
+    Color(0xFF6C7A94), // slate
+    Color(0xFF7A4BF5), // violet
+    Color(0xFF4A5568), // charcoal
+    Color(0xFF9C6ADE), // lavender
   ];
 
   /// Derives a stable color for a member from their [memberId].

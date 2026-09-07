@@ -34,6 +34,7 @@ import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dar
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/subscription/views/widgets/billing_issue_banner.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -73,7 +74,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         .toList();
 
     return Scaffold(
-      backgroundColor: FamilyColors.v31Page,
+      backgroundColor: context.surfaceScaffold,
       body: RefreshIndicator(
         onRefresh: () => ref.read(providerOfFamily.notifier).load(silent: true),
         color: FamilyColors.indigo,
@@ -451,7 +452,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         alignment: Alignment.center,
         height: 66.spMin,
         decoration: BoxDecoration(
-          color: FamilyColors.v31Page,
+          color: context.surfaceMuted,
           borderRadius: BorderRadius.circular(18.spMin),
           border: Border.all(color: FamilyColors.v31Border),
         ),
@@ -464,14 +465,14 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               style: TextStyle(
                 fontSize: 13.spMin,
                 fontWeight: FontWeight.w700,
-                color: FamilyColors.v31Ink,
+                color: context.onSurface,
               ),
             ),
             SizedBox(width: 4.spMin),
             Icon(
               LucideIcons.chevronRight,
               size: 14.spMin,
-              color: FamilyColors.v31Ink,
+              color: context.onSurface,
             ),
           ],
         ),
@@ -766,7 +767,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         child: Container(
           padding: EdgeInsets.all(14.spMin),
           decoration: BoxDecoration(
-            color: alone ? FamilyColors.indigo : Colors.white,
+            color: alone ? FamilyColors.indigo : context.surfaceCard,
             borderRadius: BorderRadius.circular(16.spMin),
             border: alone
                 ? null
@@ -775,7 +776,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               BoxShadow(
                 color: alone
                     ? FamilyColors.indigo.withValues(alpha: 0.3)
-                    : FamilyColors.v31CardShadow,
+                    : context.cardShadow,
                 blurRadius: 12.0,
                 offset: const Offset(0, 4),
               ),
@@ -808,7 +809,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                       style: TextStyle(
                         fontSize: 15.spMin,
                         fontWeight: FontWeight.w800,
-                        color: alone ? Colors.white : AppColors.black,
+                        color: alone ? Colors.white : context.onSurface,
                       ),
                     ),
                     SizedBox(height: 2.spMin),
@@ -818,7 +819,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                         fontSize: 12.spMin,
                         color: alone
                             ? Colors.white.withValues(alpha: 0.85)
-                            : AppColors.mediumGrey,
+                            : context.onSurfaceMuted,
                       ),
                     ),
                   ],
@@ -1503,11 +1504,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     return Container(
       padding: padding ?? EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(20.spMin),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowColorLight,
+            color: context.cardShadow,
             blurRadius: 10.0,
             offset: const Offset(0, 2),
           ),
@@ -1998,12 +1999,12 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       child: Container(
         padding: EdgeInsets.symmetric(vertical: 12.spMin, horizontal: 4.spMin),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.surfaceCard,
           borderRadius: BorderRadius.circular(14.spMin),
           border: isLit ? Border.all(color: ink, width: 1.5) : null,
           boxShadow: [
             BoxShadow(
-              color: FamilyColors.v31CardShadow,
+              color: context.cardShadow,
               blurRadius: 10.0,
               offset: const Offset(0, 2),
             ),
@@ -2029,7 +2030,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               style: TextStyle(
                 fontSize: 10.spMin,
                 fontWeight: FontWeight.w800,
-                color: FamilyColors.v31Ink,
+                color: context.onSurface,
               ),
             ),
           ],

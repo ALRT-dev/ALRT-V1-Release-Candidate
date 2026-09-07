@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
+import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/utils/seat_count.dart';
@@ -464,10 +465,14 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
             width: 32.spMin,
             height: 32.spMin,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: isMe
-                  ? AlrtPlusStyle.ctaGradient
-                  : AlrtPlusStyle.greenGradient,
+              borderRadius: BorderRadius.circular(10.spMin),
+              gradient: isMe ? AlrtPlusStyle.ctaGradient : null,
+              // Other members: a stable, neutral per-member colour (the
+              // same one their avatar uses everywhere else in Family) -
+              // never green, which this screen's own seat bar already
+              // uses to mean "occupied", and never a colour that could
+              // read as a safe/SOS status here.
+              color: isMe ? null : FamilyColors.memberColor(member.id),
             ),
             child: Center(
               child: Text(
