@@ -34,7 +34,19 @@ void main() {
         designSize: const Size(375, 812),
         builder: (context, _) => MaterialApp(
           navigatorKey: navigatorKey,
-          home: const Scaffold(body: Center(child: Text('STUB HOME'))),
+          // providerOfHomeTab is a StateProvider.autoDispose: the real app
+          // only keeps it alive because HomeScreen holds an active
+          // ref.listen on it for as long as it's mounted (which is always,
+          // since every SOS screen is pushed on top of it). This stub
+          // mirrors that with a watch - without it, the provider is
+          // disposed and silently recreated at its default value between
+          // reads, which looks exactly like "Back to Family" doing nothing.
+          home: Consumer(
+            builder: (context, ref, _) {
+              ref.watch(providerOfHomeTab);
+              return const Scaffold(body: Center(child: Text('STUB HOME')));
+            },
+          ),
         ),
       ),
     );
@@ -54,14 +66,20 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
+      await tester.pumpWidget(
+        wrap(navigatorKey: navigatorKey, container: container),
+      );
+
+      // Only safe to set once the stub home's watch (above) is actually
+      // established - providerOfHomeTab is autoDispose, so setting its
+      // state before anything is watching it can be undone by disposal
+      // before this test ever reads it back.
+      //
       // The persistent SOS strip shows on every tab, so this flow can
       // start from anywhere — Map is the app's own default, standing in
       // for "some other tab" here.
       container.read(providerOfHomeTab.notifier).state = HomeTab.map;
-
-      await tester.pumpWidget(
-        wrap(navigatorKey: navigatorKey, container: container),
-      );
+      await tester.pump();
 
       navigatorKey.currentState!.push(
         MaterialPageRoute<void>(
