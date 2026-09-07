@@ -1871,15 +1871,18 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   ) {
     return DecoratedBox(
       decoration: BoxDecoration(
+        // Vivid mint leading into a rich emerald reads as a confident green;
+        // the previous dark-emerald-into-muted-teal direction was duller by
+        // comparison even though the two pairs share a hue family.
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF059669), Color(0xFF2DD4A7)],
+          colors: [Color(0xFF34D399), Color(0xFF059669)],
         ),
         borderRadius: BorderRadius.circular(16.spMin),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2DD4A7).withValues(alpha: 0.35),
+            color: const Color(0xFF34D399).withValues(alpha: 0.4),
             blurRadius: 20.0,
             offset: const Offset(0, 8),
           ),
