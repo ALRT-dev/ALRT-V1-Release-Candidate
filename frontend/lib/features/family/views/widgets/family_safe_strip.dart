@@ -109,6 +109,7 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
     final choice = await showCheckInConsentSheet(
       context,
       contextLine: title == null ? null : 'About the alert: $title',
+      sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
     );
     if (choice == null || !mounted) return;
     await ref.read(providerOfFamily.notifier).checkIn(

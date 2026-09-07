@@ -1533,6 +1533,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     final choice = await showCheckInConsentSheet(
       context,
       requesterName: requesterName,
+      sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
     );
     if (choice == null || !context.mounted) return;
     await ref.read(providerOfFamily.notifier).checkIn(

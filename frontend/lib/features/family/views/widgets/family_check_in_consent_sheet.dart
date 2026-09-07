@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -24,11 +25,20 @@ enum CheckInConsentChoice {
 /// "I'm safe" strip. Background paths with no UI (notification quick
 /// actions) never get to ask, so they check in WITHOUT location instead.
 ///
+/// The member's saved sharing level is a ceiling (approved policy): the
+/// sheet never offers more than that level allows. `precise` offers the
+/// snapshot as before; `approximate` offers a suburb-only snapshot and says
+/// so; `alertsOnly` and `off` offer no location at all and explain where to
+/// change the level. Passing null (level unknown) keeps the precise wording,
+/// but the backend enforces the same ceiling regardless of what a client
+/// sends, so the sheet is the explanation, not the guard.
+///
 /// Returns null when the sheet is dismissed without choosing.
 Future<CheckInConsentChoice?> showCheckInConsentSheet(
   final BuildContext context, {
   final String? requesterName,
   final String? contextLine,
+  final FamilySharingLevel? sharingLevel,
 }) {
   return showModalBottomSheet<CheckInConsentChoice>(
     context: context,
@@ -40,22 +50,75 @@ Future<CheckInConsentChoice?> showCheckInConsentSheet(
     builder: (sheetContext) => _CheckInConsentSheetBody(
       requesterName: requesterName,
       contextLine: contextLine,
+      sharingLevel: sharingLevel ?? FamilySharingLevel.precise,
     ),
   );
+}
+
+/// What the consent sheet may offer for a given saved sharing level.
+/// Kept as a plain function so the rule is unit-testable without widgets.
+CheckInLocationOffer checkInLocationOfferFor(final FamilySharingLevel level) {
+  switch (level) {
+    case FamilySharingLevel.precise:
+      return CheckInLocationOffer.preciseSnapshot;
+    case FamilySharingLevel.approximate:
+      return CheckInLocationOffer.suburbOnly;
+    case FamilySharingLevel.alertsOnly:
+    case FamilySharingLevel.off:
+      return CheckInLocationOffer.none;
+  }
+}
+
+/// The most a check-in can share, given the member's saved sharing level.
+enum CheckInLocationOffer { preciseSnapshot, suburbOnly, none }
+
+String sharingLevelLabel(final FamilySharingLevel level) {
+  switch (level) {
+    case FamilySharingLevel.precise:
+      return 'Precise';
+    case FamilySharingLevel.approximate:
+      return 'Approximate';
+    case FamilySharingLevel.alertsOnly:
+      return 'Alerts only';
+    case FamilySharingLevel.off:
+      return 'Off';
+  }
 }
 
 class _CheckInConsentSheetBody extends StatelessWidget {
   const _CheckInConsentSheetBody({
     required this.requesterName,
     required this.contextLine,
+    required this.sharingLevel,
   });
 
   final String? requesterName;
   final String? contextLine;
+  final FamilySharingLevel sharingLevel;
+
+  String _bodyCopy(final String who) {
+    switch (checkInLocationOfferFor(sharingLevel)) {
+      case CheckInLocationOffer.preciseSnapshot:
+        return '$who will see that you checked in, not where you are. '
+            'Sharing a location snapshot for the next hour is your '
+            'choice, every time - it is never sent automatically.';
+      case CheckInLocationOffer.suburbOnly:
+        return '$who will see that you checked in, not where you are. '
+            'Your sharing level is Approximate, so sharing adds your '
+            'suburb for the next hour - never a precise pin. It is your '
+            'choice, every time.';
+      case CheckInLocationOffer.none:
+        return '$who will see that you checked in, not where you are. '
+            'Your sharing level is ${sharingLevelLabel(sharingLevel)}, so '
+            'no location is ever shared with a check-in. You can change '
+            'that under My sharing level.';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final who = requesterName ?? 'Your circle';
+    final offer = checkInLocationOfferFor(sharingLevel);
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.spMin, 14.spMin, 20.spMin, 16.spMin),
@@ -106,9 +169,7 @@ class _CheckInConsentSheetBody extends StatelessWidget {
             ),
             SizedBox(height: 10.spMin),
             Text(
-              '$who will see that you checked in, not where you are. '
-              'Sharing a location snapshot for the next hour is your '
-              'choice, every time - it is never sent automatically.',
+              _bodyCopy(who),
               style: TextStyle(
                 fontSize: 13.5.spMin,
                 height: 1.45,
@@ -151,6 +212,7 @@ class _CheckInConsentSheetBody extends StatelessWidget {
                 ),
               ),
             ),
+            if (offer != CheckInLocationOffer.none) ...[
             SizedBox(height: 10.spMin),
             SizedBox(
               height: 52.spMin,
@@ -170,7 +232,9 @@ class _CheckInConsentSheetBody extends StatelessWidget {
                 ),
                 icon: Icon(LucideIcons.mapPin, size: 18.spMin),
                 label: Text(
-                  'Check in and share my location too',
+                  offer == CheckInLocationOffer.suburbOnly
+                      ? 'Check in and share my suburb too'
+                      : 'Check in and share my location too',
                   style: TextStyle(
                     fontSize: 14.spMin,
                     fontWeight: FontWeight.w700,
@@ -178,6 +242,7 @@ class _CheckInConsentSheetBody extends StatelessWidget {
                 ),
               ),
             ),
+            ],
             SizedBox(height: 6.spMin),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
