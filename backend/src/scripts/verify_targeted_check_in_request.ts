@@ -15,6 +15,13 @@
  *      everyone.
  *   6. An untargeted ask still means everyone (empty targets, seen by all).
  *   7. The target can answer it with a normal check-in.
+ *   8. Several open asks at once (2026-09-08): the circle carries every
+ *      open ask that concerns the member, newest first, as
+ *      checkInRequests (latestCheckInRequest stays the newest of them);
+ *      an ask aimed at someone else is not in the list; the circle list
+ *      counts the asks still owed as pendingCheckInRequests, which one
+ *      check-in after the newest ask brings to 0; the requester's own
+ *      asks are never counted against them.
  *
  * Run with:
  *   NODE_ENV=test npx dotenv -e .env.test -- npx tsx src/scripts/verify_targeted_check_in_request.ts
@@ -211,6 +218,63 @@ async function main() {
     assert.equal(res.status, 201, JSON.stringify(res.body));
     assert.equal((res.body as any).requestId, (askAmy.body as any).id);
     assert.equal((res.body as any).latitude ?? null, null);
+  });
+
+  console.log();
+
+  console.log("§8 - several open asks at once");
+  const circlesAs = async (token: string) => {
+    const res = await api("/api/family/circles", { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return res.body as any[];
+  };
+  const askFromAmy = await api("/api/family/check-in/request", {
+    method: "POST",
+    token: amy.token,
+    body: { message: "Big storm here, all okay?" },
+  });
+  assert.equal(askFromAmy.status, 201, JSON.stringify(askFromAmy.body));
+  await check("Tom sees every open ask aimed at him, newest first, and the newest as latest", async () => {
+    const c = await circleAs(tom.token);
+    const ids = (c.checkInRequests as any[]).map((r) => r.id);
+    assert.equal(ids[0], (askFromAmy.body as any).id, "Amy's ask is newest");
+    assert.ok(ids.includes((askAll.body as any).id), "Sarah's ask to everyone");
+    assert.ok(ids.includes((askSelfAndTom.body as any).id), "Sarah's ask aimed at Tom");
+    assert.ok(!ids.includes((askAmy.body as any).id), "the ask aimed at Amy only is not Tom's");
+    assert.equal(c.latestCheckInRequest?.id, ids[0]);
+    const times = (c.checkInRequests as any[]).map((r) => new Date(r.createdAt).getTime());
+    assert.deepEqual(times, [...times].sort((a, b) => b - a), "newest first");
+    for (const r of c.checkInRequests as any[]) {
+      assert.ok(!("latitude" in (r.requestedBy ?? {})), "an ask never carries the asker's location");
+    }
+  });
+  await check("the circle list counts the asks Tom still owes (3), none for the askers' own asks", async () => {
+    const mine = (await circlesAs(tom.token)).find((c) => c.myMemberId === tomMemberId);
+    assert.equal(mine?.pendingCheckInRequests, 3, JSON.stringify(mine));
+    const sarahs = (await circlesAs(sarah.token)).find((c) => c.myMemberId === sarahMemberId);
+    // Sarah owes only Amy's ask; her own two are not counted against her
+    assert.equal(sarahs?.pendingCheckInRequests, 1, JSON.stringify(sarahs));
+  });
+  await check("one check-in after the newest ask answers all of them: pending drops to 0", async () => {
+    const res = await api("/api/family/check-in", {
+      method: "POST",
+      token: tom.token,
+      body: { status: "safe", requestId: (askFromAmy.body as any).id },
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal((res.body as any).latitude ?? null, null);
+    const mine = (await circlesAs(tom.token)).find((c) => c.myMemberId === tomMemberId);
+    assert.equal(mine?.pendingCheckInRequests, 0, JSON.stringify(mine));
+    const c = await circleAs(tom.token);
+    const me = (c.members as any[]).find((m) => m.id === tomMemberId);
+    for (const r of c.checkInRequests as any[]) {
+      assert.ok(new Date(me.lastCheckInAt) > new Date(r.createdAt), "checked in after every open ask");
+    }
+  });
+  await check("an outsider's circle carries none of these asks", async () => {
+    const c = await circleAs(outsider.token);
+    assert.deepEqual(c.checkInRequests, []);
+    assert.equal(c.latestCheckInRequest, null);
   });
 
   console.log(`\n${passed} checks passed.`);

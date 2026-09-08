@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ALRT TEST rollout, revision 6.
+# ALRT TEST rollout, revision 7 (6 + app image identified by service, never by list position; content-verified).
 #
 # Usage on the TEST host (alrt-test-api, i-0045a41694e315d45, ap-southeast-2), in the operator's SSM shell, one step
 # per invocation, in this order:
@@ -177,6 +177,23 @@ SQL
 image_migration_names() {
   dc run --rm --no-deps app sh -c 'ls prisma/migrations' | grep -E '^[0-9]{14}_' | sort
 }
+# The image name compose uses for the app service: its explicit `image:` if the compose file declares one, else
+# compose's default "<project>-app". The project name is read from compose itself, never assumed from the directory.
+# The result must also appear in `compose config --images app` (membership, not position) as a cross-check.
+app_image_name() {
+  local explicit project name listed
+  explicit=$(dc config --format json 2>/dev/null | tr -d '\n' | sed -nE 's/.*"app"[[:space:]]*:[[:space:]]*\{[^}]*"image"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
+  if [ -n "$explicit" ]; then name=$explicit
+  else
+    project=$(dc config --format json 2>/dev/null | tr -d '\n' | sed -nE 's/^\{[[:space:]]*"name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
+    [ -n "$project" ] || project=$($DOCKER inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' app-test 2>/dev/null || true)
+    [ -n "$project" ] || return 1
+    name="$project-app"
+  fi
+  listed=$(dc config --images app 2>/dev/null)
+  printf '%s\n' "$listed" | grep -qx "$name" || { printf 'name %s not in compose --images app list: %s\n' "$name" "$(printf '%s' "$listed" | tr '\n' ' ')" >&2; return 1; }
+  printf '%s\n' "$name"
+}
 # The three columns those migrations add. 3 = both applied and present, 0 = neither.
 approved_columns_present() {
   psql_db "$1" <<'SQL'
@@ -305,20 +322,37 @@ deploy() {
     container_state >> "$RUN_DIR/status.txt" 2>&1 || true
     stop "image build failed (build exit $build_exit, log exit $tee_exit); nothing deployed, running container unchanged (still $rollback_id)"
   fi
-  # The NEW image: resolved by the image name compose gives the app service, never by the old container's image.
+  # ---- 4b' identify the NEW app image. Never "the first image in a list": `compose config --images app` lists the
+  # app's dependencies too (postgres first), which is exactly how revision 6 picked postgis/postgis and stopped.
+  # The name comes from the app service itself, and the image is then proven to be ours by its content.
   local image_name built_id built_created
-  image_name=$(dc config --images app 2>/dev/null | head -1)
-  [ -n "$image_name" ] || stop "could not resolve the app service's image name from compose config"
-  built_id=$($DOCKER image inspect --format '{{.Id}}' "$image_name") || stop "built image $image_name not found after build"
+  image_name=$(app_image_name) || stop "could not determine the app service's image name (see app-image-name.txt)"
+  printf 'app service image name: %s\n' "$image_name" | tee "$RUN_DIR/app-image-name.txt"
+  # the build's own naming line must agree (the build was `compose build app`, so this names the app image only)
+  local named; named=$(grep -oE 'naming to (docker\.io/library/)?[^ ]+ done|Successfully tagged [^ ]+' "$RUN_DIR/build.log" | tail -1 | sed -E 's#^naming to (docker\.io/library/)?##; s# done$##; s#^Successfully tagged ##; s#:latest$##')
+  printf 'build log named: %s\n' "${named:-<no naming line>}" | tee -a "$RUN_DIR/app-image-name.txt"
+  if [ -n "$named" ] && [ "$named" != "$image_name" ]; then stop "the build named image '$named' but the app service resolves to '$image_name'; refusing to guess"; fi
+  built_id=$($DOCKER image inspect --format '{{.Id}}' "$image_name" 2>>"$RUN_DIR/app-image-name.txt") || stop "app image $image_name not found after the build (see app-image-name.txt)"
   built_created=$($DOCKER image inspect --format '{{.Created}}' "$image_name")
   printf 'image name=%s id=%s created=%s build started=%s\n' "$image_name" "$built_id" "$built_created" "$(date -u -d "@$build_started" +%FT%TZ 2>/dev/null || echo "$build_started")" | tee "$RUN_DIR/built-image.txt"
   [ "$built_id" != "$rollback_id" ] || stop "the build produced the very image already running ($built_id); nothing new to deploy — report before continuing"
-  local created_epoch; created_epoch=$(date -u -d "$built_created" +%s 2>/dev/null || echo 0)
-  if [ "$created_epoch" -gt 0 ] && [ "$created_epoch" -lt "$((build_started - 60))" ]; then
-    stop "image $image_name was created at $built_created, before this build started; refusing to treat it as the new image"
-  fi
+  # Creation time is recorded, not judged: a fully cached build legitimately yields an image created earlier (for
+  # instance by a previous attempt that stopped after building). What proves the image is the one for this pin is
+  # its content: the files this rollout changes must hash the same inside the image as in the pinned checkout.
+  local f local_sum image_sum
+  : > "$RUN_DIR/built-image-content.txt"
+  for f in $CONTENT_FILES; do
+    local_sum=$( (cd "$REPO/backend" && sha256sum "$f") | awk '{print $1}')
+    image_sum=$($DOCKER run --rm --entrypoint sh "$built_id" -c "sha256sum '$f'" 2>>"$RUN_DIR/built-image-content.txt" | awk '{print $1}')
+    printf '%s local=%s image=%s\n' "$f" "$local_sum" "$image_sum" >> "$RUN_DIR/built-image-content.txt"
+    [ -n "$image_sum" ] || stop "could not read $f inside image $built_id (see built-image-content.txt)"
+    [ "$local_sum" = "$image_sum" ] || stop "image $built_id does not contain the pinned checkout: $f differs (see built-image-content.txt); refusing to deploy it"
+  done
+  local svc_label; svc_label=$($DOCKER image inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$built_id" 2>/dev/null || true)
+  printf 'compose service label on image: %s\n' "${svc_label:-<none>}" >> "$RUN_DIR/app-image-name.txt"
+  [ -z "$svc_label" ] || [ "$svc_label" = "app" ] || stop "image $built_id carries compose service label '$svc_label', not 'app'"
   printf '%s\n' "$built_id" > "$RUN_DIR/built-image-id.txt"
-  log "built image: $image_name = $built_id"
+  log "built image: $image_name = $built_id (content matches the pinned checkout for $(printf '%s\n' $CONTENT_FILES | wc -l) files)"
 
   # ---- 4c migration gate: status AND list, read from the new image without applying anything
   set +e

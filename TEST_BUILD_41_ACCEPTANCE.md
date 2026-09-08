@@ -53,7 +53,7 @@ or billing mode, the phone is running an older build.
       "View 2 requests" opens the list with names and times, the button
       reads "Check in · lets Amy and Tom know", and one check-in clears
       both (both askers' trackers show you answered). Needs the TEST
-      backend redeployed with rollout script revision 6 in
+      backend redeployed with rollout script revision 7 in
       `--no-new-migrations` mode (see the report, §36.6); on the older
       server only the newest asker is named.
 - [ ] A request in a circle you do not have open shows under "Other

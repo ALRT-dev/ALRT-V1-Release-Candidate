@@ -8,9 +8,12 @@ migrated() { [ -f "$S/migrated" ]; }
 if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
   case "$1" in
     ps) echo "NAME  IMAGE  STATUS"; echo "app-test  backend-app  Up";;
-    build) if [ "${SCENARIO:-}" = "build-fail" ]; then echo "fake build error" >&2; exit 17; fi; echo "built"
+    build) if [ "${SCENARIO:-}" = "build-fail" ]; then echo "fake build error" >&2; exit 17; fi
+           echo "#12 exporting to image"; echo "#12 naming to docker.io/library/$([ "${SCENARIO:-}" = "naming-mismatch" ] && echo backend-other || echo backend-app) done"
            case "${SCENARIO:-}" in same-image) echo "$OLD" > "$S/built";; stale-status|next-image*|status-fail|ledger-dirty|schema-inconsistent|ledger-extra|reapplied) echo "sha256:thirdimage222" > "$S/built";; *) echo "$NEW" > "$S/built";; esac;;
-    config) [ "$2" = "--images" ] && { echo "backend-app"; };;
+    config) # `--images app` lists the app's DEPENDENCIES first (postgres), exactly as real compose does; `--format json` names the project
+      if [ "$2" = "--images" ]; then echo "postgis/postgis:15-3.4"; [ "${SCENARIO:-}" = "with-baseline" ] && echo "backend-migrate-baseline"; echo "backend-app"
+      elif [ "$2" = "--format" ]; then printf '{"name":"backend","services":{"app":{"build":{"context":"."},"container_name":"app-test"},"postgres":{"image":"postgis/postgis:15-3.4"}}}\n'; fi;;
     run) # prisma migrate status from the new image, or a listing of its migration folders
       if [[ "$*" == *"ls prisma/migrations"* ]]; then
         if [ -n "${REAL_MIGRATIONS:-}" ]; then ls "$REAL_MIGRATIONS"; exit 0; fi
@@ -45,9 +48,15 @@ if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
   esac; exit 0
 fi
 case "$1" in
-  inspect) fmt="$3"; name="$4"; case "$fmt" in *Name*) echo "/$name";; *'{{.Image}}'*) r=$(running); echo "${fmt//\{\{.Image\}\}/$r}" | sed "s/{{.State.Status}}/running/;s/{{.State.StartedAt}}/now/;s/{{.RestartCount}}/0/;s/{{.State.ExitCode}}/0/";;
+  inspect) fmt="$3"; name="$4"; case "$fmt" in *Name*) echo "/$name";; *Labels*) echo backend;; *'{{.Image}}'*) r=$(running); echo "${fmt//\{\{.Image\}\}/$r}" | sed "s/{{.State.Status}}/running/;s/{{.State.StartedAt}}/now/;s/{{.RestartCount}}/0/;s/{{.State.ExitCode}}/0/";;
       *'{{.Id}}'*) t="$S/tag-$(echo "$name" | tr ':/' '__')"; if [ -f "$t" ]; then cat "$t"; else echo "$name"; fi;; *) echo "?";; esac;;
-  image) [ "$2" = inspect ] || exit 1; case "$4" in *Created*) date -u +%FT%TZ;; *) built;; esac;;
+  image) [ "$2" = inspect ] || exit 1; name="$5"
+    case "$name" in backend-app|sha256:*) ;; *) echo "Error: No such image: $name" >&2; exit 1;; esac
+    [ "${SCENARIO:-}" = "image-missing" ] && [ "$name" = backend-app ] && { echo "Error: No such image: backend-app" >&2; exit 1; }
+    case "$4" in *Created*) [ "${SCENARIO:-}" = "cached-build" ] && echo "2020-01-01T00:00:00Z" || date -u +%FT%TZ;; *Labels*) echo app;; *) built;; esac;;
+  run) # docker run --rm --entrypoint sh <image id> -c "sha256sum 'f'": the image's own file content
+    f=$(printf '%s' "$*" | sed -nE "s/.*sha256sum '([^']+)'.*/\1/p")
+    if [ "${SCENARIO:-}" = "image-content-mismatch" ]; then echo "deadbeef  $f"; else (cd "$FAKE_REPO/backend" && sha256sum "$f"); fi;;
   tag) echo "$2" > "$S/tag-$(echo "$3" | tr ':/' '__')";;
   exec) shift; sql=""; while [[ "$1" == -* ]]; do [ "$1" = "-e" ] && { shift; export "$1"; }; [ "$1" = "-i" ] && sql=stdin; shift; done; shift  # postgres-test
     cmd="$*"; input=""; [ "$sql" = stdin ] && input=$(cat)
