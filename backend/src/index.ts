@@ -5,7 +5,7 @@ import helmet from "helmet";
 import cors from "cors";
 import { Server } from "socket.io";
 import qs from "qs";
-import { config } from "./utils/config.js";
+import { config, googleMapsKeyLooksValid } from "./utils/config.js";
 import { isAllowedOrigin } from "./utils/cors.util.js";
 import {
   authRouter,
@@ -148,6 +148,14 @@ server.listen(config.port, async () => {
   console.log(
     `${config.env.toUpperCase()} server is running at PORT:${config.port}`,
   );
+
+  // Placeholder keys must never pass silently: geocoding (suburb labels,
+  // place search) would fail on every request with REQUEST_DENIED.
+  if (!googleMapsKeyLooksValid(config.googleMapsApi.apiKey)) {
+    console.warn(
+      `GOOGLE_MAPS_API_KEY looks like a placeholder (length ${config.googleMapsApi.apiKey.length}, expected 39 starting with AIza): reverse geocoding and place search will fail`,
+    );
+  }
 
   // Initialize database and required data
   try {

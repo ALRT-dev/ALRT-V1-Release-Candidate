@@ -65,20 +65,20 @@ void main() {
 
   testWidgets('precise offers the location button', (tester) async {
     final result = await pumpSheet(tester, FamilySharingLevel.precise);
-    expect(find.text('Check in and share my location too'), findsOneWidget);
+    expect(find.text('Check in and share my location'), findsOneWidget);
     expect(find.text('Just check in'), findsOneWidget);
     expect(find.text('Not now'), findsOneWidget);
-    await tester.tap(find.text('Check in and share my location too'));
+    await tester.tap(find.text('Check in and share my location'));
     await tester.pumpAndSettle();
     expect(await result, CheckInConsentChoice.checkInAndShareLocation);
   });
 
   testWidgets('approximate offers a suburb, not a pin', (tester) async {
     final result = await pumpSheet(tester, FamilySharingLevel.approximate);
-    expect(find.text('Check in and share my suburb too'), findsOneWidget);
-    expect(find.text('Check in and share my location too'), findsNothing);
+    expect(find.text('Check in and share my suburb'), findsOneWidget);
+    expect(find.text('Check in and share my location'), findsNothing);
     expect(find.textContaining('never a precise pin'), findsOneWidget);
-    await tester.tap(find.text('Check in and share my suburb too'));
+    await tester.tap(find.text('Check in and share my suburb'));
     await tester.pumpAndSettle();
     expect(await result, CheckInConsentChoice.checkInAndShareLocation);
   });
@@ -86,8 +86,8 @@ void main() {
   testWidgets('off hides the location button and explains why',
       (tester) async {
     final result = await pumpSheet(tester, FamilySharingLevel.off);
-    expect(find.text('Check in and share my location too'), findsNothing);
-    expect(find.text('Check in and share my suburb too'), findsNothing);
+    expect(find.text('Check in and share my location'), findsNothing);
+    expect(find.text('Check in and share my suburb'), findsNothing);
     expect(find.textContaining('Your sharing level is Off'), findsOneWidget);
     expect(find.textContaining('no location is ever shared'), findsOneWidget);
     await tester.tap(find.text('Just check in'));
@@ -97,7 +97,7 @@ void main() {
 
   testWidgets('alertsOnly behaves like off', (tester) async {
     final result = await pumpSheet(tester, FamilySharingLevel.alertsOnly);
-    expect(find.text('Check in and share my location too'), findsNothing);
+    expect(find.text('Check in and share my location'), findsNothing);
     expect(find.textContaining('Your sharing level is Alerts only'),
         findsOneWidget);
     await tester.tap(find.text('Not now'));

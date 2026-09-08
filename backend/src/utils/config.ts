@@ -24,6 +24,15 @@ const getOptionalEnv = (key: string, defaultValue: string): string => {
   return process.env[key] || defaultValue;
 };
 
+/**
+ * A Google API key is 39 characters starting with "AIza". TEST once ran for
+ * days on a 21-character placeholder that passed the non-empty check and
+ * only surfaced when a strict verification expected a suburb label, so the
+ * shape is checked at startup and reported loudly (never the value).
+ */
+export const googleMapsKeyLooksValid = (key: string): boolean =>
+  /^AIza[0-9A-Za-z_-]{35}$/.test(key);
+
 export const config = {
   // General
   env: getOptionalEnv("NODE_ENV", "dev"),

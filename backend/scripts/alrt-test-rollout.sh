@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ALRT TEST rollout, revision 5.
+# ALRT TEST rollout, revision 5.1 (5 + deploy stops if the started app reports a placeholder Google key).
 #
 # Usage on the TEST host (alrt-test-api, i-0045a41694e315d45, ap-southeast-2), in the operator's SSM shell, one step
 # per call, waiting for each step's output before the next:
@@ -380,6 +380,12 @@ SQL
   local running_id; running_id=$(cat "$RUN_DIR/deployed-image-id.txt")
   [ "$running_id" = "$built_id" ] || stop "running image $running_id is not the image built this run ($built_id)"
   grep -E "Scheduled jobs are OFF for TEST|Scheduled tasks|scheduled" "$RUN_DIR/app-after.log" | head -3 > "$RUN_DIR/scheduler-observed.txt" || true
+  # The app warns at startup when GOOGLE_MAPS_API_KEY is not key-shaped
+  # (TEST once ran on a 21-character placeholder). Treat that as a failed
+  # deploy rather than letting verify discover it through a missing label.
+  if grep -q "GOOGLE_MAPS_API_KEY looks like a placeholder" "$RUN_DIR/app-after.log"; then
+    stop "the started app reports GOOGLE_MAPS_API_KEY looks like a placeholder; fix .env.test before verify (see app-after.log)"
+  fi
   note "deploy=ok"
   log "deployed $PIN; running image = built image $built_id; both migrations finished; 3 columns present; scheduler line: $(head -1 "$RUN_DIR/scheduler-observed.txt")"
 }

@@ -234,8 +234,8 @@ class _CheckInConsentSheetBody extends StatelessWidget {
                 icon: Icon(LucideIcons.mapPin, size: 18.spMin),
                 label: Text(
                   offer == CheckInLocationOffer.suburbOnly
-                      ? 'Check in and share my suburb too'
-                      : 'Check in and share my location too',
+                      ? 'Check in and share my suburb'
+                      : 'Check in and share my location',
                   style: TextStyle(
                     fontSize: 14.spMin,
                     fontWeight: FontWeight.w700,

@@ -1,6 +1,6 @@
-# TEST build 40 — install, acceptance and paywall guide
+# TEST build 41 — install, acceptance and paywall guide
 
-Version **1.0.5 (40)**, commit **(see the workflow run)**, branch `test`, dev flavour
+Version **1.0.5 (41)**, commit **(see the workflow run)**, branch `test`, dev flavour
 (`com.safetyalrt.alrt.dev`, app label "[Dev] ALRT"), backend
 `https://api-test.safetyalrt.com`. Two artifacts are built from the same
 commit by `.github/workflows/android-test.yml`:
@@ -13,14 +13,14 @@ commit by `.github/workflows/android-test.yml`:
 Both are signed with the TEST keystore (SHA-1
 `18:5E:43:9B:FC:7A:99:42:0C:AD:F0:EB:A9:E1:4F:0A:EE:66:2D:DB`), which the
 workflow's apksigner step verifies on every run. They install beside the
-production "ALRT" app, not over it, and they replace TEST builds 36 to 39.
+production "ALRT" app, not over it, and they replace TEST builds 36 to 40.
 
 ## Prove which build you are holding
 
 Profile tab, scroll to the bottom, under "Log out". The footer reads, for
 example:
 
-    ALRT 1.0.5 (40) · TEST build · <commit> · RevenueCat Test Store
+    ALRT 1.0.5 (41) · TEST build · <commit> · RevenueCat Test Store
 
 or `… · billing bypass` on the bypass build. If the footer shows no commit
 or billing mode, the phone is running an older build.
@@ -40,7 +40,9 @@ or billing mode, the phone is running an older build.
 - [ ] One green control labelled **Check in** (white text). When someone has
       asked you, it reads **Check in · lets <name> know**; the ask banner has
       no second button.
-- [ ] Tap Check in → consent sheet → "Just check in" (white on green). Toast
+- [ ] Tap Check in → consent sheet → "Just check in" (white on green); the
+      share button reads exactly "Check in and share my suburb" /
+      "…my location" (no "too"). Toast
       **Checked in**. The member row on the other phone shows "Checked in
       just now" with no location.
 - [ ] Sharing set to Approximate → "share my suburb too" sends a suburb label
