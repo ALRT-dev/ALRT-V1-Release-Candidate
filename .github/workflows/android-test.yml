@@ -368,12 +368,15 @@ jobs:
       - name: Build the APK (debug for test_store, release for bypass)
         id: build
         run: |
+          # The app shows commit and billing mode on its Profile screen
+          # (build label), so a phone can prove which build it runs.
+          DEFINES="--dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }}"
           if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
-            flutter build apk --debug --flavor dev -t lib/main_dev.dart
+            flutter build apk --debug --flavor dev -t lib/main_dev.dart $DEFINES
             echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-debug.apk" >> "$GITHUB_OUTPUT"
             echo "apk_filename=app-dev-debug.apk" >> "$GITHUB_OUTPUT"
           else
-            flutter build apk --release --flavor dev -t lib/main_dev.dart
+            flutter build apk --release --flavor dev -t lib/main_dev.dart $DEFINES
             echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-release.apk" >> "$GITHUB_OUTPUT"
             echo "apk_filename=app-dev-release.apk" >> "$GITHUB_OUTPUT"
           fi
