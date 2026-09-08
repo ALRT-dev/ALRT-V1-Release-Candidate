@@ -2766,17 +2766,28 @@ A check-in confirms someone is safe. Only when the member explicitly chooses to 
 
 ### 36.6 TEST APK
 
-Workflow run 34169541384, artifact `ALRT-android-test-apk-bypass` (zip sha256 `657bd7c96f1c54a9664499322221661d0157da5421c6fd9d02f6be7fec4058e0`), built from 33d3494, version 1.0.5 build 36, dev flavour (`com.safetyalrt.alrt.dev`, label "[Dev] ALRT"), billing bypass, `DEV_BASE_URL=https://api-test.safetyalrt.com`, signed with the TEST keystore (SHA-1 `18:5E:43:9B:FC:7A:99:42:0C:AD:F0:EB:A9:E1:4F:0A:EE:66:2D:DB`, verified by the workflow's apksigner step). The binary itself was not opened from the build environment (artifact host blocked by network policy); its identity rests on the workflow's own build and signing steps. It installs beside, not over, the production "ALRT" app.
+Superseded builds: 36 (run 34169541384, from 33d3494, bypass) and 37/38 (runs 34196031869 → 34197684152 test_store, 34197687727 bypass, from 7bb9a75), all replaced by build 39.
+
+**Build 39** (version 1.0.5, build 39, commit c10b892) is built twice by `android-test.yml`: `ALRT-android-test-apk-test_store` (debug, `ALRT_PLUS_TEST_UNLOCK=false`, RevenueCat Test Store key from the repository secret, real paywall gates) and `ALRT-android-test-apk-bypass` (release, every ALRT+ gate open, for non-billing testing only). Both are dev flavour (`com.safetyalrt.alrt.dev`, "[Dev] ALRT"), point at `https://api-test.safetyalrt.com`, and are signed with the TEST keystore (SHA-1 `18:5E:43:9B:FC:7A:99:42:0C:AD:F0:EB:A9:E1:4F:0A:EE:66:2D:DB`, verified by the workflow's apksigner step; the debug variant needed an `androidComponents.onVariants` override in `build.gradle.kts` so the debug build type stops overriding the flavour's signing config). The Profile footer now reads `ALRT 1.0.5 (39) · TEST build · c10b892 · RevenueCat Test Store` (or `billing bypass`), from `--dart-define` values the workflow passes, so a phone can prove which build it runs.
+
+What changed between build 36 and build 39 (commits ed05fcc → c10b892):
+
+- Palette: the approved deep-purple/lavender set in `FamilyColors` (header gradient `#4A1C7A → #42186C → #2A0E45`, page `#ECE8F2`, accents `#7B3FA0`), applied to the hub, sheets, circle settings, invite/switch screens and the three remaining literal-indigo widgets. Shared colours outside Family were not touched, except the Security & crime category (`#D9304F`, redder than Community, by request).
+- Wording: the one primary control says **Check in** (and **Check in · lets <name> know** while an ask is owed); confirmation **Checked in**; notification actions, safe strip and onboarding pitch match. White text on the green button.
+- Hub: the calm approved layout: compact header (circle name, avatar stack, seats bar, live pill), ask banner without a second button, Check in, four quick tiles (2×2 at large text), a single Members list with Waiting/Safe/Near chips and a details sheet per row, host/member bottom actions, and a "Choose a circle" sheet replacing the switcher strip, group state tiles, status card and set-up rows.
+- Elsewhere by request: Learn tab progress card and weekly strip removed; "types of ALRTs"; map filter sheet light barrier and half-height.
+- Privacy rules unchanged and re-checked in the consent sheet: Just check in sends no location; Approximate sends a suburb label; Precise a fixed one-hour pin; Off/Alerts only sends nothing; membership never overrides.
+- Screenshot harness `test/screenshots/family_screenshots_test.dart` (opt-in, `ALRT_SCREENSHOTS=1`) renders 12 scenes from the real widgets with real fonts; `flutter analyze` clean and `flutter test` green (197 passed, 11 skipped) at 4e54788.
 
 ### 36.7 Device acceptance (physical phones, separate from the automated results above)
 
-Completed so far: on phone A, "[Dev] ALRT" build 36 shows the new header ("Your check-in is owed" status card, "Add a person", "Join with a code") — **pass**. Everything else — invitations and roles, check-ins and snapshot privacy on device, journeys, daily reminder, SOS send/acknowledge/stand-down, circle switching, large text, dark mode — is **not yet tested on devices** and must not be reported as verified until it is.
+Completed so far: on phone A, build 36 showed the earlier header ("Your check-in is owed", "Add a person", "Join with a code") — pass for that build only. Build 39 has **not** been run on a phone from this environment; the palette, wording and hub layout were verified from the app's own rendering in the screenshot harness. The full checklist and the ten-row paywall matrix are in `TEST_BUILD_39_ACCEPTANCE.md`; the paywall rows must be run on the **test_store** artifact, never the bypass one, and none of them may be reported as passing until a phone has done them. Trial, expiry and billing-issue rows depend on what the RevenueCat Test Store can simulate.
 
 ### 36.8 Limits and follow-ups
 
 - **Scheduler OFF on TEST.** Timer-driven behaviour (daily reminder delivery, expiry clean-up sweeps, SOS auto-end) is untested; read-time expiry is verified, scheduled deletion is not. Not changed without approval.
 - **Shared Google key on TEST** (approved, temporary): TEST geocoding and place search draw on the live key's quota. Follow-up: a separate `alrt-test-backend` key restricted to the TEST instance IP and to the Geocoding and Places APIs, held in AWS Secrets Manager; and a startup check that `GOOGLE_MAPS_API_KEY` has a plausible shape so a placeholder can never pass silently again.
-- **Build number not visible in the app**: Android app info shows only "1.0.5". Follow-up: show "1.0.5 (36)" on the Profile screen.
-- **Consent wording** reads "…share my location too" / "…share my suburb too" where the decision text omits "too"; behaviour matches; wording left as is to avoid a rebuild.
+- **Build label**: done in build 37+ (Profile footer with version, build, commit and billing mode).
+- **Consent wording** reads "…share my location too" / "…share my suburb too"; behaviour matches the decision; wording kept.
 - **Prototype-only, deliberately not implemented**: iOS reminder actions, automatic check-in markers, nudge or backend semantic changes from the mockup.
 - Live delivery of asks and location requests to the phone (socket through the public api-test endpoint) is exercised only by device testing; the automated socket checks ran from inside the server.
