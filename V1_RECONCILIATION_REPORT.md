@@ -2715,3 +2715,68 @@ No Flutter toolchain exists in this environment (unchanged limitation, every pri
 ### 35.5 Scope discipline
 
 Per instruction, this task touched only `frontend/lib/features/shared/utils/share_alert.dart`, the two call-site files, and a new test file. No Firebase, RevenueCat, AWS, signing, App Store Connect, Play Console, or production-deployment file was touched — this is shared application code used by every flavor, not a TEST-only file, consistent with the isolation audit's own note that this specific fix would be the one shared-code change.
+
+## 36. Family & User Experience Release — Privacy Ceiling, Family Hub Redesign, TEST Rollout (8 September 2026)
+
+This section records everything that changed for Family circle users in the release deployed to the isolated TEST backend on 8 September 2026, the backend privacy fixes underneath it, how it was rolled out, what was verified on real TEST, and what remains open. Deployed backend revision: `33d3494e9df6170c0a110fe2906e4449e10f2fa1`. TEST APK: version 1.0.5, build 36, built from the same revision.
+
+### 36.1 Product decision: the saved sharing level is a ceiling (Option A)
+
+A check-in confirms someone is safe. Only when the member explicitly chooses to share does it also carry a snapshot of where they were at that moment — never live tracking — and the member's saved sharing level caps what that snapshot can be:
+
+| Saved level | Consent sheet offers | What circle members receive |
+|---|---|---|
+| Precise | "Just check in" and "Check in and share my location too" | A fixed pin, visible for one hour |
+| Approximate | "Just check in" and "Check in and share my suburb too" | The suburb name only, never a pin |
+| Alerts only / Off | "Just check in" only | Nothing about location; the row reads "Location hidden · checked in …" |
+
+"Just check in" never reads or refreshes the device position. Joining a circle does not change a member's level; nobody is switched to Precise. SOS live-location consent and Journey sharing are separate and were not changed.
+
+### 36.2 Backend privacy fixes (commit 74bd770, on TEST since this rollout)
+
+- **Identity-only nested members.** Every place a member rides along inside another object (check-ins, requests, SOS events, journeys, place transitions) now uses a fixed identity projection: id, user id, circle id, nickname, photo, colour, role, sharing level. No coordinates, label, expiry, battery or movement fields.
+- **Coordinate gate on check-ins.** A check-in stores latitude and longitude only when the sender's level is Precise. For Approximate the controller stamps a snapshot whose serializer exposes the suburb label and nulls the pin; for Alerts only and Off nothing is stamped, whatever the client sent.
+- **Read-time expiry.** Check-in coordinates older than one hour are hidden at read time (the same TTL as snapshots), independent of the scheduled purge.
+- **Stand-down clean-up.** Resolving an SOS nulls the stored trigger position fields.
+- Verification script `verify_family_location_consent.ts` (40 checks over HTTP and Socket.IO, with `EXPECT_SUBURB_LABEL=1` enforcing the suburb label on TEST) plus six regression scripts.
+
+### 36.3 What changed in the app for Family users (commit 2961d2d)
+
+- **One "I'm Safe" control.** While someone's ask is open the single green button reads "I'm Safe · lets Amy know"; the ask card no longer carries a second copy, only "Tap I'm Safe below to answer" and the roll-call link. The button keeps the approved bright-green gradient with dark-green text, tick and spinner (7.6:1 and 5.7:1 contrast).
+- **Circular member avatars** everywhere: rows, header chips, the details sheet.
+- **Entry points in the header.** Hosts: "Add a person", "Join with a code", and "N of 8 seats used across circles you host". Members: "Join with a code", "Switch circle", and "Hosted by <name> · joining is free". The duplicate "Add member" card, menu item and list-header button were removed; the first-member card remains only while a host is alone. Billing rules unchanged.
+- **One Circle settings screen.** Name, the three rules (snapshot requests, SOS to whole circle, journeys as snap points), picture and beacon colour on `FamilyGroupSettingsScreen`; the hub's separate name-and-rules sheet and the dead Initials/Photo toggle are gone; members see it read-only; the circle-profile screen now opens the real SOS-list editor instead of a duplicate sheet.
+- **Visible member management.** Tapping a row opens a details sheet: status, last check-in, sharing level, and only the permitted actions — Ask, Request a one-time location (non-guests), Remove from circle (host only, with confirmation), Change my sharing level (own row). Nothing is long-press-only.
+- **Reachable buttons.** Bottom safe-area and keyboard insets on the ask, join and create sheets and on the invite, circle profile, journey setup and SOS receiver screens.
+- **Honest status wording** (pure helpers in `family_hub_labels.dart`): "No check-in yet" instead of "No snapshot yet"; "Location hidden · checked in 2 hours ago"; "Asked 3 minutes ago · checked in a day ago"; chip "Not yet", never anything implying danger. Quick tiles stack two by two above a 1.15 text scale. Dark-mode surfaces for the switcher and menu. Remaining "group" wording became "circle".
+- **Consent sheet** (commit 594ef04) explains the ceiling per level and never offers more than it allows.
+- Tests: `family_hub_labels_test`, `family_member_details_sheet_test`, `family_member_avatar_test`, `family_check_in_consent_sheet_test`; `flutter analyze` clean; 194 tests pass.
+
+### 36.4 Rollout script revision 5 (commit b92b668)
+
+`backend/scripts/alrt-test-rollout.sh`: preflight (read-only, own private directory), record (rollback tag + image id, ledger and column snapshot), deploy (HTTPS fetch pinned by `--pin`, build, new image resolved by compose image name and required to differ from the rollback image, migration gate requiring exactly the two approved migrations and no pre-existing columns, fresh `pg_dump` restore-tested into a uniquely named scratch database and dropped, start, then proof of ledger rows, columns, prisma status and running image = built image), verify (image content hashes, tooling, strict consent run, six regressions stopping at the first failure, health, ledger, columns, container), inspect. Stand-in harness (28 scenarios) and a real-PostgreSQL harness, which caught a real defect: a boolean concatenated in SQL renders as `true`, not `t`.
+
+### 36.5 TEST rollout, as executed (8 September 2026, run `run-20260908003557-4000187`)
+
+- Preflight: server at 29ef291, remote head = pin 33d3494, ledger clean, approved columns 0, existing backup `/var/tmp/alrt-test-backup.IdoP62/database.dump` readable and preserved untouched.
+- Record: rollback tag `alrt-app-test:rollback-20260908003558` = `sha256:fe8f550b…3cfe1fa`.
+- Deploy: built `backend-app` = `sha256:60c570974fc6226df49245d2956ca90e41689c3d8cfb7e51b3d59f8e7ecc515d`; pending = approved = {20260904000000_family_check_in_request_targets, 20260905000000_family_host_transition}; fresh backup 225,302 bytes restore-tested (fingerprint 28,36,27,49,102 identical), scratch dropped; up; both migrations finished, not rolled back, 1 step each; 3 columns present; running image = built image; scheduler line "Scheduled jobs are OFF for TEST".
+- First verify run **failed** on the strict suburb check: the snapshot was stamped but the label was null because Google returned `REQUEST_DENIED` — TEST's `.env.test` held a 21-character placeholder, never a real key, and the Android `TEST_GOOGLE_MAPS_API_KEY` secret is an app-restricted Maps SDK key that no workflow ever passes to the server. Evidence preserved privately under the run directory. With the owner's approval the existing live Google key was configured on TEST temporarily (probe: `OK`, 14 results) and only the app container was recreated on the same image.
+- Second verify run **passed in full**: consent 40/40 with `EXPECT_SUBURB_LABEL=1`; verify_checkin_request_location_privacy 6, verify_sos_history 8, verify_stage9a_journey_recipient 13, verify_targeted_check_in_request 10, verify_circle_list_state 5, verify_seat_rule 5, all exit 0; internal health exit 0; external `https://api-test.safetyalrt.com/api/test` HTTP 200; container running on `60c5709…`, zero restarts.
+
+### 36.6 TEST APK
+
+Workflow run 34169541384, artifact `ALRT-android-test-apk-bypass` (zip sha256 `657bd7c96f1c54a9664499322221661d0157da5421c6fd9d02f6be7fec4058e0`), built from 33d3494, version 1.0.5 build 36, dev flavour (`com.safetyalrt.alrt.dev`, label "[Dev] ALRT"), billing bypass, `DEV_BASE_URL=https://api-test.safetyalrt.com`, signed with the TEST keystore (SHA-1 `18:5E:43:9B:FC:7A:99:42:0C:AD:F0:EB:A9:E1:4F:0A:EE:66:2D:DB`, verified by the workflow's apksigner step). The binary itself was not opened from the build environment (artifact host blocked by network policy); its identity rests on the workflow's own build and signing steps. It installs beside, not over, the production "ALRT" app.
+
+### 36.7 Device acceptance (physical phones, separate from the automated results above)
+
+Completed so far: on phone A, "[Dev] ALRT" build 36 shows the new header ("Your check-in is owed" status card, "Add a person", "Join with a code") — **pass**. Everything else — invitations and roles, check-ins and snapshot privacy on device, journeys, daily reminder, SOS send/acknowledge/stand-down, circle switching, large text, dark mode — is **not yet tested on devices** and must not be reported as verified until it is.
+
+### 36.8 Limits and follow-ups
+
+- **Scheduler OFF on TEST.** Timer-driven behaviour (daily reminder delivery, expiry clean-up sweeps, SOS auto-end) is untested; read-time expiry is verified, scheduled deletion is not. Not changed without approval.
+- **Shared Google key on TEST** (approved, temporary): TEST geocoding and place search draw on the live key's quota. Follow-up: a separate `alrt-test-backend` key restricted to the TEST instance IP and to the Geocoding and Places APIs, held in AWS Secrets Manager; and a startup check that `GOOGLE_MAPS_API_KEY` has a plausible shape so a placeholder can never pass silently again.
+- **Build number not visible in the app**: Android app info shows only "1.0.5". Follow-up: show "1.0.5 (36)" on the Profile screen.
+- **Consent wording** reads "…share my location too" / "…share my suburb too" where the decision text omits "too"; behaviour matches; wording left as is to avoid a rebuild.
+- **Prototype-only, deliberately not implemented**: iOS reminder actions, automatic check-in markers, nudge or backend semantic changes from the mockup.
+- Live delivery of asks and location requests to the phone (socket through the public api-test endpoint) is exercised only by device testing; the automated socket checks ran from inside the server.
