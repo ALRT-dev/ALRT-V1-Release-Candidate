@@ -1654,7 +1654,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 Padding(
                   padding: EdgeInsets.only(left: 28.spMin),
                   child: Text(
-                    "Tap I'm Safe below to answer.",
+                    'Tap Check in below to answer.',
                     style: TextStyle(
                       fontSize: 12.5.spMin,
                       fontWeight: FontWeight.w700,
@@ -1892,7 +1892,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         final tiles = <Widget>[
               _quickTileBuilder(
                 icon: LucideIcons.bellRing,
-                label: 'Check-in',
+                // "Ask": this tile asks OTHERS to check in. The one control
+                // that checks YOU in is the big green button above it.
+                label: 'Ask',
                 tint: const Color(0xFFE8F4FF),
                 // 1D7FE0 on the tint is ~4.6:1, the old 4DA8FF was ~2.6:1.
                 ink: const Color(0xFF1D7FE0),

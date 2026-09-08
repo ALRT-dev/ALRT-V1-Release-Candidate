@@ -4,18 +4,18 @@ import 'package:flutter/material.dart';
 ///
 /// Kept separate from [AppColors] so the family feature stays self-contained.
 class FamilyColors {
-  /// The family brand colour, taken from the V3.1 prototype.
-  ///
-  /// The whole family palette is built around this: the header gradient
-  /// runs #4B4BF0 to #3229C4 to #1E1780, and the softer indigo this used
-  /// to be read as faded next to it.
+  /// The family brand colour: the approved prototype's purple accent
+  /// (links, primary buttons, selected chips). The name is historical;
+  /// every Family surface reads this one value, so the whole feature
+  /// follows the prototype's purple instead of the earlier indigo/blue.
   static const indigo = v31Indigo;
 
-  /// The deep end of the family gradient (the prototype's mid stop).
+  /// The deep end of the family gradient (the prototype's mid stop),
+  /// also headings and selected segments.
   static const indigoDark = v31HeaderMid;
 
-  /// A very light indigo used for chip and pill backgrounds.
-  static const indigoLight = Color(0xFFECECFB);
+  /// A very light lavender used for chip and pill backgrounds.
+  static const indigoLight = Color(0xFFF0E9F6);
 
   /// The green used for "Safe" chips and the "I'm Safe" button.
   static const safeGreen = Color(0xFF27AE60);
@@ -51,23 +51,24 @@ class FamilyColors {
   // a different, lighter blue, which is why family screens built against it
   // never matched the mocks.
 
-  /// The V3.1 family indigo: buttons, selected chips, accents.
-  static const v31Indigo = Color(0xFF3D3DDF);
+  /// The prototype's purple accent: buttons, selected chips, links.
+  static const v31Indigo = Color(0xFF7B3FA0);
 
-  /// The lavender page behind the cards.
-  static const v31Page = Color(0xFFF0EEF5);
+  /// The lavender page behind the cards (prototype body).
+  static const v31Page = Color(0xFFECE8F2);
 
-  /// Section labels on family screens (orange, not the V3 rust).
-  static const v31Label = Color(0xFFFF6B01);
+  /// Section labels on family screens: the prototype's quiet grey
+  /// uppercase, so labels never compete with the purple and green.
+  static const v31Label = Color(0xFF75757E);
 
   /// Body and secondary copy.
   static const v31Ink = Color(0xFF5F5C66);
 
-  /// Hairline between rows inside a card.
-  static const v31Divider = Color(0xFFF4F1F6);
+  /// Hairline between rows inside a card (the prototype's card border).
+  static const v31Divider = Color(0xFFEDE8F2);
 
-  /// Unselected control borders.
-  static const v31Border = Color(0xFFD8D4E8);
+  /// Unselected control borders (the prototype's outline button border).
+  static const v31Border = Color(0xFFCDB8E0);
 
   /// Toggle track when on, and when off.
   static const v31ToggleOn = Color(0xFF16C784);
@@ -85,15 +86,17 @@ class FamilyColors {
   /// blues. This is the single blend they all take: violet at the top
   /// left falling through indigo into the deep navy, warmer and more
   /// purple than the old stops, which read as flat corporate blue.
+  ///
+  /// The approved prototype's band: 160° from #4A1C7A through #42186C at
+  /// 45% to #2A0E45, a deep red-purple rather than the indigo it replaced.
   static const headerGradient = LinearGradient(
     begin: Alignment(-0.7, -1),
     end: Alignment(0.6, 1),
-    stops: [0.0, 0.42, 0.78, 1.0],
+    stops: [0.0, 0.45, 1.0],
     colors: [
-      Color(0xFF7A4BF5),
-      Color(0xFF5238DE),
-      Color(0xFF2E1E9E),
-      Color(0xFF1B1470),
+      Color(0xFF4A1C7A),
+      Color(0xFF42186C),
+      Color(0xFF2A0E45),
     ],
   );
 
@@ -105,13 +108,13 @@ class FamilyColors {
     colors: [Color(0x40FFFFFF), Color(0x00FFFFFF)],
   );
 
-  /// The three stops of the family header gradient (165 degrees).
-  static const v31HeaderTop = Color(0xFF4B4BF0);
-  static const v31HeaderMid = Color(0xFF3229C4);
-  static const v31HeaderDeep = Color(0xFF1E1780);
+  /// The three stops of the family header gradient (the prototype's band).
+  static const v31HeaderTop = Color(0xFF4A1C7A);
+  static const v31HeaderMid = Color(0xFF42186C);
+  static const v31HeaderDeep = Color(0xFF2A0E45);
 
   /// The soft blob of light in the top-right of the header.
-  static const v31HeaderGlow = Color(0xFF7882FF);
+  static const v31HeaderGlow = Color(0xFF9C6BCF);
 
   /// Card shadow on the lavender page.
   static const v31CardShadow = Color(0x0D1E142D);

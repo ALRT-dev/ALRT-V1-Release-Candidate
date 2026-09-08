@@ -194,7 +194,7 @@ class LocalNotificationService {
       return const [
         AndroidNotificationAction(
           actionImSafe,
-          "I'm safe",
+          'Check in',
           showsUserInterface: true,
         ),
       ];
@@ -214,7 +214,7 @@ class LocalNotificationService {
       return const [
         AndroidNotificationAction(
           actionImSafe,
-          "I'm safe",
+          'Check in',
           showsUserInterface: true,
         ),
         viewDetails,
@@ -276,7 +276,7 @@ class LocalNotificationService {
         actions: [
           DarwinNotificationAction.plain(
             actionImSafe,
-            "I'm safe",
+            'Check in',
             options: {DarwinNotificationActionOption.foreground},
           ),
           viewDetails,
@@ -287,7 +287,7 @@ class LocalNotificationService {
         actions: [
           DarwinNotificationAction.plain(
             actionImSafe,
-            "I'm safe",
+            'Check in',
             options: {DarwinNotificationActionOption.foreground},
           ),
         ],

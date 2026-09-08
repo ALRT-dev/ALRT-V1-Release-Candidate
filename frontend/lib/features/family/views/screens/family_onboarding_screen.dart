@@ -105,7 +105,7 @@ class _FamilyOnboardingScreenState
                   ),
                 ),
                 SizedBox(height: 9.spMin),
-                _pitchLineBuilder('One tap ', "I'm Safe", ' to everyone at once'),
+                _pitchLineBuilder('One tap ', 'Check in', ' to everyone at once'),
                 _pitchLineBuilder(
                   'Ask for a ',
                   'location snapshot',

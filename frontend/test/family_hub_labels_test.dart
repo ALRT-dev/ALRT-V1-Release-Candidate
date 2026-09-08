@@ -26,11 +26,11 @@ void main() {
 
   group('imSafeLabel', () {
     test('plain when nobody is owed an answer', () {
-      expect(imSafeLabel(), "I'm Safe");
-      expect(imSafeLabel(requesterName: ''), "I'm Safe");
+      expect(imSafeLabel(), 'Check in');
+      expect(imSafeLabel(requesterName: ''), 'Check in');
     });
     test('names the requester while their ask is open', () {
-      expect(imSafeLabel(requesterName: 'Amy'), "I'm Safe · lets Amy know");
+      expect(imSafeLabel(requesterName: 'Amy'), 'Check in · lets Amy know');
     });
   });
 

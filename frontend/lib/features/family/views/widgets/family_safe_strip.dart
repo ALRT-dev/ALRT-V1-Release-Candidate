@@ -90,7 +90,7 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
                         ),
                       )
                     : Text(
-                        "I'm safe",
+                        'Check in',
                         style: TextStyle(
                           fontSize: 13.spMin,
                           fontWeight: FontWeight.w700,

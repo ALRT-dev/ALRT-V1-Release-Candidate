@@ -34,7 +34,7 @@ abstract final class FamilyGroupIconRenderer {
           size: _logicalSize,
           painter: _GroupIconPainter(
             initial: _initialOf(name),
-            beacon: _colorOfHex(themeColorHex) ?? const Color(0xFF3D3DDF),
+            beacon: _colorOfHex(themeColorHex) ?? const Color(0xFF7B3FA0),
             photo: image,
           ),
         ),

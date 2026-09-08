@@ -124,7 +124,7 @@ class _BannerState extends State<_Banner> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     // SOS is red; a check-in request is the family indigo. Both bright.
     final accent =
-        widget.isSos ? const Color(0xFFE4002B) : const Color(0xFF3D3DDF);
+        widget.isSos ? const Color(0xFFE4002B) : const Color(0xFF7B3FA0);
 
     return Positioned(
       top: MediaQuery.of(context).padding.top + 8.spMin,

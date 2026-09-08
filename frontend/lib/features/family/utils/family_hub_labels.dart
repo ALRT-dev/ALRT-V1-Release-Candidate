@@ -2,7 +2,7 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 /// Pure label helpers for the Family hub, kept widget-free so the wording
-/// the hub shows for seats, tiles, the one "I'm Safe" button and a member's
+/// the hub shows for seats, tiles, the one "Check in" button and a member's
 /// state can be unit-tested without pumping the screen.
 
 /// ALRT+ carries this many seats across the circles one person hosts
@@ -10,12 +10,14 @@ import 'package:timeago/timeago.dart' as timeago;
 /// per-circle cap, and never changed here.
 const kFamilyMaxSeats = 8;
 
-/// The single "I'm Safe" control's label. When someone's ask is still owed
-/// an answer, the button says who the tap answers; there is no second
-/// button inside the ask banner any more.
+/// The single check-in control's label (product decision 8 Sep 2026: it
+/// says "Check in", because that is what it does; whether a location goes
+/// with it is decided on the consent sheet). When someone's ask is still
+/// owed an answer, the button says who the tap answers; there is no
+/// second button inside the ask banner.
 String imSafeLabel({final String? requesterName}) {
-  if (requesterName == null || requesterName.isEmpty) return "I'm Safe";
-  return "I'm Safe · lets $requesterName know";
+  if (requesterName == null || requesterName.isEmpty) return 'Check in';
+  return 'Check in · lets $requesterName know';
 }
 
 /// Seats in use across every circle the caller hosts. Only owned circles

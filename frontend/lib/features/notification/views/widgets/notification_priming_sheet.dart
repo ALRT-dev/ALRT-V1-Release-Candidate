@@ -136,7 +136,7 @@ class _NotificationPrimingSheetState
             _benefitRowBuilder(
               icon: LucideIcons.users,
               text: 'Family check-ins, snapshots and SOS',
-              tint: const Color(0xFF3D3DDF),
+              tint: const Color(0xFF7B3FA0),
             ),
             SizedBox(height: 10.spMin),
             _benefitRowBuilder(
