@@ -188,9 +188,12 @@ class _ChooseCircleSheet extends ConsumerWidget {
   }) {
     final attention = state.kind == GroupStateKind.sos ||
         state.kind == GroupStateKind.waiting;
-    final subtitle = summary.isOwned
-        ? '${summary.seatCount} ${summary.seatCount == 1 ? 'seat' : 'seats'} · you host'
-        : '${summary.memberCount} ${summary.memberCount == 1 ? 'person' : 'people'} · joined';
+    final pending = summary.pendingCheckInRequests;
+    final subtitle = pending > 0
+        ? '$pending check-in ${pending == 1 ? 'request' : 'requests'} waiting on you'
+        : summary.isOwned
+            ? '${summary.seatCount} ${summary.seatCount == 1 ? 'seat' : 'seats'} · you host'
+            : '${summary.memberCount} ${summary.memberCount == 1 ? 'person' : 'people'} · joined';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {

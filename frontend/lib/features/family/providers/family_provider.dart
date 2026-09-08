@@ -230,7 +230,13 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     }
 
     state = state.copyWith(
-      circle: circle.copyWith(latestCheckInRequest: request),
+      circle: circle.copyWith(
+        latestCheckInRequest: request,
+        checkInRequests: [
+          request,
+          ...circle.openCheckInRequests.where((r) => r.id != request.id),
+        ],
+      ),
     );
 
     if (!isMine && request.requestedById != circle.myMemberId) {
@@ -1039,7 +1045,10 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         : null;
     if (!mounted) return;
 
-    final requestId = state.circle?.latestCheckInRequest?.id;
+    // Answer the newest ask I owe (one check-in after it answers every
+    // older one too); with none owed, my own or the latest ask on record.
+    final requestId = state.circle?.checkInRequestOwedByMe?.id ??
+        state.circle?.latestCheckInRequest?.id;
     final targetCircleIds = requestId != null
         ? <String>[]
         : state.circles.map((c) => c.circleId).toSet().toList();
@@ -1157,13 +1166,22 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     result.when(
       (_) {
         final current = state.circle;
-        final shouldClear = current?.latestCheckInRequest?.id == requestId;
-        state = state.copyWith(
-          circle: shouldClear
-              ? current!.copyWith(latestCheckInRequest: null)
-              : current,
-          requestCheckInState: const FamilyActionState.success(),
-        );
+        if (current != null) {
+          final remaining = current.openCheckInRequests
+              .where((r) => r.id != requestId)
+              .toList();
+          state = state.copyWith(
+            circle: current.copyWith(
+              latestCheckInRequest: remaining.firstOrNull,
+              checkInRequests: remaining,
+            ),
+            requestCheckInState: const FamilyActionState.success(),
+          );
+        } else {
+          state = state.copyWith(
+            requestCheckInState: const FamilyActionState.success(),
+          );
+        }
       },
       (error) {
         state = state.copyWith(

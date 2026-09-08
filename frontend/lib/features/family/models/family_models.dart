@@ -116,6 +116,12 @@ abstract class FamilyCircle with _$FamilyCircle {
     @Default(<FamilySavedPlace>[]) final List<FamilySavedPlace> places,
     @Default(<FamilySosEvent>[]) final List<FamilySosEvent> activeSosEvents,
     final FamilyCheckInRequest? latestCheckInRequest,
+
+    /// Every open ask that concerns me (aimed at everyone, at me, or sent
+    /// by me), newest first. Empty from a server that only sends the
+    /// latest one, in which case [openCheckInRequests] falls back to it.
+    @Default(<FamilyCheckInRequest>[])
+    final List<FamilyCheckInRequest> checkInRequests,
     final DateTime? createdAt,
   }) = _FamilyCircle;
 
@@ -125,24 +131,48 @@ abstract class FamilyCircle with _$FamilyCircle {
   List<FamilyMember> get others =>
       members.where((m) => m.id != myMemberId).toList();
 
-  /// The outstanding check-in request I still owe an answer to, if any -
+  /// The open asks the hub can show, newest first: the full list when the
+  /// server sends one, else the single latest ask.
+  List<FamilyCheckInRequest> get openCheckInRequests {
+    if (checkInRequests.isNotEmpty) return checkInRequests;
+    final latest = latestCheckInRequest;
+    return latest == null ? const [] : [latest];
+  }
+
+  /// The asks I still owe an answer to, newest first: not mine, aimed at
+  /// me, and made after my last check-in. Several people can ask within
+  /// the same day; one check-in after the newest ask answers all of them.
+  List<FamilyCheckInRequest> get checkInRequestsOwedByMe {
+    final myLastCheckIn = me?.lastCheckInAt;
+    return openCheckInRequests.where((request) {
+      if (request.requestedById == myMemberId) return false;
+      if (!request.isAimedAt(myMemberId)) return false;
+      final askedAt = request.createdAt;
+      final alreadyAnswered =
+          askedAt != null &&
+          myLastCheckIn != null &&
+          myLastCheckIn.isAfter(askedAt);
+      return !alreadyAnswered;
+    }).toList();
+  }
+
+  /// The newest check-in request I still owe an answer to, if any -
   /// null when nobody has asked, when I'm the one who asked, or when I've
   /// already checked in since the ask. Any UI that is about to answer a
-  /// check-in request (as opposed to a spontaneous "I'm Safe") should
-  /// gate on this first: answering one is the one place a location-share
+  /// check-in request (as opposed to a spontaneous check-in) should gate
+  /// on this first: answering one is the one place a location-share
   /// consent choice is required before anything is sent.
-  FamilyCheckInRequest? get checkInRequestOwedByMe {
-    final request = latestCheckInRequest;
-    if (request == null) return null;
-    if (request.requestedById == myMemberId) return null;
-    if (!request.isAimedAt(myMemberId)) return null;
-    final askedAt = request.createdAt;
-    final myLastCheckIn = me?.lastCheckInAt;
-    final alreadyAnswered =
-        askedAt != null &&
-        myLastCheckIn != null &&
-        myLastCheckIn.isAfter(askedAt);
-    return alreadyAnswered ? null : request;
+  FamilyCheckInRequest? get checkInRequestOwedByMe =>
+      checkInRequestsOwedByMe.firstOrNull;
+
+  /// Who is waiting on my check-in, newest ask first, without repeats.
+  List<String> get namesOwedMyCheckIn {
+    final names = <String>[];
+    for (final request in checkInRequestsOwedByMe) {
+      final name = request.requestedBy?.displayName ?? 'Someone';
+      if (!names.contains(name)) names.add(name);
+    }
+    return names;
   }
 
   factory FamilyCircle.fromJson(Map<String, dynamic> json) =>
@@ -425,6 +455,11 @@ abstract class FamilyCircleSummary with _$FamilyCircleSummary {
 
     /// Names of members who have not checked in within the last day.
     @Default(<String>[]) final List<String> waitingOn,
+
+    /// Asks to check in, from the last day, that I have not answered in
+    /// this circle. Lets the hub say "Weekend Crew · 1 request" for a
+    /// circle that is not open.
+    @Default(0) final int pendingCheckInRequests,
 
     /// The latest SOS running in this circle, if any. Who and when only.
     final FamilyCircleSosSummary? activeSos,

@@ -19,6 +19,7 @@ import 'package:hazard_app/features/family/providers/states/family_provider_stat
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_hub_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_check_in_requests_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_details_sheet.dart';
 import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
@@ -107,7 +108,7 @@ FamilyMember _member({
       colorHex: colorHex,
     );
 
-FamilyCircle _circle({bool askPending = true}) => FamilyCircle(
+FamilyCircle _circle({bool askPending = true, bool multiAsk = false}) => FamilyCircle(
       id: 'c1',
       name: 'The Nixons',
       myMemberId: 'me',
@@ -142,20 +143,41 @@ FamilyCircle _circle({bool askPending = true}) => FamilyCircle(
           colorHex: '#4A5568',
         ),
       ],
-      latestCheckInRequest: askPending
-          ? FamilyCheckInRequest(
-              id: 'r1',
-              circleId: 'c1',
-              requestedById: 'amy',
-              requestedBy: const FamilyMemberSnippet(id: 'amy', nickname: 'Amy'),
-              createdAt: _now.subtract(const Duration(minutes: 5)),
-              targetMemberIds: const ['me'],
-            )
-          : null,
+      latestCheckInRequest: askPending ? _asks(multiAsk).first : null,
+      checkInRequests: askPending ? _asks(multiAsk) : const [],
     );
 
-FamilyProviderState _state() => FamilyProviderState(
-      circle: _circle(),
+/// Amy's ask alone, or Amy, Tom and Ben all asking within minutes.
+List<FamilyCheckInRequest> _asks(bool multi) => [
+      if (multi)
+        FamilyCheckInRequest(
+          id: 'r3',
+          circleId: 'c1',
+          requestedById: 'ben',
+          requestedBy: const FamilyMemberSnippet(id: 'ben', nickname: 'Ben'),
+          createdAt: _now.subtract(const Duration(minutes: 1)),
+        ),
+      if (multi)
+        FamilyCheckInRequest(
+          id: 'r2',
+          circleId: 'c1',
+          requestedById: 'tom',
+          requestedBy: const FamilyMemberSnippet(id: 'tom', nickname: 'Tom'),
+          createdAt: _now.subtract(const Duration(minutes: 3)),
+          message: 'Big storm here, all okay?',
+        ),
+      FamilyCheckInRequest(
+        id: 'r1',
+        circleId: 'c1',
+        requestedById: 'amy',
+        requestedBy: const FamilyMemberSnippet(id: 'amy', nickname: 'Amy'),
+        createdAt: _now.subtract(const Duration(minutes: 5)),
+        targetMemberIds: const ['me'],
+      ),
+    ];
+
+FamilyProviderState _state({bool multiAsk = false}) => FamilyProviderState(
+      circle: _circle(multiAsk: multiAsk),
       hasLoadedOnce: true,
       circles: const [
         FamilyCircleSummary(
@@ -173,6 +195,7 @@ FamilyProviderState _state() => FamilyProviderState(
         FamilyCircleSummary(
           circleId: 'c2',
           name: 'Netball Mums',
+          pendingCheckInRequests: 1,
           myMemberId: 'me2',
           isOwned: false,
           memberCount: 6,
@@ -182,11 +205,11 @@ FamilyProviderState _state() => FamilyProviderState(
       ],
     );
 
-Widget _app(Widget home, {bool dark = false, double textScale = 1.0}) {
+Widget _app(Widget home, {bool dark = false, double textScale = 1.0, bool multiAsk = false}) {
   return ProviderScope(
     overrides: [
       providerOfFamily.overrideWith(
-        (ref) => FamilyProvider(ref: ref, state: _state(), bootstrap: false),
+        (ref) => FamilyProvider(ref: ref, state: _state(multiAsk: multiAsk), bootstrap: false),
       ),
       providerOfLiveConnection.overrideWith(_LiveOn.new),
       providerOfAlrtPlusBillingIssue.overrideWith((ref) async => false),
@@ -277,6 +300,30 @@ void main() {
     showChooseCircleSheet(ctx, sheetRef);
     await tester.pumpAndSettle();
     await _shoot(tester, '12_choose_circle_sheet');
+  }, skip: !_enabled);
+
+  testWidgets('family hub, several people asked', (tester) async {
+    await tester.pumpWidget(_app(const FamilyHubScreen(), multiAsk: true));
+    await _shoot(tester, '13_family_hub_multi_ask');
+  }, skip: !_enabled);
+
+  testWidgets('check-in requests sheet', (tester) async {
+    await tester.pumpWidget(_app(
+      Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () => showCheckInRequestsSheet(context, onCheckIn: () async {}),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+      multiAsk: true,
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await _shoot(tester, '14_check_in_requests_sheet');
   }, skip: !_enabled);
 
   testWidgets('circle settings (host)', (tester) async {

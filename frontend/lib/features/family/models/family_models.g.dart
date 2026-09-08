@@ -6,48 +6,53 @@ part of 'family_models.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_FamilyCircle _$FamilyCircleFromJson(Map<String, dynamic> json) =>
-    _FamilyCircle(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      plan: json['plan'] as String? ?? 'plus',
-      maxMembers: (json['maxMembers'] as num?)?.toInt() ?? 10,
-      themeColor: json['themeColor'] as String?,
-      photoUrl: json['photoUrl'] as String?,
-      hostTransitionActive: json['hostTransitionActive'] as bool? ?? false,
-      hostTransitionReason: json['hostTransitionReason'] as String?,
-      hostTransitionHostName: json['hostTransitionHostName'] as String?,
-      hostTransitionDaysLeft: (json['hostTransitionDaysLeft'] as num?)?.toInt(),
-      hostTransitionLocked: json['hostTransitionLocked'] as bool? ?? false,
-      anyoneCanRequestSnapshot:
-          json['anyoneCanRequestSnapshot'] as bool? ?? true,
-      sosToWholeGroup: json['sosToWholeGroup'] as bool? ?? true,
-      journeysSnapPointsOnly: json['journeysSnapPointsOnly'] as bool? ?? true,
-      myMemberId: json['myMemberId'] as String,
-      members:
-          (json['members'] as List<dynamic>?)
-              ?.map((e) => FamilyMember.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const <FamilyMember>[],
-      places:
-          (json['places'] as List<dynamic>?)
-              ?.map((e) => FamilySavedPlace.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const <FamilySavedPlace>[],
-      activeSosEvents:
-          (json['activeSosEvents'] as List<dynamic>?)
-              ?.map((e) => FamilySosEvent.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const <FamilySosEvent>[],
-      latestCheckInRequest: json['latestCheckInRequest'] == null
-          ? null
-          : FamilyCheckInRequest.fromJson(
-              json['latestCheckInRequest'] as Map<String, dynamic>,
-            ),
-      createdAt: json['createdAt'] == null
-          ? null
-          : DateTime.parse(json['createdAt'] as String),
-    );
+_FamilyCircle _$FamilyCircleFromJson(
+  Map<String, dynamic> json,
+) => _FamilyCircle(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  plan: json['plan'] as String? ?? 'plus',
+  maxMembers: (json['maxMembers'] as num?)?.toInt() ?? 10,
+  themeColor: json['themeColor'] as String?,
+  photoUrl: json['photoUrl'] as String?,
+  hostTransitionActive: json['hostTransitionActive'] as bool? ?? false,
+  hostTransitionReason: json['hostTransitionReason'] as String?,
+  hostTransitionHostName: json['hostTransitionHostName'] as String?,
+  hostTransitionDaysLeft: (json['hostTransitionDaysLeft'] as num?)?.toInt(),
+  hostTransitionLocked: json['hostTransitionLocked'] as bool? ?? false,
+  anyoneCanRequestSnapshot: json['anyoneCanRequestSnapshot'] as bool? ?? true,
+  sosToWholeGroup: json['sosToWholeGroup'] as bool? ?? true,
+  journeysSnapPointsOnly: json['journeysSnapPointsOnly'] as bool? ?? true,
+  myMemberId: json['myMemberId'] as String,
+  members:
+      (json['members'] as List<dynamic>?)
+          ?.map((e) => FamilyMember.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <FamilyMember>[],
+  places:
+      (json['places'] as List<dynamic>?)
+          ?.map((e) => FamilySavedPlace.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <FamilySavedPlace>[],
+  activeSosEvents:
+      (json['activeSosEvents'] as List<dynamic>?)
+          ?.map((e) => FamilySosEvent.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <FamilySosEvent>[],
+  latestCheckInRequest: json['latestCheckInRequest'] == null
+      ? null
+      : FamilyCheckInRequest.fromJson(
+          json['latestCheckInRequest'] as Map<String, dynamic>,
+        ),
+  checkInRequests:
+      (json['checkInRequests'] as List<dynamic>?)
+          ?.map((e) => FamilyCheckInRequest.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <FamilyCheckInRequest>[],
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+);
 
 Map<String, dynamic> _$FamilyCircleToJson(
   _FamilyCircle instance,
@@ -71,6 +76,7 @@ Map<String, dynamic> _$FamilyCircleToJson(
   'places': instance.places.map((e) => e.toJson()).toList(),
   'activeSosEvents': instance.activeSosEvents.map((e) => e.toJson()).toList(),
   'latestCheckInRequest': ?instance.latestCheckInRequest?.toJson(),
+  'checkInRequests': instance.checkInRequests.map((e) => e.toJson()).toList(),
   'createdAt': ?instance.createdAt?.toIso8601String(),
 };
 
@@ -484,6 +490,8 @@ _FamilyCircleSummary _$FamilyCircleSummaryFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const <String>[],
+      pendingCheckInRequests:
+          (json['pendingCheckInRequests'] as num?)?.toInt() ?? 0,
       activeSos: json['activeSos'] == null
           ? null
           : FamilyCircleSosSummary.fromJson(
@@ -506,6 +514,7 @@ Map<String, dynamic> _$FamilyCircleSummaryToJson(
   'joinedAt': ?instance.joinedAt?.toIso8601String(),
   'checkedInCount': instance.checkedInCount,
   'waitingOn': instance.waitingOn,
+  'pendingCheckInRequests': instance.pendingCheckInRequests,
   'activeSos': ?instance.activeSos?.toJson(),
 };
 

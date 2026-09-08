@@ -32,6 +32,42 @@ void main() {
     test('names the requester while their ask is open', () {
       expect(imSafeLabel(requesterName: 'Amy'), 'Check in · lets Amy know');
     });
+    test('names every asker when several asked, kept short', () {
+      expect(
+        imSafeLabel(requesterNames: ['Amy', 'Tom']),
+        'Check in · lets Amy and Tom know',
+      );
+      expect(
+        imSafeLabel(requesterNames: ['Amy', 'Tom', 'Emma', 'James']),
+        'Check in · lets Amy, Tom +2 know',
+      );
+      expect(
+        imSafeLabel(requesterName: 'Amy', requesterNames: ['Amy', 'Tom']),
+        'Check in · lets Amy and Tom know',
+      );
+    });
+  });
+
+  group('check-in card wording', () {
+    test('askersLabel', () {
+      expect(askersLabel([]), 'Your circle');
+      expect(askersLabel(['Amy']), 'Amy');
+      expect(askersLabel(['Amy', 'Tom']), 'Amy and Tom');
+      expect(askersLabel(['Amy', 'Tom', 'Emma']), 'Amy, Tom +1');
+    });
+    test('title reads as the mockup', () {
+      expect(checkInCardTitle([]), "Let your circle know you're okay");
+      expect(checkInCardTitle(['Amy']), 'Amy requested a check-in');
+      expect(
+        checkInCardTitle(['Amy', 'Tom', 'Emma', 'James']),
+        'Amy, Tom +2 requested a check-in',
+      );
+    });
+    test('View N requests only when there is more than one', () {
+      expect(viewRequestsLabel(0), isNull);
+      expect(viewRequestsLabel(1), isNull);
+      expect(viewRequestsLabel(4), 'View 4 requests');
+    });
   });
 
   group('seats across hosted circles', () {

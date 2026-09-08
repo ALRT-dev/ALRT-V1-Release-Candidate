@@ -23,6 +23,7 @@ import 'package:hazard_app/features/family/views/screens/family_sos_resolved_scr
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
 import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_check_in_requests_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
@@ -110,7 +111,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                       SizedBox(height: 12.spMin),
                     ],
                     _checkInRequestBannerBuilder(circle, checkInState),
-                    _imSafeButtonBuilder(circle, checkInState),
+                    _checkInCardBuilder(circle, checkInState),
                     SizedBox(height: 10.spMin),
                     _quickTilesRowBuilder(),
                     SizedBox(height: 22.spMin),
@@ -1072,12 +1073,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       return const SizedBox.shrink();
     }
 
+    // The people asked answer on the check-in card below (it names who
+    // is waiting); this amber card is the asker's tracker only.
+    if (!iAsked) return const SizedBox.shrink();
+
     final roll = CheckInRoll.of(circle);
-    // Once you have checked in since the ask, it stops nagging.
-    final me = circle.me;
-    if (!iAsked && (me == null || roll.hasAnswered(me))) {
-      return const SizedBox.shrink();
-    }
 
     // Who this ask is waiting on: its targets, or everyone but the asker.
     final asked = circle.members
@@ -1089,21 +1089,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     // The requester's job ends when the last answer lands.
     if (iAsked && outstanding.isEmpty) return const SizedBox.shrink();
 
-    final who = request.requestedBy?.displayName ?? 'Someone';
     final when = askedAt == null ? null : timeago.format(askedAt);
     final targeted = request.targetMemberIds.isNotEmpty;
-    final String title;
-    if (iAsked) {
-      title = targeted
-          ? 'You asked ${namesLabel(asked.map((m) => m.name).toList())} to check in'
-          : 'You asked everyone to check in';
-    } else if (targeted) {
-      title = '$who asked you to check in';
-    } else {
-      title = outstanding.length > 1
-          ? '$who asked everyone to check in · ${outstanding.length} still to answer'
-          : '$who asked everyone to check in';
-    }
+    final title = targeted
+        ? 'You asked ${namesLabel(asked.map((m) => m.name).toList())} to check in'
+        : 'You asked everyone to check in';
     final detail = [
       if (when != null) when,
       if ((request.message ?? '').isNotEmpty) '"${request.message}"',
@@ -1159,7 +1149,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   ),
                 ),
               ],
-              if (iAsked) ...[
+              ...[
                 // The tracker: every person asked, by name, with their
                 // answer or the lack of it. Never a bare count.
                 SizedBox(height: 10.spMin),
@@ -1202,41 +1192,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     ],
                   ),
                 ),
-              ] else ...[
-                // The answer is the one "I'm Safe" button directly below
-                // this card (its label names $who while the ask is open),
-                // so the card never carries a second copy of it.
-                SizedBox(height: 8.spMin),
-                Padding(
-                  padding: EdgeInsets.only(left: 28.spMin),
-                  child: Text(
-                    'Tap Check in below to answer.',
-                    style: TextStyle(
-                      fontSize: 12.5.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.black,
-                    ),
-                  ),
-                ),
-                if (!targeted)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(horizontal: 28.spMin),
-                      ),
-                      onPressed: () =>
-                          context.push(FamilyCheckInRollCallScreen.route),
-                      child: Text(
-                        "See who's answered",
-                        style: TextStyle(
-                          fontSize: 13.spMin,
-                          fontWeight: FontWeight.w700,
-                          color: FamilyColors.amber,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ],
           ),
@@ -1350,11 +1305,183 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     await ref.read(providerOfFamily.notifier).cancelCheckInRequest(request.id);
   }
 
-  /// Who this "I'm Safe" tap would actually be answering, if anyone.
-  String? _requesterNameStillOwedAnAnswer(final FamilyCircle circle) {
-    final request = circle.checkInRequestOwedByMe;
-    if (request == null) return null;
-    return request.requestedBy?.displayName ?? 'Someone';
+  /// Who this Check in tap would actually be answering, as one short
+  /// phrase ("Amy", "Amy and Tom", "Amy, Tom +2"), or null.
+  String? _askersStillOwedAnAnswer(final FamilyCircle circle) {
+    final names = circle.namesOwedMyCheckIn;
+    return names.isEmpty ? null : askersLabel(names);
+  }
+
+  /// Answer every open ask in this circle, after the consent sheet.
+  Future<void> _answerAsks(final FamilyCircle circle) => _checkInWithConsent(
+        context,
+        ref,
+        requesterName: _askersStillOwedAnAnswer(circle),
+      );
+
+  /// The white card that holds the one Check in button. With asks open it
+  /// leads with who is waiting (faces, names, how long ago, "View N
+  /// requests"); with none it is the plain invitation. Either way the
+  /// caption says location is optional, because the consent sheet comes
+  /// next and nothing is sent until it is answered.
+  Widget _checkInCardBuilder(
+    final FamilyCircle circle,
+    final FamilyActionState checkInState,
+  ) {
+    final asks = circle.checkInRequestsOwedByMe;
+    final askers = circle.namesOwedMyCheckIn;
+    final newest = asks.firstOrNull?.createdAt;
+    final viewLabel = viewRequestsLabel(asks.length);
+    final askerMembers = [
+      for (final ask in asks)
+        circle.members.where((m) => m.id == ask.requestedById).firstOrNull,
+    ].nonNulls.toList();
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 12.spMin),
+      decoration: BoxDecoration(
+        color: context.surfaceCard,
+        borderRadius: BorderRadius.circular(18.spMin),
+        boxShadow: const [
+          BoxShadow(
+            color: FamilyColors.v31CardShadow,
+            blurRadius: 18.0,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (asks.isNotEmpty) ...[
+            if (askerMembers.isNotEmpty) ...[
+              Center(
+                child: _askerFacesBuilder(
+                  askerMembers,
+                  extra: asks.length - askerMembers.length,
+                ),
+              ),
+              SizedBox(height: 10.spMin),
+            ],
+          ],
+          Text(
+            checkInCardTitle(askers),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 17.spMin,
+              fontWeight: FontWeight.w800,
+              color: context.onSurface,
+              height: 1.2,
+            ),
+          ),
+          if (asks.isNotEmpty) ...[
+            SizedBox(height: 4.spMin),
+            Text(
+              [
+                if (newest != null) timeago.format(newest),
+                'In ${circle.name}',
+              ].join(' · '),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5.spMin, color: context.onSurfaceMuted),
+            ),
+            if (viewLabel != null)
+              Center(
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 12.spMin),
+                    minimumSize: Size(0, 32.spMin),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () => showCheckInRequestsSheet(
+                    context,
+                    onCheckIn: () => _answerAsks(circle),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        viewLabel,
+                        style: TextStyle(
+                          fontSize: 13.5.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: FamilyColors.indigo,
+                        ),
+                      ),
+                      Icon(LucideIcons.chevronRight, size: 16.spMin, color: FamilyColors.indigo),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+          SizedBox(height: asks.isNotEmpty && viewLabel != null ? 4.spMin : 12.spMin),
+          _imSafeButtonBuilder(circle, checkInState),
+          SizedBox(height: 8.spMin),
+          Text(
+            'Location sharing is optional',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11.5.spMin, color: context.onSurfaceMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The askers' faces, overlapping, then "+N" for any not in the list.
+  Widget _askerFacesBuilder(
+    final List<FamilyMember> members, {
+    required final int extra,
+  }) {
+    final shown = members.take(3).toList();
+    final more = extra + (members.length - shown.length);
+    final size = 44.0;
+    final step = 32.spMin;
+    final width = step * (shown.length + (more > 0 ? 1 : 0)) + 12.spMin;
+    return SizedBox(
+      width: width,
+      height: size.spMin,
+      child: Stack(
+        children: [
+          for (final (index, member) in shown.indexed)
+            Positioned(
+              left: step * index,
+              child: Container(
+                padding: EdgeInsets.all(2.spMin),
+                decoration: BoxDecoration(
+                  color: context.surfaceCard,
+                  shape: BoxShape.circle,
+                ),
+                child: FamilyMemberAvatar(
+                  member: member,
+                  size: size - 4,
+                  showStatusDot: false,
+                ),
+              ),
+            ),
+          if (more > 0)
+            Positioned(
+              left: step * shown.length,
+              child: Container(
+                width: size.spMin,
+                height: size.spMin,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: FamilyColors.indigoLight,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: context.surfaceCard, width: 2),
+                ),
+                child: Text(
+                  '+$more',
+                  style: TextStyle(
+                    color: FamilyColors.indigo,
+                    fontSize: 13.spMin,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   /// The one action that matters most, and the only one that looks like it.
@@ -1383,9 +1510,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         borderRadius: BorderRadius.circular(16.spMin),
         boxShadow: [
           BoxShadow(
-            color: FamilyColors.safeBright.withValues(alpha: 0.4),
-            blurRadius: 20.0,
-            offset: const Offset(0, 8),
+            color: FamilyColors.safeBright.withValues(alpha: 0.25),
+            blurRadius: 14.0,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -1399,13 +1526,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               borderRadius: BorderRadius.circular(16.spMin),
             ),
           ),
-          onPressed: checkInState.isLoading
-              ? null
-              : () => _checkInWithConsent(
-                    context,
-                    ref,
-                    requesterName: _requesterNameStillOwedAnAnswer(circle),
-                  ),
+          onPressed: checkInState.isLoading ? null : () => _answerAsks(circle),
           icon: checkInState.isLoading
               ? SizedBox(
                   width: 18.spMin,
@@ -1417,9 +1538,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 )
               : Icon(Icons.check_rounded, size: 20.spMin),
           label: Text(
-            imSafeLabel(
-              requesterName: _requesterNameStillOwedAnAnswer(circle),
-            ),
+            imSafeLabel(requesterNames: circle.namesOwedMyCheckIn),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w800),

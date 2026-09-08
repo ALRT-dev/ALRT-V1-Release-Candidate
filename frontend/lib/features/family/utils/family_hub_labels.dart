@@ -15,10 +15,36 @@ const kFamilyMaxSeats = 8;
 /// with it is decided on the consent sheet). When someone's ask is still
 /// owed an answer, the button says who the tap answers; there is no
 /// second button inside the ask banner.
-String imSafeLabel({final String? requesterName}) {
-  if (requesterName == null || requesterName.isEmpty) return 'Check in';
-  return 'Check in · lets $requesterName know';
+String imSafeLabel({
+  final String? requesterName,
+  final List<String> requesterNames = const [],
+}) {
+  final names = [
+    if (requesterName != null && requesterName.isNotEmpty) requesterName,
+    ...requesterNames.where((n) => n.isNotEmpty && n != requesterName),
+  ];
+  if (names.isEmpty) return 'Check in';
+  return 'Check in · lets ${askersLabel(names)} know';
 }
+
+/// "Amy", "Amy and Tom", "Amy, Tom +2": who is waiting, kept short enough
+/// for a button and a card title.
+String askersLabel(final List<String> names) {
+  if (names.isEmpty) return 'Your circle';
+  if (names.length == 1) return names[0];
+  if (names.length == 2) return '${names[0]} and ${names[1]}';
+  return '${names[0]}, ${names[1]} +${names.length - 2}';
+}
+
+/// The card title over the Check in button: "Amy requested a check-in",
+/// "Amy, Tom +2 requested a check-in", or the plain invitation.
+String checkInCardTitle(final List<String> askers) => askers.isEmpty
+    ? "Let your circle know you're okay"
+    : '${askersLabel(askers)} requested a check-in';
+
+/// "View 4 requests" — only when there is more than one to view.
+String? viewRequestsLabel(final int count) =>
+    count > 1 ? 'View $count requests' : null;
 
 /// Seats in use across every circle the caller hosts. Only owned circles
 /// spend the caller's seats; joined circles never do, and the host and

@@ -262,6 +262,9 @@ const MAX_SEATS_TOTAL = 8;
 /** Roles that hold a seat on the owner's plan: invited full members only. */
 const SEAT_FREE_ROLES: FamilyRole[] = ["owner", "guest"];
 
+/** An ask to check in is "open" for this long; after that it is history. */
+const CHECK_IN_ASK_FRESH_MS = 24 * 60 * 60 * 1000;
+
 /**
  * Days a circle without a host keeps everything working before host-only
  * administration (invites, circle settings) locks. Core safety — SOS,
@@ -472,7 +475,8 @@ export const listCirclesForUser = async (userId: string) => {
   // action, and this list is read constantly).
   const circleIds = memberships.map((m) => m.circleId);
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [allMembers, activeSos] = await Promise.all([
+  const myMemberIds = memberships.map((m) => m.id);
+  const [allMembers, openAsks, activeSos] = await Promise.all([
     prisma.familyMember.findMany({
       where: { circleId: { in: circleIds } },
       select: {
@@ -482,6 +486,21 @@ export const listCirclesForUser = async (userId: string) => {
         user: { select: { name: true } },
       },
       orderBy: { createdAt: "asc" },
+    }),
+    // Asks from the last day that could be waiting on me, so the hub can
+    // say "Weekend Crew · 1 request" for a circle that is not open.
+    // Who asked and when only.
+    prisma.familyCheckInRequest.findMany({
+      where: {
+        circleId: { in: circleIds },
+        createdAt: { gt: dayAgo },
+        requestedById: { notIn: myMemberIds },
+        OR: [
+          { targetMemberIds: { isEmpty: true } },
+          { targetMemberIds: { hasSome: myMemberIds } },
+        ],
+      },
+      select: { circleId: true, createdAt: true, targetMemberIds: true },
     }),
     prisma.familySosEvent.findMany({
       where: { circleId: { in: circleIds }, status: "active" },
@@ -514,6 +533,18 @@ export const listCirclesForUser = async (userId: string) => {
       ]);
     }
   }
+  // An ask is still owed when I have not checked in since it was made.
+  const pendingAsksByCircle = new Map<string, number>();
+  for (const membership of memberships) {
+    const mine = openAsks.filter(
+      (ask) =>
+        ask.circleId === membership.circleId &&
+        (ask.targetMemberIds.length === 0 ||
+          ask.targetMemberIds.includes(membership.id)) &&
+        (!membership.lastCheckInAt || membership.lastCheckInAt < ask.createdAt),
+    );
+    pendingAsksByCircle.set(membership.circleId, mine.length);
+  }
   const sosByCircle = new Map<
     string,
     { id: string; memberId: string; memberName: string; createdAt: Date }
@@ -543,6 +574,7 @@ export const listCirclesForUser = async (userId: string) => {
     joinedAt: membership.createdAt,
     checkedInCount: checkedInByCircle.get(membership.circleId) ?? 0,
     waitingOn: waitingOnByCircle.get(membership.circleId) ?? [],
+    pendingCheckInRequests: pendingAsksByCircle.get(membership.circleId) ?? 0,
     activeSos: sosByCircle.get(membership.circleId) ?? null,
   }));
 };
@@ -576,12 +608,16 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
   });
   if (!circle) return null;
 
-  // The latest ask that concerns THIS member: aimed at everyone, aimed at
-  // them, or sent by them (their own tracker). An ask aimed only at
-  // someone else is not theirs to see or answer.
-  const latestRequest = await prisma.familyCheckInRequest.findFirst({
+  // The asks that concern THIS member: aimed at everyone, aimed at them,
+  // or sent by them (their own tracker). An ask aimed only at someone
+  // else is not theirs to see or answer. Every ask from the last day is
+  // returned, newest first, so that when Amy and Tom both ask, the hub
+  // can name both and one check-in can be seen to answer both; the
+  // newest also travels as latestCheckInRequest for older app builds.
+  const checkInRequests = await prisma.familyCheckInRequest.findMany({
     where: {
       circleId: circle.id,
+      createdAt: { gt: new Date(Date.now() - CHECK_IN_ASK_FRESH_MS) },
       OR: [
         { targetMemberIds: { isEmpty: true } },
         { targetMemberIds: { has: membership.id } },
@@ -589,6 +625,7 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
       ],
     },
     orderBy: { createdAt: "desc" },
+    take: 20,
     include: {
       checkIns: { select: { memberId: true } },
       // Who asked, by name only - never their location (see requestCheckIn).
@@ -601,6 +638,7 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
       },
     },
   });
+  const latestRequest = checkInRequests[0] ?? null;
 
   const hostTransition = await getHostTransitionState(circle.id);
 
@@ -626,6 +664,7 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
     places: circle.places,
     activeSosEvents: circle.sosEvents,
     latestCheckInRequest: latestRequest,
+    checkInRequests,
     createdAt: circle.createdAt,
   };
 };
