@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
+import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
 import 'package:hazard_app/features/family/providers/family_socket_manager_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
@@ -1049,9 +1050,13 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     // older one too); with none owed, my own or the latest ask on record.
     final requestId = state.circle?.checkInRequestOwedByMe?.id ??
         state.circle?.latestCheckInRequest?.id;
-    final targetCircleIds = requestId != null
-        ? <String>[]
-        : state.circles.map((c) => c.circleId).toSet().toList();
+    // A circle where someone is waiting on my check-in is never answered
+    // as a side effect of checking in here (see checkInTargetCircleIds).
+    final targetCircleIds = checkInTargetCircleIds(
+      owedRequestId: requestId,
+      selectedCircleId: _ref.read(providerOfSelectedCircleId) ?? state.circle?.id,
+      circles: state.circles,
+    );
 
     if (targetCircleIds.length <= 1) {
       final result = await _familyService.sendFamilyCheckIn(

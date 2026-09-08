@@ -144,3 +144,29 @@ String memberStatusExplanation({
   return "They haven't checked in yet. That is silence, not danger — ask "
       'them to check in, or request a one-time snapshot.';
 }
+
+/// Which circles a check-in goes to.
+///
+/// Answering an ask is a deliberate act in one circle: with an ask owed
+/// in the open circle, the check-in goes there only ([owedRequestId] set,
+/// empty list = "the current circle"). With nothing owed here, a
+/// spontaneous check-in tells every circle you are all right, EXCEPT a
+/// circle where someone is waiting on your check-in: answering that ask
+/// must be your own tap there (Switch circle, then Check in), never a
+/// side effect of checking in somewhere else.
+List<String> checkInTargetCircleIds({
+  required final String? owedRequestId,
+  required final String? selectedCircleId,
+  required final List<FamilyCircleSummary> circles,
+}) {
+  if (owedRequestId != null) return const [];
+  final ids = <String>[];
+  for (final c in circles) {
+    if (c.pendingCheckInRequests > 0 && c.circleId != selectedCircleId) continue;
+    if (!ids.contains(c.circleId)) ids.add(c.circleId);
+  }
+  if (selectedCircleId != null && !ids.contains(selectedCircleId)) {
+    ids.insert(0, selectedCircleId);
+  }
+  return ids;
+}

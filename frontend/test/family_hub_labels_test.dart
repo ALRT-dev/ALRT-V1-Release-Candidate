@@ -199,4 +199,37 @@ void main() {
       );
     });
   });
+
+  group('checkInTargetCircleIds', () {
+    const home = FamilyCircleSummary(circleId: 'home', name: 'Home', myMemberId: 'm1');
+    const work = FamilyCircleSummary(circleId: 'work', name: 'Work', myMemberId: 'm2');
+    const crew = FamilyCircleSummary(
+      circleId: 'crew', name: 'Crew', myMemberId: 'm3', pendingCheckInRequests: 1,
+    );
+
+    test('answering an ask stays in the current circle', () {
+      expect(
+        checkInTargetCircleIds(owedRequestId: 'r1', selectedCircleId: 'home', circles: [home, work, crew]),
+        isEmpty,
+      );
+    });
+    test('a spontaneous check-in tells every circle with nothing waiting', () {
+      expect(
+        checkInTargetCircleIds(owedRequestId: null, selectedCircleId: 'home', circles: [home, work]),
+        ['home', 'work'],
+      );
+    });
+    test('never silently answers an ask waiting in another circle', () {
+      expect(
+        checkInTargetCircleIds(owedRequestId: null, selectedCircleId: 'home', circles: [home, work, crew]),
+        ['home', 'work'],
+      );
+    });
+    test('the open circle is always included, even with its own ask count', () {
+      expect(
+        checkInTargetCircleIds(owedRequestId: null, selectedCircleId: 'crew', circles: [home, crew]),
+        ['home', 'crew'],
+      );
+    });
+  });
 }
