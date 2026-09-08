@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# ALRT TEST rollout, revision 7 (6 + app image identified by service, never by list position; content-verified).
+# ALRT TEST rollout, revision 7 (6 + app image identified by service, never by list position; content-verified,
+# including the multi-ask regression script so verify runs the 14-check version).
 #
 # Usage on the TEST host (alrt-test-api, i-0045a41694e315d45, ap-southeast-2), in the operator's SSM shell, one step
 # per invocation, in this order:
@@ -50,7 +51,7 @@ readonly BASE="${ALRT_ROLLOUT_BASE:-/var/tmp/alrt-test-rollout}"
 readonly EXTERNAL_HEALTH_URL="https://api-test.safetyalrt.com/api/test"
 readonly INTERNAL_HEALTH_URL="http://127.0.0.1:3010/api/test"
 # Files whose content must be byte-identical between the checked-out revision and the running image.
-readonly CONTENT_FILES="src/services/family.service.ts src/controllers/family.controller.ts src/scripts/verify_family_location_consent.ts package.json prisma/migrations/20260904000000_family_check_in_request_targets/migration.sql prisma/migrations/20260905000000_family_host_transition/migration.sql"
+readonly CONTENT_FILES="src/services/family.service.ts src/controllers/family.controller.ts src/scripts/verify_family_location_consent.ts src/scripts/verify_targeted_check_in_request.ts package.json prisma/migrations/20260904000000_family_check_in_request_targets/migration.sql prisma/migrations/20260905000000_family_host_transition/migration.sql"
 readonly REGRESSION_SCRIPTS="verify_checkin_request_location_privacy verify_sos_history verify_stage9a_journey_recipient verify_targeted_check_in_request verify_circle_list_state verify_seat_rule"
 
 # ----------------------------------------------------------------------------- tool shims (stand-in testing only)
