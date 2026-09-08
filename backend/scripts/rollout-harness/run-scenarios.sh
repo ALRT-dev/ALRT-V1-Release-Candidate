@@ -35,12 +35,26 @@ flow() { # name scenario expect  (record with pin, then deploy)
   local name=$1 scen=$2 expect=$3
   local base; base=$(mktemp -d); export FAKE_STATE="$base/state"; mkdir -p "$FAKE_STATE"
   env $(envfor "$base") SCENARIO= bash "$SCRIPT" record --pin "$FAKE_PIN" >/dev/null 2>&1 || { echo "FAIL [$name] record"; FAILS=$((FAILS+1)); return; }
-  local out rc; out=$(env $(envfor "$base") SCENARIO="$scen" bash "$SCRIPT" deploy --pin "$FAKE_PIN" --apply-approved-migrations 2>&1); rc=$?
+  local out rc; out=$(env $(envfor "$base") SCENARIO="$scen" bash "$SCRIPT" deploy --pin "$FAKE_PIN" "${MODE_FLAG:---apply-approved-migrations}" 2>&1); rc=$?
   check "$name" "$out" "$rc" "$expect"
   local rd; rd=$(cat "$base/rollout/current-run")
   echo "     status: $(tr '\n' '|' < "$rd/status.txt" | cut -c1-200)"
   [ -f "$FAKE_STATE/running" ] && echo "     running image now: $(cat "$FAKE_STATE/running")" || echo "     running image: unchanged (old)"
   [ -s "$FAKE_STATE/dbs" ] && { echo "     scratch database LEFT BEHIND: $(cat "$FAKE_STATE/dbs")"; FAILS=$((FAILS+1)); }
+  LAST_BASE="$base"
+}
+uflow() { # name scenario expect [mode flags]  (database ALREADY migrated: record, then deploy under scenario)
+  local name=$1 scen=$2 expect=$3; shift 3
+  local base; base=$(mktemp -d); export FAKE_STATE="$base/state"; mkdir -p "$FAKE_STATE"; touch "$FAKE_STATE/migrated"
+  env $(envfor "$base") SCENARIO= bash "$SCRIPT" record --pin "$FAKE_PIN" >/dev/null 2>&1 || { echo "FAIL [$name] record"; FAILS=$((FAILS+1)); return; }
+  local -a args; if [ $# -eq 0 ]; then args=(--no-new-migrations); elif [ "$1" = NOMODE ]; then args=(); else args=("$@"); fi
+  local out rc; out=$(env $(envfor "$base") SCENARIO="$scen" bash "$SCRIPT" deploy --pin "$FAKE_PIN" "${args[@]}" 2>&1); rc=$?
+  check "$name" "$out" "$rc" "$expect"
+  local rd; rd=$(cat "$base/rollout/current-run")
+  echo "     status: $(tr '\n' '|' < "$rd/status.txt" | cut -c1-200)"
+  [ -f "$FAKE_STATE/running" ] && echo "     running image now: $(cat "$FAKE_STATE/running")" || echo "     running image: unchanged (old)"
+  [ -s "$FAKE_STATE/dbs" ] && { echo "     scratch database LEFT BEHIND: $(cat "$FAKE_STATE/dbs")"; FAILS=$((FAILS+1)); }
+  [ -f "$FAKE_STATE/applied-on-up" ] && [ "$scen" != "reapplied" ] && { echo "     a migration was applied during an update: BAD"; FAILS=$((FAILS+1)); }
   LAST_BASE="$base"
 }
 vflow() { # name scenario expect  (record + deploy clean, then verify under scenario)
@@ -63,7 +77,7 @@ FAKE_REGION=us-east-1 one "wrong region" "" "this is region us-east-1" preflight
 echo "== arguments"
 one "record without pin" "" "requires --pin" record
 one "record short pin" "" "must be the full 40-hex" record --pin 2961d2d
-one "deploy without approval flag" "" "requires --apply-approved-migrations" deploy --pin "$FAKE_PIN"
+one "deploy without a mode" "" "requires a mode" deploy --pin "$FAKE_PIN"
 one "unknown argument" "" "unknown argument" preflight --bogus
 
 echo "== preflight is read-only"
@@ -98,6 +112,25 @@ rd=$(cat "$LAST_BASE/rollout/current-run")
 out=$(env $(envfor "$LAST_BASE") SCENARIO= bash "$SCRIPT" deploy --pin "$FAKE_PIN" --apply-approved-migrations 2>&1); check "second deploy in same run refused" "$out" $? "deploy already completed"
 echo "     files: $(ls "$rd" | tr '\n' ' ')"
 echo "     perms: $(stat -c '%a %n' "$rd" "$rd"/*.dump | sed "s|$rd||" | tr '\n' ' ')"
+
+echo "== deploy: update with no new migration (database already migrated)"
+uflow "no mode given" "" "requires a mode" NOMODE
+uflow "both modes given" "" "exactly one mode" --apply-approved-migrations --no-new-migrations
+uflow "first-rollout mode on an already-migrated database" "" "use --no-new-migrations" --apply-approved-migrations
+MODE_FLAG=--no-new-migrations flow "update mode on a database with the two migrations pending" "" "unexpected pending migrations found"; unset MODE_FLAG
+uflow "status command fails" "status-fail" "prisma migrate status exited 1 in --no-new-migrations mode"
+uflow "db unreachable" "db-unreachable" "could not reach or authenticate"
+uflow "ledger has a failed entry" "ledger-dirty" "failed or rolled-back entries"
+uflow "columns missing although ledger says applied" "schema-inconsistent" "schema and ledger disagree"
+uflow "ledger has a migration the image lacks" "ledger-extra" "differ from the image's migration folders"
+uflow "start applied a migration anyway" "reapplied" "during a --no-new-migrations deploy"
+uflow "restore fails" "restore-fail" "pg_restore exited 1"
+uflow "update ok" "next-image" "deployed $FAKE_PIN (mode no-new)"
+rd=$(cat "$LAST_BASE/rollout/current-run")
+echo "     files: $(ls "$rd" | tr '\n' ' ')"
+echo "     gate: $(tr '\n' '|' < "$rd/pending-migrations.txt")"
+echo "     ledger before/after identical: $(cmp -s "$rd/ledger-names-before.txt" "$rd/ledger-names-after.txt" && echo yes || echo NO)"
+out=$(env $(envfor "$LAST_BASE") SCENARIO= bash "$SCRIPT" verify 2>&1); check "verify after update" "$out" $? "verification passed"
 
 echo "== verify"
 vflow "consent fails -> stops before regressions" "consent-fail" "stopping before any regression script"

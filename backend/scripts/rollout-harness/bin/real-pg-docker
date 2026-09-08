@@ -10,7 +10,7 @@ if [ "$1" = "exec" ]; then
   [ "$1" = "sh" ] && [ "$2" = "-c" ] || exit 99
   env "${envs[@]}" POSTGRES_USER="$PGUSER" POSTGRES_DB="$REAL_APP_DB" sh -c "$3"; exit $?
 fi
-if [ "$1" = "compose" ] && [ "$4" = "up" ]; then
+if [ "$1" = "compose" ] && [ "$4" = "up" ] && [ ! -f "$S/migrated" ]; then
   for m in 20260904000000_family_check_in_request_targets 20260905000000_family_host_transition; do
     psql -d "$REAL_APP_DB" -v ON_ERROR_STOP=1 -q -f "$REAL_MIGRATIONS/$m/migration.sql" || exit 1
     psql -d "$REAL_APP_DB" -v ON_ERROR_STOP=1 -Atq -c "insert into _prisma_migrations(id, checksum, finished_at, migration_name, started_at, applied_steps_count) values (gen_random_uuid()::text, 'harness', now(), '$m', now(), 1)" || exit 1

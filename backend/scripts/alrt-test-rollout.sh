@@ -1,29 +1,41 @@
 #!/usr/bin/env bash
-# ALRT TEST rollout, revision 5.1 (5 + deploy stops if the started app reports a placeholder Google key).
+# ALRT TEST rollout, revision 6.
 #
 # Usage on the TEST host (alrt-test-api, i-0045a41694e315d45, ap-southeast-2), in the operator's SSM shell, one step
-# per call, waiting for each step's output before the next:
+# per invocation, in this order:
 #
 #   bash alrt-test-rollout.sh preflight [--pin SHA]       read-only: environment, server revision, running image, ledger,
 #                                                         existing backup, remote head (judged against --pin if given)
 #   bash alrt-test-rollout.sh record --pin SHA            rollback tag + exact image ID, ledger snapshot; creates the run dir
-#   bash alrt-test-rollout.sh deploy --pin SHA --apply-approved-migrations
-#                                                         HTTPS fetch pinned to SHA, build, migration gate, fresh
-#                                                         restore-tested backup, start, then prove migrations + image
+#   bash alrt-test-rollout.sh deploy --pin SHA MODE       HTTPS fetch pinned to SHA, build, migration gate for MODE, fresh
+#                                                         restore-tested backup, start, post-start proof
 #   bash alrt-test-rollout.sh verify                      image content, tooling, strict 40-check consent run, six regression
-#                                                         scripts (stops at the first failure), health, ledger, container
+#                                                         scripts, health, ledger, schema, running image, scheduler
 #   bash alrt-test-rollout.sh inspect                     read-only state dump for failure reports
+#
+# MODE is exactly one of (deploy refuses without one, and refuses both):
+#   --apply-approved-migrations   FIRST rollout of the two approved migrations: the new image must report exactly those
+#                                 two pending, the ledger must be clean, none of the three columns may exist yet; the
+#                                 container start applies them and the post-start proof checks both finished.
+#   --no-new-migrations           an UPDATE with no new migration (code only): the new image's `prisma migrate status`
+#                                 must succeed and report the schema up to date with nothing pending, the ledger must be
+#                                 clean with both approved migrations finished, all three columns present, and the
+#                                 image's migration folders must equal the ledger; the start must apply nothing (the
+#                                 ledger after equals the ledger before, no "Applying migration" line). Anything else
+#                                 stops before the backup and before `up`.
 #
 # --pin is the full 40-hex commit the owner approved for this rollout. It is an argument, not a constant, because the
 # approved revision advances with approved UI commits; record writes it into the run directory and deploy/verify refuse
-# to proceed against any other value.
+# a different one. The remote test head must equal the pin at record and again at deploy.
 #
 # Guarantees: every step re-checks instance, region, repository and env before any write; preflight writes only into
-# its own private directory and never touches the current run; every other write goes to a private (umask 077)
+# its own private directory and never registers itself as the current run; record and deploy write into a private
 # per-run directory under /var/tmp/alrt-test-rollout; existing backups and earlier rollback records are never
-# modified; scratch databases are uniquely named, verified absent beforehand and distinct from the app database, and
+# touched; the fresh backup is restore-tested into a uniquely named scratch database that is verified absent before and
 # only the one this run created is dropped; every exit code is recorded before the script stops; verification stops
-# at the first failed script; nothing here rolls back, restores, or "fixes" anything.
+# at the first failed script; nothing here rolls back, restores, or "fixes" anything. Neither mode ever resets,
+# re-applies or edits a migration; the only thing that can apply a migration is the container's own
+# `prisma migrate deploy` at start, and in --no-new-migrations mode the proof requires that it applied nothing.
 set -euo pipefail
 umask 077
 
@@ -51,6 +63,7 @@ SLEEP_AFTER_UP="${ALRT_SLEEP_AFTER_UP:-12}"
 RUN_DIR=""
 PIN=""
 APPLY_MIGRATIONS=0
+NO_NEW_MIGRATIONS=0
 
 # Always to stderr; also to the run log once a run directory exists. Never fails when there is no directory yet.
 log() {
@@ -74,6 +87,7 @@ parse_args() {
     case "$1" in
       --pin) [ -n "${2:-}" ] || stop "--pin needs a value"; PIN="$2"; shift 2 ;;
       --apply-approved-migrations) APPLY_MIGRATIONS=1; shift ;;
+      --no-new-migrations) NO_NEW_MIGRATIONS=1; shift ;;
       *) stop "unknown argument: $1" ;;
     esac
   done
@@ -152,6 +166,17 @@ where migration_name in ('20260904000000_family_check_in_request_targets','20260
 order by migration_name;
 SQL
 }
+# Every finished, not-rolled-back migration name in the ledger, sorted. Compared with the image's migration folders.
+ledger_names() {
+  psql_db "$1" <<'SQL'
+-- ledger names
+select migration_name from _prisma_migrations where finished_at is not null and rolled_back_at is null order by migration_name;
+SQL
+}
+# The migration folders shipped in the NEW image (read without starting the app).
+image_migration_names() {
+  dc run --rm --no-deps app sh -c 'ls prisma/migrations' | grep -E '^[0-9]{14}_' | sort
+}
 # The three columns those migrations add. 3 = both applied and present, 0 = neither.
 approved_columns_present() {
   psql_db "$1" <<'SQL'
@@ -184,7 +209,7 @@ preflight() {
   ( cd "$REPO"; $GIT rev-parse HEAD; $GIT log -1 --format='%h %ci %s'; $GIT status --short ) > "$RUN_DIR/server-revision.txt" 2>&1 || true
   container_state > "$RUN_DIR/running-container.txt"
   ledger_snapshot "$RUN_DIR/ledger-before.txt"
-  printf 'approved columns present (expect 0 before, 3 after): %s\n' "$(approved_columns_present "$(app_db)")" > "$RUN_DIR/schema-columns.txt"
+  printf 'approved columns present: %s (0 = the two approved migrations still pending, first rollout; 3 = applied, updates use --no-new-migrations)\n' "$(approved_columns_present "$(app_db)")" > "$RUN_DIR/schema-columns.txt"
   if [ -e "$EXISTING_BACKUP" ]; then
     { ls -l "$EXISTING_BACKUP"; ls -ld "$(dirname "$EXISTING_BACKUP")"; } > "$RUN_DIR/existing-backup.txt" 2>&1
     if [ ! -r "$EXISTING_BACKUP" ]; then
@@ -238,8 +263,15 @@ record() {
 # ============================================================================= deploy
 deploy() {
   require_pin
-  [ "$APPLY_MIGRATIONS" = 1 ] || stop "deploy requires --apply-approved-migrations (owner-approved list: $APPROVED_MIGRATIONS)"
-  enforce_environment; current_run_dir; note "step=deploy pin=$PIN"
+  local mode
+  if [ "$APPLY_MIGRATIONS" = 1 ] && [ "$NO_NEW_MIGRATIONS" = 1 ]; then
+    stop "deploy takes exactly one mode: --apply-approved-migrations (first rollout of $APPROVED_MIGRATIONS) or --no-new-migrations (update), not both"
+  elif [ "$APPLY_MIGRATIONS" = 1 ]; then mode=apply-approved
+  elif [ "$NO_NEW_MIGRATIONS" = 1 ]; then mode=no-new
+  else
+    stop "deploy requires a mode: --apply-approved-migrations (first rollout of $APPROVED_MIGRATIONS) or --no-new-migrations (update with no new migration)"
+  fi
+  enforce_environment; current_run_dir; note "step=deploy pin=$PIN mode=$mode"
   [ "$(recorded_pin)" = "$PIN" ] || stop "--pin $PIN differs from the pin recorded in this run ($(recorded_pin)); run 'record' again for a new pin"
   [ -s "$RUN_DIR/rollback-tag.txt" ] && [ -s "$RUN_DIR/rollback-image-id.txt" ] || stop "record has not completed in this run directory"
   grep -q '^deploy=ok$' "$RUN_DIR/status.txt" && stop "deploy already completed in this run; start a new run with 'record' if a redeploy is intended"
@@ -296,17 +328,41 @@ deploy() {
   note "migrate status exit=$status_exit"
   grep -qiE "P1001|P1000|Can't reach database|connection refused|ECONNREFUSED|Authentication failed" "$RUN_DIR/migrate-status.txt" && stop "prisma could not reach or authenticate to the database (see migrate-status.txt)"
   grep -qiE "failed migration|migration.*failed|rolled back" "$RUN_DIR/migrate-status.txt" && stop "prisma reports failed or rolled-back migrations (see migrate-status.txt)"
-  grep -qiE "database schema is up to date" "$RUN_DIR/migrate-status.txt" && stop "image reports no pending migrations but the approved list expects two"
-  local pending expected
+  local pending expected appdb
   pending=$(awk '/have not yet been applied/{f=1;next} f&&/^[0-9]{14}_/{print $1} f&&/^[[:space:]]*$/{f=0}' "$RUN_DIR/migrate-status.txt" | sort | tr '\n' ' ' | sed 's/ $//')
   expected=$(printf '%s\n' $APPROVED_MIGRATIONS | sort | tr '\n' ' ' | sed 's/ $//')
-  printf 'pending=[%s]\napproved=[%s]\n' "$pending" "$expected" | tee "$RUN_DIR/pending-migrations.txt"
-  [ -n "$pending" ] || stop "could not parse a pending-migration list from migrate status (exit $status_exit)"
-  [ "$pending" = "$expected" ] || stop "pending migrations differ from the approved list; nothing applied"
-  ledger_must_be_clean
-  local appdb; appdb=$(app_db); [ -n "$appdb" ] || stop "could not read the application database name"
-  [ "$(approved_columns_present "$appdb")" = "0" ] || stop "some approved columns already exist although the ledger says the migrations are pending; unexpected schema state"
-  log "migration gate passed: exactly the approved migrations are pending"
+  printf 'mode=%s\npending=[%s]\napproved=[%s]\n' "$mode" "$pending" "$expected" | tee "$RUN_DIR/pending-migrations.txt"
+  appdb=$(app_db); [ -n "$appdb" ] || stop "could not read the application database name"
+  if [ "$mode" = apply-approved ]; then
+    # First rollout: exactly the two approved migrations pending, nothing applied yet.
+    grep -qiE "database schema is up to date" "$RUN_DIR/migrate-status.txt" && stop "image reports no pending migrations but --apply-approved-migrations expects the two approved ones pending; if they are already applied, this is an update: use --no-new-migrations"
+    [ -n "$pending" ] || stop "could not parse a pending-migration list from migrate status (exit $status_exit)"
+    [ "$pending" = "$expected" ] || stop "pending migrations differ from the approved list; nothing applied"
+    ledger_must_be_clean
+    [ "$(approved_columns_present "$appdb")" = "0" ] || stop "some approved columns already exist although the ledger says the migrations are pending; unexpected schema state"
+    log "migration gate passed: exactly the approved migrations are pending"
+  else
+    # Update with no new migration: the status command itself must succeed and report nothing to do.
+    [ -z "$pending" ] || stop "unexpected pending migrations found in --no-new-migrations mode: [$pending]; nothing applied, nothing deployed. If these are the two approved migrations on a database that has never had them, this is the first rollout: use --apply-approved-migrations"
+    [ "$status_exit" -eq 0 ] || stop "prisma migrate status exited $status_exit in --no-new-migrations mode (see migrate-status.txt); nothing deployed"
+    grep -qiE "database schema is up to date" "$RUN_DIR/migrate-status.txt" || stop "prisma did not report the database schema up to date (see migrate-status.txt); nothing deployed"
+    ledger_must_be_clean
+    local rows cols
+    rows=$(approved_rows "$appdb"); printf '%s\n' "$rows" | tee "$RUN_DIR/migrations-before.txt"
+    [ "$(printf '%s\n' "$rows" | grep -c .)" = "2" ] || stop "expected both approved migrations finished in the ledger before an update; found: $rows"
+    printf '%s\n' "$rows" | grep -qvE ':t:t:[0-9]+$' && stop "an approved migration is unfinished or rolled back: $rows"
+    cols=$(approved_columns_present "$appdb"); printf 'approved columns present before: %s\n' "$cols" | tee -a "$RUN_DIR/migrations-before.txt"
+    [ "$cols" = "3" ] || stop "expected the 3 approved columns present before an update, found $cols; schema and ledger disagree"
+    # The image's migration folders must be exactly the ledger: a folder the ledger lacks would be pending (caught
+    # above); a ledger entry the image lacks means the image is older than the database, or the ledger is not ours.
+    local in_ledger in_image
+    in_ledger=$(ledger_names "$appdb"); in_image=$(image_migration_names)
+    printf -- '--- ledger\n%s\n--- image\n%s\n' "$in_ledger" "$in_image" > "$RUN_DIR/migrations-ledger-vs-image.txt"
+    [ -n "$in_image" ] || stop "could not list migration folders in the new image"
+    [ "$in_ledger" = "$in_image" ] || stop "migration names in the ledger differ from the image's migration folders (see migrations-ledger-vs-image.txt); nothing deployed"
+    ledger_names "$appdb" > "$RUN_DIR/ledger-names-before.txt"
+    log "migration gate passed: nothing pending, both approved migrations finished, 3 columns present, ledger = image folders"
+  fi
 
   # ---- 4d fresh backup, restore-tested into a uniquely named scratch database (the app database is only read)
   local scratch backup existing
@@ -377,6 +433,14 @@ SQL
   set -e
   note "migrate status after exit=$after_exit"
   grep -qi "database schema is up to date" "$RUN_DIR/migrate-status-after.txt" || stop "prisma does not report an up-to-date schema after deploy (see migrate-status-after.txt)"
+  if [ "$mode" = no-new ]; then
+    # Nothing may have been applied by the start: same ledger names as before, and no apply line in the log.
+    ledger_names "$appdb" > "$RUN_DIR/ledger-names-after.txt"
+    cmp -s "$RUN_DIR/ledger-names-before.txt" "$RUN_DIR/ledger-names-after.txt" || stop "the migration ledger changed during a --no-new-migrations deploy (see ledger-names-before.txt / ledger-names-after.txt). Do not roll back automatically; run 'inspect' and report."
+    if grep -q "Applying migration" "$RUN_DIR/app-after.log"; then
+      stop "the container applied a migration during a --no-new-migrations deploy (see app-after.log). Do not roll back automatically; run 'inspect' and report."
+    fi
+  fi
   local running_id; running_id=$(cat "$RUN_DIR/deployed-image-id.txt")
   [ "$running_id" = "$built_id" ] || stop "running image $running_id is not the image built this run ($built_id)"
   grep -E "Scheduled jobs are OFF for TEST|Scheduled tasks|scheduled" "$RUN_DIR/app-after.log" | head -3 > "$RUN_DIR/scheduler-observed.txt" || true
@@ -387,7 +451,7 @@ SQL
     stop "the started app reports GOOGLE_MAPS_API_KEY looks like a placeholder; fix .env.test before verify (see app-after.log)"
   fi
   note "deploy=ok"
-  log "deployed $PIN; running image = built image $built_id; both migrations finished; 3 columns present; scheduler line: $(head -1 "$RUN_DIR/scheduler-observed.txt")"
+  log "deployed $PIN (mode $mode); running image = built image $built_id; both migrations finished; 3 columns present; scheduler line: $(head -1 "$RUN_DIR/scheduler-observed.txt")"
 }
 
 # ============================================================================= verify
