@@ -37,8 +37,9 @@ class FamilyGroupSettingsScreen extends ConsumerStatefulWidget {
 class _FamilyGroupSettingsScreenState
     extends ConsumerState<FamilyGroupSettingsScreen> {
   static const _page = Color(0xFFF5F2F7);
-  static const _label = Color(0xFFB84500);
-  static const _perGroupLabel = Color(0xFF8E24AA);
+  // Section headings in the prototype's deep purple, not the old orange.
+  static const _label = FamilyColors.indigoDark;
+  static const _perGroupLabel = FamilyColors.indigo;
   static const _muted = Color(0xFF8A8792);
 
   /// The ten beacons a group can wear. Colours another group already uses

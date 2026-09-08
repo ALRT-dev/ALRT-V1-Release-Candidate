@@ -192,7 +192,8 @@ class _CheckInConsentSheetBody extends StatelessWidget {
               height: 52.spMin,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: FamilyColors.safeGreen,
+                  // The same green as the hub's check-in button.
+                  backgroundColor: FamilyColors.safeBrightDeep,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(

@@ -222,25 +222,31 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     required final bool isSelected,
     required final GroupState state,
   }) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    // Dark mode gets dark tiles (the name is drawn in onSurface, which is
+    // white there); light mode keeps the lavender tiles.
+    final plain = dark ? context.surfaceMuted : FamilyColors.v31Page;
+    final selectedFill =
+        dark ? FamilyColors.indigo.withValues(alpha: 0.28) : FamilyColors.indigoLight;
     final Color ink;
     final Color background;
     final Color border;
     switch (state.kind) {
       case GroupStateKind.sos:
         ink = FamilyColors.sosRed;
-        background = FamilyColors.sosRedLight;
+        background = dark ? FamilyColors.sosRed.withValues(alpha: 0.22) : FamilyColors.sosRedLight;
         border = FamilyColors.sosRed;
       case GroupStateKind.waiting:
         ink = FamilyColors.amber;
-        background = isSelected ? FamilyColors.indigoLight : FamilyColors.v31Page;
+        background = isSelected ? selectedFill : plain;
         border = isSelected ? FamilyColors.indigo : Colors.transparent;
       case GroupStateKind.allIn:
         ink = FamilyColors.safeGreen;
-        background = isSelected ? FamilyColors.indigoLight : FamilyColors.v31Page;
+        background = isSelected ? selectedFill : plain;
         border = isSelected ? FamilyColors.indigo : Colors.transparent;
       case GroupStateKind.alone:
         ink = AppColors.grey;
-        background = isSelected ? FamilyColors.indigoLight : FamilyColors.v31Page;
+        background = isSelected ? selectedFill : plain;
         border = isSelected ? FamilyColors.indigo : Colors.transparent;
     }
     return GestureDetector(
