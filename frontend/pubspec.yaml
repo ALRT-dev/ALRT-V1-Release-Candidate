@@ -3,7 +3,7 @@ description: "A new Flutter project."
 
 publish_to: "none"
 
-version: 1.0.5+36
+version: 1.0.5+37
 
 environment:
   sdk: ">=3.8.0 <4.0.0"
@@ -55,6 +55,7 @@ dependencies:
   native_video_player: ^4.0.1
   visibility_detector: ^0.4.0+2
   url_launcher: ^6.3.2
+  package_info_plus: ^10.2.0
   sign_in_with_apple: ^7.0.1
   lucide_icons_flutter: ^3.1.7
   msal_auth: ^3.3.0

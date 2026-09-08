@@ -1,6 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart' show appFlavor;
+import 'package:hazard_app/features/profile/utils/build_label.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -91,6 +94,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _buildDangerZoneSection(),
                   30.spMin.hSizedBox,
                   _buildLogoutSection(),
+                  16.spMin.hSizedBox,
+                  _buildVersionFooter(),
                   30.spMin.hSizedBox,
                 ],
               ),
@@ -848,6 +853,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           onTap: _gotoSupportRequestScreen,
         ),
       ],
+    );
+  }
+
+  /// "ALRT 1.0.5 (37) · TEST build": the build number Android's own app
+  /// info hides, so a tester can tell which APK is actually installed.
+  Widget _buildVersionFooter() {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        if (info == null) return const SizedBox.shrink();
+        return Center(
+          child: Text(
+            buildLabel(
+              version: info.version,
+              buildNumber: info.buildNumber,
+              flavor: appFlavor,
+            ),
+            style: TextStyle(
+              fontSize: 12.spMin,
+              color: context.onSurfaceMuted,
+            ),
+          ),
+        );
+      },
     );
   }
 
