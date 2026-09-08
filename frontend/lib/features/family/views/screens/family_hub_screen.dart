@@ -7,7 +7,6 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/check_in_roll.dart';
 import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
 import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
-import 'package:hazard_app/features/family/utils/group_state.dart';
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_check_in_roll_call_screen.dart';
@@ -24,6 +23,8 @@ import 'package:hazard_app/features/family/views/screens/family_sos_resolved_scr
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
 import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_actions.dart';
@@ -39,7 +40,6 @@ import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/subscription/views/widgets/billing_issue_banner.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_surface_colors.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -89,8 +89,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            _headerBuilder(circle, memberIdsNearAlert),
-            _circleSwitcherBuilder(circle),
+            _headerBuilder(circle),
             const SliverToBoxAdapter(child: BillingIssueBanner()),
             SliverToBoxAdapter(
               child: Padding(
@@ -114,194 +113,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     _imSafeButtonBuilder(circle, checkInState),
                     SizedBox(height: 10.spMin),
                     _quickTilesRowBuilder(),
-                    SizedBox(height: 12.spMin),
-                    _addMemberCardBuilder(circle),
-                    _setUpCardBuilder(),
-                    SizedBox(height: 16.spMin),
-                    _privacyBannerBuilder(),
-                    SizedBox(height: 20.spMin),
+                    SizedBox(height: 22.spMin),
                     _membersSectionBuilder(circle, memberIdsNearAlert),
+                    SizedBox(height: 14.spMin),
+                    _bottomActionsBuilder(circle),
                     SizedBox(height: 20.spMin),
                     _sosHistorySectionBuilder(circle),
                     SizedBox(height: 120.spMin),
                   ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Your groups, as state tiles, not name chips: each says at a glance
-  /// whether everyone is in, who is still owed ("2 of 3 · waiting on
-  /// Amy"), or that an SOS is running there ("SOS live · Tom") - for the
-  /// groups you do NOT have open as much as the one you do. Tapping a tile
-  /// rescopes the whole family tab; the last tile opens the groups page.
-  ///
-  /// Shown from one group up, not two: with a single group the row was
-  /// hidden entirely, which left the only path to creating another buried
-  /// in the overflow menu. Being in one group is exactly when someone
-  /// wants a second.
-  Widget _circleSwitcherBuilder(final FamilyCircle circle) {
-    final circles = ref.watch(providerOfFamily.select((s) => s.circles));
-    if (circles.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-    final activeSos = ref.watch(
-      providerOfFamily.select((s) => s.activeSosEvents),
-    );
-
-    return SliverToBoxAdapter(
-      child: Container(
-        color: context.surfaceCard,
-        padding: EdgeInsets.fromLTRB(0, 12.spMin, 0, 12.spMin),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.spMin),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _sectionLabelBuilder(
-                      'Your Family circles',
-                      count: circles.length,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => context.push(FamilySwitchGroupScreen.route),
-                    child: Text(
-                      'See all',
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        fontWeight: FontWeight.w700,
-                        color: FamilyColors.indigo,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 8.spMin),
-            SizedBox(
-              // Two lines of text per tile; grows with the text size so the
-              // state line is never clipped at the large sizes the app allows.
-              height: 72.spMin *
-                  MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3),
-              child: ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: 20.spMin),
-                scrollDirection: Axis.horizontal,
-                // One extra slot: the tiles switch, the last one manages.
-                itemCount: circles.length + 1,
-                separatorBuilder: (_, _) => SizedBox(width: 8.spMin),
-                itemBuilder: (context, index) {
-                  if (index == circles.length) return _manageGroupsChipBuilder();
-                  final summary = circles[index];
-                  return _groupStateTileBuilder(
-                    summary,
-                    isSelected: summary.circleId == circle.id,
-                    state: groupStateOf(
-                      summary,
-                      openCircle: circle,
-                      activeSosEvents: activeSos,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _groupStateTileBuilder(
-    final FamilyCircleSummary summary, {
-    required final bool isSelected,
-    required final GroupState state,
-  }) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    // Dark mode gets dark tiles (the name is drawn in onSurface, which is
-    // white there); light mode keeps the lavender tiles.
-    final plain = dark ? context.surfaceMuted : FamilyColors.v31Page;
-    final selectedFill =
-        dark ? FamilyColors.indigo.withValues(alpha: 0.28) : FamilyColors.indigoLight;
-    final Color ink;
-    final Color background;
-    final Color border;
-    switch (state.kind) {
-      case GroupStateKind.sos:
-        ink = FamilyColors.sosRed;
-        background = dark ? FamilyColors.sosRed.withValues(alpha: 0.22) : FamilyColors.sosRedLight;
-        border = FamilyColors.sosRed;
-      case GroupStateKind.waiting:
-        ink = FamilyColors.amber;
-        background = isSelected ? selectedFill : plain;
-        border = isSelected ? FamilyColors.indigo : Colors.transparent;
-      case GroupStateKind.allIn:
-        ink = FamilyColors.safeGreen;
-        background = isSelected ? selectedFill : plain;
-        border = isSelected ? FamilyColors.indigo : Colors.transparent;
-      case GroupStateKind.alone:
-        ink = AppColors.grey;
-        background = isSelected ? selectedFill : plain;
-        border = isSelected ? FamilyColors.indigo : Colors.transparent;
-    }
-    return GestureDetector(
-      onTap: () =>
-          ref.read(providerOfFamily.notifier).selectCircle(summary.circleId),
-      child: Container(
-        width: 156.spMin,
-        padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 9.spMin),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(14.spMin),
-          border: Border.all(color: border, width: 2),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 10.spMin,
-                  height: 10.spMin,
-                  decoration: BoxDecoration(
-                    color: FamilyColors.beaconOf(summary.themeColor),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                SizedBox(width: 6.spMin),
-                if (summary.isOwned) ...[
-                  Icon(LucideIcons.crown, size: 12.spMin, color: AppColors.grey),
-                  SizedBox(width: 4.spMin),
-                ],
-                Expanded(
-                  child: Text(
-                    summary.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13.spMin,
-                      fontWeight: FontWeight.w800,
-                      color: context.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 4.spMin),
-            Text(
-              state.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11.spMin,
-                fontWeight: FontWeight.w700,
-                color: ink,
               ),
             ),
           ],
@@ -462,42 +282,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
 
   /// The way out of the chip row: every group on one page, with its beacon
   /// and what it costs in seats.
-  Widget _manageGroupsChipBuilder() {
-    return GestureDetector(
-      onTap: () => context.push(FamilySwitchGroupScreen.route),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.spMin),
-        alignment: Alignment.center,
-        height: 66.spMin,
-        decoration: BoxDecoration(
-          color: context.surfaceMuted,
-          borderRadius: BorderRadius.circular(18.spMin),
-          border: Border.all(color: FamilyColors.v31Border),
-        ),
-        child: Row(
-          children: [
-            Text(
-              // Names the thing people come here for. A circle can be made
-              // any time and stands on its own until someone accepts.
-              'Add or manage circles',
-              style: TextStyle(
-                fontSize: 13.spMin,
-                fontWeight: FontWeight.w700,
-                color: context.onSurface,
-              ),
-            ),
-            SizedBox(width: 4.spMin),
-            Icon(
-              LucideIcons.chevronRight,
-              size: 14.spMin,
-              color: context.onSurface,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// Whether live updates are arriving right now, said out loud. A dropped
   /// connection used to be invisible: the screen simply stopped changing
   /// and looked broken. Green "Live" while the socket is up; amber
@@ -551,51 +335,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  Widget _headerBuilder(
-    final FamilyCircle circle,
-    final Set<String> memberIdsNearAlert,
-  ) {
-    // One roll for the title, the sentence and the chips, so the header
-    // never says "waiting" over a list that says everyone is in.
-    final roll = CheckInRoll.of(circle);
-    final myId = circle.myMemberId;
-    final notYetOthers =
-        roll.notYet.where((m) => m.id != myId).map((m) => m.name).toList();
-    final checkedInOthers =
-        roll.checkedIn.where((m) => m.id != myId).map((m) => m.name).toList();
-    final iAnswered = roll.checkedIn.any((m) => m.id == myId);
-    final nearCount = memberIdsNearAlert.length;
-    final allAccounted = roll.everyoneAccountedFor && nearCount == 0;
-
-    final String title;
-    if (allAccounted) {
-      title = 'Everyone is accounted for';
-    } else if (notYetOthers.isEmpty && !iAnswered) {
-      title = 'Your check-in is owed';
-    } else if (notYetOthers.isEmpty) {
-      title = '$nearCount near an active alert';
-    } else {
-      title = waitingOnLabel(notYetOthers);
-    }
-    final sentence = [
-      checkedInLabel(checkedInOthers, meIncluded: iAnswered),
-      '${roll.checkedIn.length} of ${circle.members.length}',
-      if (nearCount > 0) '$nearCount near an active alert',
-    ].join(' · ');
-
-    // Others first, then me, so the people you are waiting on lead.
-    final chipMembers = [
-      ...circle.members.where((m) => m.id != myId),
-      ...circle.members.where((m) => m.id == myId),
-    ];
-
+  /// The approved hub header, kept calm: the circle's picture and name
+  /// (tap for "Choose a circle"), the members as a small avatar stack, the
+  /// live pill and the menu, then one seat line with a bar. No status card,
+  /// no buttons: what needs answering shows up as the ask card and the
+  /// members' chips below, and the ways in and across live in the sheet.
+  Widget _headerBuilder(final FamilyCircle circle) {
     return SliverToBoxAdapter(
-      // Uses the shared family header blend (FamilyColors.headerGradient +
-      // headerHighlight) rather than the old flat two-stop indigo, so the
-      // hub reads as the same purple/gradient family as ALRT+ instead of a
-      // plain blue slab that made this the only rich header in the section.
       child: FamilyHeaderSurface(
-        padding: EdgeInsets.fromLTRB(20.spMin, 0, 20.spMin, 24.spMin),
+        padding: EdgeInsets.fromLTRB(20.spMin, 0, 16.spMin, 18.spMin),
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -604,108 +352,50 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               SizedBox(height: 10.spMin),
               Row(
                 children: [
-                  FamilyGroupAvatar(
-                    name: circle.name,
-                    photoUrl: circle.photoUrl,
-                    themeColorHex: circle.themeColor,
-                    size: 46.spMin,
-                    borderColor: Colors.white.withValues(alpha: 0.45),
-                    borderWidth: 1.8,
-                  ),
-                  SizedBox(width: 12.spMin),
                   Expanded(
-                    child: Text(
-                      circle.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 28.spMin,
-                        fontWeight: FontWeight.w700,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => showChooseCircleSheet(context, ref),
+                      child: Row(
+                        children: [
+                          FamilyGroupAvatar(
+                            name: circle.name,
+                            photoUrl: circle.photoUrl,
+                            themeColorHex: circle.themeColor,
+                            size: 40.spMin,
+                            borderColor: Colors.white.withValues(alpha: 0.45),
+                            borderWidth: 1.8,
+                          ),
+                          SizedBox(width: 10.spMin),
+                          Flexible(
+                            child: Text(
+                              circle.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22.spMin,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 4.spMin),
+                          Icon(
+                            LucideIcons.chevronDown,
+                            size: 20.spMin,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  _livePillBuilder(),
-                  SizedBox(width: 4.spMin),
+                  SizedBox(width: 8.spMin),
+                  _avatarStackBuilder(circle),
                   _overflowMenuBuilder(circle),
                 ],
               ),
-              SizedBox(height: 14.spMin),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(16.spMin),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16.spMin),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40.spMin,
-                          height: 40.spMin,
-                          decoration: BoxDecoration(
-                            color: allAccounted
-                                ? FamilyColors.safeGreen
-                                : FamilyColors.amber,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            allAccounted ? Icons.check : LucideIcons.clock,
-                            color: Colors.white,
-                            size: 22.spMin,
-                          ),
-                        ),
-                        SizedBox(width: 12.spMin),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16.spMin,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                sentence,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  fontSize: 12.spMin,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (circle.members.length > 1) ...[
-                      SizedBox(height: 12.spMin),
-                      Wrap(
-                        spacing: 6.spMin,
-                        runSpacing: 6.spMin,
-                        children: [
-                          for (final member in chipMembers)
-                            _memberStateChipBuilder(
-                              member,
-                              isMe: member.id == myId,
-                              answered: roll.hasAnswered(member),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
               SizedBox(height: 12.spMin),
-              _entryPointsBuilder(circle),
+              _seatLineBuilder(circle),
             ],
           ),
         ),
@@ -713,324 +403,174 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// The ways in and across, where a new host or joiner looks first:
-  /// the host gets "Add a person" (invites spend the HOST's seats, so nobody
-  /// else may invite) and "Join with a code"; everyone else gets "Join with
-  /// a code" and "Switch circle". Under it, one honest line about seats:
-  /// hosts see their seats across every circle they host, joiners see who
-  /// hosts this one. Billing rules are unchanged — this only shows them.
-  Widget _entryPointsBuilder(final FamilyCircle circle) {
-    final isOwner = circle.me?.role == FamilyRole.owner;
-    final circles = ref.watch(providerOfFamily.select((s) => s.circles));
-    final host = circle.members
-        .where((m) => m.role == FamilyRole.owner)
-        .map((m) => m.name)
-        .firstOrNull;
-    final line = isOwner
-        ? hostedSeatLine(seatsUsed: seatsUsedAcrossHostedCircles(circles))
-        : hostedByLine(host);
+  /// Up to three members as overlapping circles, then "+N". Tapping it
+  /// scrolls nowhere: the list is right below.
+  Widget _avatarStackBuilder(final FamilyCircle circle) {
+    final members = circle.members;
+    final shown = members.take(2).toList();
+    final extra = members.length - shown.length;
+    final size = 30.0;
+    final step = 21.spMin;
+    final width = step * (shown.length + (extra > 0 ? 1 : 0)) + 9.spMin;
+    return SizedBox(
+      width: width,
+      height: size.spMin,
+      child: Stack(
+        children: [
+          for (final (index, member) in shown.indexed)
+            Positioned(
+              left: step * index,
+              child: Container(
+                padding: EdgeInsets.all(1.5.spMin),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: FamilyMemberAvatar(
+                  member: member,
+                  size: size - 3,
+                  showStatusDot: false,
+                ),
+              ),
+            ),
+          if (extra > 0)
+            Positioned(
+              left: step * shown.length,
+              child: Container(
+                width: size.spMin,
+                height: size.spMin,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Text(
+                  '+$extra',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.spMin,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
+  /// Hosts: "2 of 8 seats used" with a bar and "you and guests are free";
+  /// everyone else: who hosts, and that joining costs them nothing.
+  /// Billing rules are unchanged; this only shows them.
+  Widget _seatLineBuilder(final FamilyCircle circle) {
+    final isOwner = circle.me?.role == FamilyRole.owner;
+    if (!isOwner) {
+      final host = circle.members
+          .where((m) => m.role == FamilyRole.owner)
+          .map((m) => m.name)
+          .firstOrNull;
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              hostedByLine(host),
+              style: TextStyle(
+                fontSize: 12.5.spMin,
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+          _livePillBuilder(),
+        ],
+      );
+    }
+    final circles = ref.watch(providerOfFamily.select((s) => s.circles));
+    final used = seatsUsedAcrossHostedCircles(circles).clamp(0, kFamilyMaxSeats);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          spacing: 8.spMin,
           children: [
-            if (isOwner)
-              Expanded(
-                child: _entryPointButtonBuilder(
-                  icon: LucideIcons.userPlus,
-                  label: 'Add a person',
-                  filled: true,
-                  onTap: () => context.push(FamilyInviteScreen.route),
-                ),
-              ),
+            Icon(LucideIcons.armchair, size: 14.spMin, color: Colors.white),
+            SizedBox(width: 6.spMin),
             Expanded(
-              child: _entryPointButtonBuilder(
-                icon: LucideIcons.ticket,
-                label: 'Join with a code',
-                filled: !isOwner,
-                onTap: () => showJoinGroupSheet(context, ref),
+              child: Text(
+                '$used of $kFamilyMaxSeats seats used',
+                style: TextStyle(
+                  fontSize: 12.5.spMin,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
               ),
             ),
-            if (!isOwner)
-              Expanded(
-                child: _entryPointButtonBuilder(
-                  icon: LucideIcons.arrowLeftRight,
-                  label: 'Switch circle',
-                  filled: false,
-                  onTap: () => context.push(FamilySwitchGroupScreen.route),
-                ),
+            Text(
+              'you and guests are free',
+              style: TextStyle(
+                fontSize: 11.5.spMin,
+                color: Colors.white.withValues(alpha: 0.8),
               ),
+            ),
+            SizedBox(width: 8.spMin),
+            _livePillBuilder(),
           ],
         ),
-        SizedBox(height: 8.spMin),
-        Text(
-          line,
-          style: TextStyle(
-            fontSize: 12.spMin,
-            color: Colors.white.withValues(alpha: 0.85),
+        SizedBox(height: 7.spMin),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3.spMin),
+          child: SizedBox(
+            height: 5.spMin,
+            child: LinearProgressIndicator(
+              value: used / kFamilyMaxSeats,
+              backgroundColor: Colors.white.withValues(alpha: 0.22),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFFE879F9)),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _entryPointButtonBuilder({
-    required final IconData icon,
-    required final String label,
-    required final bool filled,
-    required final VoidCallback onTap,
-  }) {
-    return SizedBox(
-      height: 42.spMin,
-      child: TextButton.icon(
-        style: TextButton.styleFrom(
-          foregroundColor: filled ? FamilyColors.indigo : Colors.white,
-          backgroundColor:
-              filled ? Colors.white : Colors.white.withValues(alpha: 0.14),
-          side: filled
-              ? null
-              : BorderSide(color: Colors.white.withValues(alpha: 0.5)),
-          padding: EdgeInsets.symmetric(horizontal: 8.spMin),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.spMin),
+  /// The two ways to grow the circle, at the end of the list where the
+  /// approved design puts them: hosts add or join, everyone else joins or
+  /// switches. Same flows as the "Choose a circle" sheet, nothing extra.
+  Widget _bottomActionsBuilder(final FamilyCircle circle) {
+    final isOwner = circle.me?.role == FamilyRole.owner;
+    Widget button(final IconData icon, final String label, final VoidCallback onTap) {
+      return Expanded(
+        child: SizedBox(
+          height: 48.spMin,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: FamilyColors.indigoDark,
+              backgroundColor: context.surfaceCard,
+              side: BorderSide(color: FamilyColors.indigo.withValues(alpha: 0.35)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14.spMin),
+              ),
+            ),
+            onPressed: onTap,
+            icon: Icon(icon, size: 18.spMin),
+            label: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w800),
+            ),
           ),
         ),
-        onPressed: onTap,
-        icon: Icon(icon, size: 16.spMin),
-        label: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 12.5.spMin, fontWeight: FontWeight.w800),
-        ),
-      ),
-    );
-  }
-
-  /// One chip per member: "Tom · 8:10 am" in green when they have checked
-  /// in on this roll, "Amy · not yet" outlined in amber when they have
-  /// not. The names are the point - a count never told anyone who to ring.
-  Widget _memberStateChipBuilder(
-    final FamilyMember member, {
-    required final bool isMe,
-    required final bool answered,
-  }) {
-    final name = isMe ? 'You' : member.name;
-    final last = member.lastCheckInAt;
-    final String when;
-    if (!answered) {
-      when = 'not yet';
-    } else if (last == null) {
-      when = 'checked in';
-    } else {
-      final now = DateTime.now();
-      final sameDay =
-          last.year == now.year && last.month == now.month && last.day == now.day;
-      when = sameDay ? DateFormat.jm().format(last) : timeago.format(last);
+      );
     }
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 6.spMin),
-      decoration: BoxDecoration(
-        color: answered
-            ? FamilyColors.safeGreen.withValues(alpha: 0.35)
-            : Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(12.spMin),
-        border: answered
-            ? null
-            : Border.all(color: Colors.white.withValues(alpha: 0.6)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8.spMin,
-            height: 8.spMin,
-            decoration: BoxDecoration(
-              color: answered
-                  ? const Color(0xFF6EE7A0)
-                  : const Color(0xFFFBBF24),
-              shape: BoxShape.circle,
-            ),
-          ),
-          SizedBox(width: 6.spMin),
-          Text(
-            '$name · $when',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  /// The one thing a new host needs first and previously could only find
-  /// inside the overflow menu: adding people. Owner-only, because joiners
-  /// use the OWNER's seats and the server refuses invites from anyone else.
-  /// Opens the Family invite flow (code + QR + copy/send + revoke), which
-  /// is deliberately separate from Profile's "Share ALRT".
-  Widget _addMemberCardBuilder(final FamilyCircle circle) {
-    if (circle.me?.role != FamilyRole.owner) return const SizedBox.shrink();
-    final alone = circle.members.length <= 1;
-    // Once there is someone else, "Add a person" lives in the header; a
-    // second card saying the same thing was a duplicate control.
-    if (!alone) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(bottom: 16.spMin),
-      child: GestureDetector(
-        onTap: () => context.push(FamilyInviteScreen.route),
-        child: Container(
-          padding: EdgeInsets.all(14.spMin),
-          decoration: BoxDecoration(
-            color: alone ? FamilyColors.indigo : context.surfaceCard,
-            borderRadius: BorderRadius.circular(16.spMin),
-            border: alone
-                ? null
-                : Border.all(color: FamilyColors.indigo.withValues(alpha: 0.35)),
-            boxShadow: [
-              BoxShadow(
-                color: alone
-                    ? FamilyColors.indigo.withValues(alpha: 0.3)
-                    : context.cardShadow,
-                blurRadius: 12.0,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40.spMin,
-                height: 40.spMin,
-                decoration: BoxDecoration(
-                  color: alone
-                      ? Colors.white.withValues(alpha: 0.18)
-                      : FamilyColors.indigoLight,
-                  borderRadius: BorderRadius.circular(12.spMin),
-                ),
-                child: Icon(
-                  LucideIcons.userPlus,
-                  size: 20.spMin,
-                  color: alone ? Colors.white : FamilyColors.indigo,
-                ),
-              ),
-              SizedBox(width: 12.spMin),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      alone ? 'Add your first member' : 'Add member',
-                      style: TextStyle(
-                        fontSize: 15.spMin,
-                        fontWeight: FontWeight.w800,
-                        color: alone ? Colors.white : context.onSurface,
-                      ),
-                    ),
-                    SizedBox(height: 2.spMin),
-                    Text(
-                      'Invite code or QR · joining is always free',
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        color: alone
-                            ? Colors.white.withValues(alpha: 0.85)
-                            : context.onSurfaceMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                LucideIcons.chevronRight,
-                size: 18.spMin,
-                color: alone ? Colors.white : FamilyColors.indigo,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// The three things people set up once and could not find: their own
-  /// name and picture in the group, their daily check-in, and who their
-  /// SOS reaches. All three were only in the overflow menu, which is why
-  /// testers reported them missing (QA 2026-08-06).
-  Widget _setUpCardBuilder() {
-    return _cardBuilder(
-      padding: EdgeInsets.symmetric(vertical: 4.spMin),
-      child: Column(
-        children: [
-          _setUpRowBuilder(
-            icon: LucideIcons.userRoundPen,
-            label: 'My name & picture here',
-            sub: 'What this circle sees you as',
-            onTap: () => context.push(
-              FamilyCircleProfileScreen.route,
-              extra: const FamilyCircleProfileArgs(),
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            indent: 56.spMin,
-            color: FamilyColors.v31Divider,
-          ),
-          _setUpRowBuilder(
-            icon: LucideIcons.alarmClock,
-            label: 'Daily check-in',
-            sub: 'A reminder to say you are safe',
-            onTap: () => context.push(
-              FamilyCircleProfileScreen.route,
-              extra: const FamilyCircleProfileArgs(
-                section: FamilyProfileSection.dailyCheckIn,
-              ),
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            indent: 56.spMin,
-            color: FamilyColors.v31Divider,
-          ),
-          _setUpRowBuilder(
-            icon: LucideIcons.siren,
-            label: 'Who your SOS reaches',
-            sub: 'Chosen in advance, across all your circles',
-            onTap: () => context.push(FamilySosListsScreen.route),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _setUpRowBuilder({
-    required final IconData icon,
-    required final String label,
-    required final String sub,
-    required final VoidCallback onTap,
-  }) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: EdgeInsets.symmetric(horizontal: 14.spMin),
-      leading: Icon(icon, size: 20.spMin, color: FamilyColors.indigo),
-      title: Text(
-        label,
-        style: TextStyle(fontSize: 14.5.spMin, fontWeight: FontWeight.w700),
-      ),
-      subtitle: Text(
-        sub,
-        style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        size: 20.spMin,
-        color: AppColors.grey,
-      ),
+    return Row(
+      spacing: 10.spMin,
+      children: [
+        if (isOwner)
+          button(LucideIcons.userPlus, 'Add a person', () => context.push(FamilyInviteScreen.route)),
+        button(LucideIcons.qrCode, 'Join with code', () => showJoinGroupSheet(context, ref)),
+        if (!isOwner)
+          button(LucideIcons.arrowLeftRight, 'Switch circle', () => showChooseCircleSheet(context, ref)),
+      ],
     );
   }
 
@@ -2093,57 +1633,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
 
 
 
-  Widget _privacyBannerBuilder() {
-    return Container(
-      padding: EdgeInsets.all(14.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border(
-          left: BorderSide(color: FamilyColors.safeGreen, width: 3.spMin),
-        ),
-        boxShadow: [
-          BoxShadow(color: AppColors.shadowColorLight, blurRadius: 2.0),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            LucideIcons.shieldCheck,
-            color: FamilyColors.safeGreen,
-            size: 18.spMin,
-          ),
-          SizedBox(width: 10.spMin),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Location is shared only when someone chooses it. ',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const TextSpan(
-                    text:
-                        'What you see is each member\'s last shared snapshot, '
-                        'an active SOS, or an active journey. Ask for a '
-                        'fresh snapshot anytime; they choose whether to send '
-                        'it, and live sharing can be stopped at any time.',
-                  ),
-                ],
-              ),
-              style: TextStyle(
-                fontSize: 12.spMin,
-                height: 1.4,
-                color: AppColors.black,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// The member list, split by state instead of one flat list: who still
   /// owes a check-in sits on top with an Ask button per row, who has
   /// answered sits below. Both halves read from the same CheckInRoll as
@@ -2156,7 +1645,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     // Guests never request locations, so they never see the affordance.
     final iAmGuest = circle.me?.role == FamilyRole.guest;
     final roll = CheckInRoll.of(circle);
-    final split = roll.notYet.isNotEmpty;
 
     Widget rowFor(final FamilyMember member) {
       final isMe = member.id == circle.myMemberId;
@@ -2211,17 +1699,39 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       );
     }
 
+    // Waiting members first, then everyone who has checked in: one list,
+    // the chips say who is which (approved design), no second heading.
+    final ordered = [...roll.notYet, ...roll.checkedIn];
+    final long = ordered.length > 6;
+    final visible = long ? ordered.take(5).toList() : ordered;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Expanded(
-              child: _sectionLabelBuilder(
-                split ? 'Not yet checked in' : 'Members',
-                count: split ? roll.notYet.length : circle.members.length,
+              child: Text(
+                'Members',
+                style: TextStyle(
+                  fontSize: 16.spMin,
+                  fontWeight: FontWeight.w800,
+                  color: context.onSurface,
+                ),
               ),
             ),
+            if (long)
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: FamilyColors.indigo,
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () => context.push(FamilyCheckInRollCallScreen.route),
+                child: Text(
+                  'View all',
+                  style: TextStyle(fontSize: 12.5.spMin, fontWeight: FontWeight.w700),
+                ),
+              ),
             if (!iAmGuest && circle.members.length > 1)
               TextButton.icon(
                 style: TextButton.styleFrom(
@@ -2239,16 +1749,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           ],
         ),
         SizedBox(height: 10.spMin),
-        if (split) ...[
-          card(roll.notYet),
-          if (roll.checkedIn.isNotEmpty) ...[
-            SizedBox(height: 16.spMin),
-            _sectionLabelBuilder('Checked in', count: roll.checkedIn.length),
-            SizedBox(height: 10.spMin),
-            card(roll.checkedIn),
-          ],
-        ] else
-          card(circle.members),
+        card(visible),
       ],
     );
   }

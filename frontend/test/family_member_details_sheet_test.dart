@@ -55,7 +55,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tom Nixon'), findsOneWidget);
-    expect(find.text('Not yet'), findsOneWidget);
+    expect(find.text('Waiting'), findsOneWidget);
     expect(find.textContaining('Asked 2 minutes ago'), findsOneWidget);
     expect(find.text('Sharing level: Approximate'), findsOneWidget);
     expect(find.text('Ask Tom Nixon to check in'), findsOneWidget);

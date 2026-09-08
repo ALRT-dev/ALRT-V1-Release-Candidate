@@ -78,7 +78,7 @@ void main() {
         askedAt: now.subtract(const Duration(minutes: 3)),
         now: now,
       );
-      expect(line, 'Asked 3 minutes ago · checked in a day ago');
+      expect(line, 'Asked 3 minutes ago');
     });
 
     test('an unanswered ask with no check-in ever', () {
@@ -88,7 +88,7 @@ void main() {
         askedAt: now.subtract(const Duration(minutes: 3)),
         now: now,
       );
-      expect(line, 'Asked 3 minutes ago · no check-in yet');
+      expect(line, 'Asked 3 minutes ago');
     });
 
     test('a snapshot says where, when, and when it expires', () {
@@ -143,13 +143,13 @@ void main() {
   });
 
   group('memberStatusChip', () {
-    test('"Not yet" for silence, never "unsafe"', () {
+    test('"Waiting" for silence, never "unsafe"', () {
       final chip = memberStatusChip(
         member: member(),
         hasAnswered: false,
         isNearAlert: false,
       );
-      expect(chip, 'Not yet');
+      expect(chip, 'Waiting');
       expect(chip.toLowerCase(), isNot(contains('unsafe')));
     });
     test('Safe when answered, Near when near an alert', () {

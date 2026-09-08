@@ -19,6 +19,7 @@ import 'package:hazard_app/features/family/providers/states/family_provider_stat
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_hub_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_details_sheet.dart';
 import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
@@ -267,6 +268,15 @@ void main() {
     showCheckInConsentSheet(ctx, requesterName: 'Amy', sharingLevel: FamilySharingLevel.approximate);
     await tester.pumpAndSettle();
     await _shoot(tester, '06_consent_sheet_approximate');
+  }, skip: !_enabled);
+
+  testWidgets('choose a circle sheet', (tester) async {
+    late WidgetRef sheetRef;
+    late BuildContext ctx;
+    await tester.pumpWidget(_app(Scaffold(body: Consumer(builder: (c, r, _) { ctx = c; sheetRef = r; return const SizedBox.shrink(); }))));
+    showChooseCircleSheet(ctx, sheetRef);
+    await tester.pumpAndSettle();
+    await _shoot(tester, '12_choose_circle_sheet');
   }, skip: !_enabled);
 
   testWidgets('circle settings (host)', (tester) async {

@@ -172,6 +172,8 @@ class FamilyMemberListItem extends StatelessWidget {
                 ],
               ),
             ),
+            SizedBox(width: 4.spMin),
+            Icon(Icons.chevron_right, size: 18.spMin, color: context.onSurfaceMuted),
           ],
           ),
         ),

@@ -65,7 +65,8 @@ String memberStatusLine({
   final lastLabel = last == null ? 'no check-in yet' : 'checked in ${ago(last)}';
 
   if (askedAt != null && hasAnswered == false) {
-    return 'Asked ${ago(askedAt)} · $lastLabel';
+    // The row keeps to one short fact; the details sheet adds the rest.
+    return 'Asked ${ago(askedAt)}';
   }
 
   final label = member.locationLabel;
@@ -89,8 +90,8 @@ String memberStatusLine({
   return 'No check-in yet';
 }
 
-/// The short chip on a member row. "Not yet" is deliberate: it says they
-/// have not checked in, not that anything is wrong.
+/// The short chip on a member row. "Waiting" is deliberate: it says the
+/// circle is waiting on their check-in, not that anything is wrong.
 String memberStatusChip({
   required final FamilyMember member,
   required final bool? hasAnswered,
@@ -98,7 +99,7 @@ String memberStatusChip({
 }) {
   if (isNearAlert) return 'Near';
   if (hasAnswered ?? member.isCheckedInRecently) return 'Safe';
-  return 'Not yet';
+  return 'Waiting';
 }
 
 /// The longer, honest reading of the chip, for the details sheet.
