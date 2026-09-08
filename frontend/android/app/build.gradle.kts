@@ -148,6 +148,14 @@ android {
         }
     }
 
+    // The debug build type carries Android's own debug signingConfig, and
+    // AGP lets a buildType's signingConfig override a productFlavor's - so
+    // `flutter build apk --debug --flavor dev` (the RevenueCat Test Store
+    // build, which the SDK only initialises in debug) was signed with the
+    // runner's throwaway debug keystore and refused by the workflow's
+    // signing check. Pin devDebug to the same TEST keystore as devRelease
+    // so both TEST APKs share one identity and install over each other.
+    // prodDebug is untouched.
     buildTypes {
         release {
             // Deliberately does NOT set signingConfig - each flavour above
@@ -162,6 +170,14 @@ android {
             // being configured and the guard step passing, which is why
             // its SHA-1 kept changing between builds. Do not reintroduce a
             // signingConfig assignment here.
+        }
+    }
+}
+
+if (hasTestKeystore) {
+    androidComponents {
+        onVariants(selector().withFlavor("default" to "dev").withBuildType("debug")) { variant ->
+            variant.signingConfig.setConfig(android.signingConfigs.getByName("devTest"))
         }
     }
 }

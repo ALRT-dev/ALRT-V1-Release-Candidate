@@ -81,6 +81,9 @@ Future<void> showHazardFiltersBottomSheet({
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.transparent,
+    // A light dim so the map stays readable behind the filters instead of
+    // going dark (owner, 8 Sep 2026).
+    barrierColor: AppColors.black.withValues(alpha: 0.18),
     builder: (_) => HazardFiltersBottomsheetContent(
       filtersKey: filtersKey,
       onFiltersUpdated: onFiltersUpdated,

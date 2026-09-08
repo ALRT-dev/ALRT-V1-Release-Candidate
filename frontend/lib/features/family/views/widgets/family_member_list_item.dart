@@ -52,7 +52,8 @@ class FamilyMemberListItem extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
-        child: Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
           children: [
             FamilyMemberAvatar(
               member: member,
@@ -110,6 +111,17 @@ class FamilyMemberListItem extends StatelessWidget {
               ),
             ),
             SizedBox(width: 8.spMin),
+            // Ask, Request and the chip wrap onto a second line rather than
+            // squeezing the name out at large text sizes; they never take
+            // more than ~45% of the row.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.45),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6.spMin,
+                runSpacing: 6.spMin,
+                children: [
             if (onAskToCheckIn != null) ...[
               GestureDetector(
                 onTap: onAskToCheckIn,
@@ -132,7 +144,6 @@ class FamilyMemberListItem extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: 6.spMin),
             ],
             if (onRequestLocation != null) ...[
               GestureDetector(
@@ -156,10 +167,13 @@ class FamilyMemberListItem extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: 6.spMin),
             ],
             _statusChipBuilder(),
+                ],
+              ),
+            ),
           ],
+          ),
         ),
       ),
     );

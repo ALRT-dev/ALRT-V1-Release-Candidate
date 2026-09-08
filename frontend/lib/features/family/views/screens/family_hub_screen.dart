@@ -78,7 +78,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         .toList();
 
     return Scaffold(
-      backgroundColor: context.surfaceScaffold,
+      // The prototype's lavender page in light mode; the app's dark
+      // scaffold in dark mode.
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? context.surfaceScaffold
+          : FamilyColors.v31Page,
       body: RefreshIndicator(
         onRefresh: () => ref.read(providerOfFamily.notifier).load(silent: true),
         color: FamilyColors.indigo,
@@ -159,11 +163,12 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 20.spMin),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _sectionLabelBuilder(
-                    'Your Family circles',
-                    count: circles.length,
+                  Expanded(
+                    child: _sectionLabelBuilder(
+                      'Your Family circles',
+                      count: circles.length,
+                    ),
                   ),
                   GestureDetector(
                     onTap: () => context.push(FamilySwitchGroupScreen.route),
@@ -181,7 +186,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             ),
             SizedBox(height: 8.spMin),
             SizedBox(
-              height: 66.spMin,
+              // Two lines of text per tile; grows with the text size so the
+              // state line is never clipped at the large sizes the app allows.
+              height: 72.spMin *
+                  MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3),
               child: ListView.separated(
                 padding: EdgeInsets.symmetric(horizontal: 20.spMin),
                 scrollDirection: Axis.horizontal,
@@ -1442,6 +1450,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       count == null
           ? title.toUpperCase()
           : '${title.toUpperCase()} · $count',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: TextStyle(
         fontSize: 13.spMin,
         fontWeight: FontWeight.w700,
@@ -2172,8 +2182,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               : null,
           onRemove: isOwner && !isMe ? () => _confirmRemoveMember(member) : null,
         ),
-        onRequestLocation:
-            canRequest ? () => _requestLocationSnapshot(member) : null,
         onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
       );
     }
@@ -2201,17 +2209,26 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _sectionLabelBuilder(
-              split ? 'Not yet checked in' : 'Members',
-              count: split ? roll.notYet.length : circle.members.length,
+            Expanded(
+              child: _sectionLabelBuilder(
+                split ? 'Not yet checked in' : 'Members',
+                count: split ? roll.notYet.length : circle.members.length,
+              ),
             ),
             if (!iAmGuest && circle.members.length > 1)
               TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: FamilyColors.indigo,
+                  padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                  visualDensity: VisualDensity.compact,
+                ),
                 onPressed: () => _requestEveryoneLocation(circle),
                 icon: Icon(LucideIcons.mapPin, size: 16.spMin),
-                label: const Text('Request location'),
+                label: Text(
+                  'Request location',
+                  style: TextStyle(fontSize: 12.5.spMin, fontWeight: FontWeight.w700),
+                ),
               ),
           ],
         ),
@@ -2355,6 +2372,12 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     }
 
     listenTo((s) => s.checkInState);
+    // The one confirmation after the one control: "Checked in".
+    ref.listen(providerOfFamily.select((s) => s.checkInState), (prev, next) {
+      if (prev != next && next.isSuccess) {
+        context.showSuccessToast(message: 'Checked in');
+      }
+    });
     listenTo((s) => s.requestCheckInState);
     listenTo((s) => s.leaveDeleteState);
     listenTo((s) => s.memberUpdateState);

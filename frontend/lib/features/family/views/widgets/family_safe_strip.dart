@@ -121,7 +121,7 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
     final failed = ref.read(providerOfFamily).checkInState.isError;
     if (!failed) {
       setState(() => _sent = true);
-      context.showSuccessToast(message: 'Your circle has been notified.');
+      context.showSuccessToast(message: 'Checked in · your circle has been notified.');
     }
   }
 }

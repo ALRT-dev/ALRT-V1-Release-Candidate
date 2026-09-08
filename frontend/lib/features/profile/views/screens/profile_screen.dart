@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart' show appFlavor;
 import 'package:hazard_app/features/profile/utils/build_label.dart';
+import 'package:hazard_app/others/env.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -870,6 +871,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               version: info.version,
               buildNumber: info.buildNumber,
               flavor: appFlavor,
+              commit: kBuildCommit,
+              billingMode: appFlavor == 'dev'
+                  ? billingModeLabel(
+                      testUnlocked: isAlrtPlusTestUnlocked,
+                      hasStoreKey: Env.revenueCatApiKeyGoogle.isNotEmpty ||
+                          Env.revenueCatApiKeyApple.isNotEmpty,
+                    )
+                  : '',
             ),
             style: TextStyle(
               fontSize: 12.spMin,

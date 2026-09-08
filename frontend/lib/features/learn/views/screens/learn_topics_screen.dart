@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/learn/models/guide_models.dart';
 import 'package:hazard_app/features/learn/providers/learn_provider.dart';
 import 'package:hazard_app/features/learn/views/screens/guide_detail_screen.dart';
-import 'package:hazard_app/features/learn/views/widgets/learn_progress_hero_card.dart';
 import 'package:hazard_app/features/learn/views/widgets/learn_topic_card.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
@@ -81,14 +80,10 @@ class _LearnTopicsViewState extends ConsumerState<LearnTopicsView> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LearnProgressHeroCard(
-            completedCount: learnState.completedCount,
-            totalCount: learnState.totalCount,
-            totalXpEarned: learnState.totalXpEarned,
-          ),
-          // The weekly challenge now lives INSIDE the hero card: two
-          // stacked cards read as two competing challenges (QA 2026-08-07).
-          20.hSizedBox,
+          // The "N of 20 guides done" progress card and the weekly
+          // "learn 2 safety guides" challenge were removed from this tab
+          // (owner decision 8 Sep 2026): the Learn tab is the library, not
+          // a scoreboard. XP still accrues per guide as before.
           Text(
             'BE READY FOR',
             style: TextStyle(

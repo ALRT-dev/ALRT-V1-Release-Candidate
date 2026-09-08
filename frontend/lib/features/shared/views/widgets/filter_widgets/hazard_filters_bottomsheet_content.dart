@@ -36,7 +36,11 @@ class _HazardFiltersBottomsheetContentState
   @override
   Widget build(BuildContext context) {
     return BaseBottomsheetV2(
-      initialChildSize: 0.8,
+      // Opens to a little over half the screen, like the Ask ALRT sheet,
+      // and can be pulled up for the full list (owner, 8 Sep 2026: not
+      // full screen on open). The sheet itself stays light: white card on
+      // the light grey body in both themes.
+      initialChildSize: 0.55,
       minChildSize: 0.3,
       maxChildSize: 0.92,
       safeAreaBottom: false,

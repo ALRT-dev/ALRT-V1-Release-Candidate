@@ -33,8 +33,12 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   FamilyProvider({
     required final Ref ref,
     required final FamilyProviderState state,
+    // Screenshot and widget tests seed a state and must not open sockets,
+    // load from the network or push to the home-screen widget.
+    final bool bootstrap = true,
   }) : _ref = ref,
        super(state) {
+    if (!bootstrap) return;
     _listenToSocketEvents();
     // Load the circle right away: the socket listeners above drop events
     // when circle is null, so a phone that had not opened the family tab

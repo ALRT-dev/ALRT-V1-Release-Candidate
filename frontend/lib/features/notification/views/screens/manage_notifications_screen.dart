@@ -116,7 +116,7 @@ class _ManageNotificationsScreenState
               ),
               8.spMin.hSizedBox,
               Text(
-                'Choose which types of alrts you want to receive on your device.',
+                'Choose which types of ALRTs you want to receive on your device.',
                 style: TextStyle(
                   fontSize: 14.spMin,
                   color: AppColors.grey,

@@ -119,9 +119,11 @@ Color? lockedCategoryColorFor(final String? categoryName) {
     return const Color(0xFFFF7E29);
   }
   if (name.contains('security') || name.contains('crime')) {
-    // Magenta, deliberately NOT red: red is reserved for highest-danger
-    // severity semantics (product-owner ruling 2026-08-20, FINAL_HANDOFF).
-    return const Color(0xFFD946EF);
+    // Crimson-pink: the earlier magenta (#D946EF) sat too close to the
+    // Community magenta below to tell the two pills apart (owner, 8 Sep
+    // 2026: "make security and crime a bit more red"). Still distinct from
+    // the pure severity red (#DC2626) reserved for highest danger.
+    return const Color(0xFFD9304F);
   }
   if (name.contains('traffic') || name.contains('transport')) {
     return const Color(0xFF00CC96);

@@ -20,13 +20,14 @@ class FamilyColors {
   /// The green used for "Safe" chips and the "I'm Safe" button.
   static const safeGreen = Color(0xFF27AE60);
 
-  /// The approved mockup's bright I'm Safe gradient, drawn with DARK ink:
-  /// safeInk on safeBright is 7.6:1 and on safeBrightDeep 5.7:1 (AA 4.5:1).
-  /// White ink on any of the app's greens fails AA, which is why these
-  /// buttons use dark text instead of darkening the button.
-  static const safeBright = Color(0xFF4DE49C);
-  static const safeBrightDeep = Color(0xFF22C887);
-  static const safeInk = Color(0xFF103C2C);
+  /// The check-in button: the approved prototype's green gradient
+  /// (#149A4A → #0B7A3B) with WHITE text and icons — the owner's decision
+  /// of 8 September 2026 replaces the earlier dark-ink treatment. The top
+  /// stop is nudged from #149A4A to #10843F so white measures 4.6:1 there
+  /// and 5.4:1 at the deep end (WCAG AA is 4.5:1).
+  static const safeBright = Color(0xFF10843F);
+  static const safeBrightDeep = Color(0xFF0B7A3B);
+  static const safeInk = Colors.white;
 
   /// A light green background for safe banners.
   static const safeGreenLight = Color(0xFFE7F6EE);
@@ -57,9 +58,11 @@ class FamilyColors {
   /// The lavender page behind the cards (prototype body).
   static const v31Page = Color(0xFFECE8F2);
 
-  /// Section labels on family screens: the prototype's quiet grey
-  /// uppercase, so labels never compete with the purple and green.
-  static const v31Label = Color(0xFF75757E);
+  /// Section labels on family screens: a quiet grey uppercase, so labels
+  /// never compete with the purple and green. Darker than the prototype's
+  /// #75757E, which measured 3.8:1 on the lavender page; this is 5.2:1
+  /// there and 6.2:1 on white.
+  static const v31Label = Color(0xFF625F6A);
 
   /// Body and secondary copy.
   static const v31Ink = Color(0xFF5F5C66);
