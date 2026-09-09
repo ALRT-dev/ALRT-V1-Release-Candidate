@@ -1,6 +1,6 @@
-# TEST build 43 — install, acceptance and paywall guide
+# TEST build 44 — install, acceptance and paywall guide
 
-Version **1.0.5 (43)**, commit **(see the workflow run)**, branch `test`, dev flavour
+Version **1.0.5 (44)**, commit **(see the workflow run)**, branch `test`, dev flavour
 (`com.safetyalrt.alrt.dev`, app label "[Dev] ALRT"), backend
 `https://api-test.safetyalrt.com`. Two artifacts are built from the same
 commit by `.github/workflows/android-test.yml`:
@@ -13,14 +13,14 @@ commit by `.github/workflows/android-test.yml`:
 Both are signed with the TEST keystore (SHA-1
 `18:5E:43:9B:FC:7A:99:42:0C:AD:F0:EB:A9:E1:4F:0A:EE:66:2D:DB`), which the
 workflow's apksigner step verifies on every run. They install beside the
-production "ALRT" app, not over it, and they replace TEST builds 36 to 42.
+production "ALRT" app, not over it, and they replace TEST builds 36 to 43.
 
 ## Prove which build you are holding
 
 Profile tab, scroll to the bottom, under "Log out". The footer reads, for
 example:
 
-    ALRT 1.0.5 (43) · TEST build · <commit> · RevenueCat Test Store
+    ALRT 1.0.5 (44) · TEST build · <commit> · RevenueCat Test Store
 
 or `… · billing bypass` on the bypass build. If the footer shows no commit
 or billing mode, the phone is running an older build.
@@ -72,7 +72,7 @@ or billing mode, the phone is running an older build.
       Security & crime pill clearly redder than Community.
 - [ ] Unrelated screens (Home, Map, Search, Profile) look as before.
 
-## Phone checklist for the six 9 September issues (build 43, backend at this commit)
+## Phone checklist for the six 9 September issues (build 44, backend at 1aee3d4 or later)
 
 1. **SOS send and stand-down.** Phone A: Family › SOS tile › hold. Expected: green tick for about a second, then the Family screen by itself with the red "Your SOS is active" banner and Open. Open shows "Your SOS" with the "I'm safe" button. Tap it, confirm: back on Family with the toast "Your SOS has ended. Your circle has been told." No "marked safe" page opens on phone A. Phone B: the red strip names phone A's person, Open shows "<name> triggered SOS" with the response buttons; after stand-down it reads "<name> is marked safe" only if B is already on that page, otherwise B's screen is left alone. Repeat twice; then raise an SOS from B while A's is live (two banners, each named).
 2. **Notifications vs filters.** Manage notifications › Categories: the five switches now read Emergency Warning, Watch & Act, Advice, Official, Community; a fresh TEST account shows them ON. ALRT Filters (map or feed): turn Community off, switch tabs, restart the app: still off on both, and the Map details sheet has no second set of toggles, only a link to ALRT Filters.

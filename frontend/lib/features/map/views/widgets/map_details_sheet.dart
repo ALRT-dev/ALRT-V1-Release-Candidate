@@ -11,7 +11,7 @@ import 'package:hazard_app/features/shared/views/widgets/alert_key_content.dart'
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Shows the dark "Map details" bottom sheet (V3 map UI): map type picker
+/// Shows the "Map details" bottom sheet (light background, owner 9 Sep 2026): map type picker
 /// and per-source-system alert visibility toggles.
 /// Opens at about three-quarters of the screen so the map stays visible
 /// above it (product decision 2026-09-09); the content scrolls inside the
@@ -43,8 +43,8 @@ class MapDetailsSheet extends ConsumerStatefulWidget {
 }
 
 class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
-  static const _sheetColor = Color(0xFF141416);
-  static const _tileColor = Color(0xFF23252B);
+  static const _sheetColor = Color(0xFFF7F5FA);
+  static const _tileColor = Color(0xFFFFFFFF);
   static const _accentColor = Color(0xFFFF6B01);
 
   @override
@@ -74,7 +74,7 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
               style: TextStyle(
                 fontSize: 17.spMin,
                 fontWeight: FontWeight.w800,
-                color: AppColors.white,
+                color: AppColors.black,
               ),
             ),
             Expanded(
@@ -94,7 +94,7 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
                     _alertFiltersLinkBuilder().pT(10.0),
                     // THE key, shared with the feed's filter sheet and
                     // the ALRT Key sheet, so it cannot drift again.
-                    const AlertKeyContent(isDark: true).pT(18.0),
+                    const AlertKeyContent(isDark: false).pT(18.0),
                     12.hSizedBox,
                   ],
                 ),
@@ -137,20 +137,20 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
                     style: TextStyle(
                       fontSize: 15.spMin,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.white,
+                      color: AppColors.black,
                     ),
                   ),
                   Text(
                     'Warning levels, sources and categories · the same for the map and the feed',
                     style: TextStyle(
                       fontSize: 12.spMin,
-                      color: AppColors.white.withValues(alpha: 0.6),
+                      color: AppColors.black.withValues(alpha: 0.55),
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(LucideIcons.chevronRight, size: 18.spMin, color: AppColors.white.withValues(alpha: 0.6)),
+            Icon(LucideIcons.chevronRight, size: 18.spMin, color: AppColors.black.withValues(alpha: 0.45)),
           ],
         ),
       ),
@@ -162,7 +162,7 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
       width: 40.spMin,
       height: 4.spMin,
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.25),
+        color: AppColors.black.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(999),
       ),
     );
@@ -175,7 +175,7 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
         fontSize: 10.5.spMin,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.1,
-        color: AppColors.white.withValues(alpha: 0.45),
+        color: AppColors.black.withValues(alpha: 0.5),
       ),
     );
   }
@@ -225,7 +225,7 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
           color: _tileColor,
           borderRadius: BorderRadius.circular(14.spMin),
           border: Border.all(
-            color: isSelected ? _accentColor : AppColors.transparent,
+            color: isSelected ? _accentColor : AppColors.black.withValues(alpha: 0.08),
             width: 1.5,
           ),
         ),
@@ -237,7 +237,7 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
               size: 18.spMin,
               color: isSelected
                   ? _accentColor
-                  : AppColors.white.withValues(alpha: 0.7),
+                  : AppColors.black.withValues(alpha: 0.65),
             ),
             Text(
               label,
@@ -245,8 +245,8 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
                 fontSize: 11.5.spMin,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected
-                    ? AppColors.white
-                    : AppColors.white.withValues(alpha: 0.7),
+                    ? AppColors.black
+                    : AppColors.black.withValues(alpha: 0.65),
               ),
             ),
           ],
