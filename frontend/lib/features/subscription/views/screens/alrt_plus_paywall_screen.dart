@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -12,14 +13,24 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/app_links.dart';
 
-/// The ALRT+ gate sheet. Per the product rules this appears only at the
-/// "premium moment" (hosting a family circle), never during onboarding, and
-/// always renders store prices — never hardcoded ones. Pops `true` if the user
-/// ends up entitled to ALRT+.
+/// Why the paywall opened; the headline speaks to that moment.
+enum AlrtPlusPaywallReason { hostCircle, savedLocation, general }
+
+class AlrtPlusPaywallArgs {
+  const AlrtPlusPaywallArgs({this.reason = AlrtPlusPaywallReason.general});
+  final AlrtPlusPaywallReason reason;
+}
+
+/// The ALRT+ gate sheet. Per the product rules this appears only at a
+/// premium moment (hosting a family circle, a second saved location), never
+/// during onboarding, and always renders store prices, never hardcoded
+/// ones. Pops `true` if the user ends up entitled to ALRT+.
 class AlrtPlusPaywallScreen extends ConsumerStatefulWidget {
-  const AlrtPlusPaywallScreen({super.key});
+  const AlrtPlusPaywallScreen({super.key, this.args});
 
   static const route = '/alrt-plus';
+
+  final AlrtPlusPaywallArgs? args;
 
   @override
   ConsumerState<AlrtPlusPaywallScreen> createState() =>
@@ -60,17 +71,67 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
       return;
     }
     final rc = ref.read(providerOfRevenueCat);
+    if (!rc.hasKeys) {
+      setState(() {
+        _offering = null;
+        _selected = null;
+        _dummy = false;
+        _loading = false;
+        _error =
+            'This build has no billing key, so ALRT+ cannot be bought here.';
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     final offering = await rc.currentOffering();
     if (!mounted) return;
+    final packages = offering?.availablePackages ?? const <Package>[];
     setState(() {
       _offering = offering;
-      _selected = offering?.annual ?? offering?.availablePackages.firstOrNull;
+      _selected = offering?.annual ?? packages.firstOrNull;
       _dummy = false;
       _loading = false;
-      _error = offering == null
-          ? 'ALRT + is not available right now. Please try again later.'
-          : null;
+      if (offering == null) {
+        _error = 'ALRT+ plans could not be loaded. Check your connection and '
+            'tap Try again.';
+      } else if (packages.isEmpty) {
+        _error = 'ALRT+ has no plans in the store yet.';
+      } else {
+        _error = null;
+      }
     });
+  }
+
+  /// Human words for a store error. A cancelled purchase is not an error
+  /// and shows nothing; everything else says what happened.
+  static String? purchaseErrorMessage(final Object error) {
+    if (error is PlatformException) {
+      final code = PurchasesErrorHelper.getErrorCode(error);
+      switch (code) {
+        case PurchasesErrorCode.purchaseCancelledError:
+          return null;
+        case PurchasesErrorCode.networkError:
+        case PurchasesErrorCode.offlineConnectionError:
+          return 'No connection. Check your network and try again.';
+        case PurchasesErrorCode.productNotAvailableForPurchaseError:
+          return 'This plan is not available in the store right now.';
+        case PurchasesErrorCode.purchaseNotAllowedError:
+          return 'Purchases are not allowed on this device or account.';
+        case PurchasesErrorCode.paymentPendingError:
+          return 'Your payment is pending. ALRT+ unlocks once the store '
+              'confirms it.';
+        case PurchasesErrorCode.productAlreadyPurchasedError:
+        case PurchasesErrorCode.receiptAlreadyInUseError:
+          return 'This store account already has ALRT+. Tap Restore '
+              'purchases.';
+        default:
+          return 'That purchase could not be completed (${code.name}).';
+      }
+    }
+    return 'That purchase could not be completed.';
   }
 
   /// The trial phrase to show, built from the real selected product's own
@@ -86,6 +147,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
 
   Future<void> _finishEntitled() async {
     ref.invalidate(providerOfAlrtPlus);
+    ref.invalidate(providerOfExpiredAlrtPlus);
+    ref.invalidate(providerOfAlrtPlusBillingIssue);
     if (!mounted) return;
     // The welcome moment is for new hosts; a plan change from an existing
     // circle skips straight back.
@@ -114,11 +177,17 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     setState(() => _busy = true);
     try {
       final ok = await ref.read(providerOfRevenueCat).purchase(package);
-      if (ok) await _finishEntitled();
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'That purchase could not be completed.');
+      if (ok) {
+        await _finishEntitled();
+      } else if (mounted) {
+        setState(
+          () => _error = 'The store did not confirm ALRT+ for this account. '
+              'Tap Restore purchases, or try again.',
+        );
       }
+    } catch (error) {
+      final message = purchaseErrorMessage(error);
+      if (mounted) setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -140,6 +209,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     setState(() => _busy = false);
     if (ok) {
       ref.invalidate(providerOfAlrtPlus);
+      ref.invalidate(providerOfExpiredAlrtPlus);
+      ref.invalidate(providerOfAlrtPlusBillingIssue);
       Navigator.of(context).pop(true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,6 +260,18 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                             style: TextStyle(
                               color: const Color(0xFFCC1010),
                               fontSize: 13.spMin,
+                            ),
+                          ),
+                        ),
+                      if (_offering == null && !_dummy)
+                        TextButton(
+                          onPressed: _busy ? null : _load,
+                          child: Text(
+                            'Try again',
+                            style: TextStyle(
+                              fontSize: 13.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: AlrtPlusStyle.magenta,
                             ),
                           ),
                         ),
@@ -318,7 +401,7 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                 const AlrtPlusPill(onDark: true),
                 SizedBox(height: 12.spMin),
                 Text(
-                  'Let your family stay connected',
+                  _headline,
                   style: TextStyle(
                     fontSize: 23.spMin,
                     fontWeight: FontWeight.w800,
@@ -329,8 +412,7 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                 ),
                 SizedBox(height: 7.spMin),
                 Text(
-                  'Host your own family circle with check-ins, saved places '
-                  'and SOS. Joining a circle is always free.',
+                  _subline,
                   style: TextStyle(
                     fontSize: 13.spMin,
                     height: 1.55,
@@ -345,16 +427,75 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     );
   }
 
+  AlrtPlusPaywallReason get _reason =>
+      widget.args?.reason ?? AlrtPlusPaywallReason.general;
+
+  String get _headline => switch (_reason) {
+        AlrtPlusPaywallReason.savedLocation => 'Save every place that matters',
+        AlrtPlusPaywallReason.hostCircle ||
+        AlrtPlusPaywallReason.general =>
+          'Let your family stay connected',
+      };
+
+  String get _subline => switch (_reason) {
+        AlrtPlusPaywallReason.savedLocation =>
+          'Free accounts save one location. ALRT+ removes the limit, and '
+              'lets you host your own family circle. Joining a circle is '
+              'always free.',
+        AlrtPlusPaywallReason.hostCircle ||
+        AlrtPlusPaywallReason.general =>
+          'Host your own family circle with check-ins, saved places and '
+              'SOS. Joining a circle is always free.',
+      };
+
+  /// The label for a package: the standard monthly/yearly names, or the
+  /// store's own name for a custom package, so an offering set up with
+  /// other identifiers still renders instead of an empty row.
+  static String packageTitle(final Package package) => switch (
+        package.packageType) {
+        PackageType.monthly => 'MONTHLY',
+        PackageType.annual => 'YEARLY',
+        PackageType.weekly => 'WEEKLY',
+        PackageType.twoMonth => '2 MONTHS',
+        PackageType.threeMonth => '3 MONTHS',
+        PackageType.sixMonth => '6 MONTHS',
+        PackageType.lifetime => 'LIFETIME',
+        PackageType.custom ||
+        PackageType.unknown =>
+          package.storeProduct.title.isNotEmpty
+              ? package.storeProduct.title.toUpperCase()
+              : package.identifier.toUpperCase(),
+      };
+
+  /// The packages to show, monthly and yearly first when present, then
+  /// anything else the offering carries.
+  static List<Package> packagesToShow(final Offering offering) {
+    final ordered = <Package>[
+      ?offering.monthly,
+      ?offering.annual,
+    ];
+    for (final package in offering.availablePackages) {
+      if (!ordered.contains(package)) ordered.add(package);
+    }
+    return ordered;
+  }
+
   Widget _planRowBuilder() {
-    final monthly = _offering?.monthly;
-    final annual = _offering?.annual;
-    return Row(
+    final offering = _offering;
+    if (offering == null) return const SizedBox.shrink();
+    final packages = packagesToShow(offering);
+    if (packages.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 10.spMin,
+      runSpacing: 10.spMin,
       children: [
-        if (monthly != null)
-          Expanded(child: _planCardBuilder(monthly, title: 'MONTHLY')),
-        if (monthly != null && annual != null) SizedBox(width: 10.spMin),
-        if (annual != null)
-          Expanded(child: _planCardBuilder(annual, title: 'YEARLY')),
+        for (final package in packages)
+          SizedBox(
+            width: packages.length == 1
+                ? double.infinity
+                : (MediaQuery.sizeOf(context).width - 36.spMin - 10.spMin) / 2,
+            child: _planCardBuilder(package, title: packageTitle(package)),
+          ),
       ],
     );
   }
@@ -518,12 +659,15 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
         _dummy ? '\$9.99' : _offering?.monthly?.storeProduct.priceString;
     final annual =
         _dummy ? '\$99.99' : _offering?.annual?.storeProduct.priceString;
+    final selectedPrice = _selected?.storeProduct.priceString;
     final trial = _trialPhrase;
     final String pricePart;
     if (monthly != null && annual != null) {
       pricePart = trial != null
           ? '$trial, then $monthly a month or $annual a year'
           : '$monthly a month or $annual a year';
+    } else if (selectedPrice != null) {
+      pricePart = trial != null ? '$trial, then $selectedPrice' : selectedPrice;
     } else {
       pricePart = trial != null
           ? '$trial, then the price shown above'

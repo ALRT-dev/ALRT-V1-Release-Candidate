@@ -38,7 +38,10 @@ abstract class FamilyRepository {
 
   Future<Either<void, AppError>> deleteFamilyCircle();
 
-  Future<Either<void, AppError>> leaveFamilyCircle();
+  Future<Either<FamilyLeaveOutcome, AppError>> leaveFamilyCircle();
+
+  /// Live SOS events across every circle the user belongs to.
+  Future<Either<List<FamilySosEvent>, AppError>> getAllActiveFamilySosEvents();
 
   Future<Either<FamilyTransferCandidates, AppError>>
   getFamilyTransferCandidates();
@@ -367,12 +370,27 @@ class FamilyRepositoryImpl implements FamilyRepository {
   }
 
   @override
-  Future<Either<void, AppError>> leaveFamilyCircle() {
+  Future<Either<FamilyLeaveOutcome, AppError>> leaveFamilyCircle() {
     return runAsyncCall(
       name: 'leaveFamilyCircle',
       future: () async {
-        await _restClient.leaveFamilyCircle(circleId: _circleId);
-        return const Success(null);
+        final response = await _restClient.leaveFamilyCircle(circleId: _circleId);
+        final data = response.data;
+        return Success(
+          familyLeaveOutcomeFrom(data is Map ? data['outcome'] : null),
+        );
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<List<FamilySosEvent>, AppError>> getAllActiveFamilySosEvents() {
+    return runAsyncCall(
+      name: 'getAllActiveFamilySosEvents',
+      future: () async {
+        final result = await _restClient.getActiveFamilySosEvents(circleId: null);
+        return Success(result);
       },
       onError: Failure.new,
     );

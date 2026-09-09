@@ -86,14 +86,14 @@ export const familyCheckInSchema = z.object({
   latitude: latitudeSchema.optional(),
   longitude: longitudeSchema.optional(),
   requestId: z.string().uuid().optional(),
-  hazardId: z.string().max(100).optional(),
+  hazardId: z.string().uuid().optional(),
 });
 
 export type FamilyCheckInInput = z.infer<typeof familyCheckInSchema>;
 
 export const familyCheckInRequestSchema = z.object({
   message: z.string().max(280).optional(),
-  hazardId: z.string().max(100).optional(),
+  hazardId: z.string().uuid().optional(),
   // Ask specific people instead of the whole circle. Omitted or empty =
   // everyone. Must be members of the circle; the requester is dropped.
   memberIds: z.array(z.string().min(1).max(100)).max(50).optional(),

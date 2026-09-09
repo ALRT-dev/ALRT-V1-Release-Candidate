@@ -42,6 +42,7 @@ if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
             *stage9a*) echo "13 checks passed.";; *targeted*) echo "10 checks passed.";;
             *circle_list_state*) echo "9 checks passed.";; *seat_rule*) echo "All 7 checks passed.";;
             *push_notification_settings*) echo "  skipped - cooldown (no CACHE_URL)"; echo "14 checks passed. 1 skipped.";;
+            *leave_and_alert_link*) echo "12 checks passed.";; *alert_filter_matrix*) echo "56 checks passed.";;
             *) echo "6 checks passed.";; esac;;
         *) exit 0;;
       esac;;

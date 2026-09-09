@@ -314,6 +314,9 @@ _FamilyCheckIn _$FamilyCheckInFromJson(Map<String, dynamic> json) =>
       longitude: (json['longitude'] as num?)?.toDouble(),
       requestId: json['requestId'] as String?,
       hazardId: json['hazardId'] as String?,
+      hazard: json['hazard'] == null
+          ? null
+          : FamilyCheckInAlert.fromJson(json['hazard'] as Map<String, dynamic>),
       member: json['member'] == null
           ? null
           : FamilyMemberSnippet.fromJson(
@@ -335,6 +338,7 @@ Map<String, dynamic> _$FamilyCheckInToJson(_FamilyCheckIn instance) =>
       'longitude': ?instance.longitude,
       'requestId': ?instance.requestId,
       'hazardId': ?instance.hazardId,
+      'hazard': ?instance.hazard?.toJson(),
       'member': ?instance.member?.toJson(),
       'createdAt': ?instance.createdAt?.toIso8601String(),
     };
@@ -343,6 +347,15 @@ const _$FamilyCheckInStatusEnumMap = {
   FamilyCheckInStatus.safe: 'safe',
   FamilyCheckInStatus.needsHelp: 'needsHelp',
 };
+
+_FamilyCheckInAlert _$FamilyCheckInAlertFromJson(Map<String, dynamic> json) =>
+    _FamilyCheckInAlert(
+      id: json['id'] as String,
+      title: json['title'] as String,
+    );
+
+Map<String, dynamic> _$FamilyCheckInAlertToJson(_FamilyCheckInAlert instance) =>
+    <String, dynamic>{'id': instance.id, 'title': instance.title};
 
 _FamilySosList _$FamilySosListFromJson(Map<String, dynamic> json) =>
     _FamilySosList(

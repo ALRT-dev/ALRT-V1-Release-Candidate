@@ -4,19 +4,17 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/map/models/alrt_location_model.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
+import 'package:hazard_app/features/profile/providers/states/my_location_subscriptions_provider_state.dart' show GetLocationSubscriptionsStatePatterns;
 import 'package:hazard_app/features/search/models/hazard_search_params.dart';
 import 'package:hazard_app/features/search/providers/states/main_search_provider_state.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:hazard_app/features/shared/providers/hazard_socket_manager_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/hazard_service.dart';
-import 'package:hazard_app/features/shared/providers/navigator_key_provider.dart';
 import 'package:hazard_app/features/shared/services/user_service.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
-import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_sheet.dart';
+import 'package:hazard_app/features/subscription/utils/saved_location_gate.dart';
 
 final providerOfMainSearch =
     StateNotifierProvider.autoDispose<
@@ -288,48 +286,74 @@ class MainSearchProvider extends StateNotifier<MainSearchProviderState> {
     );
   }
 
-  /// Toggles the subscription state.
-  Future<void> toggleSubscription() async {
+  /// Saves or removes the searched location and says what happened.
+  ///
+  /// The free allowance is checked here from the account's real saved
+  /// list (loaded first if it has not arrived yet) and the live ALRT+
+  /// entitlement; the screen shows the explanation sheet and the paywall
+  /// for [SaveLocationNeedsPlus], because a sheet needs a real, mounted
+  /// context. Every other branch ends in a visible message too: this tap
+  /// used to return silently when the entitlement check threw, when the
+  /// navigator had no context, or when the server refused.
+  Future<SaveLocationOutcome> toggleSubscription() async {
     final subscriptionId = state.subscriptionId;
-    if (subscriptionId == null) {
-      // Free tier saves at most 1 location, no matter what; the second
-      // save shows a friendly explanation, then the ALRT+ paywall. Own-
-      // location follow never counts.
-      final savedCount = _ref
-          .read(providerOfMyLocationSubscriptions)
-          .locationSubscriptions
-          .where((subscription) => !subscription.isOwnLocation)
-          .length;
-      if (savedCount >= kFreeSavedLocationsLimit) {
-        final isPlus = await _ref.read(providerOfAlrtPlus.future);
-        if (!mounted) return;
-        if (!isPlus) {
-          final context = _ref
-              .read(providerOfGlobalNavigatorKey)
-              .currentContext;
-          if (context == null || !context.mounted) return;
-          final purchased = await showAlrtPlusUpsellSheet(
-            context: context,
-            icon: AlrtPlusUpsellIcons.savedLocation,
-            title: 'One free saved location',
-            message:
-                'Free accounts can save $kFreeSavedLocationsLimit location. '
-                'ALRT+ removes the limit, so you can save as many as you '
-                'like.',
-            primaryLabel: 'See ALRT+',
-            onPrimary: (ctx) => ctx
-                .push<bool>(AlrtPlusPaywallScreen.route)
-                .then((value) => value ?? false),
-          );
-          if (!mounted || purchased != true) return;
-        }
-      }
-      return subscribeToLocation();
-    } else {
-      return unsubscribeFromLocation(
-        subscriptionId: subscriptionId,
+    if (subscriptionId != null) {
+      await unsubscribeFromLocation(subscriptionId: subscriptionId);
+      if (!mounted) return const SaveLocationRemoved();
+      return state.unsubscribeFromLocationState.maybeWhen(
+        error: (error) => SaveLocationFailed(error.message),
+        orElse: () => const SaveLocationRemoved(),
       );
     }
+
+    // Own-location follow never counts; a list that has not loaded yet is
+    // fetched now rather than read as "nothing saved".
+    final subscriptions = _ref.read(providerOfMyLocationSubscriptions.notifier);
+    bool listLoaded() => _ref
+        .read(providerOfMyLocationSubscriptions)
+        .getLocationSubscriptionsState
+        .maybeWhen(success: (_) => true, orElse: () => false);
+    if (!listLoaded()) {
+      await subscriptions.getLocationSubscriptions();
+      if (!mounted) return const SaveLocationCouldNotCheck('');
+      if (!listLoaded()) {
+        return const SaveLocationCouldNotCheck(
+          'Could not load your saved locations. Check your connection and '
+          'try again.',
+        );
+      }
+    }
+    final savedCount = _ref
+        .read(providerOfMyLocationSubscriptions)
+        .locationSubscriptions
+        .where((subscription) => !subscription.isOwnLocation)
+        .length;
+
+    bool isPlus;
+    try {
+      isPlus = await _ref.read(providerOfAlrtPlus.future);
+    } catch (_) {
+      return const SaveLocationCouldNotCheck(
+        'Could not check your ALRT+ status. Check your connection and try '
+        'again.',
+      );
+    }
+    if (!mounted) return const SaveLocationCouldNotCheck('');
+
+    if (savedLocationGate(savedCount: savedCount, isPlus: isPlus) ==
+        SavedLocationGate.needsPlus) {
+      return const SaveLocationNeedsPlus(fromServer: false);
+    }
+
+    await subscribeToLocation();
+    if (!mounted) return const SaveLocationCouldNotCheck('');
+    return state.subscribeToLocationState.maybeWhen(
+      success: (subscription) => SaveLocationSaved(subscription.name),
+      error: (error) => error.code == '403'
+          ? const SaveLocationNeedsPlus(fromServer: true)
+          : SaveLocationFailed(error.message),
+      orElse: () => const SaveLocationCouldNotCheck(''),
+    );
   }
 
   /// Updates [MainSearchProviderState.searchedLocation] with the given [location].

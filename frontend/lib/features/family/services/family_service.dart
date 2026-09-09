@@ -48,8 +48,12 @@ class FamilyService {
     return _familyRepository.deleteFamilyCircle();
   }
 
-  Future<Either<void, AppError>> leaveFamilyCircle() {
+  Future<Either<FamilyLeaveOutcome, AppError>> leaveFamilyCircle() {
     return _familyRepository.leaveFamilyCircle();
+  }
+
+  Future<Either<List<FamilySosEvent>, AppError>> getAllActiveFamilySosEvents() {
+    return _familyRepository.getAllActiveFamilySosEvents();
   }
 
   Future<Either<FamilyTransferCandidates, AppError>>

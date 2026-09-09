@@ -1,5 +1,6 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_types.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
 
@@ -47,12 +48,26 @@ bool hazardMatchesMapFilters(Hazard hazard, HazardFiltersProviderState filters) 
   if (hazard.isUserReported) return filters.userReported;
 
   if (hazard.isAwsCompliant == true) {
-    return switch (hazard.severityBand) {
-      HazardSeverityBand.critical => filters.awsEmergency,
-      HazardSeverityBand.action => filters.awsWatchAndAct,
-      _ => filters.awsAdvice,
+    // The official AWS level, the same field the server filters on
+    // (isAwsCompliant + severity). The derived band is only the fallback
+    // for a hazard the server sent without a severity.
+    return switch (hazard.severity) {
+      HazardSeverity.emergency => filters.awsEmergency,
+      HazardSeverity.watchAndAct => filters.awsWatchAndAct,
+      HazardSeverity.advice => filters.awsAdvice,
+      HazardSeverity.info || HazardSeverity.unknown => filters.awsAdvice,
+      null => switch (hazard.severityBand) {
+        HazardSeverityBand.critical => filters.awsEmergency,
+        HazardSeverityBand.action => filters.awsWatchAndAct,
+        _ => filters.awsAdvice,
+      },
     };
   }
 
-  return filters.officialNonAws;
+  // Official (non-AWS) sources: the server returns every one of them under
+  // officialNonAws; the two source switches the API predates (Global
+  // humanitarian, ALRT Intel) are applied here, the same way the feed
+  // applies them, so one filter state means the same thing on both tabs.
+  if (!filters.officialNonAws) return false;
+  return filters.allowsHazard(hazard);
 }

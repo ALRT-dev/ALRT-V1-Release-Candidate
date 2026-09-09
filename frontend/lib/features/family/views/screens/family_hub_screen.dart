@@ -882,7 +882,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               r.type == FamilySosResponseType.onMyWay ||
               r.type == FamilySosResponseType.called,
         )
-        .map((r) => r.member?.displayName ?? 'Someone')
+        .map((r) => r.member?.displayName ?? 'A family member')
         .toList();
     final seen = sos.responses
         .where((r) => r.type == FamilySosResponseType.seen)
@@ -893,7 +893,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         if (at == null || bt == null) return 0;
         return at.compareTo(bt);
       });
-    final seenNames = seen.map((r) => r.member?.displayName ?? 'Someone');
+    final seenNames = seen.map((r) => r.member?.displayName ?? 'A family member');
     final latestSeenAt = seen.isEmpty ? null : seen.last.createdAt;
 
     final parts = <String>[
@@ -947,11 +947,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         sos.memberId == circle.myMemberId ||
         (sos.member?.user?.id != null &&
             sos.member?.user?.id == ref.read(providerOfLoggedInUser)?.id);
-    final who = isMine ? 'Your SOS' : "${sos.member?.displayName ?? 'A member'}'s SOS";
+    final who = isMine ? 'Your SOS' : "${sos.member?.displayName ?? 'A family member'}'s SOS";
     final endedAt = sos.resolvedAt ?? sos.createdAt;
     final seen = sos.responses
         .where((r) => r.type == FamilySosResponseType.seen)
-        .map((r) => r.member?.displayName ?? 'Someone')
+        .map((r) => r.member?.displayName ?? 'A family member')
         .toList();
     final ack = seen.isEmpty
         ? 'Nobody acknowledged it'
@@ -1787,6 +1787,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           isNearAlert: isNearAlert,
           hasAnswered: hasAnswered,
           askedAt: roll.askedAt,
+          lastCheckIn: ref
+              .read(providerOfFamily)
+              .recentCheckIns
+              .where((c) => c.memberId == member.id)
+              .firstOrNull,
           onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
           onRequestLocation:
               canRequest ? () => _requestLocationSnapshot(member) : null,

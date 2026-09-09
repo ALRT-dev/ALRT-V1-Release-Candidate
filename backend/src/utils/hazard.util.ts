@@ -639,11 +639,16 @@ export const buildHazardsWhereClauseRaw = (
 
   // AWS Advice: isAwsCompliant = true AND severity = advice
   if (awsAdvice) {
+    // Advice also carries the AWS info/unknown levels: the push gate has
+    // always filed those under the Advice switch, and a level the list
+    // never returned was still pushed (filter/push matrix, 2026-09-09).
+    // The official level word on the card is untouched; only which
+    // switch shows it is aligned.
     filterConditions.push(
-      `(h."isAwsCompliant" = true AND h.severity = $${paramIndex}::"HazardSeverity")`,
+      `(h."isAwsCompliant" = true AND h.severity IN ($${paramIndex}::"HazardSeverity", $${paramIndex + 1}::"HazardSeverity", $${paramIndex + 2}::"HazardSeverity"))`,
     );
-    queryParams.push(HazardSeverity.advice);
-    paramIndex++;
+    queryParams.push(HazardSeverity.advice, HazardSeverity.info, HazardSeverity.unknown);
+    paramIndex += 3;
   }
 
   // Official Non-AWS: isAwsCompliant = false AND sourceId != null

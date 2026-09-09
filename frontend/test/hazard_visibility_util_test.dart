@@ -4,6 +4,8 @@ import 'package:hazard_app/features/map/utils/hazard_visibility_util.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_types.dart';
 import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
 
 // Locks in the exact Map tab visibility rules a TEST-alert investigation
@@ -112,6 +114,63 @@ void main() {
       const blocked = HazardFiltersProviderState(awsEmergency: false);
       expect(hazardMatchesMapFilters(hazard, allowed), isTrue);
       expect(hazardMatchesMapFilters(hazard, blocked), isFalse);
+    });
+  });
+
+  group('hazardMatchesMapFilters - the same source switches as the feed', () {
+    Hazard official({final String? sourceId, final HazardSourceShape? shape}) => Hazard(
+      categoryId: 'bushfire',
+      category: const HazardCategory(id: 'bushfire', parentId: 'weatherAndEnvironment'),
+      latitude: _scarboroughLat,
+      longitude: _scarboroughLng,
+      isAwsCompliant: false,
+      source: HazardSource(id: sourceId ?? 'qldFire', name: 'src', shape: shape),
+    );
+
+    test('Global humanitarian off hides a GDACS alert on the map too', () {
+      final gdacs = official(sourceId: 'gdacsGlobal');
+      expect(hazardMatchesMapFilters(gdacs, const HazardFiltersProviderState()), isTrue);
+      expect(
+        hazardMatchesMapFilters(gdacs, const HazardFiltersProviderState(globalHumanitarian: false)),
+        isFalse,
+      );
+      // A state agency alert is untouched by that switch.
+      expect(
+        hazardMatchesMapFilters(official(), const HazardFiltersProviderState(globalHumanitarian: false)),
+        isTrue,
+      );
+    });
+
+    test('ALRT Intel off hides a shield alert on the map too', () {
+      final intel = official(shape: HazardSourceShape.shield);
+      expect(hazardMatchesMapFilters(intel, const HazardFiltersProviderState()), isTrue);
+      expect(hazardMatchesMapFilters(intel, const HazardFiltersProviderState(alrtIntel: false)), isFalse);
+    });
+
+    test('Official off hides state, humanitarian and Intel alerts alike (as the server does)', () {
+      const off = HazardFiltersProviderState(officialNonAws: false);
+      expect(hazardMatchesMapFilters(official(), off), isFalse);
+      expect(hazardMatchesMapFilters(official(sourceId: 'gdacsGlobal'), off), isFalse);
+      expect(hazardMatchesMapFilters(official(shape: HazardSourceShape.shield), off), isFalse);
+    });
+
+    test('AWS levels follow the official severity, not the derived band', () {
+      final adviceWithActionBand = Hazard(
+        categoryId: 'bushfire',
+        latitude: _scarboroughLat,
+        longitude: _scarboroughLng,
+        isAwsCompliant: true,
+        severity: HazardSeverity.advice,
+        severityBand: HazardSeverityBand.action,
+      );
+      expect(
+        hazardMatchesMapFilters(adviceWithActionBand, const HazardFiltersProviderState(awsAdvice: false)),
+        isFalse,
+      );
+      expect(
+        hazardMatchesMapFilters(adviceWithActionBand, const HazardFiltersProviderState(awsWatchAndAct: false)),
+        isTrue,
+      );
     });
   });
 

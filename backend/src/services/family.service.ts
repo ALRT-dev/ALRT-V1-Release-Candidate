@@ -732,17 +732,40 @@ export const deleteCircle = async (userId: string, circleId?: string) => {
   });
 };
 
-export const leaveCircle = async (userId: string, circleId?: string) => {
+/**
+ * What leaving did, so the app can say the right thing: "left" (others
+ * remain), "deleted" (the leaver was the last member, so the circle is
+ * gone), "hostTransition" (the host left; the 7-day window started).
+ */
+export type LeaveCircleOutcome = "left" | "deleted" | "hostTransition";
+
+export const leaveCircle = async (
+  userId: string,
+  circleId?: string,
+): Promise<{ outcome: LeaveCircleOutcome; circleId: string }> => {
   const membership = await requireMembership(userId, circleId);
 
-  if (membership.role === "owner") {
-    const otherMembers = await prisma.familyMember.count({
-      where: { circleId: membership.circleId, id: { not: membership.id } },
+  const otherMembers = await prisma.familyMember.count({
+    where: { circleId: membership.circleId, id: { not: membership.id } },
+  });
+  if (otherMembers === 0) {
+    // Last member out, host or not (a member can be the last one left after
+    // the host walked out into a host transition): the circle goes with
+    // them, so no memberless circle is left behind. The leaver's other
+    // devices are told the same way deleteCircle tells everyone.
+    await prisma.familyCircle.delete({ where: { id: membership.circleId } });
+    pruneMembersFromSosLists([membership.id]).catch((error) =>
+      console.error("SOS list prune failed on last-member leave:", error),
+    );
+    sendSocketEventToUsers({
+      userIds: [userId],
+      event: SocketEvent.familyCircleUpdate,
+      data: { circleId: membership.circleId, deleted: true },
     });
-    if (otherMembers === 0) {
-      await prisma.familyCircle.delete({ where: { id: membership.circleId } });
-      return;
-    }
+    return { outcome: "deleted", circleId: membership.circleId };
+  }
+
+  if (membership.role === "owner") {
 
     // Leaving without naming a successor starts the 7-day host-transition
     // window instead of blocking: the circle and everyone already in it
@@ -770,7 +793,7 @@ export const leaveCircle = async (userId: string, circleId?: string) => {
       socketEvent: SocketEvent.familyCircleUpdate,
       socketData: { circleId: membership.circleId },
     });
-    return;
+    return { outcome: "hostTransition", circleId: membership.circleId };
   }
 
   await prisma.familyMember.delete({ where: { id: membership.id } });
@@ -790,6 +813,7 @@ export const leaveCircle = async (userId: string, circleId?: string) => {
     socketEvent: SocketEvent.familyCircleUpdate,
     socketData: { circleId: membership.circleId },
   });
+  return { outcome: "left", circleId: membership.circleId };
 };
 
 // ---------------------------------------------------------------------------
@@ -1446,6 +1470,18 @@ export const createCheckIn = async (
   const membership = await requireMembership(userId, circleId);
   const status: FamilyCheckInStatus = input.status ?? "safe";
 
+  // An alert link is only stored when it names a real, published alert
+  // (the id has no foreign key). Anything else is refused rather than
+  // written verbatim, so what the circle later sees as "near <alert>" is
+  // always an alert that exists.
+  if (input.hazardId) {
+    const hazard = await prisma.hazard.findFirst({
+      where: { id: input.hazardId, reviewStatus: "accepted" },
+      select: { id: true },
+    });
+    if (!hazard) throw new HttpError(400, "That alert does not exist");
+  }
+
   // The member's saved sharing level is a ceiling (Option A, approved):
   // a check-in carries precise coordinates only for "precise" members.
   // "approximate" members surface a suburb label through the member
@@ -1636,11 +1672,34 @@ export const listRecentCheckIns = async (
   // same promise the member snapshot makes. Enforced here so it never
   // depends on the purge sweep (which only runs where scheduled jobs are on).
   const hourAgo = new Date(Date.now() - CHECK_IN_LOCATION_TTL_MS);
-  return rows.map((row) =>
+  const stripped = rows.map((row) =>
     row.createdAt < hourAgo && (row.latitude != null || row.longitude != null)
       ? { ...row, latitude: null, longitude: null }
       : row,
   );
+  return withHazardTitles(stripped);
+};
+
+/**
+ * The alert a check-in was made from, by title, so the circle can read
+ * "near <alert>" and open it. Looked up here because the link is an id
+ * without a foreign key; an alert since removed simply has no title.
+ */
+const withHazardTitles = async <T extends { hazardId: string | null }>(
+  rows: T[],
+): Promise<(T & { hazard: { id: string; title: string } | null })[]> => {
+  const ids = [...new Set(rows.map((r) => r.hazardId).filter((id): id is string => !!id))];
+  const hazards = ids.length
+    ? await prisma.hazard.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, title: true },
+      })
+    : [];
+  const byId = new Map(hazards.map((h) => [h.id, h]));
+  return rows.map((row) => ({
+    ...row,
+    hazard: row.hazardId ? (byId.get(row.hazardId) ?? null) : null,
+  }));
 };
 
 // ---------------------------------------------------------------------------
@@ -2454,7 +2513,10 @@ export const endLapsedSosEvents = async (): Promise<number> => {
   const cutoff = new Date(Date.now() - SOS_MAX_DURATION_MS);
   const lapsed = await prisma.familySosEvent.findMany({
     where: { status: "active", createdAt: { lte: cutoff } },
-    select: { id: true, circleId: true, memberId: true, createdAt: true },
+    include: {
+      member: { select: memberIdentitySelect },
+      responses: { include: { member: { select: memberIdentitySelect } } },
+    },
   });
   if (lapsed.length === 0) return 0;
 
@@ -2490,7 +2552,17 @@ export const endLapsedSosEvents = async (): Promise<number> => {
         data: { circleId: sos.circleId, sosEventId: sos.id },
         type: PushNotificationType.familySosResolved,
         socketEvent: SocketEvent.familySosResolved,
-        socketData: { id: sos.id, circleId: sos.circleId, status: "resolved" },
+        // The whole row, as a manual stand-down sends: the app's parser
+        // needs memberId, and a bare {id, status} was dropped unread, which
+        // left the red SOS strip live on every phone until the next reload.
+        socketData: {
+          ...sos,
+          status: "resolved",
+          resolvedAt: now,
+          latitude: null,
+          longitude: null,
+          locationLabel: null,
+        },
       }),
     ),
   );
@@ -2538,10 +2610,29 @@ export const getSosHistory = async (userId: string, circleId?: string) => {
   }));
 };
 
+/**
+ * Live SOS events the user may see. With a circleId: that circle only.
+ * Without one: every circle the user belongs to, so the red strip (which
+ * covers "any of your groups") survives a reload while another circle's
+ * SOS is live.
+ */
 export const getActiveSos = async (userId: string, circleId?: string) => {
-  const membership = await requireMembership(userId, circleId);
+  let circleIds: string[];
+  if (circleId) {
+    const membership = await requireMembership(userId, circleId);
+    circleIds = [membership.circleId];
+  } else {
+    const memberships = await prisma.familyMember.findMany({
+      where: { userId },
+      select: { circleId: true },
+    });
+    if (memberships.length === 0) {
+      throw new HttpError(404, "You are not part of a family circle yet");
+    }
+    circleIds = memberships.map((m) => m.circleId);
+  }
   return prisma.familySosEvent.findMany({
-    where: { circleId: membership.circleId, status: "active" },
+    where: { circleId: { in: circleIds }, status: "active" },
     include: {
       member: { select: memberIdentitySelect },
       responses: {

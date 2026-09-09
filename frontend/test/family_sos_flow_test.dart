@@ -40,6 +40,10 @@ class _FakeFamilyService extends FamilyService {
   }
 
   @override
+  Future<Either<List<FamilySosEvent>, AppError>> getAllActiveFamilySosEvents() async =>
+      getActiveFamilySosEvents();
+
+  @override
   Future<Either<List<FamilySosEvent>, AppError>> getActiveFamilySosEvents() async =>
       Success(List.of(active));
 
@@ -121,5 +125,73 @@ void main() {
     final ok = await notifier.resolveSos(sosEventId: 'sos-1');
     expect(ok, isFalse);
     expect(container.read(providerOfFamily).activeSosEvents.map((e) => e.id), ['sos-1']);
+  });
+
+  group('stale and duplicate SOS events (phone QA 2026-09-09)', () {
+    const other = FamilySosEvent(
+      id: 'sos-9',
+      circleId: 'c1',
+      memberId: 'amy-member',
+      status: FamilySosStatus.active,
+    );
+
+    test('a replayed familySos for an ended SOS does not bring it back', () async {
+      final (:container, :service) = _setUp();
+      final n = container.read(providerOfFamily.notifier);
+      n.debugReceiveSos(other);
+      expect(container.read(providerOfFamily).activeSosEvents.map((e) => e.id), ['sos-9']);
+      n.debugReceiveSosResolved(other.copyWith(status: FamilySosStatus.resolved));
+      expect(container.read(providerOfFamily).activeSosEvents, isEmpty);
+      // The duplicate/late delivery.
+      n.debugReceiveSos(other);
+      expect(container.read(providerOfFamily).activeSosEvents, isEmpty,
+          reason: 'an ended SOS never reopens from a replayed event');
+      expect(container.read(providerOfFamily).sosHistory.map((e) => e.id), ['sos-9']);
+      container.dispose();
+    });
+
+    test('an SOS for a circle I am no longer in is ignored', () async {
+      final (:container, :service) = _setUp();
+      final n = container.read(providerOfFamily.notifier);
+      n.debugReceiveSos(other.copyWith(circleId: 'departed-circle'));
+      expect(container.read(providerOfFamily).activeSosEvents, isEmpty);
+      container.dispose();
+    });
+
+    test('a check-in for a departed circle does not touch state', () async {
+      final (:container, :service) = _setUp();
+      final n = container.read(providerOfFamily.notifier);
+      n.debugReceiveCheckIn(const FamilyCheckIn(
+        id: 'ci-1',
+        circleId: 'departed-circle',
+        memberId: 'amy-member',
+      ));
+      expect(container.read(providerOfFamily).recentCheckIns, isEmpty);
+      container.dispose();
+    });
+
+    test('a server refresh that no longer lists an SOS ends it locally', () async {
+      final (:container, :service) = _setUp();
+      final n = container.read(providerOfFamily.notifier);
+      n.debugReceiveSos(other);
+      // The server (all circles) has nothing live any more.
+      await n.refreshActiveSos();
+      expect(container.read(providerOfFamily).activeSosEvents, isEmpty);
+      n.debugReceiveSos(other);
+      expect(container.read(providerOfFamily).activeSosEvents, isEmpty,
+          reason: 'the server said it ended; a late socket copy is stale');
+      container.dispose();
+    });
+
+    test('a resolved payload without memberId still parses', () {
+      final event = FamilySosEvent.fromJson({
+        'memberId': '',
+        'status': 'resolved',
+        'id': 'sos-lapsed',
+        'circleId': 'c1',
+      });
+      expect(event.id, 'sos-lapsed');
+      expect(event.status, FamilySosStatus.resolved);
+    });
   });
 }

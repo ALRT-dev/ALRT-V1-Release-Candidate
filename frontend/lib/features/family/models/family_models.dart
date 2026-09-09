@@ -169,7 +169,7 @@ abstract class FamilyCircle with _$FamilyCircle {
   List<String> get namesOwedMyCheckIn {
     final names = <String>[];
     for (final request in checkInRequestsOwedByMe) {
-      final name = request.requestedBy?.displayName ?? 'Someone';
+      final name = request.requestedBy?.displayName ?? 'A family member';
       if (!names.contains(name)) names.add(name);
     }
     return names;
@@ -304,6 +304,9 @@ abstract class FamilyMemberSnippet with _$FamilyMemberSnippet {
     final FamilyMemberUserSnippet? user,
   }) = _FamilyMemberSnippet;
 
+  /// The name to show. A profile with no name set is "Family member"
+  /// everywhere, never a different word per screen; setting a name is not
+  /// required for the app to read correctly.
   String get displayName => nickname ?? user?.name ?? 'Family member';
 
   factory FamilyMemberSnippet.fromJson(Map<String, dynamic> json) =>
@@ -336,6 +339,10 @@ abstract class FamilyCheckIn with _$FamilyCheckIn {
     final double? longitude,
     final String? requestId,
     final String? hazardId,
+
+    /// The alert this check-in was made from ("near <alert>"), named by
+    /// the server from [hazardId]; null when the alert no longer exists.
+    final FamilyCheckInAlert? hazard,
     final FamilyMemberSnippet? member,
     final DateTime? createdAt,
   }) = _FamilyCheckIn;
@@ -343,6 +350,28 @@ abstract class FamilyCheckIn with _$FamilyCheckIn {
   factory FamilyCheckIn.fromJson(Map<String, dynamic> json) =>
       _$FamilyCheckInFromJson(json);
 }
+
+@freezed
+abstract class FamilyCheckInAlert with _$FamilyCheckInAlert {
+  const factory FamilyCheckInAlert({
+    required final String id,
+    required final String title,
+  }) = _FamilyCheckInAlert;
+
+  factory FamilyCheckInAlert.fromJson(Map<String, dynamic> json) =>
+      _$FamilyCheckInAlertFromJson(json);
+}
+
+/// What leaving a circle did on the server (build 45): the circle is
+/// still there without you, it was deleted because you were its last
+/// member, or you left as host and the 7-day host window started.
+enum FamilyLeaveOutcome { left, deleted, hostTransition }
+
+FamilyLeaveOutcome familyLeaveOutcomeFrom(final Object? raw) => switch (raw) {
+      'deleted' => FamilyLeaveOutcome.deleted,
+      'hostTransition' => FamilyLeaveOutcome.hostTransition,
+      _ => FamilyLeaveOutcome.left,
+    };
 
 /// An SOS recipient preset (locked spec §28): a named list owned by the
 /// sender, configured in advance — never during an emergency.

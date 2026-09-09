@@ -123,7 +123,12 @@ Future<void> _createGated(
           'invites, seats, circle settings — needs ALRT+.',
       primaryLabel: 'See ALRT+',
       onPrimary: (ctx) => ctx
-          .push<bool>(AlrtPlusPaywallScreen.route)
+          .push<bool>(
+            AlrtPlusPaywallScreen.route,
+            extra: const AlrtPlusPaywallArgs(
+              reason: AlrtPlusPaywallReason.hostCircle,
+            ),
+          )
           .then((value) => value ?? false),
     );
     if (!subscribed || !context.mounted) return;

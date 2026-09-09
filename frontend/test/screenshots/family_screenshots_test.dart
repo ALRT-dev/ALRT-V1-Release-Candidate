@@ -408,6 +408,39 @@ void main() {
     await _shoot(tester, '10_paywall_unavailable');
   }, skip: !_enabled);
 
+  testWidgets('paywall opened from the saved-location gate', (tester) async {
+    await tester.pumpWidget(_app(const AlrtPlusPaywallScreen(
+      args: AlrtPlusPaywallArgs(reason: AlrtPlusPaywallReason.savedLocation),
+    )));
+    await tester.pump(const Duration(seconds: 1));
+    await _shoot(tester, '17_paywall_saved_location');
+  }, skip: !_enabled);
+
+  testWidgets('member details sheet: last check-in made from an alert', (tester) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(_app(Scaffold(body: Builder(builder: (c) { ctx = c; return const SizedBox.shrink(); }))));
+    final member = _circle().members[2];
+    showFamilyMemberDetailsSheet(
+      ctx,
+      member: member,
+      isMe: false,
+      isNearAlert: true,
+      hasAnswered: true,
+      lastCheckIn: FamilyCheckIn(
+        id: 'ci-alert',
+        circleId: 'c1',
+        memberId: member.id,
+        message: 'All good here',
+        hazard: const FamilyCheckInAlert(id: 'h1', title: 'Grass fire near Scarborough'),
+        createdAt: _now.subtract(const Duration(minutes: 3)),
+      ),
+      onAskToCheckIn: () {},
+      onRequestLocation: () {},
+    );
+    await tester.pumpAndSettle();
+    await _shoot(tester, '18_member_details_alert_link');
+  }, skip: !_enabled);
+
   testWidgets('back on the free plan (expired)', (tester) async {
     await tester.pumpWidget(_app(const AlrtPlusExpiredScreen()));
     await _shoot(tester, '11_expired_free_plan');

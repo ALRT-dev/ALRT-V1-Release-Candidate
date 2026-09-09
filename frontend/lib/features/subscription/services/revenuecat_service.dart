@@ -22,6 +22,10 @@ class RevenueCatService {
               : Env.revenueCatApiKeyGoogle)
           .isNotEmpty;
 
+  /// Whether this build carries a RevenueCat key for this platform. Without
+  /// one the paywall says so instead of a generic "not available".
+  bool get hasKeys => _hasKeys;
+
   /// Configures RevenueCat for [userId] (idempotent). Uses the platform's
   /// public SDK key. No-op if keys aren't set yet (paywall then shows as
   /// unavailable rather than crashing).

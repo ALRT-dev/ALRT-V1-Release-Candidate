@@ -136,7 +136,7 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
     final FamilyCheckInRequest request,
     final FamilyCircle circle,
   ) {
-    final who = request.requestedBy?.displayName ?? 'Someone';
+    final who = request.requestedBy?.displayName ?? 'A family member';
     final when = request.createdAt;
     final canCancel = request.requestedById == circle.myMemberId;
     return Container(

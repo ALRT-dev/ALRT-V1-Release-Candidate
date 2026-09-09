@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/search/utils/save_location_flow.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/search/providers/main_search_provider.dart';
@@ -159,7 +160,7 @@ class _HazardSearchScreenState extends ConsumerState<HazardSearchScreen> {
 
   /// Toggles the subscription state when the subscribe button is pressed.
   void _handleSubscribePressed() {
-    ref.read(providerOfMainSearch.notifier).toggleSubscription();
+    handleSaveLocationTap(context, ref);
   }
 
   void _onScroll() {

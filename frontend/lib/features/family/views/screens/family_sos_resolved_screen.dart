@@ -68,7 +68,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
 
   Widget _headerBuilder(final BuildContext context, final FamilySosEvent e) {
     final stoppedAt = e.resolvedAt;
-    final who = e.member?.displayName ?? 'They';
+    final who = e.member?.displayName ?? 'A family member';
 
     return Container(
       width: double.infinity,

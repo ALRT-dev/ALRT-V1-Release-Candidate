@@ -261,7 +261,9 @@ class AppRouter {
         ),
         GoRoute(
           path: AlrtPlusPaywallScreen.route,
-          builder: (context, state) => const AlrtPlusPaywallScreen(),
+          builder: (context, state) => AlrtPlusPaywallScreen(
+            args: state.extra as AlrtPlusPaywallArgs?,
+          ),
         ),
         GoRoute(
           path: AlrtPlusWelcomeScreen.route,

@@ -22,6 +22,7 @@ Future<void> showFamilyMemberDetailsSheet(
   required final bool isNearAlert,
   required final bool? hasAnswered,
   final DateTime? askedAt,
+  final FamilyCheckIn? lastCheckIn,
   final VoidCallback? onAskToCheckIn,
   final VoidCallback? onRequestLocation,
   final VoidCallback? onChangeMySharing,
@@ -40,6 +41,7 @@ Future<void> showFamilyMemberDetailsSheet(
       isNearAlert: isNearAlert,
       hasAnswered: hasAnswered,
       askedAt: askedAt,
+      lastCheckIn: lastCheckIn,
       onAskToCheckIn: onAskToCheckIn,
       onRequestLocation: onRequestLocation,
       onChangeMySharing: onChangeMySharing,
@@ -56,6 +58,7 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
     required this.isNearAlert,
     required this.hasAnswered,
     this.askedAt,
+    this.lastCheckIn,
     this.onAskToCheckIn,
     this.onRequestLocation,
     this.onChangeMySharing,
@@ -67,6 +70,10 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
   final bool isNearAlert;
   final bool? hasAnswered;
   final DateTime? askedAt;
+
+  /// This member's most recent check-in, when the hub has it: carries the
+  /// alert it was made from ("near <alert>") and any message.
+  final FamilyCheckIn? lastCheckIn;
   final VoidCallback? onAskToCheckIn;
   final VoidCallback? onRequestLocation;
   final VoidCallback? onChangeMySharing;
@@ -164,6 +171,23 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
               now: now,
             ),
           ),
+          if (lastCheckIn?.hazard != null) ...[
+            SizedBox(height: 8.spMin),
+            _lineBuilder(
+              context,
+              icon: LucideIcons.triangleAlert,
+              text: 'Checked in near "${lastCheckIn!.hazard!.title}"',
+            ),
+          ],
+          if (lastCheckIn?.message case final String message
+              when message.isNotEmpty) ...[
+            SizedBox(height: 8.spMin),
+            _lineBuilder(
+              context,
+              icon: LucideIcons.messageSquare,
+              text: message,
+            ),
+          ],
           SizedBox(height: 8.spMin),
           _lineBuilder(
             context,

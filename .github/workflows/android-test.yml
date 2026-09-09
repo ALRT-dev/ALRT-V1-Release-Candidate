@@ -435,6 +435,17 @@ jobs:
           echo "TEST APK signing certificate SHA-1 (verified against the decoded TEST keystore): $KEYSTORE_SHA1"
           echo "### TEST APK signing certificate (verified)" >> "$GITHUB_STEP_SUMMARY"
           echo "SHA-1: \`$KEYSTORE_SHA1\`" >> "$GITHUB_STEP_SUMMARY"
+
+          # So the downloaded binary can be checked on a computer, not only
+          # trusted from this log: the APK's own sha256 (compare with
+          # `sha256sum` on the unzipped file) and apksigner's full report
+          # (signature schemes and SHA-256 certificate digest).
+          APK_FILE="build/app/outputs/flutter-apk/${{ steps.build.outputs.apk_filename }}"
+          APK_SHA256=$(sha256sum "$APK_FILE" | awk '{print $1}')
+          echo "TEST APK file sha256: $APK_SHA256  ${{ steps.build.outputs.apk_filename }}"
+          echo "APK file sha256: \`$APK_SHA256\` (${{ steps.build.outputs.apk_filename }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "---- apksigner verify --verbose --print-certs"
+          "$APKSIGNER" verify --verbose --print-certs "$APK_FILE" | grep -E "Verified using|certificate SHA-256 digest|certificate SHA-1 digest|Verifies"
         env:
           TEST_ANDROID_KEY_ALIAS: ${{ secrets.TEST_ANDROID_KEY_ALIAS }}
           TEST_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}

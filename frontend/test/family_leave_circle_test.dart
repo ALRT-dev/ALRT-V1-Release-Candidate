@@ -34,8 +34,11 @@ class _FakeFamilyService extends FamilyService {
         ],
       );
 
+  /// What the server reports the leave did.
+  FamilyLeaveOutcome leaveOutcome = FamilyLeaveOutcome.left;
+
   @override
-  Future<Either<void, AppError>> leaveFamilyCircle() async {
+  Future<Either<FamilyLeaveOutcome, AppError>> leaveFamilyCircle() async {
     leaveCalls += 1;
     if (leaveSucceedsServerSideButAnswerLost) {
       circles.remove('a');
@@ -43,8 +46,16 @@ class _FakeFamilyService extends FamilyService {
     }
     if (leaveFails) return const Failure(AppError(message: 'server said no'));
     circles.remove('a');
-    return const Success(null);
+    return Success(leaveOutcome);
   }
+
+  @override
+  Future<Either<List<FamilySosEvent>, AppError>> getAllActiveFamilySosEvents() async =>
+      const Success([]);
+
+  @override
+  Future<Either<List<FamilySosList>, AppError>> getFamilySosLists() async =>
+      const Success([]);
 
   @override
   Future<Either<List<FamilyCircleSummary>, AppError>> getFamilyCircles() async =>
@@ -122,6 +133,7 @@ const _b = FamilyCircleSummary(circleId: 'b', name: 'B', myMemberId: 'm-b');
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('leaving one of two circles lands on the other, with a fresh scope', () async {
     final (:container, :service) = _setUp(memberships: [_a, _b]);
     await container.read(providerOfFamily.notifier).leave();

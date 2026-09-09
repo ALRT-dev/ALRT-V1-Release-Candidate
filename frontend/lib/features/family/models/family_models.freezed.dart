@@ -2154,7 +2154,9 @@ as String?,
 /// @nodoc
 mixin _$FamilyCheckIn {
 
- String get id; String get circleId; String get memberId;@JsonKey(unknownEnumValue: FamilyCheckInStatus.safe) FamilyCheckInStatus get status; String? get message; double? get latitude; double? get longitude; String? get requestId; String? get hazardId; FamilyMemberSnippet? get member; DateTime? get createdAt;
+ String get id; String get circleId; String get memberId;@JsonKey(unknownEnumValue: FamilyCheckInStatus.safe) FamilyCheckInStatus get status; String? get message; double? get latitude; double? get longitude; String? get requestId; String? get hazardId;/// The alert this check-in was made from ("near <alert>"), named by
+/// the server from [hazardId]; null when the alert no longer exists.
+ FamilyCheckInAlert? get hazard; FamilyMemberSnippet? get member; DateTime? get createdAt;
 /// Create a copy of FamilyCheckIn
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2167,16 +2169,16 @@ $FamilyCheckInCopyWith<FamilyCheckIn> get copyWith => _$FamilyCheckInCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilyCheckIn&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.message, message) || other.message == message)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.requestId, requestId) || other.requestId == requestId)&&(identical(other.hazardId, hazardId) || other.hazardId == hazardId)&&(identical(other.member, member) || other.member == member)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilyCheckIn&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.message, message) || other.message == message)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.requestId, requestId) || other.requestId == requestId)&&(identical(other.hazardId, hazardId) || other.hazardId == hazardId)&&(identical(other.hazard, hazard) || other.hazard == hazard)&&(identical(other.member, member) || other.member == member)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,circleId,memberId,status,message,latitude,longitude,requestId,hazardId,member,createdAt);
+int get hashCode => Object.hash(runtimeType,id,circleId,memberId,status,message,latitude,longitude,requestId,hazardId,hazard,member,createdAt);
 
 @override
 String toString() {
-  return 'FamilyCheckIn(id: $id, circleId: $circleId, memberId: $memberId, status: $status, message: $message, latitude: $latitude, longitude: $longitude, requestId: $requestId, hazardId: $hazardId, member: $member, createdAt: $createdAt)';
+  return 'FamilyCheckIn(id: $id, circleId: $circleId, memberId: $memberId, status: $status, message: $message, latitude: $latitude, longitude: $longitude, requestId: $requestId, hazardId: $hazardId, hazard: $hazard, member: $member, createdAt: $createdAt)';
 }
 
 
@@ -2187,11 +2189,11 @@ abstract mixin class $FamilyCheckInCopyWith<$Res>  {
   factory $FamilyCheckInCopyWith(FamilyCheckIn value, $Res Function(FamilyCheckIn) _then) = _$FamilyCheckInCopyWithImpl;
 @useResult
 $Res call({
- String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilyCheckInStatus.safe) FamilyCheckInStatus status, String? message, double? latitude, double? longitude, String? requestId, String? hazardId, FamilyMemberSnippet? member, DateTime? createdAt
+ String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilyCheckInStatus.safe) FamilyCheckInStatus status, String? message, double? latitude, double? longitude, String? requestId, String? hazardId, FamilyCheckInAlert? hazard, FamilyMemberSnippet? member, DateTime? createdAt
 });
 
 
-$FamilyMemberSnippetCopyWith<$Res>? get member;
+$FamilyCheckInAlertCopyWith<$Res>? get hazard;$FamilyMemberSnippetCopyWith<$Res>? get member;
 
 }
 /// @nodoc
@@ -2204,7 +2206,7 @@ class _$FamilyCheckInCopyWithImpl<$Res>
 
 /// Create a copy of FamilyCheckIn
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? message = freezed,Object? latitude = freezed,Object? longitude = freezed,Object? requestId = freezed,Object? hazardId = freezed,Object? member = freezed,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? message = freezed,Object? latitude = freezed,Object? longitude = freezed,Object? requestId = freezed,Object? hazardId = freezed,Object? hazard = freezed,Object? member = freezed,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,circleId: null == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
@@ -2215,12 +2217,25 @@ as String?,latitude: freezed == latitude ? _self.latitude : latitude // ignore: 
 as double?,longitude: freezed == longitude ? _self.longitude : longitude // ignore: cast_nullable_to_non_nullable
 as double?,requestId: freezed == requestId ? _self.requestId : requestId // ignore: cast_nullable_to_non_nullable
 as String?,hazardId: freezed == hazardId ? _self.hazardId : hazardId // ignore: cast_nullable_to_non_nullable
-as String?,member: freezed == member ? _self.member : member // ignore: cast_nullable_to_non_nullable
+as String?,hazard: freezed == hazard ? _self.hazard : hazard // ignore: cast_nullable_to_non_nullable
+as FamilyCheckInAlert?,member: freezed == member ? _self.member : member // ignore: cast_nullable_to_non_nullable
 as FamilyMemberSnippet?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,
   ));
 }
 /// Create a copy of FamilyCheckIn
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$FamilyCheckInAlertCopyWith<$Res>? get hazard {
+    if (_self.hazard == null) {
+    return null;
+  }
+
+  return $FamilyCheckInAlertCopyWith<$Res>(_self.hazard!, (value) {
+    return _then(_self.copyWith(hazard: value));
+  });
+}/// Create a copy of FamilyCheckIn
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
@@ -2314,10 +2329,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilyCheckInStatus.safe)  FamilyCheckInStatus status,  String? message,  double? latitude,  double? longitude,  String? requestId,  String? hazardId,  FamilyMemberSnippet? member,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilyCheckInStatus.safe)  FamilyCheckInStatus status,  String? message,  double? latitude,  double? longitude,  String? requestId,  String? hazardId,  FamilyCheckInAlert? hazard,  FamilyMemberSnippet? member,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FamilyCheckIn() when $default != null:
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.message,_that.latitude,_that.longitude,_that.requestId,_that.hazardId,_that.member,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.message,_that.latitude,_that.longitude,_that.requestId,_that.hazardId,_that.hazard,_that.member,_that.createdAt);case _:
   return orElse();
 
 }
@@ -2335,10 +2350,10 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.messag
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilyCheckInStatus.safe)  FamilyCheckInStatus status,  String? message,  double? latitude,  double? longitude,  String? requestId,  String? hazardId,  FamilyMemberSnippet? member,  DateTime? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilyCheckInStatus.safe)  FamilyCheckInStatus status,  String? message,  double? latitude,  double? longitude,  String? requestId,  String? hazardId,  FamilyCheckInAlert? hazard,  FamilyMemberSnippet? member,  DateTime? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _FamilyCheckIn():
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.message,_that.latitude,_that.longitude,_that.requestId,_that.hazardId,_that.member,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.message,_that.latitude,_that.longitude,_that.requestId,_that.hazardId,_that.hazard,_that.member,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -2355,10 +2370,10 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.messag
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilyCheckInStatus.safe)  FamilyCheckInStatus status,  String? message,  double? latitude,  double? longitude,  String? requestId,  String? hazardId,  FamilyMemberSnippet? member,  DateTime? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilyCheckInStatus.safe)  FamilyCheckInStatus status,  String? message,  double? latitude,  double? longitude,  String? requestId,  String? hazardId,  FamilyCheckInAlert? hazard,  FamilyMemberSnippet? member,  DateTime? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _FamilyCheckIn() when $default != null:
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.message,_that.latitude,_that.longitude,_that.requestId,_that.hazardId,_that.member,_that.createdAt);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.message,_that.latitude,_that.longitude,_that.requestId,_that.hazardId,_that.hazard,_that.member,_that.createdAt);case _:
   return null;
 
 }
@@ -2370,7 +2385,7 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.messag
 @JsonSerializable()
 
 class _FamilyCheckIn implements FamilyCheckIn {
-  const _FamilyCheckIn({required this.id, required this.circleId, required this.memberId, @JsonKey(unknownEnumValue: FamilyCheckInStatus.safe) this.status = FamilyCheckInStatus.safe, this.message, this.latitude, this.longitude, this.requestId, this.hazardId, this.member, this.createdAt});
+  const _FamilyCheckIn({required this.id, required this.circleId, required this.memberId, @JsonKey(unknownEnumValue: FamilyCheckInStatus.safe) this.status = FamilyCheckInStatus.safe, this.message, this.latitude, this.longitude, this.requestId, this.hazardId, this.hazard, this.member, this.createdAt});
   factory _FamilyCheckIn.fromJson(Map<String, dynamic> json) => _$FamilyCheckInFromJson(json);
 
 @override final  String id;
@@ -2382,6 +2397,9 @@ class _FamilyCheckIn implements FamilyCheckIn {
 @override final  double? longitude;
 @override final  String? requestId;
 @override final  String? hazardId;
+/// The alert this check-in was made from ("near <alert>"), named by
+/// the server from [hazardId]; null when the alert no longer exists.
+@override final  FamilyCheckInAlert? hazard;
 @override final  FamilyMemberSnippet? member;
 @override final  DateTime? createdAt;
 
@@ -2398,16 +2416,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilyCheckIn&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.message, message) || other.message == message)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.requestId, requestId) || other.requestId == requestId)&&(identical(other.hazardId, hazardId) || other.hazardId == hazardId)&&(identical(other.member, member) || other.member == member)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilyCheckIn&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.message, message) || other.message == message)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.requestId, requestId) || other.requestId == requestId)&&(identical(other.hazardId, hazardId) || other.hazardId == hazardId)&&(identical(other.hazard, hazard) || other.hazard == hazard)&&(identical(other.member, member) || other.member == member)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,circleId,memberId,status,message,latitude,longitude,requestId,hazardId,member,createdAt);
+int get hashCode => Object.hash(runtimeType,id,circleId,memberId,status,message,latitude,longitude,requestId,hazardId,hazard,member,createdAt);
 
 @override
 String toString() {
-  return 'FamilyCheckIn(id: $id, circleId: $circleId, memberId: $memberId, status: $status, message: $message, latitude: $latitude, longitude: $longitude, requestId: $requestId, hazardId: $hazardId, member: $member, createdAt: $createdAt)';
+  return 'FamilyCheckIn(id: $id, circleId: $circleId, memberId: $memberId, status: $status, message: $message, latitude: $latitude, longitude: $longitude, requestId: $requestId, hazardId: $hazardId, hazard: $hazard, member: $member, createdAt: $createdAt)';
 }
 
 
@@ -2418,11 +2436,11 @@ abstract mixin class _$FamilyCheckInCopyWith<$Res> implements $FamilyCheckInCopy
   factory _$FamilyCheckInCopyWith(_FamilyCheckIn value, $Res Function(_FamilyCheckIn) _then) = __$FamilyCheckInCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilyCheckInStatus.safe) FamilyCheckInStatus status, String? message, double? latitude, double? longitude, String? requestId, String? hazardId, FamilyMemberSnippet? member, DateTime? createdAt
+ String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilyCheckInStatus.safe) FamilyCheckInStatus status, String? message, double? latitude, double? longitude, String? requestId, String? hazardId, FamilyCheckInAlert? hazard, FamilyMemberSnippet? member, DateTime? createdAt
 });
 
 
-@override $FamilyMemberSnippetCopyWith<$Res>? get member;
+@override $FamilyCheckInAlertCopyWith<$Res>? get hazard;@override $FamilyMemberSnippetCopyWith<$Res>? get member;
 
 }
 /// @nodoc
@@ -2435,7 +2453,7 @@ class __$FamilyCheckInCopyWithImpl<$Res>
 
 /// Create a copy of FamilyCheckIn
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? message = freezed,Object? latitude = freezed,Object? longitude = freezed,Object? requestId = freezed,Object? hazardId = freezed,Object? member = freezed,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? message = freezed,Object? latitude = freezed,Object? longitude = freezed,Object? requestId = freezed,Object? hazardId = freezed,Object? hazard = freezed,Object? member = freezed,Object? createdAt = freezed,}) {
   return _then(_FamilyCheckIn(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,circleId: null == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
@@ -2446,13 +2464,26 @@ as String?,latitude: freezed == latitude ? _self.latitude : latitude // ignore: 
 as double?,longitude: freezed == longitude ? _self.longitude : longitude // ignore: cast_nullable_to_non_nullable
 as double?,requestId: freezed == requestId ? _self.requestId : requestId // ignore: cast_nullable_to_non_nullable
 as String?,hazardId: freezed == hazardId ? _self.hazardId : hazardId // ignore: cast_nullable_to_non_nullable
-as String?,member: freezed == member ? _self.member : member // ignore: cast_nullable_to_non_nullable
+as String?,hazard: freezed == hazard ? _self.hazard : hazard // ignore: cast_nullable_to_non_nullable
+as FamilyCheckInAlert?,member: freezed == member ? _self.member : member // ignore: cast_nullable_to_non_nullable
 as FamilyMemberSnippet?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,
   ));
 }
 
 /// Create a copy of FamilyCheckIn
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$FamilyCheckInAlertCopyWith<$Res>? get hazard {
+    if (_self.hazard == null) {
+    return null;
+  }
+
+  return $FamilyCheckInAlertCopyWith<$Res>(_self.hazard!, (value) {
+    return _then(_self.copyWith(hazard: value));
+  });
+}/// Create a copy of FamilyCheckIn
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
@@ -2465,6 +2496,272 @@ $FamilyMemberSnippetCopyWith<$Res>? get member {
     return _then(_self.copyWith(member: value));
   });
 }
+}
+
+
+/// @nodoc
+mixin _$FamilyCheckInAlert {
+
+ String get id; String get title;
+/// Create a copy of FamilyCheckInAlert
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FamilyCheckInAlertCopyWith<FamilyCheckInAlert> get copyWith => _$FamilyCheckInAlertCopyWithImpl<FamilyCheckInAlert>(this as FamilyCheckInAlert, _$identity);
+
+  /// Serializes this FamilyCheckInAlert to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilyCheckInAlert&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,title);
+
+@override
+String toString() {
+  return 'FamilyCheckInAlert(id: $id, title: $title)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FamilyCheckInAlertCopyWith<$Res>  {
+  factory $FamilyCheckInAlertCopyWith(FamilyCheckInAlert value, $Res Function(FamilyCheckInAlert) _then) = _$FamilyCheckInAlertCopyWithImpl;
+@useResult
+$Res call({
+ String id, String title
+});
+
+
+
+
+}
+/// @nodoc
+class _$FamilyCheckInAlertCopyWithImpl<$Res>
+    implements $FamilyCheckInAlertCopyWith<$Res> {
+  _$FamilyCheckInAlertCopyWithImpl(this._self, this._then);
+
+  final FamilyCheckInAlert _self;
+  final $Res Function(FamilyCheckInAlert) _then;
+
+/// Create a copy of FamilyCheckInAlert
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [FamilyCheckInAlert].
+extension FamilyCheckInAlertPatterns on FamilyCheckInAlert {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _FamilyCheckInAlert value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _FamilyCheckInAlert() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _FamilyCheckInAlert value)  $default,){
+final _that = this;
+switch (_that) {
+case _FamilyCheckInAlert():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _FamilyCheckInAlert value)?  $default,){
+final _that = this;
+switch (_that) {
+case _FamilyCheckInAlert() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _FamilyCheckInAlert() when $default != null:
+return $default(_that.id,_that.title);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title)  $default,) {final _that = this;
+switch (_that) {
+case _FamilyCheckInAlert():
+return $default(_that.id,_that.title);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title)?  $default,) {final _that = this;
+switch (_that) {
+case _FamilyCheckInAlert() when $default != null:
+return $default(_that.id,_that.title);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _FamilyCheckInAlert implements FamilyCheckInAlert {
+  const _FamilyCheckInAlert({required this.id, required this.title});
+  factory _FamilyCheckInAlert.fromJson(Map<String, dynamic> json) => _$FamilyCheckInAlertFromJson(json);
+
+@override final  String id;
+@override final  String title;
+
+/// Create a copy of FamilyCheckInAlert
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$FamilyCheckInAlertCopyWith<_FamilyCheckInAlert> get copyWith => __$FamilyCheckInAlertCopyWithImpl<_FamilyCheckInAlert>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FamilyCheckInAlertToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilyCheckInAlert&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,title);
+
+@override
+String toString() {
+  return 'FamilyCheckInAlert(id: $id, title: $title)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$FamilyCheckInAlertCopyWith<$Res> implements $FamilyCheckInAlertCopyWith<$Res> {
+  factory _$FamilyCheckInAlertCopyWith(_FamilyCheckInAlert value, $Res Function(_FamilyCheckInAlert) _then) = __$FamilyCheckInAlertCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String title
+});
+
+
+
+
+}
+/// @nodoc
+class __$FamilyCheckInAlertCopyWithImpl<$Res>
+    implements _$FamilyCheckInAlertCopyWith<$Res> {
+  __$FamilyCheckInAlertCopyWithImpl(this._self, this._then);
+
+  final _FamilyCheckInAlert _self;
+  final $Res Function(_FamilyCheckInAlert) _then;
+
+/// Create a copy of FamilyCheckInAlert
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,}) {
+  return _then(_FamilyCheckInAlert(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
 }
 
 

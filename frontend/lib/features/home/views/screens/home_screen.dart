@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
@@ -308,10 +309,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ref.read(providerOfFamily.notifier).load(silent: true);
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
               return _gotoFamilyCheckInRollCallScreen();
+            case PushNotificationType.familySos:
+              // The push exists for the locked-phone case: open the SOS
+              // itself if it is still live, otherwise land on the hub.
+              ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+              final sosEventId = remoteMessage.data['sosEventId'];
+              unawaited(
+                ref
+                    .read(providerOfFamily.notifier)
+                    .openSosFromPush(sosEventId is String ? sosEventId : null),
+              );
+              return;
             case PushNotificationType.familyCheckIn:
             case PushNotificationType.familyScheduledCheckInPrompt:
             case PushNotificationType.familyPlaceEvent:
-            case PushNotificationType.familySos:
             case PushNotificationType.familySosResponse:
             case PushNotificationType.familySosResolved:
             case PushNotificationType.familyCircleUpdate:

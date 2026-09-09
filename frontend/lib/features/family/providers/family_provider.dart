@@ -21,6 +21,7 @@ import 'package:hazard_app/features/shared/services/analytics_service.dart';
 import 'package:hazard_app/features/family/views/widgets/family_location_request_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/incoming_family_alert_overlay.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -194,6 +195,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// Appends a check-in, updates the member's last check-in time and shows a
   /// quiet toast when it came from another member.
   void _onCheckInReceived(final FamilyCheckIn checkIn) {
+    if (!_isCircleInScope(checkIn.circleId)) return;
     _appendCheckIn(checkIn);
     _refreshGroupListIfOtherCircle(checkIn.circleId);
 
@@ -319,7 +321,38 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     });
   }
 
+  /// SOS ids that have ended on this phone. A replayed or late `familySos`
+  /// for one of them (a reconnect flush, a duplicate delivery) must not
+  /// bring it back to life or show its banner again.
+  final _endedSosIds = <String>{};
+
+  /// SOS ids whose banner has been shown once already.
+  final _bannerShownSosIds = <String>{};
+
+  /// Whether an event for [circleId] belongs to a circle this account is
+  /// still in. Before the circle list has loaded every event is trusted
+  /// (the server only sends to members); after a leave, an event still in
+  /// flight for the departed circle is dropped here instead of
+  /// re-populating state for a circle the person has left.
+  bool _isCircleInScope(final String circleId) {
+    if (!state.hasLoadedOnce) return true;
+    if (state.circle?.id == circleId) return true;
+    return state.circles.any((c) => c.circleId == circleId);
+  }
+
+  /// Test hooks: feed a socket event exactly as the live stream would.
+  @visibleForTesting
+  void debugReceiveSos(final FamilySosEvent sosEvent) => _onSosReceived(sosEvent);
+  @visibleForTesting
+  void debugReceiveSosResolved(final FamilySosEvent sosEvent) =>
+      _onSosResolved(sosEvent);
+  @visibleForTesting
+  void debugReceiveCheckIn(final FamilyCheckIn checkIn) =>
+      _onCheckInReceived(checkIn);
+
   void _onSosReceived(final FamilySosEvent sosEvent) {
+    if (!_isCircleInScope(sosEvent.circleId)) return;
+    if (_endedSosIds.contains(sosEvent.id)) return;
     _upsertSosEvent(sosEvent);
     _refreshGroupListIfOtherCircle(sosEvent.circleId);
 
@@ -333,7 +366,9 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         sosEvent.memberId == state.circle?.myMemberId ||
         (senderUserId != null && senderUserId == myUserId);
 
-    if (!isMine && sosEvent.status == FamilySosStatus.active) {
+    if (!isMine &&
+        sosEvent.status == FamilySosStatus.active &&
+        _bannerShownSosIds.add(sosEvent.id)) {
       final name = sosEvent.member?.displayName ?? 'A family member';
       // Screen already on and in the app: a corner toast is the wrong
       // size for this. Take the top of the screen with a bright pulsing
@@ -344,17 +379,45 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
             ? 'Live location shared near ${sosEvent.locationLabel}.'
             : 'Live location shared. Open to respond.',
         isSos: true,
-        onTap: () {
-          final context =
-              _ref.read(providerOfGlobalNavigatorKey).currentContext;
-          if (context == null || !context.mounted) return;
-          context.push(
-            FamilySosReceiverScreen.route,
-            extra: FamilySosReceiverScreenArgs(sosEvent: sosEvent),
-          );
-        },
+        onTap: () => openSos(sosEvent.id),
       );
     }
+  }
+
+  /// Opens the SOS with [sosEventId] on the live copy the app holds (the
+  /// payload captured when a banner or push arrived may be stale). An SOS
+  /// that has already ended shows its after-event record instead; one the
+  /// app no longer knows is fetched once, then the same rule applies.
+  Future<void> openSos(final String sosEventId) async {
+    FamilySosEvent? find() =>
+        state.activeSosEvents.where((e) => e.id == sosEventId).firstOrNull ??
+        state.sosHistory.where((e) => e.id == sosEventId).firstOrNull;
+    var event = find();
+    if (event == null) {
+      await Future.wait([_refreshActiveSosEvents(), _refreshSosHistory()]);
+      if (!mounted) return;
+      event = find();
+    }
+    final context = _ref.read(providerOfGlobalNavigatorKey).currentContext;
+    if (context == null || !context.mounted) return;
+    if (event == null) {
+      context.showWarningToast(message: 'That SOS has ended.');
+      return;
+    }
+    context.push(
+      FamilySosReceiverScreen.route,
+      extra: FamilySosReceiverScreenArgs(sosEvent: event),
+    );
+  }
+
+  /// A tap on an SOS push: land on Family with fresh data, then open that
+  /// SOS if it is still live (the push exists for the locked-phone case,
+  /// where landing on the hub and searching for it is the wrong answer).
+  Future<void> openSosFromPush(final String? sosEventId) async {
+    await load(silent: true);
+    if (!mounted || sosEventId == null || sosEventId.isEmpty) return;
+    final live = state.activeSosEvents.any((e) => e.id == sosEventId);
+    if (live) await openSos(sosEventId);
   }
 
   void _onSosResponseReceived(final FamilySosResponse response) {
@@ -415,6 +478,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// retained history is who/when, never where. The server copy is then
   /// refreshed so the entry matches what every other member sees.
   void _onSosResolved(final FamilySosEvent sosEvent) {
+    _endedSosIds.add(sosEvent.id);
     final ended = state.activeSosEvents
         .where((event) => event.id == sosEvent.id)
         .firstOrNull;
@@ -457,6 +521,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   void _onHazardProximity(final Map<String, dynamic> payload) {
     final memberId = payload['memberId']?.toString();
     if (memberId == null) return;
+    final circleId = payload['circleId']?.toString();
+    if (circleId != null && !_isCircleInScope(circleId)) return;
 
     final isNear =
         (payload['isNear'] ?? payload['inProximity'] ?? true) == true;
@@ -780,13 +846,22 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       leaveDeleteState: const FamilyActionState.loading(),
     );
 
-    final result = isDelete
-        ? await _familyService.deleteFamilyCircle()
-        : await _familyService.leaveFamilyCircle();
-    if (!mounted) return;
-
-    var left = result.when((_) => true, (_) => false);
-    AppError? error = result.when((_) => null, (e) => e);
+    final departedName = state.circle?.name;
+    var outcome = isDelete ? FamilyLeaveOutcome.deleted : FamilyLeaveOutcome.left;
+    var left = false;
+    AppError? error;
+    if (isDelete) {
+      final result = await _familyService.deleteFamilyCircle();
+      if (!mounted) return;
+      left = result.when((_) => true, (_) => false);
+      error = result.when((_) => null, (e) => e);
+    } else {
+      final result = await _familyService.leaveFamilyCircle();
+      if (!mounted) return;
+      left = result.when((_) => true, (_) => false);
+      error = result.when((_) => null, (e) => e);
+      outcome = result.when((o) => o, (_) => FamilyLeaveOutcome.left);
+    }
 
     if (!left) {
       // The request may have reached the server and only the answer been
@@ -817,6 +892,17 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     await _leaveScope(departedId);
     if (!mounted) return;
     state = state.copyWith(leaveDeleteState: const FamilyActionState.success());
+    final name = departedName ?? 'the circle';
+    _showToast(
+      message: switch (outcome) {
+        FamilyLeaveOutcome.deleted => isDelete
+            ? '$name was deleted.'
+            : 'You were the last member, so $name was deleted.',
+        FamilyLeaveOutcome.hostTransition =>
+          'You left $name as host. The circle has 7 days to choose a new host.',
+        FamilyLeaveOutcome.left => 'You left $name.',
+      },
+    );
   }
 
   /// Drops [departedId] from everything in scope and loads the next circle
@@ -824,6 +910,9 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// SOS events, history and asks are cleared before the reload.
   Future<void> _leaveScope(final String? departedId) async {
     _ref.read(providerOfSelectedCircleId.notifier).select(null);
+    for (final e in state.activeSosEvents) {
+      if (e.circleId == departedId) _endedSosIds.add(e.id);
+    }
     state = state.copyWith(
       circle: null,
       circles: state.circles.where((c) => c.circleId != departedId).toList(),
@@ -831,8 +920,12 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       sosHistory: const [],
       recentCheckIns: const [],
       memberIdsNearAlert: const {},
+      // Cross-circle caches that named the departed circle's members.
+      sosLists: const [],
+      scheduledCheckIns: const [],
     );
     await load();
+    if (mounted && state.circle != null) unawaited(loadSosLists());
   }
 
   Future<void> removeMember({required final String memberId}) async {
@@ -1905,21 +1998,38 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     });
   }
 
+  /// Every live SOS across the circles this account is in, so the red
+  /// strip ("any of your groups") survives a reload while another
+  /// circle's SOS is live. The old circle-scoped fetch wiped those on
+  /// every resume, reconnect or poll.
   Future<void> _refreshActiveSosEvents() async {
-    final result = await _familyService.getActiveFamilySosEvents();
+    final result = await _familyService.getAllActiveFamilySosEvents();
     if (!mounted) return;
 
     result.whenSuccess((events) {
-      state = state.copyWith(activeSosEvents: events);
+      final ids = events.map((e) => e.id).toSet();
+      // The server is the record: anything it no longer lists has ended.
+      for (final e in state.activeSosEvents) {
+        if (!ids.contains(e.id)) _endedSosIds.add(e.id);
+      }
+      state = state.copyWith(
+        activeSosEvents:
+            events.where((e) => !_endedSosIds.contains(e.id)).toList(),
+      );
       return null;
     });
   }
+
+  /// Public refresh for screens that arrived with a payload that may be
+  /// stale (a banner or push captured before the SOS ended).
+  Future<void> refreshActiveSos() => _refreshActiveSosEvents();
 
   void _upsertSosEvent(final FamilySosEvent sosEvent) {
     if (sosEvent.status != FamilySosStatus.active) {
       _onSosResolved(sosEvent);
       return;
     }
+    if (_endedSosIds.contains(sosEvent.id)) return;
 
     state = state.copyWith(
       activeSosEvents: [

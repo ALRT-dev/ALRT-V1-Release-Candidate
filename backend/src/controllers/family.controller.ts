@@ -179,8 +179,8 @@ export const leaveCircleController = async (
 ) => {
   try {
     const userId = requireUserId(res);
-    await familyService.leaveCircle(userId, circleIdOf(req));
-    res.status(200).json({ success: true });
+    const result = await familyService.leaveCircle(userId, circleIdOf(req));
+    res.status(200).json({ success: true, ...result });
   } catch (error) {
     next(error);
   }

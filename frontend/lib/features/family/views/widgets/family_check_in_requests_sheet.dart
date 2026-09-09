@@ -177,7 +177,7 @@ class _CheckInRequestsSheet extends ConsumerWidget {
     final member = circle.members
         .where((m) => m.id == ask.requestedById)
         .firstOrNull;
-    final name = member?.name ?? ask.requestedBy?.displayName ?? 'Someone';
+    final name = member?.name ?? ask.requestedBy?.displayName ?? 'A family member';
     final when = ask.createdAt == null ? null : timeago.format(ask.createdAt!);
     final message = ask.message;
     return Container(

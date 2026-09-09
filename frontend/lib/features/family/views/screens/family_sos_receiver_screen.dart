@@ -67,15 +67,35 @@ class _FamilySosReceiverScreenState
   /// network cannot post it twice before the response arrives.
   bool _acknowledging = false;
 
+  /// True once the server has been asked and did not list this SOS as
+  /// live: the screen then shows it as ended even if the payload it was
+  /// opened with (a banner or push captured earlier) still says active.
+  bool _serverSaysEnded = false;
+
   @override
   void initState() {
     super.initState();
     if (widget.args.sosEvent.status == FamilySosStatus.active) {
+      _confirmStillLive();
       _refreshTrail();
       _trailTimer = Timer.periodic(
         _trailRefreshInterval,
         (_) => _refreshTrail(),
       );
+    }
+  }
+
+  Future<void> _confirmStillLive() async {
+    final notifier = ref.read(providerOfFamily.notifier);
+    await notifier.refreshActiveSos();
+    if (!mounted) return;
+    final live = ref
+        .read(providerOfFamily)
+        .activeSosEvents
+        .any((e) => e.id == widget.args.sosEvent.id);
+    if (!live) {
+      _trailTimer?.cancel();
+      setState(() => _serverSaysEnded = true);
     }
   }
 
@@ -137,7 +157,7 @@ class _FamilySosReceiverScreenState
             'Could not send your acknowledgment. Please try again.',
       );
     } else {
-      final name = sos.member?.displayName ?? 'They';
+      final name = sos.member?.displayName ?? 'A family member';
       context.showSuccessToast(message: '$name has been told you saw this.');
     }
   }
@@ -146,17 +166,25 @@ class _FamilySosReceiverScreenState
   Widget build(BuildContext context) {
     // Prefer the live copy from state (updated by socket events); once the
     // SOS has ended, the history copy carries the final acknowledgments.
-    final sos = ref.watch(
-          providerOfFamily.select(
-            (s) => s.activeSosEvents
-                    .where((e) => e.id == widget.args.sosEvent.id)
-                    .firstOrNull ??
-                s.sosHistory
-                    .where((e) => e.id == widget.args.sosEvent.id)
-                    .firstOrNull,
-          ),
-        ) ??
-        widget.args.sosEvent;
+    final stateCopy = ref.watch(
+      providerOfFamily.select(
+        (s) => s.activeSosEvents
+                .where((e) => e.id == widget.args.sosEvent.id)
+                .firstOrNull ??
+            s.sosHistory
+                .where((e) => e.id == widget.args.sosEvent.id)
+                .firstOrNull,
+      ),
+    );
+    final sos = stateCopy ??
+        (_serverSaysEnded
+            ? widget.args.sosEvent.copyWith(
+                status: FamilySosStatus.resolved,
+                latitude: null,
+                longitude: null,
+                locationLabel: null,
+              )
+            : widget.args.sosEvent);
 
     final name = sos.member?.displayName ?? 'A family member';
     final myMemberId = ref.watch(

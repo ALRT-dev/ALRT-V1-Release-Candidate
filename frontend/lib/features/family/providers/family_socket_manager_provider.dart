@@ -211,7 +211,14 @@ class FamilySocketManager {
       (data) => _parseAndAdd(
         eventName: FamilySocketEvents.sosResolved,
         data: data,
-        parse: FamilySosEvent.fromJson,
+        // An "ended" needs only the id to act on. A server that sends the
+        // bare {id, circleId, status} (the 4-hour lapse before build 45)
+        // must still end the SOS on this phone, not be dropped unread.
+        parse: (json) => FamilySosEvent.fromJson({
+          'memberId': '',
+          'status': 'resolved',
+          ...json,
+        }),
         controller: _sosResolvedStreamController,
       ),
     );
