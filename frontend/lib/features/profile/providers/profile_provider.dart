@@ -253,6 +253,17 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
       deleteAccountState: const DeleteAccountState.loading(),
     );
 
+    // Same as sign-out: take this phone off the account's push list while
+    // the account still exists (best effort, bounded).
+    await _ref
+        .read(providerOfNotificationService)
+        .unregisterPushNotificationToken()
+        .timeout(
+          const Duration(seconds: 4),
+          onTimeout: () => const Success(null),
+        );
+    if (!mounted) return;
+
     final result = await _userService.deleteAccount();
     if (!mounted) return;
 
@@ -261,6 +272,16 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
         // Clear local tokens after successful account deletion
         await _authService.logout();
         if (!mounted) return;
+        // A deleted account leaves nothing behind on this phone: the
+        // Ask ALRT session, the Family widget (it kept showing the last
+        // circle state until the next sign-in), the store identity and
+        // the entitlement caches, exactly as on sign-out.
+        FirebaseSessionService.signOut();
+        FamilyWidgetSync.clear();
+        unawaited(_ref.read(providerOfRevenueCat).signOut());
+        _ref.invalidate(providerOfAlrtPlus);
+        _ref.invalidate(providerOfExpiredAlrtPlus);
+        _ref.invalidate(providerOfAlrtPlusBillingIssue);
 
         state = state.copyWith(
           deleteAccountState: const DeleteAccountState.success(),

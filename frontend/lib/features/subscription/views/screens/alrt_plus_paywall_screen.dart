@@ -303,9 +303,12 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                         ),
                       ),
                       // Apple 3.1.2: terms and privacy must be IN the
-                      // purchase flow, not just at sign-up.
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      // purchase flow, not just at sign-up. A Wrap, not a
+                      // Row: on a 360 px phone or at large text the two
+                      // links overflowed the row.
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           TextButton(
                             onPressed: () => openLink(

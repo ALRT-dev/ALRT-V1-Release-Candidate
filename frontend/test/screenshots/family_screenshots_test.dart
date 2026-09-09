@@ -29,7 +29,11 @@ import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.da
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_expired_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_sheet.dart';
+import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
 import 'package:hazard_app/others/app_theme.dart';
+
+import '../support/fake_store_gateway.dart';
 
 import 'screenshot_fonts.dart';
 
@@ -170,9 +174,14 @@ Widget _app(
   bool dark = false,
   double textScale = 1.0,
   bool multiAsk = false,
+  bool plus = false,
+  // Riverpod 3 does not export its Override type; the elements are the
+  // provider overrides a scene adds (checked at runtime by the spread).
+  List<dynamic> overrides = const [],
 }) {
   return ProviderScope(
     overrides: [
+      ...overrides,
       providerOfFamily.overrideWith(
         (ref) => FamilyProvider(
           ref: ref,
@@ -182,7 +191,7 @@ Widget _app(
       ),
       providerOfLiveConnection.overrideWith(_LiveOn.new),
       providerOfAlrtPlusBillingIssue.overrideWith((ref) async => false),
-      providerOfAlrtPlus.overrideWith((ref) async => false),
+      providerOfAlrtPlus.overrideWith((ref) async => plus),
       providerOfExpiredAlrtPlus.overrideWith((ref) async => null),
     ],
     child: ScreenUtilInit(
@@ -520,6 +529,74 @@ void main() {
     );
     await tester.pumpAndSettle();
     await _shoot(tester, '18_member_details_alert_link');
+  }, skip: !_enabled);
+
+  // Store-priced paywall (build 48): the amounts, the currency code and
+  // the periods come from a fake store that answers like Google Play does
+  // for an Australian account (a bare "$" in AUD).
+  Future<RevenueCatService> storeService({bool entitled = false}) async {
+    final service = RevenueCatService(
+      gateway: FakeStoreGateway(entitled: entitled),
+      apiKeyOverride: 'test-key',
+    );
+    await service.ensureConfigured('u-screenshots');
+    return service;
+  }
+
+  testWidgets('paywall with store prices (AUD, bare "\$")', (tester) async {
+    final service = await storeService();
+    await tester.pumpWidget(
+      _app(
+        const AlrtPlusPaywallScreen(
+          args: AlrtPlusPaywallArgs(
+            reason: AlrtPlusPaywallReason.savedLocation,
+          ),
+        ),
+        overrides: [providerOfRevenueCat.overrideWithValue(service)],
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await _shoot(
+      tester,
+      '22_paywall_store_prices',
+      size: const Size(390, 1100),
+    );
+  }, skip: !_enabled);
+
+  testWidgets('paywall with store prices, large text', (tester) async {
+    final service = await storeService();
+    await tester.pumpWidget(
+      _app(
+        const AlrtPlusPaywallScreen(
+          args: AlrtPlusPaywallArgs(
+            reason: AlrtPlusPaywallReason.savedLocation,
+          ),
+        ),
+        textScale: 1.4,
+        overrides: [providerOfRevenueCat.overrideWithValue(service)],
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await _shoot(
+      tester,
+      '23_paywall_store_prices_large_text',
+      size: const Size(390, 1300),
+    );
+  }, skip: !_enabled);
+
+  testWidgets('manage screen with the store price of the active plan', (
+    tester,
+  ) async {
+    final service = await storeService(entitled: true);
+    await tester.pumpWidget(
+      _app(
+        const AlrtPlusManageScreen(),
+        plus: true,
+        overrides: [providerOfRevenueCat.overrideWithValue(service)],
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await _shoot(tester, '24_manage_store_price');
   }, skip: !_enabled);
 
   testWidgets('back on the free plan (expired)', (tester) async {

@@ -204,20 +204,23 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
           Padding(
             padding: EdgeInsets.only(left: 12.spMin),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Your ALRT +',
-                      style: TextStyle(
-                        fontSize: 23.spMin,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                        color: Colors.white,
+                    Flexible(
+                      child: Text(
+                        'Your ALRT +',
+                        style: TextStyle(
+                          fontSize: 23.spMin,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
+                    SizedBox(width: 8.spMin),
                     _activeBadgeBuilder(),
                   ],
                 ),
@@ -340,18 +343,23 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                owned.length > 1
-                    ? 'Your ${owned.length} circles'
-                    : (owned.firstOrNull?.name ??
-                          circle?.name ??
-                          'Your circle'),
-                style: TextStyle(
-                  fontSize: 13.5.spMin,
-                  fontWeight: FontWeight.w700,
-                  color: context.onSurface,
+              Flexible(
+                child: Text(
+                  owned.length > 1
+                      ? 'Your ${owned.length} circles'
+                      : (owned.firstOrNull?.name ??
+                            circle?.name ??
+                            'Your circle'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: context.onSurface,
+                  ),
                 ),
               ),
+              SizedBox(width: 8.spMin),
               Text(
                 '$used used · $free free',
                 style: TextStyle(
@@ -606,12 +614,14 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5.spMin,
-                fontWeight: FontWeight.w600,
-                color: context.onSurface,
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5.spMin,
+                  fontWeight: FontWeight.w600,
+                  color: context.onSurface,
+                ),
               ),
             ),
             Icon(
