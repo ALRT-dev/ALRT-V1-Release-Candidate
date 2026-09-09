@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/utils/purchase_error_message.dart';
 import 'package:hazard_app/features/subscription/utils/trial_copy.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_welcome_screen.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
@@ -103,35 +103,6 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
         _error = null;
       }
     });
-  }
-
-  /// Human words for a store error. A cancelled purchase is not an error
-  /// and shows nothing; everything else says what happened.
-  static String? purchaseErrorMessage(final Object error) {
-    if (error is PlatformException) {
-      final code = PurchasesErrorHelper.getErrorCode(error);
-      switch (code) {
-        case PurchasesErrorCode.purchaseCancelledError:
-          return null;
-        case PurchasesErrorCode.networkError:
-        case PurchasesErrorCode.offlineConnectionError:
-          return 'No connection. Check your network and try again.';
-        case PurchasesErrorCode.productNotAvailableForPurchaseError:
-          return 'This plan is not available in the store right now.';
-        case PurchasesErrorCode.purchaseNotAllowedError:
-          return 'Purchases are not allowed on this device or account.';
-        case PurchasesErrorCode.paymentPendingError:
-          return 'Your payment is pending. ALRT+ unlocks once the store '
-              'confirms it.';
-        case PurchasesErrorCode.productAlreadyPurchasedError:
-        case PurchasesErrorCode.receiptAlreadyInUseError:
-          return 'This store account already has ALRT+. Tap Restore '
-              'purchases.';
-        default:
-          return 'That purchase could not be completed (${code.name}).';
-      }
-    }
-    return 'That purchase could not be completed.';
   }
 
   /// The trial phrase to show, built from the real selected product's own

@@ -1,6 +1,6 @@
-# TEST build 45 — install, acceptance and paywall guide
+# TEST build 46 — install, acceptance and paywall guide
 
-Version **1.0.5 (45)**, commit **(the workflow run's head, printed below the build)**, branch `test`, dev flavour
+Version **1.0.5 (46)**, commit **(the workflow run's head, printed below the build)**, branch `test`, dev flavour
 (`com.safetyalrt.alrt.dev`, app label "[Dev] ALRT"), backend
 `https://api-test.safetyalrt.com`. Two artifacts are built from the same
 commit by `.github/workflows/android-test.yml`:
@@ -13,14 +13,14 @@ commit by `.github/workflows/android-test.yml`:
 Both are signed with the TEST keystore (SHA-1
 `18:5E:43:9B:FC:7A:99:42:0C:AD:F0:EB:A9:E1:4F:0A:EE:66:2D:DB`), which the
 workflow's apksigner step verifies on every run. They install beside the
-production "ALRT" app, not over it, and they replace TEST builds 36 to 44.
+production "ALRT" app, not over it, and they replace TEST builds 36 to 45.
 
 ## Prove which build you are holding
 
 Profile tab, scroll to the bottom, under "Log out". The footer reads, for
 example:
 
-    ALRT 1.0.5 (45) · TEST build · <commit> · RevenueCat Test Store
+    ALRT 1.0.5 (46) · TEST build · <commit> · RevenueCat Test Store
 
 or `… · billing bypass` on the bypass build. If the footer shows no commit
 or billing mode, the phone is running an older build.
@@ -79,7 +79,7 @@ check the binary itself on a computer, unzip the artifact and run:
       Security & crime pill clearly redder than Community.
 - [ ] Unrelated screens (Home, Map, Search, Profile) look as before.
 
-## Phone checklist for the seven issues (build 45, backend redeployed at the build-45 pin)
+## Phone checklist for the seven issues (build 46, backend redeployed at the build-46 pin)
 
 Run on the **test_store** APK. Two phones, A and B, synthetic TEST accounts
 with names set is easier to read, but names are not required: an account
@@ -94,7 +94,7 @@ with no name reads "Family member" everywhere.
 7. **Vibration.** Profile › Safety profile › Strong vibration on: "Test vibration" posts "Test: urgent alert vibration" with the long pattern. Off: the row goes. Restart with it on: a synthetic take-action push (an admin test alert in an area you saved) vibrates long; with it off, normal. Block ALRT notifications in Android settings: Test vibration says so. In-app haptics (button taps) are unrelated to this switch.
 8. **Saved location and ALRT+ (test_store build).** Search tab › a suburb › Subscribe: first one saves ("Saved <name>…"). A second suburb › Subscribe: the "One free saved location" sheet, See ALRT+ opens the paywall headed "Save every place that matters" with real Test Store plans; Maybe later: back on Search, nothing saved, no error; decline the store dialog: paywall stays with no error; approve: the second location saves on the same screen without a restart; Manage locations lists both. Restore purchases on a free account: "No previous ALRT + purchase found."; on a subscribed account reinstalled: entitled again.
 
-## What is proven where (build 45)
+## What is proven where (build 46)
 
 Three separate columns; nothing in one column counts for another.
 
@@ -106,8 +106,22 @@ Three separate columns; nothing in one column counts for another.
 | 4 Check in from every alert, alert link stored and shown | backend `verify_family_leave_and_alert_link` §3 (5): bad id refused, real alert stored, named in the list; screenshot scene 18 (member sheet "Checked in near …"); `family_check_in_requests_test.dart` (5) | after redeploy | item 5 |
 | 5 Leaving a circle | `family_leave_circle_test.dart` (4); backend §1 (5): left / hostTransition / deleted outcomes, no memberless circle, departed member gets 404 | after redeploy | item 6 |
 | 6 Vibration | `accessible_alerts_preference_test.dart` (5): preference in device storage, explicit choice wins, off/on/on; channel calls and the pattern itself are hardware | n/a | item 7 |
-| 7 Saved-location paywall | `saved_location_gate_test.dart` (5): one free, second needs ALRT+, ALRT+ removes the limit; screenshot scenes 09, 17. **Not automated**: the RevenueCat offering and a Test Store purchase (needs the dashboard and a phone) | server enforcement is OFF on TEST (`BILLING_ENABLED=false`): the free limit is a client gate only, stated, not hidden | item 8 |
+| 7 Saved-location paywall | `saved_location_flow_test.dart` (6, through the real provider): free user reaches the gate at the approved limit of 1, subscriber saves without a paywall, purchase unlocks the pending save without a restart, cancelled/failed purchase saves nothing, server 403 surfaced, unreachable list never saves blindly; `revenuecat_service_test.dart` (10): existing subscriber entitled with no prompt, account switch signs the store in as the new id before any read, a failed switch reads nothing, sign-out signs the store out, restore, store error words with cancel silent; `saved_location_gate_test.dart` (5). Backend `verify_saved_location_limit`: 3 checks with enforcement OFF (states it), 5 with it ON (403, plus account unlimited, free join). **Not automated**: the RevenueCat offering and a real Test Store purchase | server enforcement is OFF on TEST (`BILLING_ENABLED=false`): the free limit is a client gate only, stated, not hidden | issue-7 checklist below |
 | Global humanitarian / ALRT Intel push switch; source push policies enforced; onboarding three-way choice | **not done**: needs the decisions listed in the report (schema and policy) | not done | not done |
+
+## Issue 7 phone checklist: saved location and ALRT+ (test_store APK only)
+
+Before anything else, write down three facts from the phone: the Profile footer text (build, commit, billing mode), whether the Profile ALRT+ card says Manage (subscribed) or offers an upgrade (free), and the account's email. Two synthetic TEST accounts: F (free, never subscribed) and S (subscribed through the Test Store during this checklist).
+
+Configuration this checklist depends on, which cannot be verified from the code and needs its own approval to change: in the RevenueCat TEST project, an offering marked **current** with a monthly and an annual package (identifiers `$rc_monthly` and `$rc_annual`, or any others: the paywall now renders whatever the offering carries) whose Test Store products (`alrt_plus_monthly`, `alrt_plus_yearly` per `frontend/ALRT_PLUS_SETUP.md`) are attached to the entitlement **plus**; and the repository secret `TEST_REVENUECAT_API_KEY_GOOGLE` (present: the workflow refuses to build test_store without it; its value is never shown). If the paywall reads "ALRT+ plans could not be loaded" or "ALRT+ has no plans in the store yet" on a phone with network, the offering is the missing piece, not the app.
+
+1. **Free user reaches the paywall at the approved limit.** As F: Search › a suburb › Subscribe: "Saved <suburb>…". Second suburb › Subscribe: the "One free saved location" sheet; See ALRT+ opens the paywall headed "Save every place that matters" with real plan cards and store prices. Maybe later: back on Search, nothing saved, no error toast. Manage locations lists one saved location plus My Location.
+2. **Existing subscriber uses the allowance without another paywall.** As S (after step 3, or an account subscribed earlier): Subscribe on a second and a third suburb: each saves at once, no sheet, no paywall. Profile ALRT+ card says Manage.
+3. **Successful test purchase unlocks the pending action.** As F: second suburb › Subscribe › See ALRT+ › pick a plan › Subscribe now (or Start trial) › approve the Test Store dialog: welcome screen (first host) or straight back, then the toast "Saved <suburb>…" without any restart, and Manage locations shows both. F is now S.
+4. **Cancelled or failed purchase does not unlock.** A fresh free account: same path, decline the store dialog: the paywall stays with no red message; Maybe later: nothing saved. Airplane mode, then Subscribe now: "No connection…" on the paywall; back online it works. A product the store cannot sell: "This plan is not available in the store right now."
+5. **Restore and restart keep the right entitlement; accounts do not leak.** As S: kill and reopen the app: Manage still shown, a further suburb saves. Restore purchases: entitled. Sign out, sign in as a free account on the same phone: the second suburb hits the sheet (no leaked entitlement); Restore purchases there: "No previous ALRT + purchase found." Sign back in as S: entitled again with no purchase prompt.
+
+Joining a circle with a code stays free on every account above; hosting is a separate gate and unchanged.
 
 ## Alert filter / push matrix (server, from `verify_alert_filter_matrix`, 56 checks)
 

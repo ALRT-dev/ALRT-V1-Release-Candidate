@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/auth/providers/service_providers.dart';
 import 'package:hazard_app/features/auth/services/auth_service.dart';
@@ -214,6 +215,12 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
         // Clear the Family widget too, or a signed-out phone keeps
         // showing the last signed-in person's circle state.
         FamilyWidgetSync.clear();
+        // And the store identity: the next account on this phone must
+        // never read this one's ALRT+ entitlement.
+        unawaited(_ref.read(providerOfRevenueCat).signOut());
+        _ref.invalidate(providerOfAlrtPlus);
+        _ref.invalidate(providerOfExpiredAlrtPlus);
+        _ref.invalidate(providerOfAlrtPlusBillingIssue);
         state = state.copyWith(
           logoutState: const LogoutState.success(),
         );

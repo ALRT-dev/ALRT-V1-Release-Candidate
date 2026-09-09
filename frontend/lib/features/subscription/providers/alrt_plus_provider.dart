@@ -35,7 +35,7 @@ final providerOfAlrtPlus = FutureProvider.autoDispose<bool>((ref) async {
   if (isAlrtPlusTestUnlocked) return true;
   final rc = ref.watch(providerOfRevenueCat);
   await rc.ensureConfigured(userId);
-  return rc.isPlus();
+  return rc.isPlus(forUserId: userId);
 });
 
 /// True when the active ALRT+ entitlement has a detected billing issue
