@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/home/views/screens/home_screen.dart';
+import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
+import 'package:hazard_app/features/home/enums/home_tab_types.dart';
+import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
@@ -28,10 +33,13 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final hasCircle = ref.watch(
-      providerOfFamily.select((s) => s.circle != null),
+    final circleName = ref.watch(
+      providerOfFamily.select((s) => s.circle?.name),
     );
-    if (!hasCircle) return const SizedBox.shrink();
+    final circleCount = ref.watch(
+      providerOfFamily.select((s) => s.circles.length),
+    );
+    if (circleName == null) return _noCircleBuilder(context);
 
     final isSending = ref.watch(
       providerOfFamily.select((s) => s.checkInState.isLoading),
@@ -53,16 +61,39 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
           ),
           SizedBox(width: 10.spMin),
           Expanded(
-            child: Text(
-              _sent
-                  ? 'Your family has been told you are safe.'
-                  : 'Near this alert? Let your family know you are okay.',
-              style: TextStyle(
-                fontSize: 13.spMin,
-                fontWeight: FontWeight.w600,
-                color: AppColors.black,
-                height: 1.35,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _sent
+                      ? 'Your family has been told you are safe.'
+                      : 'Near this alert? Let your family know you are okay.',
+                  style: TextStyle(
+                    fontSize: 13.spMin,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.black,
+                    height: 1.35,
+                  ),
+                ),
+                // Where the check-in goes is always visible, and can be
+                // changed before sending when there is more than one circle.
+                if (!_sent)
+                  GestureDetector(
+                    onTap: circleCount > 1
+                        ? () => showChooseCircleSheet(context, ref)
+                        : null,
+                    child: Text(
+                      circleCount > 1
+                          ? 'To $circleName · change circle'
+                          : 'To $circleName',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        fontWeight: FontWeight.w600,
+                        color: FamilyColors.indigo,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           if (!_sent) ...[
@@ -115,6 +146,7 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
     await ref.read(providerOfFamily.notifier).checkIn(
       message: title == null ? "I'm safe" : 'Safe — near "$title"',
       shareLocation: choice == CheckInConsentChoice.checkInAndShareLocation,
+      hazardId: widget.hazard.id,
     );
     if (!mounted) return;
 
@@ -123,5 +155,45 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
       setState(() => _sent = true);
       context.showSuccessToast(message: 'Checked in · your circle has been notified.');
     }
+  }
+
+  /// No circle yet: say so, and point at the Family tab. Never a dead
+  /// space, never a button that would fail.
+  Widget _noCircleBuilder(final BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(top: 14.spMin),
+      padding: EdgeInsets.all(14.spMin),
+      decoration: BoxDecoration(
+        color: FamilyColors.indigoLight,
+        borderRadius: BorderRadius.circular(16.spMin),
+      ),
+      child: Row(
+        children: [
+          Icon(LucideIcons.users, color: FamilyColors.indigo, size: 22.spMin),
+          SizedBox(width: 10.spMin),
+          Expanded(
+            child: Text(
+              'Join or create a family circle to check in from an alert.',
+              style: TextStyle(
+                fontSize: 13.spMin,
+                fontWeight: FontWeight.w600,
+                color: AppColors.black,
+                height: 1.35,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+              context.go(HomeScreen.route);
+            },
+            child: Text(
+              'Family',
+              style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w700, color: FamilyColors.indigo),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

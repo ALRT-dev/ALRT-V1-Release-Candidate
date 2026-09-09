@@ -180,10 +180,16 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
     const uniqueUsers = new Map(
       subscriptions.map((sub) => [sub.user.id, sub.user]),
     );
+    // An Emergency Warning is never rate-limited away: the cooldown exists
+    // to stop a flood of low-band pushes, not to drop the one that says
+    // leave now (phone QA 2026-09-09 review).
+    const exemptFromCooldown =
+      hazard.isAwsCompliant && hazard.severity === HazardSeverity.emergency;
     const usersUnderCooldown = await Promise.all(
       [...uniqueUsers.values()].map(async (user) => ({
         user,
-        underCooldown: await isUnderNotificationCooldown(user.id),
+        underCooldown:
+          exemptFromCooldown || (await isUnderNotificationCooldown(user.id)),
       })),
     );
 
@@ -222,6 +228,17 @@ const sendPushNotificationToTokens = async ({
       return;
     }
 
+    // Android renders a background/terminated push itself, on the channel
+    // named here (else the manifest default). Take-action and critical
+    // alerts name the urgent channel, which the app creates with a long,
+    // hard vibration pattern only while the user's "strong vibration"
+    // setting is on; when it is off the channel does not exist and
+    // Android falls back to the normal channel. So the user's choice
+    // holds even when the app is not on screen (phone QA 2026-09-09).
+    const severityBand = String(
+      (data as { severityBand?: unknown })?.severityBand ?? "",
+    ).toLowerCase();
+    const urgent = severityBand === "action" || severityBand === "critical";
     const baseMessage = {
       notification: {
         title,
@@ -230,6 +247,12 @@ const sendPushNotificationToTokens = async ({
       data: {
         payload: JSON.stringify(data),
         notificationType: type.toString(),
+      },
+      android: {
+        priority: "high" as const,
+        notification: {
+          channelId: urgent ? "alrt_alerts_urgent" : "alrt_alerts",
+        },
       },
     };
 

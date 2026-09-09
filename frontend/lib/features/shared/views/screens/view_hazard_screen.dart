@@ -809,6 +809,18 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // What To Do Section
         _buildWhatToDoSection(),
 
+        // Family check-in, on EVERY alert type. It used to sit inside the
+        // "What to do" section, so an alert with no directives (every
+        // community report, most GDACS and intel items) had no way to
+        // tell your circle you are okay (phone QA 2026-09-09).
+        Consumer(
+          builder: (context, ref, child) {
+            final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (hazard == null) return const SizedBox.shrink();
+            return FamilySafeStrip(hazard: hazard);
+          },
+        ),
+
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
           builder: (context, ref, child) {
@@ -1372,16 +1384,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                             ),
                           );
                           return GuideStripCard(categoryId: categoryId);
-                        },
-                      ),
-                      // One-tap "I'm safe" for family circle members.
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final hazard = ref.watch(
-                            provider.select((value) => value.hazard),
-                          );
-                          if (hazard == null) return const SizedBox.shrink();
-                          return FamilySafeStrip(hazard: hazard);
                         },
                       ),
                     ],

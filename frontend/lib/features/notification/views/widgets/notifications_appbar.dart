@@ -1,5 +1,6 @@
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
@@ -14,7 +15,7 @@ import 'package:hazard_app/others/app_colors.dart';
 class NotificationsAppBar extends ConsumerStatefulWidget {
   const NotificationsAppBar({super.key});
 
-  static const filtersKey = 'NotificationsAppBarFilters';
+  static const filtersKey = kSharedAlertFiltersKey;
 
   @override
   ConsumerState<ConsumerStatefulWidget> createState() =>

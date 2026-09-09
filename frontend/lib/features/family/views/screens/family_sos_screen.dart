@@ -1,5 +1,8 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/home/views/screens/home_screen.dart';
+import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
+import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -202,7 +205,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                 // Returns to whichever screen this SOS was started from —
                 // today, always the Family hub's own SOS tile, since that's
                 // the only place this screen is reachable from.
-                onPressed: () => context.pop(),
+                onPressed: _sent ? _goToFamily : () => context.pop(),
                 child: Text(
                   _sent ? 'Done' : 'Cancel',
                   style: TextStyle(
@@ -457,20 +460,46 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
 
   void _fireSos() async {
     HapticFeedback.heavyImpact();
-    final sos = await ref
-        .read(providerOfFamily.notifier)
-        .triggerSos(
-          sosListId: _selectedListId,
-          isLive: _liveLocationEnabled,
-        );
+    final notifier = ref.read(providerOfFamily.notifier);
+    var sos = await notifier.triggerSos(
+      sosListId: _selectedListId,
+      isLive: _liveLocationEnabled,
+    );
     if (!mounted) return;
+    if (sos == null) {
+      // The answer may have been lost after the server acted. Ask before
+      // offering a retry, so a retry can never raise a second SOS.
+      sos = await notifier.findMyActiveSos();
+      if (!mounted) return;
+    }
     if (sos != null) {
       setState(() => _sent = true);
+      _returnToFamilyAfterSend();
     } else {
       context.showErrorToast(
         message: 'Could not send the SOS. Check your connection and retry.',
       );
       _holdController.reset();
+    }
+  }
+
+  /// Product decision 2026-09-09: once the server has confirmed the SOS,
+  /// the sender goes straight back to the Family screen, where the red
+  /// "Your SOS is active" banner and its Open action live. The tick shows
+  /// for a moment; no further tap is needed (Done still works sooner).
+  void _returnToFamilyAfterSend() {
+    Future<void>.delayed(const Duration(milliseconds: 1200), () {
+      if (!mounted || !_sent) return;
+      _goToFamily();
+    });
+  }
+
+  void _goToFamily() {
+    ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(HomeScreen.route);
     }
   }
 }

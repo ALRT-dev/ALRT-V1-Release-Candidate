@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 /// Thin wrapper over Firebase Analytics. Every call is fire-and-forget and
 /// swallow-on-error: analytics must never affect app behaviour.
@@ -8,9 +9,17 @@ class AnalyticsService {
   AnalyticsService._();
 
   static void _logEvent(String name, [Map<String, Object>? parameters]) {
-    FirebaseAnalytics.instance
-        .logEvent(name: name, parameters: parameters)
-        .catchError((Object e) => log('analytics: $name failed: $e'));
+    // Without an initialised Firebase app (unit tests, a build without
+    // google-services) the instance getter throws synchronously; analytics
+    // must never take the feature down with it.
+    if (Firebase.apps.isEmpty) return;
+    try {
+      FirebaseAnalytics.instance
+          .logEvent(name: name, parameters: parameters)
+          .catchError((Object e) => log('analytics: $name failed: $e'));
+    } catch (e) {
+      log('analytics: $name failed: $e');
+    }
   }
 
   /// An alert was shared externally (share sheet opened).

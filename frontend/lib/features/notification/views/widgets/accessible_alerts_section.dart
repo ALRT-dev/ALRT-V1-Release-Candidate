@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/notification/providers/accessible_alerts_provider.dart';
@@ -47,6 +48,10 @@ class AccessibleAlertsSection extends ConsumerWidget {
           value: settings.strongVibration,
           onChanged: notifier.setStrongVibration,
         ),
+        if (settings.strongVibration) ...[
+          6.hSizedBox,
+          _testVibrationRowBuilder(context, notifier),
+        ],
         8.hSizedBox,
         _toggleCardBuilder(
           icon: LucideIcons.volume2,
@@ -56,6 +61,42 @@ class AccessibleAlertsSection extends ConsumerWidget {
               'vision-impaired users; handy for anyone driving.',
           value: settings.readAloud,
           onChanged: notifier.setReadAloud,
+        ),
+      ],
+    );
+  }
+
+  /// A way to feel the pattern now, with the honest caveats: the phone's
+  /// own settings (Do Not Disturb, the channel's vibration switch, a
+  /// vibration-intensity setting) can silence it, and the app cannot
+  /// override those.
+  Widget _testVibrationRowBuilder(
+    final BuildContext context,
+    final AccessibleAlertsNotifier notifier,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            "If it doesn't buzz: check Do Not Disturb, and Settings › Notifications › ALRT › Urgent alerts.",
+            style: TextStyle(fontSize: 11.5.spMin, color: AppColors.grey),
+          ),
+        ),
+        SizedBox(width: 8.spMin),
+        TextButton(
+          onPressed: () async {
+            final shown = await notifier.testStrongVibration();
+            if (!context.mounted) return;
+            shown
+                ? context.showSuccessToast(message: 'Test alert sent')
+                : context.showWarningToast(
+                    message: 'Notifications for ALRT are off in Android settings, so nothing can vibrate.',
+                  );
+          },
+          child: Text(
+            'Test vibration',
+            style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     );

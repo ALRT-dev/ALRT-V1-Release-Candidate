@@ -1,4 +1,5 @@
 import { HazardVoteType } from "@prisma/client";
+import { getAllMainHazardCategoryIds } from "./hazard_category.service.js";
 import prisma from "../utils/prisma_client.util.js";
 import { UserReportsStatus } from "../enums/user_reports_status_types.js";
 import {
@@ -103,17 +104,25 @@ export const getUserPushNotificationSettings = async (
   const settings = await prisma.userPushNotificationSetting.findUnique({
     where: { userId },
   });
+  if (settings) return settings;
 
-  const defaultSettings: PushNotificationSettings = {
-    awsEmergency: false,
-    awsWatchAndAct: false,
-    awsAdvice: false,
-    officialNonAws: false,
-    userReported: false,
-    subscribedCategoryIds: [],
-  };
-
-  return settings || defaultSettings;
+  // No row yet (an account that never finished onboarding, or was created
+  // through the API). The old answer was "everything off", which the app
+  // showed as five OFF switches while the push query, which needs a row,
+  // matched nothing at all. Create the row with the same defaults the
+  // schema and onboarding use: every alert type on, every main category.
+  const mainCategoryIds = await getAllMainHazardCategoryIds();
+  return prisma.userPushNotificationSetting.create({
+    data: {
+      userId,
+      awsEmergency: true,
+      awsWatchAndAct: true,
+      awsAdvice: true,
+      officialNonAws: true,
+      userReported: true,
+      subscribedCategoryIds: mainCategoryIds,
+    },
+  });
 };
 
 /**

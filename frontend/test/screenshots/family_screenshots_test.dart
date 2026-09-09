@@ -21,6 +21,9 @@ import 'package:hazard_app/features/family/views/screens/family_hub_screen.dart'
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_requests_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
+import 'package:hazard_app/features/map/views/widgets/map_details_sheet.dart';
+import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/family/views/widgets/family_safe_strip.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_details_sheet.dart';
 import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
@@ -324,6 +327,43 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await _shoot(tester, '14_check_in_requests_sheet');
+  }, skip: !_enabled);
+
+  testWidgets('map details sheet (three-quarter height, map visible above)', (tester) async {
+    await tester.pumpWidget(_app(
+      Builder(
+        builder: (context) => Scaffold(
+          backgroundColor: const Color(0xFFB9D6A6),
+          body: Center(
+            child: TextButton(
+              onPressed: () => showMapDetailsSheet(context: context),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await _shoot(tester, '15_map_details_sheet');
+  }, skip: !_enabled);
+
+  testWidgets('alert detail: family check-in strip (two circles)', (tester) async {
+    await tester.pumpWidget(_app(
+      Scaffold(
+        backgroundColor: Colors.white,
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: const [
+              FamilySafeStrip(hazard: Hazard(id: 'h1', title: 'Severe thunderstorm warning')),
+            ],
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await _shoot(tester, '16_alert_check_in_strip', size: const Size(390, 300));
   }, skip: !_enabled);
 
   testWidgets('circle settings (host)', (tester) async {

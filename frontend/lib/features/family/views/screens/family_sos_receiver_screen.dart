@@ -1,13 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/providers/navigator_key_provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hazard_app/features/home/views/screens/home_screen.dart';
+import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
+import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
-import 'package:hazard_app/features/family/views/screens/family_sos_resolved_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
@@ -193,7 +197,7 @@ class _FamilySosReceiverScreenState
       backgroundColor: FamilyColors.v31Page,
       body: Column(
         children: [
-          _headerBuilder(context, sos, name, isResolved),
+          _headerBuilder(context, sos, name, isResolved, isMine: isMine),
           Expanded(
             child: ListView(
               padding: EdgeInsets.fromLTRB(
@@ -231,8 +235,9 @@ class _FamilySosReceiverScreenState
     final BuildContext context,
     final FamilySosEvent sos,
     final String name,
-    final bool isResolved,
-  ) {
+    final bool isResolved, {
+    required final bool isMine,
+  }) {
     return Container(
       color: isResolved ? FamilyColors.safeGreen : FamilyColors.sosRed,
       padding: EdgeInsets.fromLTRB(20.spMin, 0, 20.spMin, 18.spMin),
@@ -249,7 +254,12 @@ class _FamilySosReceiverScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isResolved ? '$name is marked safe' : '$name triggered SOS',
+                    // The person IN SOS reads "Your SOS"; everyone else
+                    // reads the sender's name. Two-phone QA 2026-09-09:
+                    // the sender saw "Family member is marked safe".
+                    isMine
+                        ? (isResolved ? 'Your SOS has ended' : 'Your SOS')
+                        : (isResolved ? '$name is marked safe' : '$name triggered SOS'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20.spMin,
@@ -518,27 +528,25 @@ class _FamilySosReceiverScreenState
     final WidgetRef ref,
     final FamilySosEvent sos,
   ) async {
-    final circleName = ref.read(providerOfFamily).circle?.name;
-    final memberCount = ref.read(providerOfFamily).circle?.members.length;
+    final ok = await ref.read(providerOfFamily.notifier).resolveSos(sosEventId: sos.id);
+    if (!context.mounted || !ok) return;
 
-    await ref.read(providerOfFamily.notifier).resolveSos(sosEventId: sos.id);
-    if (!context.mounted) return;
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => FamilySosResolvedScreen(
-          args: FamilySosResolvedScreenArgs(
-            event: sos.copyWith(
-              status: FamilySosStatus.resolved,
-              resolvedAt: DateTime.now(),
-            ),
-            circleName: circleName,
-            // Everyone but the person in SOS could see it.
-            recipientCount: memberCount == null ? null : memberCount - 1,
-          ),
-        ),
-      ),
-    );
+    // The sender's own confirmation is one line on the Family screen. The
+    // after-event record (who saw it, what was shared) is the recipients'
+    // page and stays reachable from SOS history; it is never pushed onto
+    // the sender's screen automatically (product decision 2026-09-09).
+    ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(HomeScreen.route);
+    }
+    final navContext = ref.read(providerOfGlobalNavigatorKey).currentContext;
+    if (navContext != null && navContext.mounted) {
+      navContext.showSuccessToast(
+        message: 'Your SOS has ended. Your circle has been told.',
+      );
+    }
   }
 
   /// Lets the person in SOS push a fresh point right now, without waiting

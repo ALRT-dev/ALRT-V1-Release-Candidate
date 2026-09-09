@@ -125,7 +125,35 @@ class LocalNotificationService {
         importance: Importance.max,
       ),
     );
-    await androidPlugin?.createNotificationChannel(
+    // The urgent channel exists only while strong vibration is on: see
+    // applyStrongVibrationChannel for why.
+    await applyStrongVibrationChannel(_useStrongVibration?.call() ?? false);
+
+    _initialized = true;
+  }
+
+  /// Creates or removes the urgent channel to match the strong-vibration
+  /// setting.
+  ///
+  /// Android freezes a channel's vibration pattern the moment it is
+  /// created and the server names this channel on every take-action and
+  /// critical push (background or killed app included), so the only way
+  /// the user's switch can hold outside the app is for the channel to
+  /// exist while the switch is on and not exist while it is off: a push
+  /// naming a missing channel falls back to the normal one. Deleting and
+  /// re-creating also refreshes a pattern from an older build.
+  Future<void> applyStrongVibrationChannel(final bool enabled) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (androidPlugin == null) return;
+    if (!enabled) {
+      await androidPlugin.deleteNotificationChannel(_urgentChannelId);
+      return;
+    }
+    await androidPlugin.createNotificationChannel(
       AndroidNotificationChannel(
         _urgentChannelId,
         _urgentChannelName,
@@ -138,8 +166,37 @@ class LocalNotificationService {
         ),
       ),
     );
+  }
 
-    _initialized = true;
+  /// Posts one local notification on the urgent channel so the pattern
+  /// can be felt on the phone. Returns false when the system will not
+  /// show ALRT notifications at all (permission off), which the caller
+  /// explains instead of pretending the test ran.
+  Future<bool> showStrongVibrationTest() async {
+    if (kIsWeb || !Platform.isAndroid) return false;
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (androidPlugin == null) return false;
+    final allowed = await androidPlugin.areNotificationsEnabled() ?? true;
+    if (!allowed) return false;
+    await applyStrongVibrationChannel(true);
+    await _plugin.show(
+      0x5A11, // fixed id: a repeat replaces the previous test
+      'Test: urgent alert vibration',
+      'This is how take-action and critical alerts feel with strong vibration on.',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _urgentChannelId,
+          _urgentChannelName,
+          channelDescription: _urgentChannelDescription,
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+    );
+    return true;
   }
 
   /// Shows a foreground FCM message as a local notification (Android only —

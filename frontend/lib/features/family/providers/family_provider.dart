@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
+import 'package:hazard_app/features/shared/models/error_model.dart';
+import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
 import 'package:hazard_app/features/family/providers/family_socket_manager_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
@@ -472,8 +474,16 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     if (!silent) {
       state = state.copyWith(loadState: const FamilyActionState.loading());
     }
+    _loading = true;
+    try {
+      await _loadBody(silent: silent);
+    } finally {
+      _loading = false;
+    }
+  }
 
-    await _refreshCircleList();
+  Future<void> _loadBody({required final bool silent}) async {
+    await _refreshCircleList(reloadIfScopeLost: false);
 
     final result = await _familyService.getFamilyCircle();
     if (!mounted) return;
@@ -520,7 +530,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   /// Refreshes the list of all circles the user belongs to, and drops a
   /// stale selection (e.g. after leaving the selected circle).
-  Future<void> _refreshCircleList() async {
+  Future<void> _refreshCircleList({final bool reloadIfScopeLost = true}) async {
     final result = await _familyService.getFamilyCircles();
     if (!mounted) return;
 
@@ -531,9 +541,21 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       if (selected != null && !circles.any((c) => c.circleId == selected)) {
         _ref.read(providerOfSelectedCircleId.notifier).select(null);
       }
+      // Membership without a circle in scope is the exact state the tab
+      // cannot draw (it shows a spinner). When a background refresh
+      // produces it, load the scope now rather than wait for a tap.
+      final scoped = state.circle;
+      final scopeLost = circles.isNotEmpty &&
+          (scoped == null || !circles.any((c) => c.circleId == scoped.id));
+      if (scopeLost && reloadIfScopeLost && !_loading) {
+        unawaited(load(silent: true));
+      }
       return null;
     });
   }
+
+  /// True while [load] runs, so a refresh inside it never starts another.
+  bool _loading = false;
 
   /// Switches the family tab to [circleId] (null = first circle) and
   /// reloads everything under the new scope.
@@ -744,7 +766,16 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   Future<void> deleteCircle() => _leaveOrDelete(isDelete: true);
 
+  /// Leaves (or deletes) the circle in scope, then moves the tab onto
+  /// whatever is left: another circle, or the no-circle screen.
+  ///
+  /// This used to wipe the whole state to "no circles" and stop. The next
+  /// background refresh of the circle list then repopulated `circles`
+  /// while `circle` stayed null, and the tab sat on its spinner for ever
+  /// (phone QA 2026-09-09, "leaving a circle hangs"). Now the departed
+  /// circle is dropped from scope and a full [load] picks the next one.
   Future<void> _leaveOrDelete({required final bool isDelete}) async {
+    final departedId = state.circle?.id;
     state = state.copyWith(
       leaveDeleteState: const FamilyActionState.loading(),
     );
@@ -754,20 +785,54 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         : await _familyService.leaveFamilyCircle();
     if (!mounted) return;
 
-    result.when(
-      (_) {
-        state = const FamilyProviderState(
-          hasLoadedOnce: true,
-          loadState: FamilyActionState.success(),
-          leaveDeleteState: FamilyActionState.success(),
-        );
-      },
-      (error) {
-        state = state.copyWith(
-          leaveDeleteState: FamilyActionState.error(error),
-        );
-      },
+    var left = result.when((_) => true, (_) => false);
+    AppError? error = result.when((_) => null, (e) => e);
+
+    if (!left) {
+      // The request may have reached the server and only the answer been
+      // lost. Ask the server which circles I am still in before calling
+      // this a failure, so a retry can never leave twice or report a
+      // failure for something that already happened.
+      final circles = await _familyService.getFamilyCircles();
+      if (!mounted) return;
+      final stillIn = circles.when(
+        (list) => departedId != null && list.any((c) => c.circleId == departedId),
+        (_) => true,
+      );
+      if (!stillIn && departedId != null) {
+        left = true;
+        error = null;
+      }
+    }
+
+    if (!left) {
+      state = state.copyWith(
+        leaveDeleteState: FamilyActionState.error(
+          error ?? const AppError(message: 'Could not leave the circle. Please try again.'),
+        ),
+      );
+      return;
+    }
+
+    await _leaveScope(departedId);
+    if (!mounted) return;
+    state = state.copyWith(leaveDeleteState: const FamilyActionState.success());
+  }
+
+  /// Drops [departedId] from everything in scope and loads the next circle
+  /// (or nothing). Live data from the departed circle must not linger: its
+  /// SOS events, history and asks are cleared before the reload.
+  Future<void> _leaveScope(final String? departedId) async {
+    _ref.read(providerOfSelectedCircleId.notifier).select(null);
+    state = state.copyWith(
+      circle: null,
+      circles: state.circles.where((c) => c.circleId != departedId).toList(),
+      activeSosEvents: const [],
+      sosHistory: const [],
+      recentCheckIns: const [],
+      memberIdsNearAlert: const {},
     );
+    await load();
   }
 
   Future<void> removeMember({required final String memberId}) async {
@@ -1038,6 +1103,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     final FamilyCheckInStatus status = FamilyCheckInStatus.safe,
     final String? message,
     required final bool shareLocation,
+    // The alert this check-in answers, when it comes from an alert detail.
+    final String? hazardId,
   }) async {
     state = state.copyWith(checkInState: const FamilyActionState.loading());
 
@@ -1065,6 +1132,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         latitude: position?.latitude,
         longitude: position?.longitude,
         requestId: requestId,
+        hazardId: hazardId,
       );
       if (!mounted) return;
 
@@ -1092,6 +1160,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
           latitude: position?.latitude,
           longitude: position?.longitude,
           circleId: circleId,
+          hazardId: hazardId,
         ),
       ),
     );
@@ -1761,16 +1830,42 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     );
   }
 
-  Future<void> resolveSos({required final String sosEventId}) async {
+  /// Stands an SOS down. Returns true when the server confirmed it.
+  Future<bool> resolveSos({required final String sosEventId}) async {
     _stopSosLiveShare();
     final result = await _familyService.resolveFamilySos(
       sosEventId: sosEventId,
     );
-    if (!mounted) return;
+    if (!mounted) return false;
 
-    result.when(
-      (resolved) => _onSosResolved(resolved),
-      (error) => _showToast(message: error.message, isWarning: true),
+    return result.when(
+      (resolved) {
+        _onSosResolved(resolved);
+        return true;
+      },
+      (error) {
+        _showToast(message: error.message, isWarning: true);
+        return false;
+      },
+    );
+  }
+
+  /// After a send whose answer was lost (timeout, dropped connection):
+  /// asks the server whether my SOS is in fact active, so a retry never
+  /// raises a second one. Returns the active SOS if it exists.
+  Future<FamilySosEvent?> findMyActiveSos() async {
+    final result = await _familyService.getActiveFamilySosEvents();
+    if (!mounted) return null;
+    final myMemberId = state.circle?.myMemberId;
+    final myUserId = _ref.read(providerOfLoggedInUser)?.id;
+    return result.when(
+      (events) {
+        state = state.copyWith(activeSosEvents: events);
+        return events
+            .where((e) => isSosMine(e, myMemberId: myMemberId, myUserId: myUserId))
+            .firstOrNull;
+      },
+      (_) => null,
     );
   }
 

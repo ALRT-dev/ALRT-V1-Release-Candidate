@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/map/views/screens/map_screen.dart';
@@ -5,6 +8,7 @@ import 'package:hazard_app/features/notification/views/widgets/notifications_app
 import 'package:hazard_app/features/search/views/widgets/hazard_search_appbar.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final providerOfHazardFiltersForMap = providerOfHazardFilters(
   MapScreen.filtersKey,
@@ -21,6 +25,7 @@ final providerOfHazardFilters = StateNotifierProvider.autoDispose
       (ref, id) => HazardFiltersProvider(
         ref: ref,
         state: const HazardFiltersProviderState(),
+        storageKey: id,
       ),
     );
 
@@ -28,6 +33,7 @@ class HazardFiltersProvider extends StateNotifier<HazardFiltersProviderState> {
   HazardFiltersProvider({
     required final Ref ref,
     required final HazardFiltersProviderState state,
+    this.storageKey,
   }) : _ref = ref,
        super(state) {
     _onInit();
@@ -35,33 +41,123 @@ class HazardFiltersProvider extends StateNotifier<HazardFiltersProviderState> {
 
   final Ref _ref;
 
+  /// SharedPreferences key this instance saves to, or null for a
+  /// transient instance (tests, screenshots).
+  final String? storageKey;
+
+  /// True until the saved choice has been read back. Nothing is written
+  /// before that: the constructor's own category seeding used to persist
+  /// the defaults over the saved value before restore could read it.
+  bool _restoring = true;
+  bool _changedWhileRestoring = false;
+
+  /// True while the provider itself seeds the category lists from the
+  /// server's main categories; that is not a user choice.
+  bool _seeding = false;
+
+  /// Every change is written straight to the device, so the choice
+  /// survives closing the sheet, switching tabs and restarting the app.
+  @override
+  set state(final HazardFiltersProviderState value) {
+    super.state = value;
+    if (_restoring) {
+      if (!_seeding) _changedWhileRestoring = true;
+    } else if (!_seeding) {
+      unawaited(_persist());
+    }
+  }
+
+  /// Restore is over (with or without a saved value): from now on every
+  /// change is written, and a change made while restoring is written now.
+  void _restoreDone() {
+    _restoring = false;
+    if (_changedWhileRestoring) {
+      _changedWhileRestoring = false;
+      unawaited(_persist());
+    }
+  }
+
+  static String prefsKeyFor(final String id) => 'hazard_filters.$id';
+
+  Future<void> _persist() async {
+    final key = storageKey;
+    if (key == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(prefsKeyFor(key), jsonEncode(state.toStorageJson()));
+    } catch (_) {
+      // A failed save only costs the memory of this choice next launch.
+    }
+  }
+
+  Future<void> _restore() async {
+    final key = storageKey;
+    if (key == null) {
+      _restoreDone();
+      return;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(prefsKeyFor(key));
+      if (raw == null) {
+        _restoreDone();
+        return;
+      }
+      final saved = HazardFiltersProviderState.fromStorageJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      if (!mounted) return;
+      // A choice made before the saved one was read wins over the saved
+      // one: the user just made it.
+      if (_changedWhileRestoring) {
+        _restoreDone();
+        return;
+      }
+      state = state.copyWith(
+        awsEmergency: saved.awsEmergency,
+        awsWatchAndAct: saved.awsWatchAndAct,
+        awsAdvice: saved.awsAdvice,
+        officialNonAws: saved.officialNonAws,
+        userReported: saved.userReported,
+        globalHumanitarian: saved.globalHumanitarian,
+        alrtIntel: saved.alrtIntel,
+        // A saved category choice is honoured only for categories that
+        // still exist; an empty saved set means "all", as it always has.
+        selectedCategoryIds: saved.selectedCategoryIds.isEmpty || state.allCategoryIds.isEmpty
+            ? state.selectedCategoryIds
+            : saved.selectedCategoryIds.intersection(state.allCategoryIds),
+        selectedLocationIds: saved.selectedLocationIds,
+      );
+      _restoreDone();
+    } catch (_) {
+      _restoreDone();
+    }
+  }
+
   void _onInit() {
     // Initialize selected categories with all main categories if none are selected.
     final allMainCategories = _ref
         .read(providerOfMainCategories)
         .mainCategories;
-    updateAllCategories(
-      allMainCategories.map((e) => e.id).toSet(),
-    );
-    updateSelectedCategories(
-      allMainCategories.map((e) => e.id).toSet(),
-    );
+    _seed(allMainCategories.map((e) => e.id).toSet());
+    unawaited(_restore());
     _ref.listen(
       providerOfMainCategories.select(
         (value) => value.mainCategories,
       ),
       (previous, next) {
         if (previous != next && state.selectedCategoryIds.isEmpty) {
-          final allMainCategories = next;
-          updateAllCategories(
-            allMainCategories.map((e) => e.id).toSet(),
-          );
-          updateSelectedCategories(
-            allMainCategories.map((e) => e.id).toSet(),
-          );
+          _seed(next.map((e) => e.id).toSet());
         }
       },
     );
+  }
+
+  void _seed(final Set<String> ids) {
+    _seeding = true;
+    updateAllCategories(ids);
+    updateSelectedCategories(ids);
+    _seeding = false;
   }
 
   /// Updates the AWS Emergency filter state.

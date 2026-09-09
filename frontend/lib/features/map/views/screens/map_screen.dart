@@ -1,6 +1,7 @@
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -22,7 +23,7 @@ import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
-  static const filtersKey = 'MapScreenFiltersKey';
+  static const filtersKey = kSharedAlertFiltersKey;
 
   @override
   ConsumerState<ConsumerStatefulWidget> createState() => _MapScreenState();

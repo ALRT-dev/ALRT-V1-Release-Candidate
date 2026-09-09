@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/profile/models/safety_cohort.dart';
 import 'package:hazard_app/features/profile/providers/safety_profile_provider.dart';
+import 'package:hazard_app/features/notification/services/local_notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// How urgent alerts reach people who won't hear a ping or read a banner.
@@ -56,7 +57,15 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
     _recompute();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_vibrationKey, value);
+    // The Android channel must follow the switch, or background pushes
+    // keep the old behaviour (see applyStrongVibrationChannel).
+    await LocalNotificationService.instance.applyStrongVibrationChannel(value);
   }
+
+  /// Posts a test notification on the urgent channel; false when the
+  /// system blocks ALRT notifications.
+  Future<bool> testStrongVibration() =>
+      LocalNotificationService.instance.showStrongVibrationTest();
 
   Future<void> setReadAloud(final bool value) async {
     _explicitReadAloud = value;
