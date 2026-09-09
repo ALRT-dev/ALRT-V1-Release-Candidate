@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# ALRT TEST rollout, revision 12 (11 + the hazard push dedupe script: one public-alert push per person per hazard
-# event across the saved-area and family-proximity paths, tray collapse keys, re-issue not suppressed; content-verified, run by verify).
+# ALRT TEST rollout, revision 13 (12 + build-log naming parser: accepts BuildKit's "naming to <image> 0.0s done", the
+# older "naming to <image> done" and the classic "Successfully tagged <image>", tolerates a missing naming line, and any
+# unexplained exit is named with its line and command; image resolution and pinned-content checks unchanged).
 #
 # Usage on the TEST host (alrt-test-api, i-0045a41694e315d45, ap-southeast-2), in the operator's SSM shell, one step
 # per invocation, in this order:
@@ -38,6 +39,9 @@
 # re-applies or edits a migration; the only thing that can apply a migration is the container's own
 # `prisma migrate deploy` at start, and in --no-new-migrations mode the proof requires that it applied nothing.
 set -euo pipefail
+# errtrace: the ERR trap below must also fire inside functions and command substitutions, or a failing pipeline
+# inside `x=$(...)` ends the script with nothing said (revision 12 died that way on the build log's naming line).
+set -E
 umask 077
 
 # ----------------------------------------------------------------------------- fixed authorisation scope (not overridable)
@@ -76,7 +80,18 @@ note() { [ -n "$RUN_DIR" ] && [ -d "$RUN_DIR" ] && printf '%s\n' "$*" >> "$RUN_D
 # Any command that fails under set -e is recorded with its exit code, line and command text before the script dies.
 on_err() { local rc=$1 line=$2 cmd=$3; note "ERR exit=$rc line=$line cmd=$cmd"; log "ERR: exit $rc at line $line: $cmd"; }
 trap 'on_err $? $LINENO "$BASH_COMMAND"' ERR
-stop() { note "STOP $*"; log "STOP: $*"; exit 1; }
+# A non-zero exit that no stop() explained is still named: the exit code and the last command, on stderr and in the
+# run's status.txt, so a stage never ends with only a bare exit status to go on.
+STOPPED=0
+on_exit() {
+  local rc=$?
+  if [ "$rc" -ne 0 ] && [ "$STOPPED" != 1 ]; then
+    note "UNEXPLAINED EXIT rc=$rc last-command=$BASH_COMMAND"
+    log "UNEXPLAINED EXIT: rc=$rc; last command: $BASH_COMMAND (see the ERR line above and status.txt); nothing was started or changed by this exit itself"
+  fi
+}
+trap on_exit EXIT
+stop() { STOPPED=1; note "STOP $*"; log "STOP: $*"; exit 1; }
 dc()   { (cd "$REPO/backend" && $DOCKER compose -f docker-compose.test.yml "$@"); }
 
 # psql against a named database inside postgres-test; SQL arrives on stdin so no shell-level quoting is ever needed.
@@ -194,6 +209,17 @@ app_image_name() {
   listed=$(dc config --images app 2>/dev/null)
   printf '%s\n' "$listed" | grep -qx "$name" || { printf 'name %s not in compose --images app list: %s\n' "$name" "$(printf '%s' "$listed" | tr '\n' ' ')" >&2; return 1; }
   printf '%s\n' "$name"
+}
+# The image the build log says it named, or nothing when the log carries no naming line. Accepts BuildKit in plain
+# progress ("#12 naming to docker.io/library/backend-app 0.0s done", with or without the duration, with or without
+# "done") and the classic builder ("Successfully tagged backend-app:latest"). The last naming line wins. Never fails:
+# a missing line is reported by the caller as "<no naming line>", not treated as an error, because the app image
+# is identified from the compose service and proven by content, not by this line; the line is only a cross-check.
+build_log_named_image() {
+  local line
+  line=$(grep -E 'naming to [^[:space:]]+|Successfully tagged [^[:space:]]+' "$1" 2>/dev/null | tail -1 || true)
+  [ -n "$line" ] || return 0
+  printf '%s\n' "$line" | sed -E 's#.*naming to (docker\.io/library/)?([^[:space:]]+).*#\2#; s#.*Successfully tagged ([^[:space:]]+).*#\1#; s#:latest$##'
 }
 # The three columns those migrations add. 3 = both applied and present, 0 = neither.
 approved_columns_present() {
@@ -330,7 +356,7 @@ deploy() {
   image_name=$(app_image_name) || stop "could not determine the app service's image name (see app-image-name.txt)"
   printf 'app service image name: %s\n' "$image_name" | tee "$RUN_DIR/app-image-name.txt"
   # the build's own naming line must agree (the build was `compose build app`, so this names the app image only)
-  local named; named=$(grep -oE 'naming to (docker\.io/library/)?[^ ]+ done|Successfully tagged [^ ]+' "$RUN_DIR/build.log" | tail -1 | sed -E 's#^naming to (docker\.io/library/)?##; s# done$##; s#^Successfully tagged ##; s#:latest$##')
+  local named; named=$(build_log_named_image "$RUN_DIR/build.log")
   printf 'build log named: %s\n' "${named:-<no naming line>}" | tee -a "$RUN_DIR/app-image-name.txt"
   if [ -n "$named" ] && [ "$named" != "$image_name" ]; then stop "the build named image '$named' but the app service resolves to '$image_name'; refusing to guess"; fi
   built_id=$($DOCKER image inspect --format '{{.Id}}' "$image_name" 2>>"$RUN_DIR/app-image-name.txt") || stop "app image $image_name not found after the build (see app-image-name.txt)"

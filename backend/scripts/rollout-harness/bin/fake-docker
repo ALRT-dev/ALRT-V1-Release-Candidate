@@ -9,7 +9,16 @@ if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
   case "$1" in
     ps) echo "NAME  IMAGE  STATUS"; echo "app-test  backend-app  Up";;
     build) if [ "${SCENARIO:-}" = "build-fail" ]; then echo "fake build error" >&2; exit 17; fi
-           echo "#12 exporting to image"; echo "#12 naming to docker.io/library/$([ "${SCENARIO:-}" = "naming-mismatch" ] && echo backend-other || echo backend-app) done"
+           echo "#12 exporting to image"
+           nm=$([ "${SCENARIO:-}" = "naming-mismatch" ] && echo backend-other || echo backend-app)
+           # NAMING_STYLE mirrors what docker prints: BuildKit with a duration (the real TEST host today), BuildKit
+           # without one (older), the classic builder, or no naming line at all (cached / quiet builds)
+           case "${NAMING_STYLE:-duration}" in
+             duration) echo "#12 naming to docker.io/library/$nm 0.0s done";;
+             done)     echo "#12 naming to docker.io/library/$nm done";;
+             tagged)   echo "Successfully tagged $nm:latest";;
+             none)     echo "#12 CACHED";;
+           esac
            case "${SCENARIO:-}" in same-image) echo "$OLD" > "$S/built";; stale-status|next-image*|status-fail|ledger-dirty|schema-inconsistent|ledger-extra|reapplied) echo "sha256:thirdimage222" > "$S/built";; *) echo "$NEW" > "$S/built";; esac;;
     config) # `--images app` lists the app's DEPENDENCIES first (postgres), exactly as real compose does; `--format json` names the project
       if [ "$2" = "--images" ]; then echo "postgis/postgis:15-3.4"; [ "${SCENARIO:-}" = "with-baseline" ] && echo "backend-migrate-baseline"; echo "backend-app"
