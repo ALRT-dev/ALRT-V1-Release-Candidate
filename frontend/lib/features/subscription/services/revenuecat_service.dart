@@ -21,8 +21,8 @@ class RevenueCatService {
   RevenueCatService({
     PurchasesGateway gateway = const SdkPurchasesGateway(),
     String? apiKeyOverride,
-  })  : _gateway = gateway,
-        _apiKeyOverride = apiKeyOverride;
+  }) : _gateway = gateway,
+       _apiKeyOverride = apiKeyOverride;
 
   /// The entitlement identifier configured in the RevenueCat dashboard.
   static const String entitlementId = 'plus';
@@ -106,6 +106,27 @@ class RevenueCatService {
     if (!_hasKeys) return null;
     try {
       return await _gateway.currentOffering();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The store product behind an entitlement's product identifier, for
+  /// the price the person is actually paying (amount, currency and period
+  /// from the store). Play reports subscriptions as "product:basePlan";
+  /// the store lookup takes the product id. Null when the store cannot
+  /// say, so a summary shows no price rather than a made-up one.
+  Future<StoreProduct?> productFor(final String productIdentifier) async {
+    if (!_hasKeys) return null;
+    final id = productIdentifier.split(':').first.trim();
+    if (id.isEmpty) return null;
+    try {
+      final products = await _gateway.products([id]);
+      for (final product in products) {
+        final pid = product.identifier;
+        if (pid == id || pid.startsWith('$id:')) return product;
+      }
+      return products.isEmpty ? null : products.first;
     } catch (_) {
       return null;
     }

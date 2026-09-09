@@ -1,6 +1,6 @@
-# TEST build 47 — install, acceptance, notification delivery and widget guide
+# TEST build 48 — install, acceptance, notification delivery, widget and pricing guide
 
-Version **1.0.5 (47)**, commit **(the workflow run's head, printed below the build)**, branch `test`, dev flavour
+Version **1.0.5 (48)**, commit **(the workflow run's head, printed below the build)**, branch `test`, dev flavour
 (`com.safetyalrt.alrt.dev`, app label "[Dev] ALRT"), backend
 `https://api-test.safetyalrt.com`. Two artifacts are built from the same
 commit by `.github/workflows/android-test.yml`:
@@ -13,14 +13,14 @@ commit by `.github/workflows/android-test.yml`:
 Both are signed with the TEST keystore (SHA-1
 `18:5E:43:9B:FC:7A:99:42:0C:AD:F0:EB:A9:E1:4F:0A:EE:66:2D:DB`), which the
 workflow's apksigner step verifies on every run. They install beside the
-production "ALRT" app, not over it, and they replace TEST builds 36 to 46.
+production "ALRT" app, not over it, and they replace TEST builds 36 to 47.
 
 ## Prove which build you are holding
 
 Profile tab, scroll to the bottom, under "Log out". The footer reads, for
 example:
 
-    ALRT 1.0.5 (47) · TEST build · <commit> · RevenueCat Test Store
+    ALRT 1.0.5 (48) · TEST build · <commit> · RevenueCat Test Store
 
 or `… · billing bypass` on the bypass build. If the footer shows no commit
 or billing mode, the phone is running an older build.
@@ -83,14 +83,14 @@ check the binary itself on a computer, unzip the artifact and run:
 
 Write these four facts down first; nothing below is judged without them.
 
-1. **Installed build**: Profile footer, e.g. `ALRT 1.0.5 (47) · TEST build · <commit> · RevenueCat Test Store`. The build number and commit come from the footer, never from how a screen looks. Failures reported before this footer read build 47 were seen on an earlier build.
+1. **Installed build**: Profile footer, e.g. `ALRT 1.0.5 (48) · TEST build · <commit> · RevenueCat Test Store`. The build number and commit come from the footer, never from how a screen looks. Failures reported before this footer read build 48 were seen on an earlier build; build 48 differs from 47 only in the paywall price wording.
 2. **Billing mode**: the footer's last word (`RevenueCat Test Store` on the test_store APK, `billing bypass` on the other). Paywall items count only on the test_store APK.
-3. **App code**: the commit in the footer must equal the app commit named in the handover for build 47 (`01489ad…`). The backend pin for the rollout is a later commit on the same branch (backend-only changes); the two differ by design and the handover names both.
+3. **App code**: the commit in the footer must equal the app commit named in the handover for build 48. The backend pin for the rollout may be a different commit on the same branch; the handover names both.
 4. **Deployed TEST backend**: verified at **6a1115f** (the build-46 pin) on 9 September 2026, run directory `run-20260909042910-293693`, image `sha256:95fe66e1…a65cb`, 40/40 consent checks and ten regression scripts passed, scheduler OFF. Everything from builds 43 to 46 is therefore live on TEST. What is **not** yet on TEST is only the build-47 backend delta (below) plus the dedupe fix; until that rollout, the items marked "needs redeploy" run against the build-46 server.
 
 **Backend delta since the verified baseline (6a1115f → the build-47 pin):** `notification.service.ts` (safe hazard payload without coordinates or reporter fields, `urgent` in push data, private Android visibility, APNs sound and interruption level, dead-token pruning, one push per person per hazard event with tray collapse keys), `family.service.ts` (`urgent` and hazard-event dedupe on `notifyCircle`, SOS body wording), `family_alert.service.ts` (place bodies, safe hazard payload, hazard-event dedupe), `notification.controller.ts` / `notification.route.ts` / `notification.validator.ts` / `push_notification_types.ts` (`POST /api/notifications/test`, `DELETE /api/notifications/push-notification-token`), verification scripts `verify_family_push_delivery` (11) and `verify_hazard_push_dedupe` (7), rollout script revision 12. No migration, no schema change, no scheduler change, no policy or opt-out change.
 
-## Phone checklist for the twelve items (build 47)
+## Phone checklist for the twelve items (build 48; unchanged from 47 except item 10)
 
 Run on the **test_store** APK. Two phones, A and B, synthetic TEST accounts. Record each item as one of: **phone-tested pass**, **phone-tested fail** (with what you saw), **awaiting device acceptance**, **blocked** (say by what). Automated results never fill a phone column.
 
@@ -103,7 +103,7 @@ Run on the **test_store** APK. Two phones, A and B, synthetic TEST accounts. Rec
 7. **Notification settings vs map and feed.** ALRT Filters: Global humanitarian off hides GDACS on the map and feed; restart: still hidden. Manage notifications › Categories: Advice off survives a restart. Known gaps (unchanged, need decisions): Global humanitarian and ALRT Intel push under Official; source push policies are not enforced on delivery; onboarding "User reported" turns Emergency off.
 8. **Leaving a circle does not hang.** Member of two: Leave › toast "You left <name>." and the other circle opens within seconds. Host with members: toast about 7 days to choose a host. Last member: circle deleted toast. Airplane mode then Leave: error toast, still a member. After leaving: no rows, strips, banners, widget rows or SOS from that circle anywhere; a check-in ask from it after leaving never appears.
 9. **Vibration.** Profile › Safety profile › Strong vibration on › Test vibration: the long pattern. Off: the row goes. Notifications blocked in Android settings or Do not disturb on: the card says so and offers Open phone settings. In-app button haptics are unrelated.
-10. **Saved-location paywall (test_store).** Second suburb › Subscribe › "One free saved location" › See ALRT+ › plan › approve the Test Store dialog: the second location saves once on the same screen with no restart. Decline: nothing saved, no red message. Airplane mode: "No connection…". Subscriber: never asked again; two quick taps save once. Restore on a free account: "No previous ALRT + purchase found." Server enforcement is OFF on TEST; the app's gate is what you are testing.
+10. **Saved-location paywall and prices (test_store).** The plan cards, the line under Subscribe and Manage must all show the same store amount with its currency code beside a bare "$" (see "Prices and currency" below). Second suburb › Subscribe › "One free saved location" › See ALRT+ › plan › approve the Test Store dialog: the second location saves once on the same screen with no restart. Decline: nothing saved, no red message. Airplane mode: "No connection…". Subscriber: never asked again; two quick taps save once. Restore on a free account: "No previous ALRT + purchase found." Server enforcement is OFF on TEST; the app's gate is what you are testing.
 11. **ALRT+ benefits.** Paywall, Profile › ALRT+ Manage, and the expired screen all show the same "Free versus ALRT+" table: saved locations 1 vs unlimited, hosting circles 0 vs 4, seats 8, joining with a code always free. Prices, periods and trial words come from the store; nothing else is promised.
 12. **Notification delivery.** See the next section; record its table separately.
 
@@ -176,6 +176,20 @@ No read access exists from this environment: there is no RevenueCat key of any k
 6. After one attempt on the phone: **Customers › the test account › Customer history**: the events around the attempt (offering fetched, purchase started, any error), which will place the failure point.
 
 If screen 1 shows no current offering, or screen 2 shows packages without a Test Store product, the paywall's "no plans" or "could not load" message is the configuration, not the app.
+
+## Prices and currency on the paywall (build 48)
+
+**Where the USD comes from.** On the test_store APK every amount on the paywall is the store's own formatted string and currency code, read from the RevenueCat offering at the moment the screen opens; nothing on that path is hard-coded. The RevenueCat **Test Store** is not a real storefront: each Test Store product carries the one price and currency entered for it in the RevenueCat dashboard (Product catalog › Products › the product › its Test Store price), and that same price is returned to every phone whatever country or Play account it has. USD there means the Test Store products were created with a USD price; it does not mean the app chose USD, and it says nothing about what Google Play will charge. The only hard-coded amounts in the app are the two preview cards on the **billing bypass** APK, now labelled `US$9.99` / `US$99.99` with "Preview prices in USD · billing bypass build only · not store prices"; they never appear on the test_store APK.
+
+**What real Google Play does.** Play returns the price for the Play account's storefront country in that country's currency, formatted by Play: an Australian account sees the AUD base-plan price set in Play Console (Monetise › Subscriptions › the base plan › country pricing, either the auto-converted default or a manually set AUD amount), and the app shows exactly that. No AUD is hard-coded for any country and no conversion is done in the app. Note that Play formats AUD as a bare `$9.99` on an en-AU phone, which looks like USD; build 48 therefore prints the ISO code beside any amount whose string carries no letters (`$9.99 AUD`), on the plan cards, the line under the purchase button and the manage-screen summary, while an amount that already names its currency (`A$9.99`, `US$9.99`) is left as the store wrote it.
+
+**Build 48 wording, all from the store:** plan cards show the store amount, then "AUD · per month" (code only when needed; period from the store's own period, else the package type); the line under Subscribe reads "<trial>, then $9.99 AUD a month" for the selected card; Profile › ALRT+ › Manage reads "Monthly · $9.99 AUD a month · renews 9 Oct 2026" once the store answers, and just "Monthly · renews …" when it does not (never a made-up figure). `store_price_test.dart` (9) pins these rules; both monthly and annual go through the same code.
+
+**To verify the AUD price for Australian testing** (needs no code and no change to live prices):
+
+1. Test Store (what the TEST APK shows): RevenueCat dashboard › Product catalog › Products › `alrt_plus_monthly` and `alrt_plus_yearly` › the Test Store price and currency fields. If they read USD, the paywall will read USD on every phone. Changing them to AUD amounts is a dashboard configuration change to the TEST project only; I have not made it and will not without your approval.
+2. Real Play pricing (what a released build shows): Play Console › Monetise › Subscriptions › each base plan › Australia row: the AUD amount there is the one an Australian account will see, and whether it is auto-converted from USD or set by hand. Production, not touched.
+3. On the phone, after either change: the plan cards must show the store's amount with `AUD` beside it, the line under the button the same amount, and Manage the same amount after a Test Store purchase. If the three disagree, that is an app defect; if they agree but are not the AUD figure you expect, that is the store configuration.
 
 ## What is proven where (build 47)
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hazard_app/features/subscription/utils/store_price.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
@@ -36,6 +37,9 @@ class AlrtPlusManageScreen extends ConsumerStatefulWidget {
 
 class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
   EntitlementInfo? _entitlement;
+
+  /// The store product behind the active entitlement, for its price.
+  StoreProduct? _product;
   bool _loaded = false;
 
   @override
@@ -60,12 +64,20 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
       setState(() => _loaded = true);
       return;
     }
-    final entitlement = await ref.read(providerOfRevenueCat).plusEntitlement();
+    final service = ref.read(providerOfRevenueCat);
+    final entitlement = await service.plusEntitlement();
     if (!mounted) return;
     setState(() {
       _entitlement = entitlement;
       _loaded = true;
     });
+    if (entitlement == null) return;
+    // The price is a second, best-effort read: the summary shows the
+    // store's amount and currency when the store answers, nothing when
+    // it does not. Never a hard-coded figure.
+    final product = await service.productFor(entitlement.productIdentifier);
+    if (!mounted || product == null) return;
+    setState(() => _product = product);
   }
 
   Future<void> _openStoreManagement() async {
@@ -255,6 +267,10 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
       parts.add('Yearly');
     } else if (product.contains('month')) {
       parts.add('Monthly');
+    }
+    final storeProduct = _product;
+    if (storeProduct != null) {
+      parts.add(pricePerPeriodPhrase(storeProduct));
     }
     final expiration = entitlement.expirationDate;
     if (expiration != null) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hazard_app/features/subscription/utils/store_price.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/utils/purchase_error_message.dart';
@@ -507,6 +508,7 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
               ),
             ),
             SizedBox(height: 5.spMin),
+            // The store's own formatted amount, exactly as it gave it.
             Text(
               product.priceString,
               style: TextStyle(
@@ -517,10 +519,13 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
               ),
             ),
             SizedBox(height: 2.spMin),
+            // The ISO currency code when the amount is a bare "$" (Play
+            // formats AUD that way), and the store's billing period.
             Text(
-              package.packageType == PackageType.annual
-                  ? 'per year'
-                  : 'per month',
+              [
+                ?storeCurrencySuffix(product),
+                perPeriodLabel(product, package.packageType),
+              ].where((s) => s.isNotEmpty).join(' · '),
               style: TextStyle(
                 fontSize: 11.spMin,
                 color: selected ? AlrtPlusStyle.magenta : AlrtPlusStyle.inkSoft,
@@ -604,16 +609,16 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
           children: [
             card(
               title: 'MONTHLY',
-              price: '\$9.99',
-              per: 'per month',
+              price: 'US\$9.99',
+              per: 'USD · per month',
               selected: !_dummyYearlySelected,
               onTap: () => setState(() => _dummyYearlySelected = false),
             ),
             SizedBox(width: 10.spMin),
             card(
               title: 'YEARLY',
-              price: '\$99.99',
-              per: 'per year',
+              price: 'US\$99.99',
+              per: 'USD · per year',
               selected: _dummyYearlySelected,
               onTap: () => setState(() => _dummyYearlySelected = true),
             ),
@@ -621,7 +626,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
         ),
         SizedBox(height: 8.spMin),
         Text(
-          'Preview prices · test build only, no real purchase',
+          'Preview prices in USD · billing bypass build only · not store '
+          'prices, no real purchase',
           style: TextStyle(
             fontSize: 10.spMin,
             color: AlrtPlusStyle.inkFaint,
@@ -631,22 +637,26 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     );
   }
 
+  /// Names the selected plan's store price and period (amount, currency
+  /// and period all from the store), so the button above and this line
+  /// always agree with the highlighted card.
   Widget _priceLineBuilder() {
-    final monthly = _dummy
-        ? '\$9.99'
-        : _offering?.monthly?.storeProduct.priceString;
-    final annual = _dummy
-        ? '\$99.99'
-        : _offering?.annual?.storeProduct.priceString;
-    final selectedPrice = _selected?.storeProduct.priceString;
+    final selected = _selected;
     final trial = _trialPhrase;
     final String pricePart;
-    if (monthly != null && annual != null) {
+    if (_dummy) {
+      final preview = _dummyYearlySelected
+          ? 'US\$99.99 USD a year'
+          : 'US\$9.99 USD a month';
       pricePart = trial != null
-          ? '$trial, then $monthly a month or $annual a year'
-          : '$monthly a month or $annual a year';
-    } else if (selectedPrice != null) {
-      pricePart = trial != null ? '$trial, then $selectedPrice' : selectedPrice;
+          ? '$trial, then $preview (preview, not a store price)'
+          : '$preview (preview, not a store price)';
+    } else if (selected != null) {
+      final phrase = pricePerPeriodPhrase(
+        selected.storeProduct,
+        selected.packageType,
+      );
+      pricePart = trial != null ? '$trial, then $phrase' : phrase;
     } else {
       pricePart = trial != null
           ? '$trial, then the price shown above'

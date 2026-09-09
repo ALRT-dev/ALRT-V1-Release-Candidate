@@ -141,9 +141,7 @@ class _UpsellSheetContentState extends State<_UpsellSheetContent> {
             ),
             SizedBox(height: 8.spMin),
             TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => Navigator.of(context).pop(false),
+              onPressed: _busy ? null : () => Navigator.of(context).pop(false),
               child: Text(
                 widget.secondaryLabel,
                 style: TextStyle(

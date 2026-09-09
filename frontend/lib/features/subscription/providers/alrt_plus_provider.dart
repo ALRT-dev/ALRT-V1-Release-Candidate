@@ -61,8 +61,9 @@ final providerOfAlrtPlusBillingIssue = FutureProvider.autoDispose<bool>((
 /// subscribed and while ALRT+ is currently active. Lets the profile screen
 /// route a "was on ALRT+, now on the free plan" user to an explanation
 /// screen instead of the plain paywall, with no backend change.
-final providerOfExpiredAlrtPlus =
-    FutureProvider.autoDispose<EntitlementInfo?>((ref) async {
+final providerOfExpiredAlrtPlus = FutureProvider.autoDispose<EntitlementInfo?>((
+  ref,
+) async {
   final userId = ref.watch(providerOfLoggedInUser)?.id;
   if (userId == null) return null;
   // Test-build escape hatch, matching providerOfAlrtPlus above: a QA build
@@ -86,5 +87,5 @@ class PendingFamilyInviteNotifier extends Notifier<bool> {
 
 final providerOfPendingFamilyInvite =
     NotifierProvider<PendingFamilyInviteNotifier, bool>(
-  PendingFamilyInviteNotifier.new,
-);
+      PendingFamilyInviteNotifier.new,
+    );

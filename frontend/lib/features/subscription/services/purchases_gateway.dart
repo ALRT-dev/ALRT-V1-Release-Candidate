@@ -19,6 +19,10 @@ abstract class PurchasesGateway {
 
   /// Active entitlements after restoring the store account's purchases.
   Future<Set<String>> restore();
+
+  /// Store products by identifier (subscriptions), with the store's own
+  /// price, currency and period. Empty when the store knows none of them.
+  Future<List<StoreProduct>> products(List<String> identifiers);
 }
 
 class SdkPurchasesGateway implements PurchasesGateway {
@@ -48,14 +52,15 @@ class SdkPurchasesGateway implements PurchasesGateway {
   @override
   Future<Set<String>> purchase(Package package) async =>
       // ignore: deprecated_member_use
-      (await Purchases.purchasePackage(package))
-          .customerInfo
-          .entitlements
-          .active
-          .keys
-          .toSet();
+      (await Purchases.purchasePackage(
+        package,
+      )).customerInfo.entitlements.active.keys.toSet();
 
   @override
   Future<Set<String>> restore() async =>
       (await Purchases.restorePurchases()).entitlements.active.keys.toSet();
+
+  @override
+  Future<List<StoreProduct>> products(final List<String> identifiers) =>
+      Purchases.getProducts(identifiers);
 }
