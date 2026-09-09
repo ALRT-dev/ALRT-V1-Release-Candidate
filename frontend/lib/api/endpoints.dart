@@ -82,6 +82,7 @@ const kUrlNotifications = '$kUrlApi/notifications';
 const kUrlNotificationsFeed = '$kUrlNotifications/feed';
 const kUrlNotificationsPushNotificationToken =
     '$kUrlNotifications/push-notification-token';
+const kUrlNotificationsTest = '$kUrlNotifications/test';
 
 // ---------------------------- SUPPORT ----------------------------
 

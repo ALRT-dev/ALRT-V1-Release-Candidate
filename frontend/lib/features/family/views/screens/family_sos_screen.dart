@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
@@ -65,6 +67,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
 
   @override
   void dispose() {
+    _returnTimer?.cancel();
     _holdController.dispose();
     super.dispose();
   }
@@ -86,8 +89,9 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       final defaultList = sosLists.where((l) => l.isDefault).firstOrNull;
       if (defaultList != null) _selectedListId = defaultList.id;
     }
-    final selectedList =
-        sosLists.where((l) => l.id == _selectedListId).firstOrNull;
+    final selectedList = sosLists
+        .where((l) => l.id == _selectedListId)
+        .firstOrNull;
     final targetLabel = selectedList == null
         ? 'all $memberCount members of $circleName'
         : 'the ${selectedList.memberIds.length} people on '
@@ -96,125 +100,137 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     return Scaffold(
       backgroundColor: FamilyColors.sosDarkRed,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(24.spMin),
-          child: Column(
-            children: [
-              SizedBox(height: 20.spMin),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 14.spMin,
-                  vertical: 6.spMin,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20.spMin),
-                  border: Border.all(
-                    color: FamilyColors.sosRed.withValues(alpha: 0.6),
-                  ),
-                ),
-                child: Text(
-                  'FAMILY SOS',
-                  style: TextStyle(
-                    color: const Color(0xFFFCA5A5),
-                    fontSize: 12.spMin,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
+        // Scrolls on short phones / large text instead of overflowing; on
+        // taller screens the Spacers still centre the hold button.
+        child: LayoutBuilder(
+          builder: (final context, final constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: EdgeInsets.all(24.spMin),
+                  child: Column(
+                    children: [
+                      SizedBox(height: 20.spMin),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 14.spMin,
+                          vertical: 6.spMin,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20.spMin),
+                          border: Border.all(
+                            color: FamilyColors.sosRed.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        child: Text(
+                          'FAMILY SOS',
+                          style: TextStyle(
+                            color: const Color(0xFFFCA5A5),
+                            fontSize: 12.spMin,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 18.spMin),
+                      Text(
+                        _sent ? 'SOS sent' : 'Alert your circle',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 30.spMin,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(height: 8.spMin),
+                      Text(
+                        _sent
+                            ? (_liveLocationEnabled
+                                  ? 'Your live location is now shared with '
+                                        '${selectedList?.name ?? circleName}. They can '
+                                        'watch your movements on the map until you stand '
+                                        'down from the Family tab, for up to 4 hours.'
+                                  : '${selectedList?.name ?? circleName} has been '
+                                        'alerted. Your location is not being shared live.')
+                            : (_liveLocationEnabled
+                                  ? 'Sends an SOS and your live location '
+                                        'to $targetLabel.'
+                                  : 'Sends an SOS to $targetLabel. Your live '
+                                        'location will not be shared.'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 14.spMin,
+                        ),
+                      ),
+                      if (!_sent && sosLists.isNotEmpty) ...[
+                        SizedBox(height: 16.spMin),
+                        _presetRowBuilder(
+                          id: null,
+                          name: 'Everyone in $circleName',
+                          count: memberCount,
+                        ),
+                        for (final list in sosLists)
+                          _presetRowBuilder(
+                            id: list.id,
+                            name: list.name,
+                            count: list.memberIds.length,
+                          ),
+                      ],
+                      if (!_sent) ...[
+                        SizedBox(height: 6.spMin),
+                        TextButton(
+                          onPressed: () =>
+                              context.push(FamilySosListsScreen.route),
+                          child: Text(
+                            sosLists.isEmpty
+                                ? 'Set up who your SOS reaches'
+                                : 'Manage lists',
+                            style: TextStyle(
+                              fontSize: 12.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.white54,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 10.spMin),
+                        _liveLocationToggleBuilder(),
+                      ],
+                      const Spacer(),
+                      _sent ? _sentIndicatorBuilder() : _holdButtonBuilder(),
+                      SizedBox(height: 14.spMin),
+                      if (!_sent)
+                        Text(
+                          'Keep holding to send',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 13.spMin,
+                          ),
+                        ),
+                      const Spacer(),
+                      _whatThisDoesBuilder(emergencyNumber),
+                      SizedBox(height: 8.spMin),
+                      TextButton(
+                        // Returns to whichever screen this SOS was started from —
+                        // today, always the Family hub's own SOS tile, since that's
+                        // the only place this screen is reachable from.
+                        onPressed: _sent ? _goToFamily : () => context.pop(),
+                        child: Text(
+                          _sent ? 'Done' : 'Cancel',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 15.spMin,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              SizedBox(height: 18.spMin),
-              Text(
-                _sent ? 'SOS sent' : 'Alert your circle',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30.spMin,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 8.spMin),
-              Text(
-                _sent
-                    ? (_liveLocationEnabled
-                          ? 'Your live location is now shared with '
-                                '${selectedList?.name ?? circleName}. They can '
-                                'watch your movements on the map until you stand '
-                                'down from the Family tab, for up to 4 hours.'
-                          : '${selectedList?.name ?? circleName} has been '
-                                'alerted. Your location is not being shared live.')
-                    : (_liveLocationEnabled
-                          ? 'Sends an SOS and your live location '
-                                'to $targetLabel.'
-                          : 'Sends an SOS to $targetLabel. Your live '
-                                'location will not be shared.'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 14.spMin,
-                ),
-              ),
-              if (!_sent && sosLists.isNotEmpty) ...[
-                SizedBox(height: 16.spMin),
-                _presetRowBuilder(
-                  id: null,
-                  name: 'Everyone in $circleName',
-                  count: memberCount,
-                ),
-                for (final list in sosLists)
-                  _presetRowBuilder(
-                    id: list.id,
-                    name: list.name,
-                    count: list.memberIds.length,
-                  ),
-              ],
-              if (!_sent) ...[
-                SizedBox(height: 6.spMin),
-                TextButton(
-                  onPressed: () => context.push(FamilySosListsScreen.route),
-                  child: Text(
-                    sosLists.isEmpty
-                        ? 'Set up who your SOS reaches'
-                        : 'Manage lists',
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white.withValues(alpha: 0.85),
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white54,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 10.spMin),
-                _liveLocationToggleBuilder(),
-              ],
-              const Spacer(),
-              _sent ? _sentIndicatorBuilder() : _holdButtonBuilder(),
-              SizedBox(height: 14.spMin),
-              if (!_sent)
-                Text(
-                  'Keep holding to send',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13.spMin,
-                  ),
-                ),
-              const Spacer(),
-              _whatThisDoesBuilder(emergencyNumber),
-              SizedBox(height: 8.spMin),
-              TextButton(
-                // Returns to whichever screen this SOS was started from —
-                // today, always the Family hub's own SOS tile, since that's
-                // the only place this screen is reachable from.
-                onPressed: _sent ? _goToFamily : () => context.pop(),
-                child: Text(
-                  _sent ? 'Done' : 'Cancel',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 15.spMin,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -318,8 +334,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             activeTrackColor: FamilyColors.safeGreen,
             inactiveThumbColor: Colors.white.withValues(alpha: 0.7),
             inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
-            onChanged: (value) =>
-                setState(() => _liveLocationEnabled = value),
+            onChanged: (value) => setState(() => _liveLocationEnabled = value),
           ),
         ],
       ),
@@ -328,6 +343,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
 
   Widget _holdButtonBuilder() {
     return GestureDetector(
+      key: const Key('sos-hold-button'),
       onTapDown: (_) {
         HapticFeedback.mediumImpact();
         _holdController.forward(from: 0);
@@ -458,19 +474,37 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     }
   }
 
+  /// True from the moment the hold completes until the server has
+  /// answered, so a second hold (or a stuck animation) can never raise a
+  /// second SOS.
+  bool _sending = false;
+
+  /// The auto-return, kept so Done and dispose can cancel it: an
+  /// un-cancelled timer once navigated a second time after Done and left
+  /// the person on the map tab.
+  Timer? _returnTimer;
+  bool _navigated = false;
+
   void _fireSos() async {
+    if (_sending || _sent) return;
+    _sending = true;
     HapticFeedback.heavyImpact();
     final notifier = ref.read(providerOfFamily.notifier);
-    var sos = await notifier.triggerSos(
-      sosListId: _selectedListId,
-      isLive: _liveLocationEnabled,
-    );
-    if (!mounted) return;
-    if (sos == null) {
-      // The answer may have been lost after the server acted. Ask before
-      // offering a retry, so a retry can never raise a second SOS.
-      sos = await notifier.findMyActiveSos();
+    FamilySosEvent? sos;
+    try {
+      sos = await notifier.triggerSos(
+        sosListId: _selectedListId,
+        isLive: _liveLocationEnabled,
+      );
       if (!mounted) return;
+      if (sos == null) {
+        // The answer may have been lost after the server acted. Ask before
+        // offering a retry, so a retry can never raise a second SOS.
+        sos = await notifier.findMyActiveSos();
+        if (!mounted) return;
+      }
+    } finally {
+      _sending = false;
     }
     if (sos != null) {
       setState(() => _sent = true);
@@ -485,21 +519,36 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
 
   /// Product decision 2026-09-09: once the server has confirmed the SOS,
   /// the sender goes straight back to the Family screen, where the red
-  /// "Your SOS is active" banner and its Open action live. The tick shows
+  /// "Your SOS is active" strip and its Open action live. The tick shows
   /// for a moment; no further tap is needed (Done still works sooner).
   void _returnToFamilyAfterSend() {
-    Future<void>.delayed(const Duration(milliseconds: 1200), () {
+    _returnTimer?.cancel();
+    _returnTimer = Timer(const Duration(milliseconds: 1200), () {
       if (!mounted || !_sent) return;
       _goToFamily();
     });
   }
 
+  /// Exactly once: choose the Family tab (the tab provider is kept alive,
+  /// so the choice survives this screen going away), then leave. Leaving
+  /// comes first in the try so a failure to set the tab can never leave
+  /// the tick on screen.
   void _goToFamily() {
-    ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+    if (_navigated) return;
+    _navigated = true;
+    _returnTimer?.cancel();
+    try {
+      ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+    } catch (_) {
+      // The tab is a courtesy; leaving the screen is the requirement.
+    }
     if (context.canPop()) {
       context.pop();
     } else {
-      context.go(HomeScreen.route);
+      context.go(
+        HomeScreen.route,
+        extra: HomeScreenArgs(initialTab: HomeTab.family),
+      );
     }
   }
 }

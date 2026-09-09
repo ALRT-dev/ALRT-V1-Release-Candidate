@@ -24,6 +24,8 @@ import 'package:hazard_app/features/shared/services/hazard_service.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 
 class NotificationService {
+  static String? _consumedLaunchMessageId;
+
   NotificationService(final Ref ref) : _ref = ref;
 
   final Ref _ref;
@@ -91,6 +93,15 @@ class NotificationService {
     );
   }
 
+  Future<Either<void, AppError>> unregisterPushNotificationToken() =>
+      _notificationRepository.unregisterPushNotificationToken();
+
+  Stream<String> onTokenRefresh() => _notificationRepository.onTokenRefresh();
+
+  Future<Either<Map<String, dynamic>, AppError>> sendTestNotification({
+    required final bool urgent,
+  }) => _notificationRepository.sendTestNotification(urgent: urgent);
+
   /// Calls [onMessageReceived] callback when the remote message is received from the push notification.
   Future<void> handlePushNotificationMessage({
     required final Function(RemoteMessage) onMessageReceived,
@@ -99,7 +110,13 @@ class NotificationService {
         .getInitialPushNotificationMessage();
 
     initialMessageResult.whenSuccess((remoteMessage) {
-      if (remoteMessage != null) {
+      // The launch message is handed over once. If the home shell is
+      // rebuilt (sign-out and in, a theme change) the same message must
+      // not route the user again.
+      final id =
+          remoteMessage?.messageId ?? remoteMessage?.sentTime?.toString();
+      if (remoteMessage != null && id != _consumedLaunchMessageId) {
+        _consumedLaunchMessageId = id;
         onMessageReceived(remoteMessage);
       }
     });

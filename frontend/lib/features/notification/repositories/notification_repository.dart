@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:hazard_app/api/rest_client.dart';
 import 'package:hazard_app/features/search/models/hazard_search_params.dart';
@@ -23,6 +25,18 @@ abstract class NotificationRepository {
 
   Future<Either<void, AppError>> sendPushNotificationToken({
     required final String token,
+  });
+
+  /// Removes this phone's token for the signed-in account and drops the
+  /// local FCM token, so the next account starts with a fresh one.
+  Future<Either<void, AppError>> unregisterPushNotificationToken();
+
+  /// Emits whenever Firebase rotates this phone's token.
+  Stream<String> onTokenRefresh();
+
+  /// A test push to the caller's own phones only.
+  Future<Either<Map<String, dynamic>, AppError>> sendTestNotification({
+    required bool urgent,
   });
 
   Future<Either<RemoteMessage?, AppError>> getInitialPushNotificationMessage();
@@ -68,8 +82,12 @@ class NotificationRepositoryImpl implements NotificationRepository {
         final notificationSettings = await _firebaseMessaging.requestPermission(
           carPlay: false,
         );
+        // Provisional (iOS quiet delivery) is a granted permission too:
+        // the token must be registered or those users never get a push.
         if (notificationSettings.authorizationStatus ==
-            AuthorizationStatus.authorized) {
+                AuthorizationStatus.authorized ||
+            notificationSettings.authorizationStatus ==
+                AuthorizationStatus.provisional) {
           final token = await _firebaseMessaging.getToken(
             vapidKey: vapidKey,
           );
@@ -123,8 +141,51 @@ class NotificationRepositoryImpl implements NotificationRepository {
       future: () async {
         await _restClient.sendPushNotificationToken(
           token: token,
+          platform: kIsWeb
+              ? 'web'
+              : Platform.isIOS
+              ? 'ios'
+              : 'android',
         );
         return Success(null);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<void, AppError>> unregisterPushNotificationToken() {
+    return runAsyncCall(
+      name: 'unregisterPushNotificationToken',
+      future: () async {
+        final token = await _firebaseMessaging.getToken();
+        if (token != null) {
+          await _restClient.deletePushNotificationToken(token: token);
+        }
+        // A new token is minted on the next registration, so a phone that
+        // changes hands cannot be reached with the old one.
+        await _firebaseMessaging.deleteToken();
+        return Success(null);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Stream<String> onTokenRefresh() => _firebaseMessaging.onTokenRefresh;
+
+  @override
+  Future<Either<Map<String, dynamic>, AppError>> sendTestNotification({
+    required bool urgent,
+  }) {
+    return runAsyncCall(
+      name: 'sendTestNotification',
+      future: () async {
+        final res = await _restClient.sendTestNotification(urgent: urgent);
+        final data = res.data;
+        return Success(
+          data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{},
+        );
       },
       onError: Failure.new,
     );

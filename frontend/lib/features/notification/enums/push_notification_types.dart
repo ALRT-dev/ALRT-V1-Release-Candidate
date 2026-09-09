@@ -19,4 +19,7 @@ enum PushNotificationType {
   familyLocationShared,
   familyScheduledCheckInPrompt,
   familyJourneyShared,
+
+  // A test the signed-in user sent to their own phones.
+  testNotification,
 }

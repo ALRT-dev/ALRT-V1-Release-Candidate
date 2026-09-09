@@ -21,7 +21,6 @@ import 'package:hazard_app/features/map/models/route_step_model.dart';
 import 'package:hazard_app/features/map/models/safest_fastest_routes_model.dart';
 import 'package:hazard_app/features/map/providers/hazard_markers_bitmaps_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
-import 'package:hazard_app/features/map/providers/map_display_settings_provider.dart';
 import 'package:hazard_app/features/map/providers/service_providers.dart';
 import 'package:hazard_app/features/map/providers/states/hazard_markers_bitmaps_provider_state.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
@@ -120,15 +119,6 @@ class MapProvider extends StateNotifier<MapProviderState> {
       },
     );
 
-    // Re-render markers when the Map details sheet's source-system toggles
-    // change so alerts from a hidden system disappear immediately.
-    _ref.listen(
-      providerOfVisibleAlertSystems,
-      (prev, next) {
-        if (prev != next && state.isMapReady) generateMarkers();
-      },
-    );
-
     _ref.onDispose(() {
       _headingStreamSubscription?.cancel();
       _positionStreamSubscription?.cancel();
@@ -168,7 +158,11 @@ class MapProvider extends StateNotifier<MapProviderState> {
     HazardFiltersProviderState filters,
   ) {
     return state.hazardCache.values
-        .where((h) => hazardIsInMapBounds(h, bounds) && hazardMatchesMapFilters(h, filters))
+        .where(
+          (h) =>
+              hazardIsInMapBounds(h, bounds) &&
+              hazardMatchesMapFilters(h, filters),
+        )
         .toList();
   }
 
@@ -1767,9 +1761,8 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// the group — previously every hazard rendered as its own marker (up to
   /// the full 5000-item page) which made wide zooms unreadable and slow.
   void generateMarkers() async {
-    // Exclude hazards whose source system is toggled off in the Map
-    // details sheet.
-    final visibleAlertSystems = _ref.read(providerOfVisibleAlertSystems);
+    // Which alerts show is decided once, by the shared ALRT Filters (applied
+    // when hazards are loaded and on every filter change).
     // A blocked account is blocked everywhere. The feed already excludes
     // them server-side; the map draws from cached state, so without this
     // a blocked person lingers as a pin after vanishing from the list.
@@ -1778,11 +1771,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
         (state.showRouteHazards
                 ? state.currentRoutePlan?.hazardsToAvoid ?? <Hazard>[]
                 : state.hazards)
-            .where(
-              (hazard) =>
-                  visibleAlertSystems.contains(AlertSourceSystem.of(hazard)) &&
-                  !blockedIds.contains(hazard.reportedBy?.id),
-            )
+            .where((hazard) => !blockedIds.contains(hazard.reportedBy?.id))
             .toList();
     final currentZoom = state.cameraPosition.zoom;
     final individualMarkers = <Marker>[];

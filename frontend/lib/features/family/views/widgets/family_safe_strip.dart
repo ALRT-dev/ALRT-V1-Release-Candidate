@@ -39,6 +39,10 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
     final circleCount = ref.watch(
       providerOfFamily.select((s) => s.circles.length),
     );
+    final loaded = ref.watch(
+      providerOfFamily.select((s) => s.hasLoadedOnce),
+    );
+    if (circleName == null && !loaded) return _loadingBuilder(context);
     if (circleName == null) return _noCircleBuilder(context);
 
     final isSending = ref.watch(
@@ -143,18 +147,51 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
       sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
     );
     if (choice == null || !mounted) return;
-    await ref.read(providerOfFamily.notifier).checkIn(
-      message: title == null ? "I'm safe" : 'Safe — near "$title"',
-      shareLocation: choice == CheckInConsentChoice.checkInAndShareLocation,
-      hazardId: widget.hazard.id,
-    );
+    await ref
+        .read(providerOfFamily.notifier)
+        .checkIn(
+          message: title == null ? "I'm safe" : 'Safe — near "$title"',
+          shareLocation: choice == CheckInConsentChoice.checkInAndShareLocation,
+          hazardId: widget.hazard.id,
+        );
     if (!mounted) return;
 
     final failed = ref.read(providerOfFamily).checkInState.isError;
     if (!failed) {
       setState(() => _sent = true);
-      context.showSuccessToast(message: 'Checked in · your circle has been notified.');
+      context.showSuccessToast(
+        message: 'Checked in · your circle has been notified.',
+      );
     }
+  }
+
+  /// The circle has not been read yet (cold start): say so, rather than
+  /// telling a member they have no circle.
+  Widget _loadingBuilder(final BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(top: 14.spMin),
+      padding: EdgeInsets.all(14.spMin),
+      decoration: BoxDecoration(
+        color: FamilyColors.indigoLight,
+        borderRadius: BorderRadius.circular(16.spMin),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18.spMin,
+            height: 18.spMin,
+            child: const CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 10.spMin),
+          Expanded(
+            child: Text(
+              'Loading your family circle…',
+              style: TextStyle(fontSize: 13.spMin, color: AppColors.black),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// No circle yet: say so, and point at the Family tab. Never a dead
@@ -189,7 +226,11 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
             },
             child: Text(
               'Family',
-              style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w700, color: FamilyColors.indigo),
+              style: TextStyle(
+                fontSize: 13.spMin,
+                fontWeight: FontWeight.w700,
+                color: FamilyColors.indigo,
+              ),
             ),
           ),
         ],

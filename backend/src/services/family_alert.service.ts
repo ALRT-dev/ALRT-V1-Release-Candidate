@@ -1,3 +1,4 @@
+import { pushSafeHazard } from "./notification.service.js";
 import type {
   FamilyMember,
   FamilySavedPlace,
@@ -497,7 +498,8 @@ const recordPlaceEvent = async (
     excludeMemberIds: [member.id],
     ...(shouldNotify && {
       title: `${name} ${verb} ${place.name}`,
-      body: place.address || place.name,
+      // The saved place's street address never goes on a lock screen.
+      body: type === "arrived" ? "Arrived safely." : "On the move.",
       type: PushNotificationType.familyPlaceEvent,
     }),
     data: {
@@ -596,7 +598,7 @@ const flagMemberNearHazard = async (
     // key (that produced a double-encoded payload the frontend couldn't
     // parse as a hazard). See V1_RECONCILIATION_REPORT.md Stage 11.
     data: {
-      ...hazard,
+      ...pushSafeHazard(hazard),
       circleId: member.circleId,
       memberId: member.id,
       distanceKm,
@@ -707,7 +709,7 @@ export const notifyFamiliesAboutNewHazard = async (hazard: Hazard) => {
         // Same fix as flagMemberNearHazard above: top-level hazard fields,
         // not a pre-stringified nested `payload` key.
         data: {
-          ...hazard,
+          ...pushSafeHazard(hazard),
           circleId: place.circleId,
           placeId: place.id,
         },

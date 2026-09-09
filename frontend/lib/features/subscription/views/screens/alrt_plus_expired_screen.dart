@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
+import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_benefits.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -76,6 +77,8 @@ class AlrtPlusExpiredScreen extends ConsumerWidget {
                       color: AlrtPlusStyle.inkSoft,
                     ),
                   ),
+                  SizedBox(height: 14.spMin),
+                  const AlrtPlusBenefitsTable(title: 'Free versus ALRT+'),
                   SizedBox(height: 18.spMin),
                   _freeCardBuilder(),
                   SizedBox(height: 10.spMin),
@@ -128,8 +131,7 @@ class AlrtPlusExpiredScreen extends ConsumerWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: () =>
-                context.canPop() ? context.pop() : context.go('/'),
+            onPressed: () => context.canPop() ? context.pop() : context.go('/'),
             icon: Icon(
               LucideIcons.arrowLeft,
               color: Colors.white,
@@ -176,7 +178,8 @@ class AlrtPlusExpiredScreen extends ConsumerWidget {
           SizedBox(height: 10.spMin),
           AlrtPlusLavNote(
             lead: 'Hosting a circle?',
-            text: 'It keeps working as usual for 7 days while it looks '
+            text:
+                'It keeps working as usual for 7 days while it looks '
                 'for a new host to take over, so nobody in it loses '
                 'access suddenly.',
           ),
@@ -197,7 +200,9 @@ class AlrtPlusExpiredScreen extends ConsumerWidget {
           Icon(
             on ? LucideIcons.check : icon,
             size: 16.spMin,
-            color: on ? AlrtPlusStyle.greenGradient.colors.last : AlrtPlusStyle.inkFaint,
+            color: on
+                ? AlrtPlusStyle.greenGradient.colors.last
+                : AlrtPlusStyle.inkFaint,
           ),
           SizedBox(width: 10.spMin),
           Expanded(

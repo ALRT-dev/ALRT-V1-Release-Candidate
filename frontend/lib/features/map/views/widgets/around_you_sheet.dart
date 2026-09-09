@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/map/utils/hazard_visibility_util.dart';
+import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
-import 'package:hazard_app/features/map/providers/map_display_settings_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
@@ -27,8 +28,7 @@ class AroundYouSheet extends ConsumerStatefulWidget {
   const AroundYouSheet({super.key});
 
   @override
-  ConsumerState<ConsumerStatefulWidget> createState() =>
-      _AroundYouSheetState();
+  ConsumerState<ConsumerStatefulWidget> createState() => _AroundYouSheetState();
 }
 
 class _AroundYouSheetState extends ConsumerState<AroundYouSheet> {
@@ -86,7 +86,7 @@ class _AroundYouSheetState extends ConsumerState<AroundYouSheet> {
             (value) => value.hazards,
           ),
         );
-        final visibleSystems = ref.watch(providerOfVisibleAlertSystems);
+        final filters = ref.watch(providerOfHazardFiltersForMap);
         final userLocation = ref.watch(
           providerOfLocation.select(
             (value) => value.location,
@@ -99,7 +99,7 @@ class _AroundYouSheetState extends ConsumerState<AroundYouSheet> {
                   (hazard) =>
                       hazard.latitude != null &&
                       hazard.longitude != null &&
-                      visibleSystems.contains(AlertSourceSystem.of(hazard)),
+                      hazardMatchesMapFilters(hazard, filters),
                 )
                 .map(
                   (hazard) => (

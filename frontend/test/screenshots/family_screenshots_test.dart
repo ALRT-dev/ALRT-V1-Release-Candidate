@@ -32,59 +32,13 @@ import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_sheet.dart';
 import 'package:hazard_app/others/app_theme.dart';
 
+import 'screenshot_fonts.dart';
+
 final _enabled = Platform.environment['ALRT_SCREENSHOTS'] == '1';
 
 class _LiveOn extends LiveConnectionNotifier {
   @override
   bool build() => true;
-}
-
-Future<void> _loadFonts() async {
-  // FLUTTER_ROOT is set by `flutter test`; the Dart VM path is inside
-  // bin/cache/dart-sdk, so walk up to the SDK root as a fallback.
-  final sdk = Platform.environment['FLUTTER_ROOT'] ??
-      File(Platform.resolvedExecutable).parent.parent.parent.parent.parent.path;
-  final materialFonts = '$sdk/bin/cache/artifacts/material_fonts';
-  // ignore: avoid_print
-  print('fonts from $materialFonts exists=${Directory(materialFonts).existsSync()}');
-  Future<void> load(String family, List<String> files) async {
-    final loader = FontLoader(family);
-    for (final f in files) {
-      final file = File(f);
-      if (!file.existsSync()) continue;
-      loader.addFont(
-        file.readAsBytes().then((b) => ByteData.view(b.buffer)),
-      );
-    }
-    await loader.load();
-  }
-  // The theme asks for Arial; on a phone that resolves to the system sans.
-  await load('Arial', [
-    '$materialFonts/Roboto-Regular.ttf',
-    '$materialFonts/Roboto-Medium.ttf',
-    '$materialFonts/Roboto-Bold.ttf',
-    '$materialFonts/Roboto-Black.ttf',
-  ]);
-  await load('Roboto', [
-    '$materialFonts/Roboto-Regular.ttf',
-    '$materialFonts/Roboto-Medium.ttf',
-    '$materialFonts/Roboto-Bold.ttf',
-  ]);
-  await load('MaterialIcons', ['$materialFonts/MaterialIcons-Regular.otf']);
-  final pub = Platform.environment['PUB_CACHE'] ??
-      '${Platform.environment['HOME']}/.pub-cache';
-  final lucideDir = Directory('$pub/hosted/pub.dev')
-      .listSync()
-      .whereType<Directory>()
-      .where((d) => d.path.contains('/lucide_icons_flutter-'))
-      .map((d) => d.path)
-      .toList()
-    ..sort();
-  if (lucideDir.isNotEmpty) {
-    await load('packages/lucide_icons_flutter/Lucide', [
-      '${lucideDir.last}/assets/build_font/LucideVariable-w500.ttf',
-    ]);
-  }
 }
 
 final _now = DateTime.now();
@@ -97,21 +51,25 @@ FamilyMember _member({
   DateTime? lastCheckInAt,
   String? label,
   String? colorHex,
-}) =>
-    FamilyMember(
-      id: id,
-      userId: 'u-$id',
-      name: name,
-      role: role,
-      sharingLevel: level,
-      lastCheckInAt: lastCheckInAt,
-      locationLabel: label,
-      locationUpdatedAt: label == null ? null : _now.subtract(const Duration(minutes: 12)),
-      locationExpiresAt: label == null ? null : _now.add(const Duration(minutes: 48)),
-      colorHex: colorHex,
-    );
+}) => FamilyMember(
+  id: id,
+  userId: 'u-$id',
+  name: name,
+  role: role,
+  sharingLevel: level,
+  lastCheckInAt: lastCheckInAt,
+  locationLabel: label,
+  locationUpdatedAt: label == null
+      ? null
+      : _now.subtract(const Duration(minutes: 12)),
+  locationExpiresAt: label == null
+      ? null
+      : _now.add(const Duration(minutes: 48)),
+  colorHex: colorHex,
+);
 
-FamilyCircle _circle({bool askPending = true, bool multiAsk = false}) => FamilyCircle(
+FamilyCircle _circle({bool askPending = true, bool multiAsk = false}) =>
+    FamilyCircle(
       id: 'c1',
       name: 'The Nixons',
       myMemberId: 'me',
@@ -152,67 +110,76 @@ FamilyCircle _circle({bool askPending = true, bool multiAsk = false}) => FamilyC
 
 /// Amy's ask alone, or Amy, Tom and Ben all asking within minutes.
 List<FamilyCheckInRequest> _asks(bool multi) => [
-      if (multi)
-        FamilyCheckInRequest(
-          id: 'r3',
-          circleId: 'c1',
-          requestedById: 'ben',
-          requestedBy: const FamilyMemberSnippet(id: 'ben', nickname: 'Ben'),
-          createdAt: _now.subtract(const Duration(minutes: 1)),
-        ),
-      if (multi)
-        FamilyCheckInRequest(
-          id: 'r2',
-          circleId: 'c1',
-          requestedById: 'tom',
-          requestedBy: const FamilyMemberSnippet(id: 'tom', nickname: 'Tom'),
-          createdAt: _now.subtract(const Duration(minutes: 3)),
-          message: 'Big storm here, all okay?',
-        ),
-      FamilyCheckInRequest(
-        id: 'r1',
-        circleId: 'c1',
-        requestedById: 'amy',
-        requestedBy: const FamilyMemberSnippet(id: 'amy', nickname: 'Amy'),
-        createdAt: _now.subtract(const Duration(minutes: 5)),
-        targetMemberIds: const ['me'],
-      ),
-    ];
+  if (multi)
+    FamilyCheckInRequest(
+      id: 'r3',
+      circleId: 'c1',
+      requestedById: 'ben',
+      requestedBy: const FamilyMemberSnippet(id: 'ben', nickname: 'Ben'),
+      createdAt: _now.subtract(const Duration(minutes: 1)),
+    ),
+  if (multi)
+    FamilyCheckInRequest(
+      id: 'r2',
+      circleId: 'c1',
+      requestedById: 'tom',
+      requestedBy: const FamilyMemberSnippet(id: 'tom', nickname: 'Tom'),
+      createdAt: _now.subtract(const Duration(minutes: 3)),
+      message: 'Big storm here, all okay?',
+    ),
+  FamilyCheckInRequest(
+    id: 'r1',
+    circleId: 'c1',
+    requestedById: 'amy',
+    requestedBy: const FamilyMemberSnippet(id: 'amy', nickname: 'Amy'),
+    createdAt: _now.subtract(const Duration(minutes: 5)),
+    targetMemberIds: const ['me'],
+  ),
+];
 
 FamilyProviderState _state({bool multiAsk = false}) => FamilyProviderState(
-      circle: _circle(multiAsk: multiAsk),
-      hasLoadedOnce: true,
-      circles: const [
-        FamilyCircleSummary(
-          circleId: 'c1',
-          name: 'The Nixons',
-          myMemberId: 'me',
-          role: FamilyRole.owner,
-          isOwned: true,
-          seatCount: 2,
-          memberCount: 4,
-          themeColor: '#7B3FA0',
-          checkedInCount: 2,
-          waitingOn: ['Tom', 'Ben'],
-        ),
-        FamilyCircleSummary(
-          circleId: 'c2',
-          name: 'Netball Mums',
-          pendingCheckInRequests: 1,
-          myMemberId: 'me2',
-          isOwned: false,
-          memberCount: 6,
-          themeColor: '#16A46B',
-          checkedInCount: 6,
-        ),
-      ],
-    );
+  circle: _circle(multiAsk: multiAsk),
+  hasLoadedOnce: true,
+  circles: const [
+    FamilyCircleSummary(
+      circleId: 'c1',
+      name: 'The Nixons',
+      myMemberId: 'me',
+      role: FamilyRole.owner,
+      isOwned: true,
+      seatCount: 2,
+      memberCount: 4,
+      themeColor: '#7B3FA0',
+      checkedInCount: 2,
+      waitingOn: ['Tom', 'Ben'],
+    ),
+    FamilyCircleSummary(
+      circleId: 'c2',
+      name: 'Netball Mums',
+      pendingCheckInRequests: 1,
+      myMemberId: 'me2',
+      isOwned: false,
+      memberCount: 6,
+      themeColor: '#16A46B',
+      checkedInCount: 6,
+    ),
+  ],
+);
 
-Widget _app(Widget home, {bool dark = false, double textScale = 1.0, bool multiAsk = false}) {
+Widget _app(
+  Widget home, {
+  bool dark = false,
+  double textScale = 1.0,
+  bool multiAsk = false,
+}) {
   return ProviderScope(
     overrides: [
       providerOfFamily.overrideWith(
-        (ref) => FamilyProvider(ref: ref, state: _state(multiAsk: multiAsk), bootstrap: false),
+        (ref) => FamilyProvider(
+          ref: ref,
+          state: _state(multiAsk: multiAsk),
+          bootstrap: false,
+        ),
       ),
       providerOfLiveConnection.overrideWith(_LiveOn.new),
       providerOfAlrtPlusBillingIssue.overrideWith((ref) async => false),
@@ -240,24 +207,37 @@ Widget _app(Widget home, {bool dark = false, double textScale = 1.0, bool multiA
   );
 }
 
-Future<void> _shoot(WidgetTester tester, String name, {Size size = const Size(390, 844)}) async {
+Future<void> _shoot(
+  WidgetTester tester,
+  String name, {
+  Size size = const Size(390, 844),
+}) async {
   await tester.binding.setSurfaceSize(size);
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   await tester.pump(const Duration(milliseconds: 300));
-  await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+  await expectLater(
+    find.byType(MaterialApp),
+    matchesGoldenFile('goldens/$name.png'),
+  );
 }
 
 void main() {
   setUpAll(() async {
-    dotenv.loadFromString(envString: 'ALRT_PLUS_TEST_UNLOCK=false\nREVENUECAT_API_KEY_GOOGLE=\n');
-    if (_enabled) await _loadFonts();
+    dotenv.loadFromString(
+      envString: 'ALRT_PLUS_TEST_UNLOCK=false\nREVENUECAT_API_KEY_GOOGLE=\n',
+    );
+    if (_enabled) await loadScreenshotFonts();
   });
 
   testWidgets('family hub, light, ask pending', (tester) async {
     await tester.pumpWidget(_app(const FamilyHubScreen()));
     await _shoot(tester, '01_family_hub_light');
-    await _shoot(tester, '02_family_hub_light_full', size: const Size(390, 1500));
+    await _shoot(
+      tester,
+      '02_family_hub_light_full',
+      size: const Size(390, 1500),
+    );
   }, skip: !_enabled);
 
   testWidgets('family hub, dark', (tester) async {
@@ -272,7 +252,18 @@ void main() {
 
   testWidgets('member details sheet (host viewing a member)', (tester) async {
     late BuildContext ctx;
-    await tester.pumpWidget(_app(Scaffold(body: Builder(builder: (c) { ctx = c; return const SizedBox.shrink(); }))));
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
     showFamilyMemberDetailsSheet(
       ctx,
       member: _circle().members[2],
@@ -288,10 +279,27 @@ void main() {
     await _shoot(tester, '05_member_details_sheet');
   }, skip: !_enabled);
 
-  testWidgets('check-in consent sheet, approximate, answering an ask', (tester) async {
+  testWidgets('check-in consent sheet, approximate, answering an ask', (
+    tester,
+  ) async {
     late BuildContext ctx;
-    await tester.pumpWidget(_app(Scaffold(body: Builder(builder: (c) { ctx = c; return const SizedBox.shrink(); }))));
-    showCheckInConsentSheet(ctx, requesterName: 'Amy', sharingLevel: FamilySharingLevel.approximate);
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+    showCheckInConsentSheet(
+      ctx,
+      requesterName: 'Amy',
+      sharingLevel: FamilySharingLevel.approximate,
+    );
     await tester.pumpAndSettle();
     await _shoot(tester, '06_consent_sheet_approximate');
   }, skip: !_enabled);
@@ -299,7 +307,19 @@ void main() {
   testWidgets('choose a circle sheet', (tester) async {
     late WidgetRef sheetRef;
     late BuildContext ctx;
-    await tester.pumpWidget(_app(Scaffold(body: Consumer(builder: (c, r, _) { ctx = c; sheetRef = r; return const SizedBox.shrink(); }))));
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Consumer(
+            builder: (c, r, _) {
+              ctx = c;
+              sheetRef = r;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
     showChooseCircleSheet(ctx, sheetRef);
     await tester.pumpAndSettle();
     await _shoot(tester, '12_choose_circle_sheet');
@@ -311,57 +331,73 @@ void main() {
   }, skip: !_enabled);
 
   testWidgets('check-in requests sheet', (tester) async {
-    await tester.pumpWidget(_app(
-      Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: TextButton(
-              onPressed: () => showCheckInRequestsSheet(context, onCheckIn: () async {}),
-              child: const Text('open'),
+    await tester.pumpWidget(
+      _app(
+        Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () =>
+                    showCheckInRequestsSheet(context, onCheckIn: () async {}),
+                child: const Text('open'),
+              ),
             ),
           ),
         ),
+        multiAsk: true,
       ),
-      multiAsk: true,
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await _shoot(tester, '14_check_in_requests_sheet');
   }, skip: !_enabled);
 
-  testWidgets('map details sheet (three-quarter height, map visible above)', (tester) async {
-    await tester.pumpWidget(_app(
-      Builder(
-        builder: (context) => Scaffold(
-          backgroundColor: const Color(0xFFB9D6A6),
-          body: Center(
-            child: TextButton(
-              onPressed: () => showMapDetailsSheet(context: context),
-              child: const Text('open'),
+  testWidgets('map details sheet (three-quarter height, map visible above)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: const Color(0xFFB9D6A6),
+            body: Center(
+              child: TextButton(
+                onPressed: () => showMapDetailsSheet(context: context),
+                child: const Text('open'),
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await _shoot(tester, '15_map_details_sheet');
   }, skip: !_enabled);
 
-  testWidgets('alert detail: family check-in strip (two circles)', (tester) async {
-    await tester.pumpWidget(_app(
-      Scaffold(
-        backgroundColor: Colors.white,
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: const [
-              FamilySafeStrip(hazard: Hazard(id: 'h1', title: 'Severe thunderstorm warning')),
-            ],
+  testWidgets('alert detail: family check-in strip (two circles)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          backgroundColor: Colors.white,
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: const [
+                FamilySafeStrip(
+                  hazard: Hazard(
+                    id: 'h1',
+                    title: 'Severe thunderstorm warning',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     await _shoot(tester, '16_alert_check_in_strip', size: const Size(390, 300));
   }, skip: !_enabled);
@@ -373,13 +409,25 @@ void main() {
 
   testWidgets('upsell sheet: hosting needs ALRT+', (tester) async {
     late BuildContext ctx;
-    await tester.pumpWidget(_app(Scaffold(body: Builder(builder: (c) { ctx = c; return const SizedBox.shrink(); }))));
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
     showAlrtPlusUpsellSheet(
       context: ctx,
       icon: AlrtPlusUpsellIcons.hostCircle,
       iconGradient: familyUpsellGradient,
       title: 'Hosting needs ALRT+',
-      message: 'Joining a Family circle is always free. Hosting your own — invites, seats, circle settings — needs ALRT+.',
+      message:
+          'Joining a Family circle is always free. Hosting your own — invites, seats, circle settings — needs ALRT+.',
       primaryLabel: 'See ALRT+',
       onPrimary: (_) async => false,
     );
@@ -389,12 +437,24 @@ void main() {
 
   testWidgets('upsell sheet: one free saved location', (tester) async {
     late BuildContext ctx;
-    await tester.pumpWidget(_app(Scaffold(body: Builder(builder: (c) { ctx = c; return const SizedBox.shrink(); }))));
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
     showAlrtPlusUpsellSheet(
       context: ctx,
       icon: AlrtPlusUpsellIcons.savedLocation,
       title: 'One free saved location',
-      message: 'Free accounts can save 1 location. ALRT+ removes the limit, so you can save as many as you like.',
+      message:
+          'Free accounts can save 1 location. ALRT+ removes the limit, so you can save as many as you like.',
       primaryLabel: 'See ALRT+',
       onPrimary: (_) async => false,
     );
@@ -409,16 +469,35 @@ void main() {
   }, skip: !_enabled);
 
   testWidgets('paywall opened from the saved-location gate', (tester) async {
-    await tester.pumpWidget(_app(const AlrtPlusPaywallScreen(
-      args: AlrtPlusPaywallArgs(reason: AlrtPlusPaywallReason.savedLocation),
-    )));
+    await tester.pumpWidget(
+      _app(
+        const AlrtPlusPaywallScreen(
+          args: AlrtPlusPaywallArgs(
+            reason: AlrtPlusPaywallReason.savedLocation,
+          ),
+        ),
+      ),
+    );
     await tester.pump(const Duration(seconds: 1));
     await _shoot(tester, '17_paywall_saved_location');
   }, skip: !_enabled);
 
-  testWidgets('member details sheet: last check-in made from an alert', (tester) async {
+  testWidgets('member details sheet: last check-in made from an alert', (
+    tester,
+  ) async {
     late BuildContext ctx;
-    await tester.pumpWidget(_app(Scaffold(body: Builder(builder: (c) { ctx = c; return const SizedBox.shrink(); }))));
+    await tester.pumpWidget(
+      _app(
+        Scaffold(
+          body: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
     final member = _circle().members[2];
     showFamilyMemberDetailsSheet(
       ctx,
@@ -431,7 +510,10 @@ void main() {
         circleId: 'c1',
         memberId: member.id,
         message: 'All good here',
-        hazard: const FamilyCheckInAlert(id: 'h1', title: 'Grass fire near Scarborough'),
+        hazard: const FamilyCheckInAlert(
+          id: 'h1',
+          title: 'Grass fire near Scarborough',
+        ),
         createdAt: _now.subtract(const Duration(minutes: 3)),
       ),
       onAskToCheckIn: () {},

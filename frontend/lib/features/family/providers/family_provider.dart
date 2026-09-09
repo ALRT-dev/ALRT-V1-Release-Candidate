@@ -21,7 +21,6 @@ import 'package:hazard_app/features/shared/services/analytics_service.dart';
 import 'package:hazard_app/features/family/views/widgets/family_location_request_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/incoming_family_alert_overlay.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -61,6 +60,20 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       _ref.read(providerOfFamilySocketManager);
 
   static const _recentCheckInsLimit = 20;
+
+  /// Sign-out and account switches invalidate this provider; every
+  /// periodic stream (SOS live share, stale polling, journey points) must
+  /// stop with it so a departed account never keeps posting.
+  @override
+  void dispose() {
+    _sosLiveTimer?.cancel();
+    _sosLiveTimer = null;
+    _stalePollTimer?.cancel();
+    _stalePollTimer = null;
+    _journeyTimer?.cancel();
+    _journeyTimer = null;
+    super.dispose();
+  }
 
   /// SOS live share: while MY SOS is active the phone shares a point every
   /// [_sosLiveInterval]. This is the single permitted continuous stream
@@ -204,7 +217,10 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       final label = checkIn.status == FamilyCheckInStatus.safe
           ? '$name checked in safe'
           : '$name needs help';
-      _showToast(message: label, isWarning: checkIn.status != FamilyCheckInStatus.safe);
+      _showToast(
+        message: label,
+        isWarning: checkIn.status != FamilyCheckInStatus.safe,
+      );
     }
   }
 
@@ -342,7 +358,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   /// Test hooks: feed a socket event exactly as the live stream would.
   @visibleForTesting
-  void debugReceiveSos(final FamilySosEvent sosEvent) => _onSosReceived(sosEvent);
+  void debugReceiveSos(final FamilySosEvent sosEvent) =>
+      _onSosReceived(sosEvent);
   @visibleForTesting
   void debugReceiveSosResolved(final FamilySosEvent sosEvent) =>
       _onSosResolved(sosEvent);
@@ -353,6 +370,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   void _onSosReceived(final FamilySosEvent sosEvent) {
     if (!_isCircleInScope(sosEvent.circleId)) return;
     if (_endedSosIds.contains(sosEvent.id)) return;
+    // No grace for a socket copy: the server already knows this SOS, so a
+    // refresh that answers without it is the server saying it has ended.
     _upsertSosEvent(sosEvent);
     _refreshGroupListIfOtherCircle(sosEvent.circleId);
 
@@ -449,8 +468,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     final myUserId = _ref.read(providerOfLoggedInUser)?.id;
     final eventIsMine =
         event.memberId == state.circle?.myMemberId ||
-        (event.member?.user?.id != null &&
-            event.member?.user?.id == myUserId);
+        (event.member?.user?.id != null && event.member?.user?.id == myUserId);
     final responderIsMe =
         response.memberId == state.circle?.myMemberId ||
         (response.member?.user?.id != null &&
@@ -560,7 +578,9 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
           circle: circle,
           hasLoadedOnce: true,
           loadState: const FamilyActionState.success(),
-          activeSosEvents: circle?.activeSosEvents ?? const [],
+          // Live SOS are refreshed across every circle right after this
+          // (the circle payload only knows its own, and would wipe the
+          // others and, for one round trip, the one just sent).
         );
 
         if (circle != null) {
@@ -611,7 +631,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       // cannot draw (it shows a spinner). When a background refresh
       // produces it, load the scope now rather than wait for a tap.
       final scoped = state.circle;
-      final scopeLost = circles.isNotEmpty &&
+      final scopeLost =
+          circles.isNotEmpty &&
           (scoped == null || !circles.any((c) => c.circleId == scoped.id));
       if (scopeLost && reloadIfScopeLost && !_loading) {
         unawaited(load(silent: true));
@@ -847,7 +868,9 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     );
 
     final departedName = state.circle?.name;
-    var outcome = isDelete ? FamilyLeaveOutcome.deleted : FamilyLeaveOutcome.left;
+    var outcome = isDelete
+        ? FamilyLeaveOutcome.deleted
+        : FamilyLeaveOutcome.left;
     var left = false;
     AppError? error;
     if (isDelete) {
@@ -871,7 +894,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       final circles = await _familyService.getFamilyCircles();
       if (!mounted) return;
       final stillIn = circles.when(
-        (list) => departedId != null && list.any((c) => c.circleId == departedId),
+        (list) =>
+            departedId != null && list.any((c) => c.circleId == departedId),
         (_) => true,
       );
       if (!stillIn && departedId != null) {
@@ -883,7 +907,10 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     if (!left) {
       state = state.copyWith(
         leaveDeleteState: FamilyActionState.error(
-          error ?? const AppError(message: 'Could not leave the circle. Please try again.'),
+          error ??
+              const AppError(
+                message: 'Could not leave the circle. Please try again.',
+              ),
         ),
       );
       return;
@@ -895,9 +922,10 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     final name = departedName ?? 'the circle';
     _showToast(
       message: switch (outcome) {
-        FamilyLeaveOutcome.deleted => isDelete
-            ? '$name was deleted.'
-            : 'You were the last member, so $name was deleted.',
+        FamilyLeaveOutcome.deleted =>
+          isDelete
+              ? '$name was deleted.'
+              : 'You were the last member, so $name was deleted.',
         FamilyLeaveOutcome.hostTransition =>
           'You left $name as host. The circle has 7 days to choose a new host.',
         FamilyLeaveOutcome.left => 'You left $name.',
@@ -1208,13 +1236,15 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
     // Answer the newest ask I owe (one check-in after it answers every
     // older one too); with none owed, my own or the latest ask on record.
-    final requestId = state.circle?.checkInRequestOwedByMe?.id ??
+    final requestId =
+        state.circle?.checkInRequestOwedByMe?.id ??
         state.circle?.latestCheckInRequest?.id;
     // A circle where someone is waiting on my check-in is never answered
     // as a side effect of checking in here (see checkInTargetCircleIds).
     final targetCircleIds = checkInTargetCircleIds(
       owedRequestId: requestId,
-      selectedCircleId: _ref.read(providerOfSelectedCircleId) ?? state.circle?.id,
+      selectedCircleId:
+          _ref.read(providerOfSelectedCircleId) ?? state.circle?.id,
       circles: state.circles,
     );
 
@@ -1849,9 +1879,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
     state = state.copyWith(
       circle: circle.copyWith(
-        places: circle.places
-            .map((p) => p.id == place.id ? place : p)
-            .toList(),
+        places: circle.places.map((p) => p.id == place.id ? place : p).toList(),
       ),
     );
   }
@@ -1883,6 +1911,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     return result.when(
       (sosEvent) {
         AnalyticsService.familySosTriggered();
+        _noteRecentSos(sosEvent.id);
         _upsertSosEvent(sosEvent);
         // Only start the continuous stream when the sender chose it.
         if (isLive) _startSosLiveShare();
@@ -1955,7 +1984,9 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       (events) {
         state = state.copyWith(activeSosEvents: events);
         return events
-            .where((e) => isSosMine(e, myMemberId: myMemberId, myUserId: myUserId))
+            .where(
+              (e) => isSosMine(e, myMemberId: myMemberId, myUserId: myUserId),
+            )
             .firstOrNull;
       },
       (_) => null,
@@ -2002,19 +2033,47 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// strip ("any of your groups") survives a reload while another
   /// circle's SOS is live. The old circle-scoped fetch wiped those on
   /// every resume, reconnect or poll.
+  /// SOS ids this phone itself raised very recently, with when. A refresh
+  /// that was already in flight when the send was accepted can answer
+  /// without it (the request overtook the commit); that must not end the
+  /// sender's own SOS locally. Received copies get no such grace: the
+  /// server knew them already, so its answer is the record.
+  final _recentSosIds = <String, DateTime>{};
+  static const _recentSosGrace = Duration(seconds: 90);
+
+  void _noteRecentSos(final String id) {
+    _recentSosIds[id] = DateTime.now();
+    _recentSosIds.removeWhere(
+      (_, at) => DateTime.now().difference(at) > _recentSosGrace,
+    );
+  }
+
   Future<void> _refreshActiveSosEvents() async {
+    // Only what was known BEFORE asking can be judged by the answer.
+    final knownBefore = state.activeSosEvents.map((e) => e.id).toSet();
     final result = await _familyService.getAllActiveFamilySosEvents();
     if (!mounted) return;
 
     result.whenSuccess((events) {
       final ids = events.map((e) => e.id).toSet();
-      // The server is the record: anything it no longer lists has ended.
-      for (final e in state.activeSosEvents) {
-        if (!ids.contains(e.id)) _endedSosIds.add(e.id);
+      final now = DateTime.now();
+      // The server is the record: anything it no longer lists has ended,
+      // unless it is so new the request may have overtaken it.
+      for (final id in knownBefore) {
+        final at = _recentSosIds[id];
+        final isRecent = at != null && now.difference(at) < _recentSosGrace;
+        if (!ids.contains(id) && !isRecent) _endedSosIds.add(id);
       }
+      final kept = state.activeSosEvents.where((e) {
+        if (ids.contains(e.id)) return false;
+        final at = _recentSosIds[e.id];
+        return at != null && now.difference(at) < _recentSosGrace;
+      });
       state = state.copyWith(
-        activeSosEvents:
-            events.where((e) => !_endedSosIds.contains(e.id)).toList(),
+        activeSosEvents: [
+          ...events.where((e) => !_endedSosIds.contains(e.id)),
+          ...kept,
+        ],
       );
       return null;
     });
@@ -2080,9 +2139,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     required final String message,
     final bool isWarning = false,
   }) {
-    final context = _ref
-        .read(providerOfGlobalNavigatorKey)
-        .currentContext;
+    final context = _ref.read(providerOfGlobalNavigatorKey).currentContext;
     if (context == null || !context.mounted) return;
 
     isWarning

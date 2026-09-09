@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/subscription/utils/alrt_plus_limits.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -75,8 +76,8 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
 
     // Keep showing a code only while it is still active (revoked or
     // expired codes drop out of `invites`, and so out of the big card).
-    final shown = _shownCode != null &&
-            invites.any((invite) => invite.code == _shownCode)
+    final shown =
+        _shownCode != null && invites.any((invite) => invite.code == _shownCode)
         ? _shownCode
         : null;
 
@@ -120,8 +121,8 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
                   createState.isLoading
                       ? 'Generating...'
                       : shown == null
-                          ? 'Create an invite code'
-                          : 'Create another code',
+                      ? 'Create an invite code'
+                      : 'Create another code',
                   style: TextStyle(
                     fontSize: 15.spMin,
                     fontWeight: FontWeight.w700,
@@ -169,9 +170,7 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.spMin),
         border: Border.all(
-          color: _inviteAsGuest
-              ? FamilyColors.indigo
-              : const Color(0xFFE6E6EA),
+          color: _inviteAsGuest ? FamilyColors.indigo : const Color(0xFFE6E6EA),
           width: _inviteAsGuest ? 1.5 : 1.0,
         ),
       ),
@@ -223,41 +222,41 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
   /// can talk the other person through it.
   Widget _howTheyJoinBuilder() {
     Widget step(final int n, final String text) => Padding(
-          padding: EdgeInsets.only(bottom: 6.spMin),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 20.spMin,
-                height: 20.spMin,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: FamilyColors.indigoLight,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  '$n',
-                  style: TextStyle(
-                    fontSize: 11.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: FamilyColors.indigoDark,
-                  ),
-                ),
+      padding: EdgeInsets.only(bottom: 6.spMin),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20.spMin,
+            height: 20.spMin,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: FamilyColors.indigoLight,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$n',
+              style: TextStyle(
+                fontSize: 11.spMin,
+                fontWeight: FontWeight.w800,
+                color: FamilyColors.indigoDark,
               ),
-              SizedBox(width: 10.spMin),
-              Expanded(
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    height: 1.4,
-                    color: FamilyColors.v31Ink,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        );
+          SizedBox(width: 10.spMin),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12.5.spMin,
+                height: 1.4,
+                color: FamilyColors.v31Ink,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Container(
       padding: EdgeInsets.all(14.spMin),
@@ -466,7 +465,7 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
   /// Seat cap across every circle the caller owns, matching
   /// MAX_SEATS_TOTAL in family.service.ts. There is only one paid tier, so
   /// hitting this is never fixed by upgrading — only by freeing a seat.
-  static const _kMaxSeats = 8;
+  static const _kMaxSeats = kAlrtPlusSeats;
 
   void _onGenerate() async {
     // Guest invites never use a seat, so they can't hit this. A non-guest

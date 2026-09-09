@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/notification/views/widgets/notification_status_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/notification/views/widgets/all_location_subscriptions_list.dart';
@@ -125,6 +126,7 @@ class _ManageNotificationsScreenState
             ],
           ),
         ),
+        const NotificationStatusCard(),
         Expanded(
           child: ManagePushNotificationsList(),
         ),

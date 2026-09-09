@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/subscription/utils/alrt_plus_limits.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -31,7 +32,8 @@ Future<void> showJoinGroupSheet(
   return _showFieldSheet(
     context: context,
     title: 'Join with a code',
-    subtitle: 'Got an invite code? Type it, or scan the host\'s QR. Joining '
+    subtitle:
+        'Got an invite code? Type it, or scan the host\'s QR. Joining '
         'is always free, and you can be in as many Family circles as you like.',
     hint: 'e.g. ALRT-7F3K2',
     buttonLabel: 'Join circle',
@@ -46,7 +48,8 @@ Future<void> showJoinGroupSheet(
       final code = parseInviteCode(raw);
       if (code == null) {
         context.showErrorToast(
-          message: 'That doesn\'t look like an invite code. Codes look like '
+          message:
+              'That doesn\'t look like an invite code. Codes look like '
               'ALRT-7F3K2 - check it with the host.',
         );
         return false;
@@ -82,7 +85,8 @@ Future<void> showCreateGroupSheet(
   return _showFieldSheet(
     context: context,
     title: 'Name your Family circle',
-    subtitle: 'e.g. Nixon Family, Netball Mums, Site Crew. Your ALRT+ seats '
+    subtitle:
+        'e.g. Nixon Family, Netball Mums, Site Crew. Your ALRT+ seats '
         'can be split across up to 4 Family circles you host.',
     hint: 'Circle name',
     buttonLabel: 'Create a Family circle',
@@ -99,7 +103,7 @@ Future<void> showCreateGroupSheet(
 
 /// Owned-circle cap, matching MAX_OWNED_CIRCLES in family.service.ts —
 /// applies regardless of plan tier, since there is only one paid tier.
-const _kMaxOwnedCircles = 4;
+const _kMaxOwnedCircles = kAlrtPlusMaxOwnedCircles;
 
 /// ALRT+ moment: hosting needs a subscription (with its free trial). The
 /// paywall shows only here, never on a join. A friendly sheet explains why
@@ -151,9 +155,8 @@ Future<void> _createGated(
           'To create a new one, delete or hand off hosting of an '
           'existing circle first.',
       primaryLabel: 'Manage your circles',
-      onPrimary: (ctx) => ctx
-          .push<bool>('/family-switch-group')
-          .then((_) => false),
+      onPrimary: (ctx) =>
+          ctx.push<bool>('/family-switch-group').then((_) => false),
     );
     return;
   }
@@ -363,7 +366,10 @@ class _FieldSheetBodyState extends State<_FieldSheetBody> {
                   child: Text(
                     'The camera is only used while you scan, and only after '
                     'you tap Scan a code.',
-                    style: TextStyle(fontSize: 11.5.spMin, color: AppColors.grey),
+                    style: TextStyle(
+                      fontSize: 11.5.spMin,
+                      color: AppColors.grey,
+                    ),
                   ),
                 ),
               ],

@@ -237,6 +237,19 @@ abstract class RestClient {
   @POST(kUrlNotificationsPushNotificationToken)
   Future<HttpResponse> sendPushNotificationToken({
     @Field() required final String token,
+    @Field() final String? platform,
+  });
+
+  /// Removes this phone's token for the signed-in account (sign-out).
+  @DELETE(kUrlNotificationsPushNotificationToken)
+  Future<HttpResponse> deletePushNotificationToken({
+    @Field() required final String token,
+  });
+
+  /// A test push to the caller's own phones only.
+  @POST(kUrlNotificationsTest)
+  Future<HttpResponse> sendTestNotification({
+    @Field() required final bool urgent,
   });
 
   // ---------------------------- SUPPORT ----------------------------

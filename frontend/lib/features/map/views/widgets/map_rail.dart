@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/ask_alrt/views/ask_alrt_sheet.dart';
@@ -6,7 +7,6 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_journey_share_sheet.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
-import 'package:hazard_app/features/map/providers/map_display_settings_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/views/widgets/around_you_sheet.dart';
 import 'package:hazard_app/features/map/views/widgets/map_details_sheet.dart';
@@ -89,14 +89,16 @@ class _MapRailState extends ConsumerState<MapRail> {
     );
   }
 
-  /// A white-on-red badge with the count of source systems currently
-  /// toggled off in the Map details sheet.
+  /// A white-on-red badge with the count of ALRT Filters currently off.
   Widget _hiddenSystemsCountBadgeBuilder() {
     return Consumer(
       builder: (context, ref, child) {
+        // The ALRT Filters sheet is the one source of what is hidden; the
+        // badge counts its switched-off filters (the old per-sheet source
+        // toggles no longer exist).
         final hiddenCount = ref.watch(
-          providerOfVisibleAlertSystems.select(
-            (value) => AlertSourceSystem.values.length - value.length,
+          providerOfHazardFiltersForMap.select(
+            (value) => value.unselectedFiltersCount,
           ),
         );
         if (hiddenCount == 0) {

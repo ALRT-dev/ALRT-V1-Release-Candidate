@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Compact (1-cell-high) variant of the Family widget: the app-tile icon
-     plus one headline line. Same view ids as the full layout so the
-     provider binds either without branching. -->
+<!-- Compact (1-cell-high) variant of the Family circles widget: one summary
+     line across every circle. Same header/summary ids as the full layout so
+     the provider binds either. Row and "more" views are absent here; the
+     provider checks for them before binding. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/family_root"
     android:layout_width="match_parent"
@@ -28,15 +29,32 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/family_kicker"
+        <LinearLayout
+            android:id="@+id/family_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#D9D0F7"
-            android:textSize="9sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.1"
-            android:maxLines="1" />
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/family_kicker"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#D9D0F7"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/family_freshness"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#CFC7EC"
+                android:textSize="9sp"
+                android:maxLines="1" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/family_headline"
@@ -48,44 +66,13 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- Present for the shared bind, never shown at this size. -->
         <TextView
             android:id="@+id/family_sub"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <!-- Present for the shared bind; icons need the full card. -->
-    <LinearLayout
-        android:id="@+id/family_groups_row"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:orientation="horizontal"
-        android:visibility="gone">
-
-        <ImageView
-            android:id="@+id/family_group_icon_0"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:contentDescription="@null" />
-
-        <ImageView
-            android:id="@+id/family_group_icon_1"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:contentDescription="@null" />
-
-        <ImageView
-            android:id="@+id/family_group_icon_2"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:contentDescription="@null" />
-
-        <ImageView
-            android:id="@+id/family_group_icon_3"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:contentDescription="@null" />
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#CFC7EC"
+            android:textSize="10sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
     </LinearLayout>
 </LinearLayout>

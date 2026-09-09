@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/subscription/utils/alrt_plus_limits.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -23,7 +24,7 @@ class AlrtPlusWelcomeScreen extends ConsumerWidget {
 
   static const route = '/alrt-plus/welcome';
 
-  static const _totalSeats = 8;
+  static const _totalSeats = kAlrtPlusSeats;
 
   final AlrtPlusWelcomeScreenArgs? args;
 
@@ -46,73 +47,80 @@ class AlrtPlusWelcomeScreen extends ConsumerWidget {
                     ),
                     child: IntrinsicHeight(
                       child: Padding(
-                padding: EdgeInsets.fromLTRB(18.spMin, 16.spMin, 18.spMin, 18.spMin),
-                child: Column(
-                  children: [
-                    _haloBuilder(),
-                    SizedBox(height: 16.spMin),
-                    Text(
-                      'Welcome to ALRT +',
-                      style: TextStyle(
-                        fontSize: 23.spMin,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                        color: AlrtPlusStyle.ink,
-                      ),
-                    ),
-                    SizedBox(height: 7.spMin),
-                    Text(
-                      trialPhrase != null
-                          ? 'Your $trialPhrase has started. The family '
-                                'layer is on, and there are '
-                                '${_totalSeats - 1} seats waiting for your '
-                                'people.'
-                          : 'ALRT + is active. The family layer is on, and '
-                                'there are ${_totalSeats - 1} seats waiting '
-                                'for your people.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13.spMin,
-                        height: 1.6,
-                        color: AlrtPlusStyle.inkSoft,
-                      ),
-                    ),
-                    SizedBox(height: 18.spMin),
-                    _seatRowBuilder(),
-                    SizedBox(height: 18.spMin),
-                    AlrtPlusLavNote(
-                      lead: 'No surprises.',
-                      text: trialPhrase != null
-                          ? "You won't be charged until your trial ends, "
-                                'and you can cancel anytime in your app '
-                                'store before then.'
-                          : 'You can cancel anytime in your app store.',
-                    ),
-                    const Spacer(),
-                    AlrtPlusCta(
-                      label: 'Invite your family',
-                      onPressed: () {
-                        ref
-                            .read(providerOfPendingFamilyInvite.notifier)
-                            .set(true);
-                        context.pop(true);
-                      },
-                    ),
-                    SizedBox(height: 11.spMin),
-                    TextButton(
-                      onPressed: () => context.pop(false),
-                      child: Text(
-                        "I'll do this later",
-                        style: TextStyle(
-                          fontSize: 12.5.spMin,
-                          fontWeight: FontWeight.w600,
-                          color: AlrtPlusStyle.inkSoft,
+                        padding: EdgeInsets.fromLTRB(
+                          18.spMin,
+                          16.spMin,
+                          18.spMin,
+                          18.spMin,
+                        ),
+                        child: Column(
+                          children: [
+                            _haloBuilder(),
+                            SizedBox(height: 16.spMin),
+                            Text(
+                              'Welcome to ALRT +',
+                              style: TextStyle(
+                                fontSize: 23.spMin,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                                color: AlrtPlusStyle.ink,
+                              ),
+                            ),
+                            SizedBox(height: 7.spMin),
+                            Text(
+                              trialPhrase != null
+                                  ? 'Your $trialPhrase has started. The family '
+                                        'layer is on, and there are '
+                                        '${_totalSeats - 1} seats waiting for your '
+                                        'people.'
+                                  : 'ALRT + is active. The family layer is on, and '
+                                        'there are ${_totalSeats - 1} seats waiting '
+                                        'for your people.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13.spMin,
+                                height: 1.6,
+                                color: AlrtPlusStyle.inkSoft,
+                              ),
+                            ),
+                            SizedBox(height: 18.spMin),
+                            _seatRowBuilder(),
+                            SizedBox(height: 18.spMin),
+                            AlrtPlusLavNote(
+                              lead: 'No surprises.',
+                              text: trialPhrase != null
+                                  ? "You won't be charged until your trial ends, "
+                                        'and you can cancel anytime in your app '
+                                        'store before then.'
+                                  : 'You can cancel anytime in your app store.',
+                            ),
+                            const Spacer(),
+                            AlrtPlusCta(
+                              label: 'Invite your family',
+                              onPressed: () {
+                                ref
+                                    .read(
+                                      providerOfPendingFamilyInvite.notifier,
+                                    )
+                                    .set(true);
+                                context.pop(true);
+                              },
+                            ),
+                            SizedBox(height: 11.spMin),
+                            TextButton(
+                              onPressed: () => context.pop(false),
+                              child: Text(
+                                "I'll do this later",
+                                style: TextStyle(
+                                  fontSize: 12.5.spMin,
+                                  fontWeight: FontWeight.w600,
+                                  color: AlrtPlusStyle.inkSoft,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
                     ),
                   ),
                 ),

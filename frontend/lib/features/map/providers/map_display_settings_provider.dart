@@ -48,22 +48,3 @@ class MapTypeNotifier extends Notifier<MapType> {
     state = mapType;
   }
 }
-
-/// The source systems whose alerts are currently visible on the map and in
-/// the "Around You" list. Defaults to all systems on.
-final providerOfVisibleAlertSystems =
-    NotifierProvider<VisibleAlertSystemsNotifier, Set<AlertSourceSystem>>(
-      VisibleAlertSystemsNotifier.new,
-    );
-
-class VisibleAlertSystemsNotifier extends Notifier<Set<AlertSourceSystem>> {
-  @override
-  Set<AlertSourceSystem> build() => AlertSourceSystem.values.toSet();
-
-  /// Toggles the visibility of the given [system].
-  void toggle(final AlertSourceSystem system) {
-    final next = {...state};
-    if (!next.remove(system)) next.add(system);
-    state = next;
-  }
-}

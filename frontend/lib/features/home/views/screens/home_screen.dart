@@ -52,10 +52,11 @@ import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart
 import 'package:toastification/toastification.dart';
 
 class HomeScreenArgs {
-  final HomeTab initialTab;
+  /// The tab to open; null keeps whatever tab is already selected.
+  final HomeTab? initialTab;
 
   HomeScreenArgs({
-    this.initialTab = HomeTab.map,
+    this.initialTab,
   });
 }
 
@@ -78,7 +79,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final _tabController = TabController(
     length: HomeTab.values.length,
-    initialIndex: widget.args.initialTab.index,
+    initialIndex: (widget.args.initialTab ?? kDefaultHomeTab).index,
     vsync: this,
   );
 
@@ -181,13 +182,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final hasSos = ref.watch(
       providerOfFamily.select((s) => s.activeSosEvents.isNotEmpty),
     );
-    if (!hasSos) return tabs;
+    // Same tree shape with and without the strip, so the tabs are never
+    // re-inflated when an SOS starts or ends (a re-inflate re-ran the
+    // Family tab's first load and blanked the SOS banner for a beat).
     return Column(
       children: [
-        Container(
-          color: FamilyColors.sosRed,
-          child: const SafeArea(bottom: false, child: FamilySosStrip()),
-        ),
+        if (hasSos)
+          Container(
+            color: FamilyColors.sosRed,
+            child: const SafeArea(bottom: false, child: FamilySosStrip()),
+          ),
         Expanded(
           child: MediaQuery.removePadding(
             context: context,
@@ -256,7 +260,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _onInit() {
-    ref.read(providerOfHomeTab.notifier).state = widget.args.initialTab;
+    // Only an explicit request moves the tab. A HomeScreen rebuilt with
+    // default args (after a pop that emptied the stack, a `go` fallback)
+    // keeps the tab a previous screen just chose (Family after an SOS).
+    final requested = widget.args.initialTab;
+    if (requested != null) {
+      ref.read(providerOfHomeTab.notifier).state = requested;
+    }
   }
 
   /// Listens to the message received from the push notification.
@@ -330,6 +340,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               // Land on the family hub with fresh data.
               ref.read(providerOfFamily.notifier).load(silent: true);
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+              return;
+            case PushNotificationType.testNotification:
+              // Back to where it was sent from.
+              ref.read(providerOfHomeTab.notifier).state = HomeTab.profile;
               return;
             case PushNotificationType.badgeEarned:
               // The badge shelf lives on the profile.

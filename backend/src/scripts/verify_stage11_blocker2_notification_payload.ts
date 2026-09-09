@@ -235,9 +235,10 @@ async function runChecks({
       for (const m of captured) {
         assert.equal(typeof m.data?.notificationType, "string");
         assert.equal(typeof m.data?.payload, "string");
-        // Only two keys on the FCM data map itself - everything else rides
-        // inside the single payload string, same as every other type.
-        assert.deepEqual(Object.keys(m.data!).sort(), ["notificationType", "payload"]);
+        // Three keys on the FCM data map itself (the urgent flag was added
+        // for the Android channel choice) - everything else rides inside
+        // the single payload string, same as every other type.
+        assert.deepEqual(Object.keys(m.data!).sort(), ["notificationType", "payload", "urgent"]);
       }
     },
   );

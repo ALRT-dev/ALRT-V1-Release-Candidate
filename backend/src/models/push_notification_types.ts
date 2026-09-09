@@ -17,4 +17,8 @@ export enum PushNotificationType {
   familyLocationShared = "familyLocationShared",
   familyScheduledCheckInPrompt = "familyScheduledCheckInPrompt", // one-tap "I'm safe" prompt
   familyJourneyShared = "familyJourneyShared", // sent only to the picked recipients
+
+  // A test the signed-in user sent to their own phones from Manage
+  // notifications. Never reaches anyone else.
+  testNotification = "testNotification",
 }

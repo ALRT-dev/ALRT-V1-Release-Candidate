@@ -211,19 +211,23 @@ class LocalNotificationService {
     if (title == null && body == null) return;
 
     final actions = _actionsFor(message.data);
-    final urgent = _isUrgent(message.data) &&
-        (_useStrongVibration?.call() ?? false);
+    final urgent =
+        _isUrgent(message.data) && (_useStrongVibration?.call() ?? false);
 
     await _plugin.show(
-      message.hashCode,
+      // One id per logical event (an SOS, a check-in, an alert), so a
+      // redelivered or repeated push replaces the notification instead of
+      // stacking a duplicate in the tray.
+      _notificationIdFor(message),
       title,
       body,
       NotificationDetails(
         android: AndroidNotificationDetails(
           urgent ? _urgentChannelId : _channelId,
           urgent ? _urgentChannelName : _channelName,
-          channelDescription:
-              urgent ? _urgentChannelDescription : _channelDescription,
+          channelDescription: urgent
+              ? _urgentChannelDescription
+              : _channelDescription,
           importance: Importance.max,
           priority: Priority.high,
           actions: actions,
@@ -233,11 +237,38 @@ class LocalNotificationService {
     );
   }
 
-  /// ACTION and CRITICAL hazard pushes qualify for accessible delivery.
+  /// ACTION and CRITICAL hazard pushes qualify for accessible delivery,
+  /// and so does anything the server marked urgent (an SOS, a "needs
+  /// help" check-in, an urgent test).
   bool _isUrgent(Map<String, dynamic> data) {
-    final band =
-        (_hazardPayloadOf(data)?['severityBand'] as String?)?.toLowerCase();
+    if (data['urgent'] == '1' || data['urgent'] == true) return true;
+    final band = (_hazardPayloadOf(data)?['severityBand'] as String?)
+        ?.toLowerCase();
     return band == 'action' || band == 'critical';
+  }
+
+  /// A stable notification id for the event a push is about.
+  static int _notificationIdFor(RemoteMessage message) {
+    final data = message.data;
+    Map<String, dynamic>? payload;
+    try {
+      final raw = data['payload'];
+      if (raw is String && raw.isNotEmpty) {
+        payload = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      }
+    } catch (_) {
+      payload = null;
+    }
+    final key =
+        payload?['sosEventId'] ??
+        payload?['checkInId'] ??
+        payload?['requestId'] ??
+        payload?['journeyId'] ??
+        payload?['locationRequestId'] ??
+        payload?['id'] ??
+        message.messageId ??
+        message.hashCode.toString();
+    return '${data['notificationType']}:$key'.hashCode & 0x7fffffff;
   }
 
   /// Band-matched action buttons. Only hazard pushes (payloads carrying a

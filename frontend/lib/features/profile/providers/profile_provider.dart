@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hazard_app/features/notification/providers/service_providers.dart';
+import 'package:hazard_app/features/shared/utils/either.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/auth/providers/service_providers.dart';
@@ -203,6 +205,18 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
     state = state.copyWith(
       logoutState: const LogoutState.loading(),
     );
+
+    // While still signed in: take this phone off the account's push list,
+    // so family and SOS pushes for this account stop reaching it now, not
+    // only when someone else signs in here. Best effort: an offline
+    // sign-out still completes.
+    await _ref
+        .read(providerOfNotificationService)
+        .unregisterPushNotificationToken()
+        .timeout(
+          const Duration(seconds: 4),
+          onTimeout: () => const Success(null),
+        );
 
     final result = await _authService.logout();
     if (!mounted) return;

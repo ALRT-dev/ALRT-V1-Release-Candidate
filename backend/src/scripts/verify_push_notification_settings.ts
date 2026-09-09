@@ -356,6 +356,21 @@ async function main() {
       expectChannel(msgs, "alrt_alerts");
       for (const m of msgs) assert.match(m.notification?.title ?? "", /^Community report \| /);
     });
+    await check("every hazard push carries iOS sound, private lock-screen visibility and no coordinates or reporter id", async () => {
+      const h = await makeHazard({ severity: HazardSeverity.advice, band: HazardSeverityBand.monitor, aws: true });
+      const { msgs } = await sendAndCollect(h);
+      assert.ok(msgs.length > 0);
+      for (const m of msgs as any[]) {
+        assert.equal(m.android?.notification?.visibility, "private");
+        assert.equal(m.apns?.payload?.aps?.sound, "default");
+        assert.equal(m.apns?.payload?.aps?.["interruption-level"], "active");
+        const payload = JSON.parse(m.data.payload);
+        assert.equal(payload.id, h.id, "the id the app opens the alert by");
+        assert.ok(!("latitude" in payload) && !("longitude" in payload), "no coordinates in a push");
+        assert.ok(!("northeastLat" in payload), "no bounding box in a push");
+        assert.notEqual(payload.reportedById, reporter.id, "no reporter user id in a push");
+      }
+    });
     await check("a critical-band official (non-AWS) alert also names the urgent channel", async () => {
       const h = await makeHazard({ severity: HazardSeverity.info, band: HazardSeverityBand.critical, aws: false });
       const { msgs, tokens } = await sendAndCollect(h);

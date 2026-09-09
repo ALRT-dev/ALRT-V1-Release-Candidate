@@ -11,6 +11,8 @@ import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/utils/seat_count.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
+import 'package:hazard_app/features/subscription/utils/alrt_plus_limits.dart';
+import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_benefits.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
 import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:intl/intl.dart';
@@ -25,7 +27,7 @@ class AlrtPlusManageScreen extends ConsumerStatefulWidget {
 
   static const route = '/alrt-plus/manage';
 
-  static const totalSeats = 8;
+  static const totalSeats = kAlrtPlusSeats;
 
   @override
   ConsumerState<AlrtPlusManageScreen> createState() =>
@@ -58,8 +60,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
       setState(() => _loaded = true);
       return;
     }
-    final entitlement =
-        await ref.read(providerOfRevenueCat).plusEntitlement();
+    final entitlement = await ref.read(providerOfRevenueCat).plusEntitlement();
     if (!mounted) return;
     setState(() {
       _entitlement = entitlement;
@@ -120,39 +121,46 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
       body: SafeArea(
         bottom: false,
         child: Column(
-        children: [
-          _bandBuilder(context),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(18.spMin, 16.spMin, 18.spMin, 24.spMin),
-              children: [
-                _sectionLabelBuilder(circle, circles),
-                SizedBox(height: 8.spMin),
-                _seatCardBuilder(circle, circles),
-                SizedBox(height: 10.spMin),
-                if (circle != null) ...[
-                  _membersCardBuilder(circle),
-                  SizedBox(height: 10.spMin),
-                ],
-                if (circles.any((c) => !c.isOwned)) ...[
-                  _otherPlansCardBuilder(circles),
-                  SizedBox(height: 10.spMin),
-                ],
-                _actionsCardBuilder(circle),
-                SizedBox(height: 18.spMin),
-                Text(
-                  'Cancelling stops renewal. ALRT + stays active until the end '
-                  'of the period you have paid for.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10.5.spMin,
-                    height: 1.5,
-                    color: context.onSurfaceMuted.withValues(alpha: 0.75),
-                  ),
+          children: [
+            _bandBuilder(context),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  18.spMin,
+                  16.spMin,
+                  18.spMin,
+                  24.spMin,
                 ),
-              ],
+                children: [
+                  _sectionLabelBuilder(circle, circles),
+                  SizedBox(height: 8.spMin),
+                  _seatCardBuilder(circle, circles),
+                  SizedBox(height: 10.spMin),
+                  if (circle != null) ...[
+                    _membersCardBuilder(circle),
+                    SizedBox(height: 10.spMin),
+                  ],
+                  if (circles.any((c) => !c.isOwned)) ...[
+                    _otherPlansCardBuilder(circles),
+                    SizedBox(height: 10.spMin),
+                  ],
+                  _actionsCardBuilder(circle),
+                  SizedBox(height: 14.spMin),
+                  const AlrtPlusBenefitsTable(title: 'Your ALRT+ benefits'),
+                  SizedBox(height: 18.spMin),
+                  Text(
+                    'Cancelling stops renewal. ALRT + stays active until the end '
+                    'of the period you have paid for.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10.5.spMin,
+                      height: 1.5,
+                      color: context.onSurfaceMuted.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           ],
         ),
       ),
@@ -258,7 +266,9 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
         );
       }
     }
-    return parts.isEmpty ? 'ALRT + is active on this account' : parts.join(' · ');
+    return parts.isEmpty
+        ? 'ALRT + is active on this account'
+        : parts.join(' · ');
   }
 
   /// Circles the user pays for. Every membership row in one of these
@@ -317,7 +327,9 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
               Text(
                 owned.length > 1
                     ? 'Your ${owned.length} circles'
-                    : (owned.firstOrNull?.name ?? circle?.name ?? 'Your circle'),
+                    : (owned.firstOrNull?.name ??
+                          circle?.name ??
+                          'Your circle'),
                 style: TextStyle(
                   fontSize: 13.5.spMin,
                   fontWeight: FontWeight.w700,
@@ -454,7 +466,10 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
     );
   }
 
-  Widget _memberRowBuilder(final FamilyCircle circle, final FamilyMember member) {
+  Widget _memberRowBuilder(
+    final FamilyCircle circle,
+    final FamilyMember member,
+  ) {
     final isMe = member.id == circle.myMemberId;
     final isPayer = member.role == FamilyRole.owner;
     final initials = member.initials;
@@ -597,7 +612,8 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
   Widget _cardBuilder({required final Widget child, EdgeInsets? padding}) {
     return Container(
       width: double.infinity,
-      padding: padding ??
+      padding:
+          padding ??
           EdgeInsets.symmetric(horizontal: 15.spMin, vertical: 13.spMin),
       decoration: BoxDecoration(
         color: context.surfaceCard,

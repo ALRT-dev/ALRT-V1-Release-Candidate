@@ -9,26 +9,45 @@ import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
- * ALRT Family status home-screen widget.
+ * ALRT Family circles home-screen widget (payload version 2).
  *
- * Shows one headline + sub-line for the user's circle. The solid red card is
- * used ONLY for a live family SOS (rule 6). A tap opens the app (SOS receiver
- * for an active SOS, otherwise the Family tab) and never triggers or resolves
- * an SOS (rule 3).
+ * One row per circle, most urgent first: a live SOS (solid red row), a
+ * check-in someone is waiting on from me (amber row), asks I am waiting
+ * on, then ordinary status. The card summarises the top item and prints
+ * when the data was generated; a stale payload says so instead of
+ * pretending to be current, because the launcher only redraws the last
+ * payload the app handed over.
+ *
+ * Every tap opens the app at that circle, that check-in flow or that
+ * SOS, and never checks in, shares a location, acknowledges or ends an
+ * SOS (rule 3). No row ever carries a member's name or a location.
  */
 class AlrtFamilyWidgetProvider : HomeWidgetProvider() {
 
     companion object {
         private const val PAYLOAD_KEY = "alrt_family_widget_payload"
+        private const val STALE_AFTER_MS = 60L * 60L * 1000L
 
-        /** The group-icon slots in the layout, in draw order. */
-        private val ICON_SLOTS = intArrayOf(
-            R.id.family_group_icon_0,
-            R.id.family_group_icon_1,
-            R.id.family_group_icon_2,
-            R.id.family_group_icon_3
+        private val ROW_IDS = intArrayOf(
+            R.id.family_row_0, R.id.family_row_1, R.id.family_row_2, R.id.family_row_3
+        )
+        private val ROW_ICON_IDS = intArrayOf(
+            R.id.family_row_icon_0, R.id.family_row_icon_1, R.id.family_row_icon_2, R.id.family_row_icon_3
+        )
+        private val ROW_GLYPH_IDS = intArrayOf(
+            R.id.family_row_glyph_0, R.id.family_row_glyph_1, R.id.family_row_glyph_2, R.id.family_row_glyph_3
+        )
+        private val ROW_NAME_IDS = intArrayOf(
+            R.id.family_row_name_0, R.id.family_row_name_1, R.id.family_row_name_2, R.id.family_row_name_3
+        )
+        private val ROW_STATUS_IDS = intArrayOf(
+            R.id.family_row_status_0, R.id.family_row_status_1, R.id.family_row_status_2, R.id.family_row_status_3
         )
     }
 
@@ -39,52 +58,53 @@ class AlrtFamilyWidgetProvider : HomeWidgetProvider() {
         widgetData: android.content.SharedPreferences
     ) {
         for (widgetId in appWidgetIds) {
-            val layout = layoutFor(
-                appWidgetManager,
-                widgetId,
-                R.layout.alrt_family_widget,
-                R.layout.alrt_family_widget_compact
-            )
+            val compact = isCompact(appWidgetManager, widgetId)
+            val layout = if (compact) R.layout.alrt_family_widget_compact else R.layout.alrt_family_widget
             val views = RemoteViews(context.packageName, layout)
             val payload = widgetData.getString(PAYLOAD_KEY, null)
                 ?.let { runCatching { JSONObject(it) }.getOrNull() }
 
             if (payload == null) {
-                views.setTextViewText(R.id.family_kicker, "FAMILY")
-                views.setTextViewText(R.id.family_headline, "No family circle")
-                views.setTextViewText(R.id.family_sub, "Set up in the app")
-                views.setViewVisibility(R.id.family_groups_row, View.GONE)
+                views.setTextViewText(R.id.family_kicker, "FAMILY CIRCLES")
+                views.setTextViewText(R.id.family_headline, "Open ALRT to see your circles")
+                views.setTextViewText(R.id.family_sub, "")
+                views.setTextViewText(R.id.family_freshness, "")
+                if (!compact) hideRows(views)
             } else {
-                bind(views, payload)
-                bindGroups(views, payload.optJSONArray("groups"))
+                bindCard(views, payload, compact)
+                if (!compact) bindRows(context, views, payload)
             }
 
             val deeplink = payload?.optString("deeplink")
                 ?.takeIf { it.isNotBlank() }
                 ?: "alrtwidget://open?screen=family"
+            // The header and summary open the top item; on the compact card
+            // that is the whole card.
             views.setOnClickPendingIntent(
-                R.id.family_root,
-                HomeWidgetLaunchIntent.getActivity(
-                    context, MainActivity::class.java, Uri.parse(deeplink)
-                )
+                if (compact) R.id.family_root else R.id.family_header,
+                HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse(deeplink))
             )
+            if (!compact) {
+                views.setOnClickPendingIntent(
+                    R.id.family_headline,
+                    HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse(deeplink))
+                )
+                views.setOnClickPendingIntent(
+                    R.id.family_more,
+                    HomeWidgetLaunchIntent.getActivity(
+                        context, MainActivity::class.java, Uri.parse("alrtwidget://open?screen=family")
+                    )
+                )
+            }
 
             appWidgetManager.updateAppWidget(widgetId, views)
         }
     }
 
-    /** Compact card when the widget is one cell high; full card otherwise. */
-    private fun layoutFor(
-        appWidgetManager: AppWidgetManager,
-        widgetId: Int,
-        full: Int,
-        compact: Int
-    ): Int {
+    private fun isCompact(appWidgetManager: AppWidgetManager, widgetId: Int): Boolean {
         val options = appWidgetManager.getAppWidgetOptions(widgetId)
-        val minHeight = options.getInt(
-            AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0
-        )
-        return if (minHeight in 1..99) compact else full
+        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+        return minHeight in 1..99
     }
 
     override fun onAppWidgetOptionsChanged(
@@ -93,7 +113,6 @@ class AlrtFamilyWidgetProvider : HomeWidgetProvider() {
         appWidgetId: Int,
         newOptions: android.os.Bundle?
     ) {
-        // Re-render at the new size so the layout swap happens live.
         onUpdate(
             context,
             appWidgetManager,
@@ -102,49 +121,8 @@ class AlrtFamilyWidgetProvider : HomeWidgetProvider() {
         )
     }
 
-    /**
-     * Draws one icon per group the user belongs to.
-     *
-     * The widget process cannot fetch a URL, so the app renders each icon to
-     * a PNG in its own files directory and passes the path. A missing or
-     * unreadable file hides that slot rather than drawing a blank square.
-     */
-    private fun bindGroups(views: RemoteViews, groups: org.json.JSONArray?) {
-        var shown = 0
-
-        for (slot in ICON_SLOTS.indices) {
-            val group = groups?.optJSONObject(slot)
-            val path = group?.optString("iconPath")?.takeIf { it.isNotBlank() }
-            val bitmap = path
-                ?.let { runCatching { BitmapFactory.decodeFile(it) }.getOrNull() }
-
-            if (bitmap == null) {
-                views.setViewVisibility(ICON_SLOTS[slot], View.GONE)
-                continue
-            }
-
-            views.setImageViewBitmap(ICON_SLOTS[slot], bitmap)
-            views.setViewVisibility(ICON_SLOTS[slot], View.VISIBLE)
-            // The group the headline is about is drawn at full strength; the
-            // others sit back so the card still says which one it reports on.
-            views.setInt(
-                ICON_SLOTS[slot],
-                "setImageAlpha",
-                if (group.optBoolean("isCurrent", false)) 255 else 130
-            )
-            shown++
-        }
-
-        // One group is already named in the kicker, so a single icon adds
-        // nothing. The row earns its space from two groups up.
-        views.setViewVisibility(
-            R.id.family_groups_row,
-            if (shown > 1) View.VISIBLE else View.GONE
-        )
-    }
-
-    private fun bind(views: RemoteViews, payload: JSONObject) {
-        val state = payload.optString("state", "no_circle")
+    private fun bindCard(views: RemoteViews, payload: JSONObject, compact: Boolean) {
+        val state = payload.optString("state", "ok")
         val headline = payload.optString("headline", "")
         val sub = payload.optString("sub", "")
         val circleName = payload.optString("circleName", "")
@@ -152,10 +130,11 @@ class AlrtFamilyWidgetProvider : HomeWidgetProvider() {
 
         views.setTextViewText(
             R.id.family_kicker,
-            if (circleName.isNotBlank()) circleName.uppercase() else "FAMILY"
+            if (circleName.isNotBlank()) circleName.uppercase() else "FAMILY CIRCLES"
         )
         views.setTextViewText(R.id.family_headline, headline)
         views.setTextViewText(R.id.family_sub, sub)
+        views.setTextViewText(R.id.family_freshness, freshnessOf(payload.optString("generatedAt", "")))
 
         when {
             isCritical -> {
@@ -164,28 +143,93 @@ class AlrtFamilyWidgetProvider : HomeWidgetProvider() {
                 views.setTextColor(R.id.family_headline, 0xFFFFFFFF.toInt())
                 views.setTextColor(R.id.family_sub, 0xFFFFE3E0.toInt())
             }
-            state == "safe" -> {
-                // Everyone's safe: the same bright green -> teal identity as
-                // the in-app I'm Safe action, not just coloured text on the
-                // default card.
-                views.setInt(R.id.family_root, "setBackgroundResource", R.drawable.alrt_widget_bg_safe)
-                views.setTextColor(R.id.family_kicker, 0xFFDFFDF2.toInt())
-                views.setTextColor(R.id.family_headline, 0xFFFFFFFF.toInt())
-                views.setTextColor(R.id.family_sub, 0xFFE3FBF2.toInt())
-            }
             else -> {
-                // Every other state: the Family identity purple, matching
-                // FamilyColors.headerGradient in the app.
                 views.setInt(R.id.family_root, "setBackgroundResource", R.drawable.alrt_widget_bg_purple)
                 views.setTextColor(R.id.family_kicker, 0xFFD9D0F7.toInt())
-                // An unanswered check-in reads in amber, so it still asks
-                // for something on the purple card; other states are white.
                 views.setTextColor(
                     R.id.family_headline,
                     if (state == "check_in_requested") 0xFFF5C518.toInt() else 0xFFFFFFFF.toInt()
                 )
                 views.setTextColor(R.id.family_sub, 0xFFCFC7EC.toInt())
             }
+        }
+    }
+
+    /** "Updated 9:42 am", or a stale marker once the payload is over an hour old. */
+    private fun freshnessOf(generatedAt: String): String {
+        if (generatedAt.isBlank()) return ""
+        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val at = runCatching { parser.parse(generatedAt.substring(0, 19)) }.getOrNull() ?: return ""
+        val local = SimpleDateFormat("h:mm a", Locale.getDefault()).format(at).lowercase()
+        val age = Date().time - at.time
+        return if (age > STALE_AFTER_MS) "As of $local · open ALRT" else "Updated $local"
+    }
+
+    private fun hideRows(views: RemoteViews) {
+        for (id in ROW_IDS) views.setViewVisibility(id, View.GONE)
+        views.setViewVisibility(R.id.family_more, View.GONE)
+    }
+
+    private fun bindRows(context: Context, views: RemoteViews, payload: JSONObject) {
+        val rows = payload.optJSONArray("rows")
+        hideRows(views)
+        if (rows == null) return
+        for (slot in ROW_IDS.indices) {
+            val row = rows.optJSONObject(slot) ?: continue
+            val kind = row.optString("kind", "ok")
+            views.setViewVisibility(ROW_IDS[slot], View.VISIBLE)
+            views.setTextViewText(ROW_NAME_IDS[slot], row.optString("name", "Circle"))
+            views.setTextViewText(
+                ROW_STATUS_IDS[slot],
+                listOf(row.optString("headline", ""), row.optString("sub", ""))
+                    .filter { it.isNotBlank() }.joinToString(" · ")
+            )
+            // A word and a glyph as well as a colour, for anyone who cannot
+            // rely on colour alone.
+            val glyph = when (kind) {
+                "sos_mine", "sos_other" -> "SOS"
+                "check_in_requested" -> "!"
+                "waiting" -> "…"
+                else -> "✓"
+            }
+            views.setTextViewText(ROW_GLYPH_IDS[slot], glyph)
+            val background = when (kind) {
+                "sos_mine", "sos_other" -> R.drawable.alrt_widget_row_sos
+                "check_in_requested" -> R.drawable.alrt_widget_row_request
+                else -> R.drawable.alrt_widget_row_neutral
+            }
+            views.setInt(ROW_IDS[slot], "setBackgroundResource", background)
+            val dark = kind == "check_in_requested"
+            val ink = if (dark) 0xFF231A00.toInt() else 0xFFFFFFFF.toInt()
+            val inkSoft = if (dark) 0xFF4A3A00.toInt() else 0xFFF2EEFF.toInt()
+            views.setTextColor(ROW_NAME_IDS[slot], ink)
+            views.setTextColor(ROW_STATUS_IDS[slot], inkSoft)
+            views.setTextColor(ROW_GLYPH_IDS[slot], ink)
+
+            val path = row.optString("iconPath").takeIf { it.isNotBlank() }
+            val bitmap = path?.let { runCatching { BitmapFactory.decodeFile(it) }.getOrNull() }
+            if (bitmap == null) {
+                views.setViewVisibility(ROW_ICON_IDS[slot], View.GONE)
+            } else {
+                views.setImageViewBitmap(ROW_ICON_IDS[slot], bitmap)
+                views.setViewVisibility(ROW_ICON_IDS[slot], View.VISIBLE)
+            }
+
+            val link = row.optString("deeplink").takeIf { it.isNotBlank() }
+                ?: "alrtwidget://open?screen=family"
+            // A distinct request code per row, or Android would hand every
+            // row the same PendingIntent.
+            views.setOnClickPendingIntent(
+                ROW_IDS[slot],
+                HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse(link))
+            )
+        }
+        val more = payload.optInt("moreCircles", 0)
+        if (more > 0) {
+            views.setTextViewText(R.id.family_more, "+$more more circle${if (more > 1) "s" else ""} · open ALRT")
+            views.setViewVisibility(R.id.family_more, View.VISIBLE)
         }
     }
 }

@@ -11,8 +11,13 @@ bool isSosMine(
   final FamilySosEvent sos, {
   required final String? myMemberId,
   required final String? myUserId,
+
+  /// My member ids across every circle I am in, for an SOS from a circle
+  /// that is not the one in scope.
+  final Set<String> myMemberIds = const {},
 }) {
   return sos.memberId == myMemberId ||
+      myMemberIds.contains(sos.memberId) ||
       (sos.member?.user?.id != null && sos.member?.user?.id == myUserId);
 }
 

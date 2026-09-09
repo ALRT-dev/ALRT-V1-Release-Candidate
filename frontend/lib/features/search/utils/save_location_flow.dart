@@ -13,7 +13,26 @@ import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_
 /// ALRT+ explanation sheet and paywall from the tapped screen's own
 /// context, and then saves the location the person was in the middle of
 /// saving, all without a restart. Every outcome ends in something visible.
+bool _saveInFlight = false;
+
+/// True while a save/remove (and any sheet or paywall it opened) is in
+/// progress, so rapid taps cannot start a second one.
+bool get isSaveLocationInFlight => _saveInFlight;
+
 Future<void> handleSaveLocationTap(
+  final BuildContext context,
+  final WidgetRef ref,
+) async {
+  if (_saveInFlight) return;
+  _saveInFlight = true;
+  try {
+    await _handleSaveLocationTap(context, ref);
+  } finally {
+    _saveInFlight = false;
+  }
+}
+
+Future<void> _handleSaveLocationTap(
   final BuildContext context,
   final WidgetRef ref,
 ) async {

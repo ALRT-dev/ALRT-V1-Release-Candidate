@@ -31,6 +31,12 @@ class HomeProvider extends StateNotifier<HomeProviderState> {
        super(state) {
     _connectSocket();
     _sendPushNotificationToken();
+    // A rotated token (restore, data cleared, periodic rotation) is
+    // re-registered at once, not on the next cold start.
+    final refreshSub = _notificationService.onTokenRefresh().listen((token) {
+      _notificationService.sendPushNotificationToken(token: token);
+    });
+    _ref.onDispose(refreshSub.cancel);
   }
 
   final Ref _ref;

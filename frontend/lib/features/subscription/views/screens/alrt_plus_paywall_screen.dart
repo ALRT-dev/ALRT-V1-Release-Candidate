@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/utils/purchase_error_message.dart';
+import 'package:hazard_app/features/subscription/utils/alrt_plus_limits.dart';
 import 'package:hazard_app/features/subscription/utils/trial_copy.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_welcome_screen.dart';
+import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_benefits.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -95,7 +97,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
       _dummy = false;
       _loading = false;
       if (offering == null) {
-        _error = 'ALRT+ plans could not be loaded. Check your connection and '
+        _error =
+            'ALRT+ plans could not be loaded. Check your connection and '
             'tap Try again.';
       } else if (packages.isEmpty) {
         _error = 'ALRT+ has no plans in the store yet.';
@@ -152,7 +155,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
         await _finishEntitled();
       } else if (mounted) {
         setState(
-          () => _error = 'The store did not confirm ALRT+ for this account. '
+          () => _error =
+              'The store did not confirm ALRT+ for this account. '
               'Tap Restore purchases, or try again.',
         );
       }
@@ -220,6 +224,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                             'stay free for everyone, always.',
                       ),
                       SizedBox(height: 14.spMin),
+                      const AlrtPlusBenefitsTable(title: 'Free versus ALRT+'),
+                      SizedBox(height: 14.spMin),
                       if (_offering != null) _planRowBuilder(),
                       if (_dummy) _dummyPlanRowBuilder(),
                       if (_error != null)
@@ -252,8 +258,9 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                             ? 'Start ${_trialPhrase!}'
                             : 'Subscribe now',
                         busy: _busy,
-                        onPressed:
-                            (_selected == null && !_dummy) ? null : _subscribe,
+                        onPressed: (_selected == null && !_dummy)
+                            ? null
+                            : _subscribe,
                       ),
                       SizedBox(height: 9.spMin),
                       _priceLineBuilder(),
@@ -402,28 +409,26 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
       widget.args?.reason ?? AlrtPlusPaywallReason.general;
 
   String get _headline => switch (_reason) {
-        AlrtPlusPaywallReason.savedLocation => 'Save every place that matters',
-        AlrtPlusPaywallReason.hostCircle ||
-        AlrtPlusPaywallReason.general =>
-          'Let your family stay connected',
-      };
+    AlrtPlusPaywallReason.savedLocation => 'Save every place that matters',
+    AlrtPlusPaywallReason.hostCircle ||
+    AlrtPlusPaywallReason.general => 'Let your family stay connected',
+  };
 
   String get _subline => switch (_reason) {
-        AlrtPlusPaywallReason.savedLocation =>
-          'Free accounts save one location. ALRT+ removes the limit, and '
-              'lets you host your own family circle. Joining a circle is '
-              'always free.',
-        AlrtPlusPaywallReason.hostCircle ||
-        AlrtPlusPaywallReason.general =>
-          'Host your own family circle with check-ins, saved places and '
-              'SOS. Joining a circle is always free.',
-      };
+    AlrtPlusPaywallReason.savedLocation =>
+      'Free accounts save one location. ALRT+ removes the limit, and '
+          'lets you host your own family circle. Joining a circle is '
+          'always free.',
+    AlrtPlusPaywallReason.hostCircle || AlrtPlusPaywallReason.general =>
+      'Host your own family circle with check-ins, saved places and '
+          'SOS. Joining a circle is always free.',
+  };
 
   /// The label for a package: the standard monthly/yearly names, or the
   /// store's own name for a custom package, so an offering set up with
   /// other identifiers still renders instead of an empty row.
-  static String packageTitle(final Package package) => switch (
-        package.packageType) {
+  static String packageTitle(final Package package) =>
+      switch (package.packageType) {
         PackageType.monthly => 'MONTHLY',
         PackageType.annual => 'YEARLY',
         PackageType.weekly => 'WEEKLY',
@@ -431,8 +436,7 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
         PackageType.threeMonth => '3 MONTHS',
         PackageType.sixMonth => '6 MONTHS',
         PackageType.lifetime => 'LIFETIME',
-        PackageType.custom ||
-        PackageType.unknown =>
+        PackageType.custom || PackageType.unknown =>
           package.storeProduct.title.isNotEmpty
               ? package.storeProduct.title.toUpperCase()
               : package.identifier.toUpperCase(),
@@ -471,7 +475,10 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     );
   }
 
-  Widget _planCardBuilder(final Package package, {required final String title}) {
+  Widget _planCardBuilder(
+    final Package package, {
+    required final String title,
+  }) {
     final selected = _selected == package;
     final product = package.storeProduct;
     return GestureDetector(
@@ -516,9 +523,7 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                   : 'per month',
               style: TextStyle(
                 fontSize: 11.spMin,
-                color: selected
-                    ? AlrtPlusStyle.magenta
-                    : AlrtPlusStyle.inkSoft,
+                color: selected ? AlrtPlusStyle.magenta : AlrtPlusStyle.inkSoft,
               ),
             ),
           ],
@@ -547,8 +552,9 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
               color: selected ? const Color(0xFFF9F0FC) : Colors.white,
               borderRadius: BorderRadius.circular(18.spMin),
               border: Border.all(
-                color:
-                    selected ? AlrtPlusStyle.magenta : AlrtPlusStyle.cardLine,
+                color: selected
+                    ? AlrtPlusStyle.magenta
+                    : AlrtPlusStyle.cardLine,
                 width: selected ? 2 : 1,
               ),
             ),
@@ -626,10 +632,12 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
   }
 
   Widget _priceLineBuilder() {
-    final monthly =
-        _dummy ? '\$9.99' : _offering?.monthly?.storeProduct.priceString;
-    final annual =
-        _dummy ? '\$99.99' : _offering?.annual?.storeProduct.priceString;
+    final monthly = _dummy
+        ? '\$9.99'
+        : _offering?.monthly?.storeProduct.priceString;
+    final annual = _dummy
+        ? '\$99.99'
+        : _offering?.annual?.storeProduct.priceString;
     final selectedPrice = _selected?.storeProduct.priceString;
     final trial = _trialPhrase;
     final String pricePart;
@@ -645,7 +653,7 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
           : 'Price shown above';
     }
     return Text(
-      '$pricePart · 8 seats · cancel anytime',
+      '$pricePart · $kAlrtPlusSeats seats · cancel anytime',
       textAlign: TextAlign.center,
       style: TextStyle(
         fontSize: 11.spMin,

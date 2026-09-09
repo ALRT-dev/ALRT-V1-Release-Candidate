@@ -206,18 +206,67 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
 /**
  * Sends push notifications to a list of device tokens.
  */
+/**
+ * The hazard fields a push may carry. The app opens the alert by id and
+ * refetches it, so a push never needs coordinates, the bounding box, the
+ * reporter's user id or moderation notes: they are dropped here so a
+ * lock-screen preview or a captured payload can never leak a community
+ * reporter's precise location (the same rule as the public hazard read).
+ */
+export const pushSafeHazard = (hazard: Hazard): Record<string, unknown> => {
+  const {
+    latitude: _lat,
+    longitude: _lng,
+    northeastLat: _neLat,
+    northeastLng: _neLng,
+    southwestLat: _swLat,
+    southwestLng: _swLng,
+    geoLocation: _geo,
+    reportedById: _reporter,
+    reviewFeedback: _feedback,
+    reviewedById: _reviewer,
+    ...safe
+  } = hazard as Hazard & Record<string, unknown>;
+  return { ...safe, reportedById: hazard.reportedById ? "community" : null };
+};
+
+/** FCM tokens Firebase reported dead on the last send; removed from UserDevice. */
+const pruneDeadTokens = async (
+  tokens: string[],
+  response: { responses: { success: boolean; error?: { code?: string } | null }[] },
+) => {
+  const dead = tokens.filter((_, i) => {
+    const code = response.responses[i]?.error?.code ?? "";
+    return (
+      code === "messaging/registration-token-not-registered" ||
+      code === "messaging/invalid-registration-token" ||
+      code === "messaging/invalid-argument"
+    );
+  });
+  if (dead.length === 0) return;
+  try {
+    await prisma.userDevice.deleteMany({ where: { deviceToken: { in: dead } } });
+    console.log(`Pruned ${dead.length} dead push token(s).`);
+  } catch (error) {
+    console.error("Failed to prune dead push tokens:", error);
+  }
+};
+
 const sendPushNotificationToTokens = async ({
   tokens,
   title,
   body,
   data,
   type,
+  urgent,
 }: {
   tokens: string[];
   title: string;
   body: string;
   data: object;
   type: PushNotificationType;
+  /** Force the urgent channel (a family SOS, a "needs help" check-in). */
+  urgent?: boolean;
 }) => {
   try {
     // Remove duplicate tokens
@@ -238,7 +287,8 @@ const sendPushNotificationToTokens = async ({
     const severityBand = String(
       (data as { severityBand?: unknown })?.severityBand ?? "",
     ).toLowerCase();
-    const urgent = severityBand === "action" || severityBand === "critical";
+    const isUrgent =
+      urgent ?? (severityBand === "action" || severityBand === "critical");
     const baseMessage = {
       notification: {
         title,
@@ -247,11 +297,31 @@ const sendPushNotificationToTokens = async ({
       data: {
         payload: JSON.stringify(data),
         notificationType: type.toString(),
+        urgent: isUrgent ? "1" : "0",
       },
       android: {
         priority: "high" as const,
         notification: {
-          channelId: urgent ? "alrt_alerts_urgent" : "alrt_alerts",
+          channelId: isUrgent ? "alrt_alerts_urgent" : "alrt_alerts",
+          // PRIVATE: on a locked phone Android shows the app name and hides
+          // the text when the user has "sensitive content" hidden; it
+          // never forces the body onto the lock screen (PUBLIC) and never
+          // hides the notification entirely (SECRET). The user's own
+          // lock-screen setting decides.
+          visibility: "private" as const,
+        },
+      },
+      // iOS: a sound so an alert is heard, and time-sensitive delivery
+      // for urgent ones (honoured only where the app carries the
+      // time-sensitive entitlement; otherwise iOS treats it as active).
+      // Never critical: that needs Apple's entitlement and would bypass
+      // silent mode, which no alert here is allowed to do.
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+            "interruption-level": isUrgent ? "time-sensitive" : "active",
+          },
         },
       },
     };
@@ -272,6 +342,14 @@ const sendPushNotificationToTokens = async ({
           .sendEachForMulticast({ ...baseMessage, tokens: tokenBatch })
       )
     );
+    // Tokens Firebase says are gone (app uninstalled, data cleared) are
+    // dropped so they stop costing a send each time.
+    await Promise.all(
+      batches.map((tokenBatch, i) => {
+        const r = responses[i];
+        return r?.responses ? pruneDeadTokens(tokenBatch, r as any) : Promise.resolve();
+      }),
+    );
 
     // Return the first batch's response to preserve the previous single-batch
     // return shape for existing callers.
@@ -290,12 +368,14 @@ export const sendPushNotificationToUser = async ({
   body,
   data,
   type,
+  urgent,
 }: {
   userId: string;
   title: string;
   body: string;
   data: object;
   type: PushNotificationType;
+  urgent?: boolean;
 }) => {
   try {
     // Fetch user tokens from your database
@@ -312,6 +392,7 @@ export const sendPushNotificationToUser = async ({
       body,
       data,
       type,
+      ...(urgent !== undefined && { urgent }),
     });
   } catch (error) {
     console.error("Error sending push notification to user:", error);
@@ -331,7 +412,7 @@ export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
       tokens: userTokens,
       title: getNotificationTitleForNewHazard(hazard),
       body: getNotificationBodyForNewHazard(hazard),
-      data: hazard,
+      data: pushSafeHazard(hazard),
       type: PushNotificationType.viewHazard,
     });
   } catch (error) {

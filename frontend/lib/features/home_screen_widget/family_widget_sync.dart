@@ -1,12 +1,9 @@
 import 'dart:async';
 
-import 'package:collection/collection.dart';
-import 'package:intl/intl.dart';
-import 'package:timeago/timeago.dart' as timeago;
-
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/states/family_provider_state.dart';
 import 'package:hazard_app/features/home_screen_widget/family_group_icon_renderer.dart';
+import 'package:hazard_app/features/home_screen_widget/family_widget_model.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_keys.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_service.dart';
 import 'package:hazard_app/features/home_screen_widget/models/family_widget_payload.dart';
@@ -17,11 +14,6 @@ import 'package:hazard_app/features/home_screen_widget/models/family_widget_payl
 class FamilyWidgetSync {
   const FamilyWidgetSync._();
 
-  static const _familyDeeplink =
-      '${HomeWidgetKeys.deeplinkScheme}://open?screen=family';
-  static const _sosDeeplink =
-      '${HomeWidgetKeys.deeplinkScheme}://open?screen=family_sos';
-
   static String? _lastSignature;
 
   /// Renders are serialized: the listener fires often, and two overlapping
@@ -29,30 +21,26 @@ class FamilyWidgetSync {
   static Future<void> _pending = Future<void>.value();
 
   static void push(final FamilyProviderState state) {
-    final payload = _build(state);
+    final payload = FamilyWidgetModel.build(state);
     // Signature covers only what the widget renders — skip disk writes for
-    // unrelated state churn (loading flags, etc.). The group row is part of
-    // it, so a new group or a changed picture repaints.
-    final signature = '${payload.state}|${payload.circleName}|'
-        '${payload.headline}|${payload.sub}|${_groupSignature(state)}';
+    // unrelated state churn (loading flags, etc.).
+    final signature =
+        '${payload.state}|${payload.headline}|${payload.sub}|'
+        '${payload.rows.map((r) => '${r.circleId}:${r.kind.wire}:${r.headline}:${r.sub}').join(',')}|'
+        '${payload.moreCircles}|${_groupSignature(state)}';
     if (signature == _lastSignature) return;
     _lastSignature = signature;
 
     _pending = _pending.then((_) => _pushWithIcons(state, payload));
   }
 
-  /// Clears the widget on sign-out, so a signed-out phone never keeps
-  /// showing the last signed-in person's circle state — and so the next
-  /// person to sign in on this device does not briefly inherit it either.
+  /// Clears the widget on sign-out (and account deletion), so a signed-out
+  /// phone never keeps showing the last signed-in person's circles, and the
+  /// next person to sign in on this device does not briefly inherit them.
   static Future<void> clear() {
     _lastSignature = null;
     return HomeWidgetService.updateFamily(
-      const FamilyWidgetPayload(
-        state: 'signed_out',
-        headline: 'Signed out',
-        sub: 'Open ALRT and sign in to see your Family circle',
-        deeplink: _familyDeeplink,
-      ),
+      FamilyWidgetModel.signedOut(DateTime.now()),
     );
   }
 
@@ -65,6 +53,7 @@ class FamilyWidgetSync {
   ) async {
     final summaries = _orderedGroups(state);
     final groups = <FamilyWidgetGroup>[];
+    final iconByCircle = <String, String?>{};
 
     for (var index = 0; index < summaries.length; index++) {
       final summary = summaries[index];
@@ -74,6 +63,7 @@ class FamilyWidgetSync {
         photoUrl: summary.photoUrl,
         themeColorHex: summary.themeColor,
       );
+      iconByCircle[summary.circleId] = path;
       groups.add(
         FamilyWidgetGroup(
           circleId: summary.circleId,
@@ -90,7 +80,12 @@ class FamilyWidgetSync {
         headline: payload.headline,
         sub: payload.sub,
         deeplink: payload.deeplink,
+        generatedAt: payload.generatedAt,
         circleName: payload.circleName,
+        rows: payload.rows
+            .map((r) => r.withIcon(iconByCircle[r.circleId]))
+            .toList(),
+        moreCircles: payload.moreCircles,
         groups: groups,
       ),
     );
@@ -102,12 +97,13 @@ class FamilyWidgetSync {
     final FamilyProviderState state,
   ) {
     final currentId = state.circle?.id;
-    final ordered = [...state.circles]..sort((a, b) {
+    final ordered = [...state.circles]
+      ..sort((a, b) {
         if (a.circleId == currentId) return -1;
         if (b.circleId == currentId) return 1;
         return 0;
       });
-    return ordered.take(FamilyWidgetPayload.maxGroups).toList();
+    return ordered.take(FamilyWidgetPayload.maxRows).toList();
   }
 
   /// Everything about the group row that changes what is drawn.
@@ -115,101 +111,5 @@ class FamilyWidgetSync {
     return _orderedGroups(state)
         .map((s) => '${s.circleId}:${s.name}:${s.photoUrl}:${s.themeColor}')
         .join(',');
-  }
-
-  static FamilyWidgetPayload _build(final FamilyProviderState state) {
-    final circle = state.circle;
-
-    if (circle == null) {
-      return const FamilyWidgetPayload(
-        state: 'no_circle',
-        headline: 'No family circle',
-        sub: 'Set up in the app',
-        deeplink: _familyDeeplink,
-      );
-    }
-
-    // Live SOS from someone else is the one critical state. The home
-    // screen is a shared, glanceable surface, so it says only that SOS is
-    // active — never who, and never their location. Anyone wanting those
-    // details opens the app, which is what the tap does.
-    final sos = state.activeSosFromOthers.firstOrNull;
-    if (sos != null) {
-      return FamilyWidgetPayload(
-        state: 'sos',
-        headline: 'SOS active in your circle',
-        sub: 'Tap to see who and respond',
-        deeplink: _sosDeeplink,
-        circleName: circle.name,
-      );
-    }
-
-    // A check-in the user has not answered outranks the roll call: the
-    // widget is where they will see it if the app is closed, and the
-    // action they owe is their own. Naming who asked is skipped here too
-    // — this is the user's own outstanding action, not another member's
-    // status.
-    final request = circle.latestCheckInRequest;
-    final askedAt = request?.createdAt;
-    if (request != null && !_hasAnsweredSince(circle.me, askedAt)) {
-      return FamilyWidgetPayload(
-        state: 'check_in_requested',
-        headline: 'Your circle asked you to check in',
-        sub: askedAt == null
-            ? 'Tap to say you are safe'
-            : '${timeago.format(askedAt)} · tap to say you are safe',
-        deeplink: _familyDeeplink,
-        circleName: circle.name,
-      );
-    }
-
-    final others = circle.others;
-    if (others.isEmpty) {
-      return FamilyWidgetPayload(
-        state: 'safe',
-        headline: 'No one to check on yet',
-        sub: 'Invite family in the app',
-        deeplink: _familyDeeplink,
-        circleName: circle.name,
-      );
-    }
-
-    // With an ask on record, "checked in" means since the ask, so the
-    // count on the home screen matches the roll call inside the app.
-    final checkedIn = others
-        .where((m) => _hasAnsweredSince(m, askedAt))
-        .length;
-    final total = others.length;
-    final updated = 'Updated ${DateFormat.jm().format(DateTime.now())}';
-
-    if (checkedIn == total) {
-      return FamilyWidgetPayload(
-        state: 'safe',
-        headline: "Everyone's safe",
-        sub: '$total of $total checked in',
-        deeplink: _familyDeeplink,
-        circleName: circle.name,
-      );
-    }
-
-    return FamilyWidgetPayload(
-      state: 'partial',
-      headline: '$checkedIn of $total checked in',
-      sub: askedAt == null ? updated : 'Waiting on ${total - checkedIn}',
-      deeplink: _familyDeeplink,
-      circleName: circle.name,
-    );
-  }
-
-  /// Whether [member] has checked in since [askedAt]. With no ask on
-  /// record the usual 24-hour "recently" window stands in.
-  static bool _hasAnsweredSince(
-    final FamilyMember? member,
-    final DateTime? askedAt,
-  ) {
-    if (member == null) return true;
-    if (askedAt == null) return member.isCheckedInRecently;
-    final last = member.lastCheckInAt;
-    return last != null && last.isAfter(askedAt);
   }
 }

@@ -82,3 +82,17 @@ export const pushNotificationTokenSchema = z.object({
 export type PushNotificationTokenInput = z.infer<
   typeof pushNotificationTokenSchema
 >;
+
+/** POST /notifications/test: a push to the caller's own phones only. */
+export const testNotificationSchema = z.object({
+  urgent: z.boolean().optional(),
+});
+export type TestNotificationInput = z.infer<typeof testNotificationSchema>;
+
+/** DELETE /notifications/push-notification-token: this phone's token, on sign-out. */
+export const deletePushNotificationTokenSchema = z.object({
+  token: z.string().min(1, "Device token is required"),
+});
+export type DeletePushNotificationTokenInput = z.infer<
+  typeof deletePushNotificationTokenSchema
+>;

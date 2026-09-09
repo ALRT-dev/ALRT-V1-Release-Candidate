@@ -72,6 +72,9 @@ class _FamilySosReceiverScreenState
   /// opened with (a banner or push captured earlier) still says active.
   bool _serverSaysEnded = false;
 
+  /// True from the moment I confirm "I'm safe" on my own SOS.
+  bool _standingDown = false;
+
   @override
   void initState() {
     super.initState();
@@ -144,7 +147,9 @@ class _FamilySosReceiverScreenState
   Future<void> _acknowledge(final FamilySosEvent sos) async {
     if (_acknowledging) return;
     setState(() => _acknowledging = true);
-    await ref.read(providerOfFamily.notifier).respondToSos(
+    await ref
+        .read(providerOfFamily.notifier)
+        .respondToSos(
           sosEventId: sos.id,
           type: FamilySosResponseType.seen,
         );
@@ -153,7 +158,8 @@ class _FamilySosReceiverScreenState
     setState(() => _acknowledging = false);
     if (failed) {
       context.showErrorToast(
-        message: ref.read(providerOfFamily).sosRespondState.error?.message ??
+        message:
+            ref.read(providerOfFamily).sosRespondState.error?.message ??
             'Could not send your acknowledgment. Please try again.',
       );
     } else {
@@ -168,7 +174,8 @@ class _FamilySosReceiverScreenState
     // SOS has ended, the history copy carries the final acknowledgments.
     final stateCopy = ref.watch(
       providerOfFamily.select(
-        (s) => s.activeSosEvents
+        (s) =>
+            s.activeSosEvents
                 .where((e) => e.id == widget.args.sosEvent.id)
                 .firstOrNull ??
             s.sosHistory
@@ -176,7 +183,8 @@ class _FamilySosReceiverScreenState
                 .firstOrNull,
       ),
     );
-    final sos = stateCopy ??
+    final sos =
+        stateCopy ??
         (_serverSaysEnded
             ? widget.args.sosEvent.copyWith(
                 status: FamilySosStatus.resolved,
@@ -190,10 +198,29 @@ class _FamilySosReceiverScreenState
     final myMemberId = ref.watch(
       providerOfFamily.select((s) => s.circle?.myMemberId),
     );
+    final myMemberIds = ref.watch(
+      providerOfFamily.select(
+        (s) => {
+          if (s.circle?.myMemberId != null) s.circle!.myMemberId,
+          ...s.circles.map((c) => c.myMemberId),
+        },
+      ),
+    );
     final myUserId = ref.watch(
       providerOfLoggedInUser.select((user) => user?.id),
     );
-    final isMine = isSosMine(sos, myMemberId: myMemberId, myUserId: myUserId);
+    // "Mine" by any of my member ids across my circles (a payload without
+    // the member object, or a circle not in scope, must still read as
+    // mine on my own phone), and held true through a stand-down I
+    // started, so the header never flips to someone else's wording.
+    final isMine =
+        _standingDown ||
+        isSosMine(
+          sos,
+          myMemberId: myMemberId,
+          myUserId: myUserId,
+          myMemberIds: myMemberIds,
+        );
     final isResolved = sos.status != FamilySosStatus.active;
     final mySeen = sos.responses
         .where(
@@ -207,18 +234,16 @@ class _FamilySosReceiverScreenState
     // the freshest, then the newest trail point, then the trigger snapshot.
     final liveMember = ref.watch(
       providerOfFamily.select(
-        (s) => s.circle?.members
-            .where((m) => m.id == sos.memberId)
-            .firstOrNull,
+        (s) => s.circle?.members.where((m) => m.id == sos.memberId).firstOrNull,
       ),
     );
     final position = !isResolved && (liveMember?.hasLiveLocation ?? false)
         ? LatLng(liveMember!.latitude!, liveMember.longitude!)
         : !isResolved && _trail.isNotEmpty
-            ? LatLng(_trail.last.latitude, _trail.last.longitude)
-            : sos.latitude != null && sos.longitude != null
-                ? LatLng(sos.latitude!, sos.longitude!)
-                : null;
+        ? LatLng(_trail.last.latitude, _trail.last.longitude)
+        : sos.latitude != null && sos.longitude != null
+        ? LatLng(sos.latitude!, sos.longitude!)
+        : null;
     if (!isResolved && position != null) _followPosition(position);
 
     return Scaffold(
@@ -287,7 +312,9 @@ class _FamilySosReceiverScreenState
                     // the sender saw "Family member is marked safe".
                     isMine
                         ? (isResolved ? 'Your SOS has ended' : 'Your SOS')
-                        : (isResolved ? '$name is marked safe' : '$name triggered SOS'),
+                        : (isResolved
+                              ? '$name is marked safe'
+                              : '$name triggered SOS'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20.spMin,
@@ -299,8 +326,8 @@ class _FamilySosReceiverScreenState
                       isResolved
                           ? 'SOS ended'
                           : sos.isLive
-                              ? 'Live location on · started ${timeago.format(sos.createdAt!)}'
-                              : 'Started ${timeago.format(sos.createdAt!)} · live location off',
+                          ? 'Live location on · started ${timeago.format(sos.createdAt!)}'
+                          : 'Started ${timeago.format(sos.createdAt!)} · live location off',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 12.spMin,
@@ -369,8 +396,8 @@ class _FamilySosReceiverScreenState
               sos.locationLabel != null
                   ? 'Near ${sos.locationLabel}'
                   : isResolved
-                      ? 'Location was shared with the circle'
-                      : 'Live location shared with the circle',
+                  ? 'Location was shared with the circle'
+                  : 'Live location shared with the circle',
               style: TextStyle(
                 fontSize: 14.spMin,
                 fontWeight: FontWeight.w600,
@@ -412,7 +439,7 @@ class _FamilySosReceiverScreenState
               child: Text(
                 when == null
                     ? "You've seen this · ${sos.member?.displayName ?? 'they'} "
-                        'know someone is looking'
+                          'know someone is looking'
                     : "You've seen this · ${timeago.format(when)}",
                 style: TextStyle(
                   fontSize: 14.spMin,
@@ -526,7 +553,8 @@ class _FamilySosReceiverScreenState
     await showConfirmationSheet(
       context: context,
       title: 'Stop your SOS?',
-      description: 'Your family stops seeing this alert and it moves to '
+      description:
+          'Your family stops seeing this alert and it moves to '
           'your history.',
       confirmButtonText: 'Stop SOS',
       onPressedConfirm: (_, __) => confirmedStop = true,
@@ -538,7 +566,8 @@ class _FamilySosReceiverScreenState
       await showConfirmationSheet(
         context: context,
         title: 'Also stop sharing your live location?',
-        description: 'Live location sharing ends immediately and the '
+        description:
+            'Live location sharing ends immediately and the '
             'trail is deleted. This cannot be undone.',
         confirmButtonText: 'Stop live sharing',
         onPressedConfirm: (_, __) => confirmedStopLive = true,
@@ -556,8 +585,18 @@ class _FamilySosReceiverScreenState
     final WidgetRef ref,
     final FamilySosEvent sos,
   ) async {
-    final ok = await ref.read(providerOfFamily.notifier).resolveSos(sosEventId: sos.id);
-    if (!context.mounted || !ok) return;
+    if (mounted) setState(() => _standingDown = true);
+    final ok = await ref
+        .read(providerOfFamily.notifier)
+        .resolveSos(sosEventId: sos.id);
+    if (!context.mounted) return;
+    if (!ok) {
+      setState(() => _standingDown = false);
+      context.showErrorToast(
+        message: 'Could not end your SOS. Check your connection and try again.',
+      );
+      return;
+    }
 
     // The sender's own confirmation is one line on the Family screen. The
     // after-event record (who saw it, what was shared) is the recipients'
@@ -596,8 +635,9 @@ class _FamilySosReceiverScreenState
           ),
         ),
         onPressed: () async {
-          final shared =
-              await ref.read(providerOfFamily.notifier).shareSnapshotNow();
+          final shared = await ref
+              .read(providerOfFamily.notifier)
+              .shareSnapshotNow();
           if (!context.mounted) return;
           shared
               ? context.showSuccessToast(
@@ -629,15 +669,16 @@ class _FamilySosReceiverScreenState
     // that type are hidden here too, not just relabeled. The switch
     // expressions below still cover it - required for exhaustiveness over
     // FamilySosResponseType - but that branch is unreachable.
-    final visibleResponses = sos.responses
-        .where((response) => response.type != FamilySosResponseType.onMyWay)
-        .toList()
-      ..sort((a, b) {
-        final at = a.createdAt;
-        final bt = b.createdAt;
-        if (at == null || bt == null) return 0;
-        return at.compareTo(bt);
-      });
+    final visibleResponses =
+        sos.responses
+            .where((response) => response.type != FamilySosResponseType.onMyWay)
+            .toList()
+          ..sort((a, b) {
+            final at = a.createdAt;
+            final bt = b.createdAt;
+            if (at == null || bt == null) return 0;
+            return at.compareTo(bt);
+          });
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -691,8 +732,7 @@ class _FamilySosReceiverScreenState
                                   (response.member?.user?.id != null &&
                                       response.member?.user?.id == myUserId)
                               ? 'You'
-                              : response.member?.displayName ??
-                                  'Family member',
+                              : response.member?.displayName ?? 'Family member',
                           style: TextStyle(
                             fontSize: 14.spMin,
                             fontWeight: FontWeight.w600,

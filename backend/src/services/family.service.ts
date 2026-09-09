@@ -202,6 +202,7 @@ export const notifyCircle = async ({
   body,
   data,
   type,
+  urgent,
   socketEvent,
   socketData,
 }: {
@@ -213,6 +214,8 @@ export const notifyCircle = async ({
   body?: string;
   data?: object;
   type?: PushNotificationType;
+  /** Urgent channel on Android, time-sensitive on iOS (SOS, needs help). */
+  urgent?: boolean;
   socketEvent?: SocketEvent;
   socketData?: any;
 }) => {
@@ -240,6 +243,7 @@ export const notifyCircle = async ({
           body,
           data: data ?? {},
           type,
+          ...(urgent !== undefined && { urgent }),
         }),
       ),
     );
@@ -601,7 +605,10 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
       },
       sosEvents: {
         where: { status: "active" },
-        include: { responses: true },
+        include: {
+          member: { select: memberIdentitySelect },
+          responses: { include: { member: { select: memberIdentitySelect } } },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -1528,9 +1535,12 @@ export const createCheckIn = async (
     circleId: membership.circleId,
     excludeMemberIds: [membership.id],
     title: isSafe ? `${memberName} is safe` : `${memberName} needs help`,
-    body: input.message || (isSafe ? "Checked in safe" : "Reach out now"),
+    // The member's own message stays inside the app: a lock-screen
+    // preview is not the place for free text about someone's situation.
+    body: isSafe ? "Checked in safe" : "Reach out now. Open ALRT for details.",
     data: { circleId: membership.circleId, checkInId: checkIn.id },
     type: PushNotificationType.familyCheckIn,
+    urgent: !isSafe,
     socketEvent: SocketEvent.familyCheckIn,
     socketData: checkIn,
   });
@@ -2257,9 +2267,9 @@ export const triggerSos = async (
   const memberName =
     sos.member.nickname || sos.member.user.name || "A family member";
   const title = `🆘 ${memberName} triggered SOS`;
-  const body = sos.locationLabel
-    ? `Live location shared near ${sos.locationLabel}. Open to respond.`
-    : "Live location shared. Open to respond.";
+  // No suburb on the lock screen: where they are is inside the app, for
+  // members only, after a tap.
+  const body = "Open ALRT to see where they are and respond.";
   const data = {
     circleId: membership.circleId,
     sosEventId: sos.id,
@@ -2280,6 +2290,7 @@ export const triggerSos = async (
           body,
           data,
           type: PushNotificationType.familySos,
+          urgent: true,
         }),
       ),
     );
@@ -2291,6 +2302,7 @@ export const triggerSos = async (
       body,
       data,
       type: PushNotificationType.familySos,
+      urgent: true,
       socketEvent: SocketEvent.familySos,
       socketData: sos,
     });
@@ -2470,6 +2482,12 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
       latitude: null,
       longitude: null,
       locationLabel: null,
+    },
+    // With the member, so every phone can still tell whose SOS ended
+    // (the sender's own reads "Your SOS has ended", never a stranger's).
+    include: {
+      member: { select: memberIdentitySelect },
+      responses: { include: { member: { select: memberIdentitySelect } } },
     },
   });
 

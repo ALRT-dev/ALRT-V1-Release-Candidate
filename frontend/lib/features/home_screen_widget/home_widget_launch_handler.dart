@@ -8,6 +8,10 @@ import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_keys.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_service.dart';
+import 'package:hazard_app/features/home_screen_widget/family_widget_model.dart';
+import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
+import 'package:hazard_app/features/family/views/screens/family_check_in_roll_call_screen.dart';
 import 'package:hazard_app/features/shared/providers/navigator_key_provider.dart';
 
 /// Routes taps on the home-screen widget into the app.
@@ -39,34 +43,56 @@ class HomeWidgetLaunchHandler {
   }
 
   void _handle(final Uri? uri) {
-    if (uri == null || uri.scheme != HomeWidgetKeys.deeplinkScheme) return;
-
-    final screen = uri.queryParameters['screen'];
+    final tap = FamilyWidgetTap.parse(uri);
+    if (tap == null) return;
     final navigatorKey = _ref.read(providerOfGlobalNavigatorKey);
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
-    // Everything the widget surfaces lives on the home shell.
+    // Everything the widget surfaces lives on the home shell. A tap only
+    // ever navigates: it never checks in, shares a location, acknowledges
+    // an SOS or ends one; those stay behind their own consent steps.
     context.go(HomeScreen.route);
 
-    // Select the tab the widget points at, after the route settles.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      switch (screen) {
-        case 'alerts':
+      switch (tap) {
+        case OpenAlertsTap():
           _ref.read(providerOfHomeTab.notifier).state = HomeTab.notifications;
-          break;
-        case 'map':
+        case OpenMapTap():
           _ref.read(providerOfHomeTab.notifier).state = HomeTab.map;
-          break;
-        // Both family cases land on the Family tab, where an active SOS is
-        // surfaced by the app's own banner. The widget never opens SOS directly.
-        case 'family':
-        case 'family_sos':
+        case OpenFamilyTap(:final circleId):
+          _selectCircle(circleId);
           _ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
-          break;
-        default:
-          break;
+        case OpenCheckInTap(:final circleId):
+          _selectCircle(circleId);
+          _ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+          // The roll call shows who asked and offers the one Check in
+          // button, with its consent sheet; nothing is sent by the tap.
+          final ctx = navigatorKey.currentContext;
+          if (ctx != null && ctx.mounted) {
+            ctx.push(FamilyCheckInRollCallScreen.route);
+          }
+        case OpenSosTap(:final circleId, :final sosId):
+          _selectCircle(circleId);
+          _ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+          if (sosId != null && sosId.isNotEmpty) {
+            unawaited(_ref.read(providerOfFamily.notifier).openSos(sosId));
+          }
       }
     });
+  }
+
+  /// Puts [circleId] in scope when it is one of the account's circles; a
+  /// stale id from an old widget payload is ignored.
+  void _selectCircle(final String? circleId) {
+    if (circleId == null || circleId.isEmpty) return;
+    final state = _ref.read(providerOfFamily);
+    final known =
+        state.circle?.id == circleId ||
+        state.circles.any((c) => c.circleId == circleId);
+    if (!known) return;
+    if (state.circle?.id == circleId) return;
+    _ref.read(providerOfSelectedCircleId.notifier).select(circleId);
+    unawaited(_ref.read(providerOfFamily.notifier).load(silent: true));
   }
 }
