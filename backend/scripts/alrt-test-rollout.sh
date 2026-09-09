@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# ALRT TEST rollout, revision 13 (12 + build-log naming parser: accepts BuildKit's "naming to <image> 0.0s done", the
-# older "naming to <image> done" and the classic "Successfully tagged <image>", tolerates a missing naming line, and any
-# unexplained exit is named with its line and command; image resolution and pinned-content checks unchanged).
+# ALRT TEST rollout, revision 14 (13 + verify paces the regression scripts against the auth rate limiter's own cap and
+# window (43 registrations per full suite against a default of 40 per 15 minutes), records the window it used, and
+# `verify --resume` carries forward the scripts that already passed in this run into a new, separate verify directory,
+# waiting for the limiter window before anything else runs; earlier verify logs are never overwritten).
 #
 # Usage on the TEST host (alrt-test-api, i-0045a41694e315d45, ap-southeast-2), in the operator's SSM shell, one step
 # per invocation, in this order:
@@ -69,6 +70,11 @@ RUN_DIR=""
 PIN=""
 APPLY_MIGRATIONS=0
 NO_NEW_MIGRATIONS=0
+RESUME=0
+V=""
+# Pacing sleeps are real on the host. The stand-in harness sets this to 0 so its scenarios finish in seconds; the
+# wait is still computed, logged and recorded either way.
+PACE_SLEEP_SCALE="${ALRT_PACE_SLEEP_SCALE:-1}"
 
 # Always to stderr; also to the run log once a run directory exists. Never fails when there is no directory yet.
 log() {
@@ -104,6 +110,7 @@ parse_args() {
       --pin) [ -n "${2:-}" ] || stop "--pin needs a value"; PIN="$2"; shift 2 ;;
       --apply-approved-migrations) APPLY_MIGRATIONS=1; shift ;;
       --no-new-migrations) NO_NEW_MIGRATIONS=1; shift ;;
+      --resume) RESUME=1; shift ;;
       *) stop "unknown argument: $1" ;;
     esac
   done
@@ -517,11 +524,13 @@ SQL
 
 # ============================================================================= verify
 verify() {
-  enforce_environment; current_run_dir; note "step=verify"
+  enforce_environment; current_run_dir; note "step=verify resume=$RESUME"
   grep -q '^deploy=ok$' "$RUN_DIR/status.txt" || stop "deploy did not complete in this run"
   local pin; pin=$(recorded_pin)
   [ "$(cd "$REPO" && $GIT rev-parse HEAD)" = "$pin" ] || stop "server checkout is not the recorded pin $pin"
-  local V="$RUN_DIR/verify"; mkdir -p "$V"; chmod 700 "$V"
+  # Never overwrite an earlier verify of this run: the first is "verify", later ones are stamped.
+  if [ -e "$RUN_DIR/verify" ]; then V="$RUN_DIR/verify-$(date -u +%Y%m%d%H%M%S)"; else V="$RUN_DIR/verify"; fi
+  mkdir -p "$V"; chmod 700 "$V"
   : > "$V/summary.txt"
 
   # image content matches the checked-out revision for the files this rollout changed (not just a phrase)
@@ -536,24 +545,73 @@ verify() {
   dc exec -T app sh -c 'test -x node_modules/.bin/tsx && node -e "require.resolve(\"socket.io-client\"); require.resolve(\"@prisma/client\")"' || stop "verification tooling missing from the image"
   log "image content and tooling verified"
 
-  # strict 40-check consent run; exit code captured and recorded, then judged immediately
-  local consent_exit
-  set +e
-  dc exec -T -e NODE_ENV=test -e TEST_SERVER_URL=http://localhost:9000 -e EXPECT_SUBURB_LABEL=1 app node_modules/.bin/tsx src/scripts/verify_family_location_consent.ts > "$V/consent.log" 2>&1
-  consent_exit=$?
-  set -e
-  printf 'consent exit=%s last=%s\n' "$consent_exit" "$(tail -1 "$V/consent.log")" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
-  if [ "$consent_exit" -ne 0 ] || ! grep -q "All 40 checks passed." "$V/consent.log"; then
-    tail -25 "$V/consent.log"
-    stop "consent verification failed (exit $consent_exit); stopping before any regression script. Privacy on TEST is NOT verified. Report before any recovery."
+  # ---- the auth rate-limit budget this run must respect (read, never changed)
+  local limits; limits=$(auth_limits)
+  AUTH_MAX=${limits% *}; AUTH_WINDOW_S=$(( ${limits#* } / 1000 )); AUTH_USED=0; AUTH_WINDOW_START=0
+  printf 'auth rate limit on the container: %s hits per %ss per address (registrations per full suite: %s)\n' "$AUTH_MAX" "$AUTH_WINDOW_S" \
+    "$( (echo verify_family_location_consent; printf '%s\n' $REGRESSION_SCRIPTS) | while read -r x; do auth_hits_for "$x"; done | awk '{t+=$1} END {print t}')" | tee -a "$V/summary.txt"
+
+  # ---- --resume: carry forward what already passed in this run; wait out the earlier window first
+  local prev="" skip_consent=0 resume_from="" carried=0
+  if [ "$RESUME" = 1 ]; then
+    prev=$(previous_verify_dir)
+    if [ -z "$prev" ]; then
+      printf 'resume: no earlier verify in this run; running everything\n' | tee -a "$V/summary.txt"
+    else
+      printf 'resume: earlier verify %s\n' "$prev" | tee -a "$V/summary.txt"
+      if grep -q '^consent exit=0 ' "$prev/summary.txt" && grep -q "All 40 checks passed." "$prev/consent.log" 2>/dev/null; then
+        skip_consent=1; carried=$((carried + 1))
+        printf 'consent skipped=passed-in %s (%s)\n' "$prev" "$(grep '^consent exit=0 ' "$prev/summary.txt" | tail -1)" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
+      fi
+      local x
+      for x in $REGRESSION_SCRIPTS; do
+        if [ "$skip_consent" = 1 ] && grep -q "^$x exit=0 " "$prev/summary.txt" && grep -qE "checks passed\." "$prev/$x.log" 2>/dev/null; then
+          carried=$((carried + 1))
+          printf '%s skipped=passed-in %s (%s)\n' "$x" "$prev" "$(grep "^$x exit=0 " "$prev/summary.txt" | tail -1)" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
+        else
+          resume_from="$x"; break
+        fi
+      done
+      # the earlier verify's limiter window may still be open: wait for it, bounded by one window
+      local ws now wait; ws=$(previous_window_start "$prev"); now=$(date -u +%s)
+      if [ "${ws:-0}" -gt 0 ] && [ $((now - ws)) -lt $((AUTH_WINDOW_S + 5)) ]; then
+        wait=$((ws + AUTH_WINDOW_S + 5 - now))
+        printf 'paced: the earlier verify used the limiter window that started %s; waiting %ss for it to end\n' "$(date -u -d "@$ws" +%FT%TZ 2>/dev/null || echo "$ws")" "$wait" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
+        log "pacing: waiting ${wait}s for the earlier verify's auth rate-limit window (limiter untouched)"
+        pace_sleep "$wait"
+      fi
+      if [ -z "$resume_from" ] && [ "$skip_consent" = 1 ]; then
+        printf 'resume: every script already passed in %s; re-checking health, ledger, schema and container only\n' "$prev" | tee -a "$V/summary.txt"
+      fi
+    fi
   fi
 
-  local s r_exit
+  # strict 40-check consent run; exit code captured and recorded, then judged immediately
+  local consent_exit
+  if [ "$skip_consent" = 0 ]; then
+    pace_for verify_family_location_consent "$(auth_hits_for verify_family_location_consent)"
+    set +e
+    dc exec -T -e NODE_ENV=test -e TEST_SERVER_URL=http://localhost:9000 -e EXPECT_SUBURB_LABEL=1 app node_modules/.bin/tsx src/scripts/verify_family_location_consent.ts > "$V/consent.log" 2>&1
+    consent_exit=$?
+    set -e
+    printf 'consent exit=%s last=%s\n' "$consent_exit" "$(tail -1 "$V/consent.log")" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
+    if [ "$consent_exit" -ne 0 ] || ! grep -q "All 40 checks passed." "$V/consent.log"; then
+      tail -25 "$V/consent.log"
+      stop "consent verification failed (exit $consent_exit); stopping before any regression script. Privacy on TEST is NOT verified. Report before any recovery."
+    fi
+  fi
+
+  # Resuming past a carried consent run: start at the first script that did not pass earlier (none = nothing to run).
+  local s r_exit ran=0 running=1
+  if [ -n "$prev" ] && [ "$skip_consent" = 1 ]; then running=0; fi
   for s in $REGRESSION_SCRIPTS; do
+    if [ "$running" = 0 ]; then [ "$s" = "$resume_from" ] && running=1 || continue; fi
+    pace_for "$s" "$(auth_hits_for "$s")"
     set +e
     dc exec -T -e NODE_ENV=test -e TEST_SERVER_URL=http://localhost:9000 app node_modules/.bin/tsx "src/scripts/$s.ts" > "$V/$s.log" 2>&1
     r_exit=$?
     set -e
+    ran=$((ran + 1))
     printf '%s exit=%s last=%s\n' "$s" "$r_exit" "$(tail -1 "$V/$s.log")" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
     if [ "$r_exit" -ne 0 ] || ! grep -qE "checks passed\." "$V/$s.log"; then
       tail -25 "$V/$s.log"
@@ -582,8 +640,85 @@ verify() {
   grep -q 'status=running' "$V/container.txt" || fail=1
   echo "==== summary ($V/summary.txt)"; cat "$V/summary.txt"; echo "==== migrations"; cat "$V/migrations-applied.txt"; cat "$V/schema-columns.txt"; echo "==== container"; cat "$V/container.txt"; echo "==== scheduler"; cat "$V/scheduler-observed.txt" 2>/dev/null
   [ "$fail" -eq 0 ] || stop "verification incomplete or failed; see $V. Privacy on TEST is NOT verified. Report before any recovery."
-  note "verify=ok"
-  log "verification passed: 40/40 consent checks, twelve regression scripts exit 0, internal and external health OK, migrations finished, columns present"
+  note "verify=ok dir=$V"
+  local total; total=$(printf '%s\n' $REGRESSION_SCRIPTS | wc -l)
+  if [ -n "$prev" ]; then
+    log "verification passed (resumed): $carried result(s) carried from $prev, $ran regression script(s) run now in $V, $total regression scripts plus the 40-check consent run all exit 0 across the two; internal and external health OK, migrations finished, columns present"
+  else
+    log "verification passed: 40/40 consent checks, $total regression scripts exit 0, internal and external health OK, migrations finished, columns present (paced against the auth rate limit where needed; see $V/summary.txt)"
+  fi
+}
+
+# ----------------------------------------------------------------------------- auth budget (verify pacing)
+# Every verification script registers its synthetic accounts through POST /api/auth/email-password/register, which sits
+# behind authApiRateLimiter: AUTH_RATE_LIMIT_MAX hits per AUTH_RATE_LIMIT_WINDOW_MS per client address (express-rate-limit
+# 8, memory store: a fixed window that starts at the address's first hit and resets windowMs later; a 429 counts as a
+# hit too). All scripts run inside the app container against localhost, so they share one address and one budget. The
+# counts below are the registrations each script makes (straight-line calls, no loops; re-count when a script changes).
+auth_hits_for() {
+  case "$1" in
+    verify_family_location_consent) echo 3 ;;
+    verify_checkin_request_location_privacy) echo 2 ;;
+    verify_sos_history) echo 3 ;;
+    verify_stage9a_journey_recipient) echo 4 ;;
+    verify_targeted_check_in_request) echo 4 ;;
+    verify_circle_list_state) echo 4 ;;
+    verify_seat_rule) echo 3 ;;
+    verify_push_notification_settings) echo 5 ;;
+    verify_family_leave_and_alert_link) echo 3 ;;
+    verify_alert_filter_matrix) echo 3 ;;
+    verify_saved_location_limit) echo 3 ;;
+    verify_family_push_delivery) echo 3 ;;
+    verify_hazard_push_dedupe) echo 3 ;;
+    *) echo 5 ;;  # unknown script: assume a typical fixture set rather than zero
+  esac
+}
+# The limiter's cap and window as the running container has them (config.ts defaults when unset). Never changed here.
+auth_limits() {
+  local out
+  out=$(dc exec -T app sh -c 'printf "%s %s" "${AUTH_RATE_LIMIT_MAX:-40}" "${AUTH_RATE_LIMIT_WINDOW_MS:-900000}"' 2>/dev/null || true)
+  printf '%s' "$out" | grep -qE '^[0-9]+ [0-9]+$' || out="40 900000"
+  printf '%s\n' "$out"
+}
+AUTH_MAX=40; AUTH_WINDOW_S=900; AUTH_USED=0; AUTH_WINDOW_START=0
+pace_sleep() { # seconds
+  local want=$1 real
+  real=$(awk -v w="$want" -v k="$PACE_SLEEP_SCALE" 'BEGIN { printf "%d", w * k }')
+  [ "$real" -gt 0 ] && sleep "$real"
+  return 0
+}
+# Before a script that needs N auth hits: if the window cannot take them, wait for it to end (at most one window plus a
+# margin), then start a fresh count. Recorded in the verify directory and in status.txt so a wait is never invisible.
+pace_for() { # script hits
+  local s=$1 n=$2 now until wait
+  now=$(date -u +%s)
+  if [ "$AUTH_WINDOW_START" -gt 0 ] && [ $((now - AUTH_WINDOW_START)) -ge $((AUTH_WINDOW_S + 5)) ]; then AUTH_USED=0; AUTH_WINDOW_START=0; fi
+  if [ $((AUTH_USED + n)) -gt "$AUTH_MAX" ]; then
+    until=$((AUTH_WINDOW_START + AUTH_WINDOW_S + 5)); wait=$((until - now)); [ "$wait" -lt 0 ] && wait=0
+    [ "$wait" -gt $((AUTH_WINDOW_S + 5)) ] && wait=$((AUTH_WINDOW_S + 5))
+    printf 'paced: before %s, %s of %s auth hits used in the window that started %s; waiting %ss for the window to end\n' "$s" "$AUTH_USED" "$AUTH_MAX" "$(date -u -d "@$AUTH_WINDOW_START" +%FT%TZ 2>/dev/null || echo "$AUTH_WINDOW_START")" "$wait" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
+    log "pacing: waiting ${wait}s for the auth rate-limit window before $s (limiter untouched)"
+    pace_sleep "$wait"
+    AUTH_USED=0; AUTH_WINDOW_START=0
+  fi
+  [ "$AUTH_WINDOW_START" -gt 0 ] || { AUTH_WINDOW_START=$(date -u +%s); printf '%s\n' "$AUTH_WINDOW_START" > "$V/auth-window-start.txt"; }
+  AUTH_USED=$((AUTH_USED + n))
+  printf 'auth budget: %s uses %s hits; %s of %s used in the current window\n' "$s" "$n" "$AUTH_USED" "$AUTH_MAX" >> "$V/summary.txt"
+}
+# The most recent earlier verify directory of this run (for --resume), or nothing.
+previous_verify_dir() {
+  local d
+  for d in $(ls -1dt "$RUN_DIR"/verify "$RUN_DIR"/verify-* 2>/dev/null); do
+    [ "$d" = "$V" ] && continue
+    [ -f "$d/summary.txt" ] && { printf '%s\n' "$d"; return 0; }
+  done
+  return 0
+}
+# When the earlier verify's limiter window began: recorded by revision 14+, else the earliest log it wrote.
+previous_window_start() { # dir
+  if [ -s "$1/auth-window-start.txt" ]; then cat "$1/auth-window-start.txt"; return 0; fi
+  local f; f=$(ls -1tr "$1"/consent.log "$1"/verify_*.log 2>/dev/null | head -1)
+  [ -n "$f" ] && stat -c %Y "$f" || echo 0
 }
 
 # ============================================================================= inspect (read-only)
@@ -604,5 +739,5 @@ inspect() {
 STEP="${1:-}"; shift || true
 case "$STEP" in
   preflight|record|deploy|verify|inspect) parse_args "$@"; "$STEP" ;;
-  *) echo "usage: bash $0 {preflight [--pin SHA]|record --pin SHA|deploy --pin SHA --apply-approved-migrations|verify|inspect}"; exit 2 ;;
+  *) echo "usage: bash $0 {preflight [--pin SHA]|record --pin SHA|deploy --pin SHA --apply-approved-migrations|verify [--resume]|inspect}"; exit 2 ;;
 esac

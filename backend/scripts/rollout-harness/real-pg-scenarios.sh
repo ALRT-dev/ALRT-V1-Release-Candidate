@@ -42,7 +42,7 @@ echo "harness app db: $REAL_APP_DB (copy of $REAL_SOURCE_DB, approved columns re
 echo "databases before: $(psql -Atc 'select count(*) from pg_database' -d "$REAL_APP_DB")"
 
 base=$(mktemp -d); export FAKE_STATE="$base/state"; mkdir -p "$FAKE_STATE"
-ENV="ALRT_REPO=$FAKE_REPO ALRT_ROLLOUT_BASE=$base/rollout ALRT_DOCKER=$HERE/bin/real-pg-docker ALRT_GIT=$HERE/bin/fake-git ALRT_CURL=$HERE/bin/fake-curl ALRT_IMDS=http://imds ALRT_SLEEP_AFTER_UP=0"
+ENV="ALRT_REPO=$FAKE_REPO ALRT_ROLLOUT_BASE=$base/rollout ALRT_DOCKER=$HERE/bin/real-pg-docker ALRT_GIT=$HERE/bin/fake-git ALRT_CURL=$HERE/bin/fake-curl ALRT_IMDS=http://imds ALRT_SLEEP_AFTER_UP=0 ALRT_PACE_SLEEP_SCALE=0"
 check() { if printf '%s' "$2" | grep -q -- "$4"; then echo "PASS [$1] exit=$3 :: $(printf '%s' "$2" | grep -- "$4" | tail -1 | cut -c1-160)"; else echo "FAIL [$1] exit=$3 (expected: $4)"; printf '%s\n' "$2" | tail -12 | sed 's/^/    /'; FAILS=$((FAILS+1)); fi; }
 
 out=$(env $ENV SCENARIO= bash "$SCRIPT" preflight --pin "$FAKE_PIN" 2>&1); check "preflight (real ledger + schema)" "$out" $? "approved columns present: 0"

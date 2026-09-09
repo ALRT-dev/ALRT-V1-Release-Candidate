@@ -44,6 +44,7 @@ if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
       case "$*" in
         *"prisma migrate status"*) migrated && { echo "Database schema is up to date!"; exit 0; } || { echo "pending"; exit 1; };;
         *sha256sum*) f="${@: -1}"; if [ "${SCENARIO:-}" = "image-drift" ]; then echo "deadbeef  $f"; else (cd "$FAKE_REPO/backend" && sha256sum "$f"); fi;;
+        *AUTH_RATE_LIMIT_MAX*) printf '%s %s' "${FAKE_AUTH_MAX:-40}" "${FAKE_AUTH_WINDOW_MS:-900000}";;
         *"node_modules/.bin/tsx"*) [ "$1" = "sh" ] && exit 0
           case "$*" in
             *verify_family_location_consent*) if [ "${SCENARIO:-}" = "consent-fail" ]; then echo "  ok - a"; echo "FAILED: AssertionError"; exit 1; fi; echo "  ok - ..."; echo "All 40 checks passed.";;
@@ -53,7 +54,7 @@ if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
             *push_notification_settings*) echo "  skipped - cooldown (no CACHE_URL)"; echo "14 checks passed. 1 skipped.";;
             *leave_and_alert_link*) echo "12 checks passed.";; *alert_filter_matrix*) echo "56 checks passed.";;
             *family_push_delivery*) echo "11 checks passed.";;
-            *hazard_push_dedupe*) echo "7 checks passed.";;
+            *hazard_push_dedupe*) if [ "${SCENARIO:-}" = "rate-limit-12th" ] && [ ! -f "$S/dedupe-429-once" ]; then touch "$S/dedupe-429-once"; echo "Hazard push dedupe (real DB, intercepted FCM)"; echo 'FAILED: AssertionError [ERR_ASSERTION]: {"error":"Too many requests","message":"Too many authentication attempts from this address. Please wait before trying again."}'; exit 1; fi; echo "7 checks passed.";;
             *saved_location_limit*) echo "3 checks passed. (server enforcement OFF)";;
             *) echo "6 checks passed.";; esac;;
         *) exit 0;;

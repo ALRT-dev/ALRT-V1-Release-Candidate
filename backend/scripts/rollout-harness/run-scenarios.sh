@@ -19,7 +19,7 @@ for f in src/services/family.service.ts src/controllers/family.controller.ts src
 done
 
 envfor() { # base
-  echo "ALRT_REPO=$FAKE_REPO ALRT_ROLLOUT_BASE=$1/rollout ALRT_DOCKER=$HERE/bin/fake-docker ALRT_GIT=$HERE/bin/fake-git ALRT_CURL=$HERE/bin/fake-curl ALRT_IMDS=http://imds ALRT_SLEEP_AFTER_UP=0"
+  echo "ALRT_REPO=$FAKE_REPO ALRT_ROLLOUT_BASE=$1/rollout ALRT_DOCKER=$HERE/bin/fake-docker ALRT_GIT=$HERE/bin/fake-git ALRT_CURL=$HERE/bin/fake-curl ALRT_IMDS=http://imds ALRT_SLEEP_AFTER_UP=0 ALRT_PACE_SLEEP_SCALE=0"
 }
 check() { # name, output, rc, expect
   if printf '%s' "$2" | grep -q -- "$4"; then echo "PASS [$1] exit=$3 :: $(printf '%s' "$2" | grep -- "$4" | tail -1 | cut -c1-150)"
@@ -158,6 +158,28 @@ vflow "regression fails -> stops at first failure" "regress-fail" "verify_sos_hi
 vflow "image drift" "image-drift" "image content differs"
 vflow "external health fails" "external-fail" "Privacy on TEST is NOT verified"
 vflow "verify ok" "" "verification passed"
+rd=$(cat "$LAST_BASE/rollout/current-run"); check "  auth budget recorded (43 registrations per suite)" "$(cat "$rd/verify/summary.txt")" 0 "registrations per full suite: 43"
+echo "== auth rate-limit pacing and resume (revision 14; revision 13 hit the 40-per-window cap on the 12th script)"
+vflow "12th script rate-limited -> stops at it, earlier passes on disk" "rate-limit-12th" "verify_hazard_push_dedupe failed (exit 1)"
+rd=$(cat "$LAST_BASE/rollout/current-run")
+out=$(env $(envfor "$LAST_BASE") SCENARIO="rate-limit-12th" ALRT_PACE_SLEEP_SCALE=0 bash "$SCRIPT" verify --resume 2>&1); check "verify --resume passes: carries 12 earlier results, runs the 12th" "$out" $? "verification passed (resumed): 12 result(s) carried from"
+newdir=$(ls -1d "$rd"/verify-* 2>/dev/null | tail -1)
+check "  earlier verify directory untouched (its summary still ends at the failure)" "$(tail -1 "$rd/verify/summary.txt")" 0 "verify_hazard_push_dedupe exit=1"
+check "  new verify directory used for the recovery" "${newdir:-none}" 0 "verify-"
+check "  recovery summary names the carried consent run" "$(cat "$newdir/summary.txt")" 0 "consent skipped=passed-in"
+check "  recovery summary names the carried scripts" "$(grep -c 'skipped=passed-in' "$newdir/summary.txt")" 0 "^12$"
+check "  recovery waited for the earlier window (scaled to 0s here)" "$(cat "$newdir/summary.txt")" 0 "paced: the earlier verify used the limiter window"
+check "  recovery ran only the 12th script" "$(ls "$newdir" | grep -c '^verify_.*\.log$')" 0 "^1$"
+check "  status.txt carries both the failure and the resumed pass" "$(grep -c 'verify=ok' "$rd/status.txt")" 0 "^1$"
+FAKE_AUTH_MAX=10 ALRT_PACE_SLEEP_SCALE=0 vflow "small auth budget (10 per window) -> paced, every script still runs and passes" "" "verification passed"
+rd=$(cat "$LAST_BASE/rollout/current-run")
+check "  pacing waits recorded before scripts that would exceed the budget" "$(grep -c '^paced: before' "$rd/verify/summary.txt")" 0 "^[1-9]"
+check "  all 12 regression logs present" "$(ls "$rd/verify" | grep -c '^verify_.*\.log$')" 0 "^12$"
+export FAKE_AUTH_MAX=; unset FAKE_AUTH_MAX
+base=$(mktemp -d); export FAKE_STATE="$base/state"; mkdir -p "$FAKE_STATE"
+env $(envfor "$base") SCENARIO= bash "$SCRIPT" record --pin "$FAKE_PIN" >/dev/null 2>&1 && env $(envfor "$base") SCENARIO= bash "$SCRIPT" deploy --pin "$FAKE_PIN" --apply-approved-migrations >/dev/null 2>&1
+out=$(env $(envfor "$base") SCENARIO= ALRT_PACE_SLEEP_SCALE=0 bash "$SCRIPT" verify --resume 2>&1); check "verify --resume with no earlier verify runs everything" "$out" $? "verification passed: 40/40 consent checks"
+
 
 echo "== inspect"
 out=$(env $(envfor "$LAST_BASE") SCENARIO= bash "$SCRIPT" inspect 2>&1); check "inspect" "$out" $? "approved columns present"
