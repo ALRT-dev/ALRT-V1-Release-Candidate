@@ -163,7 +163,7 @@ const fillGeom = async (id: string, lat: number, lng: number) => {
 async function main() {
   console.log("Alert filter / push matrix (real HTTP, real DB, intercepted FCM)\n");
 
-  const { sendPushNotificationAboutNewHazard } = await import("../services/notification.service.js");
+  const { sendPushNotificationAboutNewHazard, releaseHazardPushClaims } = await import("../services/notification.service.js");
   const { getAllMainHazardCategoryIds } = await import("../services/hazard_category.service.js");
 
   const mainIds = await getAllMainHazardCategoryIds();
@@ -255,6 +255,10 @@ async function main() {
       const pushed = new Set<string>();
       for (const [key, hazard] of Object.entries(hazards)) {
         captured.length = 0;
+        // One push per person per hazard event is enforced since build 47;
+        // this matrix pushes the same hazards under every setting, so the
+        // claim is released between runs.
+        await releaseHazardPushClaims(hazard.id);
         await sendPushNotificationAboutNewHazard(hazard);
         if (captured.some((m) => m.tokens.includes(token))) pushed.add(key);
       }

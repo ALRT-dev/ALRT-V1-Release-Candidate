@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# ALRT TEST rollout, revision 11 (10 + the family push delivery script: SOS urgent channel, iOS sound and urgency,
-# private lock-screen bodies, departed members and sign-out receive nothing, the test push; content-verified, run by verify).
+# ALRT TEST rollout, revision 12 (11 + the hazard push dedupe script: one public-alert push per person per hazard
+# event across the saved-area and family-proximity paths, tray collapse keys, re-issue not suppressed; content-verified, run by verify).
 #
 # Usage on the TEST host (alrt-test-api, i-0045a41694e315d45, ap-southeast-2), in the operator's SSM shell, one step
 # per invocation, in this order:
@@ -10,7 +10,7 @@
 #   bash alrt-test-rollout.sh record --pin SHA            rollback tag + exact image ID, ledger snapshot; creates the run dir
 #   bash alrt-test-rollout.sh deploy --pin SHA MODE       HTTPS fetch pinned to SHA, build, migration gate for MODE, fresh
 #                                                         restore-tested backup, start, post-start proof
-#   bash alrt-test-rollout.sh verify                      image content, tooling, strict 40-check consent run, eleven regression
+#   bash alrt-test-rollout.sh verify                      image content, tooling, strict 40-check consent run, twelve regression
 #                                                         scripts, health, ledger, schema, running image, scheduler
 #   bash alrt-test-rollout.sh inspect                     read-only state dump for failure reports
 #
@@ -51,8 +51,8 @@ readonly BASE="${ALRT_ROLLOUT_BASE:-/var/tmp/alrt-test-rollout}"
 readonly EXTERNAL_HEALTH_URL="https://api-test.safetyalrt.com/api/test"
 readonly INTERNAL_HEALTH_URL="http://127.0.0.1:3010/api/test"
 # Files whose content must be byte-identical between the checked-out revision and the running image.
-readonly CONTENT_FILES="src/services/family.service.ts src/controllers/family.controller.ts src/scripts/verify_family_location_consent.ts src/scripts/verify_targeted_check_in_request.ts src/scripts/verify_push_notification_settings.ts src/scripts/verify_family_leave_and_alert_link.ts src/scripts/verify_alert_filter_matrix.ts src/scripts/verify_saved_location_limit.ts src/scripts/verify_family_push_delivery.ts src/controllers/notification.controller.ts src/routes/notification.route.ts src/services/family_alert.service.ts src/services/location_subscription.service.ts src/services/entitlement.service.ts src/services/notification.service.ts src/services/user.service.ts src/utils/hazard.util.ts src/validators/family.validator.ts package.json prisma/migrations/20260904000000_family_check_in_request_targets/migration.sql prisma/migrations/20260905000000_family_host_transition/migration.sql"
-readonly REGRESSION_SCRIPTS="verify_checkin_request_location_privacy verify_sos_history verify_stage9a_journey_recipient verify_targeted_check_in_request verify_circle_list_state verify_seat_rule verify_push_notification_settings verify_family_leave_and_alert_link verify_alert_filter_matrix verify_saved_location_limit verify_family_push_delivery"
+readonly CONTENT_FILES="src/services/family.service.ts src/controllers/family.controller.ts src/scripts/verify_family_location_consent.ts src/scripts/verify_targeted_check_in_request.ts src/scripts/verify_push_notification_settings.ts src/scripts/verify_family_leave_and_alert_link.ts src/scripts/verify_alert_filter_matrix.ts src/scripts/verify_saved_location_limit.ts src/scripts/verify_family_push_delivery.ts src/scripts/verify_hazard_push_dedupe.ts src/controllers/notification.controller.ts src/routes/notification.route.ts src/services/family_alert.service.ts src/services/location_subscription.service.ts src/services/entitlement.service.ts src/services/notification.service.ts src/services/user.service.ts src/utils/hazard.util.ts src/validators/family.validator.ts package.json prisma/migrations/20260904000000_family_check_in_request_targets/migration.sql prisma/migrations/20260905000000_family_host_transition/migration.sql"
+readonly REGRESSION_SCRIPTS="verify_checkin_request_location_privacy verify_sos_history verify_stage9a_journey_recipient verify_targeted_check_in_request verify_circle_list_state verify_seat_rule verify_push_notification_settings verify_family_leave_and_alert_link verify_alert_filter_matrix verify_saved_location_limit verify_family_push_delivery verify_hazard_push_dedupe"
 
 # ----------------------------------------------------------------------------- tool shims (stand-in testing only)
 DOCKER="${ALRT_DOCKER:-sudo docker}"
@@ -557,7 +557,7 @@ verify() {
   echo "==== summary ($V/summary.txt)"; cat "$V/summary.txt"; echo "==== migrations"; cat "$V/migrations-applied.txt"; cat "$V/schema-columns.txt"; echo "==== container"; cat "$V/container.txt"; echo "==== scheduler"; cat "$V/scheduler-observed.txt" 2>/dev/null
   [ "$fail" -eq 0 ] || stop "verification incomplete or failed; see $V. Privacy on TEST is NOT verified. Report before any recovery."
   note "verify=ok"
-  log "verification passed: 40/40 consent checks, eleven regression scripts exit 0, internal and external health OK, migrations finished, columns present"
+  log "verification passed: 40/40 consent checks, twelve regression scripts exit 0, internal and external health OK, migrations finished, columns present"
 }
 
 # ============================================================================= inspect (read-only)

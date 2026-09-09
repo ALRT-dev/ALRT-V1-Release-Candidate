@@ -1,4 +1,8 @@
-import { pushSafeHazard } from "./notification.service.js";
+import {
+  hazardCollapseKey,
+  hazardPushEventKey,
+  pushSafeHazard,
+} from "./notification.service.js";
 import type {
   FamilyMember,
   FamilySavedPlace,
@@ -604,6 +608,8 @@ const flagMemberNearHazard = async (
       distanceKm,
     },
     type: PushNotificationType.familyHazardProximity,
+    collapseKey: hazardCollapseKey(hazard.id),
+    hazardEvent: { hazardId: hazard.id, eventKey: hazardPushEventKey(hazard) },
     socketEvent: SocketEvent.familyHazardProximity,
     socketData: {
       memberId: member.id,
@@ -714,6 +720,11 @@ export const notifyFamiliesAboutNewHazard = async (hazard: Hazard) => {
           placeId: place.id,
         },
         type: PushNotificationType.familyHazardProximity,
+        collapseKey: hazardCollapseKey(hazard.id),
+        hazardEvent: {
+          hazardId: hazard.id,
+          eventKey: hazardPushEventKey(hazard),
+        },
         socketEvent: SocketEvent.familyHazardProximity,
         socketData: {
           placeId: place.id,

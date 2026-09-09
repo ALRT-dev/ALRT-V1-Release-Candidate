@@ -13,7 +13,10 @@ import { HttpError } from "../models/http_error.js";
 import { SocketEvent } from "../models/socket_event_types.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
 import { sendSocketEventToUsers } from "./socket.service.js";
-import { sendPushNotificationToUser } from "./notification.service.js";
+import {
+  claimHazardPushRecipients,
+  sendPushNotificationToUser,
+} from "./notification.service.js";
 import {
   awardFamilyJoined,
   awardSavedPlace,
@@ -203,6 +206,8 @@ export const notifyCircle = async ({
   data,
   type,
   urgent,
+  collapseKey,
+  hazardEvent,
   socketEvent,
   socketData,
 }: {
@@ -216,6 +221,14 @@ export const notifyCircle = async ({
   type?: PushNotificationType;
   /** Urgent channel on Android, time-sensitive on iOS (SOS, needs help). */
   urgent?: boolean;
+  /** Tray key so a repeated copy of one event replaces, never stacks. */
+  collapseKey?: string;
+  /**
+   * For pushes about a public hazard: one push per person per hazard
+   * event across this and the saved-area path (see
+   * claimHazardPushRecipients). The socket event still reaches everyone.
+   */
+  hazardEvent?: { hazardId: string; eventKey: string };
   socketEvent?: SocketEvent;
   socketData?: any;
 }) => {
@@ -235,8 +248,15 @@ export const notifyCircle = async ({
   }
 
   if (title && body && type) {
+    const pushUserIds = hazardEvent
+      ? await claimHazardPushRecipients(
+          hazardEvent.hazardId,
+          hazardEvent.eventKey,
+          userIds,
+        )
+      : userIds;
     await Promise.allSettled(
-      userIds.map((userId) =>
+      pushUserIds.map((userId) =>
         sendPushNotificationToUser({
           userId,
           title,
@@ -244,6 +264,7 @@ export const notifyCircle = async ({
           data: data ?? {},
           type,
           ...(urgent !== undefined && { urgent }),
+          ...(collapseKey && { collapseKey }),
         }),
       ),
     );

@@ -7,6 +7,7 @@ import {
   getFormattedHazardSeverityBand,
 } from "../utils/hazard.util.js";
 import { isUnderNotificationCooldown } from "./hazard_cache.service.js";
+import { getCacheClient } from "../utils/cache_client.util.js";
 
 /**
  * A function to get user push notification tokens of a specific user by their user ID.
@@ -193,9 +194,21 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
       })),
     );
 
-    const userTokens = usersUnderCooldown
+    const eligible = usersUnderCooldown
       .filter(({ underCooldown }) => underCooldown)
-      .flatMap(({ user }) => user.devices.map((device) => device.deviceToken));
+      .map(({ user }) => user);
+    // One push per person per hazard event, shared with the family
+    // proximity paths: whichever path reaches a person first sends.
+    const claimed = new Set(
+      await claimHazardPushRecipients(
+        hazard.id,
+        hazardPushEventKey(hazard),
+        eligible.map((u) => u.id),
+      ),
+    );
+    const userTokens = eligible
+      .filter((u) => claimed.has(u.id))
+      .flatMap((user) => user.devices.map((device) => device.deviceToken));
 
     return userTokens;
   } catch (error) {
@@ -206,6 +219,87 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
 /**
  * Sends push notifications to a list of device tokens.
  */
+/**
+ * One push per recipient per hazard EVENT, across every path that may
+ * notify about the same hazard (a saved area covering it, a family member
+ * or a family saved place near it, two saved places near it). The first
+ * path to claim a recipient sends; the others skip that recipient. The
+ * claim is keyed by the event, not the hazard alone, so a genuine later
+ * event about the same hazard (an escalation, a re-issue) uses a new
+ * eventKey and still goes out. Claims live 48 hours in the cache; without
+ * a cache they live in this process, which still covers the one creation
+ * event whose paths all run here.
+ */
+const HAZARD_PUSH_CLAIM_TTL_S = 48 * 60 * 60;
+const localHazardPushClaims = new Map<string, number>();
+
+export const hazardPushEventKey = (hazard: {
+  createdAt?: Date | string | null;
+}): string => {
+  const at = hazard.createdAt ? new Date(hazard.createdAt) : null;
+  return at && !isNaN(at.getTime()) ? `created:${at.toISOString()}` : "created";
+};
+
+export const claimHazardPushRecipients = async (
+  hazardId: string,
+  eventKey: string,
+  userIds: string[],
+): Promise<string[]> => {
+  const unique = [...new Set(userIds)];
+  const redis = getCacheClient();
+  const claimed: string[] = [];
+  const now = Date.now();
+  for (const [k, exp] of localHazardPushClaims) {
+    if (exp <= now) localHazardPushClaims.delete(k);
+  }
+  for (const userId of unique) {
+    const key = `push:hazard:${hazardId}:${eventKey}:${userId}`;
+    let first = false;
+    if (redis) {
+      try {
+        first =
+          (await redis.set(key, "1", { NX: true, EX: HAZARD_PUSH_CLAIM_TTL_S })) ===
+          "OK";
+      } catch {
+        first = !localHazardPushClaims.has(key);
+        if (first) localHazardPushClaims.set(key, now + HAZARD_PUSH_CLAIM_TTL_S * 1000);
+      }
+    } else {
+      first = !localHazardPushClaims.has(key);
+      if (first) localHazardPushClaims.set(key, now + HAZARD_PUSH_CLAIM_TTL_S * 1000);
+    }
+    if (first) claimed.push(userId);
+  }
+  return claimed;
+};
+
+/**
+ * Forgets every claim for a hazard (an operator re-issuing an alert on
+ * purpose, and the verification scripts that push one hazard repeatedly
+ * under different settings). Never called on the ordinary send path.
+ */
+export const releaseHazardPushClaims = async (hazardId: string) => {
+  const prefix = `push:hazard:${hazardId}:`;
+  for (const key of [...localHazardPushClaims.keys()]) {
+    if (key.startsWith(prefix)) localHazardPushClaims.delete(key);
+  }
+  const redis = getCacheClient();
+  if (!redis) return;
+  try {
+    const keys: string[] = [];
+    for await (const batch of redis.scanIterator({ MATCH: `${prefix}*`, COUNT: 200 })) {
+      // The client yields one key or a batch depending on its version.
+      keys.push(...((Array.isArray(batch) ? batch : [batch]) as string[]));
+    }
+    if (keys.length > 0) await redis.del(keys);
+  } catch (error) {
+    console.error("Failed to release hazard push claims:", error);
+  }
+};
+
+/** The tray key for a hazard: a later copy replaces, never stacks. */
+export const hazardCollapseKey = (hazardId: string) => `hazard:${hazardId}`;
+
 /**
  * The hazard fields a push may carry. The app opens the alert by id and
  * refetches it, so a push never needs coordinates, the bounding box, the
@@ -259,6 +353,7 @@ const sendPushNotificationToTokens = async ({
   data,
   type,
   urgent,
+  collapseKey,
 }: {
   tokens: string[];
   title: string;
@@ -267,6 +362,12 @@ const sendPushNotificationToTokens = async ({
   type: PushNotificationType;
   /** Force the urgent channel (a family SOS, a "needs help" check-in). */
   urgent?: boolean;
+  /**
+   * Tray key for the event (Android notification tag, APNs collapse id):
+   * a second copy about the same event replaces the first instead of
+   * stacking, on every app state where the system draws the notification.
+   */
+  collapseKey?: string;
 }) => {
   try {
     // Remove duplicate tokens
@@ -303,6 +404,7 @@ const sendPushNotificationToTokens = async ({
         priority: "high" as const,
         notification: {
           channelId: isUrgent ? "alrt_alerts_urgent" : "alrt_alerts",
+          ...(collapseKey && { tag: collapseKey }),
           // PRIVATE: on a locked phone Android shows the app name and hides
           // the text when the user has "sensitive content" hidden; it
           // never forces the body onto the lock screen (PUBLIC) and never
@@ -317,6 +419,7 @@ const sendPushNotificationToTokens = async ({
       // Never critical: that needs Apple's entitlement and would bypass
       // silent mode, which no alert here is allowed to do.
       apns: {
+        ...(collapseKey && { headers: { "apns-collapse-id": collapseKey.slice(0, 64) } }),
         payload: {
           aps: {
             sound: "default",
@@ -369,6 +472,7 @@ export const sendPushNotificationToUser = async ({
   data,
   type,
   urgent,
+  collapseKey,
 }: {
   userId: string;
   title: string;
@@ -376,6 +480,7 @@ export const sendPushNotificationToUser = async ({
   data: object;
   type: PushNotificationType;
   urgent?: boolean;
+  collapseKey?: string;
 }) => {
   try {
     // Fetch user tokens from your database
@@ -393,6 +498,7 @@ export const sendPushNotificationToUser = async ({
       data,
       type,
       ...(urgent !== undefined && { urgent }),
+      ...(collapseKey && { collapseKey }),
     });
   } catch (error) {
     console.error("Error sending push notification to user:", error);
@@ -414,6 +520,7 @@ export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
       body: getNotificationBodyForNewHazard(hazard),
       data: pushSafeHazard(hazard),
       type: PushNotificationType.viewHazard,
+      collapseKey: hazardCollapseKey(hazard.id),
     });
   } catch (error) {
     console.error(

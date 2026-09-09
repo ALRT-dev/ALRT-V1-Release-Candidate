@@ -44,6 +44,7 @@ if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
             *push_notification_settings*) echo "  skipped - cooldown (no CACHE_URL)"; echo "14 checks passed. 1 skipped.";;
             *leave_and_alert_link*) echo "12 checks passed.";; *alert_filter_matrix*) echo "56 checks passed.";;
             *family_push_delivery*) echo "11 checks passed.";;
+            *hazard_push_dedupe*) echo "7 checks passed.";;
             *saved_location_limit*) echo "3 checks passed. (server enforcement OFF)";;
             *) echo "6 checks passed.";; esac;;
         *) exit 0;;
