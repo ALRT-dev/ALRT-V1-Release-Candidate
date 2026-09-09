@@ -41,6 +41,7 @@ if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
             *verify_sos_history*) if [ "${SCENARIO:-}" = "regress-fail" ]; then echo "FAILED"; exit 1; fi; echo "All 8 checks passed.";;
             *stage9a*) echo "13 checks passed.";; *targeted*) echo "10 checks passed.";;
             *circle_list_state*) echo "9 checks passed.";; *seat_rule*) echo "All 7 checks passed.";;
+            *push_notification_settings*) echo "  skipped - cooldown (no CACHE_URL)"; echo "14 checks passed. 1 skipped.";;
             *) echo "6 checks passed.";; esac;;
         *) exit 0;;
       esac;;

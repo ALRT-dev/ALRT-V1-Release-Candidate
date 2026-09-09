@@ -18,7 +18,7 @@ FAILS=0
 
 FAKE_REPO=$(mktemp -d); export FAKE_REPO
 mkdir -p "$FAKE_REPO/.git" "$FAKE_REPO/backend"; cp "$BACKEND/docker-compose.test.yml" "$FAKE_REPO/backend/"; printf 'NODE_ENV=test\n' > "$FAKE_REPO/backend/.env.test"
-for f in src/services/family.service.ts src/controllers/family.controller.ts src/scripts/verify_family_location_consent.ts src/scripts/verify_targeted_check_in_request.ts package.json \
+for f in src/services/family.service.ts src/controllers/family.controller.ts src/scripts/verify_family_location_consent.ts src/scripts/verify_targeted_check_in_request.ts src/scripts/verify_push_notification_settings.ts src/services/notification.service.ts src/services/user.service.ts package.json \
          prisma/migrations/20260904000000_family_check_in_request_targets/migration.sql prisma/migrations/20260905000000_family_host_transition/migration.sql; do
   mkdir -p "$FAKE_REPO/backend/$(dirname "$f")"; cp "$BACKEND/$f" "$FAKE_REPO/backend/$f"
 done

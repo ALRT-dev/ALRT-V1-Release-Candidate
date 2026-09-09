@@ -1,6 +1,6 @@
 # TEST build 44 — install, acceptance and paywall guide
 
-Version **1.0.5 (44)**, commit **(see the workflow run)**, branch `test`, dev flavour
+Version **1.0.5 (44)**, commit **ba953d68b4b40718ee70f609c5faa3f8af4bdac6** (`ba953d6`), branch `test`, dev flavour
 (`com.safetyalrt.alrt.dev`, app label "[Dev] ALRT"), backend
 `https://api-test.safetyalrt.com`. Two artifacts are built from the same
 commit by `.github/workflows/android-test.yml`:
@@ -80,6 +80,21 @@ or billing mode, the phone is running an older build.
 4. **Check in from an alert.** Open a community report, then an official alert with no "What to do" section: both show "Near this alert? Let your family know you are okay." with "To <circle>" (and "change circle" when you have two). Check in: consent sheet, then toast; the alert stays open. With no circle: the strip says to join or create one and links to Family.
 5. **Leave a circle.** Member of two circles: Circle settings › Leave: lands on the other circle at once. Member of one: lands on the create/join screen. Airplane mode then Leave: an error toast, the circle still there; back online, Leave works.
 6. **Vibration.** Profile › Safety profile › Strong vibration on: a "Test vibration" row appears; tap it: a notification "Test: urgent alert vibration" arrives with the long pattern. Switch off: the row disappears. Notifications blocked in Android settings: the tap says so instead of pretending.
+
+## What is proven where (build 44)
+
+Three separate columns; nothing in one column counts for another.
+
+| Item | Automated (this environment) | TEST server | Phone |
+|---|---|---|---|
+| Six build-43 fixes present in build 44 | yes: build 44 = ba953d6 = 1aee3d4 (the six fixes) + the light Map details sheet, nothing else | backend part (push defaults, Emergency cooldown exemption, urgent channel name) **not yet deployed**; TEST runs 1230728 | items 1 to 6 above, not done from here |
+| Notification defaults never overwrite opt-outs | yes: `verify_push_notification_settings` §1 and §2 (row created once; API-saved opt-outs and a pre-existing all-off row come back byte-for-byte, same `updatedAt`) | runs inside `verify` once the backend is redeployed | Manage notifications shows what was saved after a restart |
+| Push switches enforced on delivery, urgent channel only for action/critical | yes: §3 and §4 against the real send path with Firebase intercepted (6 checks); mutation run fails as expected | same | vibration pattern felt only for a take-action or critical push |
+| Emergency Warning exempt from the cooldown | yes with a local cache (2 checks); reported as **skipped** where no cache is configured | depends on TEST's `CACHE_URL` | no |
+| Strong-vibration preference kept across channel delete/recreate | yes: `accessible_alerts_preference_test.dart` (5 tests; the preference lives in device storage, not the channel) | n/a | switch on/off/on, restart, Test vibration |
+| Android's own notification permission respected | code only (`areNotificationsEnabled` guard) | n/a | block ALRT notifications in Android settings, tap Test vibration: the app says so |
+| Uncertain SOS send and leave-circle answers | yes: `family_sos_flow_test.dart` (4), `family_leave_circle_test.dart` (4) | n/a | airplane-mode rows in items 1 and 5 |
+| Global humanitarian / ALRT Intel push switch; source push policies enforced | **not done** (needs a schema change and approval) | not done | not done |
 
 ## Paywall matrix (test_store build only)
 
