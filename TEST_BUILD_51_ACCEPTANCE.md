@@ -1,6 +1,6 @@
 # TEST build 51 — install, acceptance, notification delivery, widget and pricing guide
 
-Version **1.0.5 (51)**, commit **(the workflow run's head, printed below the build)**, branch `test`, dev flavour
+Version **1.0.5 (51)**, commit **7eacfea** (run 34541544658, artifact 10177722179, APK sha256 `b57267e6…c85c77ec`), branch `test`, dev flavour
 (`com.safetyalrt.alrt.dev`, app label "[Dev] ALRT"), backend
 `https://api-test.safetyalrt.com`. Two artifacts are built from the same
 commit by `.github/workflows/android-test.yml`:
