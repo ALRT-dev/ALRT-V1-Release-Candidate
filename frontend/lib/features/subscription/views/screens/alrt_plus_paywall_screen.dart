@@ -52,6 +52,9 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
   /// builds (driven by ALRT_PLUS_TEST_UNLOCK, which CI sets only for the
   /// sideloaded dev flavour).
   bool _dummy = false;
+
+  /// The full Free-versus-ALRT+ table, shown on request.
+  bool _showComparison = false;
   bool _dummyYearlySelected = true;
 
   @override
@@ -217,16 +220,43 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                       24.spMin,
                     ),
                     children: [
-                      const AlrtPlusLavNote(
-                        lead: 'You stay in control.',
-                        text:
-                            'You pay once, everyone else joins free. Core '
-                            'safety alerts, the map and emergency guidance '
-                            'stay free for everyone, always.',
+                      // Product decision 2026-09-10: the paywall leads with
+                      // the three things ALRT+ adds and one line on what
+                      // stays free; the full Free-versus-ALRT+ table is a
+                      // tap away rather than the first thing on screen.
+                      const AlrtPlusBenefitsSummary(),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => setState(
+                            () => _showComparison = !_showComparison,
+                          ),
+                          icon: Icon(
+                            _showComparison
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 18.spMin,
+                            color: AlrtPlusStyle.magenta,
+                          ),
+                          label: Text(
+                            _showComparison
+                                ? 'Hide the comparison'
+                                : 'Compare Free and ALRT+',
+                            style: TextStyle(
+                              fontSize: 12.5.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: AlrtPlusStyle.magenta,
+                            ),
+                          ),
+                        ),
                       ),
-                      SizedBox(height: 14.spMin),
-                      const AlrtPlusBenefitsTable(title: 'Free versus ALRT+'),
-                      SizedBox(height: 14.spMin),
+                      if (_showComparison) ...[
+                        const AlrtPlusBenefitsTable(
+                          title: 'Free versus ALRT+',
+                        ),
+                        SizedBox(height: 14.spMin),
+                      ],
+                      SizedBox(height: 4.spMin),
                       if (_offering != null) _planRowBuilder(),
                       if (_dummy) _dummyPlanRowBuilder(),
                       if (_error != null)

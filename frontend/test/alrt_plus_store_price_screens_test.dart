@@ -9,6 +9,7 @@ import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.da
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
+import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_benefits.dart';
 import 'package:hazard_app/others/app_theme.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show StoreProduct;
 
@@ -100,6 +101,15 @@ void main() {
       expect(find.textContaining(r'$99.99 AUD a year'), findsOneWidget);
       expect(find.textContaining('US\$'), findsNothing);
       expect(find.textContaining('Preview prices'), findsNothing);
+      // Condensed by default: the summary, not the five-row table.
+      expect(find.text(kAlrtPlusStaysFreeLine), findsOneWidget);
+      expect(find.text('Free: Always free'), findsNothing);
+      await tester.tap(find.text('Compare Free and ALRT+'));
+      await tester.pumpAndSettle();
+      expect(find.text('Free: Always free'), findsWidgets);
+      await tester.tap(find.text('Hide the comparison'));
+      await tester.pumpAndSettle();
+      expect(find.text('Free: Always free'), findsNothing);
 
       await tester.tap(find.text(r'$9.99'));
       await tester.pumpAndSettle();

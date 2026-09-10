@@ -11,6 +11,7 @@ class AlrtPlusBenefit {
     required this.label,
     required this.free,
     required this.plus,
+    this.short,
   });
 
   final IconData icon;
@@ -19,6 +20,14 @@ class AlrtPlusBenefit {
   /// What the free plan gives; null means "not included".
   final String? free;
   final String plus;
+
+  /// One line for the paywall's summary, stating the same allowance as
+  /// [plus] and [free] in fewer words. Null for rows that are the same on
+  /// both plans (they are summarised together as "stays free").
+  final String? short;
+
+  /// True when ALRT+ changes anything; false for the always-free rows.
+  bool get isPaidDifference => free != plus;
 }
 
 /// The verified allowances only: nothing here is a promise about safety
@@ -43,6 +52,8 @@ const alrtPlusBenefits = <AlrtPlusBenefit>[
     label: 'Saved locations for alerts (your own location never counts)',
     free: '$kFreeSavedLocationsLimit location',
     plus: 'As many as you like',
+    short:
+        'Save as many locations as you like (free: $kFreeSavedLocationsLimit)',
   ),
   AlrtPlusBenefit(
     icon: LucideIcons.crown,
@@ -50,14 +61,104 @@ const alrtPlusBenefits = <AlrtPlusBenefit>[
     free: null,
     plus:
         'Up to $kAlrtPlusMaxOwnedCircles circles, $kAlrtPlusSeats seats across them',
+    short:
+        'Host your own family circle: up to $kAlrtPlusMaxOwnedCircles circles, '
+        '$kAlrtPlusSeats seats',
   ),
   AlrtPlusBenefit(
     icon: LucideIcons.heartHandshake,
     label: 'Check-ins, SOS and saved places inside a hosted circle',
     free: 'For every member of a circle you join',
     plus: 'For every member of the circles you host',
+    short:
+        'Check-ins, SOS and saved places for everyone in the circles you host',
   ),
 ];
+
+/// The one line that covers every always-free row, for the summary.
+const kAlrtPlusStaysFreeLine =
+    'Alerts, the map, emergency guidance and joining a circle someone else '
+    'hosts stay free for everyone.';
+
+/// The short form of the comparison for the paywall: only what ALRT+
+/// adds, one line each, from the same list as [AlrtPlusBenefitsTable], then
+/// one line for what stays free. Nothing is stated here that the table
+/// does not also state.
+class AlrtPlusBenefitsSummary extends StatelessWidget {
+  const AlrtPlusBenefitsSummary({super.key, this.title = 'ALRT+ adds'});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final paid = alrtPlusBenefits.where((b) => b.isPaidDifference).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10.5.spMin,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: AlrtPlusStyle.label,
+          ),
+        ),
+        SizedBox(height: 8.spMin),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14.spMin),
+            border: Border.all(color: AlrtPlusStyle.cardLine),
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: 14.spMin,
+            vertical: 6.spMin,
+          ),
+          child: Column(
+            children: [
+              for (final benefit in paid)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.spMin),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        benefit.icon,
+                        size: 18.spMin,
+                        color: AlrtPlusStyle.magenta,
+                      ),
+                      SizedBox(width: 10.spMin),
+                      Expanded(
+                        child: Text(
+                          benefit.short ?? benefit.plus,
+                          style: TextStyle(
+                            fontSize: 13.5.spMin,
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                            color: AlrtPlusStyle.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        SizedBox(height: 8.spMin),
+        Text(
+          kAlrtPlusStaysFreeLine,
+          style: TextStyle(
+            fontSize: 12.spMin,
+            height: 1.45,
+            color: AlrtPlusStyle.inkSoft,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 /// Free versus ALRT+ side by side, readable at large text (rows wrap;
 /// nothing is colour-only: a tick or a dash sits next to every value).

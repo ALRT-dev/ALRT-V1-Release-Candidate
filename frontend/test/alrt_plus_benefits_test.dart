@@ -62,4 +62,37 @@ void main() {
       expect(find.text('Free: ${b.free ?? 'Not included'}'), findsWidgets);
     }
   });
+
+  test('the summary states only what ALRT+ adds, from the same rows', () {
+    final paid = alrtPlusBenefits.where((b) => b.isPaidDifference).toList();
+    expect(paid.length, 3);
+    for (final b in paid) {
+      expect(b.short, isNotNull, reason: '${b.label} needs a one-line form');
+    }
+    for (final b in alrtPlusBenefits.where((b) => !b.isPaidDifference)) {
+      expect(b.short, isNull);
+    }
+    expect(kAlrtPlusStaysFreeLine, contains('stay free'));
+  });
+
+  testWidgets('the summary renders the three paid rows and the free line', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(375, 812),
+        builder: (_, __) => const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: AlrtPlusBenefitsSummary()),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    for (final b in alrtPlusBenefits.where((b) => b.isPaidDifference)) {
+      expect(find.text(b.short!), findsOneWidget);
+    }
+    expect(find.text(kAlrtPlusStaysFreeLine), findsOneWidget);
+    expect(find.textContaining('Always free'), findsNothing);
+  });
 }
