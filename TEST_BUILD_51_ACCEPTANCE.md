@@ -1,6 +1,6 @@
-# TEST build 50 — install, acceptance, notification delivery, widget and pricing guide
+# TEST build 51 — install, acceptance, notification delivery, widget and pricing guide
 
-Version **1.0.5 (50)**, commit **(the workflow run's head, printed below the build)**, branch `test`, dev flavour
+Version **1.0.5 (51)**, commit **(the workflow run's head, printed below the build)**, branch `test`, dev flavour
 (`com.safetyalrt.alrt.dev`, app label "[Dev] ALRT"), backend
 `https://api-test.safetyalrt.com`. Two artifacts are built from the same
 commit by `.github/workflows/android-test.yml`:
@@ -13,14 +13,14 @@ commit by `.github/workflows/android-test.yml`:
 Both are signed with the TEST keystore (SHA-1
 `18:5E:43:9B:FC:7A:99:42:0C:AD:F0:EB:A9:E1:4F:0A:EE:66:2D:DB`), which the
 workflow's apksigner step verifies on every run. They install beside the
-production "ALRT" app, not over it, and they replace TEST builds 36 to 49.
+production "ALRT" app, not over it, and they replace TEST builds 36 to 50.
 
 ## Prove which build you are holding
 
 Profile tab, scroll to the bottom, under "Log out". The footer reads, for
 example:
 
-    ALRT 1.0.5 (50) · TEST build · <commit> · RevenueCat Test Store
+    ALRT 1.0.5 (51) · TEST build · <commit> · RevenueCat Test Store
 
 or `… · billing bypass` on the bypass build. If the footer shows no commit
 or billing mode, the phone is running an older build.
@@ -83,14 +83,14 @@ check the binary itself on a computer, unzip the artifact and run:
 
 Write these four facts down first; nothing below is judged without them.
 
-1. **Installed build**: Profile footer, e.g. `ALRT 1.0.5 (50) · TEST build · <commit> · RevenueCat Test Store`. The build number and commit come from the footer, never from how a screen looks. Failures reported before this footer read build 50 were seen on an earlier build. Build 50 changes only the paywall layout (condensed: what ALRT+ adds, one line on what stays free, the full comparison behind "Compare Free and ALRT+"); SOS, widget, notifications and the backend are as in build 49. Build 48 added the store price wording; build 49 adds three small fixes found by the new screen tests on a 360 px phone (the paywall's Terms · Privacy links wrapped off screen, three manage-screen rows clipped) and clears the phone's widget, store identity and Ask ALRT session on account deletion, as sign-out already did.
+1. **Installed build**: Profile footer, e.g. `ALRT 1.0.5 (51) · TEST build · <commit> · RevenueCat Test Store`. The build number and commit come from the footer, never from how a screen looks. Failures reported before this footer read build 51 were seen on an earlier build. Build 51 changes only the paywall layout and one line of wording in the member sheet: the paywall opens with "Alerts are always free", then a Free and ALRT+ two-column table (six rows), then one line on who ALRT+ is for; the guest role line in the member sheet now reads "Guest · gets alerts and can check in · uses no seat". Build 50 (condensed paywall with a "Compare Free and ALRT+" toggle) was never handed over for phone acceptance and is superseded. SOS, widget, notifications and the backend are as in build 49. Build 48 added the store price wording; build 49 adds three small fixes found by the new screen tests on a 360 px phone (the paywall's Terms · Privacy links wrapped off screen, three manage-screen rows clipped) and clears the phone's widget, store identity and Ask ALRT session on account deletion, as sign-out already did.
 2. **Billing mode**: the footer's last word (`RevenueCat Test Store` on the test_store APK, `billing bypass` on the other). Paywall items count only on the test_store APK.
 3. **App code**: the commit in the footer must equal the app commit named in the handover for build 48. The backend pin for the rollout may be a different commit on the same branch; the handover names both.
 4. **Deployed TEST backend**: **f1f6b92**, deployed 9 September 2026 23:37Z and fully verified 10 September 00:02:59Z (run `run-20260909233730-629825`, image `sha256:9be0d3e4…f959bd`, 40/40 consent checks and twelve regression scripts across the original run and the `--resume` recovery, health OK, zero restarts, scheduler OFF). The app and the backend are the same commit for build 49. Before it, TEST was verified at **6a1115f** (the build-46 pin) on 9 September 2026, run directory `run-20260909042910-293693`, image `sha256:95fe66e1…a65cb`, 40/40 consent checks and ten regression scripts passed, scheduler OFF. Everything from builds 43 to 46 is therefore live on TEST. What is **not** yet on TEST is only the build-47 backend delta (below) plus the dedupe fix; until that rollout, the items marked "needs redeploy" run against the build-46 server.
 
 **Backend delta since the verified baseline (6a1115f → the build-47 pin):** `notification.service.ts` (safe hazard payload without coordinates or reporter fields, `urgent` in push data, private Android visibility, APNs sound and interruption level, dead-token pruning, one push per person per hazard event with tray collapse keys), `family.service.ts` (`urgent` and hazard-event dedupe on `notifyCircle`, SOS body wording), `family_alert.service.ts` (place bodies, safe hazard payload, hazard-event dedupe), `notification.controller.ts` / `notification.route.ts` / `notification.validator.ts` / `push_notification_types.ts` (`POST /api/notifications/test`, `DELETE /api/notifications/push-notification-token`), verification scripts `verify_family_push_delivery` (11) and `verify_hazard_push_dedupe` (7), rollout script revision 12. No migration, no schema change, no scheduler change, no policy or opt-out change.
 
-## Phone checklist for the twelve items (build 50; unchanged from 47 except item 10)
+## Phone checklist for the twelve items (build 51; unchanged from 47 except items 10 and 11)
 
 Run on the **test_store** APK. Two phones, A and B, synthetic TEST accounts. Record each item as one of: **phone-tested pass**, **phone-tested fail** (with what you saw), **awaiting device acceptance**, **blocked** (say by what). Automated results never fill a phone column.
 
@@ -104,7 +104,7 @@ Run on the **test_store** APK. Two phones, A and B, synthetic TEST accounts. Rec
 8. **Leaving a circle does not hang.** Member of two: Leave › toast "You left <name>." and the other circle opens within seconds. Host with members: toast about 7 days to choose a host. Last member: circle deleted toast. Airplane mode then Leave: error toast, still a member. After leaving: no rows, strips, banners, widget rows or SOS from that circle anywhere; a check-in ask from it after leaving never appears.
 9. **Vibration.** Profile › Safety profile › Strong vibration on › Test vibration: the long pattern. Off: the row goes. Notifications blocked in Android settings or Do not disturb on: the card says so and offers Open phone settings. In-app button haptics are unrelated.
 10. **Saved-location paywall and prices (test_store).** The plan cards, the line under Subscribe and Manage must all show the same store amount with its currency code beside a bare "$" (see "Prices and currency" below). Second suburb › Subscribe › "One free saved location" › See ALRT+ › plan › approve the Test Store dialog: the second location saves once on the same screen with no restart. Decline: nothing saved, no red message. Airplane mode: "No connection…". Subscriber: never asked again; two quick taps save once. Restore on a free account: "No previous ALRT + purchase found." Server enforcement is OFF on TEST; the app's gate is what you are testing.
-11. **ALRT+ benefits.** The paywall leads with the three things ALRT+ adds and one line on what stays free, with the full "Free versus ALRT+" table behind "Compare Free and ALRT+"; Profile › ALRT+ Manage and the expired screen show the full table. All read from one list: saved locations 1 vs unlimited, hosting circles 0 vs 4, seats 8, joining with a code always free. Prices, periods and trial words come from the store; nothing else is promised.
+11. **ALRT+ benefits.** The paywall opens with the free promise ("Alerts are always free. We want everyone informed, always…"), then the "Free versus ALRT+" table as two columns (FREE, ALRT+): official alerts, map and guidance: Always / Always; joining a hosted circle: Always / Always; saved locations: 1 place / Unlimited; hosting circles: — / Up to 4; seats: — / 8 seats; check-ins, SOS and saved places: in a circle you join / in circles you host too. Under the table: "ALRT+ is for the person who hosts…". Profile › ALRT+ Manage ("Your ALRT+ benefits") and the expired screen show the same table. Check on the phone that no cell is cut off at your text size and that the ALRT+ column is tinted. Prices, periods and trial words come from the store; nothing else is promised.
 12. **Notification delivery.** See the next section; record its table separately.
 
 ## Item 12: notification delivery, lock screen, sound and vibration

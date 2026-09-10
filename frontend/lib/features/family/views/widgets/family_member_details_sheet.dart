@@ -265,7 +265,7 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
       case FamilyRole.owner:
         return 'Hosts this circle';
       case FamilyRole.guest:
-        return 'Guest · alerts only, uses no seat';
+        return 'Guest · gets alerts and can check in · uses no seat';
       case FamilyRole.adult:
       case FamilyRole.child:
         return 'Member of this circle';

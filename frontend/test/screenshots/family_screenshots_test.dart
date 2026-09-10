@@ -563,28 +563,6 @@ void main() {
     );
   }, skip: !_enabled);
 
-  testWidgets('paywall with store prices, comparison expanded', (tester) async {
-    final service = await storeService();
-    await tester.pumpWidget(
-      _app(
-        const AlrtPlusPaywallScreen(
-          args: AlrtPlusPaywallArgs(
-            reason: AlrtPlusPaywallReason.savedLocation,
-          ),
-        ),
-        overrides: [providerOfRevenueCat.overrideWithValue(service)],
-      ),
-    );
-    await tester.pump(const Duration(seconds: 1));
-    await tester.tap(find.text('Compare Free and ALRT+'));
-    await tester.pump(const Duration(milliseconds: 300));
-    await _shoot(
-      tester,
-      '25_paywall_comparison_expanded',
-      size: const Size(390, 1500),
-    );
-  }, skip: !_enabled);
-
   testWidgets('paywall with store prices, large text', (tester) async {
     final service = await storeService();
     await tester.pumpWidget(

@@ -53,8 +53,6 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
   /// sideloaded dev flavour).
   bool _dummy = false;
 
-  /// The full Free-versus-ALRT+ table, shown on request.
-  bool _showComparison = false;
   bool _dummyYearlySelected = true;
 
   @override
@@ -220,42 +218,28 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                       24.spMin,
                     ),
                     children: [
-                      // Product decision 2026-09-10: the paywall leads with
-                      // the three things ALRT+ adds and one line on what
-                      // stays free; the full Free-versus-ALRT+ table is a
-                      // tap away rather than the first thing on screen.
-                      const AlrtPlusBenefitsSummary(),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: () => setState(
-                            () => _showComparison = !_showComparison,
-                          ),
-                          icon: Icon(
-                            _showComparison
-                                ? Icons.expand_less
-                                : Icons.expand_more,
-                            size: 18.spMin,
-                            color: AlrtPlusStyle.magenta,
-                          ),
-                          label: Text(
-                            _showComparison
-                                ? 'Hide the comparison'
-                                : 'Compare Free and ALRT+',
-                            style: TextStyle(
-                              fontSize: 12.5.spMin,
-                              fontWeight: FontWeight.w700,
-                              color: AlrtPlusStyle.magenta,
-                            ),
-                          ),
+                      // Product decision 2026-09-10: the paywall opens with
+                      // the free promise (alerts are always free), then the
+                      // Free and ALRT+ columns side by side, then one line
+                      // on who ALRT+ is for. Every cell quotes an enforced
+                      // allowance; prices come from the store below.
+                      const AlrtPlusLavNote(
+                        lead: kAlrtPlusFreeLead,
+                        text: kAlrtPlusFreeText,
+                      ),
+                      SizedBox(height: 14.spMin),
+                      const AlrtPlusBenefitsTable(),
+                      SizedBox(height: 10.spMin),
+                      Text(
+                        kAlrtPlusHostLine,
+                        style: TextStyle(
+                          fontSize: 12.5.spMin,
+                          height: 1.45,
+                          fontWeight: FontWeight.w600,
+                          color: AlrtPlusStyle.ink,
                         ),
                       ),
-                      if (_showComparison) ...[
-                        const AlrtPlusBenefitsTable(
-                          title: 'Free versus ALRT+',
-                        ),
-                        SizedBox(height: 14.spMin),
-                      ],
+                      SizedBox(height: 14.spMin),
                       SizedBox(height: 4.spMin),
                       if (_offering != null) _planRowBuilder(),
                       if (_dummy) _dummyPlanRowBuilder(),

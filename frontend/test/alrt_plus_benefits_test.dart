@@ -29,7 +29,12 @@ void main() {
       );
       expect(host.free, isNull);
       expect(host.plus, contains('$kAlrtPlusMaxOwnedCircles circles'));
-      expect(host.plus, contains('$kAlrtPlusSeats seats'));
+      final seats = alrtPlusBenefits.firstWhere(
+        (b) => b.label.startsWith('Seats'),
+      );
+      expect(seats.free, isNull);
+      expect(seats.plus, contains('$kAlrtPlusSeats seats'));
+      expect(seats.plusCell, '$kAlrtPlusSeats seats');
       final saved = alrtPlusBenefits.firstWhere(
         (b) => b.label.startsWith('Saved locations'),
       );
@@ -42,7 +47,7 @@ void main() {
     },
   );
 
-  testWidgets('the table renders every row with a Free and an ALRT+ value', (
+  testWidgets('the table renders every row as Free and ALRT+ columns', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -56,43 +61,39 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.text('FREE'), findsOneWidget);
+    expect(find.text('ALRT+'), findsOneWidget);
     for (final b in alrtPlusBenefits) {
       expect(find.text(b.label), findsOneWidget);
-      expect(find.text('ALRT+: ${b.plus}'), findsWidgets);
-      expect(find.text('Free: ${b.free ?? 'Not included'}'), findsWidgets);
     }
+    // Always-free rows: a tick and the word in both columns; nothing is
+    // colour-only.
+    final always = alrtPlusBenefits.where((b) => !b.isPaidDifference).length;
+    expect(find.text(AlrtPlusBenefit.kAlwaysCell), findsNWidgets(always * 2));
+    // Paid rows: the free cell is a short allowance or a dash, the ALRT+
+    // cell a short allowance.
+    final dashes = alrtPlusBenefits.where((b) => b.freeCell == null).length;
+    expect(find.text('\u2014'), findsNWidgets(dashes));
+    expect(find.text('$kFreeSavedLocationsLimit place'), findsOneWidget);
+    expect(find.text('Unlimited'), findsOneWidget);
+    expect(find.text('Up to $kAlrtPlusMaxOwnedCircles'), findsOneWidget);
+    expect(find.text('$kAlrtPlusSeats seats'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
-  test('the summary states only what ALRT+ adds, from the same rows', () {
-    final paid = alrtPlusBenefits.where((b) => b.isPaidDifference).toList();
-    expect(paid.length, 3);
-    for (final b in paid) {
-      expect(b.short, isNotNull, reason: '${b.label} needs a one-line form');
+  test('the free promise and the host line quote the same allowances', () {
+    expect(kAlrtPlusFreeLead, 'Alerts are always free.');
+    expect(kAlrtPlusFreeText, contains('everyone informed'));
+    expect(kAlrtPlusFreeText, contains('joining a circle'));
+    expect(kAlrtPlusHostLine, contains('$kAlrtPlusSeats people'));
+    for (final line in [kAlrtPlusFreeText, kAlrtPlusHostLine]) {
+      expect(line.toLowerCase(), isNot(contains('trial')));
+      expect(line, isNot(contains('\$')));
     }
-    for (final b in alrtPlusBenefits.where((b) => !b.isPaidDifference)) {
-      expect(b.short, isNull);
-    }
-    expect(kAlrtPlusStaysFreeLine, contains('stay free'));
-  });
-
-  testWidgets('the summary renders the three paid rows and the free line', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ScreenUtilInit(
-        designSize: const Size(375, 812),
-        builder: (_, __) => const MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(child: AlrtPlusBenefitsSummary()),
-          ),
-        ),
-      ),
+    expect(
+      alrtPlusBenefits.where((b) => b.isPaidDifference).length,
+      4,
+      reason: 'saved locations, hosting, seats, check-ins in hosted circles',
     );
-    await tester.pump();
-    for (final b in alrtPlusBenefits.where((b) => b.isPaidDifference)) {
-      expect(find.text(b.short!), findsOneWidget);
-    }
-    expect(find.text(kAlrtPlusStaysFreeLine), findsOneWidget);
-    expect(find.textContaining('Always free'), findsNothing);
   });
 }

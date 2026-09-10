@@ -101,15 +101,13 @@ void main() {
       expect(find.textContaining(r'$99.99 AUD a year'), findsOneWidget);
       expect(find.textContaining('US\$'), findsNothing);
       expect(find.textContaining('Preview prices'), findsNothing);
-      // Condensed by default: the summary, not the five-row table.
-      expect(find.text(kAlrtPlusStaysFreeLine), findsOneWidget);
-      expect(find.text('Free: Always free'), findsNothing);
-      await tester.tap(find.text('Compare Free and ALRT+'));
-      await tester.pumpAndSettle();
-      expect(find.text('Free: Always free'), findsWidgets);
-      await tester.tap(find.text('Hide the comparison'));
-      await tester.pumpAndSettle();
-      expect(find.text('Free: Always free'), findsNothing);
+      // The free promise, then Free and ALRT+ side by side, then who
+      // ALRT+ is for.
+      expect(find.textContaining(kAlrtPlusFreeLead), findsOneWidget);
+      expect(find.text('FREE'), findsOneWidget);
+      expect(find.text('ALRT+'), findsOneWidget);
+      expect(find.text('Unlimited'), findsOneWidget);
+      expect(find.text(kAlrtPlusHostLine), findsOneWidget);
 
       await tester.tap(find.text(r'$9.99'));
       await tester.pumpAndSettle();
