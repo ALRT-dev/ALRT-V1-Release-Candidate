@@ -1,7 +1,9 @@
 # ALRT on the wrist and on glasses: audit and phased plan
 
-Date: 13 September 2026. Author: Claude Code session for Sarah (safetyalrt.com).
-Status: **audit and plan only. Nothing was built, deployed, purchased or configured.** No production, billing, store, scheduler, credential or database setting was touched. The only writes in this session are this document and its companion web page.
+Date: 13 September 2026 (revision 2, same day). Author: Claude Code session for Sarah (safetyalrt.com).
+Status: **audit and plan only. Nothing was built, deployed, purchased or configured.** No production, billing, store, scheduler, push-delivery, credential or database setting was touched, and none will be until the first milestone is approved separately. The only writes in this session are this document and its companion web page.
+
+Revision 2 changes: findings from the older repositories and default branches are marked superseded and are not carried into the plan; the release-candidate `test` branch is the only baseline; the wearable material is described as design documents and an unverified scaffold; the TEST backend statement is worded as historical evidence; a new §4.5 explains what the notification pilot would change before anything is implemented; the Meta section is rebuilt from Meta's own published statements; §7 is rewritten as a minimum-hardware shopping recommendation for the Android-first order Sarah chose.
 
 This document is written to be read top to bottom by Sarah, and to be handed to an engineer as-is. Every claim about code cites a file, a branch or a commit. Every claim about a platform cites the official page it was checked against on 13 September 2026, or says plainly that it could not be checked from this environment.
 
@@ -9,12 +11,12 @@ This document is written to be read top to bottom by Sarah, and to be handed to 
 
 ## 0. The short version
 
-1. **The phone release is further along than the older repos suggest, and it lives in one place.** The current line is `ALRT-dev/ALRT-V1-Release-Candidate`, branch `test`, a monorepo (`frontend/`, `backend/`, `admin/`, `askalrt/`). The newest app build is **1.0.5 (51)**, commit `7eacfea`, built by GitHub run 34541544658 on 10 September 2026. Nothing newer exists in any of the twelve repositories. The deployed TEST backend is `https://api-test.safetyalrt.com`, recorded as verified at commit `f1f6b92` on 10 September; builds 50 and 51 changed the app only, so TEST is current for build 51. I could not reach that host from this sandbox (outbound HTTPS to it is blocked), so "deployed" is taken from the repository's own rollout record, not observed.
+1. **The phone release is further along than the older repos suggest, and it lives in one place.** The current line is `ALRT-dev/ALRT-V1-Release-Candidate`, branch `test`, a monorepo (`frontend/`, `backend/`, `admin/`, `askalrt/`). The newest app build is **1.0.5 (51)**, commit `7eacfea`, built by GitHub run 34541544658 on 10 September 2026. Nothing newer exists in any of the twelve repositories. The TEST backend is `https://api-test.safetyalrt.com`. Its last verification supplied in this conversation is commit `f1f6b92`, completed on 10 September 2026 through the original verification run and the resumed final test (`verify --resume`, rollout script revision 14). That is **historical evidence from the repository record, not a fresh server observation**; this sandbox cannot reach the host. Builds 50 and 51 changed the app only, so the app on your phone is ahead of TEST by two app-only builds and TEST needs no redeploy for them.
 2. **Build 51 has not been accepted on a phone.** The repository's own record (`V1_RECONCILIATION_REPORT.md` §36.7) says no phone-checklist item for builds 44 to 51 has been run from that environment, and the hardware columns (push delivery, lock screen, sound, vibration, widget rendering) are untested. There is **no iOS TEST build at all** (the iOS TestFlight workflow has never run), the iOS time-sensitive entitlement is absent, and the iOS widget target is not in the Xcode project. These stay open and are listed in §2 so wearable work cannot hide them.
-3. **There is no wearable code anywhere.** `watchinterface` is a design handoff (an HTML click-through of 13 Wear OS screens plus specs written against a Firestore model the real backend does not use). `glasses` is a README on `main` plus an unmerged Android XR Kotlin skeleton on one branch. `occulo` and `mattv2` are empty. The phone app has two reusable building blocks that matter: a text-to-speech alert reader and a tap-to-talk voice input, both on the release line.
+3. **The existing wearable material is design documents and one unverified scaffold, not a wearable app.** `watchinterface` is a design handoff (an HTML click-through of 13 Wear OS screens plus specs written against a Firestore model the real backend does not use). `glasses` is a README on `main` plus an unmerged, never-compiled Android XR Kotlin skeleton on one branch. `occulo` and `mattv2` are empty. No watch or glasses code exists in the release line. The phone app has two reusable building blocks that matter: a text-to-speech alert reader and a tap-to-talk voice input, both on the release line.
 4. **Recommendation: start with a phone-connected companion on whichever watch matches the phone you test with.** Google and Samsung watches only pair with Android phones; Apple Watch only pairs with iPhone. The first milestone is a **notification pilot with no watch app at all**: make the phone's existing check-in and SOS pushes reach the wrist with a clearly named "Check in to <circle>" action, and prove delivery on real hardware. That costs one to two engineering weeks plus device testing and answers the biggest unknown (whether wrist delivery is reliable) before a watch app is written. One finding shapes it: today a push that arrives while the app is closed carries **no action buttons on either platform** (the server sends a system-drawn notification with no APNs `category`, and Android has no background handler), so the pilot's first task is a small, flagged change to how two push types are shaped.
 5. **Glasses are a second phase and are gated on access, not on our code.** Meta's Wearables Device Access Toolkit is a developer preview (v0.9) for camera, microphone and speaker on audio glasses, with display support on Meta Ray-Ban Display opened in May 2026; custom "Hey Meta" commands are not available to third parties, and publishing is reported as limited to selected partners until general availability. Android XR glasses have SDK previews and emulators but no consumer hardware yet. Meta's developer site could not be fetched from this sandbox, so those points must be re-confirmed on `developers.meta.com` before any glasses milestone is approved.
-6. **I need four answers before the first milestone is chosen:** the phone model and OS version you test with, the watch model (if any) you own or can borrow, the glasses model (if any), and whether a Mac with Xcode is available. The hardware choice is yours; the plan below is written for both paths and does not pick one.
+6. **Hardware, as of revision 2:** Sarah has a Samsung phone and an iPhone, no watch and no glasses, and can buy test hardware. Her chosen order is Android watch first, Apple Watch later, glasses only after a supported prototype path is confirmed. §7 gives the minimum shopping list for that order. Still needed before the first milestone is approved: the **exact Samsung and iPhone models and OS versions** (Galaxy watches need Android 12 or later; Pixel Watch 4 needs Android 11 or later). Nothing is to be purchased or implemented until Sarah approves the milestone separately.
 
 ---
 
@@ -48,7 +50,7 @@ Statuses used throughout: **Code** (implemented in a branch), **Tests** (automat
 | Item | Evidence | Code | Tests | TEST | Device |
 |---|---|---|---|---|---|
 | App 1.0.5+51 (Android, dev flavour, test_store and bypass artifacts) | `frontend/pubspec.yaml` on `test`; commit `7eacfea`; run 34541544658; `TEST_BUILD_51_ACCEPTANCE.md` | yes | `flutter analyze` and `flutter test` green on the runner | n/a (app) | **not run on a phone** (§36.7) |
-| Backend at `f1f6b92` on `api-test.safetyalrt.com` | `V1_RECONCILIATION_REPORT.md` §36 "TEST verified at f1f6b92 (10 September 2026, 00:02:59Z)"; rollout script revision 14 | yes | verify scripts (consent 40/40, eleven regression scripts, `verify_hazard_push_dedupe` 7) | yes, per record; **not reachable from this sandbox** | n/a |
+| Backend at `f1f6b92` on `api-test.safetyalrt.com` | `V1_RECONCILIATION_REPORT.md` §36 "TEST verified at f1f6b92 (10 September 2026, 00:02:59Z)": original verification plus the resumed final test; rollout script revision 14 | yes | verify scripts (consent 40/40, eleven regression scripts, `verify_hazard_push_dedupe` 7) | yes, as historical record; **not observed from this sandbox** | n/a |
 | Scheduled jobs on TEST | §36.8 "Scheduler OFF on TEST"; switch `RUN_SCHEDULED_JOBS_IN_TEST` defaults to `false` (`backend/src/utils/config.ts:48-49`, `scheduled_jobs.util.ts:16-23`) | code exists | n/a | **off** | SOS 4-hour auto-end, expiry sweeps and daily reminders **untested** |
 | Server-side saved-location limit | §36.8, `BILLING_ENABLED=false` on TEST | yes | `verify_saved_location_limit` | off | n/a |
 | iOS TEST build | `.github/workflows/ios-test-testflight.yml`; GitHub API returns 404 for its runs; acceptance guide "no iOS TEST build exists" | workflow exists | n/a | **never produced** | none |
@@ -63,20 +65,22 @@ Two further facts about the release line that shape wearable work:
 - The launched store app is **1.0.4+34** (archived as `ALRT-dev/v3`); the release line is 1.0.5. The wearable plan must not change what 1.0.5 ships.
 - The report refers to `ALRT-dev/widget` as the frontend baseline that fed the monorepo. No repository of that name is accessible to this session; `ALRT-dev/frontendV2` branch `claude/safety-alert-repo-audit-8exgvn` (1.0.5+35, last commit `1e1d9cf`, 20 August 2026) matches its described content and CI run history. Please confirm whether `widget` was renamed or deleted.
 
-### 2.2 Historical repositories
+### 2.2 Historical repositories (superseded)
+
+**Superseded, read this first.** During the audit I first examined the older repositories and their default branches (`frontendV2`, `backendV2`, `V2-Claude`, `v3`, `askalrt` standalone) before finding the release-candidate `test` branch. Findings from that first pass, such as "no TEST environment", "no tests or CI", "no push-token cleanup on logout", "no journeys", "no Ask ALRT", "FCM 500-token cap unhandled", described those repositories at the time and are **superseded**. The `test` branch has an isolated TEST environment, 52 test files run by CI, 24 backend verify scripts pinned by the rollout, push-token removal on sign-out and account deletion, journeys, urgent flags, dead-token pruning and hazard-push dedupe. None of the superseded findings is carried into the plan. Only facts verified on the `test` branch (Appendix A and B) are used.
 
 | Repository | What it is | Latest | Verdict for wearables |
 |---|---|---|---|
 | `ALRT-V1-Release-Candidate` `main` | Four planning documents (release plan, source registry, pipeline, backlog) | `1d2271f`, 22 Aug | Planning only; `test` branch is the code |
 | `ALRT-V1-Release-Candidate` `claude/test-app-audit-p5djd2` | Ancestor of `test` (fully merged) | `8e0f34f`, 7 Sep | Superseded |
 | `ALRT-V1-Release-Candidate` `claude/alrt-v1-rc-audit-a3gmai` | Stage 9B to 12 work; **not** an ancestor of `test` (`git merge-base` confirms); `test` merged it via `ea85cd3` then diverged | `fc87fb1`, 5 Sep | Do not merge again |
-| `frontendV2` | Older Flutter app; `main` at 1.0.3+33 (26 Jul); audit branch at 1.0.5+35 (20 Aug, 156 commits ahead of main) | `1e1d9cf` | Superseded by the monorepo `frontend/`; no wearable code (grep of `lib/`, `ios/`, `android/`: zero real hits) |
-| `backendV2` | Older backend; `main` at `5ce3825` (8 Jul); audit branch +75 commits (20 Aug) | `9f36208` | Superseded by monorepo `backend/`; no wearable code |
+| `frontendV2` | Older Flutter app; `main` at 1.0.3+33 (26 Jul); audit branch at 1.0.5+35 (20 Aug, 156 commits ahead of main) | `1e1d9cf` | **Superseded** by the monorepo `frontend/`; no wearable code (grep of `lib/`, `ios/`, `android/`: zero real hits). Earlier findings about this repo are not used |
+| `backendV2` | Older backend; `main` at `5ce3825` (8 Jul); audit branch +75 commits (20 Aug) | `9f36208` | **Superseded** by monorepo `backend/`; no wearable code. Earlier findings about this repo are not used |
 | `V2-Claude` | Older Flutter lineage 1.0.3+33; `feature/voice` (tap-to-talk, `speech_to_text`), `ci/ios-testflight` | `2e7bac1`, 3 Aug | Voice work already carried into the release line; nothing else to recover |
 | `v3` | Zip archive of the launched 1.0.4+34 app | `94c5394`, 20 Aug | Reference only |
 | `askalrt` | Firebase Functions Ask ALRT (`askAlrt` callable, Anthropic SDK, quotas 5 free / 30 ALRT+) | `c26115d`, 7 Sep | Reusable for spoken answers; response is `{answer, source, usedAI, refused?}` with **no citation array**, attribution is inside the prose |
-| `watchinterface` | V2 design handoff: `prototype/ALRT Wear OS.dc.html` (13 screens), `backend/wear-os-standalone-sos-spec.md`, product rules | `e98b660`, 6 Aug | **Prototype only.** Screens and copy reusable; data model obsolete (Firestore `onSosStart`, `sosEvents`, `liveShareSessions`, `widgetPayload/{uid}`; the real backend is Postgres + REST + Socket.IO). Its "standalone install, never through a phone relay" rule conflicts with the companion-first decision below. Its hold 3 s + 5 s countdown + 12 s undo differs from the phone's 3 s hold; pricing $7.99 differs from the locked $9.99 |
-| `glasses` | `main`: README + `.gitignore`. Branch `feat/glasses-android-xr-scaffold` (3 commits, 26 Jul): `docs/ar-glasses-launch-spec.md`, Kotlin skeleton (`AlrtApi.kt`, `SosController.kt`, `HudState.kt`, `VoiceCommand.kt`), a CI that skips because no Gradle wrapper is committed | `cbab4ed` | **Scaffold only, never compiled.** The REST endpoints it names match the real backend. Its "navigate to safety" AR route overlay, wake-word voice, look-to-identify and phone-less SOS are **out of scope by your rules** (no guaranteed evacuation routes, no wake word, no AI hazard detection). Reusable: the sharing-level clamp idea in `SnapshotPolicy` and the acceptance-test style |
+| `watchinterface` | V2 design handoff: `prototype/ALRT Wear OS.dc.html` (13 screens), `backend/wear-os-standalone-sos-spec.md`, product rules | `e98b660`, 6 Aug | **Design documents only; no app.** Screens and copy reusable; data model obsolete (Firestore `onSosStart`, `sosEvents`, `liveShareSessions`, `widgetPayload/{uid}`; the real backend is Postgres + REST + Socket.IO). Its "standalone install, never through a phone relay" rule conflicts with the companion-first decision below. Its hold 3 s + 5 s countdown + 12 s undo differs from the phone's 3 s hold; pricing $7.99 differs from the locked $9.99 |
+| `glasses` | `main`: README + `.gitignore`. Branch `feat/glasses-android-xr-scaffold` (3 commits, 26 Jul): `docs/ar-glasses-launch-spec.md`, Kotlin skeleton (`AlrtApi.kt`, `SosController.kt`, `HudState.kt`, `VoiceCommand.kt`), a CI that skips because no Gradle wrapper is committed | `cbab4ed` | **A launch spec and an unverified scaffold; never compiled, never run, no app.** The REST endpoints it names match the real backend. Its "navigate to safety" AR route overlay, wake-word voice, look-to-identify and phone-less SOS are **out of scope by your rules** (no guaranteed evacuation routes, no wake word, no AI hazard detection). Reusable: the sharing-level clamp idea in `SnapshotPolicy` and the acceptance-test style |
 | `ALRT-screen` | Design and docs; `alrt-v2-backend-changes.md` §7/§13/§17/§18 (widget payload, haptic tier map, "Watch v1 = notification actions + complication; no independent networking", "no wake word ever", Android XR phases: read-aloud first) | `bc614f6`, 20 Aug | The "notification actions + complication first" idea is exactly the pilot below |
 | `alrt` (website) | Marketing site; redesign branch already advertises "Watch, widgets, glasses … The watch works without the phone" | `e73f089`, 7 Sep | **Copy promises something that does not exist.** Recommend softening before the site ships |
 | `occulo`, `mattv2` | Empty (no commits) | | Nothing to recover |
@@ -125,17 +129,21 @@ Reading of the comparison, in plain English:
 
 ### 3.2 Glasses
 
+**How the Meta column was checked.** Every Meta host (`developers.meta.com`, `wearables.developer.meta.com`, `about.fb.com`) is blocked by this sandbox's network policy. The Meta statements below are the wording of Meta's own pages as returned by web search against those domains only (the toolkit FAQ, the "Introducing the Meta Wearables Device Access Toolkit" and "Build for display glasses" blog posts, and the `wearables.developer.meta.com` docs). They are Meta's words, but the pages themselves were not opened here. **Before any glasses purchase or milestone, open `developers.meta.com/wearables/faq/` and `wearables.developer.meta.com/docs` and confirm each row.** No claim below about voice commands or display access goes beyond Meta's published text.
+
 | Question | Meta glasses (Wearables Device Access Toolkit) | Android XR glasses (Jetpack XR SDK) |
 |---|---|---|
-| Which devices have a display | **Audio-only:** Ray-Ban Meta Gen 1 and Gen 2, Ray-Ban Meta Optics, Oakley Meta HSTN, Oakley Meta Vanguard. **Display:** Meta Ray-Ban Display (monocular right-lens display, Meta Neural Band wristband) | "Audio glasses" (speaker, camera, microphone, no display) and "display glasses" (additive display); consumer devices announced for later 2026, pre-release hardware via Google's Catalyst program ([devices](https://developer.android.com/develop/xr/devices), [glasses/build](https://developer.android.com/develop/xr/jetpack-xr-sdk/glasses/build)) |
-| SDK status | Developer preview, v0.9 (`facebook/meta-wearables-dat-ios`, Swift Package; Android Kotlin SDK too); `MockDeviceKit` for testing without glasses. Display support for third parties opened 14 May 2026 as a preview with two paths: extend a native mobile app (Swift/Kotlin UI components: text, images, lists, buttons, video) or ship a web app (HTML/CSS/JS) that runs on the glasses | Developer Preview 4 (May 2026); SceneCore, ARCore for Jetpack XR and XR Runtime in beta (Aug 2026); Compose Glimmer for glasses UI; emulator AVDs for glasses |
-| How it runs | A phone app talks to the glasses over Bluetooth; the glasses have no app store account of their own for native apps. Camera streaming, photo capture, microphone and speaker are exposed; display UI on Ray-Ban Display | Projected activities: "the activity … doesn't run directly on the device, but is instead projected to the device from a host device (such as user's phone)"; `ProjectedContext` gives access to glasses camera, sensors, audio ([projected context](https://developer.android.com/develop/xr/jetpack-xr-sdk/access-hardware-projected-context)) |
-| Voice | Third-party apps get microphone audio and can run their own on-device recognition. **No custom "Hey Meta" commands and no Meta AI access** are available to third parties (reported by developer coverage of the preview; `developers.meta.com` is blocked from this sandbox, so re-confirm) | On-device ASR and TTS APIs are part of the SDK; no wake word for third parties documented |
-| Background or phone locked | **Not confirmed.** Session states, pause and resume are documented topics; behaviour with the phone locked must be tested on hardware | Projected context is valid only while `isProjectedDeviceConnected()` is true; lifecycle tied to the host app |
-| Notifications | Not documented as bridged to third-party apps | The system bridges phone notifications to glasses "when they meet certain criteria" ([notifications](https://developer.android.com/develop/xr/jetpack-xr-sdk/glasses/notifications)) |
-| Distribution | Reported as limited to selected partners during preview, general availability targeted later in 2026. Must be confirmed with Meta | No consumer hardware yet |
+| Which devices have a display | **Audio-only (camera, microphones, open-ear speakers, no display):** Ray-Ban Meta Gen 1 and Gen 2, Ray-Ban Meta Optics, Oakley Meta HSTN, Oakley Meta Vanguard. **Display:** Meta Ray-Ban Display (monocular in-lens display, Meta Neural Band wristband) | "Audio glasses" (speaker, camera, microphone, no display) and "display glasses" (additive display); consumer devices announced for later 2026, pre-release hardware via Google's Catalyst program ([devices](https://developer.android.com/develop/xr/devices), [glasses/build](https://developer.android.com/develop/xr/jetpack-xr-sdk/glasses/build)) |
+| SDK status | Meta: "The Wearables Device Access Toolkit is in developer preview." Mobile SDK for iOS (Swift) and Android (Kotlin); "MockDeviceKit" for testing without glasses. Display: "rolling out access to the display on Meta Ray-Ban Display glasses with two build paths: for mobile apps and Web Apps, both in developer preview" (announced May 2026) | Developer Preview 4 (May 2026); SceneCore, ARCore for Jetpack XR and XR Runtime in beta (Aug 2026); Compose Glimmer for glasses UI; emulator AVDs for glasses |
+| Capabilities | Meta: "video streaming, photo capture, microphone and audio, and on Meta Ray-Ban Display glasses, access to the on-device display." Display UI components: "text, images, lists, buttons, and video playback." Web Apps "can access motion and orientation data from the glasses, GPS from a connected phone, input from both the Meta Neural Band and captouch, and local storage" | Projected activities: "the activity … doesn't run directly on the device, but is instead projected to the device from a host device (such as user's phone)"; `ProjectedContext` gives access to glasses camera, sensors, audio ([projected context](https://developer.android.com/develop/xr/jetpack-xr-sdk/access-hardware-projected-context)) |
+| Voice commands and "Hey Meta" | Meta: "accessing the Meta AI capabilities of the glasses, including voice commands, isn't part of the initial developer preview"; "the team is working on voice invocation and Wifi direct." So: **no custom "Hey Meta" commands and no wake word for third parties today.** A third-party app can process microphone audio with its own on-device recognition | On-device ASR and TTS APIs are part of the SDK; no wake word for third parties documented |
+| Phone requirements and pairing | Meta: same OS requirements as the Meta AI app, "iOS 15.2+ and Android 10+"; developers "must connect their glasses to the Meta AI app and enable developer mode in the Meta AI app" | Projected context valid only while `isProjectedDeviceConnected()` is true |
+| Background or phone locked | **Not stated in the text retrieved.** Session states, pause and resume are documented topics. Must be tested on hardware before any claim | Lifecycle tied to the host app |
+| Who may publish | Meta: "Developer Preview means developers can build and test experiences, but cannot yet distribute them to end users"; developers "can share what they've built to testers within their organizations and teams, but only select partners will be able to publish their integrations to the general public." | No consumer hardware yet |
+| Country eligibility | Meta: "developers everywhere will be able to download the SDK, but only those in AI glasses supported countries will have access to the full capabilities of the toolkit, including the Wearables Developers Center." Australia is listed among AI-glasses supported countries in the retrieved text; confirm on the FAQ | Catalyst program, by application |
+| Australian retail availability | Ray-Ban Meta Gen 2 sold in Australia from A$629 (meta.com/au, ray-ban.com/australia). **Meta Ray-Ban Display is not sold in Australia**; Meta paused its international rollout in January 2026 citing US demand and limited inventory (press reports; no Australian launch date) | None to buy |
 
-Reading: **audio-only glasses are the realistic second phase**, because the phone already has the spoken-alert reader and the voice input, and the glasses add only a microphone and a speaker over Bluetooth. Display cards come after, and only on Ray-Ban Display or future Android XR hardware you actually hold. Nothing in either SDK supports "independent connectivity" for a third-party safety app today, so the glasses never hold a session.
+Reading: **audio-only glasses are the realistic second phase**, because the phone already has the spoken-alert reader and the voice input, and the glasses add only a microphone and a speaker over Bluetooth. Display cards come after, and only on hardware you actually hold; Ray-Ban Display cannot currently be bought in Australia. Nothing in either SDK supports "independent connectivity" for a third-party safety app today, so the glasses never hold a session. Under Meta's preview terms an ALRT glasses integration could be tested with your own testers but **not published to the public** until Meta opens publishing beyond selected partners; that is a gate on the glasses phase, not on the watch.
 
 ---
 
@@ -178,7 +186,9 @@ Trade-offs, plainly:
 | Wrist cache clear on logout / unpair | Kotlin: delete DataItems, cancel notifications, clear local store | Swift: clear app group container and complication timeline |
 | Flutter side | Method channel only | Method channel only |
 
-### 4.4 Backend changes (small, additive, all needing approval before any migration)
+### 4.4 Backend changes (proposed only; none is to be made now)
+
+Per Sarah's instruction, **the scheduler setting and the existing push delivery are not to be changed yet.** The rows below are the proposals that would be put to her, each separately, when the corresponding phase is approved.
 
 | Change | Why | Migration? |
 |---|---|---|
@@ -192,6 +202,47 @@ Trade-offs, plainly:
 The pilot (Milestone 1) needs none of these.
 
 ---
+
+### 4.5 Before the notification pilot: what would change, and how the phone keeps working
+
+This section is the explanation Sarah asked for before any implementation. It describes a proposal. Nothing here has been started.
+
+**Which notification types would change.** Two of the fifteen push types only: `familyCheckInRequest` and `familySos` (the list is `backend/src/models/push_notification_types.ts:1-24`). Hazard alerts, check-in responses, stand-downs, location requests, journeys, badges and the test notification keep their exact current shape. The pilot is gated by one server-side flag (proposed name `WEARABLE_ACTIONABLE_PUSH`, default off) so the change can be turned on for TEST accounts only and turned off without a redeploy.
+
+**Which files would change.**
+
+- Backend `src/services/notification.service.ts` (the builder at lines 349 to 458): when the flag is on and the type is one of the two, add `apns.payload.aps.category` (`ALRT_CHECKIN_REQUEST` or `ALRT_SOS_RECEIVED`), add the `apns-push-type: alert` header, and move the Android copy to a data-only shape (drop the top-level `notification` block for Android by putting the title and body in `apns.payload.aps.alert` for iOS and in `data` for Android). Everything else in the builder is untouched.
+- Backend `src/services/family.service.ts` where the two pushes are composed (check-in request around line 1557, SOS around line 2290): the body gains the circle name and the requester names, in the same private wording style already used (no free text, no place names).
+- Backend `src/scripts/verify_family_push_delivery.ts`: two new checks for the two shapes, run by the rollout before deployment to TEST.
+- App `frontend/lib/features/notification/services/notification_service.dart`: a top-level `@pragma('vm:entry-point')` background handler registered with `FirebaseMessaging.onBackgroundMessage`, which draws a local notification with actions for the two types only and ignores every other type.
+- App `frontend/lib/features/notification/services/local_notification_service.dart`: two new category and action definitions, "Check in to <circle>" (background action, no user interface) and "Open on phone" (foreground). The existing `alrt_im_safe` action stays for the foreground path.
+- App `frontend/lib/features/family/providers/family_provider.dart` and `family_service.dart`: no behavioural change; the background action calls the existing `checkIn(shareLocation: false)` path with the `requestId` and the circle id already carried in the push payload. Native: none on Android for the pilot; on iOS the categories are registered from Dart as today.
+
+**How existing phone notifications remain working.**
+
+- With the flag off, the server sends exactly what it sends today and the app's new handler receives nothing new. The current acceptance checklist (item 12) stays valid as written.
+- With the flag on, iOS still receives a system-drawn alert with sound and interruption level as today; it only gains a category. Android receives a data message; the new handler draws it on the same channel (`alrt_alerts` or `alrt_alerts_urgent`), with the same stable id (`_notificationIdFor`), the same private visibility and the same tap routing, so the tray behaves as before. The foreground path (`onMessage`) is unchanged.
+- The regression risk is the Android data-only path being dropped by the OS when the app is force-stopped or battery-restricted. That is precisely what the device tests must observe, and why the pilot runs behind the flag on TEST before any store build carries it.
+
+**How duplicate notifications and duplicate check-ins are prevented.**
+
+- One notification per event: the server keeps its tray collapse key (`tag` on Android, `apns-collapse-id` on iOS) and the app keeps its stable per-event id, so a redelivered or replayed push replaces the earlier one instead of stacking. On Wear OS the bridged copy is the phone's notification, so dismissing on either device dismisses both once `setDismissalId` is set to the same event key. On Apple Watch mirroring already syncs dismissal.
+- One check-in per tap: the action carries the `requestId`. Server-side, the pilot needs the `requestId` uniqueness proposed in §4.4 (a client-generated key on `POST /api/family/check-in`), which needs a migration and is therefore **the one backend item that must be approved before the pilot rather than after**. Until then the app-side guard is: the background handler records the request id it has answered and refuses a second post for the same id, and the foreground path (`checkInRequestOwedByMe`) already clears the ask on the next circle load. A check-in from the phone and the wrist within seconds would otherwise create two rows and two pushes to the circle; the server key closes that.
+- No double display when a watch app is added later: Wear OS bridging is switched off per type with `BridgingManager` only in Phase 2, when the watch app draws its own copy. In the pilot there is no watch app, so bridging stays on.
+
+**What happens when the phone is locked, disconnected, or cannot confirm delivery.**
+
+- Phone locked, watch on wrist: Apple forwards the notification to the watch only when the iPhone is locked or asleep and the watch is unlocked and worn; Wear OS bridges regardless of lock state. The action runs on the phone in the background. The user sees "Sending…" on the phone's follow-up notification, then "Checked in to <circle> · time" only when the server has answered.
+- Phone disconnected from the network: the action is attempted, fails, and the follow-up notification reads "Check-in to <circle> not sent · open ALRT". Nothing is queued for silent later delivery; the next deliberate tap sends it. The watch shows whatever the phone's notification shows, because it has no state of its own in the pilot.
+- Phone cannot confirm (request sent, no answer): the state is "uncertain". The app asks the server (`GET /api/family/check-ins` for the request id) before offering a retry, the same pattern the SOS screen already uses (`findMyActiveSos`). If the server has the row, the follow-up says confirmed; if not, it offers "Try again". No automatic retry.
+- Watch out of range of the phone: no notification reaches it; nothing is lost, because the phone still holds the notification and the tap can be made there.
+- Phone off: nothing reaches the wrist. The pilot does not change this; it is one of the honest limits of a companion, and the device-status card must say so.
+
+**What hardware testing and rollback controls are required.**
+
+- Hardware: two phones with TEST accounts (Sarah's Samsung as phone A with the watch, a second Android or the iPhone as phone B), one Wear OS watch paired to phone A. The iPhone path is blocked until an iOS TEST build exists and the time-sensitive capability decision is made; the Android pilot does not wait for it.
+- Tests before the flag is turned on for anyone else: the matrix in §8 rows "App state", "Uncertain requests", "Duplicates", "Circles and requesters", "Accounts and devices" and "Notifications", recorded per the build 51 convention (device pass, device fail, awaiting device, blocked). Automated `verify_family_push_delivery` checks prove the message shape only.
+- Rollback: the server flag off restores today's shape immediately without a redeploy or migration; the app change is inert with the flag off, so an app rollback is not needed. The rollout script's existing controls apply (rollback tag, image id, restore-tested backup, `--no-new-migrations` mode) if the `requestId` migration is approved and deployed. TEST first, and only TEST accounts, until Sarah accepts the results on hardware.
 
 ## 5. Phased delivery
 
@@ -226,35 +277,53 @@ All ranges are engineering effort for one experienced mobile engineer plus your 
 
 ---
 
-## 7. Hardware and developer-account requirements
+## 7. Minimum hardware for the first milestone, and what comes later
 
-### Common to every path
+Sarah's position (13 September): a Samsung phone and an iPhone, no watch, no glasses, willing to buy for testing; order of work Android watch first, Apple Watch later, glasses only after a supported prototype path is confirmed. **Nothing is to be bought until the exact phone models and OS versions are confirmed and the milestone is approved.** Prices are Australian retail as found on 13 September 2026 and will move; check the linked store page before ordering.
 
-- Two phones with TEST accounts (already required by the build 51 checklist), one of which will pair with the watch.
-- Access to the TEST backend and Admin Portal, and the ability to trigger the Android Test Build workflow (already in place).
-- Firebase project `alrt-a6539` (existing; FCM is used for the watch too).
+### 7.1 What to confirm first
 
-### Wear OS path
+- The Samsung phone's model and Android version (Settings › About phone › Software information). Galaxy watches on Wear OS need **Android 12 or later with more than 1.5 GB of memory** (Samsung newsroom, Galaxy Watch8 announcement); Pixel Watch 4 needs Android 11 or later (Google Pixel Watch compatibility page). Both need Google Mobile Services, which every Australian retail Samsung has.
+- The iPhone's model and iOS version (Settings › General › About). Apple Watch SE 3 and Series 11 need iOS 26 on the paired iPhone per Apple's current pages; confirm on apple.com/au for the exact model bought.
 
-- Android phone on Android 11 or later for Pixel Watch 4 (Android 10 for Pixel Watch 3, 9 for Pixel Watch 2) or a Galaxy phone for Galaxy Watch.
-- A Wear OS 4 or 5 watch: Pixel Watch 2, 3 or 4, or Galaxy Watch 6, 7 or 8. An LTE model only if Phase 3 is wanted.
-- Google Play Console access (existing) to add the Wear form factor to the listing later; Android Studio with the Wear OS emulator for engineers.
-- The existing TEST keystore (the Wear module must be signed with the same key).
+### 7.2 Android notification pilot: one watch
 
-### Apple Watch path
+| Option | Model | Why | Approx. AU price | Enables |
+|---|---|---|---|---|
+| **Recommended** | Samsung Galaxy Watch8, 40 mm, Bluetooth (Wear OS 6, One UI 8 Watch) | Pairs with any Android 12+ phone; Samsung phone gives the fullest pairing experience through the Galaxy Wearable app; current Wear OS; widely stocked in Australia; the newer Galaxy Watch9 (announced 22 July 2026, released 7 August, Wear OS 7) is the same platform at a higher price and is not needed for the pilot | RRP A$649 at [samsung.com/au](https://www.samsung.com/au/watches/galaxy-watch8/buy/); seen at A$648 at Harvey Norman and lower at discounters | Milestone 1 in full: bridged actionable notifications, dismissal sync, tile and complication work in Phase 2, Data Layer companion |
+| Lower cost | Samsung Galaxy Watch FE, Bluetooth | Same Wear OS platform, older hardware; adequate for the pilot and Phase 2; slower for Phase 3 | A$399 RRP (Samsung AU) | Same as above; battery and performance results will not represent current hardware |
+| Alternative | Google Pixel Watch 4, 41 mm, Wi-Fi | The `watchinterface` prototype was drawn for Pixel Watch; pairs with a Samsung phone (Android 11+); reference Wear OS build | A$579 RRP at [store.google.com/au](https://store.google.com/au/product/pixel_watch_4); seen at A$378 at Officeworks | Same as above; useful later to confirm behaviour on non-Samsung Wear OS |
 
-- iPhone on iOS 18 or later; Apple Watch Series 9, 10 or 11, or SE 2, or Ultra, on watchOS 11 or later.
-- A Mac with Xcode, or the paid macOS GitHub runner already used by `ios-test-testflight.yml` (which still needs the `MATCH_*` and App Store Connect API secrets and has never run).
-- Apple Developer Program team `JR89M7CYPR`: App IDs for `com.safetyalrt.alrt.dev.watchkitapp` and the widget, App Group `group.com.safetyalrt.alrt.dev`, the Time Sensitive Notifications capability, new match profiles. Critical Alerts would need a separate Apple approval and are **not** proposed.
+Buy **one** watch. A second Wear OS model is only worth it in Phase 2, to prove the companion on both Samsung and Google skins.
 
-### Glasses path
+### 7.3 Bluetooth and Wi-Fi versus cellular
 
-- Meta: a developer account on `developers.meta.com`, enrolment in the Wearables Device Access Toolkit preview (v0.9), the Meta AI app on the phone, and a supported pair: Ray-Ban Meta Gen 2 for audio; Meta Ray-Ban Display plus Neural Band for display. Confirm the current partner and publishing terms on Meta's site before purchasing.
-- Android XR: no consumer glasses to buy yet; emulator only, or an application to Google's Catalyst program.
+Bluetooth plus Wi-Fi is sufficient for Milestone 1 and Phase 2. Google's documentation states that when a watch has a Bluetooth connection to a phone "the watch's network traffic is generally proxied through the phone", and the platform moves between Bluetooth, Wi-Fi and cellular automatically ([network access](https://developer.android.com/training/wearables/data-layer/network-access)). In the pilot the watch never talks to the backend at all; it shows the phone's notifications. Cellular is genuinely required only for Phase 3 (standalone: watch-originated SOS with the phone left at home), which needs its own session, push token and tests. On the Pixel Watch 4 the 4G model costs A$170 more; on Galaxy Watch8 the LTE variant is likewise a separate SKU and a carrier plan. **Do not buy cellular for the pilot.**
 
-No purchase is recommended until you confirm the phone and the first platform.
+### 7.4 Australian availability, developer support and accounts (Android path)
 
----
+- Availability: Galaxy Watch8, Galaxy Watch FE and Pixel Watch 4 are all sold through Australian retail (Samsung AU, Google Store AU, JB Hi-Fi, Harvey Norman, Officeworks).
+- Official developer support: Wear OS is a first-party Android target with current documentation for notifications, bridging, Tiles, complications, Ongoing Activities and the Data Layer (links in §3.1). Wear OS apps ship through the existing Google Play Console listing as an Android App Bundle; new apps must target API level 34 or later.
+- Accounts: a Google account on the phone (required for the watch), a Samsung account for a Galaxy watch (the Galaxy Wearable app asks for it), the existing Google Play Console (no new fee), the existing Firebase project `alrt-a6539`, and the existing TEST keystore, because a Wear module must be signed with the same key as the phone app for the Data Layer. No purchase beyond the watch.
+
+### 7.5 Later, for Apple Watch
+
+- Watch: Apple Watch SE 3, 40 mm, GPS, from A$399 at [apple.com/au](https://www.apple.com/au/shop/buy-watch/apple-watch-se); or Series 11 from A$679. (Apple has announced Series 12; pricing was not confirmed here.) SE 3 is enough for the companion phase.
+- A Mac with Xcode is required to add the watch target and the widget target to the Xcode project, register the App Group and the Time Sensitive capability, and run on a cabled device. A Mac mini (M4) is the least expensive route; confirm the current price on apple.com/au (retail listings vary widely). The alternative is the paid macOS GitHub runner already scripted in `ios-test-testflight.yml`, which has never run and still needs the App Store Connect API key and fastlane match secrets; it can build and upload, but cannot do the one-off Xcode project changes.
+- Accounts: the existing Apple Developer Program team `JR89M7CYPR` (about A$150 a year, already held); new App IDs for `com.safetyalrt.alrt.dev.watchkitapp`, the App Group `group.com.safetyalrt.alrt.dev` and the Time Sensitive Notifications capability. Critical Alerts are **not** proposed.
+- Dependency: the iOS TEST build must exist before any Apple Watch work; producing it is the first Apple-side task, not buying a watch.
+
+### 7.6 Glasses: verify before buying anything
+
+- **Audio glasses (no display):** Ray-Ban Meta Gen 2 is sold in Australia from A$629 ([meta.com/au](https://www.meta.com/au/ai-glasses/)). Meta's toolkit gives a phone app camera, microphone and speaker access; voice commands and Meta AI are not available to third parties in the preview; distribution is to your own testers only until Meta opens publishing. Australia appears in Meta's list of supported countries for the toolkit's full capabilities, per the retrieved text. **Confirm on `developers.meta.com/wearables/faq/` before purchase**, and confirm that a developer account under the ALRT organisation can enrol in the preview.
+- **Display glasses:** Meta Ray-Ban Display is **not sold in Australia** and Meta paused its international rollout; Android XR display glasses have no consumer hardware yet. Do not plan a display purchase for 2026.
+- What a Gen 2 pair would enable once the path is confirmed: spoken alert summaries and spoken check-in requests routed through the phone, a confirmed check-in by temple press or spoken yes, deliberate SOS with a spoken countdown, and user-initiated photo capture for a report reviewed on the phone. It would not enable custom "Hey Meta" commands, always-on listening or any display.
+
+### 7.7 Shopping summary (do not order yet)
+
+| Now (after phone models are confirmed and Milestone 1 is approved) | Later | Not yet |
+|---|---|---|
+| One Galaxy Watch8 40 mm Bluetooth (about A$649, often less), or Galaxy Watch FE (A$399) as the lower-cost option | Apple Watch SE 3 (from A$399) plus Mac access, once an iOS TEST build exists | Any cellular watch; any display glasses; Ray-Ban Meta Gen 2 until the developer-preview terms are confirmed on Meta's site |
 
 ## 8. Testing requirements (real devices; nothing else counts)
 
@@ -349,17 +418,14 @@ Optional, later:
 
 ---
 
-## 12. Questions for Sarah
+## 12. Open questions for Sarah
 
-1. Which phone(s) do you test with (make, model, OS version)? This decides Wear OS versus Apple Watch.
-2. Do you own or can you borrow a watch, and which one? Is it cellular?
-3. Which glasses, if any (Ray-Ban Meta Gen 1 or 2, Oakley Meta, Meta Ray-Ban Display)?
-4. Is a Mac with Xcode available, or should the paid macOS runner be used for any iOS work?
-5. Can you confirm `https://api-test.safetyalrt.com` is the TEST backend to use, and that build 51 is the build on your phone (the Profile footer shows it)?
-6. Was `ALRT-dev/widget` renamed to `frontendV2`, or deleted?
-7. Do you approve the two Phase 0 backend items that need a migration (`requestId`, `deviceKind`), the `createCheckIn` request-id validation, and setting `RUN_SCHEDULED_JOBS_IN_TEST=true` on the TEST host? None is needed for Milestone 1 except the flagged push-shape change; all are needed before Phase 2.
+1. Exact Samsung phone model and Android version, and exact iPhone model and iOS version.
+2. Is a Mac with Xcode available for the later Apple Watch work, or should the paid macOS runner be used?
+3. Was `ALRT-dev/widget` renamed to `frontendV2`, or deleted?
+4. For the pilot, the one backend item that should be approved before rather than after: a client-generated `requestId` uniqueness on `POST /api/family/check-in` (one column and index, one migration). Everything else in §4.4 waits for Phase 2.
 
-I will not choose hardware, start Milestone 1, or change the phone release line until you answer and approve.
+Answered on 13 September: Sarah has a Samsung phone and an iPhone, no watch or glasses, can buy test hardware; order is Android watch first, Apple Watch later, glasses after a supported path is confirmed; `api-test.safetyalrt.com` is the TEST backend; the scheduler and push delivery are not to be changed yet; Sarah will approve the first milestone separately.
 
 ---
 
