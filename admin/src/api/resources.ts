@@ -85,6 +85,11 @@ export const reviewHazard = (
 export const deleteHazard = (hazardId: string) =>
   apiDelete<{ message: string }>(`/api/admin/hazards/${hazardId}`);
 
+export const syncExternalHazards = () =>
+  apiPost<AdminHazard[]>("/api/admin/hazards/sync-external", {
+    syncOption: "ignoreExisting",
+  });
+
 // Used only by the TEST-only "Create Test Alert" picker (AlertsPage.tsx,
 // gated on VITE_ENABLE_DUMMY_ALERTS). reviewStatus is hardcoded to
 // "accepted" by this endpoint regardless of caller. useDummyAi, when true,

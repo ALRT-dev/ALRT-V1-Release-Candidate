@@ -1,6 +1,12 @@
 import { useCallback, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
-import { createHazard, createHazardSource, deleteHazard, listHazards } from "../api/resources";
+import {
+  createHazard,
+  createHazardSource,
+  deleteHazard,
+  listHazards,
+  syncExternalHazards,
+} from "../api/resources";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
@@ -39,6 +45,7 @@ export const AlertsPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<AdminHazard | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [creatingPresetId, setCreatingPresetId] = useState<string | null>(null);
+  const [syncingSources, setSyncingSources] = useState(false);
 
   const fetcher = useCallback(
     () =>
@@ -62,6 +69,23 @@ export const AlertsPage = () => {
     } catch (err) {
       notifyError(err instanceof ApiError ? err.message : "Delete failed.");
       setDeleteTarget(null);
+    }
+  };
+
+  const handleSyncExternalSources = async () => {
+    setSyncingSources(true);
+    try {
+      const created = await syncExternalHazards();
+      notifySuccess(
+        created.length === 0
+          ? "Real sources checked; no new alerts found."
+          : `Real sources checked; ${created.length} new alert${created.length === 1 ? "" : "s"} imported.`,
+      );
+      refetch();
+    } catch (err) {
+      notifyError(err instanceof ApiError ? err.message : "Source sync failed.");
+    } finally {
+      setSyncingSources(false);
     }
   };
 
@@ -146,6 +170,16 @@ export const AlertsPage = () => {
             onClick={() => setPickerOpen(true)}
           >
             Create Test Alert
+          </button>
+        )}
+        {import.meta.env.VITE_ENABLE_REAL_SOURCE_SYNC === "true" && canWrite && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => void handleSyncExternalSources()}
+            disabled={syncingSources}
+          >
+            {syncingSources ? "Syncing real sources..." : "Sync real sources"}
           </button>
         )}
       </div>
