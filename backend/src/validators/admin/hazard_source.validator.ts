@@ -5,6 +5,8 @@ import {
   SeverityLevelHandling,
   HazardSeverityBand,
   SourcePushPolicy,
+  HazardSourceLifecycleStatus,
+  HazardSourceHealthStatus,
 } from "@prisma/client";
 
 export const getHazardSourcesForAdminQuerySchema = z.object({
@@ -71,6 +73,22 @@ export const createHazardSourceForAdminBodySchema = z.object({
     .optional(),
   maxInternalBand: z.enum(HazardSeverityBand).optional(),
   pushPolicy: z.enum(SourcePushPolicy).optional(),
+  country: z.string().max(100).optional(),
+  region: z.string().max(150).optional(),
+  coverage: z.string().max(500).optional(),
+  sourceType: z.string().max(100).optional(),
+  authorityLevel: z.string().max(100).optional(),
+  feedUrl: z.url().max(500).optional(),
+  format: z.string().max(50).optional(),
+  accessMethod: z.string().max(100).optional(),
+  adapterKey: z.string().max(100).optional(),
+  scheduleMinutes: z.number().int().min(1).max(10080).optional(),
+  secretRef: z.string().max(300).optional(),
+  warningTypes: z.array(z.string().max(100)).max(100).optional(),
+  sourceNativeSeverity: z.string().max(100).optional(),
+  sourceNativeSymbol: z.string().max(100).optional(),
+  lifecycleStatus: z.enum(HazardSourceLifecycleStatus).optional(),
+  healthStatus: z.enum(HazardSourceHealthStatus).optional(),
 });
 
 export type CreateHazardSourceForAdminBody = z.infer<
@@ -129,6 +147,22 @@ export const updateHazardSourceForAdminBodySchema = z.object({
     .optional(),
   maxInternalBand: z.enum(HazardSeverityBand).nullable().optional(),
   pushPolicy: z.enum(SourcePushPolicy).nullable().optional(),
+  country: z.string().max(100).nullable().optional(),
+  region: z.string().max(150).nullable().optional(),
+  coverage: z.string().max(500).nullable().optional(),
+  sourceType: z.string().max(100).nullable().optional(),
+  authorityLevel: z.string().max(100).nullable().optional(),
+  feedUrl: z.url().max(500).nullable().optional(),
+  format: z.string().max(50).nullable().optional(),
+  accessMethod: z.string().max(100).nullable().optional(),
+  adapterKey: z.string().max(100).nullable().optional(),
+  scheduleMinutes: z.number().int().min(1).max(10080).nullable().optional(),
+  secretRef: z.string().max(300).nullable().optional(),
+  warningTypes: z.array(z.string().max(100)).max(100).optional(),
+  sourceNativeSeverity: z.string().max(100).nullable().optional(),
+  sourceNativeSymbol: z.string().max(100).nullable().optional(),
+  lifecycleStatus: z.enum(HazardSourceLifecycleStatus).optional(),
+  healthStatus: z.enum(HazardSourceHealthStatus).optional(),
 });
 
 export type UpdateHazardSourceForAdminBody = z.infer<

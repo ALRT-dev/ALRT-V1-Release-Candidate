@@ -189,6 +189,26 @@ export interface AdminHazardSource {
   hazardsCount: number;
   createdAt: string;
   updatedAt: string;
+  country: string | null;
+  region: string | null;
+  coverage: string | null;
+  sourceType: string | null;
+  authorityLevel: string | null;
+  feedUrl: string | null;
+  format: string | null;
+  accessMethod: string | null;
+  adapterKey: string | null;
+  scheduleMinutes: number | null;
+  secretRef: string | null;
+  warningTypes: string[];
+  sourceNativeSeverity: string | null;
+  sourceNativeSymbol: string | null;
+  lifecycleStatus: "active" | "monitoring" | "degraded" | "suspended" | "retired";
+  healthStatus: "unknown" | "healthy" | "stale" | "failing";
+  lastHealthCheck: string | null;
+  lastSuccessfulFetch: string | null;
+  lastAlertSeen: string | null;
+  lastHealthError: string | null;
 }
 
 // --- Categories ------------------------------------------------------

@@ -9,6 +9,8 @@ import type {
   SeverityLevelHandling,
   HazardSeverityBand,
   SourcePushPolicy,
+  HazardSourceLifecycleStatus,
+  HazardSourceHealthStatus,
 } from "@prisma/client";
 
 /**
@@ -39,6 +41,22 @@ export interface CreateHazardSourceData {
   stickiness?: number | undefined;
   maxInternalBand?: HazardSeverityBand | undefined;
   pushPolicy?: SourcePushPolicy | undefined;
+  country?: string | undefined;
+  region?: string | undefined;
+  coverage?: string | undefined;
+  sourceType?: string | undefined;
+  authorityLevel?: string | undefined;
+  feedUrl?: string | undefined;
+  format?: string | undefined;
+  accessMethod?: string | undefined;
+  adapterKey?: string | undefined;
+  scheduleMinutes?: number | undefined;
+  secretRef?: string | undefined;
+  warningTypes?: string[] | undefined;
+  sourceNativeSeverity?: string | undefined;
+  sourceNativeSymbol?: string | undefined;
+  lifecycleStatus?: HazardSourceLifecycleStatus | undefined;
+  healthStatus?: HazardSourceHealthStatus | undefined;
 }
 
 /**
@@ -60,6 +78,22 @@ export interface UpdateHazardSourceData {
   stickiness?: number | null | undefined;
   maxInternalBand?: HazardSeverityBand | null | undefined;
   pushPolicy?: SourcePushPolicy | null | undefined;
+  country?: string | null | undefined;
+  region?: string | null | undefined;
+  coverage?: string | null | undefined;
+  sourceType?: string | null | undefined;
+  authorityLevel?: string | null | undefined;
+  feedUrl?: string | null | undefined;
+  format?: string | null | undefined;
+  accessMethod?: string | null | undefined;
+  adapterKey?: string | null | undefined;
+  scheduleMinutes?: number | null | undefined;
+  secretRef?: string | null | undefined;
+  warningTypes?: string[] | undefined;
+  sourceNativeSeverity?: string | null | undefined;
+  sourceNativeSymbol?: string | null | undefined;
+  lifecycleStatus?: HazardSourceLifecycleStatus | undefined;
+  healthStatus?: HazardSourceHealthStatus | undefined;
 }
 
 /**
@@ -205,6 +239,22 @@ export const createHazardSource = async (data: CreateHazardSourceData) => {
       ...(data.stickiness !== undefined && { stickiness: data.stickiness }),
       ...(data.maxInternalBand && { maxInternalBand: data.maxInternalBand }),
       ...(data.pushPolicy && { pushPolicy: data.pushPolicy }),
+      ...(data.country && { country: data.country }),
+      ...(data.region && { region: data.region }),
+      ...(data.coverage && { coverage: data.coverage }),
+      ...(data.sourceType && { sourceType: data.sourceType }),
+      ...(data.authorityLevel && { authorityLevel: data.authorityLevel }),
+      ...(data.feedUrl && { feedUrl: data.feedUrl }),
+      ...(data.format && { format: data.format }),
+      ...(data.accessMethod && { accessMethod: data.accessMethod }),
+      ...(data.adapterKey && { adapterKey: data.adapterKey }),
+      ...(data.scheduleMinutes !== undefined && { scheduleMinutes: data.scheduleMinutes }),
+      ...(data.secretRef && { secretRef: data.secretRef }),
+      ...(data.warningTypes && { warningTypes: data.warningTypes }),
+      ...(data.sourceNativeSeverity && { sourceNativeSeverity: data.sourceNativeSeverity }),
+      ...(data.sourceNativeSymbol && { sourceNativeSymbol: data.sourceNativeSymbol }),
+      ...(data.lifecycleStatus && { lifecycleStatus: data.lifecycleStatus }),
+      ...(data.healthStatus && { healthStatus: data.healthStatus }),
     },
     include: {
       license: true,
@@ -284,6 +334,22 @@ export const updateHazardSource = async (
         maxInternalBand: data.maxInternalBand,
       }),
       ...(data.pushPolicy !== undefined && { pushPolicy: data.pushPolicy }),
+      ...(data.country !== undefined && { country: data.country }),
+      ...(data.region !== undefined && { region: data.region }),
+      ...(data.coverage !== undefined && { coverage: data.coverage }),
+      ...(data.sourceType !== undefined && { sourceType: data.sourceType }),
+      ...(data.authorityLevel !== undefined && { authorityLevel: data.authorityLevel }),
+      ...(data.feedUrl !== undefined && { feedUrl: data.feedUrl }),
+      ...(data.format !== undefined && { format: data.format }),
+      ...(data.accessMethod !== undefined && { accessMethod: data.accessMethod }),
+      ...(data.adapterKey !== undefined && { adapterKey: data.adapterKey }),
+      ...(data.scheduleMinutes !== undefined && { scheduleMinutes: data.scheduleMinutes }),
+      ...(data.secretRef !== undefined && { secretRef: data.secretRef }),
+      ...(data.warningTypes !== undefined && { warningTypes: data.warningTypes }),
+      ...(data.sourceNativeSeverity !== undefined && { sourceNativeSeverity: data.sourceNativeSeverity }),
+      ...(data.sourceNativeSymbol !== undefined && { sourceNativeSymbol: data.sourceNativeSymbol }),
+      ...(data.lifecycleStatus !== undefined && { lifecycleStatus: data.lifecycleStatus }),
+      ...(data.healthStatus !== undefined && { healthStatus: data.healthStatus }),
     },
     include: {
       license: true,

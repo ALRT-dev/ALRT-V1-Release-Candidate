@@ -225,6 +225,21 @@ enum SourcePushPolicy {
   advisoryOnly // Quiet advisory push at most (ALRT Intel)
 }
 
+enum HazardSourceLifecycleStatus {
+  active
+  monitoring
+  degraded
+  suspended
+  retired
+}
+
+enum HazardSourceHealthStatus {
+  unknown
+  healthy
+  stale
+  failing
+}
+
 model Hazard {
   id            String             @id @default(uuid())
   title         String
@@ -331,6 +346,28 @@ model HazardSource {
   url       String
   imageUrl  String?
   licenseId String?
+
+  country        String?
+  region         String?
+  coverage       String?
+  sourceType     String?
+  authorityLevel String?
+  feedUrl        String?
+  format         String?
+  accessMethod   String?
+  adapterKey     String?
+  scheduleMinutes Int?
+  secretRef      String?
+  warningTypes   String[] @default([])
+  sourceNativeSeverity String?
+  sourceNativeSymbol   String?
+
+  lifecycleStatus HazardSourceLifecycleStatus @default(active)
+  healthStatus   HazardSourceHealthStatus @default(unknown)
+  lastHealthCheck      DateTime?
+  lastSuccessfulFetch  DateTime?
+  lastAlertSeen        DateTime?
+  lastHealthError      String?
 
   advisoryText  String? // Standard advisory text associated with this source
   copyrightText String? // Copyright information for this source

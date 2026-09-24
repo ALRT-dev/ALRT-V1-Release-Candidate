@@ -123,7 +123,7 @@ export const createHazardSource = (data: { id: string; name: string; url: string
 
 export const updateHazardSource = (
   sourceId: string,
-  patch: Partial<Pick<AdminHazardSource, "name" | "url" | "advisoryText">>,
+  patch: Partial<AdminHazardSource>,
 ) => apiPut<AdminHazardSource>(`/api/admin/hazard-sources/${sourceId}`, patch);
 
 // --- Categories ----------------------------------------------------
