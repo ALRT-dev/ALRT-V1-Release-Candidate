@@ -102,6 +102,10 @@ export const SourcesPage = () => {
               <th>Name</th>
               <th>URL</th>
               <th>License</th>
+              <th>Status</th>
+              <th>Health</th>
+              <th>Adapter</th>
+              <th>Schedule</th>
               <th>Active hazards</th>
               <th></th>
             </tr>
@@ -116,6 +120,10 @@ export const SourcesPage = () => {
                   </a>
                 </td>
                 <td>{source.license?.badgeText ?? "-"}</td>
+                <td>{source.lifecycleStatus}</td>
+                <td>{source.healthStatus}</td>
+                <td>{source.adapterKey ?? "-"}</td>
+                <td>{source.scheduleMinutes ? `${source.scheduleMinutes} min` : "-"}</td>
                 <td>{source.hazardsCount}</td>
                 <td>
                   {canWrite && (
@@ -124,7 +132,7 @@ export const SourcesPage = () => {
                       className="btn btn-sm"
                       onClick={() => startEdit(source)}
                     >
-                      Edit advisory text
+                        Configure source
                     </button>
                   )}
                 </td>
