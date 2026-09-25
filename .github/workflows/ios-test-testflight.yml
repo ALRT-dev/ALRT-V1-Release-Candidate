@@ -1,0 +1,314 @@
+# Builds the iPhone app (DEV flavour, com.safetyalrt.alrt.dev) pointed at
+# the ISOLATED INTERNAL-TEST backend, and uploads it to the separate
+# "ALRT Dev" App Store Connect app / TestFlight internal group - never the
+# production app or its TestFlight build. Does not modify ios-testflight.yml
+# (still production-connected, unchanged), the production Fastlane lanes
+# (ci_certs/ci_upload), the production bundle ID, or production Firebase
+# configuration.
+#
+# This is the repo-root copy of
+# frontend/.github/workflows/ios-test-testflight.yml, adapted for this
+# monorepo's layout - GitHub Actions only ever discovers workflows at
+# .github/workflows/ on the actual repository root, so the nested copy is
+# invisible to GitHub Actions and can never be dispatched, exactly the same
+# situation android-test.yml was in before its own root copy was added (see
+# that file's header comment). The nested file is left in place, untouched -
+# this is a new, separate file, not a move.
+#
+# This is NOT a byte-for-byte copy: the nested source file has never
+# actually run (confirmed - V1_RECONCILIATION_REPORT.md §34.3 says so
+# explicitly), and it was authored without accounting for this monorepo's
+# layout - the actual Flutter/iOS project lives in frontend/, but the
+# nested file's steps use paths (ios/ExportOptionsCI-dev.plist,
+# lib/main_dev.dart, working-directory: ios, build/ios/ipa/*.ipa) that only
+# resolve correctly if the job's working directory is already frontend/,
+# which nothing in that file ever sets. Copied byte-for-byte, it would fail
+# immediately on its very first real run - "No such file or directory" on
+# effectively every step after checkout. Fixed here the same way
+# android-test.yml already had to be: a job-level
+# `defaults: run: working-directory: frontend`, `frontend/ios` instead of
+# `ios` wherever a step declares its own working-directory (job-level
+# defaults don't apply to those, or to actions/upload-artifact's `path:`,
+# which always resolves against the checkout root regardless - see
+# android-test.yml's own comment on this exact point). Nothing about what
+# the workflow DOES changed by this - purely where its paths point.
+#
+# Phase 1 TEST IPA scope (matching android-test.yml's own "Phase 1 TEST APK
+# scope" decision exactly, for the same reason - an isolated build that
+# talks to nothing but the isolated TEST backend): Google Sign-In and Google
+# Maps are deliberately blanked below (both the Dart-level .env value and
+# the native ios/Flutter/Maps.xcconfig value, since iOS reads the Maps key
+# from two places - see AppDelegate.swift/Info.plist's GMSApiKey). Unlike
+# the nested copy, this file does NOT reuse the shared, real
+# GOOGLE_MAPS_API_KEY/GOOGLE_OAUTH_SERVER_CLIENT_ID/REVENUECAT_API_KEY_APPLE/
+# REVENUECAT_API_KEY_GOOGLE secrets production's ios-testflight.yml uses -
+# this build embeds none of those real, shared third-party credentials.
+#
+# billing_mode input - NOT the same design as android-test.yml's input of
+# the same name, on purpose. RevenueCat's "Test Store" (what
+# android-test.yml's own "test_store" option drives) is a debug/development-
+# only virtual store with no relationship to Apple's real purchase pipeline
+# - it cannot be tested through TestFlight at all, since TestFlight installs
+# a genuine App Store Connect build through Apple's own distribution path,
+# which a Test Store key rejects outright (RevenueCat's SDK force-closes a
+# release build configured with one, by design). TestFlight subscription
+# testing has to go through Apple's real StoreKit sandbox instead - the same
+# App Store Connect sandbox testers use against a live App Store build, just
+# against the isolated "ALRT Dev" app/App ID rather than the production one.
+# That is what this input's non-bypass option now names and does:
+# - "bypass" (default): unchanged from before this input existed -
+#   ALRT_PLUS_TEST_UNLOCK=true, RevenueCat never contacted,
+#   REVENUECAT_API_KEY_APPLE stays blank.
+# - "platform_sandbox": ALRT_PLUS_TEST_UNLOCK=false (so the app actually
+#   calls RevenueCat's ensureConfigured/isPlus instead of bypassing it), and
+#   REVENUECAT_API_KEY_APPLE is read from the repository-level Secret
+#   TEST_REVENUECAT_API_KEY_APPLE (Settings > Secrets and variables >
+#   Actions > Secrets - not an Environment secret/variable, matching
+#   android-test.yml's own equivalent Secret placement, for the same
+#   reasons that file documents: a publishable SDK key that still needs the
+#   automatic step-level "env:" debug-listing mask a Secret gets and a
+#   Variable does not, and to sidestep this repo's unexplained history of
+#   "test" Environment secrets resolving empty).
+#
+#   IMPORTANT - what TEST_REVENUECAT_API_KEY_APPLE must actually be: the
+#   normal, platform-specific PUBLIC RevenueCat API key for the isolated
+#   "ALRT Dev" app's RevenueCat project/configuration (the same kind of key
+#   Env.dart's own comment already documents as safe to ship - a
+#   publishable key, not a secret in the security sense). It must NOT be:
+#   (a) a RevenueCat "Test Store" key - those only work in a debug build
+#   and have no connection to Apple's StoreKit sandbox TestFlight actually
+#   exercises; or (b) production's real REVENUECAT_API_KEY_APPLE - this
+#   build must never carry that shared, live credential. A guard step
+#   refuses the build if platform_sandbox is selected but the Secret is
+#   empty, so this can never silently fall back to a blank RevenueCat key.
+#   REVENUECAT_API_KEY_GOOGLE stays blank either way - this workflow only
+#   ever builds the iOS app.
+#
+#   Because this is Apple's real sandbox reached through a real TestFlight
+#   build, not a debug-only virtual store, this workflow keeps building
+#   --release for both billing_mode values, unchanged - there is no
+#   RevenueCat restriction here to accommodate the way android-test.yml's
+#   test_store mode has to (that restriction is specific to Test Store
+#   keys, which platform_sandbox deliberately never uses).
+#
+# Uses the existing "dev" Xcode scheme exactly as android-test.yml's Android
+# counterpart does - same app id (com.safetyalrt.alrt.dev). The signing/
+# certificate/upload steps below (ci_certs_dev, ExportOptionsCI-dev.plist,
+# ci_upload_dev) are otherwise UNCHANGED from before this input existed -
+# this file still does not create, rotate, or touch any Apple certificate,
+# provisioning profile, App Store Connect app, tester group, or API key, and
+# ci_upload_dev still refuses any ipa whose bundle id is not exactly
+# com.safetyalrt.alrt.dev / "ALRT Dev" - so neither billing_mode value can
+# ever reach the production ALRT App Store Connect app.
+#
+# DEV_BASE_URL below is a hardcoded literal, not a secret lookup - mirroring
+# android-test.yml's own DEV_BASE_URL history exactly: it was originally
+# sourced from a "test" GitHub Environment secret (TEST_BACKEND_URL), but
+# that exact secret repeatedly, unexplainedly resolved empty for
+# android-test.yml across four consecutive runs (both API-triggered and
+# manually triggered), never root-caused further. Hardcoding it here from
+# the start avoids inheriting that same failure mode - this URL was never
+# actually sensitive (same class of value as the already-public production
+# API hostname), so there is no lookup left to silently return empty, and no
+# way for it to resolve to the production URL instead. The "Verify the
+# isolated test backend URL is configured" guard step from the nested copy
+# is removed here - there is no secret left to check.
+#
+# Everything else - the Apple signing/upload chain (APP_STORE_CONNECT_*,
+# MATCH_*), Firebase configuration, and the "test" GitHub Environment - is
+# unchanged from the nested copy. Two prerequisites this file does not
+# create and cannot check: (1) the com.safetyalrt.alrt.dev distribution
+# certificate/profile does not yet exist in the shared MATCH_GIT_URL certs
+# repo - the first real run must pass generate_certs=true so fastlane match
+# creates it (additive; does not touch or revoke the production
+# certificate/profile); (2) the "ALRT Dev" App Store Connect app,
+# com.safetyalrt.alrt.dev App ID, and a TestFlight internal group with a
+# tester added are expected to already exist (per product-owner setup) -
+# reconfirm these in App Store Connect before the first real run.
+#
+# Manual trigger only (workflow_dispatch) - deliberately does not run on
+# push, matching every other TEST/release CI workflow in this repo.
+name: iOS Dev TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      generate_certs:
+        description: "First run only: generate the com.safetyalrt.alrt.dev signing certificate/profile"
+        type: boolean
+        default: false
+      build_number:
+        description: "Build number override (blank = automatic)"
+        required: false
+        default: ""
+      billing_mode:
+        description: "bypass (default, ALRT_PLUS_TEST_UNLOCK=true) or platform_sandbox (real Apple/StoreKit sandbox paywall via TestFlight - NOT a RevenueCat Test Store key, see header comment)"
+        required: false
+        default: "bypass"
+        type: choice
+        options:
+          - bypass
+          - platform_sandbox
+
+# The actual Flutter/iOS project lives in frontend/, not the repo root -
+# see the header comment above. Applies to every plain `run:` step below;
+# does NOT affect actions/checkout, subosito/flutter-action, or
+# ruby/setup-ruby (none of them read/write repo-relative files the way a
+# shell step does, so working-directory doesn't apply to them), or
+# actions/upload-artifact's `path:` (that one always resolves against the
+# checkout root regardless of this default).
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: frontend/ios
+
+      # Only relevant when billing_mode=platform_sandbox - see the
+      # billing_mode comment at the top of this file, and DO NOT put a
+      # RevenueCat "Test Store" key in TEST_REVENUECAT_API_KEY_APPLE - that
+      # kind of key cannot be exercised through TestFlight at all (see the
+      # header comment for why). This must be the normal, platform-specific
+      # PUBLIC RevenueCat API key for the isolated "ALRT Dev"
+      # app/configuration - never production's REVENUECAT_API_KEY_APPLE.
+      # Checks presence by length only; the value itself is never printed.
+      # Sourced from a repository-level Secret (not an Environment secret/
+      # variable), mirroring android-test.yml's own equivalent guard step.
+      - name: Verify the platform-sandbox RevenueCat Apple key is configured
+        if: ${{ inputs.billing_mode == 'platform_sandbox' }}
+        run: |
+          if [ -z "$REVENUECAT_API_KEY_APPLE" ]; then
+            echo "::error::billing_mode=platform_sandbox requires the repository Secret TEST_REVENUECAT_API_KEY_APPLE to be set (Settings > Secrets and variables > Actions > Secrets) - the isolated ALRT Dev app's own public RevenueCat API key, NOT a RevenueCat Test Store key and NOT production's key."
+            echo "This workflow refuses to build platform_sandbox with a blank RevenueCat key - that would silently disable the paywall instead of testing it."
+            exit 1
+          fi
+          echo "REVENUECAT_API_KEY_APPLE is set (length: ${#REVENUECAT_API_KEY_APPLE} characters). Value itself is never printed."
+        env:
+          REVENUECAT_API_KEY_APPLE: ${{ secrets.TEST_REVENUECAT_API_KEY_APPLE }}
+
+      # Google Sign-In is blanked at the Dart layer here, and the dev-flavour
+      # build configurations use ios/Runner/Info-dev.plist, which carries no
+      # GIDClientID / Google URL scheme at all (see that file's header) - so
+      # this build embeds no production Google OAuth identity anywhere.
+      # DEV_BASE_URL is the hardcoded isolated TEST backend URL - see the
+      # comment at the top of this file for why this is a literal, not a
+      # secret lookup. GOOGLE_MAPS_API_KEY (Dart layer) mirrors the native
+      # xcconfig below. USE_DUMMY_AI_FOR_REPORTS=true matches the Android
+      # TEST build: the backend honours it only when it is itself running as
+      # TEST. REVENUECAT_API_KEY_APPLE and ALRT_PLUS_TEST_UNLOCK depend on
+      # billing_mode - see the billing_mode comment at the top of this file.
+      - name: Create .env pointed at the isolated test backend
+        run: |
+          if [ "${{ inputs.billing_mode }}" = "platform_sandbox" ]; then
+            REVENUECAT_APPLE_VALUE="$REVENUECAT_API_KEY_APPLE"
+            TEST_UNLOCK_VALUE="false"
+          else
+            REVENUECAT_APPLE_VALUE=""
+            TEST_UNLOCK_VALUE="true"
+          fi
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
+            echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS"
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE=$REVENUECAT_APPLE_VALUE"
+            echo "REVENUECAT_API_KEY_GOOGLE="
+            echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
+            echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
+            echo "USE_DUMMY_AI_FOR_REPORTS=true"
+          } > .env
+        env:
+          REVENUECAT_API_KEY_APPLE: ${{ secrets.TEST_REVENUECAT_API_KEY_APPLE }}
+          GOOGLE_MAPS_API_KEY_IOS: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY_IOS }}
+
+      # iOS reads the Maps key from this xcconfig too (see AppDelegate.swift
+      # / Info.plist's GMSApiKey) - a separate native-layer path from the
+      # Dart-level .env value above. It is filled from the repository Secret
+      # TEST_GOOGLE_MAPS_API_KEY_IOS, a Google Cloud key restricted to the
+      # com.safetyalrt.alrt.dev bundle id ONLY (see
+      # frontend/ios/TEST_IOS_SETUP.md for how to create it). That Secret
+      # does not exist yet: while it is absent this resolves empty and Maps
+      # is simply disabled on the TEST build, never falling back to the
+      # production key. Non-fatal on purpose; reported by length only.
+      - name: Create ios/Flutter/Maps.xcconfig from the TEST-only iOS Maps key (blank = Maps disabled)
+        run: |
+          echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS" > ios/Flutter/Maps.xcconfig
+          if [ -z "$GOOGLE_MAPS_API_KEY_IOS" ]; then
+            echo "::warning::TEST_GOOGLE_MAPS_API_KEY_IOS is not set - Google Maps is disabled on this TEST build (no production key is ever used here)."
+          else
+            echo "TEST_GOOGLE_MAPS_API_KEY_IOS is set (length: ${#GOOGLE_MAPS_API_KEY_IOS}). Value never printed."
+          fi
+        env:
+          GOOGLE_MAPS_API_KEY_IOS: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY_IOS }}
+
+      - run: flutter pub get
+
+      # Unchanged from the nested copy (aside from the working-directory
+      # correction - see the header comment) - this does not create, rotate,
+      # or touch any Apple certificate/profile/App/key beyond what running
+      # this exact step already required before this file existed at the
+      # live location.
+      - name: Install signing certificate and profile (ALRT Dev / com.safetyalrt.alrt.dev)
+        working-directory: frontend/ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
+
+      - name: Build the signed iPhone app (dev flavour, isolated test backend)
+        run: |
+          BUILD_NUMBER="${{ inputs.build_number }}"
+          if [ -z "$BUILD_NUMBER" ]; then
+            BUILD_NUMBER=$((100 + ${{ github.run_number }}))
+          fi
+          echo "Building with build number $BUILD_NUMBER"
+          flutter build ipa --release --flavor dev -t lib/main_dev.dart \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=ios/ExportOptionsCI-dev.plist
+
+      # ci_upload_dev (not the production ci_upload lane) pins the App Store
+      # Connect record to com.safetyalrt.alrt.dev / "ALRT Dev" and refuses any
+      # ipa whose bundle id is not exactly that, so this step can never reach
+      # the live ALRT app. The production lane is untouched.
+      - name: Upload to TestFlight (ALRT Dev only)
+        working-directory: frontend/ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          IPA_PATH="$(ls "$GITHUB_WORKSPACE"/frontend/build/ios/ipa/*.ipa | head -1)"
+          echo "Uploading $IPA_PATH"
+          export IPA_PATH
+          bundle exec fastlane ci_upload_dev
+
+      # Keep the ipa on the run page too, in case the upload step needs a
+      # retry. upload-artifact's `path:` always resolves against the
+      # checkout root regardless of the working-directory default above -
+      # see the header comment - so it needs the frontend/ prefix here.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ALRT-ios-dev-ipa
+          path: frontend/build/ios/ipa/*.ipa
+          retention-days: 14
