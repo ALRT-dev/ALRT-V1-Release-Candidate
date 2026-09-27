@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# stand-in for git. FAKE_PIN is what the remote test head and FETCH_HEAD resolve to.
+PIN="${FAKE_PIN:-1111111111111111111111111111111111111111}"
+case "$1" in
+  ls-remote) if [ "${SCENARIO:-}" = "head-moved" ]; then echo "abc1234abc1234abc1234abc1234abc1234abc12	refs/heads/test"; else echo "$PIN	refs/heads/test"; fi;;
+  rev-parse) case "$2" in HEAD) cat "$FAKE_STATE/head" 2>/dev/null || echo 29ef291aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;; FETCH_HEAD) echo "$PIN";; *) echo "$PIN";; esac;;
+  log) echo "29ef291 2026-09-05 old rev";;
+  status) [ "${SCENARIO:-}" = "dirty" ] && echo " M backend/x"; exit 0;;
+  fetch) exit 0;;
+  checkout) echo "$3" > "$FAKE_STATE/head"; exit 0;;
+  diff) echo " 3 files changed"; exit 0;;
+  *) exit 0;;
+esac

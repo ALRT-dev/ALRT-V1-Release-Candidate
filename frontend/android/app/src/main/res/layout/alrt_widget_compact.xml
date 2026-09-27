@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compact (1-cell-high) variant of the Nearby Alerts widget: the app-tile
+     icon, the severity chip and one line of headline. Same view ids as the
+     full layout so the provider binds either without branching. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/alrt_widget_bg"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <ImageView
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginEnd="10dp"
+        android:src="@mipmap/ic_launcher"
+        android:scaleType="fitCenter"
+        android:contentDescription="ALRT" />
+
+    <!-- ALERT block: chip + one-line title. -->
+    <LinearLayout
+        android:id="@+id/widget_alert_block"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_chip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:paddingStart="7dp"
+            android:paddingEnd="7dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:background="@drawable/alrt_widget_chip_orange"
+            android:textColor="#FFFFFF"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <!-- Present for the shared bind, never shown at this size. -->
+        <TextView
+            android:id="@+id/widget_meta"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_more"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- ALL-CLEAR block. -->
+    <LinearLayout
+        android:id="@+id/widget_allclear_block"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_allclear_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ALL CLEAR"
+            android:textColor="#1EE28C"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/widget_allclear_checked"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#8B8B95"
+            android:textSize="10sp"
+            android:maxLines="1" />
+    </LinearLayout>
+
+    <!-- Present for the shared bind; the compact card drops the kicker. -->
+    <TextView
+        android:id="@+id/widget_kicker"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/widget_updated"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
+</LinearLayout>

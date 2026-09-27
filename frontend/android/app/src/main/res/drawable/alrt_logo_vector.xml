@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ALRT mark for the home-screen widgets: the same geometry as
+     assets/logos/alrt_logo.svg, traced from the supplied master artwork
+     (Transparent_Logo.png), so the widget and the app footer carry an
+     identical mark.
+
+     Three rows, each 103 tall with fully rounded ends (r 51.5), measured
+     off the master with its bounding box moved to the origin. Rows 1 and 3
+     are a red bar CLOSED BY an orange dot that it overlaps; the overlap is
+     its own colour (#DE3A3A) in the master and is drawn as an explicit
+     lens, because no blend of red and orange produces it. Row 2 is an
+     orange dot opening an orange bar, with a clear gap between them.
+
+     Never simplified to "three lines": the asymmetry is the mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="56dp"
+    android:height="42dp"
+    android:viewportWidth="555"
+    android:viewportHeight="412">
+
+    <!-- Row 1: red bar (x 3.5..488, y 1..104) -->
+    <path
+        android:fillColor="#FF0004"
+        android:pathData="M55,1h381a51.5,51.5 0 0,1 0,103h-381a51.5,51.5 0 0,1 0,-103z" />
+    <!-- Row 1: orange dot, drawn over the bar -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M502.5,52.5m-51.5,0a51.5,51.5 0 1,0 103,0a51.5,51.5 0 1,0 -103,0" />
+    <!-- Row 1: the overlap, its own colour in the master -->
+    <path
+        android:fillColor="#DE3A3A"
+        android:pathData="M469.5,12.96a51.5,51.5 0 0,1 0,79.08a51.5,51.5 0 0,1 0,-79.08z" />
+
+    <!-- Row 2: orange dot on the left -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M52,210.5m-51.5,0a51.5,51.5 0 1,0 103,0a51.5,51.5 0 1,0 -103,0" />
+    <!-- Row 2: orange bar (x 142..549, y 159..262), no overlap -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M193.5,159h304a51.5,51.5 0 0,1 0,103h-304a51.5,51.5 0 0,1 0,-103z" />
+
+    <!-- Row 3: red bar -->
+    <path
+        android:fillColor="#FF0004"
+        android:pathData="M55,309h381a51.5,51.5 0 0,1 0,103h-381a51.5,51.5 0 0,1 0,-103z" />
+    <!-- Row 3: orange dot -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M502.5,360.5m-51.5,0a51.5,51.5 0 1,0 103,0a51.5,51.5 0 1,0 -103,0" />
+    <!-- Row 3: the overlap -->
+    <path
+        android:fillColor="#DE3A3A"
+        android:pathData="M469.5,320.96a51.5,51.5 0 0,1 0,79.08a51.5,51.5 0 0,1 0,-79.08z" />
+</vector>
