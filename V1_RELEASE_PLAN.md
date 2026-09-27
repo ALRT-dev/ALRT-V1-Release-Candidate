@@ -54,14 +54,27 @@ Do not wholesale-merge historical branches. Reconcile:
 
 ## Final product rules to apply
 
-### ALRT+
+### ALRT +
 
-- Free: 1 saved location.
-- Free Ask ALRT AI quota: 5/day.
-- ALRT+ owner Ask ALRT AI quota: 30/day.
-- ALRT+ owner can host up to 8 family seats.
-- ALRT+ includes a 1-month free trial.
-- Joining another user's family group does not require ALRT+.
+Confirmed by the product owner on 27 September 2026. These replace the
+earlier values (1 saved location, 5/30 Ask ALRT, host seat free, 14-day or
+three-month trial). The code does not match them yet: see
+`SUBSCRIPTION_ONBOARDING_AUDIT.md` §1 for each difference.
+
+- Brand: "ALRT +", with a space.
+- Price: AUD $9.99 a month or $99.99 a year (store-rendered).
+- One-month free trial.
+- Free: 3 saved locations. ALRT +: unlimited.
+- Free Ask ALRT AI quota: 3/day. ALRT +: 10/day.
+- One payer covers 8 seats across up to 4 groups. Each group membership
+  uses a seat, including the payer's own; one person in two groups uses two.
+- Joining costs the member nothing when the payer's plan covers their seat.
+- Free users without a covered seat have no family features (groups,
+  check-ins, SOS, journey sharing, sending location).
+- A covered seat carries every ALRT + benefit, including the paid Ask ALRT
+  allowance and unlimited saved locations.
+- Automatic paywall triggers: a 4th saved location, sending location to a
+  family member, sending an SOS.
 
 ### SOS
 
