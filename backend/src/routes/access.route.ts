@@ -4,6 +4,7 @@ import { validate } from "../middlewares/validation.middleware.js";
 import {
   bindSponsorshipSchema,
   createSponsorshipIntentSchema,
+  reconcileSchema,
 } from "../validators/access.validator.js";
 import {
   bindSponsorshipController,
@@ -21,7 +22,7 @@ accessRouter.use(requireAuth);
 accessRouter.get("/", getAccessController);
 
 /** After purchase or Restore: confirm with the store's server record. */
-accessRouter.post("/reconcile", reconcileAccessController);
+accessRouter.post("/reconcile", validate(reconcileSchema), reconcileAccessController);
 
 /** Choose the group a Family/Group purchase will cover, before checkout. */
 accessRouter.post(

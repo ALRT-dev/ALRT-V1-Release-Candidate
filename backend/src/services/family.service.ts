@@ -9,6 +9,7 @@ import type {
   FamilySosResponseType,
 } from "@prisma/client";
 import prisma from "../utils/prisma_client.util.js";
+import { convertLatLngToAddress } from "./google_map.service.js";
 import { HttpError } from "../models/http_error.js";
 import { SocketEvent } from "../models/socket_event_types.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
@@ -2190,6 +2191,180 @@ export const pruneMembersFromSosLists = async (
 // SOS
 // ---------------------------------------------------------------------------
 
+export type SosLocationMode = "none" | "once" | "live";
+export type SosLocationPrecision = "precise" | "approximate";
+
+/** How old a point may be and still be shown as where someone is now. */
+export const SOS_POINT_MAX_AGE_MS = 2 * 60 * 1000;
+
+export interface SosAudienceCandidate {
+  memberId: string;
+  userId: string;
+  name: string;
+  eligible: boolean;
+  /** Why not eligible: needs ALRT + here, or the group's plan ended. */
+  reason: "needs_individual" | "sponsorship_paused" | null;
+  /** No device registered: the SOS reaches them in the app, but a push
+   * notification may not arrive. Eligibility is never a delivery promise. */
+  deliveryLimited: boolean;
+}
+
+export interface SosAudience {
+  preset: {
+    id: string;
+    name: string;
+    /** ok | outdated (names people who have left) | otherGroup | empty */
+    state: "ok" | "outdated" | "otherGroup" | "empty";
+    removedCount: number;
+    otherGroupCount: number;
+  } | null;
+  candidates: SosAudienceCandidate[];
+}
+
+/**
+ * Who an SOS from [membership] would reach right now, with or without a
+ * preset. The SAME function backs the preview and the send, so what the
+ * sender is shown is what the send enforces, re-checked at activation.
+ */
+export const resolveSosAudience = async (
+  userId: string,
+  membership: { id: string; circleId: string },
+  sosListId?: string,
+): Promise<SosAudience> => {
+  let preset: SosAudience["preset"] = null;
+  let memberIds: string[] | null = null;
+  if (sosListId) {
+    const list = await prisma.familySosList.findFirst({
+      where: { id: sosListId, ownerUserId: userId },
+    });
+    if (!list) throw new HttpError(404, "SOS list not found");
+    const listed = await prisma.familyMember.findMany({
+      where: { id: { in: list.memberIds } },
+      select: { id: true, circleId: true },
+    });
+    const otherGroupCount = listed.filter((m) => m.circleId !== membership.circleId).length;
+    const removedCount = list.memberIds.length - listed.length;
+    const inGroup = listed.filter((m) => m.circleId === membership.circleId && m.id !== membership.id);
+    preset = {
+      id: list.id,
+      name: list.name,
+      state:
+        otherGroupCount > 0
+          ? "otherGroup"
+          : inGroup.length === 0
+            ? "empty"
+            : removedCount > 0
+              ? "outdated"
+              : "ok",
+      removedCount,
+      otherGroupCount,
+    };
+    memberIds = inGroup.map((m) => m.id);
+  }
+  const members = await prisma.familyMember.findMany({
+    where: {
+      circleId: membership.circleId,
+      id: memberIds ? { in: memberIds } : { not: membership.id },
+    },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      userId: true,
+      nickname: true,
+      user: { select: { name: true, _count: { select: { devices: true } } } },
+    },
+  });
+  const candidates: SosAudienceCandidate[] = [];
+  const seen = new Set<string>();
+  for (const m of members) {
+    if (m.userId === userId || seen.has(m.userId)) continue;
+    seen.add(m.userId);
+    const access = await getConnectionAccess(m.userId, membership.circleId);
+    candidates.push({
+      memberId: m.id,
+      userId: m.userId,
+      name: m.nickname || m.user.name || "Family member",
+      eligible: access.allowed,
+      reason: access.allowed
+        ? null
+        : access.reason === "sponsorship_paused"
+          ? "sponsorship_paused"
+          : "needs_individual",
+      deliveryLimited: m.user._count.devices === 0,
+    });
+  }
+  return { preset, candidates };
+};
+
+/**
+ * GET /api/family/sos/preview: exactly who an SOS would reach now, and
+ * why anyone is left out. Never a delivery promise.
+ */
+export const previewSos = async (
+  userId: string,
+  sosListId?: string,
+  circleId?: string,
+) => {
+  const membership = await requireMembership(userId, circleId);
+  const access = await getConnectionAccess(userId, membership.circleId);
+  const audience = await resolveSosAudience(userId, membership, sosListId);
+  const eligible = audience.candidates.filter((c) => c.eligible);
+  const state = !access.allowed
+    ? "senderNoAccess"
+    : audience.preset && (audience.preset.state === "otherGroup" || audience.preset.state === "empty")
+      ? "presetInvalid"
+      : audience.candidates.length === 0
+        ? "noPeople"
+        : eligible.length === 0
+          ? "noneEligible"
+          : "ok";
+  return {
+    circleId: membership.circleId,
+    state,
+    senderAccess: access,
+    preset: audience.preset,
+    recipients: eligible.map((c) => ({
+      memberId: c.memberId,
+      name: c.name,
+      deliveryLimited: c.deliveryLimited,
+    })),
+    excluded: audience.candidates
+      .filter((c) => !c.eligible)
+      .map((c) => ({ memberId: c.memberId, name: c.name, reason: c.reason })),
+  };
+};
+
+/** The explicit per-SOS location mode, from the new field or the old pair. */
+export const sosLocationModeOf = (input: {
+  locationMode?: SosLocationMode | undefined;
+  isLive: boolean;
+  latitude?: number | undefined;
+  longitude?: number | undefined;
+}): SosLocationMode => {
+  if (input.locationMode) return input.locationMode;
+  if (input.isLive) return "live";
+  return input.latitude !== undefined && input.longitude !== undefined ? "once" : "none";
+};
+
+/**
+ * The precision a point is delivered at: what the sender asked for, never
+ * finer than their own sharing setting (precise only for "precise").
+ */
+export const sosPrecisionFor = (
+  sharingLevel: string,
+  requested?: SosLocationPrecision,
+): SosLocationPrecision =>
+  sharingLevel === "precise" && requested !== "approximate" ? "precise" : "approximate";
+
+const suburbLabelFor = async (latitude: number, longitude: number) => {
+  try {
+    const address = await convertLatLngToAddress(latitude, longitude);
+    return address ? toSuburbLabel(address) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const triggerSos = async (
   userId: string,
   input: {
@@ -2197,65 +2372,71 @@ export const triggerSos = async (
     longitude?: number | undefined;
     sosListId?: string | undefined;
     isLive: boolean;
+    locationMode?: SosLocationMode | undefined;
+    locationPrecision?: SosLocationPrecision | undefined;
+    locationCapturedAt?: string | undefined;
+    locationAccuracyM?: number | undefined;
   },
   circleId?: string,
 ) => {
+  // Everything is validated BEFORE any location write, notification or
+  // broadcast: membership, access, the preset, at least one eligible
+  // recipient and the location choice. A refused SOS changes nothing and
+  // tells nobody; its point is never stored.
   const membership = await requireMembership(userId, circleId);
   // SOS is a covered connection feature (V1 access model), per person and
   // per group. Ending an SOS is never gated.
   await assertConnectionAccess(userId, membership.circleId);
 
+  const mode = sosLocationModeOf(input);
+  if ((mode === "live") !== input.isLive) {
+    throw new HttpError(400, "isLive must match the location choice");
+  }
+  const hasPoint =
+    mode !== "none" && input.latitude !== undefined && input.longitude !== undefined;
+  let capturedAt: Date | null = null;
+  if (hasPoint && input.locationCapturedAt) {
+    capturedAt = new Date(input.locationCapturedAt);
+    if (Number.isNaN(capturedAt.getTime()) || capturedAt.getTime() > Date.now() + 60_000) {
+      throw new HttpError(400, "The location time is not valid");
+    }
+  }
+
   // The audience (master spec §12): with a preset, exactly that list's
   // members; without one, everyone else in this group. Either way only
   // people in THIS group who currently have access here. A preset naming
-  // someone in another group is refused, not widened or quietly trimmed:
-  // group coverage never crosses groups, and the sender must know exactly
-  // who is told.
-  let listName: string | null = null;
-  let candidateMembers: { id: string; userId: string }[];
-  if (input.sosListId) {
-    const sosList = await prisma.familySosList.findFirst({
-      where: { id: input.sosListId, ownerUserId: userId },
-    });
-    if (!sosList) throw new HttpError(404, "SOS list not found");
-    listName = sosList.name;
-    const listed = await prisma.familyMember.findMany({
-      where: { id: { in: sosList.memberIds } },
-      select: { id: true, userId: true, circleId: true },
-    });
-    if (listed.some((m) => m.circleId !== membership.circleId)) {
-      throw new HttpError(
-        422,
-        `"${sosList.name}" includes people from another group. Edit it so it only names people in this group, or send to everyone in this group.`,
-        "SOS_PRESET_OTHER_GROUP",
-      );
-    }
-    candidateMembers = listed;
-  } else {
-    candidateMembers = await prisma.familyMember.findMany({
-      where: { circleId: membership.circleId, id: { not: membership.id } },
-      select: { id: true, userId: true },
-    });
-  }
-  const recipientUserIds: string[] = [];
-  for (const member of candidateMembers) {
-    if (member.userId === userId || recipientUserIds.includes(member.userId)) continue;
-    if ((await getConnectionAccess(member.userId, membership.circleId)).allowed) {
-      recipientUserIds.push(member.userId);
-    }
-  }
-  if (recipientUserIds.length === 0) {
+  // someone in another group is refused, not widened or quietly trimmed.
+  const audience = await resolveSosAudience(userId, membership, input.sosListId);
+  const listName = audience.preset?.name ?? null;
+  if (audience.preset?.state === "otherGroup") {
     throw new HttpError(
       422,
-      candidateMembers.length === 0
-        ? "Add someone first. You need at least one other person to send an SOS. If you are in immediate danger, call your local emergency number."
-        : listName
-          ? `No one on "${listName}" can receive an SOS right now. Edit the list first. If you are in immediate danger, call your local emergency number.`
-          : "No one in this group can receive an SOS right now. If you are in immediate danger, call your local emergency number.",
-      "NO_SOS_RECIPIENTS",
-      { hasCandidates: candidateMembers.length > 0 },
+      `"${audience.preset.name}" includes people from another group. Edit it so it only names people in this group, or send to everyone in this group.`,
+      "SOS_PRESET_OTHER_GROUP",
+      { sosListId: audience.preset.id },
     );
   }
+  const recipientUserIds = audience.candidates.filter((c) => c.eligible).map((c) => c.userId);
+  if (recipientUserIds.length === 0) {
+    const presetEmpty = audience.preset?.state === "empty";
+    throw new HttpError(
+      422,
+      presetEmpty
+        ? `No one on "${listName}" is in this group any more. Edit the list first. If you are in immediate danger, call your local emergency number.`
+        : audience.candidates.length === 0
+          ? "Add someone first. You need at least one other person to send an SOS. If you are in immediate danger, call your local emergency number."
+          : listName
+            ? `No one on "${listName}" can receive an SOS right now. Edit the list first. If you are in immediate danger, call your local emergency number.`
+            : "No one in this group can receive an SOS right now. If you are in immediate danger, call your local emergency number.",
+      "NO_SOS_RECIPIENTS",
+      {
+        hasCandidates: audience.candidates.length > 0,
+        ...(audience.preset && { sosListId: audience.preset.id, presetState: audience.preset.state }),
+      },
+    );
+  }
+
+  // --- validated: side effects start here ---------------------------------
 
   // A member has at most one active SOS: the previous one is replaced.
   await prisma.familySosEvent.updateMany({
@@ -2270,18 +2451,12 @@ export const triggerSos = async (
     },
   });
 
-  // Location comes only from this SOS itself: the coordinates the sender's
-  // SOS location choice sent with it (an explicit, per-SOS share, set up in
-  // advance and shown before sending), and never a stale stored point when
-  // none was sent. The suburb label is reused only while it is a live
-  // snapshot the person already shares at that level.
-  const hasPoint = input.latitude !== undefined && input.longitude !== undefined;
-  const level = membership.sharingLevel;
-  const labelIsLive =
-    (level === "precise" || level === "approximate") &&
-    !!membership.locationLabel &&
-    !!membership.locationExpiresAt &&
-    membership.locationExpiresAt > new Date();
+  // Location comes only from this SOS itself, at the precision allowed,
+  // and stays inside this SOS's audience: it never writes the group's
+  // snapshot channel. "approximate" keeps a suburb label and discards the
+  // coordinates. No point sent means no location (never a stored one).
+  const precision = sosPrecisionFor(membership.sharingLevel, input.locationPrecision);
+  const label = hasPoint ? await suburbLabelFor(input.latitude!, input.longitude!) : null;
   const sos = await prisma.familySosEvent.create({
     data: {
       circleId: membership.circleId,
@@ -2289,14 +2464,31 @@ export const triggerSos = async (
       isLive: input.isLive,
       recipientUserIds,
       audienceRestricted: true,
-      ...(hasPoint && { latitude: input.latitude!, longitude: input.longitude! }),
-      ...(labelIsLive && { locationLabel: membership.locationLabel! }),
+      locationMode: mode,
+      ...(hasPoint && {
+        locationPrecision: precision,
+        locationCapturedAt: capturedAt ?? new Date(),
+        ...(input.locationAccuracyM !== undefined && { locationAccuracyM: input.locationAccuracyM }),
+        ...(label && { locationLabel: label }),
+        ...(precision === "precise" && { latitude: input.latitude!, longitude: input.longitude! }),
+      }),
     },
     include: {
       member: { select: memberIdentitySelect },
       responses: true,
     },
   });
+  if (hasPoint && precision === "precise") {
+    await prisma.familyLocationPing.create({
+      data: {
+        memberId: membership.id,
+        sosEventId: sos.id,
+        latitude: input.latitude!,
+        longitude: input.longitude!,
+        ...(input.locationAccuracyM !== undefined && { accuracy: input.locationAccuracyM }),
+      },
+    });
+  }
 
   const memberName =
     sos.member.nickname || sos.member.user.name || "A family member";
@@ -2331,6 +2523,86 @@ export const triggerSos = async (
   );
 
   return sos;
+};
+
+/**
+ * One live point for the sender's own running SOS. Goes to that SOS's
+ * audience only (socket + the SOS row + its trail) and never to the
+ * group's snapshot channel. Only a live SOS takes points, only while it
+ * runs (4-hour cap), only fresh points, at the SOS's precision.
+ */
+export const recordSosLocation = async (
+  userId: string,
+  sosEventId: string,
+  input: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number | undefined;
+    capturedAt?: string | undefined;
+  },
+) => {
+  const sos = await prisma.familySosEvent.findUnique({
+    where: { id: sosEventId },
+    include: { member: { select: { userId: true, sharingLevel: true } } },
+  });
+  if (!sos || sos.member.userId !== userId) throw new HttpError(404, "SOS event not found");
+  if (sos.status !== "active" || sos.createdAt.getTime() <= Date.now() - SOS_MAX_DURATION_MS) {
+    throw new HttpError(409, "This SOS has ended, so live sharing has stopped");
+  }
+  const live = sos.locationMode ? sos.locationMode === "live" : sos.isLive;
+  if (!live) {
+    throw new HttpError(409, "Live location was not chosen for this SOS");
+  }
+  const capturedAt = input.capturedAt ? new Date(input.capturedAt) : new Date();
+  if (
+    Number.isNaN(capturedAt.getTime()) ||
+    capturedAt.getTime() > Date.now() + 60_000 ||
+    capturedAt.getTime() < Date.now() - SOS_POINT_MAX_AGE_MS
+  ) {
+    throw new HttpError(400, "Live points must be current");
+  }
+  const precision =
+    (sos.locationPrecision as SosLocationPrecision | null) ??
+    sosPrecisionFor(sos.member.sharingLevel);
+  const label = await suburbLabelFor(input.latitude, input.longitude);
+  const updated = await prisma.familySosEvent.update({
+    where: { id: sos.id },
+    data: {
+      locationPrecision: precision,
+      locationCapturedAt: capturedAt,
+      ...(input.accuracy !== undefined && { locationAccuracyM: input.accuracy }),
+      ...(label && { locationLabel: label }),
+      ...(precision === "precise" && { latitude: input.latitude, longitude: input.longitude }),
+    },
+    include: {
+      member: { select: memberIdentitySelect },
+      responses: { include: { member: { select: memberIdentitySelect } } },
+    },
+  });
+  if (precision === "precise") {
+    await prisma.familyLocationPing.create({
+      data: {
+        memberId: sos.memberId,
+        sosEventId: sos.id,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        ...(input.accuracy !== undefined && { accuracy: input.accuracy }),
+      },
+    });
+  }
+  sendSocketEventToUsers({
+    userIds: await sosAudienceUserIds(updated),
+    event: SocketEvent.familySosLocation,
+    data: {
+      sosEventId: sos.id,
+      latitude: updated.latitude,
+      longitude: updated.longitude,
+      locationLabel: updated.locationLabel,
+      locationCapturedAt: updated.locationCapturedAt,
+      locationPrecision: precision,
+    },
+  });
+  return { accepted: true, precision };
 };
 
 /**
@@ -2503,8 +2775,12 @@ export const getSosTrail = async (userId: string, sosEventId: string) => {
     return { sosEventId: sos.id, points: [] };
   }
 
+  // New events: exactly the points shared into THIS SOS. Older events
+  // keep the old definition (points since it started).
   const points = await prisma.familyLocationPing.findMany({
-    where: { memberId: sos.memberId, createdAt: { gte: sos.createdAt } },
+    where: sos.audienceRestricted
+      ? { sosEventId: sos.id }
+      : { memberId: sos.memberId, createdAt: { gte: sos.createdAt } },
     orderBy: { createdAt: "asc" },
     select: {
       latitude: true,

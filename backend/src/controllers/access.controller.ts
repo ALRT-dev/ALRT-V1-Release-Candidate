@@ -57,11 +57,22 @@ export const bindSponsorshipController = async (
   next: NextFunction,
 ) => {
   try {
-    const { circleId }: BindSponsorshipInput = req.body;
+    const { circleId, replaceExisting }: BindSponsorshipInput = req.body;
     const subscriptionId = req.params.subscriptionId;
     if (!subscriptionId) throw new HttpError(400, "Missing purchase id");
-    const bound = await bindSponsorship(subscriptionId, circleId, requireUserId(res));
-    res.json({ id: bound.id, boundCircleId: bound.boundCircleId, tier: bound.tier });
+    const bound = await bindSponsorship(
+      subscriptionId,
+      circleId,
+      requireUserId(res),
+      undefined,
+      { replaceExisting: replaceExisting === true },
+    );
+    res.json({
+      id: bound.id,
+      boundCircleId: bound.boundCircleId,
+      tier: bound.tier,
+      replaced: bound.replaced ?? null,
+    });
   } catch (error) {
     next(error);
   }
@@ -91,18 +102,21 @@ export const switchToIndividualFundingController = async (
  * app words Restore from this: confirmed, still pending, or not found.
  */
 export const reconcileAccessController = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
     const userId = requireUserId(res);
-    const store = await confirmPendingChanges(userId);
+    // Product ids Restore found on the phone: looked up, never trusted.
+    const claimed: string[] = Array.isArray(req.body?.productIds) ? req.body.productIds : [];
+    const store = await confirmPendingChanges(userId, fetch, claimed);
     res.json({
       store: {
         checked: store.checked,
         confirmedChanges: store.confirmedChanges,
         unrecorded: store.unrecorded,
+        products: store.products,
       },
       access: await getAccessSummary(userId),
     });

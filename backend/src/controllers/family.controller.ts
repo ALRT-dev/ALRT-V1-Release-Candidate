@@ -17,6 +17,7 @@ import type {
   RespondFamilySosInput,
   TransferFamilyOwnershipInput,
   TriggerFamilySosInput,
+  SosLocationPointInput,
   UpdateFamilyCircleInput,
   UpdateFamilyMemberInput,
   UpdateFamilyPlaceInput,
@@ -826,23 +827,46 @@ export const triggerSosController = async (
   try {
     const userId = requireUserId(res);
     const input: TriggerFamilySosInput = req.body;
-
-    // SOS shares a snapshot at trigger (sender-controlled re-shares after).
-    // Stamp it first so the SOS event picks up the fresh suburb label.
-    if (input.latitude !== undefined && input.longitude !== undefined) {
-      try {
-        await shareLocationSnapshot(
-          userId,
-          { latitude: input.latitude, longitude: input.longitude, via: "sos" },
-          circleIdOf(req),
-        );
-      } catch (error) {
-        console.error("SOS snapshot stamping failed:", error);
-      }
-    }
-
+    // The SOS point stays inside this SOS: it is validated with everything
+    // else and stored on the SOS only. It never writes or broadcasts the
+    // group's ordinary location snapshot, and a refused SOS stores nothing.
     const sos = await familyService.triggerSos(userId, input, circleIdOf(req));
     res.status(201).json(sos);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** GET /api/family/sos/preview?sosListId=&circleId= */
+export const previewSosController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const sosListId =
+      typeof req.query.sosListId === "string" && req.query.sosListId
+        ? req.query.sosListId
+        : undefined;
+    res.json(await familyService.previewSos(userId, sosListId, circleIdOf(req)));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /api/family/sos/:sosEventId/location (sender's live point) */
+export const recordSosLocationController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const sosEventId = req.params.sosEventId;
+    if (!sosEventId) throw new HttpError(400, "Missing SOS id");
+    const input: SosLocationPointInput = req.body;
+    res.json(await familyService.recordSosLocation(userId, sosEventId, input));
   } catch (error) {
     next(error);
   }

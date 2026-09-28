@@ -351,6 +351,11 @@ const main = async () => {
 
   aSock.events.length = 0;
   cSock.events.length = 0;
+  // Review follow-up (29 Sep 2026): an SOS now honours the sender's
+  // precision (approximate = suburb label only; covered, with live points,
+  // in verify_v1_review_followup.ts). This block is the PRECISE positive
+  // control, so B shares precisely for it.
+  await setLevel(b.token, "precise");
   const sosRes = await api("/api/family/sos", {
     method: "POST",
     token: b.token,

@@ -170,7 +170,26 @@ export const triggerFamilySosSchema = z.object({
   // never silently assume live location sharing is wanted (e.g. low
   // battery, or any other reason to send SOS without a continuous stream).
   isLive: z.boolean(),
+  // The explicit location choice: No location / Share location once /
+  // Share live location. Older apps omit it; it is then read from isLive
+  // and whether a point was sent.
+  locationMode: z.enum(["none", "once", "live"]).optional(),
+  // Never finer than the sender's own sharing setting (enforced server side).
+  locationPrecision: z.enum(["precise", "approximate"]).optional(),
+  // When the phone actually fixed the point (a last-known point is sent
+  // with its real, older time; never presented as "now").
+  locationCapturedAt: z.string().datetime().optional(),
+  locationAccuracyM: z.number().min(0).max(100000).optional(),
 });
+
+export const sosLocationPointSchema = z.object({
+  latitude: latitudeSchema,
+  longitude: longitudeSchema,
+  accuracy: z.number().min(0).max(100000).optional(),
+  capturedAt: z.string().datetime().optional(),
+});
+
+export type SosLocationPointInput = z.infer<typeof sosLocationPointSchema>;
 
 export type TriggerFamilySosInput = z.infer<typeof triggerFamilySosSchema>;
 
