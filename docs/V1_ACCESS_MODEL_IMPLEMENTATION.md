@@ -18,7 +18,9 @@ Evidence levels used below:
 | Label | Meaning |
 |---|---|
 | Static | Read in the code at the stated commit |
-| Local test | Ran against a local backend and throwaway Postgres+PostGIS, store events simulated with authenticated RevenueCat webhook calls |
+| Local test | Ran against a local backend and throwaway Postgres+PostGIS, store events simulated with authenticated RevenueCat webhook calls (and, for subscription changes, a fake RevenueCat server API served by the test script) |
+| App test | Flutter widget/unit test with a fake store and fake backend |
+| Test render | PNG of the real Flutter screen rendered in a test, fake store prices; a picture of the code, not of a phone |
 | TEST | Observed on the deployed TEST backend (none in this work) |
 | Store sandbox | Real Apple/Google sandbox purchase (none in this work) |
 | Device | Real phone behaviour (none in this work) |
@@ -41,37 +43,74 @@ Decision needed / Unverified.
 | Ask ALRT | 5 free / 30 plus per UTC day. |
 | Severity | Info override used substring matching: "test" matched "latest", "contest", "protest"; "exercise caution", "cleared land" and "not a test" downgraded real incidents. |
 
-## 2. What changed in code
+## 2. Requirement-by-requirement completion
 
-All backend, Ask ALRT function and app changes below are on this branch.
-TEST keeps `BILLING_ENABLED=false`, under which every access check answers
-yes exactly as before, so deploying this code alone does not change what
-TEST users can do.
+Commits on `claude/alrt-subscription-audit-r4szxr`: `f3f6f7d` backend
+access model, `51b4f27` app and Ask ALRT, `7e8a995` subscription changes
+and refusal codes (backend), `11eac94` app follow-up (colours, upgrades,
+Restore, refusals, SOS preview, onboarding). TEST keeps
+`BILLING_ENABLED=false`, under which every access check answers yes
+exactly as before, so deploying this code alone does not change what TEST
+users can do.
 
-| # | Requirement (master spec) | Status | Evidence |
-|---|---|---|---|
-| 1 | Personal access and group coverage are separate; no global flag (§3, §17) | Implemented | Static, Local test |
-| 2 | Canonical `StoreSubscription` per original transaction; webhook idempotent on event id, newest event wins, product->tier via `RC_PRODUCT_TIERS`, env/app filters, refunds, billing issue keeps access to expiry, TRANSFER moves purchases (§18) | Implemented | Local test (10 webhook cases) |
-| 3 | Individual: unlimited saved places, 10 Ask/day, unlimited groups; Free: 1 place, 3 Ask/day; sponsorship never raises personal limits (§3, §14) | Implemented | Local test |
-| 4 | Remove four-group cap and seats; creating/joining free (§4) | Implemented | Local test (Individual in 10 groups, hosts 6) |
-| 5 | Individually funded groups: each active participant needs Individual; a lapse pauses only that person (§4) | Implemented | Local test |
-| 6 | Family 6 / Group 20 / Group 50 cover ONE group; everyone in it counts; concurrent joins can't exceed (§5) | Implemented | Local test (Family 7th join 409; Group 20 21st join 409; race: exactly one of two succeeds) |
-| 7 | Sponsorship bound once to the group chosen before checkout; host only; unmatched purchase bound later by its payer only (§6, §18) | Implemented | Local test |
-| 8 | Individual and a group plan coexist; tier change keeps Individual (§5) | Implemented | Local test |
-| 9 | Sponsorship lapse pauses only its group; no silent switch to individual funding (§7) | Implemented | Local test |
-| 10 | Connection features gated per person per group; stop/end/leave never gated (§17) | Implemented | Static, Local test |
-| 11 | Consumer guests retired; old guest codes refused (§5) | Implemented | Local test. Existing guest rows unchanged (see §4 migration) |
-| 12 | No empty SOS; stored audience enforced on reads, responses, trail, sockets, history, end notifications; cross-group preset refused (§12) | Implemented | Local test |
-| 13 | SOS never uses stale stored coordinates (§12) | Implemented | Local test |
-| 14 | End wording factual, actor recorded; no "safe"/"resolved" in backend pushes (§11, §12) | Implemented | Static |
-| 15 | Daily never manufactures a check-in (§11) | Implemented (both modes send a reminder) | Static. Final Daily behaviour is R07 |
-| 16 | Extra saved places paused (no alert fan-out) after Individual lapses; nothing deleted (§7) | Partial | Local test. Which place stays active is provisional (oldest) pending R04 |
-| 17 | Ask ALRT 3/10 per local day, once per account, travel-safe (§14) | Implemented | Unit tests (functions). Counting unit unchanged, R03 |
-| 18 | Ask ALRT reads a backend-written versioned mirror; second webhook retired (§17) | Implemented in code | Static. Needs the deploy order in §4 |
-| 19 | Severity override by phrase with "not a test" precedence (§15) | Implemented | 18 phrase checks |
-| 20 | `GET /api/access` returns personal plan and each group's coverage separately with access reason and computed time (§17) | Implemented | Local test |
-| 21 | Frontend: plans, paywalls, onboarding, Profile, colours, copy (§8 to §10, §13, §16) | Partial | Implemented: chooser, Individual and Cover-a-group paywalls, My plans, Profile entry, plan colours, §9 copy, seats/guests/4-group cap removed from the app, SOS end wording, no "safe" wording, "Periodic updates". Not done: onboarding ALRT + step, dedicated 402 upsell routing on connection features (the backend's message is shown as a toast), SOS recipient preview. Evidence: widget tests and test renders (see §5a); no device |
-| 22 | Store / RevenueCat / Firebase configuration for the new catalogue (§19) | Unverified | See §3 |
+Each evidence column is separate. "None" means not run. No row has
+deployed-TEST, store-sandbox or device evidence.
+
+| # | Requirement (master spec / follow-up) | Status | Local test (backend) | App test / render | TEST | Sandbox | Device |
+|---|---|---|---|---|---|---|---|
+| 1 | Personal access and group coverage separate; no global flag (§3, §17) | Implemented | Pass | Pass (My plans, Profile) | None | None | None |
+| 2 | Canonical `StoreSubscription`; idempotent webhook, newest event wins, product -> tier map, env/app filters, refunds, billing issue keeps access, TRANSFER (§18) | Implemented | Pass (10 webhook cases) | n/a | None | None | None |
+| 3 | Individual: unlimited places, 10 Ask/day, unlimited groups; Free: 1 place, 3 Ask/day; sponsorship never raises personal limits | Implemented | Pass | Pass | None | None | None |
+| 4 | Four-group cap and seats removed; creating/joining free | Implemented | Pass | Pass | None | None | None |
+| 5 | Individually funded groups: each participant needs Individual; lapse pauses only that person | Implemented | Pass | n/a | None | None | None |
+| 6 | Family 6 / Group 20 / Group 50 cover ONE group; concurrent joins can't exceed | Implemented | Pass (incl. race) | n/a | None | None | None |
+| 7 | Sponsorship bound to the group chosen before checkout; unmatched purchase bound by payer only | Implemented | Pass | n/a | None | None | None |
+| 8 | Individual and a group plan coexist | Implemented | Pass | Pass (restore wording) | None | Store grouping unverified (C2) | None |
+| 9 | Sponsorship lapse pauses only its group; no silent switch | Implemented | Pass | Pass (refusal sheet) | None | None | None |
+| 10 | Connection features gated per person per group; stop/end/leave never gated | Implemented | Pass | n/a | None | None | None |
+| 11 | Guests retired; old guest codes refused; existing rows untouched | Implemented (no conversion) | Pass | n/a | Guest rows NOT inspected (no DB access) | n/a | n/a |
+| 12 | No empty SOS; stored audience enforced everywhere; cross-group preset refused | Implemented | Pass | Pass | None | n/a | None |
+| 13 | No stale SOS coordinates | Implemented | Pass | n/a | None | n/a | None |
+| 14 | Factual end wording; no "safe"/"resolved" | Implemented | Static | Pass | None | n/a | None |
+| 15 | Daily is a reminder only (R07 provisional) | Implemented | Static | Pass (copy) | None | n/a | None |
+| 16 | Extra places paused (not deleted) after Individual lapses | Partial (which place stays is R04) | Pass | n/a | None | None | None |
+| 17 | Ask ALRT 3/10 per local day, travel-safe | Implemented (counting unit is R03) | Unit tests (36) | n/a | None | n/a | None |
+| 18 | Ask ALRT reads backend-written mirror; second webhook retired | Implemented in code | Static | n/a | None | n/a | None |
+| 19 | Severity override by phrase | Implemented | 18 phrase checks | n/a | None | n/a | n/a |
+| 20 | `GET /api/access` | Implemented | Pass | Pass | None | n/a | None |
+| 21 | Scheduled changes: tier moves only when the store confirms the change took effect | Implemented | Pass (scheduled downgrade, withdrawn change, stale purchase ignored, server-record confirm) | Pass (pending wording) | None | NOT verified: real RevenueCat event sequences for Apple/Google changes must be confirmed | None |
+| 22 | Family -> Group 20 -> Group 50 upgrades keep the group and the separate Individual; Android replacement | Implemented | Pass (Google new-transaction replacement x2, App Store same-transaction, payer-only, ambiguous never guessed) | Pass (Android passes the old product with prorated replacement; iPhone does not) | None | NOT verified (C5, C22) | None |
+| 23 | Restore: failure, pending reconciliation and confirmed access each truthful | Implemented | Pass (reconcile reports unrecorded purchases, never grants; API failure = unchecked) | Pass (4 widget + 7 unit) | None | None | None |
+| 24 | Contextual refusals: ended sponsorship, capacity, permissions, missing SOS recipients distinguished; not all sent to Individual | Implemented | Pass (codes on 402/403/409/422) | Pass (7 unit + 3 renders) | None | n/a | None |
+| 25 | SOS recipient and location preview before sending | Implemented | n/a | Pass (2 widget + 3 unit) | None | n/a | None |
+| 26 | Optional onboarding ALRT + step | Implemented | n/a | Pass (1 widget + render) | None | n/a | None |
+| 27 | Plan colours and naming (owner 28 Sep: ALRT + purple, Family green, Group blue, gradients; "Individual" not shown) | Implemented | n/a | Pass + 13 renders | None | n/a | None |
+| 28 | Store / RevenueCat / Firebase configuration | Unverified | n/a | n/a | None | None | None |
+
+### How subscription changes work now
+
+- `PRODUCT_CHANGE` is a request. It sets `pendingTier` and never moves
+  the active tier or capacity. The tier moves when (a) a later store event
+  on that transaction names the new product (for example the RENEWAL that
+  starts a scheduled downgrade), or (b) RevenueCat's server record, read by
+  the backend with `REVENUECAT_SECRET_API_KEY` (optional, C22), shows the
+  new product purchased after the request and not expired. Without the key
+  an immediate App Store upgrade waits for the next store event; ALRT
+  under-delivers rather than over-delivers.
+- Upgrades are started by the current payer only
+  (`POST /api/access/sponsorship-intents` answers with the product it
+  replaces). Android buys with a Play replacement of that product
+  (`StoreReplacementMode.chargeProratedPrice`); the App Store upgrades
+  within the subscription group. A new store transaction that replaces
+  the plan takes over the same group and the old row is marked
+  superseded, so the group is never counted twice and Individual is never
+  touched. With two possible plans to replace, nothing is guessed.
+- Smaller plans are changed in the store and apply at renewal; the app
+  never offers a downgrade purchase. An over-capacity downgrade blocks new
+  joins and removes no one (R02).
+- `POST /api/access/reconcile` (after purchase or Restore) confirms
+  pending changes and REPORTS store purchases ALRT has not recorded yet.
+  It never grants access; access still comes only from the webhook.
 
 ### New backend API for the app
 
@@ -83,10 +122,16 @@ TEST users can do.
 | `POST /api/access/groups/:circleId/individual-funding` | Host explicitly returns a lapsed sponsored group to individual funding |
 | `GET /api/family/circles` | Adds `fundingMode`, `capacity`, `sponsorshipLive`, `connectionAccess`; `seatCount` is now just the headcount (deprecated) |
 | `GET /api/user/location-subscriptions` | Adds `isPaused` per saved place |
+| `POST /api/access/reconcile` | `{ store: { checked, confirmedChanges, unrecorded: [{productId, tier}] }, access }` |
+| Intent response | Adds `replaces: { tier, productId, store }` for an upgrade (payer only) |
+| Sponsorship in `/api/access` | Adds `pendingTier`; `productId` and `store` for the payer only |
 
-Distinct errors: 402 access (Individual needed / group plan paused), 409
-capacity or already covered, 422 no reachable SOS recipient or
-cross-group preset, 403 permission, 404 not found or not in audience.
+Refusals carry `{ error, code, details }`. Codes: `INDIVIDUAL_REQUIRED`
+(402), `GROUP_PLAN_ENDED` (402), `SAVED_PLACE_LIMIT` (402), `GROUP_FULL`
+(409 sponsored / 400 technical cap, `details.capacity`),
+`GROUP_ALREADY_COVERED`, `PLAN_TOO_SMALL`, `CHANGE_IN_STORE` (409),
+`HOST_ONLY`, `PAYER_ONLY` (403), `NO_SOS_RECIPIENTS` (422,
+`details.hasCandidates`), `SOS_PRESET_OTHER_GROUP` (422).
 
 ## 3. Exact reconfiguration table
 
@@ -100,7 +145,7 @@ never shown.
 | C2 | App Store subscription groups | Not verified | Individual in its OWN group; Family/Group 20/Group 50 together in a second group (levels 50 > 20 > Family) | Create 2 groups. One group for everything would make Individual and a group plan mutually exclusive | Config | Owner | C1 | Move products before first sale only | Sandbox: buy Individual then Family, both active |
 | C3 | App Store introductory offer | Not verified | Individual only: 1 month free, new subscribers; none on group products | Configure | Config | Owner | C1, R09 | Remove offer | Sandbox eligible vs ineligible account |
 | C4 | Google Play subscriptions | Historical (25 Sep, turn b01b52ec): zero subscriptions on `com.safetyalrt.alrt`. Re-inspect | 4 subscriptions, monthly base plans; Individual free-trial offer (30 days, new customers); none on group plans | Create; do not create replacements blindly if some now exist | Config | Owner | R09 | Deactivate base plan | Play console + test purchase |
-| C5 | Play replacement / proration | Not verified | Family -> Group 20 -> Group 50 as upgrades within the group family; Individual independent | Configure replacement mode per offer | Config | Owner | C4 | Revert mode | Sandbox upgrade keeps binding (tested locally via PRODUCT_CHANGE) |
+| C5 | Play replacement / proration | Not verified | Family, Group 20, Group 50 in one Play subscription family so a purchase can replace another; Individual separate. The app requests `CHARGE_PRORATED_PRICE` for upgrades (immediate, same renewal date) | Confirm Play allows prorated upgrades between these products | Config | Owner | C4 | n/a | Sandbox: Family -> Group 20 on Android keeps the same group covered, old token expires, no unbound plan left |
 | C6 | Play acknowledgement | Not verified | RevenueCat acknowledges (default) | Confirm no second acknowledger | Config | Owner | | n/a | No refunds for unacknowledged purchases in test |
 | C7 | App Store Server Notifications v2 / Google RTDN | Not verified | Point to RevenueCat | Configure both envs | Config | Owner | | Remove URL | RevenueCat shows store events |
 | C8 | RevenueCat project and apps | Historical: project 15454f8d, TEST app `com.safetyalrt.alrt.dev` | Confirm which RC app ids map to TEST vs prod | Record app ids; set backend `RC_APP_IDS` | Config | Owner | | Clear env | Webhook with other app id is ignored |
@@ -116,9 +161,16 @@ never shown.
 | C18 | Backend Firebase credentials | Backend already uses `serviceAccountKey.json` (file, not env) | Service account needs Firestore write on `entitlements` | Confirm IAM role | Config | Owner | | | Mirror doc written on a sandbox purchase |
 | C19 | Database migration | Not applied anywhere | `20260928000000_v1_access_model` applied TEST then prod | `prisma migrate deploy` | Migration | Engineering | D1 | See §4 | Tables present |
 | C20 | Apple/Google test identities | Not verified | Sandbox testers for eligible and ineligible trial, Family payer, member | Create | Config | Owner | C1, C4 | n/a | Test matrix §5 |
+| C22 | Backend env `REVENUECAT_SECRET_API_KEY` (optional) | Not set | RevenueCat secret (server) API key per environment, read-only use: `GET /v1/subscribers/{id}` to confirm pending changes and spot unrecorded purchases. Never shipped in the app | Add as a secret on TEST first | Config | Owner | C8 | Remove env (pending changes then wait for store events) | Sandbox App Store upgrade shows the new tier within a minute |
+| C23 | Database migration 2 | Not applied anywhere | `20260929000000_v1_subscription_changes` (additive columns) after C19 | `prisma migrate deploy` | Migration | Engineering | C19 | Drop the added columns | Columns present |
+| C24 | App Store subscription group levels | Not verified | Group 50 highest, Group 20, Family lowest in the group-plans subscription group, so moving up is an upgrade (immediate, prorated refund) and down is a downgrade (at renewal) | Set levels | Config | Owner | C2 | Reorder before first sale | Sandbox: Family -> Group 20 immediate; Group 50 -> Family at renewal |
 | C21 | Store listing / legal copy | Not verified | Individual trial wording per platform, group "no trial", SOS safety statement | Legal review | Decision (R09) | Owner | | | Sign-off |
 
 ## 4. Migration, rollout and rollback
+
+Migration `20260929000000_v1_subscription_changes` (additive: pending
+change columns, `supersededAt/By`, `SponsorshipIntent.replacesSubscriptionId`)
+goes right after the first one; rollback drops those columns.
 
 Migration `20260928000000_v1_access_model` is additive: three new tables,
 three enums, `FamilyCircle.fundingMode` (default `individual`, which is
@@ -168,76 +220,103 @@ recorded purchases. Re-add C12 if the old Ask ALRT function is restored.
 
 ## 5. Acceptance evidence (master spec §20)
 
-Local test = `backend/src/scripts/verify_v1_access_model.ts` (30 checks,
-all passing, BILLING_ENABLED=true, simulated webhooks) plus the functions
-unit tests. Nothing below has TEST, store-sandbox or device evidence yet.
+Local test = `backend/src/scripts/verify_v1_access_model.ts` (30 checks)
+and `verify_v1_subscription_changes.ts` (10 scenarios, fake RevenueCat
+server API), both passing with BILLING_ENABLED=true and simulated
+webhooks; functions unit tests (36). App test = `flutter test` (340
+passing, 33 skipped opt-in renders), including
+`v1_restore_refusal_preview_test.dart` (19),
+`v1_upgrade_restore_onboarding_test.dart` (8), the extended
+`family_sos_screen_navigation_test.dart` (7) and
+`alrt_plus_store_price_screens_test.dart` (9). Test renders: 13 PNGs from
+`test/screenshots/v1_plans_screenshots_test.dart`.
 
-| # | Case | Local test | TEST / Sandbox / Device |
-|---|---|---|---|
-| 1 | Individual joins 5th and 10th group | Pass | Not run |
-| 2 | Two Individuals, no group plan | Pass | Not run |
-| 3 | Sponsored Free member and sponsor keep 1 place / 3 Ask | Pass | Not run |
-| 4 | Individual + group plan coexist, tier change | Pass (webhook level) | Store grouping unverified (C2, C5) |
-| 5 | Individual lapse pauses only that person | Pass | Not run |
-| 6 | Sponsorship lapse only affects its group, no charge, no mode switch | Pass | Not run |
-| 7 | Two sponsored memberships don't merge personal quotas | Pass | Not run |
-| 8 | 6/20/50 capacity incl. payer; concurrent joins | Pass (Family 6 and Group 20 filled to capacity; Group 50 same code path) | Not run |
-| 9 | Cross-group recipients and unauthorized readers denied | Pass (REST); sockets follow the same audience list (Static) | Not run |
-| 10 | Duplicate / delayed / out-of-order webhooks | Pass | Not run |
-| 11 | Only Individual trial; no manufactured eligibility | Backend reports trial from store data; eligibility is store-side | Store sandbox needed |
-| 12 | Saved place and Ask limits under concurrency, day boundaries, plan changes | Saved places: pass. Ask: unit tests for local day, DST, zone validation | Firestore transaction not run against emulator |
-| 13 | Personal and group states agree across app surfaces | App reads `GET /api/access` for Profile, My plans and both paywalls (widget tests) | Not run on device |
+| # | Case | Local test | App test / render | TEST | Sandbox | Device |
+|---|---|---|---|---|---|---|
+| 1 | Individual joins 5th and 10th group | Pass | n/a | None | None | None |
+| 2 | Two Individuals, no group plan | Pass | n/a | None | None | None |
+| 3 | Sponsored Free member and sponsor keep 1 place / 3 Ask | Pass | Pass | None | None | None |
+| 4 | Individual + group plan coexist; tier change | Pass | Pass | None | Unverified (C2, C24) | None |
+| 5 | Individual lapse pauses only that person | Pass | n/a | None | None | None |
+| 6 | Sponsorship lapse only affects its group | Pass | Pass (sheet) | None | None | None |
+| 7 | Two sponsored memberships don't merge personal quotas | Pass | n/a | None | None | None |
+| 8 | 6/20/50 capacity incl. payer; concurrent joins | Pass | Pass (full-group sheet) | None | None | None |
+| 9 | Cross-group recipients and unauthorized readers denied | Pass | n/a | None | n/a | None |
+| 10 | Duplicate / delayed / out-of-order webhooks | Pass | n/a | None | None | n/a |
+| 11 | Only Individual trial; no manufactured eligibility | Backend reports store data | Pass | None | None | None |
+| 12 | Limits under concurrency and day boundaries | Places pass; Ask unit tests | n/a | None | n/a | None |
+| 13 | Personal and group states agree across surfaces | Pass | Pass | None | None | None |
+| 14 | Scheduled change not applied early | Pass | Pass | None | None | None |
+| 15 | Upgrade keeps group, separate Individual | Pass | Pass | None | None | None |
+| 16 | Restore truthful | Pass | Pass | None | None | None |
+| 17 | Refusals distinguished | Pass | Pass | None | n/a | None |
+| 18 | SOS preview | n/a | Pass | None | n/a | None |
 
-Regression (billing off, today's TEST behaviour): existing scripts
-`verify_circle_list_state` (5), `verify_family_leave_and_alert_link` (12),
-`verify_family_location_consent` (40), `verify_sos_history` (8),
+Regression with billing off (today's TEST behaviour), re-run after the
+follow-up: `verify_circle_list_state` (5), `verify_family_leave_and_alert_link`
+(12), `verify_family_location_consent` (40), `verify_sos_history` (8),
 `verify_stage9a_journey_recipient` (13), `verify_targeted_check_in_request`
-(14), `verify_saved_location_limit` (3 off / 5 on) all pass.
-`verify_seat_rule.ts` was removed: it asserted the retired seat model.
-Backend `tsc --noEmit` clean; functions build clean, 36 unit tests pass
-(including the `utcOffsetMinutes` fallback: when the app sends no IANA
-zone name, the day key is `offset:<minutes>`).
+(14), `verify_saved_location_limit` (3 off / 5 on), severity phrases (18):
+all pass. Backend `tsc --noEmit` clean apart from the pre-existing
+`serviceAccountKey.json` import. `flutter analyze`: the 6 pre-existing
+infos only.
 
-### 5a. App evidence
+## 6. Open decisions: current provisional behaviour and recommendation
 
-`flutter analyze`: 6 pre-existing infos only. `flutter test`: 311 pass,
-28 skipped (opt-in screenshot tests). `test/alrt_plus_store_price_screens_test.dart`
-checks exact §9 copy, store prices, trial shown only for an eligible
-account, no trial on group plans, "too small" plans, and My plans for a
-payer and a covered member. Test renders of 8 screens come from
-`ALRT_SCREENSHOTS=1 flutter test --update-goldens
-test/screenshots/v1_plans_screenshots_test.dart` (fake store, not a
-device).
+Nothing below is approved by being in the code. Each "Now" is what the
+code does today, provisionally.
 
-## 6. Open decisions (unchanged register, with what the code does now)
+| ID | Decision | Now (provisional) | Recommendation |
+|---|---|---|---|
+| R01 | Capacity of groups with no Family/Group plan; pending members | No commercial cap; the old technical `maxMembers` (10) applies; joins are immediate (no pending state) | Keep a technical cap but raise it to 50 so an unsponsored group can grow into Group 50; no pending state in V1 |
+| R02 | Repeat sponsorships, payer leaves, reassignment, over-capacity downgrade | One live plan per group; only the payer can upgrade; smaller plans change in the store at renewal; if the payer leaves, the plan keeps covering the group until it lapses; TRANSFER moves the payer, coverage stays; over capacity blocks new joins, removes no one | Keep all of that. Add: when the payer leaves, tell the host the plan ends at renewal unless they rejoin; allow the host to buy a new plan once the old one lapses (already works) |
+| R03 | What counts as an Ask ALRT question | Counted BEFORE the AI call, so a model failure, a timeout and a safety refusal all count; library and emergency answers never count; nothing counts while the AI is switched off | Count only an AI answer actually delivered: give the question back when the model call fails, and have the app send a request id so a network retry of the same question is not counted twice. Keep refusals counted (they used the model) |
+| R04 | SOS/Journey running when access ends; which free saved place stays | A running SOS keeps its live share to the 4-hour cap; a running Journey continues to its end time but can't be extended or restarted; the OLDEST saved place stays active, the rest pause (none deleted) | Keep SOS and Journey as is (never cut off a safety share mid-way). Let the person choose which saved place stays active, defaulting to the oldest |
+| R05 | Retention periods | Locations: snapshots deleted after 1 hour, SOS live share after the 4-hour cap, journey points on end. Kept with no end date: SOS history (who and when, no locations), check-in events, webhook receipts, subscription rows, Ask ALRT daily counters. Deleted accounts: removed by the nightly job | Keep the location rules. Set end dates: SOS and check-in history 12 months, Ask counters 30 days, webhook receipts 13 months (refund window), subscription rows for as long as tax/accounting requires. Publish them in the privacy policy |
+| R06 | Who may end someone else's SOS; SOS across groups for an Individual | The sender or the group's host can end it (actor recorded, "[Name] ended their SOS." / "SOS ended by [Name]"); an SOS goes to one group only | Keep: sender or host only, never other members. Keep one group per SOS; offer a quick "also send to [other group]" only after launch if people ask |
+| R07 | Daily | Both modes send a reminder only; nothing is ever posted on the person's behalf | Keep reminder only. Remove the "automatic" option from settings entirely |
+| R08 | Community push rules | One community report is pushed to everyone nearby who has community alerts on, as soon as the AI review accepts it; no corroboration needed | Push a community report only after it is corroborated (a second person, or review plus a nearby official source), and never at night unless it is Critical-looking; keep showing it on the map at once |
+| R09 | Trial wording, legal / age / privacy disclosure | App shows the disclosure from store data; trial only when the store reports an eligible free intro offer | Legal review of the four disclosure strings and the upgrade wording before submission |
+| R10 | Points vs XP | Unchanged | Out of this scope; decide separately |
+| R11 | Group Places limits; renaming the Family area | Group Places: no limit, free, adults and host manage them, separate from personal saved places; the tab is still called "Family" | Cap group Places at 20 per group as an abuse limit, keep them free. Rename the tab to "Groups" only with the store screenshots update |
+| G1 | Existing guest members | Not converted; they count as people and keep guest permissions; guest codes refused | Run `inspect_guest_members.ts` (read-only) on TEST and production first. Then ask each host to convert their guests (host action, one tap), rather than converting everyone to adult |
 
-| ID | Question | Code today |
-|---|---|---|
-| R01 | Capacity of individually funded groups; pending members | No commercial cap; the existing technical `maxMembers` (10) still applies. Needs a decision before billing is on |
-| R02 | Repeat sponsorships, payer departure, reassignment, over-capacity downgrade | One live plan per group; a payer can buy plans for several groups they host (store support unverified); TRANSFER moves the payer, coverage stays; an over-capacity downgrade blocks new joins and evicts no one |
-| R03 | Ask counting unit | Every AI attempt that reaches the model counts; library and emergency answers don't. Copy must say "questions", not "answers", until decided |
-| R04 | Active SOS/Journey at expiry; which free saved place stays | An SOS already running keeps its live share; new Journey/extend is gated; oldest saved place stays active (provisional) |
-| R05 | Retention periods | Unchanged; nothing deleted on lapse |
-| R06 | Who may end another person's SOS; multi-group Individual SOS | Sender or host may end (existing rule), actor recorded; SOS never crosses groups |
-| R07 | Daily semantics | Reminder only in both modes |
-| R08 | Community push threshold | Unchanged by this work |
-| R09 | Trial wording, legal/age/privacy disclosure | App shows the §9 disclosure from store data (trial only when the store reports an eligible free intro offer); legal sign-off still needed |
-| R10 | Points vs XP | Unchanged |
-| R11 | Family/group Places limits, Family-area rename | Group Places unchanged and separate from personal saved places |
+### Ask ALRT: failure and retry charging, exactly as coded
 
-Also needs an owner decision: whether to convert existing guest rows to
-adults (§4).
+1. Library answers and emergency-number answers: free, never counted.
+2. AI switched off (Remote Config kill switch): error, not counted.
+3. Daily limit reached: refused before counting, not counted.
+4. Otherwise the question is counted FIRST, then the AI is called:
+   - model error or timeout: the person gets "Ask ALRT is unavailable
+     right now. Please try again." AND the question stays counted;
+   - a safety refusal from the model: counted;
+   - the answer is produced but the phone loses the response (network
+     drop): counted, and asking again counts again.
+5. Retrying therefore costs a question each time. This is the current
+   code, not an approved rule (R03); see the recommendation above.
+
+### Guest records
+
+`backend/src/scripts/inspect_guest_members.ts` is read-only: counts, group
+ids, roles, join and last check-in dates, whether the group is sponsored
+or has a host. It changes nothing. It was run only on the local test
+database (0 guests; and 1 temporary row to prove the report works, then
+reverted). TEST and production guest rows have NOT been inspected, because
+this session has no access to those databases. No conversion is proposed
+until that report has been run and read.
 
 ## 7. Launch blockers
 
-1. Frontend remainder: onboarding ALRT + step, 402 upsell routing on
-   connection features, SOS recipient preview before sending. Paywalls,
-   My plans, colours and wording are done (widget-tested, not on a device).
-2. Store products, subscription groups, offers and RevenueCat mapping
-   (C1 to C12) not created or verified.
-3. R01, R02, R03, R04 need decisions before billing is enabled.
+1. Store products, subscription groups and levels, offers, Play
+   replacement and RevenueCat mapping (C1 to C12, C22, C24) not created or
+   verified.
+2. The real RevenueCat event sequences for App Store and Google Play
+   upgrades and scheduled downgrades must be confirmed in sandbox; the
+   backend handles both shapes, but only simulated events were tested.
+3. R01 to R05 and R08 need decisions before billing is enabled.
 4. Existing `plus` purchasers need re-sync or mapping (C15).
-5. No store-sandbox or device evidence for any purchase, restore or push.
-6. Earlier launch items still open per the release chat (iOS signing and
-   build, APNs, Maps, Apple sandbox, TEST source sync, real-device push)
-   were not rechecked here.
+5. Guest records on TEST and production must be inspected (G1).
+6. No deployed-TEST, store-sandbox or device evidence for any purchase,
+   upgrade, restore, refusal sheet, SOS preview or push.
+7. Earlier launch items (iOS signing and build, APNs, Maps, Apple sandbox,
+   TEST source sync, real-device push) were not rechecked here.
