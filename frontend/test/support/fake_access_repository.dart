@@ -18,6 +18,9 @@ class FakeAccessRepository implements AccessRepository {
   bool reconcileFails;
   final intents = <(String, PlanTier)>[];
   int reconcileCalls = 0;
+  List<String> lastProductIds = const [];
+  BindResult bindResult = const BindResult();
+  final binds = <(String, String, bool)>[];
 
   @override
   Future<Either<AccessSummary, AppError>> getAccess() async => Success(access);
@@ -32,8 +35,11 @@ class FakeAccessRepository implements AccessRepository {
   }
 
   @override
-  Future<Either<ReconcileResult, AppError>> reconcile() async {
+  Future<Either<ReconcileResult, AppError>> reconcile({
+    final List<String> productIds = const [],
+  }) async {
     reconcileCalls += 1;
+    lastProductIds = productIds;
     if (reconcileFails) return Failure(const AppError(message: 'offline'));
     return Success(
       reconcileResult ??
@@ -47,8 +53,12 @@ class FakeAccessRepository implements AccessRepository {
   }
 
   @override
-  Future<Either<void, AppError>> bindSponsorship({
+  Future<Either<BindResult, AppError>> bindSponsorship({
     required final String subscriptionId,
     required final String circleId,
-  }) async => const Success(null);
+    final bool replaceExisting = false,
+  }) async {
+    binds.add((subscriptionId, circleId, replaceExisting));
+    return Success(bindResult);
+  }
 }

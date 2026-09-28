@@ -69,51 +69,114 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
     _snack(outcome.message);
   }
 
+  /// Apply a verified group plan that isn't covering a group yet. Two
+  /// honest choices: a group of yours with no plan, or (recovery after an
+  /// upgrade the store couldn't match to one group) replacing YOUR OWN
+  /// smaller plan on a group. Nothing is guessed; the backend re-checks.
   Future<void> _applyUnbound(
     final UnboundSponsorship plan,
-    final List<GroupAccess> hosted,
+    final AccessSummary access,
   ) async {
-    final eligible = hosted
-        .where((g) => g.peopleCount <= sponsoredCapacity(plan.tier))
-        .where((g) => !g.isSponsoredAndLive)
+    bool fits(final GroupAccess g) =>
+        g.peopleCount <= sponsoredCapacity(plan.tier);
+    final uncovered = access.hostedGroups
+        .where((g) => !g.isSponsoredAndLive && fits(g))
         .toList();
-    if (eligible.isEmpty) {
-      _snack('None of the groups you host can take this plan right now.');
+    final replaceable = access.groups
+        .where(
+          (g) =>
+              g.isSponsoredAndLive &&
+              (g.sponsorship?.youPay ?? false) &&
+              sponsorRank(plan.tier) > sponsorRank(g.sponsorship!.tier) &&
+              fits(g),
+        )
+        .toList();
+    if (uncovered.isEmpty && replaceable.isEmpty) {
+      _snack('None of your groups can take this plan right now.');
       return;
     }
-    final chosen = await showModalBottomSheet<GroupAccess>(
+    final chosen = await showModalBottomSheet<(GroupAccess, bool)>(
       context: context,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Which group should your ${planTierName(plan.tier)} plan '
+                'Which group should your ${planDisplayName(plan.tier)} plan '
                 'cover? This can\'t be changed later.',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            for (final g in eligible)
+            for (final g in uncovered)
               ListTile(
                 title: Text(g.name),
-                subtitle: Text('${g.peopleCount} people'),
-                onTap: () => Navigator.of(context).pop(g),
+                subtitle: Text('${g.peopleCount} people · no plan yet'),
+                onTap: () => Navigator.of(context).pop((g, false)),
+              ),
+            for (final g in replaceable)
+              ListTile(
+                key: Key('replace-${g.circleId}'),
+                title: Text(g.name),
+                subtitle: Text(
+                  'Replace your ${planDisplayName(g.sponsorship!.tier)} '
+                  'plan here',
+                ),
+                onTap: () => Navigator.of(context).pop((g, true)),
               ),
           ],
         ),
       ),
     );
     if (chosen == null || !mounted) return;
+    final (group, replace) = chosen;
+    if (replace) {
+      final current = planDisplayName(group.sponsorship!.tier);
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Replace $current on ${group.name}?'),
+          content: Text(
+            '${group.name} will be covered by ${planDisplayName(plan.tier)}. '
+            'ALRT can\'t cancel store subscriptions: if your $current '
+            'subscription still renews, cancel it in your app store.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Not now'),
+            ),
+            TextButton(
+              key: const Key('confirm-replace'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Replace'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
     final result = await ref
         .read(providerOfAccessRepository)
-        .bindSponsorship(subscriptionId: plan.id, circleId: chosen.circleId);
+        .bindSponsorship(
+          subscriptionId: plan.id,
+          circleId: group.circleId,
+          replaceExisting: replace,
+        );
     ref.invalidate(providerOfAccess);
+    if (result.isFailure) {
+      _snack(result.failure.message);
+      return;
+    }
+    final replaced = result.success;
     _snack(
-      result.isSuccess
-          ? 'Your plan now covers ${chosen.name}.'
-          : result.failure.message,
+      replaced.replacedTier != null && replaced.replacedMayStillRenew
+          ? 'Your plan now covers ${group.name}. Your '
+                '${planDisplayName(replaced.replacedTier!)} subscription may '
+                'still renew: cancel it in your app store if you no longer '
+                'need it.'
+          : 'Your plan now covers ${group.name}.',
     );
   }
 
@@ -200,7 +263,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   TextButton(
-                    onPressed: () => _applyUnbound(plan, access.hostedGroups),
+                    onPressed: () => _applyUnbound(plan, access),
                     child: const Text('Choose the group it covers'),
                   ),
                 ],
@@ -305,12 +368,18 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
             'group. Paid by $who.',
         note: pending == null
             ? null
+            : s.pendingEffectiveAt != null
+            ? 'Changes to ${planDisplayName(pending)} on '
+                  '${_date.format(s.pendingEffectiveAt!.toLocal())}. Until '
+                  'then it stays ${planTierName(s.tier)}, up to '
+                  '${sponsoredCapacity(s.tier)} people.'
             : sponsorRank(pending) > sponsorRank(s.tier)
             ? 'Upgrade to ${planDisplayName(pending)} requested. This '
                   'group stays on ${planTierName(s.tier)} until your store '
                   'confirms it.'
-            : 'Changing to ${planDisplayName(pending)} at renewal. Until '
-                  'then it stays ${planTierName(s.tier)}.',
+            : 'Change to ${planDisplayName(pending)} requested. It stays '
+                  '${planTierName(s.tier)} until your store says it has '
+                  'taken effect.',
         actionLabel: upgrade != null && pending == null
             ? 'Upgrade to ${planDisplayName(upgrade)}'
             : null,

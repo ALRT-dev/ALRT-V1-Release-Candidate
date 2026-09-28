@@ -267,6 +267,13 @@ void main() {
         storeChecked: true,
         confirmedChanges: 0,
         unrecorded: const [PlanTier.family],
+        products: const [
+          ReconcileProduct(
+            productId: 'alrt_family_monthly',
+            tier: PlanTier.family,
+            status: ReconcileProductStatus.pending,
+          ),
+        ],
         access: _access(const []),
       );
       await tester.pumpWidget(_app(const AlrtPlusManageScreen(), service, repo));
@@ -277,6 +284,7 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(repo.reconcileCalls, 3);
+      expect(repo.lastProductIds, ['alrt_family_monthly']);
       expect(find.text(kRestorePending), findsOneWidget);
     });
 
@@ -286,13 +294,97 @@ void main() {
       final repo = FakeAccessRepository(
         access: _access([_covered(PlanTier.family)]),
       );
+      repo.reconcileResult = ReconcileResult(
+        storeChecked: true,
+        confirmedChanges: 0,
+        unrecorded: const [],
+        products: const [
+          ReconcileProduct(
+            productId: 'alrt_family_monthly',
+            tier: PlanTier.family,
+            status: ReconcileProductStatus.confirmed,
+            bound: true,
+          ),
+        ],
+        access: _access([_covered(PlanTier.family)]),
+      );
       await tester.pumpWidget(_app(const AlrtPlusManageScreen(), service, repo));
       await _open(tester);
       await tester.tap(find.text('Restore purchases'));
       await tester.pumpAndSettle();
       expect(
+        find.text('Purchases restored: ALRT + Family for Netball Mums.'),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('Ambiguous upgrade recovery and dated changes (My plans)', () {
+    testWidgets('the payer replaces their own smaller plan explicitly, and is '
+        'told the old subscription may still renew', (tester) async {
+      final (_, service) = await _store();
+      final access = AccessSummary(
+        billingEnabled: true,
+        personal: PersonalAccess.free,
+        groups: [_covered(PlanTier.family)],
+        unboundSponsorships: const [
+          UnboundSponsorship(id: 'sub-20', tier: PlanTier.group20, expiresAt: null),
+        ],
+        computedAt: DateTime(2026, 9, 29),
+      );
+      final repo = FakeAccessRepository(access: access)
+        ..bindResult = const BindResult(
+          replacedTier: PlanTier.family,
+          replacedMayStillRenew: true,
+        );
+      await tester.pumpWidget(_app(const AlrtPlusManageScreen(), service, repo));
+      await _open(tester);
+      await tester.tap(find.text('Choose the group it covers'));
+      await tester.pumpAndSettle();
+      expect(find.text('Replace your ALRT + Family plan here'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('replace-g1')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('ALRT can\'t cancel store subscriptions'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('confirm-replace')));
+      await tester.pumpAndSettle();
+      expect(repo.binds.single, ('sub-20', 'g1', true));
+      expect(
+        find.textContaining('may still renew: cancel it in your app store'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a change dated for later says when, and what holds until then', (
+      tester,
+    ) async {
+      final (_, service) = await _store();
+      final group = GroupAccess(
+        circleId: 'g1',
+        name: 'Netball Mums',
+        role: 'owner',
+        fundingMode: GroupFundingMode.sponsored,
+        peopleCount: 9,
+        capacity: 20,
+        sponsorship: GroupSponsorship(
+          tier: PlanTier.group20,
+          live: true,
+          status: 'active',
+          expiresAt: null,
+          coveredBy: 'Sarah',
+          youPay: true,
+          pendingTier: PlanTier.family,
+          pendingEffectiveAt: DateTime(2026, 10, 28, 12),
+        ),
+        connectionAllowed: true,
+        connectionReason: 'sponsored',
+      );
+      final repo = FakeAccessRepository(access: _access([group]));
+      await tester.pumpWidget(_app(const AlrtPlusManageScreen(), service, repo));
+      await _open(tester);
+      expect(
         find.text(
-          'Purchases restored. Your ALRT + Family plan covers Netball Mums.',
+          'Changes to ALRT + Family on 28 October 2026. Until then it stays '
+          'Group 20, up to 20 people.',
         ),
         findsOneWidget,
       );

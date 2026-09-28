@@ -26,12 +26,18 @@ abstract class AccessRepository {
 
   /// After a purchase or Restore: asks the backend to check the store's
   /// server record and returns what it found plus the resulting access.
-  Future<Either<ReconcileResult, AppError>> reconcile();
+  Future<Either<ReconcileResult, AppError>> reconcile({
+    final List<String> productIds = const [],
+  });
 
   /// Applies an already-verified group purchase to one hosted group, once.
-  Future<Either<void, AppError>> bindSponsorship({
+  /// With [replaceExisting] the payer explicitly replaces THEIR OWN smaller
+  /// plan on that group (recovery after an upgrade the store sent as a
+  /// purchase ALRT could not match to one group).
+  Future<Either<BindResult, AppError>> bindSponsorship({
     required final String subscriptionId,
     required final String circleId,
+    final bool replaceExisting = false,
   });
 }
 
@@ -78,12 +84,16 @@ class AccessRepositoryImpl implements AccessRepository {
   }
 
   @override
-  Future<Either<ReconcileResult, AppError>> reconcile() {
+  Future<Either<ReconcileResult, AppError>> reconcile({
+    final List<String> productIds = const [],
+  }) {
     return runAsyncCall(
       name: 'reconcileAccess',
       future: () async {
+        // The ids are only looked up by the backend; they never grant.
         final response = await _dio.post<Map<String, dynamic>>(
           kUrlAccessReconcile,
+          data: {'productIds': productIds},
         );
         return Success(ReconcileResult.fromJson(response.data ?? const {}));
       },
@@ -92,18 +102,27 @@ class AccessRepositoryImpl implements AccessRepository {
   }
 
   @override
-  Future<Either<void, AppError>> bindSponsorship({
+  Future<Either<BindResult, AppError>> bindSponsorship({
     required final String subscriptionId,
     required final String circleId,
+    final bool replaceExisting = false,
   }) {
     return runAsyncCall(
       name: 'bindSponsorship',
       future: () async {
-        await _dio.post<dynamic>(
+        final response = await _dio.post<dynamic>(
           kUrlAccessBindSponsorship(subscriptionId),
-          data: {'circleId': circleId},
+          data: {
+            'circleId': circleId,
+            if (replaceExisting) 'replaceExisting': true,
+          },
         );
-        return const Success(null);
+        final data = response.data;
+        return Success(
+          data is Map
+              ? BindResult.fromJson(Map<String, dynamic>.from(data))
+              : const BindResult(),
+        );
       },
       onError: Failure.new,
     );

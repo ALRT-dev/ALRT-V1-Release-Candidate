@@ -96,6 +96,7 @@ class GroupSponsorship {
     required this.coveredBy,
     required this.youPay,
     this.pendingTier,
+    this.pendingEffectiveAt,
     this.productId,
     this.store,
   });
@@ -109,6 +110,7 @@ class GroupSponsorship {
         coveredBy: json['coveredBy']?.toString(),
         youPay: json['youPay'] == true,
         pendingTier: planTierFromString(json['pendingTier']),
+        pendingEffectiveAt: _date(json['pendingEffectiveAt']),
         productId: json['productId']?.toString(),
         store: json['store']?.toString(),
       );
@@ -125,6 +127,10 @@ class GroupSponsorship {
   /// A change the payer asked for that the store has not confirmed yet.
   /// The plan above stays in force until it is.
   final PlanTier? pendingTier;
+
+  /// When the store says the pending change takes effect (a renewal
+  /// collected in advance); null = requested, date not known yet.
+  final DateTime? pendingEffectiveAt;
 
   /// Payer only: the store product in force (Android replacement needs
   /// it) and which store sells it.
@@ -313,12 +319,46 @@ class SponsorshipIntentResult {
 
 /// What POST /api/access/reconcile answered: what the store's own server
 /// record says (when it could be read) and the access that results.
+/// ALRT's answer for one product Restore found (backend reconcile).
+enum ReconcileProductStatus { confirmed, pending, notFound, unchecked, unknown }
+
+class ReconcileProduct {
+  const ReconcileProduct({
+    required this.productId,
+    required this.tier,
+    required this.status,
+    this.bound,
+  });
+
+  factory ReconcileProduct.fromJson(final Map<String, dynamic> json) =>
+      ReconcileProduct(
+        productId: json['productId']?.toString() ?? '',
+        tier: planTierFromString(json['tier']),
+        status: switch (json['status']) {
+          'confirmed' => ReconcileProductStatus.confirmed,
+          'pending' => ReconcileProductStatus.pending,
+          'notFound' => ReconcileProductStatus.notFound,
+          'unchecked' => ReconcileProductStatus.unchecked,
+          _ => ReconcileProductStatus.unknown,
+        },
+        bound: json['bound'] is bool ? json['bound'] as bool : null,
+      );
+
+  final String productId;
+  final PlanTier? tier;
+  final ReconcileProductStatus status;
+
+  /// Group plans: whether it covers a group yet.
+  final bool? bound;
+}
+
 class ReconcileResult {
   const ReconcileResult({
     required this.storeChecked,
     required this.confirmedChanges,
     required this.unrecorded,
     required this.access,
+    this.products = const [],
   });
 
   factory ReconcileResult.fromJson(final Map<String, dynamic> json) {
@@ -335,6 +375,11 @@ class ReconcileResult {
           if (u is Map && planTierFromString(u['tier']) != null)
             planTierFromString(u['tier'])!,
       ],
+      products: [
+        for (final p in (store['products'] as List? ?? const []))
+          if (p is Map)
+            ReconcileProduct.fromJson(Map<String, dynamic>.from(p)),
+      ],
       access: AccessSummary.fromJson(
         json['access'] is Map
             ? Map<String, dynamic>.from(json['access'] as Map)
@@ -350,5 +395,29 @@ class ReconcileResult {
 
   /// Active store purchases ALRT has not recorded yet (still arriving).
   final List<PlanTier> unrecorded;
+
+  /// One answer per product the app said Restore found.
+  final List<ReconcileProduct> products;
   final AccessSummary access;
+}
+
+/// What POST /sponsorships/:id/bind answered for an explicit replacement.
+class BindResult {
+  const BindResult({this.replacedTier, this.replacedMayStillRenew = false});
+
+  factory BindResult.fromJson(final Map<String, dynamic> json) {
+    final r = json['replaced'];
+    return r is Map
+        ? BindResult(
+            replacedTier: planTierFromString(r['tier']),
+            replacedMayStillRenew: r['mayStillRenew'] == true,
+          )
+        : const BindResult();
+  }
+
+  final PlanTier? replacedTier;
+
+  /// The replaced store subscription may still renew: only the store can
+  /// stop it, and ALRT never cancels a purchase.
+  final bool replacedMayStillRenew;
 }

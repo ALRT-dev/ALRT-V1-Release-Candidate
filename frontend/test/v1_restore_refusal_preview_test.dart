@@ -56,17 +56,6 @@ const _individual = PersonalAccess(
   askPerDay: 10,
 );
 
-ReconcileResult _reconcile(
-  AccessSummary access, {
-  bool checked = true,
-  List<PlanTier> unrecorded = const [],
-}) => ReconcileResult(
-  storeChecked: checked,
-  confirmedChanges: 0,
-  unrecorded: unrecorded,
-  access: access,
-);
-
 AppError _coded(String code, [Map<String, dynamic>? details]) => AppError(
   message: 'server wording',
   code: '402',
@@ -74,101 +63,128 @@ AppError _coded(String code, [Map<String, dynamic>? details]) => AppError(
 );
 
 void main() {
-  group('Restore says what really happened', () {
-    test('store unreachable', () {
-      final o = restoreOutcome(
-        storeFailed: true,
-        activeStoreProducts: const [],
-        reconcile: null,
-      );
-      expect(o.kind, RestoreOutcomeKind.storeUnavailable);
-      expect(o.isError, isTrue);
-      expect(o.message, isNot(contains('restored')));
-    });
+  group('Restore confirms the specific purchases found', () {
+    ReconcileResult rec(
+      List<(String, PlanTier?, ReconcileProductStatus, bool?)> products, {
+      AccessSummary? access,
+      bool checked = true,
+    }) => ReconcileResult(
+      storeChecked: checked,
+      confirmedChanges: 0,
+      unrecorded: const [],
+      products: [
+        for (final (id, tier, status, bound) in products)
+          ReconcileProduct(productId: id, tier: tier, status: status, bound: bound),
+      ],
+      access: access ?? _access(),
+    );
+    const c = ReconcileProductStatus.confirmed;
+    const pend = ReconcileProductStatus.pending;
 
-    test('nothing on this store account', () {
-      final o = restoreOutcome(
-        storeFailed: false,
-        activeStoreProducts: const [],
-        reconcile: _reconcile(_access()),
+    test('store unreachable / nothing found / ALRT unreachable', () {
+      expect(
+        restoreOutcome(storeFailed: true, activeStoreProducts: const [], reconcile: null).kind,
+        RestoreOutcomeKind.storeUnavailable,
       );
-      expect(o.kind, RestoreOutcomeKind.nothingFound);
-      expect(o.message, kRestoreNothingFound);
-    });
-
-    test('store has it, ALRT unreachable: never "restored"', () {
-      final o = restoreOutcome(
-        storeFailed: false,
-        activeStoreProducts: const ['alrt_individual_monthly'],
-        reconcile: null,
+      expect(
+        restoreOutcome(storeFailed: false, activeStoreProducts: const [], reconcile: rec([])).message,
+        kRestoreNothingFound,
       );
+      final o = restoreOutcome(storeFailed: false, activeStoreProducts: const ['x'], reconcile: null);
       expect(o.kind, RestoreOutcomeKind.alrtUnreachable);
       expect(o.message, isNot(contains('restored')));
     });
 
-    test('store has a purchase ALRT has not recorded: pending', () {
+    test('active Individual + restored Family not yet arrived: partial, never '
+        '"Purchases restored"', () {
       final o = restoreOutcome(
         storeFailed: false,
-        activeStoreProducts: const ['alrt_individual_monthly'],
-        reconcile: _reconcile(_access(), unrecorded: [PlanTier.individual]),
+        activeStoreProducts: const ['ind', 'fam'],
+        reconcile: rec(
+          [('ind', PlanTier.individual, c, null), ('fam', PlanTier.family, pend, null)],
+          access: _access(personal: _individual),
+        ),
       );
-      expect(o.kind, RestoreOutcomeKind.pending);
-      expect(o.message, kRestorePending);
+      expect(o.kind, RestoreOutcomeKind.partial);
+      expect(o.message, 'Restored: ALRT +. Still confirming: ALRT + Family.');
+      expect(o.message, isNot(startsWith('Purchases restored')));
     });
 
-    test('unchecked store record and no paid access yet: pending', () {
+    test('unrelated existing access is not a restored purchase', () {
+      // ALRT + already active; the store found only a Family purchase that
+      // hasn't arrived. Nothing restored.
       final o = restoreOutcome(
         storeFailed: false,
-        activeStoreProducts: const ['alrt_family_monthly'],
-        reconcile: _reconcile(_access(), checked: false),
+        activeStoreProducts: const ['fam'],
+        reconcile: rec(
+          [('fam', PlanTier.family, pend, null)],
+          access: _access(personal: _individual),
+        ),
       );
       expect(o.kind, RestoreOutcomeKind.pending);
+      expect(o.message, isNot(contains('restored')));
     });
 
-    test('confirmed: names exactly what is active', () {
+    test('several purchases, all confirmed, each named', () {
       final o = restoreOutcome(
         storeFailed: false,
-        activeStoreProducts: const ['a', 'b'],
-        reconcile: _reconcile(
-          _access(
+        activeStoreProducts: const ['ind', 'fam'],
+        reconcile: rec(
+          [('ind', PlanTier.individual, c, null), ('fam', PlanTier.family, c, true)],
+          access: _access(
             personal: _individual,
-            groups: [
-              _group(
-                sponsorship: _familyPaidByMe,
-                mode: GroupFundingMode.sponsored,
-              ),
-            ],
+            groups: [_group(sponsorship: _familyPaidByMe, mode: GroupFundingMode.sponsored)],
           ),
         ),
       );
       expect(o.kind, RestoreOutcomeKind.confirmed);
-      expect(
-        o.message,
-        'Purchases restored. ALRT + is active for you. Your ALRT + Family '
-        'plan covers Nixon Family.',
-      );
+      expect(o.message, 'Purchases restored: ALRT + and ALRT + Family for Nixon Family.');
     });
 
-    test('billing switched off on the server is not a restored purchase', () {
+    test('a valid unbound group plan is confirmed and says what to do', () {
       final o = restoreOutcome(
         storeFailed: false,
-        activeStoreProducts: const ['a'],
-        reconcile: _reconcile(
-          _access(
-            personal: const PersonalAccess(
-              plan: PersonalPlan.individual,
-              reason: 'billing_disabled',
-              isTrial: false,
-              expiresAt: null,
-              willRenew: false,
-              extraSavedPlaces: null,
-              askPerDay: 10,
-            ),
-          ),
-          checked: false,
-        ),
+        activeStoreProducts: const ['g50'],
+        reconcile: rec([('g50', PlanTier.group50, c, false)]),
       );
-      expect(o.kind, RestoreOutcomeKind.pending);
+      expect(o.message, 'Purchases restored: ALRT + Group 50 (choose its group in My plans).');
+    });
+
+    test('server outage or missing key: unchecked, not a comparison', () {
+      final o = restoreOutcome(
+        storeFailed: false,
+        activeStoreProducts: const ['fam'],
+        reconcile: rec([('fam', PlanTier.family, ReconcileProductStatus.unchecked, null)], checked: false),
+      );
+      expect(o.kind, RestoreOutcomeKind.unchecked);
+      expect(o.message, kRestoreUnchecked);
+    });
+
+    test('not on this account\'s server record: not linked', () {
+      final o = restoreOutcome(
+        storeFailed: false,
+        activeStoreProducts: const ['fam'],
+        reconcile: rec([('fam', PlanTier.family, ReconcileProductStatus.notFound, null)]),
+      );
+      expect(o.kind, RestoreOutcomeKind.notLinked);
+    });
+
+    test('an older backend that can\'t compare products is never "restored"', () {
+      final o = restoreOutcome(
+        storeFailed: false,
+        activeStoreProducts: const ['fam'],
+        reconcile: rec([], access: _access(personal: _individual)),
+      );
+      expect(o.kind, RestoreOutcomeKind.unchecked);
+    });
+
+    test('only non-ALRT products: nothing found', () {
+      final o = restoreOutcome(
+        storeFailed: false,
+        activeStoreProducts: const ['other.app'],
+        reconcile: rec([('other.app', null, ReconcileProductStatus.unknown, null)]),
+      );
+      expect(o.kind, RestoreOutcomeKind.nothingFound);
     });
   });
 
