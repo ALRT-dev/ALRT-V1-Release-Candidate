@@ -85,7 +85,7 @@ void main() {
       onRemove: null,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Safe'), findsOneWidget);
+    expect(find.text('Checked in'), findsOneWidget);
     expect(find.text('Remove from circle'), findsNothing);
     expect(find.text('Request a one-time location'), findsNothing);
     expect(find.text('Nothing to do here right now.'), findsOneWidget);

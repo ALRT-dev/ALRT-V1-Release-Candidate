@@ -263,12 +263,12 @@ class _JourneyShareSheetState extends ConsumerState<_JourneyShareSheet> {
             ),
             Text(
               snapPointsOnly
-                  ? 'This circle is set to snap points only.'
+                  ? 'This group uses periodic updates only.'
                   : _isLive
                       ? 'Your position updates as you move, until the '
                             'journey stops.'
-                      : 'Snap points: departure, about every 10 minutes, '
-                            'and arrival.',
+                      : 'Periodic updates: departure, about every 10 '
+                            'minutes, and arrival.',
               style: TextStyle(
                 fontSize: 11.spMin,
                 height: 1.5,
@@ -431,7 +431,7 @@ class _JourneyShareSheetState extends ConsumerState<_JourneyShareSheet> {
         _titleBuilder(
           minutesLeft < 1 ? 'Stopping now' : 'Sharing for $minutesLeft min',
           sub: 'Ends at ${endsAt.format(context)} on its own. '
-              '${journey.isLive ? 'Live updates as you move.' : 'Snap points along the way.'}',
+              '${journey.isLive ? 'Live updates as you move.' : 'Periodic updates along the way.'}',
         ),
         if (journey.recipients.isNotEmpty) ...[
           SizedBox(height: 12.spMin),

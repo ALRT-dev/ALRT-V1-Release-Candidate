@@ -334,8 +334,7 @@ class MainSearchProvider extends StateNotifier<MainSearchProviderState> {
       isPlus = await _ref.read(providerOfAlrtPlus.future);
     } catch (_) {
       return const SaveLocationCouldNotCheck(
-        'Could not check your ALRT+ status. Check your connection and try '
-        'again.',
+        'Could not check your plan. Check your connection and try again.',
       );
     }
     if (!mounted) return const SaveLocationCouldNotCheck('');
@@ -349,7 +348,9 @@ class MainSearchProvider extends StateNotifier<MainSearchProviderState> {
     if (!mounted) return const SaveLocationCouldNotCheck('');
     return state.subscribeToLocationState.maybeWhen(
       success: (subscription) => SaveLocationSaved(subscription.name),
-      error: (error) => error.code == '403'
+      // 402 = the V1 personal-limit refusal (ALRT + Individual needed);
+      // 403 kept for servers still on the previous build.
+      error: (error) => error.code == '402' || error.code == '403'
           ? const SaveLocationNeedsPlus(fromServer: true)
           : SaveLocationFailed(error.message),
       orElse: () => const SaveLocationCouldNotCheck(''),

@@ -17,9 +17,8 @@ import 'package:hazard_app/features/profile/enums/my_hazards_tab_types.dart';
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_expired_screen.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/support_request_screen.dart';
 import 'package:hazard_app/features/profile/providers/my_hazards_provider.dart';
 import 'package:hazard_app/features/profile/providers/profile_provider.dart';
@@ -510,18 +509,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// ALRT+ membership — the premium card (approved redesign 2026-09-03):
-  /// a dark, blended purple surface (ProfileColors.alrtPlusCardGradient)
-  /// with white text and a cream-to-gold crown, so it reads unmistakably
-  /// as membership next to the light safety cards around it. Subtitle and
-  /// TEST chip reuse the exact same real entitlement state as before - no
-  /// invented offers, no gating changes.
+  /// The one ALRT + entry (master spec §8, §16). Its subtitle summarises
+  /// the PERSONAL plan and GROUP coverage separately, from the backend's
+  /// access summary, so a Family payer without Individual reads as
+  /// personally Free and a covered member sees coverage, not ownership.
+  /// A neutral dark surface: plan colours belong to each plan, not to
+  /// this shared entry.
   Widget _buildAlrtPlusHighlightCard() {
     return Consumer(
       builder: (context, ref, child) {
-        final isSubscribed = ref.watch(providerOfAlrtPlus).value == true;
-        final expiredEntitlement =
-            ref.watch(providerOfExpiredAlrtPlus).value;
+        final access = ref.watch(providerOfAccess).value;
+        final isIndividual = ref.watch(providerOfAlrtPlus).value == true;
+        final coveredGroups =
+            access?.groups.where((g) => g.isSponsoredAndLive).length ?? 0;
+        final hasAnyPlan = isIndividual ||
+            coveredGroups > 0 ||
+            (access?.unboundSponsorships.isNotEmpty ?? false) ||
+            (access?.groups.any((g) => g.sponsorship?.youPay ?? false) ??
+                false);
+        final personalLabel = isIndividual ? 'Individual' : 'Free';
+        final groupLabel = coveredGroups == 0
+            ? 'no group plans'
+            : coveredGroups == 1
+                ? '1 group covered'
+                : '$coveredGroups groups covered';
         return Container(
           padding: EdgeInsets.all(16.spMin),
           decoration: BoxDecoration(
@@ -529,14 +540,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               stops: [0.0, 0.55, 1.0],
-              colors: ProfileColors.alrtPlusCardGradient,
+              colors: [Color(0xFF2C2E35), Color(0xFF23252B), Color(0xFF121216)],
             ),
             borderRadius: BorderRadius.circular(18.spMin),
             border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
             boxShadow: [
               BoxShadow(
-                color: ProfileColors.alrtPlusCardGradient.first
-                    .withValues(alpha: 0.35),
+                color: const Color(0xFF23252B).withValues(alpha: 0.30),
                 blurRadius: 16.0,
                 offset: const Offset(0, 6),
               ),
@@ -570,7 +580,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ALRT+ membership',
+                      'ALRT +',
                       style: TextStyle(
                         fontSize: 16.5.spMin,
                         fontWeight: FontWeight.w800,
@@ -579,11 +589,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     2.spMin.hSizedBox,
                     Text(
-                      isSubscribed
-                          ? 'Plan, seats and billing'
-                          : expiredEntitlement != null
-                              ? "You're on the free plan"
-                              : 'You pay once, everyone else joins free',
+                      access == null && !isIndividual
+                          ? 'Plans for you and your groups'
+                          : 'Personal: $personalLabel · $groupLabel',
                       style: TextStyle(
                         fontSize: 12.5.spMin,
                         color: Colors.white.withValues(alpha: 0.82),
@@ -624,12 +632,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ).onPressed(
           () => context.push(
-            isSubscribed
-                ? AlrtPlusManageScreen.route
-                : expiredEntitlement != null
-                    ? AlrtPlusExpiredScreen.route
-                    : AlrtPlusPaywallScreen.route,
-            extra: expiredEntitlement,
+            hasAnyPlan ? AlrtPlusManageScreen.route : AlrtPlusChooseScreen.route,
           ),
         );
       },
@@ -840,11 +843,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         // render there regardless of any env value.
         if (isAlrtPlusTestUnlocked)
           _buildProfileRow(
-            title: 'Preview ALRT+ paywall',
-            subtitle: 'QA build only — gates are unlocked for testing',
+            title: 'Preview ALRT + plans',
+            subtitle: 'QA build only. Gates are unlocked for testing.',
             icon: LucideIcons.eye,
             accent: const ProfileRowAccent(Color(0xFF8B84FF), Color(0xFF5B5BD6)),
-            onTap: () => context.push(AlrtPlusPaywallScreen.route),
+            onTap: () => context.push(AlrtPlusChooseScreen.route),
           ),
         _buildProfileRow(
           title: 'Help & feedback',

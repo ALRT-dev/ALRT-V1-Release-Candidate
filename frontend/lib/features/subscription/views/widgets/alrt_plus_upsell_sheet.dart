@@ -1,25 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
+import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
+import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// The same bright green -> teal Family identity used by the in-app I'm
-/// Safe action and the Family & check-ins highlight card — for an upsell
-/// that starts from a Family moment (hosting, seats, circles), so the icon
-/// badge reads as continuous with Family, not a jarring jump straight to
-/// ALRT+ purple before the sheet has even explained what happened.
-const familyUpsellGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFF059669), Color(0xFF2DD4A7)],
-);
-
-/// A friendly, context-specific explanation shown BEFORE the full ALRT+
-/// paywall (or, for the seat-pool-full case, instead of it — see that call
-/// site) — never a replacement for it when a purchase is actually the
-/// answer. Explains exactly what limit was hit and why, then offers one
-/// clear next action. Returns true if [onPrimary] was tapped and it popped
-/// true (e.g. the paywall completed a purchase), false otherwise.
+/// A friendly, context-specific explanation shown BEFORE a purchase
+/// screen, never instead of it. Explains exactly what limit was hit and
+/// why, then offers one clear next action in the colour of the plan that
+/// answers it ([identity]: Individual for personal limits). Returns true
+/// if [onPrimary] was tapped and it popped true, false otherwise.
 Future<bool> showAlrtPlusUpsellSheet({
   required final BuildContext context,
   required final IconData icon,
@@ -27,8 +17,9 @@ Future<bool> showAlrtPlusUpsellSheet({
   required final String message,
   required final String primaryLabel,
   required final Future<bool> Function(BuildContext) onPrimary,
-  final LinearGradient iconGradient = AlrtPlusStyle.bandGradient,
+  final LinearGradient? iconGradient,
   final String secondaryLabel = 'Not now',
+  final PlanIdentity identity = PlanIdentity.individual,
 }) async {
   final result = await showModalBottomSheet<bool>(
     context: context,
@@ -42,6 +33,7 @@ Future<bool> showAlrtPlusUpsellSheet({
       onPrimary: onPrimary,
       iconGradient: iconGradient,
       secondaryLabel: secondaryLabel,
+      identity: identity,
     ),
   );
   return result ?? false;
@@ -56,14 +48,16 @@ class _UpsellSheetContent extends StatefulWidget {
     required this.onPrimary,
     required this.iconGradient,
     required this.secondaryLabel,
+    required this.identity,
   });
 
+  final PlanIdentity identity;
   final IconData icon;
   final String title;
   final String message;
   final String primaryLabel;
   final Future<bool> Function(BuildContext) onPrimary;
-  final LinearGradient iconGradient;
+  final LinearGradient? iconGradient;
   final String secondaryLabel;
 
   @override
@@ -106,14 +100,26 @@ class _UpsellSheetContentState extends State<_UpsellSheetContent> {
               ),
             ),
             SizedBox(height: 18.spMin),
-            Container(
-              width: 52.spMin,
-              height: 52.spMin,
-              decoration: BoxDecoration(
-                gradient: widget.iconGradient,
-                borderRadius: BorderRadius.circular(16.spMin),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                width: 52.spMin,
+                height: 52.spMin,
+                decoration: BoxDecoration(
+                  color: widget.iconGradient == null
+                      ? widget.identity.tint
+                      : null,
+                  gradient: widget.iconGradient,
+                  borderRadius: BorderRadius.circular(16.spMin),
+                ),
+                child: Icon(
+                  widget.icon,
+                  color: widget.iconGradient == null
+                      ? widget.identity.accent
+                      : Colors.white,
+                  size: 26.spMin,
+                ),
               ),
-              child: Icon(widget.icon, color: Colors.white, size: 26.spMin),
             ),
             SizedBox(height: 14.spMin),
             Text(
@@ -134,8 +140,9 @@ class _UpsellSheetContentState extends State<_UpsellSheetContent> {
               ),
             ),
             SizedBox(height: 20.spMin),
-            AlrtPlusCta(
+            PlanCta(
               label: widget.primaryLabel,
+              identity: widget.identity,
               busy: _busy,
               onPressed: _handlePrimary,
             ),

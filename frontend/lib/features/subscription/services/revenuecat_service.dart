@@ -5,11 +5,15 @@ import 'package:hazard_app/features/subscription/utils/expiry.dart';
 import 'package:hazard_app/others/env.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
-/// Wraps RevenueCat (the cross-platform subscription layer for ALRT+).
+/// Wraps RevenueCat (the cross-platform subscription layer for ALRT +).
 ///
-/// RevenueCat is the source of truth on-device; the backend keeps its own
-/// copy in sync via the RevenueCat webhook. The app never grants
-/// entitlements, it only reads them and starts purchases.
+/// V1 access model (master spec 28 Sep 2026): the BACKEND decides access
+/// (GET /api/access) from verified store events; this service only shows
+/// store products and prices, starts purchases and restores. Its own
+/// entitlement read is a fast hint for the person's personal Individual
+/// plan while the backend catches up, never permission for a protected
+/// action. Group plans (Family / Group 20 / Group 50) grant no personal
+/// entitlement at all.
 ///
 /// Account rule (phone QA 2026-09-09): an entitlement is only ever read
 /// for the ALRT account the SDK is signed in as. The SDK identity follows
@@ -24,8 +28,14 @@ class RevenueCatService {
   }) : _gateway = gateway,
        _apiKeyOverride = apiKeyOverride;
 
-  /// The entitlement identifier configured in the RevenueCat dashboard.
-  static const String entitlementId = 'plus';
+  /// The personal Individual entitlement configured in RevenueCat
+  /// (reconfiguration item C9). The old generic `plus` entitlement is not
+  /// read: it could not tell a personal purchase from a group one.
+  static const String entitlementId = 'individual';
+
+  /// RevenueCat offering ids (reconfiguration item C10).
+  static const String personalOfferingId = 'personal';
+  static const String groupsOfferingId = 'groups';
 
   final PurchasesGateway _gateway;
   final String? _apiKeyOverride;
@@ -109,6 +119,36 @@ class RevenueCatService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// The offering with [id], or null when the store/RevenueCat has none.
+  Future<Offering?> offering(final String id) async {
+    if (!_hasKeys) return null;
+    try {
+      return (await _gateway.offerings())?.all[id];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Store trial eligibility for [productIds]; empty when unknown.
+  Future<Map<String, IntroEligibilityStatus>> introEligibility(
+    final List<String> productIds,
+  ) async {
+    if (!_ready(null) || productIds.isEmpty) return const {};
+    try {
+      return await _gateway.introEligibility(productIds);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Starts the store purchase of any package (personal or group) and
+  /// returns once the store has answered. Throws the store's error (a
+  /// cancelled sheet included). Access itself is then read from the
+  /// backend, which learns of the purchase from RevenueCat.
+  Future<void> purchasePackage(final Package package) async {
+    await _gateway.purchase(package);
   }
 
   /// The store product behind an entitlement's product identifier, for

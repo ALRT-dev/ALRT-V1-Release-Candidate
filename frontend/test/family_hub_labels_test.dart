@@ -56,7 +56,7 @@ void main() {
       expect(askersLabel(['Amy', 'Tom', 'Emma']), 'Amy, Tom +1');
     });
     test('title reads as the mockup', () {
-      expect(checkInCardTitle([]), "Let your circle know you're okay");
+      expect(checkInCardTitle([]), 'Your check-in');
       expect(checkInCardTitle(['Amy']), 'Amy requested a check-in');
       expect(
         checkInCardTitle(['Amy', 'Tom', 'Emma', 'James']),
@@ -70,33 +70,16 @@ void main() {
     });
   });
 
-  group('seats across hosted circles', () {
-    const owned1 = FamilyCircleSummary(
-      circleId: 'a', name: 'A', myMemberId: 'me', isOwned: true, seatCount: 3,
-    );
-    const owned2 = FamilyCircleSummary(
-      circleId: 'b', name: 'B', myMemberId: 'me', isOwned: true, seatCount: 2,
-    );
-    const joined = FamilyCircleSummary(
-      circleId: 'c', name: 'C', myMemberId: 'me', isOwned: false, seatCount: 7,
-    );
-
-    test('only owned circles count', () {
-      expect(seatsUsedAcrossHostedCircles([owned1, owned2, joined]), 5);
-      expect(seatsUsedAcrossHostedCircles([joined]), 0);
-    });
-
-    test('line says across circles you host, out of 8', () {
-      expect(
-        hostedSeatLine(seatsUsed: 5),
-        '5 of 8 seats used across circles you host',
-      );
-      expect(hostedSeatLine(seatsUsed: 11), startsWith('8 of 8'));
+  group('people and host lines (V1: no seats)', () {
+    test('people line counts people, singular and plural', () {
+      expect(peopleLine(1), '1 person');
+      expect(peopleLine(4), '4 people');
     });
 
     test('non-hosts see who hosts, and that joining is free', () {
       expect(hostedByLine('Sarah'), 'Hosted by Sarah · joining is free');
-      expect(hostedByLine(null), contains('none of your own seats'));
+      expect(hostedByLine(null), 'Joining is free');
+      expect(hostedByLine(null), isNot(contains('seat')));
     });
   });
 
@@ -188,16 +171,23 @@ void main() {
       expect(chip, 'Waiting');
       expect(chip.toLowerCase(), isNot(contains('unsafe')));
     });
-    test('Safe when answered, Near when near an alert', () {
+    test('Checked in when answered (never "Safe"), Near when near an alert', () {
       expect(
         memberStatusChip(member: member(), hasAnswered: true, isNearAlert: false),
-        'Safe',
+        'Checked in',
       );
       expect(
         memberStatusChip(member: member(), hasAnswered: true, isNearAlert: true),
         'Near',
       );
     });
+  });
+
+  test('no outstanding request is "No recent check-in", not "Waiting"', () {
+    expect(
+      memberStatusChip(member: member(), hasAnswered: null, isNearAlert: false),
+      'No recent check-in',
+    );
   });
 
   group('checkInTargetCircleIds', () {

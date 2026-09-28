@@ -43,7 +43,7 @@ Decision needed / Unverified.
 
 ## 2. What changed in code
 
-All backend and Ask ALRT function changes below are on this branch.
+All backend, Ask ALRT function and app changes below are on this branch.
 TEST keeps `BILLING_ENABLED=false`, under which every access check answers
 yes exactly as before, so deploying this code alone does not change what
 TEST users can do.
@@ -70,7 +70,7 @@ TEST users can do.
 | 18 | Ask ALRT reads a backend-written versioned mirror; second webhook retired (§17) | Implemented in code | Static. Needs the deploy order in §4 |
 | 19 | Severity override by phrase with "not a test" precedence (§15) | Implemented | 18 phrase checks |
 | 20 | `GET /api/access` returns personal plan and each group's coverage separately with access reason and computed time (§17) | Implemented | Local test |
-| 21 | Frontend: plans, paywalls, onboarding, Profile, colours, copy (§8 to §10, §13, §16) | Missing | Not started in code. Design previews exist but are not app changes |
+| 21 | Frontend: plans, paywalls, onboarding, Profile, colours, copy (§8 to §10, §13, §16) | Partial | Implemented: chooser, Individual and Cover-a-group paywalls, My plans, Profile entry, plan colours, §9 copy, seats/guests/4-group cap removed from the app, SOS end wording, no "safe" wording, "Periodic updates". Not done: onboarding ALRT + step, dedicated 402 upsell routing on connection features (the backend's message is shown as a toast), SOS recipient preview. Evidence: widget tests and test renders (see §5a); no device |
 | 22 | Store / RevenueCat / Firebase configuration for the new catalogue (§19) | Unverified | See §3 |
 
 ### New backend API for the app
@@ -105,7 +105,7 @@ never shown.
 | C7 | App Store Server Notifications v2 / Google RTDN | Not verified | Point to RevenueCat | Configure both envs | Config | Owner | | Remove URL | RevenueCat shows store events |
 | C8 | RevenueCat project and apps | Historical: project 15454f8d, TEST app `com.safetyalrt.alrt.dev` | Confirm which RC app ids map to TEST vs prod | Record app ids; set backend `RC_APP_IDS` | Config | Owner | | Clear env | Webhook with other app id is ignored |
 | C9 | RevenueCat entitlements | Historical: one `plus` | `individual` (Individual product only). Optional `group_family`, `group_20`, `group_50` for SDK display only | Create; do NOT attach group products to any personal entitlement; detach from `plus` only after checking existing purchases (C15) | Config | Owner | C1, C4 | Re-attach | SDK: Family buyer has no `individual` |
-| C10 | RevenueCat offerings | Historical: default offering, monthly/annual | Offering `personal` (Individual monthly), offering `groups` (Family, Group 20, Group 50) | Create; remove annual package | Config | Owner | C9 | Keep old offering unused | App lists store prices |
+| C10 | RevenueCat offerings | Historical: default offering, monthly/annual | Offering `personal` with the Individual product as its Monthly package; offering `groups` with custom packages identified exactly `family`, `group20`, `group50` (the app matches on these ids). Entitlement id `individual` | Create; remove annual package | Config | Owner | C9 | Keep old offering unused | App lists store prices |
 | C11 | RevenueCat webhook to backend | Historical: TEST passes existed for the old model; they do not validate this catalogue | `POST https://<env-api>/api/revenuecat/webhook`, Authorization = `REVENUECAT_WEBHOOK_AUTH`, all event types, correct environment per RC app | Keep/confirm; per-env URL | Config | Owner | D1 deployed | Disable | Test event -> `RevenueCatWebhookEvent` row |
 | C12 | RevenueCat webhook to Firebase `revenuecatWebhook` | Historical: configured with `REVENUECAT_AUTH` | Removed | Delete this webhook in RevenueCat AFTER D1 and D3 (§4) | Config | Owner | D1, D3 | Re-add | Only one webhook listed |
 | C13 | Backend env TEST | Historical: `BILLING_ENABLED=false`, API `api-test.safetyalrt.com` | Add `RC_PRODUCT_TIERS` (real product ids -> tiers), `RC_EXPECTED_ENVIRONMENT=SANDBOX`, `RC_APP_IDS`; keep `REVENUECAT_WEBHOOK_AUTH`. Set `BILLING_ENABLED=true` on TEST only for enforced-billing test runs | Env change | Config | Owner | C1 to C11 | Revert env | `GET /api/access` shows real state |
@@ -186,7 +186,7 @@ unit tests. Nothing below has TEST, store-sandbox or device evidence yet.
 | 10 | Duplicate / delayed / out-of-order webhooks | Pass | Not run |
 | 11 | Only Individual trial; no manufactured eligibility | Backend reports trial from store data; eligibility is store-side | Store sandbox needed |
 | 12 | Saved place and Ask limits under concurrency, day boundaries, plan changes | Saved places: pass. Ask: unit tests for local day, DST, zone validation | Firestore transaction not run against emulator |
-| 13 | Personal and group states agree across app surfaces | Backend API only | Frontend Missing |
+| 13 | Personal and group states agree across app surfaces | App reads `GET /api/access` for Profile, My plans and both paywalls (widget tests) | Not run on device |
 
 Regression (billing off, today's TEST behaviour): existing scripts
 `verify_circle_list_state` (5), `verify_family_leave_and_alert_link` (12),
@@ -194,7 +194,20 @@ Regression (billing off, today's TEST behaviour): existing scripts
 `verify_stage9a_journey_recipient` (13), `verify_targeted_check_in_request`
 (14), `verify_saved_location_limit` (3 off / 5 on) all pass.
 `verify_seat_rule.ts` was removed: it asserted the retired seat model.
-Backend `tsc --noEmit` clean; functions build clean, 35 unit tests pass.
+Backend `tsc --noEmit` clean; functions build clean, 36 unit tests pass
+(including the `utcOffsetMinutes` fallback: when the app sends no IANA
+zone name, the day key is `offset:<minutes>`).
+
+### 5a. App evidence
+
+`flutter analyze`: 6 pre-existing infos only. `flutter test`: 311 pass,
+28 skipped (opt-in screenshot tests). `test/alrt_plus_store_price_screens_test.dart`
+checks exact §9 copy, store prices, trial shown only for an eligible
+account, no trial on group plans, "too small" plans, and My plans for a
+payer and a covered member. Test renders of 8 screens come from
+`ALRT_SCREENSHOTS=1 flutter test --update-goldens
+test/screenshots/v1_plans_screenshots_test.dart` (fake store, not a
+device).
 
 ## 6. Open decisions (unchanged register, with what the code does now)
 
@@ -208,7 +221,7 @@ Backend `tsc --noEmit` clean; functions build clean, 35 unit tests pass.
 | R06 | Who may end another person's SOS; multi-group Individual SOS | Sender or host may end (existing rule), actor recorded; SOS never crosses groups |
 | R07 | Daily semantics | Reminder only in both modes |
 | R08 | Community push threshold | Unchanged by this work |
-| R09 | Trial wording, legal/age/privacy disclosure | Not in code yet (frontend Missing) |
+| R09 | Trial wording, legal/age/privacy disclosure | App shows the §9 disclosure from store data (trial only when the store reports an eligible free intro offer); legal sign-off still needed |
 | R10 | Points vs XP | Unchanged |
 | R11 | Family/group Places limits, Family-area rename | Group Places unchanged and separate from personal saved places |
 
@@ -217,9 +230,9 @@ adults (§4).
 
 ## 7. Launch blockers
 
-1. Frontend not aligned (paywalls, plan colours, onboarding, Profile "My
-   plans", 402/409/422 handling, SOS recipient preview, "safe" wording in
-   `family_check_in_consent_sheet.dart` and other app copy).
+1. Frontend remainder: onboarding ALRT + step, 402 upsell routing on
+   connection features, SOS recipient preview before sending. Paywalls,
+   My plans, colours and wording are done (widget-tested, not on a device).
 2. Store products, subscription groups, offers and RevenueCat mapping
    (C1 to C12) not created or verified.
 3. R01, R02, R03, R04 need decisions before billing is enabled.

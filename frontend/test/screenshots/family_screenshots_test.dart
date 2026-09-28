@@ -26,7 +26,6 @@ import 'package:hazard_app/features/family/views/widgets/family_safe_strip.dart'
 import 'package:hazard_app/features/family/views/widgets/family_member_details_sheet.dart';
 import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_expired_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_sheet.dart';
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
@@ -415,34 +414,6 @@ void main() {
     await _shoot(tester, '07_circle_settings', size: const Size(390, 1100));
   }, skip: !_enabled);
 
-  testWidgets('upsell sheet: hosting needs ALRT+', (tester) async {
-    late BuildContext ctx;
-    await tester.pumpWidget(
-      _app(
-        Scaffold(
-          body: Builder(
-            builder: (c) {
-              ctx = c;
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      ),
-    );
-    showAlrtPlusUpsellSheet(
-      context: ctx,
-      icon: AlrtPlusUpsellIcons.hostCircle,
-      iconGradient: familyUpsellGradient,
-      title: 'Hosting needs ALRT+',
-      message:
-          'Joining a Family circle is always free. Hosting your own — invites, seats, circle settings — needs ALRT+.',
-      primaryLabel: 'See ALRT+',
-      onPrimary: (_) async => false,
-    );
-    await tester.pumpAndSettle();
-    await _shoot(tester, '08_upsell_host_circle');
-  }, skip: !_enabled);
-
   testWidgets('upsell sheet: one free saved location', (tester) async {
     late BuildContext ctx;
     await tester.pumpWidget(
@@ -460,10 +431,10 @@ void main() {
     showAlrtPlusUpsellSheet(
       context: ctx,
       icon: AlrtPlusUpsellIcons.savedLocation,
-      title: 'One free saved location',
+      title: 'One saved place on ALRT Free',
       message:
-          'Free accounts can save 1 location. ALRT+ removes the limit, so you can save as many as you like.',
-      primaryLabel: 'See ALRT+',
+          'ALRT Free includes 1 saved place as well as where you are. ALRT + Individual gives you unlimited saved places. Family and Group plans don\'t change this.',
+      primaryLabel: 'See ALRT + Individual',
       onPrimary: (_) async => false,
     );
     await tester.pumpAndSettle();
@@ -599,8 +570,4 @@ void main() {
     await _shoot(tester, '24_manage_store_price');
   }, skip: !_enabled);
 
-  testWidgets('back on the free plan (expired)', (tester) async {
-    await tester.pumpWidget(_app(const AlrtPlusExpiredScreen()));
-    await _shoot(tester, '11_expired_free_plan');
-  }, skip: !_enabled);
 }

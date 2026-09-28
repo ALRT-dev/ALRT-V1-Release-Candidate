@@ -88,6 +88,8 @@ interface AskRequest {
   language?: string;
   /** IANA time zone of the device, e.g. "Australia/Perth" (local day). */
   timeZone?: string;
+  /** Fallback when the app can't name its zone: minutes east of UTC now. */
+  utcOffsetMinutes?: number;
 }
 
 type Plan = "free" | "individual";
@@ -104,8 +106,31 @@ export function isValidTimeZone(tz: unknown): tz is string {
   }
 }
 
+/**
+ * A zone the day can be counted in: a valid IANA name, or "offset:<min>"
+ * built from the app's current UTC offset (-720..+840 minutes).
+ */
+export function zoneFromRequest(timeZone: unknown, utcOffsetMinutes: unknown): string | null {
+  if (isValidTimeZone(timeZone)) return timeZone;
+  if (
+    typeof utcOffsetMinutes === "number" &&
+    Number.isInteger(utcOffsetMinutes) &&
+    utcOffsetMinutes >= -720 &&
+    utcOffsetMinutes <= 840
+  ) {
+    return `offset:${utcOffsetMinutes}`;
+  }
+  return null;
+}
+
 /** YYYYMMDD of [d] in [timeZone] (server clock, never the device's). */
 export function localDayKey(d: Date, timeZone: string): string {
+  if (timeZone.startsWith("offset:")) {
+    const shifted = new Date(d.getTime() + Number(timeZone.slice(7)) * 60_000);
+    return `${shifted.getUTCFullYear()}${String(shifted.getUTCMonth() + 1).padStart(2, "0")}${String(
+      shifted.getUTCDate()
+    ).padStart(2, "0")}`;
+  }
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -139,20 +164,22 @@ async function planFor(uid: string): Promise<Plan> {
  * new zone (travel), but the stored zone changes at most once per 24
  * hours, so hopping zones can't open extra "days".
  */
-async function effectiveTimeZone(uid: string, reported: unknown): Promise<string> {
+async function effectiveTimeZone(uid: string, reported: string | null): Promise<string> {
   const ref = db().collection("agentUsage").doc(uid);
+  const usable = (z: string | undefined): z is string =>
+    !!z && (z.startsWith("offset:") || isValidTimeZone(z));
   return db().runTransaction(async (txn) => {
     const snap = await txn.get(ref);
     const stored = snap.data()?.timeZone as string | undefined;
     const setAt = (snap.data()?.timeZoneSetAt as number | undefined) ?? 0;
     const now = Date.now();
-    if (isValidTimeZone(reported) && reported !== stored) {
-      if (!stored || now - setAt >= TZ_CHANGE_MIN_MS) {
+    if (reported && reported !== stored) {
+      if (!usable(stored) || now - setAt >= TZ_CHANGE_MIN_MS) {
         txn.set(ref, { timeZone: reported, timeZoneSetAt: now }, { merge: true });
         return reported;
       }
     }
-    return stored && isValidTimeZone(stored) ? stored : "UTC";
+    return usable(stored) ? stored : "UTC";
   });
 }
 
@@ -276,7 +303,10 @@ export const askAlrt = onCall(
     }
 
     const plan = await planFor(uid);
-    const timeZone = await effectiveTimeZone(uid, data.timeZone);
+    const timeZone = await effectiveTimeZone(
+      uid,
+      zoneFromRequest(data.timeZone, data.utcOffsetMinutes)
+    );
     await consumeAiQuota(uid, plan, timeZone);
 
     const history = (data.history ?? [])

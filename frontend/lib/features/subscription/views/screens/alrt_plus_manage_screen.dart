@@ -1,34 +1,29 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hazard_app/features/subscription/utils/store_price.dart';
-import 'package:hazard_app/features/family/models/family_models.dart';
-import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
-import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
+import 'package:hazard_app/features/subscription/models/access_models.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
-import 'package:hazard_app/features/subscription/utils/seat_count.dart';
+import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
-import 'package:hazard_app/features/subscription/utils/alrt_plus_limits.dart';
-import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_benefits.dart';
-import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
-import 'package:hazard_app/others/app_surface_colors.dart';
+import 'package:hazard_app/features/subscription/views/widgets/billing_issue_banner.dart';
+import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
+import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// "Your ALRT +": plan status, the seat ledger, who fills the seats, and the
-/// management actions. Reached from the profile once subscribed.
+/// "My plans" (master spec §8, §16): the personal plan and each group's
+/// coverage, shown SEPARATELY, as the backend computed them
+/// (GET /api/access). A Family payer without Individual is personally on
+/// ALRT Free; a covered member sees who covers which group without being
+/// told they own a plan. No seats.
 class AlrtPlusManageScreen extends ConsumerStatefulWidget {
   const AlrtPlusManageScreen({super.key});
 
   static const route = '/alrt-plus/manage';
-
-  static const totalSeats = kAlrtPlusSeats;
 
   @override
   ConsumerState<AlrtPlusManageScreen> createState() =>
@@ -36,385 +31,264 @@ class AlrtPlusManageScreen extends ConsumerStatefulWidget {
 }
 
 class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
-  EntitlementInfo? _entitlement;
-
-  /// The store product behind the active entitlement, for its price.
-  StoreProduct? _product;
-  bool _loaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-    // The seat ledger reads the circles list; make sure it's loaded even
-    // when this screen is opened before the family tab.
-    Future.microtask(() {
-      if (!mounted) return;
-      if (!ref.read(providerOfFamily).hasLoadedOnce) {
-        ref.read(providerOfFamily.notifier).load(silent: true);
-      }
-    });
-  }
-
-  Future<void> _load() async {
-    // Test-build escape hatch: never contact RevenueCat under test-unlock -
-    // _entitlement stays null, which _planLineBuilder already renders as a
-    // plain "ALRT + is active on this account" line.
-    if (isAlrtPlusTestUnlocked) {
-      setState(() => _loaded = true);
-      return;
-    }
-    final service = ref.read(providerOfRevenueCat);
-    final entitlement = await service.plusEntitlement();
-    if (!mounted) return;
-    setState(() {
-      _entitlement = entitlement;
-      _loaded = true;
-    });
-    if (entitlement == null) return;
-    // The price is a second, best-effort read: the summary shows the
-    // store's amount and currency when the store answers, nothing when
-    // it does not. Never a hard-coded figure.
-    final product = await service.productFor(entitlement.productIdentifier);
-    if (!mounted || product == null) return;
-    setState(() => _product = product);
-  }
+  static final _date = DateFormat('d MMMM y');
 
   Future<void> _openStoreManagement() async {
-    // Test-build escape hatch: never contact RevenueCat under test-unlock -
-    // there is no real store subscription to manage on a dummy plan.
+    const fallback =
+        'Manage your subscription in your app store account settings.';
     if (isAlrtPlusTestUnlocked) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Manage your subscription in your app store account settings.',
-            ),
-          ),
-        );
-      }
+      _snack(fallback);
       return;
     }
     final url = await ref.read(providerOfRevenueCat).managementUrl();
     if (url == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Manage your subscription in your app store account settings.',
-            ),
-          ),
-        );
-      }
+      _snack(fallback);
       return;
     }
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Manage your subscription in your app store account settings.',
-            ),
-          ),
-        );
-      }
+      _snack(fallback);
     }
+  }
+
+  Future<void> _restore() async {
+    if (!isAlrtPlusTestUnlocked) {
+      await ref.read(providerOfRevenueCat).restore();
+    }
+    ref.invalidate(providerOfAccess);
+    ref.invalidate(providerOfAlrtPlus);
+    _snack('Purchases restored. Your plans below are up to date.');
+  }
+
+  Future<void> _applyUnbound(
+    final UnboundSponsorship plan,
+    final List<GroupAccess> hosted,
+  ) async {
+    final eligible = hosted
+        .where((g) => g.peopleCount <= sponsoredCapacity(plan.tier))
+        .where((g) => !g.isSponsoredAndLive)
+        .toList();
+    if (eligible.isEmpty) {
+      _snack('None of the groups you host can take this plan right now.');
+      return;
+    }
+    final chosen = await showModalBottomSheet<GroupAccess>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Which group should your ${planTierName(plan.tier)} plan '
+                'cover? This can\'t be changed later.',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            for (final g in eligible)
+              ListTile(
+                title: Text(g.name),
+                subtitle: Text('${g.peopleCount} people'),
+                onTap: () => Navigator.of(context).pop(g),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    final result = await ref
+        .read(providerOfAccessRepository)
+        .bindSponsorship(subscriptionId: plan.id, circleId: chosen.circleId);
+    ref.invalidate(providerOfAccess);
+    _snack(
+      result.isSuccess
+          ? 'Your plan now covers ${chosen.name}.'
+          : result.failure.message,
+    );
+  }
+
+  void _snack(final String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final circle = ref.watch(providerOfFamily.select((s) => s.circle));
-    final circles = ref.watch(providerOfFamily.select((s) => s.circles));
-
+    final accessAsync = ref.watch(providerOfAccess);
     return Scaffold(
-      backgroundColor: context.surfaceScaffold,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _bandBuilder(context),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  18.spMin,
-                  16.spMin,
-                  18.spMin,
-                  24.spMin,
-                ),
+      backgroundColor: kPaywallBody,
+      appBar: AppBar(
+        backgroundColor: kPaywallBody,
+        title: const Text('My plans'),
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(LucideIcons.arrowLeft),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go(HomeScreen.route),
+        ),
+      ),
+      body: accessAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => _unavailable(),
+        data: (access) => access == null ? _unavailable() : _body(access),
+      ),
+    );
+  }
+
+  Widget _unavailable() => Padding(
+    padding: EdgeInsets.all(18.spMin),
+    child: Column(
+      children: [
+        const PaywallNotice(
+          text: 'Your plans could not be loaded. Check your connection and '
+              'try again.',
+          isError: true,
+        ),
+        TextButton(
+          onPressed: () => ref.invalidate(providerOfAccess),
+          child: const Text('Try again'),
+        ),
+      ],
+    ),
+  );
+
+  Widget _body(final AccessSummary access) {
+    return ListView(
+      padding: EdgeInsets.fromLTRB(18.spMin, 8.spMin, 18.spMin, 32.spMin),
+      children: [
+        // A failed renewal is said here, on the plan surface, not on the
+        // connection screens (master spec §11).
+        const BillingIssueBanner(),
+        _label('Personal plan'),
+        _personalCard(access.personal),
+        SizedBox(height: 18.spMin),
+        _label('Group coverage'),
+        if (access.groups.isEmpty)
+          const PaywallNotice(
+            text: 'You are not in any groups yet. Groups are free to create '
+                'and join.',
+          )
+        else
+          for (final g in access.groups) ...[
+            _groupCard(g),
+            SizedBox(height: 10.spMin),
+          ],
+        if (access.unboundSponsorships.isNotEmpty) ...[
+          SizedBox(height: 8.spMin),
+          for (final plan in access.unboundSponsorships)
+            PaywallCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sectionLabelBuilder(circle, circles),
+                  PlanBadge(identity: PlanIdentity.of(plan.tier)),
                   SizedBox(height: 8.spMin),
-                  _seatCardBuilder(circle, circles),
-                  SizedBox(height: 10.spMin),
-                  if (circle != null) ...[
-                    _membersCardBuilder(circle),
-                    SizedBox(height: 10.spMin),
-                  ],
-                  if (circles.any((c) => !c.isOwned)) ...[
-                    _otherPlansCardBuilder(circles),
-                    SizedBox(height: 10.spMin),
-                  ],
-                  _actionsCardBuilder(circle),
-                  SizedBox(height: 14.spMin),
-                  const AlrtPlusBenefitsTable(title: 'Your ALRT+ benefits'),
-                  SizedBox(height: 18.spMin),
                   Text(
-                    'Cancelling stops renewal. ALRT + stays active until the end '
-                    'of the period you have paid for.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 10.5.spMin,
-                      height: 1.5,
-                      color: context.onSurfaceMuted.withValues(alpha: 0.75),
-                    ),
+                    'You have a ${planTierName(plan.tier)} plan that isn\'t '
+                    'covering a group yet.',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        _applyUnbound(plan, access.hostedGroups),
+                    child: const Text('Choose the group it covers'),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _bandBuilder(final BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(gradient: AlrtPlusStyle.bandGradient),
-      padding: EdgeInsets.only(
-        top: MediaQuery.paddingOf(context).top + 4.spMin,
-        left: 10.spMin,
-        right: 22.spMin,
-        bottom: 20.spMin,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          IconButton(
-            onPressed: () =>
-                context.canPop() ? context.pop() : context.go(HomeScreen.route),
-            icon: Icon(
-              LucideIcons.arrowLeft,
-              color: Colors.white,
-              size: 22.spMin,
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(left: 12.spMin),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'Your ALRT +',
-                        style: TextStyle(
-                          fontSize: 23.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 8.spMin),
-                    _activeBadgeBuilder(),
-                  ],
-                ),
-                SizedBox(height: 7.spMin),
-                Text(
-                  _planLineBuilder(),
-                  style: TextStyle(
-                    fontSize: 13.spMin,
-                    height: 1.5,
-                    color: Colors.white.withValues(alpha: 0.78),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
-      ),
-    );
-  }
-
-  Widget _activeBadgeBuilder() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 4.spMin),
-      decoration: BoxDecoration(
-        color: AlrtPlusStyle.goldBg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        'ACTIVE',
-        style: TextStyle(
-          fontSize: 10.spMin,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.5,
-          color: AlrtPlusStyle.goldText,
-        ),
-      ),
-    );
-  }
-
-  String _planLineBuilder() {
-    final entitlement = _entitlement;
-    if (!_loaded) return ' ';
-    if (entitlement == null) return 'ALRT + is active on this account';
-    final parts = <String>[];
-    final product = entitlement.productIdentifier.toLowerCase();
-    if (product.contains('year')) {
-      parts.add('Yearly');
-    } else if (product.contains('month')) {
-      parts.add('Monthly');
-    }
-    final storeProduct = _product;
-    if (storeProduct != null) {
-      parts.add(pricePerPeriodPhrase(storeProduct));
-    }
-    final expiration = entitlement.expirationDate;
-    if (expiration != null) {
-      final date = DateTime.tryParse(expiration);
-      if (date != null) {
-        final formatted = DateFormat('d MMM yyyy').format(date.toLocal());
-        parts.add(
-          entitlement.willRenew ? 'renews $formatted' : 'ends $formatted',
-        );
-      }
-    }
-    return parts.isEmpty
-        ? 'ALRT + is active on this account'
-        : parts.join(' · ');
-  }
-
-  /// Circles the user pays for. Every membership row in one of these
-  /// consumes a seat, per the locked seat model (8 across up to 4 circles).
-  List<FamilyCircleSummary> _ownedOf(final List<FamilyCircleSummary> circles) =>
-      circles.where((c) => c.isOwned).toList();
-
-  int _seatsUsedOf(
-    final FamilyCircle? circle,
-    final List<FamilyCircleSummary> circles,
-  ) {
-    final owned = _ownedOf(circles);
-    if (owned.isNotEmpty) {
-      // Guests join free, so they never appear against a seat.
-      return owned.fold(0, (sum, c) => sum + c.seatCount);
-    }
-    // Fallback before the circles list has loaded: see fallbackSeatsUsed.
-    return fallbackSeatsUsed(circle);
-  }
-
-  Widget _sectionLabelBuilder(
-    final FamilyCircle? circle,
-    final List<FamilyCircleSummary> circles,
-  ) {
-    final used = _seatsUsedOf(circle, circles);
-    return Padding(
-      padding: EdgeInsets.only(left: 4.spMin),
-      child: Text(
-        'SEATS · $used OF ${AlrtPlusManageScreen.totalSeats} USED',
-        style: TextStyle(
-          fontSize: 10.5.spMin,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-          color: AlrtPlusStyle.label,
-        ),
-      ),
-    );
-  }
-
-  Widget _seatCardBuilder(
-    final FamilyCircle? circle,
-    final List<FamilyCircleSummary> circles,
-  ) {
-    final owned = _ownedOf(circles);
-    final used = _seatsUsedOf(circle, circles);
-    const total = AlrtPlusManageScreen.totalSeats;
-    final free = (total - used).clamp(0, total);
-    return _cardBuilder(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
+        SizedBox(height: 18.spMin),
+        PaywallCard(
+          padding: EdgeInsets.zero,
+          child: Column(
             children: [
-              Flexible(
-                child: Text(
-                  owned.length > 1
-                      ? 'Your ${owned.length} circles'
-                      : (owned.firstOrNull?.name ??
-                            circle?.name ??
-                            'Your circle'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: context.onSurface,
-                  ),
-                ),
+              _action(
+                LucideIcons.users,
+                'Cover a group',
+                () => context.push(AlrtPlusGroupPaywallScreen.route),
               ),
-              SizedBox(width: 8.spMin),
-              Text(
-                '$used used · $free free',
-                style: TextStyle(
-                  fontSize: 11.spMin,
-                  color: context.onSurfaceMuted,
-                ),
+              const Divider(height: 1),
+              _action(
+                LucideIcons.externalLink,
+                'Manage in your app store',
+                _openStoreManagement,
               ),
+              const Divider(height: 1),
+              _action(LucideIcons.refreshCw, 'Restore purchases', _restore),
             ],
           ),
-          SizedBox(height: 9.spMin),
-          Row(
-            children: List.generate(total, (index) {
-              final Gradient? gradient;
-              if (index == 0) {
-                gradient = AlrtPlusStyle.ctaGradient;
-              } else if (index < used) {
-                gradient = AlrtPlusStyle.greenGradient;
-              } else {
-                gradient = null;
-              }
-              return Expanded(
-                child: Container(
-                  height: 7.spMin,
-                  margin: EdgeInsets.only(
-                    right: index == total - 1 ? 0 : 4.spMin,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: gradient,
-                    color: gradient == null ? AlrtPlusStyle.seatEmpty : null,
-                    borderRadius: BorderRadius.circular(4.spMin),
-                  ),
-                ),
-              );
-            }),
-          ),
-          if (owned.length > 1) ...[
-            SizedBox(height: 7.spMin),
-            Text(
-              [
-                for (final c in owned) '${c.name} ${c.memberCount}',
-                if (free > 0) '$free spare',
-              ].join(' · '),
-              style: TextStyle(
-                fontSize: 11.spMin,
-                fontWeight: FontWeight.w600,
-                color: context.onSurfaceMuted,
-              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _label(final String text) => Padding(
+    padding: EdgeInsets.only(left: 4.spMin, bottom: 8.spMin),
+    child: Text(
+      text.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11.spMin,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.8,
+        color: kPaywallInkFaint,
+      ),
+    ),
+  );
+
+  Widget _personalCard(final PersonalAccess personal) {
+    if (personal.isIndividual) {
+      final until = personal.expiresAt;
+      final String status;
+      if (personal.billingDisabled) {
+        status = 'Billing isn\'t switched on for this server yet, so every '
+            'feature is open.';
+      } else if (personal.isTrial && until != null) {
+        status = 'Free trial until ${_date.format(until.toLocal())}.';
+      } else if (until != null) {
+        status = personal.willRenew
+            ? 'Renews ${_date.format(until.toLocal())}.'
+            : 'Ends ${_date.format(until.toLocal())}. It won\'t renew.';
+      } else {
+        status = 'Active.';
+      }
+      return PaywallCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const PlanBadge(identity: PlanIdentity.individual),
+            SizedBox(height: 8.spMin),
+            Text(status, style: const TextStyle(fontWeight: FontWeight.w600)),
+            SizedBox(height: 4.spMin),
+            PaywallFinePrint(
+              'Unlimited saved places · ${personal.askPerDay} Ask ALRT '
+              'questions a day · unlimited groups',
             ),
           ],
-          SizedBox(height: 7.spMin),
-          Text(
-            'Members keep the free tier if your plan lapses',
-            style: TextStyle(
-              fontSize: 10.5.spMin,
-              color: context.onSurfaceMuted.withValues(alpha: 0.75),
+        ),
+      );
+    }
+    return PaywallCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ALRT Free',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+          SizedBox(height: 4.spMin),
+          PaywallFinePrint(
+            '${personal.extraSavedPlaces ?? 1} saved place as well as where '
+            'you are · ${personal.askPerDay} Ask ALRT questions a day. Group '
+            'plans don\'t change these.',
+          ),
+          SizedBox(height: 10.spMin),
+          PlanCta(
+            label: 'See ALRT + Individual',
+            identity: PlanIdentity.individual,
+            onPressed: () => context.push(
+              AlrtPlusPaywallScreen.route,
+              extra: const AlrtPlusPaywallArgs(),
             ),
           ),
         ],
@@ -422,237 +296,66 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
     );
   }
 
-  /// Groups where the user sits on someone else's plan — these never touch
-  /// the user's own seat count.
-  Widget _otherPlansCardBuilder(final List<FamilyCircleSummary> circles) {
-    final others = circles.where((c) => !c.isOwned).toList();
-    return _cardBuilder(
+  Widget _groupCard(final GroupAccess g) {
+    final s = g.sponsorship;
+    final String line;
+    final PlanIdentity? identity = s == null ? null : PlanIdentity.of(s.tier);
+    if (g.fundingMode == GroupFundingMode.sponsored && s != null && s.live) {
+      final who = s.youPay ? 'you' : (s.coveredBy ?? 'the group\'s payer');
+      line = 'Covered by $who. ${planTierName(s.tier)} plan, '
+          '${g.peopleCount} of ${g.capacity ?? sponsoredCapacity(s.tier)} '
+          'people.';
+    } else if (g.fundingMode == GroupFundingMode.sponsored) {
+      line = 'This group\'s plan has ended. Check-ins, SOS and Journey are '
+          'paused here until it is renewed or the host changes how the '
+          'group is paid for.';
+    } else if (g.connectionAllowed) {
+      line = 'Funded by Individual. Your Individual plan covers you here.';
+    } else {
+      line = 'Funded by Individual. You need Individual or its trial to take '
+          'part here.';
+    }
+    return PaywallCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'ON SOMEONE ELSE\'S PLAN',
-            style: TextStyle(
-              fontSize: 10.5.spMin,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: AlrtPlusStyle.label,
-            ),
-          ),
-          SizedBox(height: 8.spMin),
-          Wrap(
-            spacing: 8.spMin,
-            runSpacing: 8.spMin,
+          Row(
             children: [
-              for (final c in others)
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12.spMin,
-                    vertical: 6.spMin,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AlrtPlusStyle.seatEmpty),
-                    borderRadius: BorderRadius.circular(16.spMin),
-                  ),
-                  child: Text(
-                    c.name,
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      fontWeight: FontWeight.w600,
-                      color: context.onSurfaceMuted,
-                    ),
+              Expanded(
+                child: Text(
+                  g.name,
+                  style: TextStyle(
+                    fontSize: 15.spMin,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              if (identity != null) PlanBadge(identity: identity),
             ],
           ),
           SizedBox(height: 6.spMin),
-          Text(
-            'Their subscription covers your seat while you\'re in the group.',
-            style: TextStyle(
-              fontSize: 10.5.spMin,
-              color: context.onSurfaceMuted.withValues(alpha: 0.75),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _membersCardBuilder(final FamilyCircle circle) {
-    return _cardBuilder(
-      padding: EdgeInsets.symmetric(horizontal: 15.spMin, vertical: 4.spMin),
-      child: Column(
-        children: [
-          for (final member in circle.members)
-            _memberRowBuilder(circle, member),
-        ],
-      ),
-    );
-  }
-
-  Widget _memberRowBuilder(
-    final FamilyCircle circle,
-    final FamilyMember member,
-  ) {
-    final isMe = member.id == circle.myMemberId;
-    final isPayer = member.role == FamilyRole.owner;
-    final initials = member.initials;
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 10.spMin),
-      child: Row(
-        children: [
-          Container(
-            width: 32.spMin,
-            height: 32.spMin,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10.spMin),
-              gradient: isMe ? AlrtPlusStyle.ctaGradient : null,
-              // Other members: a stable, neutral per-member colour (the
-              // same one their avatar uses everywhere else in Family) -
-              // never green, which this screen's own seat bar already
-              // uses to mean "occupied", and never a colour that could
-              // read as a safe/SOS status here.
-              color: isMe ? null : FamilyColors.memberColor(member.id),
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: TextStyle(
-                  fontSize: 11.spMin,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
+          PaywallFinePrint(line),
+          if (g.isHost && !g.isSponsoredAndLive)
+            TextButton(
+              onPressed: () => context.push(
+                AlrtPlusGroupPaywallScreen.route,
+                extra: AlrtPlusGroupPaywallArgs(circleId: g.circleId),
               ),
+              child: const Text('Cover this group'),
             ),
-          ),
-          SizedBox(width: 10.spMin),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isMe ? 'You' : member.name,
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: context.onSurface,
-                  ),
-                ),
-                Text(
-                  isPayer ? 'Host · ${circle.name}' : circle.name,
-                  style: TextStyle(
-                    fontSize: 10.5.spMin,
-                    color: context.onSurfaceMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 8.spMin,
-              vertical: 3.spMin,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3EDF9),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              isPayer ? 'PAYER' : 'SEAT',
-              style: TextStyle(
-                fontSize: 9.spMin,
-                fontWeight: FontWeight.w700,
-                color: AlrtPlusStyle.label,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _actionsCardBuilder(final FamilyCircle? circle) {
-    return _cardBuilder(
-      padding: EdgeInsets.symmetric(horizontal: 15.spMin, vertical: 2.spMin),
-      child: Column(
-        children: [
-          if (circle != null)
-            _actionRowBuilder(
-              'Invite to a seat',
-              () => context.push(FamilyInviteScreen.route),
-            ),
-          _actionRowBuilder(
-            'Change plan',
-            () => context.push(AlrtPlusPaywallScreen.route),
-          ),
-          _actionRowBuilder(
-            'Manage in your app store',
-            _openStoreManagement,
-            isLast: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _actionRowBuilder(
+  Widget _action(
+    final IconData icon,
     final String label,
-    final VoidCallback onTap, {
-    final bool isLast = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 12.spMin, horizontal: 2.spMin),
-        decoration: BoxDecoration(
-          border: isLast
-              ? null
-              : const Border(
-                  bottom: BorderSide(color: AlrtPlusStyle.cardLine),
-                ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5.spMin,
-                  fontWeight: FontWeight.w600,
-                  color: context.onSurface,
-                ),
-              ),
-            ),
-            Icon(
-              LucideIcons.chevronRight,
-              size: 16.spMin,
-              color: context.onSurfaceMuted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _cardBuilder({required final Widget child, EdgeInsets? padding}) {
-    return Container(
-      width: double.infinity,
-      padding:
-          padding ??
-          EdgeInsets.symmetric(horizontal: 15.spMin, vertical: 13.spMin),
-      decoration: BoxDecoration(
-        color: context.surfaceCard,
-        borderRadius: BorderRadius.circular(16.spMin),
-        boxShadow: [
-          BoxShadow(
-            color: context.cardShadow,
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
+    final VoidCallback onTap,
+  ) => ListTile(
+    leading: Icon(icon, size: 20.spMin),
+    title: Text(label, style: TextStyle(fontSize: 14.spMin)),
+    trailing: const Icon(LucideIcons.chevronRight, size: 18),
+    onTap: onTap,
+  );
 }

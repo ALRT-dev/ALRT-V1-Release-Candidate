@@ -70,9 +70,9 @@ Weather (blue), Health (orange), Security (red), Traffic (green), Utilities (amb
 - **Always free:** alerts, the live map, and emergency-call guidance. No paywall ever gates safety information.
 - **ALRT never contacts emergency services.** Calling the emergency number is always the user's one tap, and every alert carries this disclaimer.
 - **Report an ALRT:** anyone can post a community report from the footer's ALRT button; it appears as a circle, unverified, for others to confirm.
-- **Family groups:** joining with an invite code is always free, in as many groups as you like. Hosting (creating) a group is the ALRT+ subscription: 8 seats to split across up to 4 groups you host. A seat is one person in one group you host, including yourself; people who join someone else's group spend nothing.
-- **Location privacy:** location leaves a phone only by its owner's action; there is no continuous tracking. Location snapshots are one moment, sent on purpose, and expire after 1 hour. SOS live sharing runs at most 4 hours and the trail is wiped on stand-down. Journeys share snap points by default; live is per-journey opt-in.
-- **Check-ins:** "I'm Safe" is one tap to everyone; "Seen" is automatic, "On my way" is deliberate.
+- **Plans:** ALRT Free includes alerts, the map, navigation, one saved place (besides where you are) and 3 Ask ALRT questions a day. ALRT + Individual is personal: unlimited saved places, 10 Ask ALRT questions a day, and joining unlimited groups; only Individual can have a free trial. A Family plan (up to 6 people), Group 20 or Group 50 lets one payer cover check-ins, SOS and Journey in ONE group; it gives nobody personal benefits, including the payer. Creating and joining groups is free.
+- **Location privacy:** location leaves a phone only by its owner's action; there is no continuous tracking. Location snapshots are one moment, sent on purpose, and expire after 1 hour. SOS live sharing runs at most 4 hours and the trail is wiped on stand-down. Journeys share periodic updates by default; live location is per-journey opt-in.
+- **Check-ins:** a check-in says someone checked in, never that they are safe. "I've seen this" on an SOS is a deliberate tap by the recipient.
 - **Prices** are shown in the app's store screens; do not quote figures from memory.
 
 ---

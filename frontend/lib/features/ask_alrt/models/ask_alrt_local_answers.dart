@@ -174,20 +174,24 @@ abstract final class AskAlrtLocalAnswers {
       ],
       keywords: ['family', 'group', 'circle', 'join', 'invite', 'code'],
       answer:
-          'Joining with an invite code is always free, and you can be in as '
-          'many groups as you like. Creating a group you host is the ALRT+ '
-          'subscription: 8 seats to split across up to 4 groups you host. '
-          'People who join someone else\'s group spend nothing of their own.',
+          'Creating a group and joining with an invite code are always '
+          'free, and '
+          'you can be in as many groups as you like. For check-ins, SOS '
+          'and Journey, each person in a group needs ALRT + Individual, or '
+          'one person can cover the whole group with a Family plan (up to '
+          '6 people) or a Group plan (up to 20 or 50).',
     ),
     AskAlrtLocalAnswer(
       id: 'pricing',
       triggers: ['how much does it cost', 'is it free', 'what is alrt plus'],
       keywords: ['cost', 'price', 'free', 'pay', 'subscription', 'plus'],
       answer:
-          'Alerts, the live map and emergency call guidance are always '
-          'free. ALRT+ is only needed to host a family group. Current '
-          'prices are shown on the ALRT+ screen in the app, straight from '
-          'the store.',
+          'Alerts, the live map, navigation and emergency call guidance are '
+          'always free, with one saved place and 3 Ask ALRT questions a '
+          'day. ALRT + Individual is for you: unlimited saved places and 10 '
+          'Ask ALRT questions a day. Family and Group plans cover '
+          'check-ins, SOS and Journey for one group. Current prices are '
+          'shown in the app, straight from the store.',
     ),
     AskAlrtLocalAnswer(
       id: 'emergency',

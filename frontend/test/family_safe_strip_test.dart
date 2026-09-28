@@ -76,7 +76,7 @@ void main() {
         await tester.pumpWidget(app(withCircle, entry.value));
         await tester.pump();
         expect(
-          find.text('Near this alert? Let your family know you are okay.'),
+          find.text('Near this alert? You can check in with your group.'),
           findsOneWidget,
         );
         expect(find.textContaining('To Nixons'), findsOneWidget);

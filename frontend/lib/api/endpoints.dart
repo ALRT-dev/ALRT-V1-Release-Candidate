@@ -88,6 +88,14 @@ const kUrlNotificationsTest = '$kUrlNotifications/test';
 
 const kUrlSupport = '$kUrlApi/support';
 
+// ---------------------------- ACCESS (V1) ----------------------------
+
+/// Personal plan and per-group coverage, computed by the backend.
+const kUrlAccess = '$kUrlApi/access';
+const kUrlAccessSponsorshipIntents = '$kUrlAccess/sponsorship-intents';
+String kUrlAccessBindSponsorship(final String subscriptionId) =>
+    '$kUrlAccess/sponsorships/$subscriptionId/bind';
+
 // ---------------------------- FAMILY ----------------------------
 
 const kUrlFamily = '$kUrlApi/family';

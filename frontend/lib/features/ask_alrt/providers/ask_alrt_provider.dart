@@ -85,6 +85,9 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
       final result = await callable.call<dynamic>({
         'question': trimmed,
         if (nearbyAlertsPayload.isNotEmpty) 'nearbyAlerts': nearbyAlertsPayload,
+        // The daily Ask ALRT allowance counts the person's LOCAL day
+        // (master spec §14); the server validates and rate-limits changes.
+        'utcOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes,
       });
 
       final parsedAnswer = _extractAnswer(result.data);

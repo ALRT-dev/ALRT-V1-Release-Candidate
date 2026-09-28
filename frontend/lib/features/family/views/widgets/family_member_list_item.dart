@@ -224,7 +224,7 @@ class FamilyMemberListItem extends StatelessWidget {
       hasAnswered: hasAnswered,
       isNearAlert: isNearAlert,
     );
-    final safe = text == 'Safe';
+    final safe = text == 'Checked in';
     final background = safe ? FamilyColors.safeGreenLight : FamilyColors.amberLight;
     final foreground = safe ? FamilyColors.safeGreen : FamilyColors.amber;
 

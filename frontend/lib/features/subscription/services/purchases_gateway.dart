@@ -14,6 +14,15 @@ abstract class PurchasesGateway {
   Future<CustomerInfo> customerInfo();
   Future<Offering?> currentOffering();
 
+  /// Every offering by identifier (V1: `personal` and `groups`), or null.
+  Future<Offerings?> offerings();
+
+  /// Introductory-offer eligibility per product, from the store. Android
+  /// always answers unknown (Play only returns offers the account can use).
+  Future<Map<String, IntroEligibilityStatus>> introEligibility(
+    List<String> productIdentifiers,
+  );
+
   /// Active entitlements after the store purchase of [package].
   Future<Set<String>> purchase(Package package);
 
@@ -48,6 +57,19 @@ class SdkPurchasesGateway implements PurchasesGateway {
   @override
   Future<Offering?> currentOffering() async =>
       (await Purchases.getOfferings()).current;
+
+  @override
+  Future<Offerings?> offerings() => Purchases.getOfferings();
+
+  @override
+  Future<Map<String, IntroEligibilityStatus>> introEligibility(
+    final List<String> productIdentifiers,
+  ) async {
+    final map = await Purchases.checkTrialOrIntroductoryPriceEligibility(
+      productIdentifiers,
+    );
+    return map.map((key, value) => MapEntry(key, value.status));
+  }
 
   @override
   Future<Set<String>> purchase(Package package) async =>

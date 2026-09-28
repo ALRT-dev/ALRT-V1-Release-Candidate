@@ -215,7 +215,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     if (checkIn.memberId != state.circle?.myMemberId) {
       final name = checkIn.member?.displayName ?? 'A family member';
       final label = checkIn.status == FamilyCheckInStatus.safe
-          ? '$name checked in safe'
+          ? '$name checked in'
           : '$name needs help';
       _showToast(
         message: label,
@@ -243,7 +243,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       // Sharing a snapshot stays a deliberate choice on the Family hub.
       _showBigAlert(
         title: '$name asked for a check-in',
-        body: 'One tap to let them know you are safe.',
+        body: 'One tap to check in.',
         isSos: false,
         onTap: () => checkIn(shareLocation: false),
       );
@@ -275,8 +275,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
             ? '$name asked you to check in'
             : '$name asked for a check-in',
         body: !targeted && waitingOn > 1
-            ? 'Waiting on $waitingOn people. One tap says you are safe.'
-            : 'One tap to let them know you are safe.',
+            ? 'Waiting on $waitingOn people. One tap checks you in.'
+            : 'One tap to check in.',
         isSos: false,
         // No consent UI on the alert itself: check in without location.
         onTap: () => checkIn(shareLocation: false),

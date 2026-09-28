@@ -1,4 +1,4 @@
-import { AI_DAILY_LIMIT, isValidTimeZone, localDayKey } from "../src/askalrt/askAlrt";
+import { AI_DAILY_LIMIT, isValidTimeZone, localDayKey, zoneFromRequest } from "../src/askalrt/askAlrt";
 
 describe("Ask ALRT daily limit (V1 access model)", () => {
   it("is 3 on Free and 10 on Individual", () => {
@@ -29,5 +29,16 @@ describe("Ask ALRT daily limit (V1 access model)", () => {
     expect(isValidTimeZone("")).toBe(false);
     expect(isValidTimeZone(42)).toBe(false);
     expect(isValidTimeZone("x".repeat(100))).toBe(false);
+  });
+
+  it("falls back to the app's UTC offset when no zone name is sent", () => {
+    expect(zoneFromRequest(undefined, 570)).toBe("offset:570");
+    expect(zoneFromRequest("Australia/Perth", 570)).toBe("Australia/Perth");
+    expect(zoneFromRequest(undefined, 5000)).toBeNull();
+    expect(zoneFromRequest(undefined, 1.5)).toBeNull();
+    const at = new Date(Date.UTC(2026, 8, 28, 20, 30));
+    // Adelaide (UTC+9:30) is already 29 Sep at 06:00.
+    expect(localDayKey(at, "offset:570")).toBe("20260929");
+    expect(localDayKey(at, "offset:-420")).toBe("20260928");
   });
 });

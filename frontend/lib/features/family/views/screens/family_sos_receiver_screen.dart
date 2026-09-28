@@ -72,7 +72,7 @@ class _FamilySosReceiverScreenState
   /// opened with (a banner or push captured earlier) still says active.
   bool _serverSaysEnded = false;
 
-  /// True from the moment I confirm "I'm safe" on my own SOS.
+  /// True from the moment I confirm "End SOS" on my own SOS.
   bool _standingDown = false;
 
   @override
@@ -308,12 +308,16 @@ class _FamilySosReceiverScreenState
                 children: [
                   Text(
                     // The person IN SOS reads "Your SOS"; everyone else
-                    // reads the sender's name. Two-phone QA 2026-09-09:
-                    // the sender saw "Family member is marked safe".
+                    // reads the sender's name. Ending wording is factual
+                    // (master spec §12): never "safe" or "resolved".
                     isMine
-                        ? (isResolved ? 'Your SOS has ended' : 'Your SOS')
+                        ? (_standingDown
+                              ? 'Ending SOS…'
+                              : isResolved
+                              ? 'Your SOS has ended.'
+                              : 'Your SOS')
                         : (isResolved
-                              ? '$name is marked safe'
+                              ? '$name ended their SOS.'
                               : '$name triggered SOS'),
                     style: TextStyle(
                       color: Colors.white,
@@ -523,15 +527,17 @@ class _FamilySosReceiverScreenState
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: FamilyColors.safeGreen,
+          backgroundColor: FamilyColors.sosRed,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16.spMin),
           ),
         ),
-        onPressed: () => _confirmAndResolve(context, ref, sos),
+        onPressed: _standingDown
+            ? null
+            : () => _confirmAndResolve(context, ref, sos),
         child: Text(
-          "I'm safe",
+          _standingDown ? 'Ending SOS…' : 'Cancel SOS',
           style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
         ),
       ),
@@ -552,11 +558,12 @@ class _FamilySosReceiverScreenState
     var confirmedStop = false;
     await showConfirmationSheet(
       context: context,
-      title: 'Stop your SOS?',
+      title: 'You are ending your SOS',
       description:
-          'Your family stops seeing this alert and it moves to '
-          'your history.',
-      confirmButtonText: 'Stop SOS',
+          'The people it reached stop seeing it, and it moves to your '
+          'history.',
+      confirmButtonText: 'End SOS',
+      cancelButtonText: 'Keep SOS active',
       onPressedConfirm: (_, __) => confirmedStop = true,
     );
     if (!confirmedStop || !context.mounted) return;
@@ -570,6 +577,7 @@ class _FamilySosReceiverScreenState
             'Live location sharing ends immediately and the '
             'trail is deleted. This cannot be undone.',
         confirmButtonText: 'Stop live sharing',
+        cancelButtonText: 'Keep sharing',
         onPressedConfirm: (_, __) => confirmedStopLive = true,
       );
       if (!confirmedStopLive || !context.mounted) return;
@@ -593,7 +601,7 @@ class _FamilySosReceiverScreenState
     if (!ok) {
       setState(() => _standingDown = false);
       context.showErrorToast(
-        message: 'Could not end your SOS. Check your connection and try again.',
+        message: "We couldn't confirm your SOS has ended. Try again.",
       );
       return;
     }
@@ -611,7 +619,7 @@ class _FamilySosReceiverScreenState
     final navContext = ref.read(providerOfGlobalNavigatorKey).currentContext;
     if (navContext != null && navContext.mounted) {
       navContext.showSuccessToast(
-        message: 'Your SOS has ended. Your circle has been told.',
+        message: 'Your SOS has ended.',
       );
     }
   }

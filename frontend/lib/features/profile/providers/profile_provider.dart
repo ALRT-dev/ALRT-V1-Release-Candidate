@@ -232,6 +232,7 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
         // And the store identity: the next account on this phone must
         // never read this one's ALRT+ entitlement.
         unawaited(_ref.read(providerOfRevenueCat).signOut());
+        _ref.invalidate(providerOfAccess);
         _ref.invalidate(providerOfAlrtPlus);
         _ref.invalidate(providerOfExpiredAlrtPlus);
         _ref.invalidate(providerOfAlrtPlusBillingIssue);
@@ -279,6 +280,7 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
         FirebaseSessionService.signOut();
         FamilyWidgetSync.clear();
         unawaited(_ref.read(providerOfRevenueCat).signOut());
+        _ref.invalidate(providerOfAccess);
         _ref.invalidate(providerOfAlrtPlus);
         _ref.invalidate(providerOfExpiredAlrtPlus);
         _ref.invalidate(providerOfAlrtPlusBillingIssue);

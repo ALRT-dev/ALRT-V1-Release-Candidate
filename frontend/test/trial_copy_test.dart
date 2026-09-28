@@ -94,7 +94,8 @@ void main() {
     });
   });
 
-  test('the dummy/TEST-unlock phrase matches the confirmed commercial offer', () {
-    expect(kConfiguredFreeTrialPhrase, '14-day free trial');
+  test('the dummy/TEST-unlock preview uses the V1 Individual trial, not the '
+      'withdrawn 14-day value', () {
+    expect(kConfiguredFreeTrialPhrase, '1-month free trial');
   });
 }
