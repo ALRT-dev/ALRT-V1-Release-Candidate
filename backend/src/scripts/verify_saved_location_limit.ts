@@ -2,9 +2,10 @@
  * Saved-location allowance: client gate versus server enforcement - real
  * HTTP requests against a running instance of this backend, real Postgres.
  *
- * The approved allowance is one saved location on the free plan (the
- * automatic own-location follow never counts); ALRT+ removes the limit.
- * The app gates at that number; the server's gate (403) is live only when
+ * The approved allowance (V1 access model, 28 Sep 2026) is one saved
+ * location on ALRT Free (the automatic own-location follow never counts);
+ * ALRT + Individual removes the limit, and group sponsorship never does.
+ * The app gates at that number; the server's gate (402) is live only when
  * BILLING_ENABLED=true. This script reads the mode the server it talks
  * to runs in from its own environment (the rollout runs it inside the app
  * container, so the two agree) and proves the right thing for that mode,
@@ -13,9 +14,9 @@
  *   BILLING_ENABLED != true  (TEST today): the second saved location is
  *     accepted by the server; only the app stops it. Reported as
  *     "server enforcement OFF", not as a pass of enforcement.
- *   BILLING_ENABLED = true: the second saved location is refused with 403
- *     and the ALRT+ message; a user whose plan is `plus` saves as many as
- *     they like; joining a circle with a code stays free for a free user.
+ *   BILLING_ENABLED = true: the second saved location is refused with 402
+ *     and the Individual message; a user with a live Individual
+ *     subscription saves as many as they like; joining a circle with a code stays free for a free user.
  *
  * Run with:
  *   NODE_ENV=test npx dotenv -e .env.test -- npx tsx src/scripts/verify_saved_location_limit.ts
@@ -102,16 +103,26 @@ async function main() {
         assert.equal(res.status, 201, JSON.stringify(res.body));
         created.push(res.body.id ?? res.body.data?.id);
       });
-      console.log("  note - BILLING_ENABLED is not true on this server: the 403 path is NOT exercised here");
+      console.log("  note - BILLING_ENABLED is not true on this server: the 402 path is NOT exercised here");
     } else {
-      await check("server enforcement ON: the second saved location is refused with 403 and the ALRT+ message", async () => {
+      await check("server enforcement ON: the second saved location is refused with 402 and the Individual message", async () => {
         const res = await save(free.token);
-        assert.equal(res.status, 403, JSON.stringify(res.body));
+        assert.equal(res.status, 402, JSON.stringify(res.body));
         const message = String(res.body?.message ?? res.body?.error ?? "");
-        assert.match(message, /ALRT\+/);
+        assert.match(message, /ALRT \+ Individual/);
       });
-      await check("a plus account saves a second and a third location", async () => {
-        await prisma.user.update({ where: { id: plus.id }, data: { plan: "plus", planExpiresAt: null } });
+      await check("an Individual account saves a second and a third location", async () => {
+        await prisma.storeSubscription.create({
+          data: {
+            userId: plus.id,
+            tier: "individual",
+            productId: "verify.individual",
+            originalTransactionId: `verify-${crypto.randomUUID()}`,
+            status: "active",
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            lastEventAt: new Date(),
+          },
+        });
         for (let i = 0; i < 3; i++) {
           const res = await save(plus.token);
           assert.equal(res.status, 201, JSON.stringify(res.body));
@@ -119,7 +130,6 @@ async function main() {
         }
       });
       await check("a free account still joins a circle with a code (joining is always free)", async () => {
-        await prisma.user.update({ where: { id: host.id }, data: { plan: "plus", planExpiresAt: null } });
         const circle = await api("/api/family/circle", { method: "POST", token: host.token, body: { name: "Free join" } });
         assert.equal(circle.status, 201, JSON.stringify(circle.body));
         const invite = await api("/api/family/invites", { method: "POST", token: host.token });

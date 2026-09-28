@@ -15,7 +15,7 @@ export enum PushNotificationType {
   familyCircleUpdate = "familyCircleUpdate",
   familyLocationRequest = "familyLocationRequest", // opens the Share once / Not now screen
   familyLocationShared = "familyLocationShared",
-  familyScheduledCheckInPrompt = "familyScheduledCheckInPrompt", // one-tap "I'm safe" prompt
+  familyScheduledCheckInPrompt = "familyScheduledCheckInPrompt", // Daily reminder to check in
   familyJourneyShared = "familyJourneyShared", // sent only to the picked recipients
 
   // A test the signed-in user sent to their own phones from Manage

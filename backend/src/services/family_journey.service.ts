@@ -4,6 +4,7 @@ import { SocketEvent } from "../models/socket_event_types.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
 import { requireMembership, notifyCircle } from "./family.service.js";
 import { sendPushNotificationToUser } from "./notification.service.js";
+import { assertConnectionAccess } from "./entitlement.service.js";
 
 // Locked journey rules:
 // - A journey always has a hard stop the traveller chose. Nothing is
@@ -83,6 +84,9 @@ export const startJourney = async (
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
+  // Journey is a covered connection feature (V1 access model). Stop and
+  // the automatic end are never gated.
+  await assertConnectionAccess(userId, membership.circleId);
 
   if (!ALLOWED_START_MINUTES.includes(input.durationMinutes)) {
     const options = ALLOWED_START_MINUTES;
@@ -174,6 +178,8 @@ export const extendJourney = async (
   if (journey.status !== "active") {
     throw new HttpError(400, "That journey has already ended");
   }
+  // Extending is new sharing, so it needs access like starting does.
+  await assertConnectionAccess(userId, journey.circleId);
   if (minutes < 1 || minutes > MAX_BLOCK_MINUTES) {
     throw new HttpError(
       400,

@@ -23,6 +23,7 @@ import {
   serializeMember,
   toSuburbLabel,
 } from "./family.service.js";
+import { assertConnectionAccess } from "./entitlement.service.js";
 
 /**
  * Hazards this severe (or worse) trigger family proximity alerts.
@@ -74,6 +75,19 @@ export const shareLocationSnapshot = async (
   // Members who turned sharing off never share, even via other actions.
   if (membership.sharingLevel === "off") {
     return { accepted: false, reason: "sharing is off" };
+  }
+
+  // Location sharing is a covered connection feature (V1 access model).
+  // An SOS already running keeps its live share even if access lapses
+  // mid-SOS: cutting off an emergency is not a billing outcome, and the
+  // expiry treatment of an active SOS is open decision R04.
+  const sosRunning =
+    snapshot.via === "sos" &&
+    (await prisma.familySosEvent.count({
+      where: { memberId: membership.id, status: "active" },
+    })) > 0;
+  if (!sosRunning) {
+    await assertConnectionAccess(userId, membership.circleId);
   }
 
   const ping = snapshot;
@@ -176,11 +190,11 @@ export const createLocationRequest = async (
 
   const membership = await requireMembership(userId, target.circleId);
 
-  // Locked rule: guests never request locations. They receive the circle's
-  // alerts and can say "I'm Safe", and that is the whole of it.
+  // Legacy guests (retired for V1) still never request locations.
   if (membership.role === "guest") {
     throw new HttpError(403, "Guests cannot request locations");
   }
+  await assertConnectionAccess(userId, membership.circleId);
 
   // Group rule: when the owner has turned off 'anyone can ask for a
   // snapshot', only the owner may send location requests.

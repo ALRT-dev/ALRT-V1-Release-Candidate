@@ -213,19 +213,50 @@ export const getSeverityBandFromAWSCompliantSeverity = (
  * banded by the strong language describing what it drilled for or used to
  * be — it is always INFO.
  */
-const infoOverrideKeywords = [
-  // Planned activity, not a real event.
-  "exercise",
-  "test",
-  "drill",
-  "training",
-  "practice drill",
-  // Resolved/closed incident.
-  "charged",
-  "cleared",
-  "all lanes open",
-  "response concluded",
+//
+// Matching is by PHRASE, never by substring (master spec §15): "test" must
+// not fire on "latest", "contest" or "protest"; "exercise caution" is not a
+// drill; "cleared land" / "cleared area" is not an incident being cleared;
+// and "not a test" / "this is not a drill" must never downgrade a real
+// incident. An explicit source lifecycle (status fields) always wins over
+// this text fallback where a source provides one.
+const drillPatterns: RegExp[] = [
+  /\bthis is (?:a|an|only a) (?:test|drill|exercise)\b/,
+  /\b(?:test|drill|exercise)(?: message| alert| notification)? only\b/,
+  /\b(?:test|testing) (?:message|alert|notification|broadcast)\b/,
+  /\b(?:siren|sirens|system|alarm|scheduled|routine|monthly|weekly) test(?:ing)?\b/,
+  /\btesting (?:of )?(?:the )?(?:siren|sirens|alarm|alarms|warning system)\b/,
+  /\b(?:emergency|evacuation|fire|practice|earthquake|tsunami|lockdown|safety) drill\b/,
+  /\b(?:training|emergency|evacuation|planned|scheduled|military|multi-agency|live|field|joint) exercise\b/,
+  /\bexercise (?:in progress|underway|is underway|will be (?:held|conducted|run))\b/,
+  /\btraining (?:exercise|activity|activities|burn|operation)\b/,
 ];
+
+const resolvedPatterns: RegExp[] = [
+  /\b(?:has|have) been charged\b/,
+  /\bcharged with\b/,
+  /\b(?:incident|crash|scene|road|roads|lane|lanes|obstruction|debris|hazard|vehicle|vehicles|breakdown|spill) (?:has |have |is |are )?(?:now )?(?:been )?cleared\b/,
+  /\b(?:has|have) (?:now )?been cleared\b/,
+  /\ball lanes (?:are )?(?:now )?(?:re-?)?open(?:ed)?\b/,
+  /\bresponse (?:has )?concluded\b/,
+];
+
+/** "not a test", "this is not a drill": a real incident saying so. */
+const notADrillPattern =
+  /\b(?:not|isn't|is not|no) (?:a |an )?(?:test|drill|exercise)\b/;
+
+/**
+ * True when the text describes a planned drill/test or a resolved
+ * incident, by phrase. Exported for the severity verification script.
+ */
+export const isInfoOverride = (description: string): boolean => {
+  const desc = description.toLowerCase();
+  if (notADrillPattern.test(desc)) return false;
+  return (
+    drillPatterns.some((p) => p.test(desc)) ||
+    resolvedPatterns.some((p) => p.test(desc))
+  );
+};
 
 /**
  * Determine hazard severity band based on description keywords.
@@ -238,7 +269,7 @@ export const getSeverityBandFromDescription = (
 ): HazardSeverityBand => {
   const desc = description.toLowerCase();
 
-  if (infoOverrideKeywords.some((keyword) => desc.includes(keyword))) {
+  if (isInfoOverride(desc)) {
     return HazardSeverityBand.info;
   }
 

@@ -1,5 +1,13 @@
 # ALRT + subscription, seats, paywalls and onboarding: TEST audit
 
+> **Superseded target (28 September 2026).** The code findings below
+> remain dated evidence about `ea93889`, but the commercial targets this
+> audit measured against (A$9.99/A$99.99, 3 free saved places, 8 seats
+> across 4 groups, a covered seat carrying every personal benefit) were
+> replaced by the reconciled master specification. Current rules, what is
+> now implemented and the external settings to change:
+> `docs/V1_ACCESS_MODEL_IMPLEMENTATION.md`.
+
 Audit date: 27 September 2026. Branch audited: `test` at `ea93889` (still the
 tip of `test`; no newer commits were found). This report changes no app
 behaviour, no service configuration and no production resource. Nothing was

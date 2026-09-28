@@ -21,9 +21,14 @@ repo does.
 3. **AI fallback** (`claude-haiku-4-5`, the cheapest model) — only the long tail
    that tiers 1–2 miss. This is the **only** path that spends money or the quota.
 
-**AI-question limits:** 3/day free, 20/day ALRT+ (`AI_DAILY_LIMIT` in
-`askAlrt.ts`; counted in `agentUsage/{uid}/days/{yyyymmdd}.aiCount`). Library and
-emergency-lookup answers never count against it.
+**AI-question limits (V1, 28 Sep 2026):** 3 per local day on ALRT Free, 10 on
+ALRT + Individual or its trial (`AI_DAILY_LIMIT` in `askAlrt.ts`). Group
+sponsorship (Family / Group 20 / Group 50) never raises it. The day is the
+account's local calendar day: the app sends its IANA `timeZone`, the server
+validates it and lets the stored zone change at most once per 24 hours
+(counted in `agentUsage/{uid}/days/{yyyymmdd}.aiCount`). Library and
+emergency-lookup answers never count against it. What exactly counts (every AI
+attempt today) is open decision R03.
 
 - The system prompt passes the emergency number in per request (never hardcodes
   "000"), and enforces a "no en-dashes" output rule. See `askalrt/systemPrompt.ts`.
@@ -50,12 +55,13 @@ Merge/validation is in `askalrt/entriesLoader.ts` (unit-tested); the library is
 cached ~5 minutes, so edits take effect within a few minutes. A malformed doc is
 ignored and the seed answer is kept.
 
-## Entitlements webhook
+## Entitlements mirror (read-only here)
 
-`revenuecatWebhook` (HTTPS) verifies the `Authorization` header and upserts
-`entitlements/{uid}` with plan `free`/`plus`. Here it is used **only** to pick
-the Ask ALRT daily quota. The app-facing ALRT+ entitlement (gating who can host
-a family circle) must live in `backendV2` — see `widget/MASTER_HANDOFF.md`.
+The old `revenuecatWebhook` function is retired: the backend is the only
+RevenueCat consumer and writes `entitlements/{uid}` =
+`{ individual, individualExpiresAt, askPerDay, plan (legacy), source: "backend", version }`.
+`askAlrt` only reads it. See `docs/V1_ACCESS_MODEL_IMPLEMENTATION.md` for the
+deploy order and the RevenueCat webhook change that goes with it.
 
 ## Layout
 
@@ -68,17 +74,15 @@ functions/
   src/
     askalrt/    askAlrt.ts entries.ts entriesLoader.ts matching.ts systemPrompt.ts
     lib/        emergencyLogic.ts
-    entitlements.ts  index.ts
+    index.ts
   test/         Jest unit tests (no emulator needed)
 ```
 
 ## Deploy prerequisites
 
-- **RevenueCat secret** — the webhook checks the `Authorization` header:
-  ```bash
-  firebase functions:secrets:set REVENUECAT_AUTH
-  ```
-  then set the same value as the Authorization header in the RevenueCat dashboard.
+- **No RevenueCat secret any more**: the `REVENUECAT_AUTH` secret belonged to
+  the retired webhook. Remove that webhook from RevenueCat only after the
+  backend mirror writer is live (deploy order in the implementation doc).
 - **Anthropic API key** — for Ask ALRT:
   ```bash
   firebase functions:secrets:set ANTHROPIC_API_KEY
