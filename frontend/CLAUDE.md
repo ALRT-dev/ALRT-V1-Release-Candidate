@@ -115,6 +115,17 @@ explicit instruction from the product owner in the current session.
   audience and refuses an SOS with nobody to reach ("Add someone first")
   and a preset naming someone in another group. Show recipients and
   whether location is shared before sending.
+- Location truth (review 29 Sep 2026): a position is "current" only if
+  fixed in the last two minutes and reasonably accurate
+  (location_fix.dart). Check-ins, location answers and journeys send
+  current positions only. The SOS screen offers No location / Share
+  location once / Share live location with the phone's real state; a
+  last-known point is shown with its age and only sent when chosen; SOS
+  can always be sent without location. Live SOS points go to the SOS
+  endpoint only, never the group snapshot. The SOS preview comes from the
+  backend (who is left out and why, delivery never promised); a broken
+  list opens THAT list, and "Invite someone" appears only when the group
+  has nobody else.
 - The leaderboard never shows other users' identities.
 
 ## Commercial rules (V1 access model, master spec 28 Sep 2026)

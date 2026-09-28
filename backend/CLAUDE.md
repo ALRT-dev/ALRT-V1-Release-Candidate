@@ -91,7 +91,18 @@ reintroduce seats, a group-count cap or a single global plan flag.
 - SOS: the audience is stored on the event (recipientUserIds) and every
   read, response, trail, socket and end notification is limited to it;
   no SOS without at least one eligible recipient; a preset naming someone
-  in another group is refused (422); no stale stored coordinates. End
+  in another group is refused (422); no stale stored coordinates.
+- SOS location (review 29 Sep 2026): everything (membership, access,
+  preset, at least one eligible recipient, location choice) is validated
+  BEFORE any location write, push or socket event; a refused SOS stores
+  nothing. The SOS point never writes the group snapshot channel. The
+  sender's explicit per-SOS choice is stored (none / once / live) with the
+  real capture time; precision is never finer than the sender's sharing
+  setting (approximate = suburb label, coordinates not stored). Live
+  points only via POST /sos/:id/location (sender, live SOS, current
+  points, audience-only socket); the trail is the SOS's own points.
+  GET /sos/preview uses the same audience resolver as the send. Journey
+  points honour the same precision rule. End
   wording is factual ("SOS ended", "[Name] ended their SOS."), never
   "safe" or "resolved".
 
