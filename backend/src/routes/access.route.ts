@@ -9,6 +9,7 @@ import {
   bindSponsorshipController,
   createSponsorshipIntentController,
   getAccessController,
+  reconcileAccessController,
   switchToIndividualFundingController,
 } from "../controllers/access.controller.js";
 
@@ -18,6 +19,9 @@ accessRouter.use(requireAuth);
 
 /** Personal plan + per-group coverage, computed by the backend. */
 accessRouter.get("/", getAccessController);
+
+/** After purchase or Restore: confirm with the store's server record. */
+accessRouter.post("/reconcile", reconcileAccessController);
 
 /** Choose the group a Family/Group purchase will cover, before checkout. */
 accessRouter.post(

@@ -156,6 +156,7 @@ export const createUserLocationSubscription = async ({
         throw new HttpError(
           402,
           `ALRT Free includes ${personal.extraSavedPlaces} saved place as well as where you are. ALRT + Individual gives you unlimited saved places.`,
+          "SAVED_PLACE_LIMIT",
         );
       }
     }

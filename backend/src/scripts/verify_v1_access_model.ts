@@ -398,11 +398,18 @@ const main = async () => {
     const g = await createGroup(dee, "Dee team");
     const famTx = await bindViaIntent(dee, g, "family");
     await rc({ type: "PRODUCT_CHANGE", app_user_id: dee.id, product_id: "test.family.monthly", new_product_id: "test.group20.monthly", original_transaction_id: famTx, expiration_at_ms: Date.now() + 30 * DAY });
+    // A requested change is not in effect until the store says so.
+    let grp = (await access(dee)).groups.find((x: any) => x.circleId === g);
+    assert.equal(grp.sponsorship.tier, "family", "tier must not move on the request");
+    assert.equal(grp.capacity, 6);
+    assert.equal(grp.sponsorship.pendingTier, "group20");
+    await rc({ type: "RENEWAL", app_user_id: dee.id, product_id: "test.group20.monthly", original_transaction_id: famTx, expiration_at_ms: Date.now() + 60 * DAY });
     const a = await access(dee);
     assert.equal(a.personal.plan, "individual");
-    const grp = a.groups.find((x: any) => x.circleId === g);
+    grp = a.groups.find((x: any) => x.circleId === g);
     assert.equal(grp.capacity, 20);
     assert.equal(grp.sponsorship.tier, "group20");
+    assert.equal(grp.sponsorship.pendingTier, null);
   });
   await check("6. sponsorship lapse pauses only its group, no silent mode switch", async () => {
     const p2 = await register("P2");
@@ -423,20 +430,33 @@ const main = async () => {
     assert.equal((await access(m)).personal.askPerDay, 3);
   });
   await check("a second group plan for a covered group is refused", async () => {
-    const res = await api("/api/access/sponsorship-intents", {
+    // The payer may upgrade (verify_v1_subscription_changes.ts); a second
+    // plan of the same tier, or anyone else's plan, is refused.
+    const same = await api("/api/access/sponsorship-intents", {
       method: "POST",
       token: payer.token,
+      body: { circleId: famGroup, tier: "family" },
+    });
+    assert.equal(same.status, 409);
+    assert.equal(same.body.code, "GROUP_ALREADY_COVERED");
+    const other = await api("/api/access/sponsorship-intents", {
+      method: "POST",
+      token: mia.token,
       body: { circleId: famGroup, tier: "group20" },
     });
-    assert.equal(res.status, 409);
+    assert.equal(other.status, 409);
+    assert.equal(other.body.code, "GROUP_ALREADY_COVERED");
   });
   await check("only the host can choose a group plan", async () => {
+    const uncovered = await createGroup(payer, "Not covered yet");
+    await joinOk(mia, await inviteCode(payer, uncovered));
     const res = await api("/api/access/sponsorship-intents", {
       method: "POST",
       token: mia.token,
-      body: { circleId: famGroup, tier: "family" },
+      body: { circleId: uncovered, tier: "family" },
     });
     assert.equal(res.status, 403);
+    assert.equal(res.body.code, "HOST_ONLY");
   });
   await check("an unmatched purchase stays unbound until its payer applies it", async () => {
     const h = await register("Unbound");

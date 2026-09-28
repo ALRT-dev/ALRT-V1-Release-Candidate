@@ -39,6 +39,13 @@ export const SPONSORED_CAPACITY: Record<Exclude<PlanTier, "individual">, number>
   group50: 50,
 };
 
+/** Group tiers in upgrade order: Family -> Group 20 -> Group 50. */
+export const SPONSOR_TIER_RANK: Record<Exclude<PlanTier, "individual">, number> = {
+  family: 1,
+  group20: 2,
+  group50: 3,
+};
+
 /** Personal allowances by personal plan (master spec §3, §14). */
 export const PERSONAL_LIMITS = {
   free: { extraSavedPlaces: 1, askPerDay: 3 },
@@ -68,11 +75,15 @@ export const productTierMap = (): Map<string, PlanTier> => {
 };
 
 /** Base product id: Google sends "sub_id:base_plan_id". */
-const tierForProduct = (productId: string | null | undefined) => {
+export const tierForProduct = (productId: string | null | undefined) => {
   if (!productId) return null;
   const map = productTierMap();
   return map.get(productId) ?? map.get(productId.split(":")[0]!) ?? null;
 };
+
+/** Same store product, ignoring Google's ":base_plan" suffix. */
+const sameProduct = (a: string | null | undefined, b: string | null | undefined) =>
+  Boolean(a && b) && (a === b || a!.split(":")[0] === b!.split(":")[0]);
 
 const LIVE_STATUSES: StoreSubscriptionStatus[] = [
   "active",
@@ -175,6 +186,10 @@ export interface GroupCoverage {
     live: boolean;
     status: StoreSubscriptionStatus;
     expiresAt: Date | null;
+    productId: string;
+    store: string | null;
+    /** A requested change the store has not confirmed yet. */
+    pendingTier: PlanTier | null;
   } | null;
   /** Sponsored group whose sponsorship is not live: grants are paused. */
   sponsorshipPaused: boolean;
@@ -191,7 +206,7 @@ export const getGroupCoverage = async (
   if (!circle) throw new HttpError(404, "Group not found");
 
   const subs = await db.storeSubscription.findMany({
-    where: { boundCircleId: circleId, tier: { not: "individual" } },
+    where: { boundCircleId: circleId, tier: { not: "individual" }, supersededAt: null },
     orderBy: [{ lastEventAt: "desc" }],
   });
   const live = subs.find((s) => isSubscriptionLive(s));
@@ -213,6 +228,9 @@ export const getGroupCoverage = async (
           live: Boolean(live),
           status: current.status,
           expiresAt: current.expiresAt,
+          productId: current.productId,
+          store: current.store,
+          pendingTier: current.pendingTier,
         }
       : null,
     sponsorshipPaused: circle.fundingMode === "sponsored" && !live,
@@ -261,11 +279,19 @@ export const assertConnectionAccess = async (
 ) => {
   const access = await getConnectionAccess(userId, circleId);
   if (access.allowed) return access;
+  if (access.reason === "sponsorship_paused") {
+    throw new HttpError(
+      402,
+      "This group's plan has ended, so check-ins, SOS and Journey are paused here. Stopping and ending still work.",
+      "GROUP_PLAN_ENDED",
+      { circleId },
+    );
+  }
   throw new HttpError(
     402,
-    access.reason === "sponsorship_paused"
-      ? "This group's plan has ended, so check-ins, SOS and Journey are paused here. Stopping and ending still work."
-      : "This group is funded by ALRT + Individual. Start Individual to take part, or ask the group to use a Family or Group plan.",
+    "Each person in this group needs ALRT + to take part. You can start ALRT +, or the host can cover the group with a Family or Group plan.",
+    "INDIVIDUAL_REQUIRED",
+    { circleId },
   );
 };
 
@@ -289,6 +315,8 @@ export const assertSponsoredCapacity = async (
     throw new HttpError(
       409,
       `This group's plan covers up to ${coverage.capacity} people and is full.`,
+      "GROUP_FULL",
+      { capacity: coverage.capacity, sponsored: true },
     );
   }
   return coverage;
@@ -302,40 +330,76 @@ export const assertSponsoredCapacity = async (
  * Records "this payer is about to buy [tier] for [circleId]" before the
  * store sheet opens. The payer must host the group; capacity is checked
  * now and again when the purchase is bound.
+ *
+ * Upgrades (Family -> Group 20 -> Group 50): when the group already has a
+ * live plan, only the person paying for it may choose a bigger tier. The
+ * intent then names the subscription it replaces, so the new purchase
+ * takes over the SAME group once the store confirms it, whether the store
+ * keeps the transaction (App Store) or issues a new one (Google Play
+ * replacement). A smaller tier is changed in the store and applies at
+ * renewal, never from here.
  */
 export const createSponsorshipIntent = async (
   payerUserId: string,
   circleId: string,
   tier: Exclude<PlanTier, "individual">,
 ) => {
-  const host = await prisma.familyMember.findFirst({
-    where: { circleId, userId: payerUserId, role: "owner" },
-    select: { id: true },
-  });
-  if (!host) {
-    throw new HttpError(403, "Only the group's host can choose a plan for it.");
-  }
   const coverage = await getGroupCoverage(circleId);
-  if (coverage.sponsorship?.live) {
-    throw new HttpError(
-      409,
-      "This group already has a plan. Change it from My plans instead.",
-    );
+  const current = coverage.sponsorship?.live ? coverage.sponsorship : null;
+
+  if (current) {
+    if (current.payerUserId !== payerUserId) {
+      throw new HttpError(
+        409,
+        "This group is already covered by someone else's plan.",
+        "GROUP_ALREADY_COVERED",
+      );
+    }
+    const from = current.tier as Exclude<PlanTier, "individual">;
+    if (SPONSOR_TIER_RANK[tier] === SPONSOR_TIER_RANK[from]) {
+      throw new HttpError(409, "This group already has this plan.", "GROUP_ALREADY_COVERED");
+    }
+    if (SPONSOR_TIER_RANK[tier] < SPONSOR_TIER_RANK[from]) {
+      throw new HttpError(
+        409,
+        "To move to a smaller plan, change it in your app store. It takes effect when your current period renews.",
+        "CHANGE_IN_STORE",
+      );
+    }
+  } else {
+    const host = await prisma.familyMember.findFirst({
+      where: { circleId, userId: payerUserId, role: "owner" },
+      select: { id: true },
+    });
+    if (!host) {
+      throw new HttpError(403, "Only the group's host can choose a plan for it.", "HOST_ONLY");
+    }
   }
   if (coverage.peopleCount > SPONSORED_CAPACITY[tier]) {
     throw new HttpError(
       409,
       `This group has ${coverage.peopleCount} people. Choose a plan that covers at least that many.`,
+      "PLAN_TOO_SMALL",
+      { peopleCount: coverage.peopleCount },
     );
   }
-  return prisma.sponsorshipIntent.create({
+  const intent = await prisma.sponsorshipIntent.create({
     data: {
       payerUserId,
       circleId,
       tier,
+      replacesSubscriptionId: current?.id ?? null,
       expiresAt: new Date(Date.now() + SPONSORSHIP_INTENT_TTL_MS),
     },
   });
+  return {
+    ...intent,
+    // What the app needs for a store replacement (Android asks for the old
+    // product id). Never a transaction or token.
+    replaces: current
+      ? { tier: current.tier, productId: current.productId, store: current.store }
+      : null,
+  };
 };
 
 /**
@@ -358,11 +422,11 @@ export const bindSponsorship = async (
       throw new HttpError(404, "Group plan purchase not found");
     }
     if (sub.userId !== actingUserId) {
-      throw new HttpError(403, "Only the person who bought this plan can apply it.");
+      throw new HttpError(403, "Only the person who bought this plan can apply it.", "PAYER_ONLY");
     }
     if (sub.boundCircleId) {
       if (sub.boundCircleId === circleId) return sub; // idempotent
-      throw new HttpError(409, "This plan already covers another group.");
+      throw new HttpError(409, "This plan already covers another group.", "GROUP_ALREADY_COVERED");
     }
     if (!isSubscriptionLive(sub)) {
       throw new HttpError(409, "This plan is no longer active.");
@@ -372,19 +436,21 @@ export const bindSponsorship = async (
       select: { id: true },
     });
     if (!host) {
-      throw new HttpError(403, "Only the group's host can choose a plan for it.");
+      throw new HttpError(403, "Only the group's host can choose a plan for it.", "HOST_ONLY");
     }
     const otherLive = await tx.storeSubscription.findMany({
-      where: { boundCircleId: circleId, tier: { not: "individual" } },
+      where: { boundCircleId: circleId, tier: { not: "individual" }, supersededAt: null },
     });
     if (otherLive.some((s) => isSubscriptionLive(s))) {
-      throw new HttpError(409, "This group already has a plan.");
+      throw new HttpError(409, "This group already has a plan.", "GROUP_ALREADY_COVERED");
     }
     const people = await tx.familyMember.count({ where: { circleId } });
     if (people > SPONSORED_CAPACITY[sub.tier]) {
       throw new HttpError(
         409,
         `This group has ${people} people, more than this plan covers.`,
+        "PLAN_TOO_SMALL",
+        { peopleCount: people },
       );
     }
     const bound = await tx.storeSubscription.update({
@@ -406,6 +472,55 @@ export const bindSponsorship = async (
 };
 
 /**
+ * The store has confirmed [newId] replaces [oldId] (an upgrade, or a
+ * downgrade that has now taken effect). The new subscription takes over
+ * the old one's group in one locked transaction; the old row is kept as
+ * history and marked superseded so the group is never counted twice.
+ * Capacity is not re-checked here: the store has already charged for the
+ * new tier, and an over-capacity group only blocks new joins (R02).
+ */
+export const replaceSponsorship = async (
+  oldId: string,
+  newId: string,
+  intentId?: string,
+) =>
+  prisma.$transaction(async (tx) => {
+    const old = await tx.storeSubscription.findUnique({ where: { id: oldId } });
+    if (!old?.boundCircleId) return null;
+    await tx.$queryRaw`SELECT id FROM "FamilyCircle" WHERE id = ${old.boundCircleId} FOR UPDATE`;
+    const fresh = await tx.storeSubscription.findUnique({ where: { id: oldId } });
+    const next = await tx.storeSubscription.findUnique({ where: { id: newId } });
+    if (!fresh || !next || fresh.supersededAt || next.boundCircleId) return null;
+    if (fresh.userId !== next.userId || next.tier === "individual") return null;
+    const now = new Date();
+    const bound = await tx.storeSubscription.update({
+      where: { id: next.id },
+      data: { boundCircleId: fresh.boundCircleId, boundAt: now, tierChangedAt: now },
+    });
+    await tx.storeSubscription.update({
+      where: { id: fresh.id },
+      data: {
+        supersededAt: now,
+        supersededById: next.id,
+        pendingProductId: null,
+        pendingTier: null,
+        pendingRequestedAt: null,
+      },
+    });
+    await tx.familyCircle.update({
+      where: { id: fresh.boundCircleId! },
+      data: { fundingMode: "sponsored" },
+    });
+    if (intentId) {
+      await tx.sponsorshipIntent.update({
+        where: { id: intentId },
+        data: { consumedAt: now, subscriptionId: next.id },
+      });
+    }
+    return bound;
+  });
+
+/**
  * Explicit, never automatic: returns a sponsored group to individual
  * funding (each person then needs Individual). Host only, and only when
  * no live sponsorship covers it.
@@ -418,7 +533,7 @@ export const switchGroupToIndividualFunding = async (
     where: { circleId, userId, role: "owner" },
     select: { id: true },
   });
-  if (!host) throw new HttpError(403, "Only the group's host can change this.");
+  if (!host) throw new HttpError(403, "Only the group's host can change this.", "HOST_ONLY");
   const coverage = await getGroupCoverage(circleId);
   if (coverage.sponsorship?.live) {
     throw new HttpError(409, "This group's plan is still active.");
@@ -467,6 +582,15 @@ export const getAccessSummary = async (userId: string) => {
             expiresAt: coverage.sponsorship.expiresAt,
             coveredBy,
             youPay: coverage.sponsorship.payerUserId === userId,
+            pendingTier: coverage.sponsorship.pendingTier,
+            // Only the payer needs these (store management and Android
+            // replacement); nobody else sees another person's product.
+            ...(coverage.sponsorship.payerUserId === userId
+              ? {
+                  productId: coverage.sponsorship.productId,
+                  store: coverage.sponsorship.store,
+                }
+              : {}),
           }
         : null,
       connectionAccess: access,
@@ -475,7 +599,7 @@ export const getAccessSummary = async (userId: string) => {
   const unboundSponsorships = billingEnabled()
     ? (
         await prisma.storeSubscription.findMany({
-          where: { userId, tier: { not: "individual" }, boundCircleId: null },
+          where: { userId, tier: { not: "individual" }, boundCircleId: null, supersededAt: null },
         })
       )
         .filter((s) => isSubscriptionLive(s))
@@ -531,7 +655,6 @@ const statusForEvent = (
     case "INITIAL_PURCHASE":
     case "RENEWAL":
     case "UNCANCELLATION":
-    case "PRODUCT_CHANGE":
     case "SUBSCRIPTION_EXTENDED":
     case "TEMPORARY_ENTITLEMENT_GRANT":
     case "NON_RENEWING_PURCHASE":
@@ -619,13 +742,16 @@ export const applyRevenueCatEvent = async (
   if (!userId || userId.startsWith("$RCAnonymousID:")) {
     return finish({ action: "ignored", reason: "anonymous or missing app_user_id" });
   }
+  if (type === "PRODUCT_CHANGE") {
+    const result = await recordPendingChange(event, userId, eventAt);
+    if (result.action === "applied") await confirmPendingChanges(userId);
+    return finish(result);
+  }
+
   const status = statusForEvent(event);
   if (!status) return finish({ action: "ignored", reason: `event type ${type}` });
 
-  const productId =
-    type === "PRODUCT_CHANGE" && event.new_product_id
-      ? event.new_product_id
-      : event.product_id;
+  const productId = event.product_id;
   const tier = tierForProduct(productId);
   if (!tier) {
     return finish({ action: "ignored", reason: `unmapped product ${productId ?? "?"}` });
@@ -657,6 +783,13 @@ export const applyRevenueCatEvent = async (
     return finish({ action: "ignored", reason: "tier family changed on one transaction" });
   }
 
+  // A lifecycle event naming a different product on the same transaction is
+  // the store confirming a change has taken effect (for example the RENEWAL
+  // that starts a scheduled downgrade). Only then does the tier move.
+  const tierChanged = Boolean(existing && existing.tier !== tier);
+  const pendingConfirmed =
+    existing && sameProduct(existing.pendingProductId, productId);
+
   const data = {
     tier,
     productId: productId!,
@@ -673,6 +806,10 @@ export const applyRevenueCatEvent = async (
       ? new Date(event.grace_period_expiration_at_ms)
       : null,
     lastEventAt: eventAt,
+    ...(tierChanged ? { tierChangedAt: eventAt, changeConfirmedVia: "webhook" } : {}),
+    ...(pendingConfirmed || status === "expired" || status === "refunded"
+      ? { pendingProductId: null, pendingTier: null, pendingRequestedAt: null }
+      : {}),
   };
 
   const sub = existing
@@ -681,31 +818,253 @@ export const applyRevenueCatEvent = async (
         data: { ...data, userId: user.id, originalTransactionId },
       });
 
-  // A new group purchase binds to the payer's one open intent for that
-  // tier. Zero or several open intents: it stays unbound and the payer
-  // chooses the group in the app (never an arbitrary current group).
+  if (tierChanged && tier !== "individual") {
+    await consumeReplaceIntents(sub.id, tier);
+  }
+
+  // A new group purchase either replaces the payer's current plan for a
+  // group (upgrade, or a confirmed scheduled change that arrived as a new
+  // store transaction), or binds to the payer's one open intent for that
+  // tier. Anything ambiguous stays unbound and the payer chooses the group
+  // in the app (never an arbitrary current group).
   if (tier !== "individual" && !sub.boundCircleId && isSubscriptionLive(sub)) {
-    const intents = await prisma.sponsorshipIntent.findMany({
-      where: {
-        payerUserId: user.id,
-        tier,
-        consumedAt: null,
-        expiresAt: { gt: new Date(Date.now() - SPONSORSHIP_INTENT_TTL_MS) },
-      },
-    });
-    if (intents.length === 1) {
-      try {
-        await bindSponsorship(sub.id, intents[0]!.circleId, user.id, intents[0]!.id);
-      } catch (error) {
-        console.warn(
-          `[revenuecat] purchase ${sub.id} left unbound: ${(error as Error).message}`,
-        );
+    const replacement = await findReplacedSponsorship(user.id, sub.id, productId!, tier);
+    if (replacement) {
+      await replaceSponsorship(replacement.oldId, sub.id, replacement.intentId);
+    } else {
+      const intents = await prisma.sponsorshipIntent.findMany({
+        where: {
+          payerUserId: user.id,
+          tier,
+          consumedAt: null,
+          replacesSubscriptionId: null,
+          expiresAt: { gt: new Date(Date.now() - SPONSORSHIP_INTENT_TTL_MS) },
+        },
+      });
+      if (intents.length === 1) {
+        try {
+          await bindSponsorship(sub.id, intents[0]!.circleId, user.id, intents[0]!.id);
+        } catch (error) {
+          console.warn(
+            `[revenuecat] purchase ${sub.id} left unbound: ${(error as Error).message}`,
+          );
+        }
       }
     }
   }
 
   if (tier === "individual") await syncPersonalMirror(user.id);
-  return finish({ action: "applied", reason: `${tier} ${status}` });
+  return finish({
+    action: "applied",
+    reason: `${tier} ${status}${tierChanged ? " (change confirmed)" : ""}`,
+  });
+};
+
+/**
+ * PRODUCT_CHANGE means a change was REQUESTED. The store may apply it now
+ * (most upgrades) or at renewal (downgrades), so the active tier never
+ * moves here: the request is kept as pending until a store event, or the
+ * store's own subscriber record, shows the new product in effect.
+ */
+const recordPendingChange = async (
+  event: RevenueCatEvent,
+  userId: string,
+  eventAt: Date,
+): Promise<ApplyResult> => {
+  const newTier = tierForProduct(event.new_product_id);
+  if (!newTier) {
+    return { action: "ignored", reason: `unmapped product ${event.new_product_id ?? "?"}` };
+  }
+  const txId = event.original_transaction_id || event.transaction_id;
+  let row = txId
+    ? await prisma.storeSubscription.findUnique({ where: { originalTransactionId: txId } })
+    : null;
+  if (!row) {
+    // Google can report the change against the new purchase token: find
+    // the payer's one current subscription for the old product instead.
+    const candidates = (
+      await prisma.storeSubscription.findMany({
+        where: { userId, supersededAt: null },
+      })
+    ).filter((r) => sameProduct(r.productId, event.product_id) && isSubscriptionLive(r));
+    row = candidates.length === 1 ? candidates[0]! : null;
+  }
+  if (!row) return { action: "ignored", reason: "product change for an unknown subscription" };
+  if (row.userId !== userId) {
+    return { action: "ignored", reason: "transaction belongs to another user" };
+  }
+  if ((row.tier === "individual") !== (newTier === "individual")) {
+    return { action: "ignored", reason: "tier family changed on one transaction" };
+  }
+  if (row.lastEventAt > eventAt) {
+    return { action: "ignored", reason: "older than the state already applied" };
+  }
+  const reverted = sameProduct(event.new_product_id, row.productId);
+  await prisma.storeSubscription.update({
+    where: { id: row.id },
+    data: reverted
+      ? { pendingProductId: null, pendingTier: null, pendingRequestedAt: null, lastEventAt: eventAt }
+      : {
+          pendingProductId: event.new_product_id!,
+          pendingTier: newTier,
+          pendingRequestedAt: eventAt,
+          lastEventAt: eventAt,
+        },
+  });
+  return {
+    action: "applied",
+    reason: reverted ? "pending change withdrawn" : `pending ${newTier} (not in effect yet)`,
+  };
+};
+
+/**
+ * Which of the payer's bound plans a NEW group transaction replaces: the
+ * one named by an open upgrade intent, or the one whose pending change is
+ * for this product. Exactly one candidate or none: never a guess.
+ */
+const findReplacedSponsorship = async (
+  payerUserId: string,
+  newSubId: string,
+  productId: string,
+  tier: PlanTier,
+): Promise<{ oldId: string; intentId?: string | undefined } | null> => {
+  const found = new Map<string, string | undefined>();
+  const intents = await prisma.sponsorshipIntent.findMany({
+    where: {
+      payerUserId,
+      tier,
+      consumedAt: null,
+      replacesSubscriptionId: { not: null },
+      expiresAt: { gt: new Date(Date.now() - SPONSORSHIP_INTENT_TTL_MS) },
+    },
+  });
+  for (const intent of intents) found.set(intent.replacesSubscriptionId!, intent.id);
+  const rows = await prisma.storeSubscription.findMany({
+    where: {
+      userId: payerUserId,
+      tier: { not: "individual" },
+      boundCircleId: { not: null },
+      supersededAt: null,
+      id: { not: newSubId },
+    },
+  });
+  for (const row of rows) {
+    const pendingMatch = sameProduct(row.pendingProductId, productId);
+    // Already switched from the store's subscriber record; this is the
+    // same change arriving as its own transaction.
+    const apiMatch =
+      row.changeConfirmedVia === "revenuecat_api" && sameProduct(row.productId, productId);
+    if ((pendingMatch || apiMatch) && !found.has(row.id)) found.set(row.id, undefined);
+  }
+  const live = [];
+  for (const [oldId, intentId] of found) {
+    const row = rows.find((r) => r.id === oldId);
+    if (row) live.push({ oldId, intentId });
+  }
+  return live.length === 1 ? live[0]! : null;
+};
+
+/** A change confirmed on the same transaction fulfils its upgrade intent. */
+const consumeReplaceIntents = async (subId: string, tier: PlanTier) => {
+  await prisma.sponsorshipIntent.updateMany({
+    where: { replacesSubscriptionId: subId, tier, consumedAt: null },
+    data: { consumedAt: new Date() },
+  });
+};
+
+type Fetch = typeof fetch;
+
+export interface ReconcileResult {
+  /** False when the store record could not be read (no key, or an error). */
+  checked: boolean;
+  /** Requested changes the store record shows in effect, now applied. */
+  confirmedChanges: number;
+  /** Active store purchases ALRT has no confirmed record of yet. */
+  unrecorded: { productId: string; tier: PlanTier }[];
+  error?: string;
+}
+
+/**
+ * Reads the payer's subscriber record from RevenueCat's server API (never
+ * from the app) to confirm pending changes and to spot purchases whose
+ * webhook has not arrived. Optional: without REVENUECAT_SECRET_API_KEY it
+ * reports checked=false and pending changes wait for the next store event.
+ */
+export const confirmPendingChanges = async (
+  userId: string,
+  fetchImpl: Fetch = fetch,
+): Promise<ReconcileResult> => {
+  const key = process.env.REVENUECAT_SECRET_API_KEY;
+  const base = process.env.REVENUECAT_API_BASE ?? "https://api.revenuecat.com";
+  if (!key) return { checked: false, confirmedChanges: 0, unrecorded: [] };
+  let subscriptions: Record<string, any> = {};
+  try {
+    const res = await fetchImpl(`${base}/v1/subscribers/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+    });
+    if (!res.ok) {
+      return { checked: false, confirmedChanges: 0, unrecorded: [], error: `RevenueCat ${res.status}` };
+    }
+    const body = (await res.json()) as any;
+    subscriptions = body?.subscriber?.subscriptions ?? {};
+  } catch (error) {
+    return { checked: false, confirmedChanges: 0, unrecorded: [], error: (error as Error).message };
+  }
+
+  const now = Date.now();
+  const env = expectedEnvironment();
+  const inEffect = (productId: string, since?: Date | null) => {
+    const key = Object.keys(subscriptions).find((k) => sameProduct(k, productId));
+    const entry = key ? subscriptions[key] : null;
+    if (!entry || entry.refunded_at) return null;
+    if (env === "PRODUCTION" && entry.is_sandbox === true) return null;
+    if (env === "SANDBOX" && entry.is_sandbox === false) return null;
+    const started = Date.parse(entry.purchase_date ?? "");
+    const ends = entry.expires_date ? Date.parse(entry.expires_date) : null;
+    if (!Number.isFinite(started) || started > now) return null;
+    if (ends !== null && ends <= now) return null;
+    // A purchase of this product from before the request is not the change.
+    if (since && started < since.getTime() - 5 * 60 * 1000) return null;
+    return { entry, ends };
+  };
+
+  let confirmedChanges = 0;
+  const pending = await prisma.storeSubscription.findMany({
+    where: { userId, supersededAt: null, pendingProductId: { not: null } },
+  });
+  for (const row of pending) {
+    const hit = inEffect(row.pendingProductId!, row.pendingRequestedAt);
+    if (!hit || !row.pendingTier) continue;
+    const at = new Date();
+    await prisma.storeSubscription.update({
+      where: { id: row.id },
+      data: {
+        tier: row.pendingTier,
+        productId: row.pendingProductId!,
+        expiresAt: hit.ends !== null ? new Date(hit.ends) : row.expiresAt,
+        tierChangedAt: at,
+        changeConfirmedVia: "revenuecat_api",
+        pendingProductId: null,
+        pendingTier: null,
+        pendingRequestedAt: null,
+      },
+    });
+    await consumeReplaceIntents(row.id, row.pendingTier);
+    confirmedChanges += 1;
+  }
+
+  const rows = await prisma.storeSubscription.findMany({
+    where: { userId, supersededAt: null },
+  });
+  const unrecorded: ReconcileResult["unrecorded"] = [];
+  for (const productId of Object.keys(subscriptions)) {
+    const tier = tierForProduct(productId);
+    if (!tier || !inEffect(productId)) continue;
+    const known = rows.some((r) => sameProduct(r.productId, productId) && isSubscriptionLive(r));
+    if (!known) unrecorded.push({ productId, tier });
+  }
+  if (confirmedChanges > 0) await syncPersonalMirror(userId);
+  return { checked: true, confirmedChanges, unrecorded };
 };
 
 /** TRANSFER moves a store account's purchases between app users. */

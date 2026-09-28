@@ -65,6 +65,24 @@ reintroduce seats, a group-count cap or a single global plan flag.
   refused, existing guest rows count as people.
 - A sponsorship binds once to the group chosen before checkout
   (SponsorshipIntent, host only) or later by its payer; never re-pointed.
+- Tier changes (2026-09-28 follow-up): PRODUCT_CHANGE is a REQUEST and
+  never moves the active tier; it is kept as pendingTier until a store
+  event names the new product on that transaction, or RevenueCat's server
+  API (REVENUECAT_SECRET_API_KEY, optional) shows it in effect. Upgrades
+  Family -> Group 20 -> Group 50 are started by the current payer with an
+  intent that names the subscription it replaces; a new store transaction
+  (Google replacement) takes over the SAME group and the old row is
+  superseded, never counted twice. Smaller tiers change in the store at
+  renewal. An ambiguous replacement is never guessed (stays unbound).
+- Refusals carry a stable `code` (HttpErrorCode): INDIVIDUAL_REQUIRED,
+  GROUP_PLAN_ENDED, SAVED_PLACE_LIMIT, GROUP_FULL, GROUP_ALREADY_COVERED,
+  PLAN_TOO_SMALL, CHANGE_IN_STORE, HOST_ONLY, PAYER_ONLY,
+  NO_SOS_RECIPIENTS, SOS_PRESET_OTHER_GROUP. The app branches on the code,
+  never on wording.
+- POST /api/access/reconcile only confirms pending changes and REPORTS
+  store purchases not yet recorded; it never grants access itself.
+- Legacy guests: nothing converts them automatically.
+  scripts/inspect_guest_members.ts is a read-only report.
 - Billing is still off on TEST (BILLING_ENABLED=false): every access check
   answers yes, exactly as before.
 - Hosting and ownership transfer are administrative, not paid: children

@@ -1417,7 +1417,10 @@ export const joinCircleWithCode = async (userId: string, code: string) => {
     if (sponsoredCapacity === null) {
       const people = await tx.familyMember.count({ where: { circleId: invite.circleId } });
       if (people >= invite.circle.maxMembers) {
-        throw new HttpError(400, "This group is full");
+        throw new HttpError(400, "This group is full", "GROUP_FULL", {
+          capacity: invite.circle.maxMembers,
+          sponsored: false,
+        });
       }
     }
     const already = await tx.familyMember.findFirst({
@@ -2224,6 +2227,7 @@ export const triggerSos = async (
       throw new HttpError(
         422,
         `"${sosList.name}" includes people from another group. Edit it so it only names people in this group, or send to everyone in this group.`,
+        "SOS_PRESET_OTHER_GROUP",
       );
     }
     candidateMembers = listed;
@@ -2248,6 +2252,8 @@ export const triggerSos = async (
         : listName
           ? `No one on "${listName}" can receive an SOS right now. Edit the list first. If you are in immediate danger, call your local emergency number.`
           : "No one in this group can receive an SOS right now. If you are in immediate danger, call your local emergency number.",
+      "NO_SOS_RECIPIENTS",
+      { hasCandidates: candidateMembers.length > 0 },
     );
   }
 

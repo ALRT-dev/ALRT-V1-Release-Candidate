@@ -6,6 +6,7 @@ import type {
 } from "../validators/access.validator.js";
 import {
   bindSponsorship,
+  confirmPendingChanges,
   createSponsorshipIntent,
   getAccessSummary,
   switchGroupToIndividualFunding,
@@ -77,6 +78,34 @@ export const switchToIndividualFundingController = async (
     if (!circleId) throw new HttpError(400, "Missing group id");
     const circle = await switchGroupToIndividualFunding(requireUserId(res), circleId);
     res.json({ circleId: circle.id, fundingMode: circle.fundingMode });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/access/reconcile
+ * After a purchase or Restore: asks the STORE's server record (never the
+ * app) whether pending changes are in effect and whether any active
+ * purchase has not reached ALRT yet, then returns the access summary. The
+ * app words Restore from this: confirmed, still pending, or not found.
+ */
+export const reconcileAccessController = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const store = await confirmPendingChanges(userId);
+    res.json({
+      store: {
+        checked: store.checked,
+        confirmedChanges: store.confirmedChanges,
+        unrecorded: store.unrecorded,
+      },
+      access: await getAccessSummary(userId),
+    });
   } catch (error) {
     next(error);
   }

@@ -9,5 +9,9 @@ export const errorHandlerMiddleware = (
   console.error(`Error occurred at endpoint ${req.originalUrl}:`, error);
   res
     .status(error.statusCode || 500)
-    .send({ error: error.message || "Internal Server Error" });
+    .send({
+      error: error.message || "Internal Server Error",
+      ...(error.code ? { code: error.code } : {}),
+      ...(error.details ? { details: error.details } : {}),
+    });
 };
