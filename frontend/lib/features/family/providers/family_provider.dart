@@ -1,3 +1,5 @@
+import 'package:hazard_app/features/family/services/location_fix.dart';
+import 'package:hazard_app/features/family/services/sos_api.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -54,6 +56,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   final Ref _ref;
   FamilyService get _familyService => _ref.read(providerOfFamilyService);
+  SosApi get _sosApi => _ref.read(providerOfSosApi);
   FamilyLocationService get _familyLocationService =>
       _ref.read(providerOfFamilyLocationService);
   FamilySocketManager get _familySocketManager =>
@@ -82,7 +85,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   static const _sosLiveInterval = Duration(seconds: 20);
   Timer? _sosLiveTimer;
 
-  void _startSosLiveShare() {
+  void _startSosLiveShare(final String sosEventId) {
     _sosLiveTimer?.cancel();
     _sosLiveTimer = Timer.periodic(_sosLiveInterval, (_) async {
       // Stop the loop the moment my SOS is no longer active, whichever
@@ -97,7 +100,20 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         _stopSosLiveShare();
         return;
       }
-      await _familyLocationService.shareSnapshotNow();
+      // Only a CURRENT fix is ever sent as a live point, and only to this
+      // SOS (its audience), never the group's snapshot channel. No fix this
+      // round: nothing is sent, and nothing old is passed off as new.
+      final fix = await _familyLocationService.resolveFix();
+      if (!fix.isCurrent) return;
+      final sent = await _sosApi.sendLivePoint(
+        sosEventId: sosEventId,
+        latitude: fix.position!.latitude,
+        longitude: fix.position!.longitude,
+        capturedAt: fix.capturedAt!,
+        accuracy: fix.position!.accuracy,
+      );
+      // 409: the SOS ended (or live was not chosen): stop at once.
+      if (sent.isFailure && sent.failure.code == '409') _stopSosLiveShare();
     });
   }
 
@@ -1173,7 +1189,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     double? longitude;
     if (share) {
       final position = await _familyLocationService
-          .getLastKnownOrCurrentPosition();
+          .getCurrentPositionOrNull();
       if (position == null) return false;
       latitude = position.latitude;
       longitude = position.longitude;
@@ -1242,7 +1258,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     state = state.copyWith(checkInState: const FamilyActionState.loading());
 
     final position = shareLocation
-        ? await _familyLocationService.getLastKnownOrCurrentPosition()
+        ? await _familyLocationService.getCurrentPositionOrNull()
         : null;
     if (!mounted) return;
 
@@ -1579,7 +1595,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     if (journey == null || !journey.isActive) return;
 
     final position = await _familyLocationService
-        .getLastKnownOrCurrentPosition();
+        .getCurrentPositionOrNull();
     if (position == null || !mounted) return;
 
     final result = await _familyService.postFamilyJourneyPoint(
@@ -1904,19 +1920,35 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// still reaches every recipient either way.
   Future<FamilySosEvent?> triggerSos({
     final String? sosListId,
-    required final bool isLive,
+    required final SosLocationChoice location,
+    final LocationFix? fix,
   }) async {
     state = state.copyWith(sosTriggerState: const FamilyActionState.loading());
 
-    final position = await _familyLocationService
-        .getLastKnownOrCurrentPosition();
-    if (!mounted) return null;
+    // Exactly what the sender chose on the SOS screen, never more:
+    // - none: no coordinates at all;
+    // - once: the fix they saw, with its real time (a last-known point is
+    //   sent as last known, never as "now");
+    // - live: a current fix only, then live points while it runs.
+    final isLive = location == SosLocationChoice.live;
+    final point = switch (location) {
+      SosLocationChoice.none => null,
+      SosLocationChoice.once => fix?.hasPoint == true ? fix : null,
+      SosLocationChoice.live => fix?.isCurrent == true ? fix : null,
+    };
+    // Precision follows the sender's own sharing setting; the server
+    // enforces the same ceiling.
+    final precise = state.circle?.me?.sharingLevel == FamilySharingLevel.precise;
 
     final result = await _familyService.triggerFamilySos(
-      latitude: position?.latitude,
-      longitude: position?.longitude,
+      latitude: point?.position?.latitude,
+      longitude: point?.position?.longitude,
       sosListId: sosListId,
       isLive: isLive,
+      locationMode: location.name,
+      locationPrecision: precise ? 'precise' : 'approximate',
+      locationCapturedAt: point?.capturedAt,
+      locationAccuracyM: point?.position?.accuracy,
     );
     if (!mounted) return null;
 
@@ -1926,7 +1958,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         _noteRecentSos(sosEvent.id);
         _upsertSosEvent(sosEvent);
         // Only start the continuous stream when the sender chose it.
-        if (isLive) _startSosLiveShare();
+        if (isLive) _startSosLiveShare(sosEvent.id);
         state = state.copyWith(
           sosTriggerState: const FamilyActionState.success(),
         );
@@ -2159,3 +2191,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         : context.showSuccessToast(message: message);
   }
 }
+
+/// The sender's explicit SOS location choice (review follow-up): No
+/// location, Share location once, Share live location.
+enum SosLocationChoice { none, once, live }

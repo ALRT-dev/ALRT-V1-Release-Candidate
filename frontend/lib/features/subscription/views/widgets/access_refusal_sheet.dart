@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
+import 'package:collection/collection.dart';
+import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_list_edit_screen.dart';
+import 'package:hazard_app/features/family/views/screens/family_sos_lists_screen.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
@@ -86,7 +89,21 @@ Future<void> showAccessRefusalSheet(
     case RefusalAction.inviteSomeone:
       await context.push(FamilyInviteScreen.route);
     case RefusalAction.editSosList:
-      await context.push(FamilySosListEditScreen.route);
+      // Open THAT list; if it is gone, the list of lists. Never a blank
+      // new list.
+      final list = ref
+          .read(providerOfFamily)
+          .sosLists
+          .where((l) => l.id == refusal.sosListId)
+          .firstOrNull;
+      if (list != null) {
+        await context.push(
+          FamilySosListEditScreen.route,
+          extra: FamilySosListEditScreenArgs(list: list),
+        );
+      } else {
+        await context.push(FamilySosListsScreen.route);
+      }
   }
 }
 

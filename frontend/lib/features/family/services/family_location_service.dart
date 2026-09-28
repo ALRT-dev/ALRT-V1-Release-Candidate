@@ -3,7 +3,12 @@ import 'dart:developer';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hazard_app/features/family/services/family_service.dart';
-import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
+import 'package:hazard_app/features/family/services/location_fix.dart';
+
+/// The phone's location API (overridden in tests).
+final providerOfDeviceLocationSource = Provider<DeviceLocationSource>(
+  (ref) => const GeolocatorLocationSource(),
+);
 
 /// Provides [FamilyLocationService].
 final providerOfFamilyLocationService = Provider<FamilyLocationService>(
@@ -30,7 +35,7 @@ class FamilyLocationService {
   /// Returns true when a snapshot was shared; false when location is
   /// unavailable or not permitted (never crashes).
   Future<bool> shareSnapshotNow() async {
-    final position = await getLastKnownOrCurrentPosition();
+    final position = await getCurrentPositionOrNull();
     if (position == null) {
       log(
         'No location available — snapshot not shared.',
@@ -49,47 +54,18 @@ class FamilyLocationService {
     return result.whenSuccess((_) => true) ?? false;
   }
 
-  /// Returns the last known position, falling back to a fresh (low accuracy)
-  /// fix. Returns `null` when the location is unavailable or not permitted.
-  Future<Position?> getLastKnownOrCurrentPosition() {
-    return runAsyncCall<Position?>(
-      name: 'getLastKnownOrCurrentPosition',
-      future: () async {
-        final hasPermission = await _hasLocationPermission();
-        if (!hasPermission) return null;
+  /// The phone's location, said truthfully: current, last known (with its
+  /// age) or unavailable (with the reason). See [resolveLocationFix].
+  Future<LocationFix> resolveFix() =>
+      resolveLocationFix(_ref.read(providerOfDeviceLocationSource));
 
-        final lastKnown = await Geolocator.getLastKnownPosition();
-        if (lastKnown != null) return lastKnown;
-
-        return Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 10),
-          ),
-        );
-      },
-      onError: (_) => null,
-    );
-  }
-
-  /// Returns true when location services are enabled and permission is
-  /// granted (requesting it once when it is simply denied).
-  Future<bool> _hasLocationPermission() {
-    return runAsyncCall<bool>(
-      name: 'familyLocationPermissionCheck',
-      future: () async {
-        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (!serviceEnabled) return false;
-
-        var permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-        }
-
-        return permission == LocationPermission.whileInUse ||
-            permission == LocationPermission.always;
-      },
-      onError: (_) => false,
-    );
+  /// A position only when it is CURRENT (fixed in the last two minutes).
+  /// Check-ins, answers to "where are you" and journeys send "where you
+  /// are now", so an old cached point is never used for them: they go
+  /// without a location instead. (The old helper returned any cached
+  /// point, however old.)
+  Future<Position?> getCurrentPositionOrNull() async {
+    final fix = await resolveFix();
+    return fix.isCurrent ? fix.position : null;
   }
 }

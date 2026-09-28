@@ -261,7 +261,28 @@ void main() {
         )!,
       );
       expect(unreachable.primary, isNull);
-      expect(unreachable.body, contains('can receive an SOS'));
+      expect(unreachable.title, contains('can receive an SOS'));
+    });
+
+    test('a list naming nobody in this group opens THAT list, never Invite', () {
+      final r = AccessRefusal.fromError(
+        _coded('NO_SOS_RECIPIENTS', {
+          'hasCandidates': false,
+          'sosListId': 'l1',
+          'presetState': 'empty',
+        }),
+      )!;
+      expect(r.sosListId, 'l1');
+      final p = refusalPresentation(r);
+      expect(p.primary, RefusalAction.editSosList);
+      expect(p.primary, isNot(RefusalAction.inviteSomeone));
+      final cross = refusalPresentation(
+        AccessRefusal.fromError(
+          _coded('SOS_PRESET_OTHER_GROUP', {'sosListId': 'l2'}),
+        )!,
+      );
+      expect(cross.primary, RefusalAction.editSosList);
+      expect(cross.primaryLabel, 'Edit this list');
     });
   });
 
@@ -297,11 +318,53 @@ void main() {
 
     test('nobody to reach is empty; long lists are summarised', () {
       expect(sosPreview(others: const [], list: null, live: true).isEmpty, isTrue);
-      final many = SosPreview(
+      final many = LocalSosPreview(
         names: const ['A', 'B', 'C', 'D', 'E', 'F'],
         live: true,
       );
       expect(many.recipientsLine, 'A, B, C and 3 others');
+    });
+  });
+
+  group('What a recipient is told about SOS location', () {
+    final at = DateTime(2026, 9, 29, 12);
+    FamilySosEvent ev({
+      String? mode,
+      String? label,
+      DateTime? captured,
+      bool isLive = false,
+      double? lat,
+    }) => FamilySosEvent(
+      id: 's',
+      circleId: 'c',
+      memberId: 'm',
+      isLive: isLive,
+      locationMode: mode,
+      locationLabel: label,
+      locationCapturedAt: captured,
+      latitude: lat,
+      createdAt: at,
+    );
+
+    test('no location is said plainly', () {
+      expect(sosLocationLine(ev(mode: 'none'), ended: false),
+          'No location was shared with this SOS.');
+    });
+    test('a last-known point says how old it was', () {
+      expect(
+        sosLocationLine(
+          ev(mode: 'once', label: 'Eleebana', captured: at.subtract(const Duration(minutes: 12))),
+          ended: false,
+        ),
+        'Near Eleebana · last known location, 12 min before the SOS · shared once',
+      );
+    });
+    test('live with no point yet never claims one', () {
+      expect(sosLocationLine(ev(mode: 'live', isLive: true), ended: false),
+          'Live location will appear when their phone finds them');
+    });
+    test('ended', () {
+      expect(sosLocationLine(ev(mode: 'live'), ended: true), contains('ended'));
     });
   });
 

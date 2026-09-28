@@ -194,6 +194,10 @@ abstract class FamilyRepository {
     final double? longitude,
     final String? sosListId,
     required final bool isLive,
+    final String? locationMode,
+    final String? locationPrecision,
+    final DateTime? locationCapturedAt,
+    final double? locationAccuracyM,
   });
 
   /// Starts a journey shared with the chosen members.
@@ -915,6 +919,10 @@ class FamilyRepositoryImpl implements FamilyRepository {
     double? longitude,
     String? sosListId,
     required bool isLive,
+    String? locationMode,
+    String? locationPrecision,
+    DateTime? locationCapturedAt,
+    double? locationAccuracyM,
   }) {
     return runAsyncCall(
       name: 'triggerFamilySos',
@@ -924,6 +932,10 @@ class FamilyRepositoryImpl implements FamilyRepository {
           longitude: longitude,
           sosListId: sosListId,
           isLive: isLive,
+          locationMode: locationMode,
+          locationPrecision: locationPrecision,
+          locationCapturedAt: locationCapturedAt?.toUtc().toIso8601String(),
+          locationAccuracyM: locationAccuracyM,
           circleId: _circleId,
         );
         return Success(result);

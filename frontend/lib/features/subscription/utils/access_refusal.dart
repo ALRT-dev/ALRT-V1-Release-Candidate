@@ -28,6 +28,8 @@ class AccessRefusal {
     this.capacity,
     this.sponsored = false,
     this.hasCandidates = false,
+    this.sosListId,
+    this.presetState,
   });
 
   final AccessRefusalKind kind;
@@ -38,6 +40,12 @@ class AccessRefusal {
   final int? capacity;
   final bool sponsored;
   final bool hasCandidates;
+
+  /// The SOS list the refusal is about (to open THAT list for repair).
+  final String? sosListId;
+
+  /// ok | outdated | otherGroup | empty
+  final String? presetState;
 
   static const _codes = {
     'INDIVIDUAL_REQUIRED': AccessRefusalKind.individualRequired,
@@ -67,6 +75,8 @@ class AccessRefusal {
       capacity: d['capacity'] is int ? d['capacity'] as int : null,
       sponsored: d['sponsored'] == true,
       hasCandidates: d['hasCandidates'] == true,
+      sosListId: d['sosListId']?.toString(),
+      presetState: d['presetState']?.toString(),
     );
   }
 }
@@ -173,10 +183,24 @@ RefusalPresentation refusalPresentation(
         body: refusal.message,
       );
     case AccessRefusalKind.noSosRecipients:
+      // A list that names nobody in this group is a list to repair, not a
+      // reason to invite people; people who exist but can't receive it are
+      // neither. "Invite someone" only when the group has nobody else.
+      if (refusal.sosListId != null) {
+        return RefusalPresentation(
+          title: 'Your SOS list needs fixing',
+          body: refusal.message,
+          primary: RefusalAction.editSosList,
+          primaryLabel: 'Edit this list',
+        );
+      }
       return RefusalPresentation(
-        title: 'Add someone first',
+        title: refusal.hasCandidates
+            ? 'No one here can receive an SOS right now'
+            : 'Add someone first',
         body: refusal.hasCandidates
-            ? 'No one in this group can receive an SOS right now. $_dangerLine'
+            ? 'Everyone in this group needs ALRT +, or a group plan that is '
+                  'active. $_dangerLine'
             : 'You need at least one other person in this group to send an '
                   'SOS. $_dangerLine',
         primary: refusal.hasCandidates ? null : RefusalAction.inviteSomeone,
@@ -184,10 +208,10 @@ RefusalPresentation refusalPresentation(
       );
     case AccessRefusalKind.sosPresetOtherGroup:
       return RefusalPresentation(
-        title: 'Edit your SOS list',
+        title: 'Your SOS list needs fixing',
         body: refusal.message,
         primary: RefusalAction.editSosList,
-        primaryLabel: 'Edit SOS lists',
+        primaryLabel: 'Edit this list',
       );
     case AccessRefusalKind.savedPlaceLimit:
       return RefusalPresentation(

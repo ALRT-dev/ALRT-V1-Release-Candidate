@@ -653,6 +653,12 @@ _FamilySosEvent _$FamilySosEventFromJson(
   latitude: (json['latitude'] as num?)?.toDouble(),
   longitude: (json['longitude'] as num?)?.toDouble(),
   locationLabel: json['locationLabel'] as String?,
+  locationMode: json['locationMode'] as String?,
+  locationPrecision: json['locationPrecision'] as String?,
+  locationCapturedAt: json['locationCapturedAt'] == null
+      ? null
+      : DateTime.parse(json['locationCapturedAt'] as String),
+  locationAccuracyM: (json['locationAccuracyM'] as num?)?.toDouble(),
   member: json['member'] == null
       ? null
       : FamilyMemberSnippet.fromJson(json['member'] as Map<String, dynamic>),
@@ -679,6 +685,10 @@ Map<String, dynamic> _$FamilySosEventToJson(_FamilySosEvent instance) =>
       'latitude': ?instance.latitude,
       'longitude': ?instance.longitude,
       'locationLabel': ?instance.locationLabel,
+      'locationMode': ?instance.locationMode,
+      'locationPrecision': ?instance.locationPrecision,
+      'locationCapturedAt': ?instance.locationCapturedAt?.toIso8601String(),
+      'locationAccuracyM': ?instance.locationAccuracyM,
       'member': ?instance.member?.toJson(),
       'responses': instance.responses.map((e) => e.toJson()).toList(),
       'resolvedAt': ?instance.resolvedAt?.toIso8601String(),

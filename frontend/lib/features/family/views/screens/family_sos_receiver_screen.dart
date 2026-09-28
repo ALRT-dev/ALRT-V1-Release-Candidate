@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/family/utils/sos_preview.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -230,16 +231,10 @@ class _FamilySosReceiverScreenState
         )
         .firstOrNull;
 
-    // Where the person is right now: the socket-patched member location is
-    // the freshest, then the newest trail point, then the trigger snapshot.
-    final liveMember = ref.watch(
-      providerOfFamily.select(
-        (s) => s.circle?.members.where((m) => m.id == sos.memberId).firstOrNull,
-      ),
-    );
-    final position = !isResolved && (liveMember?.hasLiveLocation ?? false)
-        ? LatLng(liveMember!.latitude!, liveMember.longitude!)
-        : !isResolved && _trail.isNotEmpty
+    // Where the SOS says they are: its own newest live point, then the
+    // point sent with it. Never the sender's ordinary group location: an
+    // SOS location belongs to the SOS and its audience.
+    final position = !isResolved && _trail.isNotEmpty
         ? LatLng(_trail.last.latitude, _trail.last.longitude)
         : sos.latitude != null && sos.longitude != null
         ? LatLng(sos.latitude!, sos.longitude!)
@@ -397,11 +392,7 @@ class _FamilySosReceiverScreenState
           SizedBox(width: 8.spMin),
           Expanded(
             child: Text(
-              sos.locationLabel != null
-                  ? 'Near ${sos.locationLabel}'
-                  : isResolved
-                  ? 'Location was shared with the circle'
-                  : 'Live location shared with the circle',
+              sosLocationLine(sos, ended: isResolved),
               style: TextStyle(
                 fontSize: 14.spMin,
                 fontWeight: FontWeight.w600,

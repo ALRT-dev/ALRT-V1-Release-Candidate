@@ -4,6 +4,8 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/providers/states/family_provider_state.dart';
 import 'package:hazard_app/features/family/services/family_service.dart';
+import 'package:hazard_app/features/family/services/location_fix.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 
@@ -18,6 +20,14 @@ class _FakeFamilyService extends FamilyService {
   bool resolveFails = false;
   final active = <FamilySosEvent>[];
   int triggers = 0;
+  ({
+    double? lat,
+    String? mode,
+    String? precision,
+    DateTime? capturedAt,
+    bool isLive,
+  })?
+  last;
 
   static const _mine = FamilySosEvent(
     id: 'sos-1',
@@ -32,8 +42,19 @@ class _FakeFamilyService extends FamilyService {
     final double? longitude,
     final String? sosListId,
     required final bool isLive,
+    final String? locationMode,
+    final String? locationPrecision,
+    final DateTime? locationCapturedAt,
+    final double? locationAccuracyM,
   }) async {
     triggers += 1;
+    last = (
+      lat: latitude,
+      mode: locationMode,
+      precision: locationPrecision,
+      capturedAt: locationCapturedAt,
+      isLive: isLive,
+    );
     active.add(_mine);
     if (triggerAnswerLost) return const Failure(AppError(message: 'timeout'));
     return const Success(_mine);
@@ -61,7 +82,9 @@ class _FakeFamilyService extends FamilyService {
       const Success([]);
 }
 
-({ProviderContainer container, _FakeFamilyService service}) _setUp() {
+({ProviderContainer container, _FakeFamilyService service}) _setUp({
+  FamilySharingLevel level = FamilySharingLevel.precise,
+}) {
   late _FakeFamilyService service;
   final container = ProviderContainer(
     overrides: [
@@ -70,9 +93,21 @@ class _FakeFamilyService extends FamilyService {
         (ref) => FamilyProvider(
           ref: ref,
           bootstrap: false,
-          state: const FamilyProviderState(
+          state: FamilyProviderState(
             hasLoadedOnce: true,
-            circle: FamilyCircle(id: 'c1', name: 'Nixons', myMemberId: 'me-member'),
+            circle: FamilyCircle(
+              id: 'c1',
+              name: 'Nixons',
+              myMemberId: 'me-member',
+              members: [
+                FamilyMember(
+                  id: 'me-member',
+                  userId: 'me',
+                  name: 'Me',
+                  sharingLevel: level,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -88,7 +123,7 @@ void main() {
     final (:container, :service) = _setUp();
     service.triggerAnswerLost = true;
     final notifier = container.read(providerOfFamily.notifier);
-    final direct = await notifier.triggerSos(isLive: false);
+    final direct = await notifier.triggerSos(location: SosLocationChoice.none);
     expect(direct, isNull, reason: 'the answer was lost');
     final found = await notifier.findMyActiveSos();
     expect(found?.id, 'sos-1', reason: 'the server has my active SOS');
@@ -108,7 +143,7 @@ void main() {
   test('standing down reports success and moves the SOS into history', () async {
     final (:container, :service) = _setUp();
     final notifier = container.read(providerOfFamily.notifier);
-    await notifier.triggerSos(isLive: false);
+    await notifier.triggerSos(location: SosLocationChoice.none);
     final ok = await notifier.resolveSos(sosEventId: 'sos-1');
     expect(ok, isTrue);
     final s = container.read(providerOfFamily);
@@ -120,11 +155,79 @@ void main() {
   test('a failed stand-down reports false and keeps the SOS active', () async {
     final (:container, :service) = _setUp();
     final notifier = container.read(providerOfFamily.notifier);
-    await notifier.triggerSos(isLive: false);
+    await notifier.triggerSos(location: SosLocationChoice.none);
     service.resolveFails = true;
     final ok = await notifier.resolveSos(sosEventId: 'sos-1');
     expect(ok, isFalse);
     expect(container.read(providerOfFamily).activeSosEvents.map((e) => e.id), ['sos-1']);
+  });
+
+  group('SOS location choice is sent exactly as chosen (review 29 Sep)', () {
+    final now = DateTime.now();
+    Position pos(DateTime at) => Position(
+      latitude: -27.47,
+      longitude: 153.02,
+      timestamp: at,
+      accuracy: 20,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+    final current = LocationFix.current(pos(now), Duration.zero);
+    final old = now.subtract(const Duration(minutes: 12));
+    final lastKnown = LocationFix.lastKnown(
+      pos(old),
+      const Duration(minutes: 12),
+    );
+
+    test('No location sends no coordinates even with a fix', () async {
+      final (:container, :service) = _setUp();
+      await container
+          .read(providerOfFamily.notifier)
+          .triggerSos(location: SosLocationChoice.none, fix: current);
+      expect(service.last!.lat, isNull);
+      expect(service.last!.mode, 'none');
+      expect(service.last!.isLive, isFalse);
+    });
+
+    test('Share location once with a last-known fix sends its real, older '
+        'time', () async {
+      final (:container, :service) = _setUp();
+      await container
+          .read(providerOfFamily.notifier)
+          .triggerSos(location: SosLocationChoice.once, fix: lastKnown);
+      expect(service.last!.lat, -27.47);
+      expect(service.last!.mode, 'once');
+      expect(service.last!.capturedAt, old);
+      expect(service.last!.isLive, isFalse);
+    });
+
+    test('Share live location never starts from a last-known point', () async {
+      final (:container, :service) = _setUp();
+      await container
+          .read(providerOfFamily.notifier)
+          .triggerSos(location: SosLocationChoice.live, fix: lastKnown);
+      expect(service.last!.lat, isNull);
+      expect(service.last!.mode, 'live');
+      expect(service.last!.isLive, isTrue);
+      container.dispose();
+    });
+
+    test('precision follows the sharing setting', () async {
+      var (:container, :service) = _setUp();
+      await container
+          .read(providerOfFamily.notifier)
+          .triggerSos(location: SosLocationChoice.once, fix: current);
+      expect(service.last!.precision, 'precise');
+      (:container, :service) = _setUp(level: FamilySharingLevel.approximate);
+      await container
+          .read(providerOfFamily.notifier)
+          .triggerSos(location: SosLocationChoice.once, fix: current);
+      expect(service.last!.precision, 'approximate');
+    });
   });
 
   group('stale and duplicate SOS events (phone QA 2026-09-09)', () {

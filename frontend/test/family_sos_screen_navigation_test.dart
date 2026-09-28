@@ -1,3 +1,7 @@
+import 'package:hazard_app/features/family/views/screens/family_sos_list_edit_screen.dart';
+import 'package:hazard_app/features/family/services/location_fix.dart';
+import 'package:hazard_app/features/family/services/sos_api.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -36,6 +40,10 @@ class _FakeFamilyService extends FamilyService {
     final double? longitude,
     final String? sosListId,
     required final bool isLive,
+    final String? locationMode,
+    final String? locationPrecision,
+    final DateTime? locationCapturedAt,
+    final double? locationAccuracyM,
   }) async {
     triggers += 1;
     if (fail) return const Failure(AppError(message: 'server said no'));
@@ -52,15 +60,84 @@ class _FakeFamilyService extends FamilyService {
   Future<Either<List<FamilySosEvent>, AppError>>
   getActiveFamilySosEvents() async => getAllActiveFamilySosEvents();
 
+  List<FamilySosList> lists = const [];
+
   @override
   Future<Either<List<FamilySosList>, AppError>> getFamilySosLists() async =>
-      const Success([]);
+      Success(lists);
 }
+
+/// The backend's SOS preview, answered from fixed values.
+class _FakeSosApi extends SosApi {
+  _FakeSosApi(this.answer) : super(dio: Dio(), circleId: () => 'c1');
+  final SosPreview? answer;
+  final asked = <String?>[];
+
+  @override
+  Future<Either<SosPreview, AppError>> preview({final String? sosListId}) async {
+    asked.add(sosListId);
+    final a = answer;
+    return a == null
+        ? const Failure(AppError(message: 'offline'))
+        : Success(a);
+  }
+}
+
+/// A phone location source with nothing to report (tests that don't care).
+class _NoFixSource implements DeviceLocationSource {
+  @override
+  Future<bool> isServiceEnabled() async => true;
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.whileInUse;
+  @override
+  Future<LocationPermission> requestPermission() async =>
+      LocationPermission.whileInUse;
+  @override
+  Future<Position?> lastKnown() async => null;
+  @override
+  Future<Position> current({required Duration timeout}) async =>
+      throw Exception('no fix');
+}
+
+class _Source extends _NoFixSource {
+  _Source({this.cachedAge, this.freshNow = false, this.denied = false});
+  final Duration? cachedAge;
+  final bool freshNow;
+  final bool denied;
+  Position _p(DateTime at) => Position(
+    latitude: -27.47,
+    longitude: 153.02,
+    timestamp: at,
+    accuracy: 15,
+    altitude: 0,
+    altitudeAccuracy: 0,
+    heading: 0,
+    headingAccuracy: 0,
+    speed: 0,
+    speedAccuracy: 0,
+  );
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      denied ? LocationPermission.deniedForever : LocationPermission.whileInUse;
+  @override
+  Future<Position?> lastKnown() async =>
+      cachedAge == null ? null : _p(DateTime.now().subtract(cachedAge!));
+  @override
+  Future<Position> current({required Duration timeout}) async =>
+      freshNow ? _p(DateTime.now()) : throw Exception('no fix');
+}
+
+const _okPreview = SosPreview(
+  state: SosPreviewState.ok,
+  recipients: [SosPreviewPerson(memberId: 'm2', name: 'Alex')],
+  excluded: [],
+);
 
 class _NoLocation extends FamilyLocationService {
   _NoLocation(super.ref);
   @override
-  Future<Position?> getLastKnownOrCurrentPosition() async => null;
+  Future<Position?> getCurrentPositionOrNull() async => null;
 }
 
 ({
@@ -69,7 +146,12 @@ class _NoLocation extends FamilyLocationService {
   _FakeFamilyService Function() service,
   ProviderContainer Function() container,
 })
-_build({bool withOthers = true}) {
+_build({
+  bool withOthers = true,
+  SosPreview? preview = _okPreview,
+  DeviceLocationSource? source,
+  List<FamilySosList> lists = const [],
+}) {
   late _FakeFamilyService service;
   late ProviderContainer container;
   final router = GoRouter(
@@ -92,12 +174,24 @@ _build({bool withOthers = true}) {
         path: FamilySosScreen.route,
         builder: (_, __) => const FamilySosScreen(),
       ),
+      GoRoute(
+        path: FamilySosListEditScreen.route,
+        builder: (_, state) => Scaffold(
+          body: Text(
+            'editing ${(state.extra as FamilySosListEditScreenArgs?)?.list?.id ?? 'a new list'}',
+          ),
+        ),
+      ),
     ],
   );
   final app = ProviderScope(
     overrides: [
       providerOfFamilyService.overrideWith(
-        (ref) => service = _FakeFamilyService(ref),
+        (ref) => service = _FakeFamilyService(ref)..lists = lists,
+      ),
+      providerOfSosApi.overrideWithValue(_FakeSosApi(preview)),
+      providerOfDeviceLocationSource.overrideWithValue(
+        source ?? _NoFixSource(),
       ),
       providerOfFamilyLocationService.overrideWith((ref) => _NoLocation(ref)),
       providerOfFamily.overrideWith(
@@ -300,48 +394,170 @@ void main() {
     },
   );
 
-  testWidgets('before sending: names who it goes to and what location they '
-      'get, live or once', (tester) async {
-    final t = _build();
-    await tester.pumpWidget(t.app);
+  Future<void> openSos(WidgetTester tester, Widget app) async {
+    await tester.pumpWidget(app);
     await tester.pumpAndSettle();
     await tester.tap(find.text('open sos'));
     await tester.pumpAndSettle();
-    final preview = find.byKey(const Key('sos-preview'));
-    expect(preview, findsOneWidget);
-    expect(
-      find.descendant(
-        of: preview,
-        matching: find.textContaining('Alex', findRichText: true),
+  }
+
+  Finder rich(String text) => find.textContaining(text, findRichText: true);
+
+  testWidgets('before sending: the backend\'s recipients, who is left out and '
+      'why, delivery not promised, and the three location choices', (
+    tester,
+  ) async {
+    final t = _build(
+      source: _Source(freshNow: true),
+      preview: const SosPreview(
+        state: SosPreviewState.ok,
+        recipients: [
+          SosPreviewPerson(memberId: 'm2', name: 'Alex', deliveryLimited: true),
+        ],
+        excluded: [
+          SosPreviewPerson(
+            memberId: 'm3',
+            name: 'Taylor',
+            reason: 'needs_individual',
+          ),
+        ],
       ),
-      findsOneWidget,
     );
-    expect(
-      find.textContaining('live location, updating', findRichText: true),
-      findsOneWidget,
-    );
-    await tester.tap(find.byType(Switch));
+    await openSos(tester, t.app);
+    expect(rich('Goes to: Alex'), findsOneWidget);
+    expect(rich('Taylor (needs ALRT + here)'), findsOneWidget);
+    expect(rich('May not be notified: Alex'), findsOneWidget);
+    expect(rich('can\'t promise delivery'), findsOneWidget);
+    expect(find.textContaining('Your location now'), findsOneWidget);
+    // Default with a current fix: live, visibly.
+    expect(rich('live location, updating'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('sos-loc-once')));
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('once. It won', findRichText: true),
-      findsOneWidget,
-    );
+    expect(rich('Where you are now, once'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('sos-loc-none')));
+    await tester.pumpAndSettle();
+    expect(rich('Location: None.'), findsOneWidget);
     expect(find.byKey(const Key('sos-hold-button')), findsOneWidget);
     await _teardown(tester);
   });
 
-  testWidgets('nobody to reach: no hold button, an invite instead', (
+  testWidgets('nobody in the group: no hold button, an invite instead', (
     tester,
   ) async {
-    final t = _build(withOthers: false);
-    await tester.pumpWidget(t.app);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('open sos'));
-    await tester.pumpAndSettle();
+    final t = _build(
+      withOthers: false,
+      preview: const SosPreview(
+        state: SosPreviewState.noPeople,
+        recipients: [],
+        excluded: [],
+      ),
+    );
+    await openSos(tester, t.app);
     expect(find.byKey(const Key('sos-hold-button')), findsNothing);
     expect(find.byKey(const Key('sos-nobody')), findsOneWidget);
     expect(find.text('Invite someone'), findsOneWidget);
     expect(t.service().triggers, 0);
+    await _teardown(tester);
+  });
+
+  testWidgets('people exist but none can receive it: says so, never "invite '
+      'someone"', (tester) async {
+    final t = _build(
+      preview: const SosPreview(
+        state: SosPreviewState.noneEligible,
+        recipients: [],
+        excluded: [
+          SosPreviewPerson(
+            memberId: 'm2',
+            name: 'Alex',
+            reason: 'sponsorship_paused',
+          ),
+        ],
+      ),
+    );
+    await openSos(tester, t.app);
+    expect(find.byKey(const Key('sos-none-eligible')), findsOneWidget);
+    expect(rich("Alex (this group's plan has ended)"), findsOneWidget);
+    expect(find.text('Invite someone'), findsNothing);
+    expect(find.byKey(const Key('sos-hold-button')), findsNothing);
+    await _teardown(tester);
+  });
+
+  testWidgets('a list that needs repair opens THAT list, not a blank one', (
+    tester,
+  ) async {
+    const list = FamilySosList(
+      id: 'l1',
+      ownerUserId: 'me',
+      name: 'Close',
+      isDefault: true,
+      memberIds: ['elsewhere'],
+    );
+    final t = _build(
+      lists: const [list],
+      preview: const SosPreview(
+        state: SosPreviewState.presetInvalid,
+        recipients: [],
+        excluded: [],
+        preset: SosPresetStatus(
+          id: 'l1',
+          name: 'Close',
+          state: 'otherGroup',
+          removedCount: 0,
+          otherGroupCount: 1,
+        ),
+      ),
+    );
+    await openSos(tester, t.app);
+    expect(find.byKey(const Key('sos-preset-invalid')), findsOneWidget);
+    expect(find.textContaining('people from another group'), findsOneWidget);
+    expect(find.byKey(const Key('sos-hold-button')), findsNothing);
+    await tester.ensureVisible(find.text('Edit "Close"'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit "Close"'));
+    await tester.pumpAndSettle();
+    expect(find.text('editing l1'), findsOneWidget);
+    await _teardown(tester);
+  });
+
+  testWidgets('last known location: its age is shown, nothing is shared '
+      'until chosen, and "once" says how old it is', (tester) async {
+    final t = _build(source: _Source(cachedAge: const Duration(minutes: 12)));
+    await openSos(tester, t.app);
+    expect(
+      find.textContaining('Last known location: 12 min ago'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('now (about'), findsNothing);
+    expect(rich('without your location'), findsOneWidget, reason: 'default');
+    await tester.tap(find.byKey(const Key('sos-loc-once')));
+    await tester.pumpAndSettle();
+    expect(
+      rich('Your last known location (12 min ago), once.'),
+      findsOneWidget,
+    );
+    await _teardown(tester);
+  });
+
+  testWidgets('permission denied: sharing options are off, the SOS can still '
+      'be sent', (tester) async {
+    final t = _build(source: _Source(denied: true));
+    await openSos(tester, t.app);
+    expect(find.textContaining('isn\'t allowed to use your location'), findsWidgets);
+    await tester.tap(find.byKey(const Key('sos-loc-once')));
+    await tester.pumpAndSettle();
+    expect(rich('Location: None.'), findsOneWidget, reason: 'choice unchanged');
+    expect(find.text('You can still send your SOS without location.'), findsOneWidget);
+    expect(find.byKey(const Key('sos-hold-button')), findsOneWidget);
+    await _teardown(tester);
+  });
+
+  testWidgets('preview unreachable: the phone\'s guess is shown as unchecked, '
+      'the send still re-checks', (tester) async {
+    final t = _build(preview: null);
+    await openSos(tester, t.app);
+    expect(rich('Not checked:'), findsOneWidget);
+    expect(find.byKey(const Key('sos-hold-button')), findsOneWidget);
     await _teardown(tester);
   });
 }

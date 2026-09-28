@@ -2363,6 +2363,10 @@ class _RestClient implements RestClient {
     double? longitude,
     String? sosListId,
     required bool isLive,
+    String? locationMode,
+    String? locationPrecision,
+    String? locationCapturedAt,
+    double? locationAccuracyM,
     String? circleId,
   }) async {
     final _extra = <String, dynamic>{};
@@ -2374,6 +2378,10 @@ class _RestClient implements RestClient {
       'longitude': longitude,
       'sosListId': sosListId,
       'isLive': isLive,
+      'locationMode': locationMode,
+      'locationPrecision': locationPrecision,
+      'locationCapturedAt': locationCapturedAt,
+      'locationAccuracyM': locationAccuracyM,
     };
     _data.removeWhere((k, v) => v == null);
     final _options = _setStreamType<FamilySosEvent>(
