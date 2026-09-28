@@ -1126,8 +1126,16 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       memberId: memberId,
     );
     if (!mounted) return false;
-    return result.when((_) => true, (_) => false);
+    return result.when((_) => true, (error) {
+      lastLocationError = error;
+      return false;
+    });
   }
+
+  /// Why the last location request or answer failed, so the screen can
+  /// tell an access refusal (plan ended, ALRT + needed) from a network
+  /// error. Null after a success.
+  AppError? lastLocationError;
 
   /// Asks every one of [memberIds] to share a one-time snapshot in one go
   /// — "selected people" or "the whole group," depending on which ids are
@@ -1181,10 +1189,14 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     if (!mounted) return false;
     return result.when(
       (_) {
+        lastLocationError = null;
         if (share) AnalyticsService.familySnapshotShared(via: 'request');
         return true;
       },
-      (_) => false,
+      (error) {
+        lastLocationError = error;
+        return false;
+      },
     );
   }
 

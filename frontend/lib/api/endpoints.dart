@@ -93,6 +93,7 @@ const kUrlSupport = '$kUrlApi/support';
 /// Personal plan and per-group coverage, computed by the backend.
 const kUrlAccess = '$kUrlApi/access';
 const kUrlAccessSponsorshipIntents = '$kUrlAccess/sponsorship-intents';
+const kUrlAccessReconcile = '$kUrlAccess/reconcile';
 String kUrlAccessBindSponsorship(final String subscriptionId) =>
     '$kUrlAccess/sponsorships/$subscriptionId/bind';
 

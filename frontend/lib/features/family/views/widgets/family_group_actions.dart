@@ -81,9 +81,8 @@ Future<void> showCreateGroupSheet(
     title: 'Name your group',
     subtitle:
         'e.g. Nixon Family, Netball Mums, Site Crew. Creating a group is '
-        'free. For check-ins, SOS and Journey, each person needs ALRT + '
-        'Individual, or you can cover the whole group with a Family or '
-        'Group plan.',
+        'free. For check-ins, SOS and Journey, each person needs ALRT +, '
+        'or you can cover the whole group with a Family or Group plan.',
     hint: 'Group name',
     buttonLabel: 'Create group',
     onSubmit: (final name) {

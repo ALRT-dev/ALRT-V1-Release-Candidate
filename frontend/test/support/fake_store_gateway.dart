@@ -27,6 +27,14 @@ class FakeStoreGateway implements PurchasesGateway {
   String? userId;
   final purchased = <String>[];
 
+  /// Old product id passed for each Play replacement, by purchase.
+  final replaced = <String?>[];
+
+  /// Active store subscriptions a restore reports, and whether the store
+  /// can be reached at all.
+  List<String> restoredProducts = const [];
+  bool restoreFails = false;
+
   static StoreProduct individualProduct({final bool trial = false}) =>
       StoreProduct(
         'alrt_individual_monthly',
@@ -37,7 +45,14 @@ class FakeStoreGateway implements PurchasesGateway {
         'AUD',
         subscriptionPeriod: 'P1M',
         introductoryPrice: trial
-            ? const IntroductoryPrice(0, r'$0.00', 'P1M', 1, PeriodUnit.month, 1)
+            ? const IntroductoryPrice(
+                0,
+                r'$0.00',
+                'P1M',
+                1,
+                PeriodUnit.month,
+                1,
+              )
             : null,
       );
 
@@ -69,7 +84,11 @@ class FakeStoreGateway implements PurchasesGateway {
     subscriptionPeriod: 'P1M',
   );
 
-  static const _personalContext = PresentedOfferingContext('personal', null, null);
+  static const _personalContext = PresentedOfferingContext(
+    'personal',
+    null,
+    null,
+  );
   static const _groupsContext = PresentedOfferingContext('groups', null, null);
 
   Offering personalOffering() {
@@ -172,8 +191,12 @@ class FakeStoreGateway implements PurchasesGateway {
   ) async => {for (final id in productIdentifiers) id: eligibility};
 
   @override
-  Future<Set<String>> purchase(Package package) async {
+  Future<Set<String>> purchase(
+    Package package, {
+    String? replacingProductId,
+  }) async {
     purchased.add(package.storeProduct.identifier);
+    replaced.add(replacingProductId);
     if (package.storeProduct.identifier == 'alrt_individual_monthly') {
       entitled = true;
     }
@@ -181,8 +204,24 @@ class FakeStoreGateway implements PurchasesGateway {
   }
 
   @override
-  Future<Set<String>> restore() async =>
-      entitled ? {'individual'} : <String>{};
+  Future<Set<String>> restore() async => entitled ? {'individual'} : <String>{};
+
+  @override
+  Future<CustomerInfo> restorePurchases() async {
+    if (restoreFails) throw Exception('store unreachable');
+    final info = await customerInfo();
+    return CustomerInfo(
+      info.entitlements,
+      const {},
+      restoredProducts,
+      restoredProducts,
+      const [],
+      '2026-09-09T00:00:00Z',
+      userId ?? 'anonymous',
+      const {},
+      '2026-09-09T00:00:00Z',
+    );
+  }
 
   @override
   Future<List<StoreProduct>> products(List<String> identifiers) async => [

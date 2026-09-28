@@ -69,7 +69,7 @@ class _NoLocation extends FamilyLocationService {
   _FakeFamilyService Function() service,
   ProviderContainer Function() container,
 })
-_build() {
+_build({bool withOthers = true}) {
   late _FakeFamilyService service;
   late ProviderContainer container;
   final router = GoRouter(
@@ -104,12 +104,19 @@ _build() {
         (ref) => FamilyProvider(
           ref: ref,
           bootstrap: false,
-          state: const FamilyProviderState(
+          state: FamilyProviderState(
             hasLoadedOnce: true,
             circle: FamilyCircle(
               id: 'c1',
               name: 'Nixons',
               myMemberId: 'me-member',
+              // Someone to reach: with nobody, the screen asks to invite
+              // someone instead of offering the hold (sos_preview.dart).
+              members: [
+                const FamilyMember(id: 'me-member', userId: 'me', name: 'Me'),
+                if (withOthers)
+                  const FamilyMember(id: 'm2', userId: 'u2', name: 'Alex'),
+              ],
             ),
           ),
         ),
@@ -292,4 +299,49 @@ void main() {
       await _teardown(tester);
     },
   );
+
+  testWidgets('before sending: names who it goes to and what location they '
+      'get, live or once', (tester) async {
+    final t = _build();
+    await tester.pumpWidget(t.app);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open sos'));
+    await tester.pumpAndSettle();
+    final preview = find.byKey(const Key('sos-preview'));
+    expect(preview, findsOneWidget);
+    expect(
+      find.descendant(
+        of: preview,
+        matching: find.textContaining('Alex', findRichText: true),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('live location, updating', findRichText: true),
+      findsOneWidget,
+    );
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('once. It won', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('sos-hold-button')), findsOneWidget);
+    await _teardown(tester);
+  });
+
+  testWidgets('nobody to reach: no hold button, an invite instead', (
+    tester,
+  ) async {
+    final t = _build(withOthers: false);
+    await tester.pumpWidget(t.app);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open sos'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('sos-hold-button')), findsNothing);
+    expect(find.byKey(const Key('sos-nobody')), findsOneWidget);
+    expect(find.text('Invite someone'), findsOneWidget);
+    expect(t.service().triggers, 0);
+    await _teardown(tester);
+  });
 }

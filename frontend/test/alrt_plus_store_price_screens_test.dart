@@ -311,10 +311,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('ALRT Free'), findsOneWidget);
+      expect(find.text('ALRT + Family'), findsOneWidget);
       expect(
-        find.text('Covered by you. Family plan, 3 of 6 people.'),
+        find.text('Covers everyone here · 3 of 6 people'),
         findsOneWidget,
       );
+      expect(find.textContaining('Paid by you.'), findsOneWidget);
+      expect(find.text('Upgrade to ALRT + Group 20'), findsOneWidget);
       expect(find.textContaining('seat'), findsNothing);
     });
 
@@ -346,9 +349,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ALRT Free'), findsOneWidget);
       expect(
-        find.text('Covered by Sarah. Group 20 plan, 3 of 20 people.'),
+        find.text('Covers everyone here · 3 of 20 people'),
         findsOneWidget,
       );
+      expect(find.textContaining('Paid by Sarah.'), findsOneWidget);
+      // Only the payer can upgrade.
+      expect(find.textContaining('Upgrade to'), findsNothing);
     });
   });
 }

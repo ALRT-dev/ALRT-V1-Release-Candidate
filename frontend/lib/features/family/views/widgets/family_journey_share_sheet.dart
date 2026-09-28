@@ -1,3 +1,5 @@
+import 'package:hazard_app/features/shared/providers/navigator_key_provider.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -509,9 +511,18 @@ class _JourneyShareSheetState extends ConsumerState<_JourneyShareSheet> {
           isLive: _isLive && !snapPointsOnly,
         );
     if (!mounted) return;
+    final error = ok ? null : ref.read(providerOfFamily).journeyState.error;
+    // The sheet closes first; the answer shows on the screen beneath it.
+    final root = ref.read(providerOfGlobalNavigatorKey).currentContext;
     Navigator.of(context).pop();
-    ok
-        ? context.showSuccessToast(message: 'Sharing your journey')
-        : context.showErrorToast(message: 'Could not start sharing');
+    final target = root;
+    if (target == null || !target.mounted) return;
+    if (ok) {
+      target.showSuccessToast(message: 'Sharing your journey');
+    } else if (error != null && target.mounted) {
+      await showFamilyActionError(target, ref, error);
+    } else {
+      target.showErrorToast(message: 'Could not start sharing');
+    }
   }
 }

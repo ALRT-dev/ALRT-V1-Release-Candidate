@@ -12,7 +12,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hazard_app/features/onboarding/views/onboarding_alrt_plus_screen.dart';
+import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/subscription/models/access_models.dart';
+import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
+import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
@@ -23,6 +28,7 @@ import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_
 import 'package:hazard_app/others/app_theme.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
+import '../support/fake_access_repository.dart';
 import '../support/fake_store_gateway.dart';
 import 'screenshot_fonts.dart';
 
@@ -79,6 +85,9 @@ Widget _app(Widget home, RevenueCatService service, AccessSummary access) =>
       overrides: [
         providerOfRevenueCat.overrideWithValue(service),
         providerOfAccess.overrideWith((ref) async => access),
+        providerOfAccessRepository.overrideWithValue(
+          FakeAccessRepository(access: access),
+        ),
         providerOfAlrtPlus.overrideWith(
           (ref) async => access.personal.isIndividual,
         ),
@@ -194,7 +203,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ALRT + Group 20'));
+    await tester.tap(find.text('ALRT + Group 20').last);
     await tester.pumpAndSettle();
     await _shoot(tester, 'v1_05_group_20', size: const Size(390, 1500));
   }, skip: !_enabled);
@@ -307,4 +316,116 @@ void main() {
     await tester.pumpAndSettle();
     await _shoot(tester, 'v1_08_upsell_saved_place');
   }, skip: !_enabled);
+
+  testWidgets('upgrade Family -> Group 20 (Android)', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        const AlrtPlusGroupPaywallScreen(
+          isAndroidOverride: true,
+          args: AlrtPlusGroupPaywallArgs(circleId: 'g1', tier: PlanTier.group20),
+        ),
+        await _service(),
+        _access(
+          groups: [
+            _group(
+              'g1',
+              'Netball Mums',
+              people: 6,
+              sponsorship: const GroupSponsorship(
+                tier: PlanTier.family,
+                live: true,
+                status: 'active',
+                expiresAt: null,
+                coveredBy: 'Sarah',
+                youPay: true,
+                productId: 'alrt_family_monthly',
+              ),
+              reason: 'sponsored',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _shoot(tester, 'v1_09_upgrade_group20', size: const Size(390, 1500));
+  }, skip: !_enabled);
+
+  testWidgets('onboarding ALRT + step', (tester) async {
+    await tester.pumpWidget(
+      _app(OnboardingAlrtPlusScreen(onDone: () {}), await _service(), _access()),
+    );
+    await tester.pumpAndSettle();
+    await _shoot(tester, 'v1_10_onboarding_alrt_plus');
+  }, skip: !_enabled);
+
+  for (final (name, code, details, group) in [
+    (
+      'v1_11_refusal_plan_ended',
+      'GROUP_PLAN_ENDED',
+      <String, dynamic>{'circleId': 'g1'},
+      _group('g1', 'Club Committee', role: 'adult', people: 17,
+          sponsorship: const GroupSponsorship(
+            tier: PlanTier.group20,
+            live: false,
+            status: 'expired',
+            expiresAt: null,
+            coveredBy: 'Priya',
+            youPay: false,
+          ),
+          allowed: false,
+          reason: 'sponsorship_paused'),
+    ),
+    (
+      'v1_12_refusal_alrt_plus_needed',
+      'INDIVIDUAL_REQUIRED',
+      <String, dynamic>{'circleId': 'g1'},
+      _group('g1', 'Weekend Crew', role: 'owner', people: 5,
+          allowed: false, reason: 'needs_individual'),
+    ),
+    (
+      'v1_13_refusal_group_full',
+      'GROUP_FULL',
+      <String, dynamic>{'circleId': 'g1', 'capacity': 6, 'sponsored': true},
+      _group('g1', 'Nixon Family', people: 6,
+          sponsorship: const GroupSponsorship(
+            tier: PlanTier.family,
+            live: true,
+            status: 'active',
+            expiresAt: null,
+            coveredBy: 'Sarah',
+            youPay: true,
+          ),
+          reason: 'sponsored'),
+    ),
+  ]) {
+    testWidgets(name, (tester) async {
+      late WidgetRef ref;
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        _app(
+          Scaffold(
+            body: Consumer(
+              builder: (c, r, _) {
+                ref = r;
+                ctx = c;
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+          await _service(),
+          _access(groups: [group]),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final refusal = AccessRefusal.fromError(
+        AppError(
+          message: 'server wording',
+          extraData: {'code': code, 'details': details},
+        ),
+      )!;
+      showAccessRefusalSheet(ctx, ref, refusal);
+      await tester.pumpAndSettle();
+      await _shoot(tester, name);
+    }, skip: !_enabled);
+  }
 }

@@ -48,9 +48,9 @@ Future<void> _handleSaveLocationTap(
       title: 'One saved place on ALRT Free',
       message:
           'ALRT Free includes $kFreeSavedLocationsLimit saved place as well '
-          'as where you are. ALRT + Individual gives you unlimited saved '
+          'as where you are. ALRT + gives you unlimited saved '
           'places. Family and Group plans don\'t change this.',
-      primaryLabel: 'See ALRT + Individual',
+      primaryLabel: 'See ALRT +',
       onPrimary: (ctx) => ctx
           .push<bool>(
             AlrtPlusPaywallScreen.route,

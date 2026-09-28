@@ -62,7 +62,7 @@ class BillingIssueBanner extends ConsumerWidget {
                 ),
                 SizedBox(height: 2.spMin),
                 Text(
-                  'Individual stays on while the store retries. Update your '
+                  'ALRT + stays on while the store retries. Update your '
                   'payment method to keep it.',
                   style: TextStyle(
                     fontSize: 11.5.spMin,

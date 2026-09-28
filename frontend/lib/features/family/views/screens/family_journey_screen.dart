@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -648,17 +649,25 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
     if (!mounted) return;
     if (ok) {
       context.showSuccessToast(message: 'Sharing your journey');
-    } else {
-      context.showErrorToast(message: 'Could not start sharing');
+      return;
     }
+    final error = ref.read(providerOfFamily).journeyState.error;
+    error != null
+        ? await showFamilyActionError(context, ref, error)
+        : context.showErrorToast(message: 'Could not start sharing');
   }
 
   Future<void> _handleExtend() async {
     final ok = await ref.read(providerOfFamily.notifier).extendJourney();
     if (!mounted) return;
-    context.showSuccessToast(
-      message: ok ? 'Sharing extended' : 'Could not extend',
-    );
+    if (ok) {
+      context.showSuccessToast(message: 'Sharing extended');
+      return;
+    }
+    final error = ref.read(providerOfFamily).journeyState.error;
+    error != null
+        ? await showFamilyActionError(context, ref, error)
+        : context.showErrorToast(message: 'Could not extend');
   }
 
   Future<void> _handleStop() async {

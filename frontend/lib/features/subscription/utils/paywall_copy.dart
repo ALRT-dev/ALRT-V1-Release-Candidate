@@ -10,11 +10,12 @@ library;
 const kChooseHeading = 'Choose the ALRT + that fits you';
 const kChooseForMyselfTitle = 'For myself';
 const kChooseForMyselfBody =
-    'ALRT + Individual: your places, your questions, and unlimited groups.';
+    'Unlimited saved places, 10 Ask ALRT questions a day, and as many '
+    'groups as you like.';
 const kChooseCoverGroupTitle = 'Cover a group';
 const kChooseCoverGroupBody =
-    'Family up to 6, or Group up to 20 or 50. One payer covers check-ins, '
-    'SOS and Journey in one group.';
+    'Family (up to 6) or Group (up to 20 or 50). One person pays, and '
+    'everyone in that group gets Check in, Check on, SOS and Journey.';
 const kContinueFree = 'Continue with ALRT Free';
 
 // --- Individual --------------------------------------------------------------
@@ -31,11 +32,17 @@ const kIndividualBenefits = <String>[
   'Join unlimited groups',
   'Check-ins, SOS and Journey sharing in eligible groups',
 ];
+
+/// What ALRT + covers, in one line (My plans, Profile).
+String kPersonalCoversLine(final int askPerDay) =>
+    'Unlimited saved places, $askPerDay Ask ALRT questions a day, and as '
+    'many groups as you like. In groups without a Family or Group plan, '
+    'you can use Check in, Check on, SOS and Journey.';
+
 const kIndividualUnlimitedGroupsLine = 'No limit on how many groups you join.';
 const kIndividualScope =
-    'Your membership covers you. In groups funded by Individual, each '
-    'participant needs their own Individual subscription or active trial. '
-    'A Family or Group plan can cover free members in its nominated group.';
+    'Covers you, wherever you are. In a group without a Family or '
+    'Group plan, each person taking part needs their own ALRT +.';
 
 /// Button when no trial applies: "Subscribe for A$5.99/month".
 String subscribeCta({
@@ -79,10 +86,9 @@ const kGroupBenefits = <String>[
 /// "Benefits stay inside this group. Covers up to 6 people in Smiths,
 /// including you when you participate. ..."
 String groupScope({required final int capacity, required final String group}) =>
-    'Benefits stay inside this group. Covers up to $capacity people in '
-    '$group, including you when you participate. Personal Saved Places and '
-    'Ask ALRT limits stay on each person\'s own plan. Individual membership '
-    'is separate for everyone, including the payer.';
+    'Covers everyone in $group, up to $capacity people, you included. It '
+    'does not change anyone\'s own saved places or Ask ALRT questions; '
+    'those come with ALRT +.';
 
 /// "A$15.99 charged on confirmation. No free trial. Renews monthly unless
 /// cancelled. Manage or cancel in your Google Play account."

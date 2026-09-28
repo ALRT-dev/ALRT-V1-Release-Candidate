@@ -147,8 +147,22 @@ class RevenueCatService {
   /// returns once the store has answered. Throws the store's error (a
   /// cancelled sheet included). Access itself is then read from the
   /// backend, which learns of the purchase from RevenueCat.
-  Future<void> purchasePackage(final Package package) async {
-    await _gateway.purchase(package);
+  Future<void> purchasePackage(
+    final Package package, {
+    final String? replacingProductId,
+  }) async {
+    await _gateway.purchase(package, replacingProductId: replacingProductId);
+  }
+
+  /// Restores the store account's purchases and returns the product ids
+  /// the store says are active. Throws when the store can't be reached,
+  /// so the caller can say so truthfully instead of "restored".
+  Future<List<String>> restoreActiveProducts() async {
+    if (!_ready(null)) {
+      throw StateError('Purchases are not available in this build.');
+    }
+    final info = await _gateway.restorePurchases();
+    return info.activeSubscriptions;
   }
 
   /// The store product behind an entitlement's product identifier, for

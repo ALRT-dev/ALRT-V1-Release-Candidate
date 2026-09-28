@@ -16,7 +16,8 @@ const kPaywallInkFaint = Color(0xFF8A8A93);
 const kPaywallLine = Color(0xFFE6E4EA);
 const kPaywallBody = Color(0xFFF6F6F8);
 
-/// A calm hero: plan tint wash, the plan badge, heading and one line.
+/// The plan hero: a rounded card on the plan's gradient with white text,
+/// the plan pill, heading, one line, and an optional "who it covers" chip.
 class PlanHero extends StatelessWidget {
   const PlanHero({
     super.key,
@@ -25,6 +26,7 @@ class PlanHero extends StatelessWidget {
     required this.intro,
     required this.onClose,
     this.badgeLabel,
+    this.coverLine,
   });
 
   final PlanIdentity identity;
@@ -33,16 +35,18 @@ class PlanHero extends StatelessWidget {
   final VoidCallback? onClose;
   final String? badgeLabel;
 
+  /// Plain words for who and what the plan covers ("Covers you", "Covers
+  /// everyone in Netball Mums · up to 20 people").
+  final String? coverLine;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: identity.tint,
+    final rest = badgeLabel ?? identity.name;
+    return Padding(
       padding: EdgeInsets.only(
         top: MediaQuery.paddingOf(context).top + 4.spMin,
-        left: 8.spMin,
-        right: 20.spMin,
-        bottom: 20.spMin,
+        left: 12.spMin,
+        right: 12.spMin,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,20 +56,38 @@ class PlanHero extends StatelessWidget {
             onPressed: onClose,
             icon: Icon(LucideIcons.x, color: kPaywallInk, size: 22.spMin),
           ),
-          Padding(
-            padding: EdgeInsets.only(left: 12.spMin),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+              20.spMin,
+              18.spMin,
+              20.spMin,
+              20.spMin,
+            ),
+            decoration: BoxDecoration(
+              gradient: identity.linearGradient,
+              borderRadius: BorderRadius.circular(22.spMin),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PlanBadge(identity: identity, label: badgeLabel),
-                SizedBox(height: 12.spMin),
+                Text(
+                  rest.isEmpty ? 'ALRT +' : 'ALRT + $rest',
+                  style: TextStyle(
+                    fontSize: 12.spMin,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                    color: Colors.white.withValues(alpha: 0.92),
+                  ),
+                ),
+                SizedBox(height: 10.spMin),
                 Text(
                   heading,
                   style: TextStyle(
-                    fontSize: 23.spMin,
+                    fontSize: 24.spMin,
                     fontWeight: FontWeight.w800,
                     height: 1.2,
-                    color: kPaywallInk,
+                    color: Colors.white,
                   ),
                 ),
                 SizedBox(height: 6.spMin),
@@ -73,10 +95,44 @@ class PlanHero extends StatelessWidget {
                   intro,
                   style: TextStyle(
                     fontSize: 13.5.spMin,
-                    height: 1.5,
-                    color: kPaywallInkSoft,
+                    height: 1.45,
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
+                if (coverLine != null) ...[
+                  SizedBox(height: 14.spMin),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.spMin,
+                      vertical: 8.spMin,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(12.spMin),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.circleCheck,
+                          size: 15.spMin,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: 8.spMin),
+                        Flexible(
+                          child: Text(
+                            coverLine!,
+                            style: TextStyle(
+                              fontSize: 12.5.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -315,6 +371,268 @@ class PaywallNotice extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(fontSize: 13.spMin, height: 1.45, color: color),
+      ),
+    );
+  }
+}
+
+/// One plan, said simply: who it covers and what they get. On the plan's
+/// gradient when the plan is in force; plain white when it isn't.
+class PlanCoverageCard extends StatelessWidget {
+  const PlanCoverageCard({
+    super.key,
+    required this.eyebrow,
+    required this.title,
+    required this.covers,
+    this.identity,
+    this.chip,
+    this.note,
+    this.actionLabel,
+    this.onAction,
+    this.actionIdentity,
+  });
+
+  /// Colours the action on a white card (for example "See ALRT +" in
+  /// purple). Ignored on a gradient card.
+  final PlanIdentity? actionIdentity;
+
+  /// Null = not in force: a white card.
+  final PlanIdentity? identity;
+
+  /// "ALRT + FAMILY", "ALRT FREE", "NO GROUP PLAN".
+  final String eyebrow;
+
+  /// "Covers you", or the group's name.
+  final String title;
+
+  /// "4 of 6 people", "Renews 28 October 2026".
+  final String? chip;
+
+  /// What is covered, in one plain line.
+  final String covers;
+
+  /// Anything the person should know (pending change, lapsed plan).
+  final String? note;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = identity != null;
+    final ink = on ? Colors.white : kPaywallInk;
+    final soft = on ? Colors.white.withValues(alpha: 0.9) : kPaywallInkSoft;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(18.spMin, 16.spMin, 18.spMin, 16.spMin),
+      decoration: BoxDecoration(
+        gradient: identity?.linearGradient,
+        color: on ? null : Colors.white,
+        borderRadius: BorderRadius.circular(20.spMin),
+        border: on ? null : Border.all(color: kPaywallLine),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            eyebrow,
+            style: TextStyle(
+              fontSize: 11.spMin,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: on
+                  ? Colors.white.withValues(alpha: 0.9)
+                  : kPaywallInkFaint,
+            ),
+          ),
+          SizedBox(height: 6.spMin),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18.spMin,
+              fontWeight: FontWeight.w800,
+              color: ink,
+            ),
+          ),
+          SizedBox(height: 6.spMin),
+          Text(
+            covers,
+            style: TextStyle(fontSize: 13.spMin, height: 1.45, color: soft),
+          ),
+          if (chip != null) ...[
+            SizedBox(height: 12.spMin),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: 10.spMin,
+                vertical: 6.spMin,
+              ),
+              decoration: BoxDecoration(
+                color: on
+                    ? Colors.white.withValues(alpha: 0.16)
+                    : const Color(0xFFF1F0F4),
+                borderRadius: BorderRadius.circular(10.spMin),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.circleCheck, size: 14.spMin, color: ink),
+                  SizedBox(width: 6.spMin),
+                  Flexible(
+                    child: Text(
+                      chip!,
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (note != null) ...[
+            SizedBox(height: 10.spMin),
+            Text(
+              note!,
+              style: TextStyle(
+                fontSize: 12.5.spMin,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: ink,
+              ),
+            ),
+          ],
+          if (actionLabel != null && onAction != null) ...[
+            SizedBox(height: 12.spMin),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: onAction,
+                style: TextButton.styleFrom(
+                  backgroundColor: on
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : actionIdentity?.accent ?? const Color(0xFFF1F0F4),
+                  foregroundColor: on || actionIdentity != null
+                      ? Colors.white
+                      : ink,
+                  padding: EdgeInsets.symmetric(vertical: 12.spMin),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.spMin),
+                  ),
+                ),
+                child: Text(
+                  actionLabel!,
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Green (Family) into blue (Group), for anything that means "a group
+/// plan" before the size is chosen.
+const kGroupPlansGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF05603B), Color(0xFF1F5CAD)],
+);
+
+/// A choice between plans, on the plan's gradient: eyebrow, title, one
+/// line of what it covers, and a chevron when it can be tapped.
+class PlanChoiceCard extends StatelessWidget {
+  const PlanChoiceCard({
+    super.key,
+    required this.gradient,
+    required this.eyebrow,
+    required this.title,
+    required this.body,
+    this.onTap,
+    this.footnote,
+  });
+
+  final Gradient gradient;
+  final String eyebrow;
+  final String title;
+  final String body;
+  final VoidCallback? onTap;
+
+  /// Shown under the body, for example why it can't be chosen yet.
+  final String? footnote;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(20.spMin),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20.spMin),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(18.spMin, 16.spMin, 14.spMin, 16.spMin),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        eyebrow,
+                        style: TextStyle(
+                          fontSize: 11.5.spMin,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                      SizedBox(height: 6.spMin),
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 18.spMin,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 4.spMin),
+                      Text(
+                        body,
+                        style: TextStyle(
+                          fontSize: 13.spMin,
+                          height: 1.45,
+                          color: Colors.white.withValues(alpha: 0.92),
+                        ),
+                      ),
+                      if (footnote != null) ...[
+                        SizedBox(height: 8.spMin),
+                        Text(
+                          footnote!,
+                          style: TextStyle(
+                            fontSize: 12.spMin,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (onTap != null)
+                  Icon(LucideIcons.chevronRight, color: Colors.white, size: 22.spMin),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

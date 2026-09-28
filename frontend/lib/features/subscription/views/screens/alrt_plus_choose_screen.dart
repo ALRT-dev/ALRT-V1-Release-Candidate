@@ -44,10 +44,9 @@ class AlrtPlusChooseScreen extends StatelessWidget {
               ),
             ),
             SizedBox(height: 18.spMin),
-            _choice(
-              context,
-              identity: PlanIdentity.individual,
-              icon: LucideIcons.user,
+            PlanChoiceCard(
+              gradient: PlanIdentity.individual.linearGradient,
+              eyebrow: 'ALRT +',
               title: kChooseForMyselfTitle,
               body: kChooseForMyselfBody,
               onTap: () async {
@@ -61,10 +60,9 @@ class AlrtPlusChooseScreen extends StatelessWidget {
               },
             ),
             SizedBox(height: 12.spMin),
-            _choice(
-              context,
-              identity: PlanIdentity.family,
-              icon: LucideIcons.users,
+            PlanChoiceCard(
+              gradient: kGroupPlansGradient,
+              eyebrow: 'ALRT + Family · ALRT + Group',
               title: kChooseCoverGroupTitle,
               body: kChooseCoverGroupBody,
               onTap: () async {
@@ -90,71 +88,6 @@ class AlrtPlusChooseScreen extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _choice(
-    final BuildContext context, {
-    required final PlanIdentity identity,
-    required final IconData icon,
-    required final String title,
-    required final String body,
-    required final VoidCallback onTap,
-  }) {
-    final accent = identity.accentFor(context);
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18.spMin),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18.spMin),
-        onTap: onTap,
-        child: Container(
-          padding: EdgeInsets.all(16.spMin),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18.spMin),
-            border: Border.all(color: kPaywallLine),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44.spMin,
-                height: 44.spMin,
-                decoration: BoxDecoration(
-                  color: identity.tint,
-                  borderRadius: BorderRadius.circular(14.spMin),
-                ),
-                child: Icon(icon, color: accent, size: 22.spMin),
-              ),
-              SizedBox(width: 12.spMin),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 16.spMin,
-                        fontWeight: FontWeight.w800,
-                        color: kPaywallInk,
-                      ),
-                    ),
-                    SizedBox(height: 3.spMin),
-                    Text(
-                      body,
-                      style: TextStyle(
-                        fontSize: 13.spMin,
-                        height: 1.45,
-                        color: kPaywallInkSoft,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(LucideIcons.chevronRight, color: accent),
-            ],
-          ),
         ),
       ),
     );

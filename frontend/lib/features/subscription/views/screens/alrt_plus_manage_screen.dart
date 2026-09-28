@@ -8,6 +8,8 @@ import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.da
 import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
+import 'package:hazard_app/features/subscription/utils/paywall_copy.dart';
+import 'package:hazard_app/features/subscription/utils/restore_outcome.dart';
 import 'package:hazard_app/features/subscription/views/widgets/billing_issue_banner.dart';
 import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
 import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
@@ -52,13 +54,19 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
     }
   }
 
+  bool _restoring = false;
+
   Future<void> _restore() async {
-    if (!isAlrtPlusTestUnlocked) {
-      await ref.read(providerOfRevenueCat).restore();
+    if (_restoring) return;
+    if (isAlrtPlusTestUnlocked) {
+      _snack('Preview build: nothing to restore.');
+      return;
     }
-    ref.invalidate(providerOfAccess);
-    ref.invalidate(providerOfAlrtPlus);
-    _snack('Purchases restored. Your plans below are up to date.');
+    setState(() => _restoring = true);
+    final outcome = await runRestore(ref);
+    if (!mounted) return;
+    setState(() => _restoring = false);
+    _snack(outcome.message);
   }
 
   Future<void> _applyUnbound(
@@ -142,7 +150,8 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
     child: Column(
       children: [
         const PaywallNotice(
-          text: 'Your plans could not be loaded. Check your connection and '
+          text:
+              'Your plans could not be loaded. Check your connection and '
               'try again.',
           isError: true,
         ),
@@ -167,7 +176,8 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
         _label('Group coverage'),
         if (access.groups.isEmpty)
           const PaywallNotice(
-            text: 'You are not in any groups yet. Groups are free to create '
+            text:
+                'You are not in any groups yet. Groups are free to create '
                 'and join.',
           )
         else
@@ -190,8 +200,7 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   TextButton(
-                    onPressed: () =>
-                        _applyUnbound(plan, access.hostedGroups),
+                    onPressed: () => _applyUnbound(plan, access.hostedGroups),
                     child: const Text('Choose the group it covers'),
                   ),
                 ],
@@ -215,7 +224,11 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                 _openStoreManagement,
               ),
               const Divider(height: 1),
-              _action(LucideIcons.refreshCw, 'Restore purchases', _restore),
+              _action(
+                LucideIcons.refreshCw,
+                _restoring ? 'Restoring purchases…' : 'Restore purchases',
+                _restore,
+              ),
             ],
           ),
         ),
@@ -239,112 +252,123 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
   Widget _personalCard(final PersonalAccess personal) {
     if (personal.isIndividual) {
       final until = personal.expiresAt;
-      final String status;
+      final String? chip;
       if (personal.billingDisabled) {
-        status = 'Billing isn\'t switched on for this server yet, so every '
-            'feature is open.';
+        chip = 'Billing is off on this server: everything is open';
       } else if (personal.isTrial && until != null) {
-        status = 'Free trial until ${_date.format(until.toLocal())}.';
+        chip = 'Free trial until ${_date.format(until.toLocal())}';
       } else if (until != null) {
-        status = personal.willRenew
-            ? 'Renews ${_date.format(until.toLocal())}.'
-            : 'Ends ${_date.format(until.toLocal())}. It won\'t renew.';
+        chip = personal.willRenew
+            ? 'Renews ${_date.format(until.toLocal())}'
+            : 'Ends ${_date.format(until.toLocal())}, won\'t renew';
       } else {
-        status = 'Active.';
+        chip = 'Active';
       }
-      return PaywallCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const PlanBadge(identity: PlanIdentity.individual),
-            SizedBox(height: 8.spMin),
-            Text(status, style: const TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4.spMin),
-            PaywallFinePrint(
-              'Unlimited saved places · ${personal.askPerDay} Ask ALRT '
-              'questions a day · unlimited groups',
-            ),
-          ],
-        ),
+      return PlanCoverageCard(
+        identity: PlanIdentity.individual,
+        eyebrow: 'ALRT +',
+        title: 'Covers you',
+        covers: kPersonalCoversLine(personal.askPerDay),
+        chip: chip,
       );
     }
-    return PaywallCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'ALRT Free',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-          ),
-          SizedBox(height: 4.spMin),
-          PaywallFinePrint(
-            '${personal.extraSavedPlaces ?? 1} saved place as well as where '
-            'you are · ${personal.askPerDay} Ask ALRT questions a day. Group '
-            'plans don\'t change these.',
-          ),
-          SizedBox(height: 10.spMin),
-          PlanCta(
-            label: 'See ALRT + Individual',
-            identity: PlanIdentity.individual,
-            onPressed: () => context.push(
-              AlrtPlusPaywallScreen.route,
-              extra: const AlrtPlusPaywallArgs(),
-            ),
-          ),
-        ],
+    return PlanCoverageCard(
+      eyebrow: 'ALRT Free',
+      title: 'You',
+      covers:
+          '${personal.extraSavedPlaces ?? 1} saved place as well as where '
+          'you are, and ${personal.askPerDay} Ask ALRT questions a day. '
+          'Group plans don\'t change these.',
+      actionLabel: 'See ALRT +',
+      actionIdentity: PlanIdentity.individual,
+      onAction: () => context.push(
+        AlrtPlusPaywallScreen.route,
+        extra: const AlrtPlusPaywallArgs(),
       ),
     );
   }
 
   Widget _groupCard(final GroupAccess g) {
     final s = g.sponsorship;
-    final String line;
-    final PlanIdentity? identity = s == null ? null : PlanIdentity.of(s.tier);
     if (g.fundingMode == GroupFundingMode.sponsored && s != null && s.live) {
       final who = s.youPay ? 'you' : (s.coveredBy ?? 'the group\'s payer');
-      line = 'Covered by $who. ${planTierName(s.tier)} plan, '
-          '${g.peopleCount} of ${g.capacity ?? sponsoredCapacity(s.tier)} '
-          'people.';
-    } else if (g.fundingMode == GroupFundingMode.sponsored) {
-      line = 'This group\'s plan has ended. Check-ins, SOS and Journey are '
-          'paused here until it is renewed or the host changes how the '
-          'group is paid for.';
-    } else if (g.connectionAllowed) {
-      line = 'Funded by Individual. Your Individual plan covers you here.';
-    } else {
-      line = 'Funded by Individual. You need Individual or its trial to take '
-          'part here.';
-    }
-    return PaywallCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  g.name,
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
+      final capacity = g.capacity ?? sponsoredCapacity(s.tier);
+      final pending = s.pendingTier;
+      final upgrade = s.youPay ? s.upgradeTier : null;
+      return PlanCoverageCard(
+        identity: PlanIdentity.of(s.tier),
+        eyebrow: planDisplayName(s.tier),
+        title: g.name,
+        chip: 'Covers everyone here · ${g.peopleCount} of $capacity people',
+        covers:
+            'Check in, Check on, SOS and Journey for everyone in this '
+            'group. Paid by $who.',
+        note: pending == null
+            ? null
+            : sponsorRank(pending) > sponsorRank(s.tier)
+            ? 'Upgrade to ${planDisplayName(pending)} requested. This '
+                  'group stays on ${planTierName(s.tier)} until your store '
+                  'confirms it.'
+            : 'Changing to ${planDisplayName(pending)} at renewal. Until '
+                  'then it stays ${planTierName(s.tier)}.',
+        actionLabel: upgrade != null && pending == null
+            ? 'Upgrade to ${planDisplayName(upgrade)}'
+            : null,
+        onAction: upgrade == null
+            ? null
+            : () => context.push(
+                AlrtPlusGroupPaywallScreen.route,
+                extra: AlrtPlusGroupPaywallArgs(
+                  circleId: g.circleId,
+                  tier: upgrade,
                 ),
               ),
-              if (identity != null) PlanBadge(identity: identity),
-            ],
-          ),
-          SizedBox(height: 6.spMin),
-          PaywallFinePrint(line),
-          if (g.isHost && !g.isSponsoredAndLive)
-            TextButton(
-              onPressed: () => context.push(
+      );
+    }
+    if (g.fundingMode == GroupFundingMode.sponsored) {
+      return PlanCoverageCard(
+        eyebrow: s == null
+            ? 'Group plan ended'
+            : '${planDisplayName(s.tier)} ended',
+        title: g.name,
+        covers:
+            'Check in, Check on, SOS and Journey are paused here. Stopping '
+            'and ending still work.',
+        note: s?.youPay ?? false
+            ? 'Renew it in your app store to switch them back on.'
+            : g.isHost
+            ? 'You can cover this group again with a new plan.'
+            : 'The host can renew or replace the plan.',
+        actionLabel: s?.youPay ?? false
+            ? 'Renew in your app store'
+            : g.isHost
+            ? 'Cover this group'
+            : null,
+        onAction: s?.youPay ?? false
+            ? _openStoreManagement
+            : g.isHost
+            ? () => context.push(
                 AlrtPlusGroupPaywallScreen.route,
                 extra: AlrtPlusGroupPaywallArgs(circleId: g.circleId),
-              ),
-              child: const Text('Cover this group'),
-            ),
-        ],
-      ),
+              )
+            : null,
+      );
+    }
+    return PlanCoverageCard(
+      eyebrow: 'No group plan',
+      title: g.name,
+      covers: g.connectionAllowed
+          ? 'Your ALRT + covers you here. Others need their own ALRT +, or '
+                'the host can cover everyone with a Family or Group plan.'
+          : 'Each person needs ALRT + to use Check in, Check on, SOS and '
+                'Journey here, or the host can cover everyone.',
+      actionLabel: g.isHost ? 'Cover this group' : null,
+      onAction: g.isHost
+          ? () => context.push(
+              AlrtPlusGroupPaywallScreen.route,
+              extra: AlrtPlusGroupPaywallArgs(circleId: g.circleId),
+            )
+          : null,
     );
   }
 

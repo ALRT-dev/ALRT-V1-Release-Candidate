@@ -1,3 +1,7 @@
+import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
+import 'package:hazard_app/features/family/utils/sos_preview.dart';
+import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'dart:async';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:collection/collection.dart';
@@ -92,6 +96,14 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     final selectedList = sosLists
         .where((l) => l.id == _selectedListId)
         .firstOrNull;
+    final others = ref.watch(
+      providerOfFamily.select((s) => s.circle?.others ?? const <FamilyMember>[]),
+    );
+    final preview = sosPreview(
+      others: others,
+      list: selectedList,
+      live: _liveLocationEnabled,
+    );
     final targetLabel = selectedList == null
         ? 'all $memberCount members of $circleName'
         : 'the ${selectedList.memberIds.length} people on '
@@ -156,8 +168,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                             : (_liveLocationEnabled
                                   ? 'Sends an SOS and your live location '
                                         'to $targetLabel.'
-                                  : 'Sends an SOS to $targetLabel. Your live '
-                                        'location will not be shared.'),
+                                  : 'Sends an SOS and where you are now to '
+                                        '$targetLabel. It won\'t update.'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.8),
@@ -198,11 +210,17 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                         ),
                         SizedBox(height: 10.spMin),
                         _liveLocationToggleBuilder(),
+                        SizedBox(height: 10.spMin),
+                        _previewBuilder(preview),
                       ],
                       const Spacer(),
-                      _sent ? _sentIndicatorBuilder() : _holdButtonBuilder(),
+                      _sent
+                          ? _sentIndicatorBuilder()
+                          : preview.isEmpty
+                          ? _nobodyToReachBuilder(emergencyNumber)
+                          : _holdButtonBuilder(),
                       SizedBox(height: 14.spMin),
-                      if (!_sent)
+                      if (!_sent && !preview.isEmpty)
                         Text(
                           'Keep holding to send',
                           style: TextStyle(
@@ -335,6 +353,102 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             inactiveThumbColor: Colors.white.withValues(alpha: 0.7),
             inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
             onChanged: (value) => setState(() => _liveLocationEnabled = value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Before sending: exactly who gets it and what location they get.
+  Widget _previewBuilder(final SosPreview preview) {
+    Widget line(final IconData icon, final String label, final String text) =>
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 4.spMin),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 16.spMin, color: Colors.white),
+              SizedBox(width: 8.spMin),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '$label ',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      TextSpan(text: text),
+                    ],
+                  ),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.spMin,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+    return Container(
+      key: const Key('sos-preview'),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 10.spMin),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14.spMin),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          line(Icons.people_alt_outlined, 'Goes to:', preview.recipientsLine),
+          line(Icons.place_outlined, 'Location:', preview.locationLine),
+        ],
+      ),
+    );
+  }
+
+  /// No one to send to: say so before the hold, never after it.
+  Widget _nobodyToReachBuilder(final String emergencyNumber) {
+    return Container(
+      key: const Key('sos-nobody'),
+      width: double.infinity,
+      padding: EdgeInsets.all(16.spMin),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16.spMin),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Add someone first',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.spMin,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 6.spMin),
+          Text(
+            'Your SOS needs at least one other person to reach. If you are '
+            'in immediate danger, call $emergencyNumber.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 13.5.spMin,
+              height: 1.4,
+            ),
+          ),
+          SizedBox(height: 12.spMin),
+          FilledButton(
+            onPressed: () => context.push(FamilyInviteScreen.route),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: FamilyColors.sosDarkRed,
+              shape: const StadiumBorder(),
+            ),
+            child: const Text('Invite someone'),
           ),
         ],
       ),
@@ -510,10 +624,19 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       setState(() => _sent = true);
       _returnToFamilyAfterSend();
     } else {
+      _holdController.reset();
+      // Nobody to reach, a list from another group, or no access here:
+      // each gets its own answer. Only an unknown failure says "retry".
+      final refusal = AccessRefusal.fromError(
+        ref.read(providerOfFamily).sosTriggerState.error,
+      );
+      if (refusal != null) {
+        await showAccessRefusalSheet(context, ref, refusal);
+        return;
+      }
       context.showErrorToast(
         message: 'Could not send the SOS. Check your connection and retry.',
       );
-      _holdController.reset();
     }
   }
 

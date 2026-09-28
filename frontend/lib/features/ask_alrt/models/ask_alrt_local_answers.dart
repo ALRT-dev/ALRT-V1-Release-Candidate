@@ -177,7 +177,7 @@ abstract final class AskAlrtLocalAnswers {
           'Creating a group and joining with an invite code are always '
           'free, and '
           'you can be in as many groups as you like. For check-ins, SOS '
-          'and Journey, each person in a group needs ALRT + Individual, or '
+          'and Journey, each person in a group needs ALRT +, or '
           'one person can cover the whole group with a Family plan (up to '
           '6 people) or a Group plan (up to 20 or 50).',
     ),
@@ -188,7 +188,7 @@ abstract final class AskAlrtLocalAnswers {
       answer:
           'Alerts, the live map, navigation and emergency call guidance are '
           'always free, with one saved place and 3 Ask ALRT questions a '
-          'day. ALRT + Individual is for you: unlimited saved places and 10 '
+          'day. ALRT + is for you: unlimited saved places and 10 '
           'Ask ALRT questions a day. Family and Group plans cover '
           'check-ins, SOS and Journey for one group. Current prices are '
           'shown in the app, straight from the store.',

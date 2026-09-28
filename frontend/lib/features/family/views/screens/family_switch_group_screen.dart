@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -70,7 +71,8 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
       next,
     ) {
       if (prev != next && next.isError && next.error != null) {
-        context.showErrorToast(message: next.error!.message);
+        // A full group says so, with its capacity; never a payment ask.
+        showFamilyActionError(context, ref, next.error!);
       }
     });
     ref.listen(providerOfFamily.select((s) => s.createCircleState), (

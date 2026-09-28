@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -1954,7 +1955,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     ) {
       ref.listen(providerOfFamily.select(selector), (prev, next) {
         if (prev != next && next.isError && next.error != null) {
-          context.showErrorToast(message: next.error!.message);
+          // A coded refusal (plan ended, ALRT + needed...) gets its own
+          // sheet; anything else stays a toast.
+          showFamilyActionError(context, ref, next.error!);
         }
       });
     }

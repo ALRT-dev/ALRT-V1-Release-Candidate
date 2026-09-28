@@ -19,10 +19,14 @@ abstract class AccessRepository {
 
   /// Records the group a Family/Group purchase will cover, before the
   /// store sheet opens. Host only; the backend checks capacity.
-  Future<Either<void, AppError>> createSponsorshipIntent({
+  Future<Either<SponsorshipIntentResult, AppError>> createSponsorshipIntent({
     required final String circleId,
     required final PlanTier tier,
   });
+
+  /// After a purchase or Restore: asks the backend to check the store's
+  /// server record and returns what it found plus the resulting access.
+  Future<Either<ReconcileResult, AppError>> reconcile();
 
   /// Applies an already-verified group purchase to one hosted group, once.
   Future<Either<void, AppError>> bindSponsorship({
@@ -49,18 +53,39 @@ class AccessRepositoryImpl implements AccessRepository {
   }
 
   @override
-  Future<Either<void, AppError>> createSponsorshipIntent({
+  Future<Either<SponsorshipIntentResult, AppError>> createSponsorshipIntent({
     required final String circleId,
     required final PlanTier tier,
   }) {
     return runAsyncCall(
       name: 'createSponsorshipIntent',
       future: () async {
-        await _dio.post<dynamic>(
+        final response = await _dio.post<dynamic>(
           kUrlAccessSponsorshipIntents,
           data: {'circleId': circleId, 'tier': tier.name},
         );
-        return const Success(null);
+        final data = response.data;
+        return Success(
+          data is Map
+              ? SponsorshipIntentResult.fromJson(
+                  Map<String, dynamic>.from(data),
+                )
+              : const SponsorshipIntentResult(),
+        );
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<ReconcileResult, AppError>> reconcile() {
+    return runAsyncCall(
+      name: 'reconcileAccess',
+      future: () async {
+        final response = await _dio.post<Map<String, dynamic>>(
+          kUrlAccessReconcile,
+        );
+        return Success(ReconcileResult.fromJson(response.data ?? const {}));
       },
       onError: Failure.new,
     );

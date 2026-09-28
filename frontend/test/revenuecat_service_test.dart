@@ -62,7 +62,13 @@ class _FakeGateway implements PurchasesGateway {
   ) async => const {};
 
   @override
-  Future<Set<String>> purchase(Package package) => throw UnimplementedError();
+  Future<Set<String>> purchase(
+    Package package, {
+    String? replacingProductId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CustomerInfo> restorePurchases() => throw UnimplementedError();
 }
 
 void main() {

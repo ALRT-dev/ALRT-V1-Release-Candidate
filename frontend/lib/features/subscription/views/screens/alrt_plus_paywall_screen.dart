@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
 import 'package:hazard_app/features/subscription/utils/paywall_copy.dart';
+import 'package:hazard_app/features/subscription/utils/restore_outcome.dart';
 import 'package:hazard_app/features/subscription/utils/purchase_error_message.dart';
 import 'package:hazard_app/features/subscription/utils/store_price.dart';
 import 'package:hazard_app/features/subscription/utils/trial_copy.dart';
@@ -102,7 +103,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     if (!rc.hasKeys) {
       setState(() {
         _loading = false;
-        _notice = 'This build has no billing key, so ALRT + cannot be '
+        _notice =
+            'This build has no billing key, so ALRT + cannot be '
             'bought here.';
         _noticeIsError = true;
       });
@@ -113,10 +115,13 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
       _notice = null;
     });
     final offering = await rc.offering(RevenueCatService.personalOfferingId);
-    final package = offering?.monthly ?? offering?.availablePackages.firstOrNull;
+    final package =
+        offering?.monthly ?? offering?.availablePackages.firstOrNull;
     Map<String, IntroEligibilityStatus> eligibility = const {};
     if (package != null && !_isAndroid) {
-      eligibility = await rc.introEligibility([package.storeProduct.identifier]);
+      eligibility = await rc.introEligibility([
+        package.storeProduct.identifier,
+      ]);
     }
     if (!mounted) return;
     setState(() {
@@ -130,7 +135,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
             );
       _loading = false;
       if (package == null) {
-        _notice = 'ALRT + Individual could not be loaded from the store. '
+        _notice =
+            'ALRT + could not be loaded from the store. '
             'Check your connection and try again.';
         _noticeIsError = true;
       }
@@ -145,7 +151,10 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
       ? 'month'
       : (_package == null
             ? ''
-            : billingPeriodNoun(_package!.storeProduct, _package!.packageType) ??
+            : billingPeriodNoun(
+                    _package!.storeProduct,
+                    _package!.packageType,
+                  ) ??
                   'period');
 
   TrialOffer? get _trialShown =>
@@ -230,23 +239,33 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
   Future<void> _restore() async {
     if (_busy) return;
     if (isAlrtPlusTestUnlocked) {
-      _snack('No previous ALRT + purchase found.');
+      _snack('Preview build: nothing to restore.');
       return;
     }
-    setState(() => _busy = true);
-    await ref.read(providerOfRevenueCat).restore();
-    final result = await ref.read(providerOfAccessRepository).getAccess();
+    setState(() {
+      _busy = true;
+      _notice = null;
+    });
+    final outcome = await runRestore(ref);
+    if (!mounted) return;
+    _invalidateAccess();
+    final access = ref.read(providerOfAccessRepository);
+    final personal = outcome.kind == RestoreOutcomeKind.confirmed
+        ? await access.getAccess()
+        : null;
     if (!mounted) return;
     setState(() => _busy = false);
-    _invalidateAccess();
-    if (result.isSuccess && result.success.personal.isIndividual) {
+    if (personal != null &&
+        personal.isSuccess &&
+        personal.success.personal.isIndividual) {
+      _snack(outcome.message);
       Navigator.of(context).pop(true);
-    } else {
-      _snack(
-        'No active ALRT + Individual found for this account. If you just '
-        'restored, it can take a moment to update.',
-      );
+      return;
     }
+    setState(() {
+      _notice = outcome.message;
+      _noticeIsError = outcome.isError;
+    });
   }
 
   void _snack(final String text) =>
@@ -263,8 +282,8 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     AlrtPlusPaywallReason.askLimit =>
       'You\'ve used today\'s Ask ALRT questions on ALRT Free.',
     AlrtPlusPaywallReason.individualGroup =>
-      'This group is funded by Individual, so each person taking part '
-          'needs Individual or its trial.',
+      'This group has no Family or Group plan, so each person taking part '
+          'needs ALRT +.',
     AlrtPlusPaywallReason.general || AlrtPlusPaywallReason.hostCircle => null,
   };
 
@@ -283,7 +302,12 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
           ),
           Expanded(
             child: ListView(
-              padding: EdgeInsets.fromLTRB(18.spMin, 16.spMin, 18.spMin, 24.spMin),
+              padding: EdgeInsets.fromLTRB(
+                18.spMin,
+                16.spMin,
+                18.spMin,
+                24.spMin,
+              ),
               children: [
                 if (_reasonLine != null) ...[
                   PaywallNotice(text: _reasonLine!),
@@ -320,8 +344,7 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                     label: _ctaLabel,
                     identity: _identity,
                     busy: _busy,
-                    onPressed:
-                        (_loading || (_package == null && !_dummy))
+                    onPressed: (_loading || (_package == null && !_dummy))
                         ? null
                         : _subscribe,
                   ),
@@ -376,7 +399,7 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
           SizedBox(width: 10.spMin),
           Expanded(
             child: Text(
-              'ALRT + Individual',
+              'ALRT +',
               style: TextStyle(
                 fontSize: 14.spMin,
                 fontWeight: FontWeight.w700,

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/subscription/models/access_models.dart';
 
-/// The colour identity of each ALRT + product (master spec §8).
+/// The colour identity of each ALRT + product (product owner, 28 Sep
+/// 2026, replacing the master spec §8 teal/purple/blue set):
+/// - ALRT + (personal, formerly "Individual"): purple
+/// - ALRT + Family: bright green
+/// - ALRT + Group 20 / Group 50: blue
+/// Each has a gradient for heroes and badges, a solid accent for buttons
+/// and borders, and a light tint for selected rows.
 ///
-/// Applied to the plus sign / plan badge, the paywall hero, benefit icons,
-/// the purchase button, the selected plan row and the membership card.
 /// Never used for official warnings, red SOS actions, the green Check in
 /// button or the Family navigation. The ALRT wordmark stays orange.
 @immutable
@@ -14,39 +18,59 @@ class PlanIdentity {
     required this.accent,
     required this.tint,
     required this.darkAccent,
+    required this.gradient,
   });
 
+  /// What follows "ALRT +": empty for the personal plan, else "Family",
+  /// "Group 20"... (see [label]).
   final String name;
 
-  /// Light-mode accent: buttons, selected row border, badge.
+  /// Light-mode accent: buttons, selected row border. White text on it
+  /// passes WCAG AA.
   final Color accent;
 
-  /// Light-mode tint: hero wash, selected row fill, card background.
+  /// Light-mode tint: selected row fill, benefit ticks.
   final Color tint;
 
   /// Dark-mode accent (on dark surfaces).
   final Color darkAccent;
 
+  /// Dark to light, top-left to bottom-right. White text sits on the
+  /// darker end.
+  final List<Color> gradient;
+
+  /// "ALRT +", "ALRT + Family", "ALRT + Group".
+  String get label => name.isEmpty ? 'ALRT +' : 'ALRT + $name';
+
+  LinearGradient get linearGradient => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: gradient,
+  );
+
   static const individual = PlanIdentity(
-    name: 'Individual',
-    accent: Color(0xFF096D69),
-    tint: Color(0xFFEFF9F7),
-    darkAccent: Color(0xFF76D9CD),
+    name: '',
+    accent: Color(0xFF7B359A),
+    tint: Color(0xFFF6EEFB),
+    darkAccent: Color(0xFFD9A2EF),
+    gradient: [Color(0xFF4A1766), Color(0xFF8E3FB3)],
   );
 
   static const family = PlanIdentity(
     name: 'Family',
-    accent: Color(0xFF7B359A),
-    tint: Color(0xFFF8F1FC),
-    darkAccent: Color(0xFFD9A2EF),
+    accent: Color(0xFF0A7F4F),
+    tint: Color(0xFFE9F8F0),
+    darkAccent: Color(0xFF5EDC9C),
+    gradient: [Color(0xFF05603B), Color(0xFF17A96A)],
   );
 
   /// Group 20 and Group 50 share blue; capacity and price tell them apart.
   static const group = PlanIdentity(
     name: 'Group',
     accent: Color(0xFF1F5CAD),
-    tint: Color(0xFFF0F5FE),
+    tint: Color(0xFFEEF4FE),
     darkAccent: Color(0xFF99C1FF),
+    gradient: [Color(0xFF123A73), Color(0xFF2468C4)],
   );
 
   static PlanIdentity of(final PlanTier tier) => switch (tier) {
@@ -60,47 +84,38 @@ class PlanIdentity {
       Theme.of(context).brightness == Brightness.dark ? darkAccent : accent;
 }
 
-/// The "ALRT +" badge in a plan's colour. The plus carries the plan
-/// colour; the text stays readable on light and dark surfaces.
+/// The full product name: "ALRT +", "ALRT + Family", "ALRT + Group 20".
+String planDisplayName(final PlanTier tier) =>
+    tier == PlanTier.individual ? 'ALRT +' : 'ALRT + ${planTierName(tier)}';
+
+/// The plan pill: white "ALRT + Family" on the plan's gradient. [label]
+/// replaces the words after "ALRT +" (for example "Group 20").
 class PlanBadge extends StatelessWidget {
   const PlanBadge({super.key, required this.identity, this.label});
 
   final PlanIdentity identity;
-
-  /// Defaults to "ALRT + " followed by the plan name.
   final String? label;
 
   @override
   Widget build(BuildContext context) {
-    final accent = identity.accentFor(context);
+    final rest = label ?? identity.name;
+    final text = rest.isEmpty ? 'ALRT +' : 'ALRT + $rest';
     return Semantics(
-      label: label ?? 'ALRT + ${identity.name}',
+      label: text,
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.12),
+          gradient: identity.linearGradient,
           borderRadius: BorderRadius.circular(999),
         ),
-        child: Text.rich(
-          TextSpan(
-            children: [
-              const TextSpan(text: 'ALRT '),
-              TextSpan(
-                text: '+',
-                style: TextStyle(color: accent),
-              ),
-              if (label == null) TextSpan(text: ' ${identity.name}'),
-              if (label != null) TextSpan(text: ' $label'),
-            ],
-          ),
-          style: TextStyle(
+        child: Text(
+          text,
+          style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.3,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white
-                : const Color(0xFF232326),
+            color: Colors.white,
           ),
         ),
       ),

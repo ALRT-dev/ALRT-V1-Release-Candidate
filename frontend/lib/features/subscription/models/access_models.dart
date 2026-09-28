@@ -95,6 +95,9 @@ class GroupSponsorship {
     required this.expiresAt,
     required this.coveredBy,
     required this.youPay,
+    this.pendingTier,
+    this.productId,
+    this.store,
   });
 
   factory GroupSponsorship.fromJson(final Map<String, dynamic> json) =>
@@ -105,6 +108,9 @@ class GroupSponsorship {
         expiresAt: _date(json['expiresAt']),
         coveredBy: json['coveredBy']?.toString(),
         youPay: json['youPay'] == true,
+        pendingTier: planTierFromString(json['pendingTier']),
+        productId: json['productId']?.toString(),
+        store: json['store']?.toString(),
       );
 
   final PlanTier tier;
@@ -115,7 +121,31 @@ class GroupSponsorship {
   /// Display name of the payer, when known.
   final String? coveredBy;
   final bool youPay;
+
+  /// A change the payer asked for that the store has not confirmed yet.
+  /// The plan above stays in force until it is.
+  final PlanTier? pendingTier;
+
+  /// Payer only: the store product in force (Android replacement needs
+  /// it) and which store sells it.
+  final String? productId;
+  final String? store;
+
+  /// The next bigger plan, or null at Group 50.
+  PlanTier? get upgradeTier => switch (tier) {
+    PlanTier.family => PlanTier.group20,
+    PlanTier.group20 => PlanTier.group50,
+    _ => null,
+  };
 }
+
+/// Upgrade order of group plans: Family < Group 20 < Group 50.
+int sponsorRank(final PlanTier tier) => switch (tier) {
+  PlanTier.family => 1,
+  PlanTier.group20 => 2,
+  PlanTier.group50 => 3,
+  PlanTier.individual => 0,
+};
 
 class GroupAccess {
   const GroupAccess({
@@ -168,7 +198,8 @@ class GroupAccess {
   bool get isSponsoredAndLive =>
       fundingMode == GroupFundingMode.sponsored && (sponsorship?.live ?? false);
   bool get isSponsorshipPaused =>
-      fundingMode == GroupFundingMode.sponsored && !(sponsorship?.live ?? false);
+      fundingMode == GroupFundingMode.sponsored &&
+      !(sponsorship?.live ?? false);
 }
 
 class UnboundSponsorship {
@@ -235,6 +266,12 @@ class AccessSummary {
   /// Groups this person hosts (the ones they can cover with a plan).
   List<GroupAccess> get hostedGroups =>
       groups.where((g) => g.isHost).toList(growable: false);
+
+  /// Groups this person can buy or upgrade a plan for: ones they host,
+  /// plus any whose live plan they pay for (only the payer can upgrade).
+  List<GroupAccess> get coverableGroups => groups
+      .where((g) => g.isHost || (g.sponsorship?.youPay ?? false))
+      .toList(growable: false);
 }
 
 /// People a sponsored plan covers in its one group.
@@ -252,3 +289,66 @@ String planTierName(final PlanTier tier) => switch (tier) {
   PlanTier.group20 => 'Group 20',
   PlanTier.group50 => 'Group 50',
 };
+
+/// What POST /api/access/sponsorship-intents answered. For an upgrade it
+/// names the plan being replaced, so Google Play can replace it.
+class SponsorshipIntentResult {
+  const SponsorshipIntentResult({this.replacesTier, this.replacesProductId});
+
+  factory SponsorshipIntentResult.fromJson(final Map<String, dynamic> json) {
+    final r = json['replaces'];
+    return r is Map
+        ? SponsorshipIntentResult(
+            replacesTier: planTierFromString(r['tier']),
+            replacesProductId: r['productId']?.toString(),
+          )
+        : const SponsorshipIntentResult();
+  }
+
+  final PlanTier? replacesTier;
+  final String? replacesProductId;
+
+  bool get isUpgrade => replacesProductId != null;
+}
+
+/// What POST /api/access/reconcile answered: what the store's own server
+/// record says (when it could be read) and the access that results.
+class ReconcileResult {
+  const ReconcileResult({
+    required this.storeChecked,
+    required this.confirmedChanges,
+    required this.unrecorded,
+    required this.access,
+  });
+
+  factory ReconcileResult.fromJson(final Map<String, dynamic> json) {
+    final store = json['store'] is Map
+        ? Map<String, dynamic>.from(json['store'] as Map)
+        : const <String, dynamic>{};
+    return ReconcileResult(
+      storeChecked: store['checked'] == true,
+      confirmedChanges: store['confirmedChanges'] is int
+          ? store['confirmedChanges'] as int
+          : 0,
+      unrecorded: [
+        for (final u in (store['unrecorded'] as List? ?? const []))
+          if (u is Map && planTierFromString(u['tier']) != null)
+            planTierFromString(u['tier'])!,
+      ],
+      access: AccessSummary.fromJson(
+        json['access'] is Map
+            ? Map<String, dynamic>.from(json['access'] as Map)
+            : const {},
+      ),
+    );
+  }
+
+  /// False when ALRT couldn't read the store's record (no server key, or
+  /// the store API failed). Access is still what ALRT has recorded.
+  final bool storeChecked;
+  final int confirmedChanges;
+
+  /// Active store purchases ALRT has not recorded yet (still arriving).
+  final List<PlanTier> unrecorded;
+  final AccessSummary access;
+}

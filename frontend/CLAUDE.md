@@ -147,10 +147,22 @@ docs/V1_ACCESS_MODEL_IMPLEMENTATION.md.
   onboarding offer, and one ALRT + entry in Profile ("For myself" /
   "Cover a group"). At most one upgrade presentation per screen; opening
   a screen never triggers a modal paywall.
-- Plan colours: Individual teal #096D69 (tint #EFF9F7, dark #76D9CD),
-  Family purple #7B359A (#F8F1FC, #D9A2EF), Group 20/50 blue #1F5CAD
-  (#F0F5FE, #99C1FF). Billing colours never recolour official warnings,
-  red SOS, green Check in or the Family navigation. Wordmark stays orange.
+- Plan names and colours (product owner 2026-09-28, replacing the master
+  spec teal/purple/blue): the personal plan is shown as just "ALRT +"
+  (never "Individual" in UI copy; the store product and backend tier keep
+  the id `individual`), purple #7B359A, gradient #4A1766 -> #8E3FB3.
+  ALRT + Family bright green #0A7F4F, gradient #05603B -> #17A96A.
+  ALRT + Group 20/50 blue #1F5CAD, gradient #123A73 -> #2468C4. "Cover a
+  group" before a size is chosen uses green -> blue. Plans in force show
+  on their gradient (PlanCoverageCard, PlanHero, PlanChoiceCard) with
+  plain words for who and what is covered. Billing colours never recolour
+  official warnings, red SOS, the green Check in button or the Family
+  navigation. Wordmark stays orange.
+- Access refusals are answered by code (access_refusal.dart): an ended
+  group plan never sells ALRT +, a full group offers the payer an upgrade,
+  permission refusals offer nothing to buy, "no SOS recipients" asks to
+  invite someone. Restore never says "restored" unless ALRT confirms it
+  (restore_outcome.dart).
 - Say "people", never "seats". Joining with a code is always free.
 - Prices come from the store (RevenueCat), never hardcoded.
 
