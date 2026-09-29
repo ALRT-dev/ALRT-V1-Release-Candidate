@@ -1171,6 +1171,11 @@ export const updateOwnMember = async (
     data,
   });
 
+  // A narrower setting applies to a running SOS at once (provisional, R12).
+  if (input.sharingLevel !== undefined && input.sharingLevel !== "precise") {
+    await narrowRunningSosFor(membership.id, input.sharingLevel);
+  }
+
   await notifyCircle({
     circleId: membership.circleId,
     socketEvent: SocketEvent.familyCircleUpdate,
@@ -2042,9 +2047,28 @@ const MAX_SOS_LISTS = 4;
 
 export const listSosLists = async (userId: string) => {
   await requireMembership(userId);
-  return prisma.familySosList.findMany({
+  const lists = await prisma.familySosList.findMany({
     where: { ownerUserId: userId },
     orderBy: { createdAt: "asc" },
+  });
+  // Each list says which ONE group it belongs to (V1: one group per SOS
+  // list), or null with the reason when it needs repair: people from
+  // several groups (made before this rule), or nobody left on it.
+  const members = await prisma.familyMember.findMany({
+    where: { id: { in: [...new Set(lists.flatMap((l) => l.memberIds))] } },
+    select: { id: true, circleId: true },
+  });
+  const circleOf = new Map(members.map((m) => [m.id, m.circleId]));
+  return lists.map((list) => {
+    const circles = new Set(
+      list.memberIds.map((id) => circleOf.get(id)).filter((c): c is string => !!c),
+    );
+    return {
+      ...list,
+      circleId: circles.size === 1 ? [...circles][0]! : null,
+      needsRepair: circles.size > 1 ? "multipleGroups" : circles.size === 0 ? "empty" : null,
+      missingCount: list.memberIds.filter((id) => !circleOf.has(id)).length,
+    };
   });
 };
 
@@ -2066,6 +2090,19 @@ const assertSosListMembersValid = async (
   });
   if (validCount !== memberIds.length) {
     throw new HttpError(400, "Every recipient must be in one of your circles");
+  }
+  // V1 rule, the same one triggerSos enforces: one group per SOS list.
+  const circles = await prisma.familyMember.findMany({
+    where: { id: { in: memberIds } },
+    select: { circleId: true },
+    distinct: ["circleId"],
+  });
+  if (circles.length > 1) {
+    throw new HttpError(
+      422,
+      "An SOS list can only name people in one group. Choose one group.",
+      "SOS_PRESET_OTHER_GROUP",
+    );
   }
 };
 
@@ -2347,14 +2384,17 @@ export const sosLocationModeOf = (input: {
 };
 
 /**
- * The precision a point is delivered at: what the sender asked for, never
- * finer than their own sharing setting (precise only for "precise").
+ * The precision an SOS starts with. The sender's explicit choice on the SOS
+ * screen wins: SOS consent is its own consent, separate from ordinary group
+ * sharing, and "Off" for ordinary sharing is not turned into "approximate"
+ * here. Only when no choice was sent (older apps) is it taken from the
+ * group setting: exact for "precise", suburb only otherwise.
  */
 export const sosPrecisionFor = (
   sharingLevel: string,
   requested?: SosLocationPrecision,
 ): SosLocationPrecision =>
-  sharingLevel === "precise" && requested !== "approximate" ? "precise" : "approximate";
+  requested ?? (sharingLevel === "precise" ? "precise" : "approximate");
 
 const suburbLabelFor = async (latitude: number, longitude: number) => {
   try {
@@ -2523,6 +2563,104 @@ export const triggerSos = async (
   );
 
   return sos;
+};
+
+/**
+ * Changes what a RUNNING SOS shares, effective at once for new points, live
+ * broadcasts, what recipients can read, and what was already stored:
+ * - mode "none": sharing stops; the stored point, label and trail are
+ *   deleted and recipients are told there is no location;
+ * - precision "approximate": coordinates and the precise trail are
+ *   deleted; only a suburb label remains;
+ * - mode "once": live updates stop; the last point stays.
+ * The sender may also widen it again explicitly here. A location update
+ * never changes consent (recordSosLocation only reads it).
+ */
+export const setSosLocationConsent = async (
+  sosEventId: string,
+  change: { mode?: SosLocationMode | undefined; precision?: SosLocationPrecision | undefined },
+  opts: { actingUserId?: string; reduceOnly?: boolean } = {},
+) => {
+  const sos = await prisma.familySosEvent.findUnique({
+    where: { id: sosEventId },
+    include: { member: { select: { userId: true, sharingLevel: true } } },
+  });
+  if (!sos || (opts.actingUserId && sos.member.userId !== opts.actingUserId)) {
+    throw new HttpError(404, "SOS event not found");
+  }
+  if (sos.status !== "active") throw new HttpError(409, "This SOS has ended");
+  const curMode: SosLocationMode =
+    (sos.locationMode as SosLocationMode | null) ?? (sos.isLive ? "live" : sos.latitude != null ? "once" : "none");
+  const curPrecision: SosLocationPrecision =
+    (sos.locationPrecision as SosLocationPrecision | null) ?? sosPrecisionFor(sos.member.sharingLevel);
+  const rank = { none: 0, once: 1, live: 2 } as const;
+  let mode = change.mode ?? curMode;
+  let precision = change.precision ?? curPrecision;
+  if (opts.reduceOnly) {
+    if (rank[mode] > rank[curMode]) mode = curMode;
+    if (precision === "precise" && curPrecision === "approximate") precision = "approximate";
+  }
+  const stop = mode === "none";
+  const dropPrecise = stop || precision === "approximate";
+  const updated = await prisma.familySosEvent.update({
+    where: { id: sos.id },
+    data: {
+      locationMode: mode,
+      isLive: mode === "live",
+      locationPrecision: precision,
+      ...(dropPrecise && { latitude: null, longitude: null }),
+      ...(stop && {
+        locationLabel: null,
+        locationCapturedAt: null,
+        locationAccuracyM: null,
+      }),
+    },
+    include: {
+      member: { select: memberIdentitySelect },
+      responses: { include: { member: { select: memberIdentitySelect } } },
+    },
+  });
+  if (dropPrecise) {
+    await prisma.familyLocationPing.deleteMany({ where: { sosEventId: sos.id } });
+  }
+  sendSocketEventToUsers({
+    userIds: await sosAudienceUserIds(updated),
+    event: SocketEvent.familySosLocation,
+    data: {
+      sosEventId: sos.id,
+      latitude: updated.latitude,
+      longitude: updated.longitude,
+      locationLabel: updated.locationLabel,
+      locationCapturedAt: updated.locationCapturedAt,
+      locationPrecision: precision,
+      locationMode: mode,
+    },
+  });
+  return updated;
+};
+
+/**
+ * PROVISIONAL precedence (open decision R12): lowering ordinary group
+ * sharing while an SOS runs also narrows that SOS, never widens it:
+ * "approximate" -> suburb only; "alerts only" or "off" -> SOS location
+ * stops. The sender can re-enable sharing for that SOS explicitly.
+ */
+const narrowRunningSosFor = async (memberId: string, level: string) => {
+  const running = await prisma.familySosEvent.findMany({
+    where: { memberId, status: "active" },
+    select: { id: true },
+  });
+  for (const sos of running) {
+    await setSosLocationConsent(
+      sos.id,
+      level === "approximate"
+        ? { precision: "approximate" }
+        : level === "off" || level === "alertsOnly"
+          ? { mode: "none" }
+          : {},
+      { reduceOnly: true },
+    );
+  }
 };
 
 /**

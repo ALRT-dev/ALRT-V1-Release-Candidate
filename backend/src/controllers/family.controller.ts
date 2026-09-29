@@ -18,6 +18,7 @@ import type {
   TransferFamilyOwnershipInput,
   TriggerFamilySosInput,
   SosLocationPointInput,
+  SosLocationConsentInput,
   UpdateFamilyCircleInput,
   UpdateFamilyMemberInput,
   UpdateFamilyPlaceInput,
@@ -399,10 +400,10 @@ export const shareSnapshotController = async (
 ) => {
   try {
     const userId = requireUserId(res);
-    const input: FamilyLocationPingInput = req.body;
+    const { purpose, ...input }: FamilyLocationPingInput = req.body;
     const result = await shareLocationSnapshot(
       userId,
-      { ...input, via: "manual" },
+      { ...input, via: "manual", labelled: purpose === "manual" },
       circleIdOf(req),
     );
     res.status(200).json(result);
@@ -850,6 +851,29 @@ export const previewSosController = async (
         ? req.query.sosListId
         : undefined;
     res.json(await familyService.previewSos(userId, sosListId, circleIdOf(req)));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** PUT /api/family/sos/:sosEventId/location-consent (sender only) */
+export const setSosLocationConsentController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const sosEventId = req.params.sosEventId;
+    if (!sosEventId) throw new HttpError(400, "Missing SOS id");
+    const input: SosLocationConsentInput = req.body;
+    res.json(
+      await familyService.setSosLocationConsent(
+        sosEventId,
+        { mode: input.locationMode, precision: input.locationPrecision },
+        { actingUserId: userId },
+      ),
+    );
   } catch (error) {
     next(error);
   }

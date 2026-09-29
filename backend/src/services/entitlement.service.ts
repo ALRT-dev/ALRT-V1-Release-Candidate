@@ -105,6 +105,23 @@ export const isSubscriptionLive = (
 
 export { effectiveTierAt } from "../utils/subscription_effective.util.js";
 
+/**
+ * Applies every change of [userId]'s whose effective time has passed,
+ * BEFORE any later mutation reads or rewrites the pending fields. Without
+ * this, a new request (for example a second scheduled change) would
+ * overwrite an elapsed one and the old tier would come back. Idempotent.
+ */
+export const materializeDueChangesFor = async (userId: string, now = new Date()) => {
+  const due = await prisma.storeSubscription.findMany({
+    where: {
+      userId,
+      pendingTier: { not: null },
+      pendingEffectiveAt: { not: null, lte: now },
+    },
+  });
+  for (const row of due) await materializeDueChange(row, now);
+};
+
 /** Writes a change whose effective time has passed onto the row. */
 const materializeDueChange = async (sub: StoreSubscription, now = new Date()) => {
   if (!sub.pendingEffectiveAt || !sub.pendingTier || sub.pendingEffectiveAt > now) return sub;
@@ -375,6 +392,7 @@ export const createSponsorshipIntent = async (
   circleId: string,
   tier: Exclude<PlanTier, "individual">,
 ) => {
+  await materializeDueChangesFor(payerUserId);
   const coverage = await getGroupCoverage(circleId);
   const current = coverage.sponsorship?.live ? coverage.sponsorship : null;
 
@@ -449,6 +467,7 @@ export const bindSponsorship = async (
   intentId?: string,
   options: { replaceExisting?: boolean } = {},
 ): Promise<BoundSponsorship> => {
+  await materializeDueChangesFor(actingUserId);
   if (options.replaceExisting) {
     return replaceWithUnboundSponsorship(subscriptionId, circleId, actingUserId);
   }
@@ -859,6 +878,9 @@ export const applyRevenueCatEvent = async (
   if (!userId || userId.startsWith("$RCAnonymousID:")) {
     return finish({ action: "ignored", reason: "anonymous or missing app_user_id" });
   }
+  // Elapsed changes first, whatever this event is (review, 29 Sep 2026).
+  if (!userId.startsWith("$RCAnonymousID:")) await materializeDueChangesFor(userId);
+
   if (type === "PRODUCT_CHANGE") {
     const result = await recordPendingChange(event, userId, eventAt);
     if (result.action === "applied") await confirmPendingChanges(userId);
@@ -1011,6 +1033,7 @@ const recordPendingChange = async (
     return { action: "ignored", reason: `unmapped product ${event.new_product_id ?? "?"}` };
   }
   const txId = event.original_transaction_id || event.transaction_id;
+  await materializeDueChangesFor(userId);
   let row = txId
     ? await prisma.storeSubscription.findUnique({ where: { originalTransactionId: txId } })
     : null;
@@ -1230,6 +1253,7 @@ const readStoreRecord = async (
   };
 
   let confirmedChanges = 0;
+  await materializeDueChangesFor(userId);
   const pending = await prisma.storeSubscription.findMany({
     where: { userId, supersededAt: null, pendingProductId: { not: null } },
   });

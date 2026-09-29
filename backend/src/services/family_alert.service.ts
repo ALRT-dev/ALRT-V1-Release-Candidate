@@ -68,6 +68,8 @@ export const shareLocationSnapshot = async (
     batteryLevel?: number | undefined;
     isMoving?: boolean | undefined;
     via?: FamilySnapshotSource | undefined;
+    /** False = an unlabelled post from an older app (see below). */
+    labelled?: boolean | undefined;
   },
   circleId?: string,
 ) => {
@@ -83,13 +85,25 @@ export const shareLocationSnapshot = async (
   // running live SOS only (its audience, its precision), exactly like
   // POST /sos/:id/location. With no live SOS running, "sos" is just an
   // ordinary snapshot and needs access like any other.
-  if (snapshot.via === "sos") {
+  // Older apps send their live SOS loop here, unlabelled. When that
+  // person has a LIVE SOS running, an unlabelled post is unambiguously that
+  // loop: it goes to the SOS audience only, at the SOS's own precision, and
+  // never updates the group snapshot. A labelled "manual" share (current
+  // apps) is ordinary, separately consented sharing and is untouched.
+  const unlabelledFromOldApp = snapshot.via === "manual" && snapshot.labelled === false;
+  if (snapshot.via === "sos" || unlabelledFromOldApp) {
     const running = await prisma.familySosEvent.findFirst({
       where: { memberId: membership.id, status: "active" },
       orderBy: { createdAt: "desc" },
-      select: { id: true },
+      select: { id: true, locationMode: true, isLive: true },
     });
     if (running) {
+      const live = running.locationMode ? running.locationMode === "live" : running.isLive;
+      if (!live) {
+        // The SOS is not (or no longer) sharing live: an older app's loop
+        // must not fall through to the group channel instead.
+        throw new HttpError(409, "Live location is not being shared for this SOS");
+      }
       const result = await recordSosLocation(userId, running.id, {
         latitude: snapshot.latitude,
         longitude: snapshot.longitude,

@@ -26,6 +26,7 @@ import {
   bulkFamilyLocationRequestSchema,
   triggerFamilySosSchema,
   sosLocationPointSchema,
+  sosLocationConsentSchema,
   respondFamilySosSchema,
   transferFamilyOwnershipSchema,
 } from "../validators/family.validator.js";
@@ -73,6 +74,7 @@ import {
   triggerSosController,
   previewSosController,
   recordSosLocationController,
+  setSosLocationConsentController,
   listSosListsController,
   listSosRecipientsController,
   takeOverCircleController,
@@ -229,6 +231,8 @@ familyRouter.post("/sos/:sosEventId/resolve", resolveSosController);
 familyRouter.get("/sos/:sosEventId/trail", getSosTrailController);
 // The sender's live points for one live SOS: its audience only.
 familyRouter.post("/sos/:sosEventId/location", validate(sosLocationPointSchema), recordSosLocationController);
+// The sender changes what this SOS shares (narrow, stop or re-enable).
+familyRouter.put("/sos/:sosEventId/location-consent", validate(sosLocationConsentSchema), setSosLocationConsentController);
 
 
 // Journeys — a trip the traveller chooses to share, always with a hard stop

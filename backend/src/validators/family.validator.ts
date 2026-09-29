@@ -76,6 +76,12 @@ export const familyLocationPingSchema = z.object({
   heading: z.number().min(0).max(360).optional(),
   batteryLevel: z.number().int().min(0).max(100).optional(),
   isMoving: z.boolean().optional(),
+  // Supported-client policy (review, 29 Sep 2026): current apps label an
+  // ordinary, separately consented share "manual". An unlabelled post is
+  // treated as coming from an older app; while that person has a live SOS
+  // running, it is that SOS's live loop and is routed to the SOS audience
+  // only (see shareLocationSnapshot), never the group channel.
+  purpose: z.enum(["manual"]).optional(),
 });
 
 export type FamilyLocationPingInput = z.infer<typeof familyLocationPingSchema>;
@@ -190,6 +196,18 @@ export const sosLocationPointSchema = z.object({
 });
 
 export type SosLocationPointInput = z.infer<typeof sosLocationPointSchema>;
+
+/** The sender narrows, stops or explicitly re-enables sharing for one SOS. */
+export const sosLocationConsentSchema = z
+  .object({
+    locationMode: z.enum(["none", "once", "live"]).optional(),
+    locationPrecision: z.enum(["precise", "approximate"]).optional(),
+  })
+  .refine((v) => v.locationMode !== undefined || v.locationPrecision !== undefined, {
+    message: "Nothing to change",
+  });
+
+export type SosLocationConsentInput = z.infer<typeof sosLocationConsentSchema>;
 
 export type TriggerFamilySosInput = z.infer<typeof triggerFamilySosSchema>;
 

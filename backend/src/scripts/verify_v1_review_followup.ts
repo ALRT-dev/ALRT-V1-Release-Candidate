@@ -455,8 +455,11 @@ const main = async () => {
     await assertNoGroupWrite(H, g);
     const trail = await api(`/api/family/sos/${r.body.id}/trail`, { token: S.token });
     assert.equal(trail.body.points.length, 2, "trail = the SOS's own points");
-    // An ordinary snapshot during the SOS is NOT trail data.
-    await api(`/api/family/location?circleId=${g}`, { method: "POST", token: H.token, body: { latitude: LAT, longitude: LNG } });
+    // An ordinary snapshot during the SOS is NOT trail data. Current apps
+    // label it (purpose "manual"); an unlabelled post during a live SOS is
+    // an older app's SOS loop and goes to the SOS audience instead (review
+    // of cb26a8d, finding 2; verify_v1_findings_round2.ts).
+    await api(`/api/family/location?circleId=${g}`, { method: "POST", token: H.token, body: { latitude: LAT, longitude: LNG, purpose: "manual" } });
     const trail2 = await api(`/api/family/sos/${r.body.id}/trail`, { token: S.token });
     assert.equal(trail2.body.points.length, 2);
     await api(`/api/family/sos/${r.body.id}/resolve`, { method: "POST", token: H.token });
