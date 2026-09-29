@@ -79,6 +79,16 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
   /// shown with its age counts as explicitly accepted for "Once".
   bool _acceptedLastKnown = false;
 
+  /// The fix kind the screen actually last painted (set every build, in
+  /// [_locationChoiceBuilder]). A fix ages between repaints - [_fixNow] is
+  /// recomputed fresh every time it's read, so calling it again at the
+  /// instant the hold starts can already read "last known" even though
+  /// the screen still shows the older "current" wording from its last
+  /// paint. Starting the hold must be judged against what was actually
+  /// shown, not a value recomputed at that instant (finding 6, review of
+  /// 28bdec1).
+  LocationFixKind? _shownFixKind;
+
   /// Set when the send had to go without the chosen point (it went stale
   /// and no fresh fix came), so the sent screen says so.
   String? _sentLocationNote;
@@ -422,6 +432,10 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
   /// always labelled as a point being sent, never as "not shared".
   Widget _locationChoiceBuilder() {
     final fix = _fixNow;
+    // Record what this build actually shows: onTapDown reads this instead
+    // of recomputing the fix kind fresh at touch time (finding 6, review
+    // of 28bdec1).
+    _shownFixKind = fix?.kind;
     final unavailableReason = fix?.reason;
     final onceEnabled = fix != null && fix.hasPoint;
     final liveEnabled =
@@ -868,7 +882,12 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       onTapDown: (_) {
         // What they see as they start holding is what they agree to: a
         // point already labelled "last known, N min ago" is accepted.
-        _acceptedLastKnown = _fixNow?.kind == LocationFixKind.lastKnown;
+        // Judged against what the screen last actually painted
+        // (_shownFixKind), not a value recomputed fresh at this instant -
+        // a fix can go stale between repaints, and a touch that started
+        // while the screen still read "current" must not silently count
+        // as last-known acceptance (finding 6, review of 28bdec1).
+        _acceptedLastKnown = _shownFixKind == LocationFixKind.lastKnown;
         HapticFeedback.mediumImpact();
         _holdController.forward(from: 0);
       },

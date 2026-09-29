@@ -141,6 +141,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       _familySocketManager.sosStream.listen(_onSosReceived),
       _familySocketManager.sosResponseStream.listen(_onSosResponseReceived),
       _familySocketManager.sosResolvedStream.listen(_onSosResolved),
+      _familySocketManager.sosLocationStream.listen(_onSosLocationReceived),
       _familySocketManager.hazardProximityStream.listen(_onHazardProximity),
     ];
 
@@ -382,6 +383,9 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   @visibleForTesting
   void debugReceiveCheckIn(final FamilyCheckIn checkIn) =>
       _onCheckInReceived(checkIn);
+  @visibleForTesting
+  void debugReceiveSosLocation(final Map<String, dynamic> data) =>
+      _onSosLocationReceived(data);
 
   void _onSosReceived(final FamilySosEvent sosEvent) {
     if (!_isCircleInScope(sosEvent.circleId)) return;
@@ -2193,6 +2197,48 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       activeSosEvents: [
         sosEvent,
         ...state.activeSosEvents.where((event) => event.id != sosEvent.id),
+      ],
+    );
+  }
+
+  /// A live SOS location update, or a consent change clearing one (finding
+  /// 4, review of 28bdec1: the app previously never listened for this
+  /// event at all). Patches the matching active event's location fields in
+  /// place; latitude/longitude/label are applied exactly as sent,
+  /// including null, so a Stop or Suburb only reduction clears the display
+  /// here the same way it already did on the server. An event this phone
+  /// does not currently hold as active (already ended, or not yet loaded)
+  /// changes nothing - there is nothing to patch.
+  void _onSosLocationReceived(final Map<String, dynamic> data) {
+    final sosEventId = data['sosEventId'] as String?;
+    if (sosEventId == null) return;
+    final existing = state.activeSosEvents
+        .where((event) => event.id == sosEventId)
+        .firstOrNull;
+    if (existing == null) return;
+
+    final locationMode = data['locationMode'] as String?;
+    final capturedAtRaw = data['locationCapturedAt'] as String?;
+
+    final updated = existing.copyWith(
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
+      locationLabel: data['locationLabel'] as String?,
+      locationPrecision:
+          data['locationPrecision'] as String? ?? existing.locationPrecision,
+      locationCapturedAt: capturedAtRaw != null
+          ? DateTime.tryParse(capturedAtRaw)
+          : existing.locationCapturedAt,
+      locationMode: locationMode ?? existing.locationMode,
+      isLive: locationMode != null
+          ? locationMode == 'live'
+          : existing.isLive,
+    );
+
+    state = state.copyWith(
+      activeSosEvents: [
+        updated,
+        ...state.activeSosEvents.where((event) => event.id != sosEventId),
       ],
     );
   }

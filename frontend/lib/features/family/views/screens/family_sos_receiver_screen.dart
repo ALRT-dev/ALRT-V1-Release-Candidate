@@ -64,6 +64,12 @@ class _FamilySosReceiverScreenState
   GoogleMapController? _mapController;
   LatLng? _followedTarget;
 
+  /// Bumped at the start of every trail refresh so a slower, superseded
+  /// request can never overwrite what a later one already showed (finding
+  /// 4, review of 28bdec1: a stale response must not restore a trail a
+  /// newer Stop/Suburb only already cleared).
+  int _trailRequestSeq = 0;
+
   /// Set the moment the acknowledgment is tapped, so a double tap or a slow
   /// network cannot post it twice before the response arrives.
   bool _acknowledging = false;
@@ -124,6 +130,12 @@ class _FamilySosReceiverScreenState
       return;
     }
 
+    // Each tick gets its own sequence number: if a later tick already
+    // started (and possibly already finished) by the time this one's
+    // awaits resolve, this response is stale and must not overwrite
+    // whatever the later one showed.
+    final requestSeq = ++_trailRequestSeq;
+
     // The event too, not only its trail: when the sender stops sharing or
     // reduces to suburb only, the stored point is cleared on the server and
     // must disappear here as well (review of cb26a8d, finding 1).
@@ -131,9 +143,9 @@ class _FamilySosReceiverScreenState
     final trail = await notifier.getSosTrail(
       sosEventId: widget.args.sosEvent.id,
     );
-    if (!mounted) return;
+    if (!mounted || requestSeq != _trailRequestSeq) return;
     await notifier.refreshActiveSos();
-    if (!mounted || trail == null) return;
+    if (!mounted || trail == null || requestSeq != _trailRequestSeq) return;
     setState(() => _trail = trail.points);
   }
 
@@ -177,6 +189,27 @@ class _FamilySosReceiverScreenState
 
   @override
   Widget build(BuildContext context) {
+    // A consent reduction (Stop or Suburb only) clears the stored point
+    // server-side and wipes this SOS's own trail with it (finding 4,
+    // review of 28bdec1). A locally cached trail fetched before the
+    // change must not go on showing a point the sender just withdrew, so
+    // clear it the moment the event's own stored point disappears.
+    ref.listen<FamilySosEvent?>(
+      providerOfFamily.select(
+        (s) => s.activeSosEvents
+            .where((e) => e.id == widget.args.sosEvent.id)
+            .firstOrNull,
+      ),
+      (previous, next) {
+        if (next != null &&
+            previous?.latitude != null &&
+            next.latitude == null &&
+            _trail.isNotEmpty) {
+          setState(() => _trail = const []);
+        }
+      },
+    );
+
     // Prefer the live copy from state (updated by socket events); once the
     // SOS has ended, the history copy carries the final acknowledgments.
     final stateCopy = ref.watch(
@@ -636,10 +669,17 @@ class _FamilySosReceiverScreenState
     final live = sos.locationMode == null
         ? sos.isLive
         : sos.locationMode == 'live';
+    final once = sos.locationMode == 'once';
     final suburb = sos.locationPrecision == 'approximate';
+    // A Once chosen with no fix available at send time has nothing
+    // retained to withdraw or reduce - it behaves like "none" for these
+    // controls (finding 5, review of 28bdec1).
+    final hasRetainedLocation = sos.latitude != null || sos.locationLabel != null;
     final status = !live
-        ? sos.locationMode == 'once'
-              ? 'Your location was sent once with this SOS. It is not updating.'
+        ? once && hasRetainedLocation
+              ? suburb
+                    ? 'Your suburb was shared once with this SOS. It is not updating.'
+                    : 'Your location was sent once with this SOS. It is not updating.'
               : 'This SOS is not sharing your location.'
         : suburb
         ? 'Sharing your live location with this SOS: suburb only.'
@@ -726,6 +766,29 @@ class _FamilySosReceiverScreenState
                     done: 'This SOS now shares your suburb only.',
                   )),
           SizedBox(height: 8.spMin),
+          button('sos-consent-stop', 'Stop sharing my location',
+              LucideIcons.mapPinOff,
+              () => change(
+                mode: SosLocationChoice.none,
+                done: 'Your location is no longer shared. Your SOS is still '
+                    'active.',
+              )),
+        ] else if (once && hasRetainedLocation) ...[
+          // Finding 5, review of 28bdec1: a Once/Exact sender must be able
+          // to remove or reduce the retained location while the SOS stays
+          // active - previously these controls showed only for Live.
+          // There is no live loop behind a Once snapshot, so only the
+          // reduce direction is offered (suburb only, if currently exact);
+          // widening back to exact would show a promise nothing can fulfil.
+          if (!suburb) ...[
+            button('sos-consent-suburb', 'Suburb only',
+                LucideIcons.mapPinned,
+                () => change(
+                  precision: SosPrecisionChoice.suburb,
+                  done: 'This SOS now shares your suburb only.',
+                )),
+            SizedBox(height: 8.spMin),
+          ],
           button('sos-consent-stop', 'Stop sharing my location',
               LucideIcons.mapPinOff,
               () => change(

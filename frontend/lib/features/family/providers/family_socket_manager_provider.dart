@@ -24,6 +24,10 @@ class FamilySocketEvents {
   static const sos = 'familySos';
   static const sosResponse = 'familySosResponse';
   static const sosResolved = 'familySosResolved';
+  // A live/last-known point for a running SOS, or a consent change
+  // (Stop/Suburb only) clearing one. Previously not listened for at all
+  // (finding 4, review of 28bdec1).
+  static const sosLocation = 'familySosLocation';
   static const hazardProximity = 'familyHazardProximity';
 
   static const all = <String>[
@@ -36,6 +40,7 @@ class FamilySocketEvents {
     sos,
     sosResponse,
     sosResolved,
+    sosLocation,
     hazardProximity,
   ];
 }
@@ -70,6 +75,11 @@ class FamilySocketManager {
       StreamController<FamilySosResponse>.broadcast();
   final _sosResolvedStreamController =
       StreamController<FamilySosEvent>.broadcast();
+  // Kept as a raw map (like hazardProximityStream below), not a modeled
+  // type: this payload is a partial patch (sosEventId plus whichever
+  // location fields changed), not a full record.
+  final _sosLocationStreamController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _hazardProximityStreamController =
       StreamController<Map<String, dynamic>>.broadcast();
 
@@ -106,6 +116,13 @@ class FamilySocketManager {
   /// Broadcasts resolved SOS events.
   Stream<FamilySosEvent> get sosResolvedStream =>
       _sosResolvedStreamController.stream;
+
+  /// Broadcasts a live SOS location update: a new point, or a consent
+  /// change (Stop/Suburb only) clearing the stored one. Raw payload
+  /// {sosEventId, latitude, longitude, locationLabel, locationCapturedAt,
+  /// locationPrecision, locationMode?} - a partial patch, not a full event.
+  Stream<Map<String, dynamic>> get sosLocationStream =>
+      _sosLocationStreamController.stream;
 
   /// Broadcasts raw hazard proximity payloads for circle members.
   Stream<Map<String, dynamic>> get hazardProximityStream =>
@@ -224,6 +241,15 @@ class FamilySocketManager {
     );
 
     socket.on(
+      FamilySocketEvents.sosLocation,
+      (data) {
+        if (data is Map) {
+          _sosLocationStreamController.add(Map<String, dynamic>.from(data));
+        }
+      },
+    );
+
+    socket.on(
       FamilySocketEvents.hazardProximity,
       (data) {
         if (data is Map) {
@@ -266,6 +292,7 @@ class FamilySocketManager {
     _sosStreamController.close();
     _sosResponseStreamController.close();
     _sosResolvedStreamController.close();
+    _sosLocationStreamController.close();
     _hazardProximityStreamController.close();
   }
 }
