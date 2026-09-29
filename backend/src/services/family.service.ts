@@ -2497,6 +2497,11 @@ export const triggerSos = async (
   // coordinates. No point sent means no location (never a stored one).
   const precision = sosPrecisionFor(membership.sharingLevel, input.locationPrecision);
   const label = hasPoint ? await suburbLabelFor(input.latitude!, input.longitude!) : null;
+  // The chosen precision is consent, not a location, so it is stored
+  // whether or not a starting point came with this SOS (finding 1, review
+  // of 28bdec1): starting Live with no GPS fix yet must not leave the SOS
+  // to fall back to the group's ordinary sharing level on the first later
+  // point. locationMode is stored unconditionally for the same reason.
   const sos = await prisma.familySosEvent.create({
     data: {
       circleId: membership.circleId,
@@ -2505,8 +2510,8 @@ export const triggerSos = async (
       recipientUserIds,
       audienceRestricted: true,
       locationMode: mode,
+      locationPrecision: precision,
       ...(hasPoint && {
-        locationPrecision: precision,
         locationCapturedAt: capturedAt ?? new Date(),
         ...(input.locationAccuracyM !== undefined && { locationAccuracyM: input.locationAccuracyM }),
         ...(label && { locationLabel: label }),
@@ -2602,27 +2607,37 @@ export const setSosLocationConsent = async (
   }
   const stop = mode === "none";
   const dropPrecise = stop || precision === "approximate";
-  const updated = await prisma.familySosEvent.update({
-    where: { id: sos.id },
-    data: {
-      locationMode: mode,
-      isLive: mode === "live",
-      locationPrecision: precision,
-      ...(dropPrecise && { latitude: null, longitude: null }),
-      ...(stop && {
-        locationLabel: null,
-        locationCapturedAt: null,
-        locationAccuracyM: null,
-      }),
-    },
-    include: {
-      member: { select: memberIdentitySelect },
-      responses: { include: { member: { select: memberIdentitySelect } } },
-    },
+  // The row update and the trail purge must land as one unit (finding 2,
+  // review of 28bdec1): a concurrent recordSosLocation that is mid-flight
+  // (e.g. paused in an address lookup) must never insert a point between
+  // this update and its own ping cleanup. Postgres's row lock on the
+  // FamilySosEvent update serializes against recordSosLocation's own
+  // guarded, transactional write to the same row, so whichever commits
+  // first fully finishes - trail included - before the other proceeds.
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.familySosEvent.update({
+      where: { id: sos.id },
+      data: {
+        locationMode: mode,
+        isLive: mode === "live",
+        locationPrecision: precision,
+        ...(dropPrecise && { latitude: null, longitude: null }),
+        ...(stop && {
+          locationLabel: null,
+          locationCapturedAt: null,
+          locationAccuracyM: null,
+        }),
+      },
+      include: {
+        member: { select: memberIdentitySelect },
+        responses: { include: { member: { select: memberIdentitySelect } } },
+      },
+    });
+    if (dropPrecise) {
+      await tx.familyLocationPing.deleteMany({ where: { sosEventId: sos.id } });
+    }
+    return row;
   });
-  if (dropPrecise) {
-    await prisma.familyLocationPing.deleteMany({ where: { sosEventId: sos.id } });
-  }
   sendSocketEventToUsers({
     userIds: await sosAudienceUserIds(updated),
     event: SocketEvent.familySosLocation,
@@ -2699,35 +2714,77 @@ export const recordSosLocation = async (
   ) {
     throw new HttpError(400, "Live points must be current");
   }
-  const precision =
-    (sos.locationPrecision as SosLocationPrecision | null) ??
-    sosPrecisionFor(sos.member.sharingLevel);
+  // suburbLabelFor is a slow address lookup; the sender's consent (or the
+  // SOS itself) can change while it is in flight (finding 2, review of
+  // 28bdec1: an upload can read Live/Exact permission, pause during the
+  // lookup, then restore and broadcast exact location after Stop or
+  // Suburb only completes). Apply the point only if the row is still
+  // exactly as read - guarded by updatedAt, atomically with the ping it
+  // creates - and if a concurrent consent change (or SOS end) beat us to
+  // it, re-check what is current now and act on THAT, once, never the
+  // stale wider permission.
   const label = await suburbLabelFor(input.latitude, input.longitude);
-  const updated = await prisma.familySosEvent.update({
-    where: { id: sos.id },
-    data: {
-      locationPrecision: precision,
-      locationCapturedAt: capturedAt,
-      ...(input.accuracy !== undefined && { locationAccuracyM: input.accuracy }),
-      ...(label && { locationLabel: label }),
-      ...(precision === "precise" && { latitude: input.latitude, longitude: input.longitude }),
-    },
-    include: {
-      member: { select: memberIdentitySelect },
-      responses: { include: { member: { select: memberIdentitySelect } } },
-    },
-  });
-  if (precision === "precise") {
-    await prisma.familyLocationPing.create({
-      data: {
-        memberId: sos.memberId,
-        sosEventId: sos.id,
-        latitude: input.latitude,
-        longitude: input.longitude,
-        ...(input.accuracy !== undefined && { accuracy: input.accuracy }),
-      },
+
+  const applyPoint = async (
+    row: typeof sos,
+  ): Promise<{ updated: Awaited<ReturnType<typeof prisma.familySosEvent.findUniqueOrThrow>>; precision: SosLocationPrecision } | null> => {
+    const precision =
+      (row.locationPrecision as SosLocationPrecision | null) ??
+      sosPrecisionFor(row.member.sharingLevel);
+    return prisma.$transaction(async (tx) => {
+      const guarded = await tx.familySosEvent.updateMany({
+        where: { id: sosEventId, updatedAt: row.updatedAt, status: "active" },
+        data: {
+          locationPrecision: precision,
+          locationCapturedAt: capturedAt,
+          ...(input.accuracy !== undefined && { locationAccuracyM: input.accuracy }),
+          ...(label && { locationLabel: label }),
+          ...(precision === "precise" && { latitude: input.latitude, longitude: input.longitude }),
+        },
+      });
+      if (guarded.count === 0) return null;
+      if (precision === "precise") {
+        await tx.familyLocationPing.create({
+          data: {
+            memberId: row.memberId,
+            sosEventId: row.id,
+            latitude: input.latitude,
+            longitude: input.longitude,
+            ...(input.accuracy !== undefined && { accuracy: input.accuracy }),
+          },
+        });
+      }
+      const updated = await tx.familySosEvent.findUniqueOrThrow({
+        where: { id: sosEventId },
+        include: {
+          member: { select: memberIdentitySelect },
+          responses: { include: { member: { select: memberIdentitySelect } } },
+        },
+      });
+      return { updated, precision };
     });
+  };
+
+  let result = await applyPoint(sos);
+  if (!result) {
+    const fresh = await prisma.familySosEvent.findUnique({
+      where: { id: sosEventId },
+      include: { member: { select: { userId: true, sharingLevel: true } } },
+    });
+    if (!fresh || fresh.status !== "active") {
+      throw new HttpError(409, "This SOS has ended, so live sharing has stopped");
+    }
+    const freshLive = fresh.locationMode ? fresh.locationMode === "live" : fresh.isLive;
+    if (!freshLive) {
+      throw new HttpError(409, "Live location was not chosen for this SOS");
+    }
+    result = await applyPoint(fresh);
+    if (!result) {
+      throw new HttpError(409, "This SOS's sharing changed while sending; try again");
+    }
   }
+
+  const { updated, precision } = result;
   sendSocketEventToUsers({
     userIds: await sosAudienceUserIds(updated),
     event: SocketEvent.familySosLocation,
