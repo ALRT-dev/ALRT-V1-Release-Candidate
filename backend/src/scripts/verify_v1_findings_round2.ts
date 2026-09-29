@@ -360,6 +360,29 @@ const main = async () => {
     await api(`/api/family/sos/${id}/resolve`, { method: "POST", token: H.token });
   });
 
+  await check("unlabelled post naming ANOTHER group during a live SOS still goes to the SOS audience, not that group", async () => {
+    const other = await createGroup(H, "Second group");
+    const W = await register("Watcher");
+    await buy(W, "individual");
+    await joinOk(W, await inviteCode(H, other));
+    const wSock = await listen(W.token);
+    const id = await startLive();
+    sSock.events.length = 0;
+    const old = await api(`/api/family/location?circleId=${other}`, {
+      method: "POST",
+      token: H.token,
+      body: { latitude: LAT, longitude: LNG },
+    });
+    assert.equal(old.status, 200, JSON.stringify(old.body));
+    assert.equal(old.body.sosEventId, id);
+    await settle();
+    assert.equal(wSock.events.length, 0, "other group's member received the point");
+    assert.ok(sSock.events.some((e) => e.event === "familySosLocation"));
+    assert.equal((await memberOf(H, other)).latitude, null, "other group's snapshot written");
+    wSock.socket.close();
+    await api(`/api/family/sos/${id}/resolve`, { method: "POST", token: H.token });
+  });
+
   await check("a labelled manual share is ordinary, separately consented group sharing (during an SOS too)", async () => {
     const id = await startLive();
     uSock.events.length = 0;

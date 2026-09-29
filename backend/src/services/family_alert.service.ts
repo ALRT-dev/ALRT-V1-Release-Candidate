@@ -92,8 +92,14 @@ export const shareLocationSnapshot = async (
   // apps) is ordinary, separately consented sharing and is untouched.
   const unlabelledFromOldApp = snapshot.via === "manual" && snapshot.labelled === false;
   if (snapshot.via === "sos" || unlabelledFromOldApp) {
+    // Any of the person's groups, not only the one this request names: an
+    // older app whose selected group changed mid-SOS must not leak the
+    // loop into another group's snapshot.
+    const myMemberIds = (
+      await prisma.familyMember.findMany({ where: { userId }, select: { id: true } })
+    ).map((m) => m.id);
     const running = await prisma.familySosEvent.findFirst({
-      where: { memberId: membership.id, status: "active" },
+      where: { memberId: { in: myMemberIds }, status: "active" },
       orderBy: { createdAt: "desc" },
       select: { id: true, locationMode: true, isLive: true },
     });
