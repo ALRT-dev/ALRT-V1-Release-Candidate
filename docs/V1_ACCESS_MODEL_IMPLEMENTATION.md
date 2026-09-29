@@ -13,15 +13,20 @@ commercial rules in earlier chats, mock-ups, audit plans and CLAUDE.md.
   reachable from this session, so every live setting below is
   **Not verified**.
 
-## Status (29 Sep 2026, after the review of `cb26a8d`)
+## Status (29 Sep 2026, after the review of `28bdec1`)
 
-Most V1 functionality is implemented with local test coverage. The five
-code-review findings on `cb26a8d` now have fixes with local regression
-tests; they are awaiting verification (independent review, deployed TEST
-and device checks), not closed. Product decisions (14 open, §6),
-configuration (§3) and migration work (§4) remain. Deployed TEST, real
-store-sandbox and real-device validation have not been performed. Launch
-readiness has not been established.
+Most V1 functionality is implemented. The five code-review findings on
+`cb26a8d` have fixes with local regression tests (§2a). The independent
+review of `28bdec1` found seven further findings (§2b); fixes for all
+seven are on the working branch, but this session's sandbox could not run
+either backend script (Prisma's engine download is blocked) or any
+Flutter tooling (no toolchain, pub.dev also blocked), so every §2b fix is
+Static evidence only - none are Local test, Flutter test or otherwise
+run. All twelve findings across both rounds are awaiting verification
+(independent review, deployed TEST and device checks), not closed.
+Product decisions (14 open, §6), configuration (§3) and migration work
+(§4) remain. Deployed TEST, real store-sandbox and real-device validation
+have not been performed. Launch readiness has not been established.
 
 Evidence levels used below:
 
@@ -200,7 +205,32 @@ independent review, deployed TEST or device check yet.
 | 4 | SOS list editor allows several groups | Reproduced (1 check failed on cb26a8d: a mixed list was created, 201) | Fixed; awaiting verification | 67ebf9e, ace1e8d | R2: mixed create and update refused 422 `SOS_PRESET_OTHER_GROUP`; old mixed list reported `needsRepair: multipleGroups`, repaired, then the send accepts it. App S2: mixed list opens with a repair notice and saves only the chosen group; switching group clears picks (nothing hidden kept). SN: only this group's lists offered. All pass | Multi-group SOS is a separate future proposal |
 | 5 | A second scheduled change resurrects the pre-change tier | Reproduced (1 check failed on cb26a8d: Group 50 came back) | Fixed; awaiting verification | 67ebf9e | R2 on a server without `REVENUECAT_SECRET_API_KEY`: Group 50 -> Group 20 scheduled and elapsed, no lifecycle event in between, payer schedules Family: group stays Group 20 (capacity 20), row tier written as group20, Family pending; duplicate event "duplicate"; older event "ignored"; Family applies only on a store event naming it; ALRT + unaffected throughout. All pass | Real store event sequences need sandbox |
 
-## 3. Exact reconfiguration table
+## 2b. Independent review of `28bdec1`: the seven findings
+
+None of the seven are Reproduced or Local test this round: this session's
+sandbox blocks `binaries.prisma.sh` at the egress policy (confirmed via
+the proxy's own status endpoint, not worked around), so `npx prisma
+generate` cannot fetch a query engine and no script - `round2` or the new
+`round3` - could run against a live database; the frontend findings also
+could not run `flutter analyze`/`flutter test` (no Dart/Flutter toolchain
+in this sandbox, and pub.dev is blocked the same way). Every fix below is
+Static (read against the diff, traced through the surrounding code and
+the existing regression conventions) and needs Local test / Flutter test
+evidence from an environment where those hosts are reachable before it
+counts as run, not just written. R12 and R14 (older-client support) are
+unchanged in spirit; none of these fixes resolve them.
+
+| # | Finding | Evidence of the defect | Status | Fix | Regression scenario (written, not run this session) | Remaining limitation |
+|---|---|---|---|---|---|---|
+| 1 | Starting Live/Suburb only with no GPS fix left `locationPrecision` unset, so the first later point fell back to the group's ordinary sharing level | Static: `triggerSos` stored `locationPrecision` only inside the `hasPoint` spread, unlike the already-unconditional `locationMode` | Fixed; Static only | `42dcc63` | round3 #1: create Live/approximate with no point; row already reads `locationPrecision: approximate`; first point stays approximate | Needs Local test against a live database |
+| 2 | An in-flight `recordSosLocation` upload read precision before a slow suburb lookup, then wrote it back unconditionally, able to restore a wider share after a concurrent Stop/Suburb only completed | Static: the read-then-slow-await-then-unconditional-`update` shape in `recordSosLocation`, plus a second, narrower gap where `setSosLocationConsent`'s own trail purge was a separate statement from its row update | Fixed; Static only | `42dcc63` | round3 #2: a live point and a concurrent Stop fired together, looped 5x, asserting the row never reads stopped with a restored point | Needs Local test with real timing; the fix is an optimistic lock (row `updatedAt`) plus a one-shot re-read-and-retry, not a controllable delay, so the regression checks the invariant rather than forcing the exact interleaving |
+| 3 | An unlabelled point with no live SOS to route to (none running, or more than one live at once in different groups) fell through to the ordinary group snapshot, reading absence/ambiguity as manual-sharing consent | Static: `shareLocationSnapshot`'s `if (running) {...}` had no `else` - it fell through past the whole block | Fixed; Static only | `5a21bd3` | round2's existing "no SOS running" check corrected from asserting the old fallback to asserting refusal; round3 #3 adds two-groups-at-once, refused, then unambiguous once one ends | Needs Local test; round2's OTHER older-app checks (selected/unselected recipient, another group named, stop then refused, labelled manual share) were not re-run either |
+| 4 | The app never listened for `familySosLocation` at all; a locally cached trail could also outlive a consent reduction that arrived by a slower, superseded poll response | Static: no `familySosLocation` handler anywhere in `lib/`; `family_sos_receiver_screen.dart`'s 25s trail poll had no ordering guard | Fixed; Static only | `e125cae` | None written this session - Flutter-only, needs a widget test driving `debugReceiveSosLocation` and the corrected `_refreshTrail` | Needs a Flutter test (fake socket payloads, fake out-of-order poll responses) and a render check |
+| 5 | Stop/Suburb only were shown only for Live; a Once/Exact sender had no way to remove or reduce the retained location while the SOS stayed active | Static: `_sosLocationControlsBuilder`'s `else` branch offered only "Share live location" | Fixed; Static only | `e125cae` | round3 #4 confirms the backend endpoint already supports reducing then withdrawing a Once snapshot without ending the SOS; the new UI controls themselves are not covered here | Needs a Flutter widget test and a render check of the new Once controls |
+| 6 | The SOS hold-start handler recomputed the fix's freshness fresh at the instant of touch, so a fix that went stale between two 15s repaints could count as accepted "last known" even though the screen still showed "current" wording | Static: `onTapDown` read `_fixNow` (always recomputed) rather than what the last `build()` had painted | Fixed; Static only | `e125cae` | None written this session - needs a Flutter test that ages a fix between two frames without an intervening rebuild and asserts `_acceptedLastKnown` stays false | Needs a Flutter test with a controlled clock, mirroring round2's app-side clock-seam tests for finding 3 of `cb26a8d` |
+| 7 | Four StoreSubscription writes (`materializeDueChange`, the webhook's main write, `recordPendingChange`, the reconcile confirm loop) read-decided-wrote without a guard, so a concurrent write to the same row could be overwritten by an older snapshot, reverting a newer scheduled or confirmed tier | Static: each was a plain `prisma.storeSubscription.update` based on a row read one or more awaits earlier, outside any transaction | Fixed; Static only | `5353b66` | round3 #5: a scheduled change becoming due and a fresh PRODUCT_CHANGE request, fired together, still land on the elapsed tier, never an older one | Needs Local test; `bindSponsorship`/`replaceSponsorship` were already safe (fresh read inside the same transaction, or disjoint fields) and are untouched |
+
+
 
 Nothing here was changed. Every "Current" value is **Not verified** unless
 stated; historical values are discovery clues only. Secrets are named,
@@ -326,6 +356,25 @@ revised SOS screen, running-SOS controls or list editor), Ask ALRT
 functions unit tests (unchanged, not rerun). Passing local tests show the
 scenarios listed; they are not evidence for anything they do not cover.
 
+## 5a. Test results, review of `28bdec1` (not run this session)
+
+Backend fixes at `42dcc63`/`5a21bd3`/`5353b66`; `verify_v1_findings_round3`
+added at `e276198`; frontend fixes at `e125cae`. Nothing in this row was
+executed - it records what would need to run, not a result:
+
+| Script | Server | Result |
+|---|---|---|
+| verify_v1_findings_round3 (new) | billing on, no server key | Not run: this sandbox's egress policy blocks `binaries.prisma.sh`, so `npx prisma generate` cannot fetch a query engine and no server could even start against a real database |
+| verify_v1_findings_round2 (its "no SOS running" check corrected) | billing on, no server key | Not rerun for the same reason; the correction itself is Static only |
+| `npx tsc --noEmit` | | Not usefully run: the same block leaves `@prisma/client` as an untyped stub, so the whole codebase (not just the touched files) reports missing-member/implicit-any errors unrelated to this change. Filtered by hand to the touched files' own diagnostics, plus a standalone TypeScript syntax parse (`ts.transpileModule`) of every edited file: no errors beyond the stub-client noise |
+| `flutter analyze` / `flutter test` | | Not run: no Dart/Flutter toolchain in this sandbox, and its egress policy also blocks pub.dev, so one could not even be installed |
+
+Before this round's evidence can move past Static: run
+`verify_v1_findings_round2`/`round3` against a local Postgres+PostGIS in
+an environment where `binaries.prisma.sh` is reachable, and run `flutter
+analyze`/`flutter test` (plus a render of the new Once controls) in an
+environment with the Flutter SDK and pub.dev access.
+
 ## 6. Open decisions: current provisional behaviour
 
 Nothing in this table is approved. "Now" is what the code does,
@@ -349,7 +398,7 @@ the reviewer's one-group rule.
 | R11 | Group Places; Family tab name | No limit; free; adults and host manage | An abuse limit; rename with store screenshots |
 | R12 | Precedence between explicit SOS/Journey location consent and ordinary group sharing | SOS: the sender chooses None / Once / Live and Exact / Suburb only per SOS (default from group sharing); that choice can be finer than group sharing. While it runs, LOWERING group sharing narrows it (approximate -> suburb only; off or alerts only -> stops sharing); RAISING group sharing never widens it; the sender can widen it again only with the SOS's own control. Journey: no per-journey choice; each point follows the group setting ("off"/"alerts only" = suburb label, never coordinates). "Off" is never treated as "approximate" for a running SOS | Exact question: when a person gives explicit SOS or Journey consent and later changes ordinary group sharing, which wins? And should Journey get the same per-journey choice as SOS? |
 | R13 | SOS lists spanning groups | CLOSED: one group per list in editor, API and send (reviewer instruction, `67ebf9e`, `ace1e8d`) | Multi-group SOS is a separate future proposal |
-| R14 | Older app builds (supported-client policy) | Unlabelled `POST /family/location` during a live SOS goes to that SOS only; refused while a non-live SOS runs; ordinary otherwise. No minimum version is enforced | Set a minimum supported app version (forced update) before billing is switched on |
+| R14 | Older app builds (supported-client policy) | Unlabelled `POST /family/location` during a live SOS goes to that SOS only; refused while a non-live SOS runs, with no live SOS at all, or with more than one live at once in different groups (corrected by finding 3 of the `28bdec1` review, `5a21bd3` - it previously fell through to ordinary group sharing in the no-SOS and ambiguous cases). No minimum version is enforced | Set a minimum supported app version (forced update) before billing is switched on |
 | G1 | Existing guest members | Not converted; keep guest restrictions; count as people | Inspect TEST/production with the read-only report first; then decide per host. No blanket conversion to adult |
 
 ### Ask ALRT: failure and retry charging, exactly as coded
@@ -398,3 +447,17 @@ or implemented.
    the one-group list editor; a visual check (render or device) is
    needed, including hold-button reachability now that the precision
    choice adds a row.
+10. The seven independent-review findings on `28bdec1` are fixed on the
+    working branch (`42dcc63`, `5a21bd3`, `5353b66`, `e276198`, `e125cae`)
+    but entirely unverified: this session's sandbox blocks
+    `binaries.prisma.sh` (no Prisma query engine, so `round2`/`round3`
+    could not run) and has no Dart/Flutter toolchain with pub.dev also
+    blocked (`flutter analyze`/`flutter test` could not run either).
+    Needed before these count as more than Static: run both backend
+    regression scripts against a local database, run the Flutter suite
+    plus a render of the new Once controls, then an independent review of
+    the fix commits themselves, then deployed TEST and device checks -
+    the in-flight-upload race (finding 2) and the interleaved
+    subscription change (finding 7) especially need real concurrent
+    timing, which this session could only exercise as a best-effort
+    invariant check (`round3` #2, #5), not a controlled reproduction.
