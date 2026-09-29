@@ -399,15 +399,18 @@ const main = async () => {
     await api(`/api/family/sos/${id}/resolve`, { method: "POST", token: H.token });
   });
 
-  await check("no SOS running: an unlabelled post is an ordinary share, as before", async () => {
-    const r = await api(`/api/family/location?circleId=${g}`, {
-      method: "POST",
-      token: H.token,
-      body: { latitude: LAT, longitude: LNG },
-    });
-    assert.equal(r.status, 200);
-    assert.equal(r.body.accepted, true);
-  });
+  await check(
+    "no SOS running: an unlabelled post is refused, never an inferred ordinary share (finding 3, review of 28bdec1)",
+    async () => {
+      const r = await api(`/api/family/location?circleId=${g}`, {
+        method: "POST",
+        token: H.token,
+        body: { latitude: LAT, longitude: LNG },
+      });
+      assert.equal(r.status, 409, JSON.stringify(r.body));
+      assert.equal((await memberOf(H, g)).latitude, null, "absence of an SOS was read as sharing consent");
+    },
+  );
 
   console.log("4. One group per SOS list");
 

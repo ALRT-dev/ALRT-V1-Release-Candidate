@@ -98,25 +98,34 @@ export const shareLocationSnapshot = async (
     const myMemberIds = (
       await prisma.familyMember.findMany({ where: { userId }, select: { id: true } })
     ).map((m) => m.id);
-    const running = await prisma.familySosEvent.findFirst({
+    const running = await prisma.familySosEvent.findMany({
       where: { memberId: { in: myMemberIds }, status: "active" },
       orderBy: { createdAt: "desc" },
       select: { id: true, locationMode: true, isLive: true },
     });
-    if (running) {
-      const live = running.locationMode ? running.locationMode === "live" : running.isLive;
-      if (!live) {
-        // The SOS is not (or no longer) sharing live: an older app's loop
-        // must not fall through to the group channel instead.
-        throw new HttpError(409, "Live location is not being shared for this SOS");
-      }
-      const result = await recordSosLocation(userId, running.id, {
+    const live = running.filter((r) => (r.locationMode ? r.locationMode === "live" : r.isLive));
+    // An unlabelled point never falls through to ordinary group sharing
+    // (finding 3, review of 28bdec1): the absence of an active SOS is not
+    // manual-sharing consent, so a delayed point arriving after SOS end -
+    // or with no SOS running at all - is refused here exactly like a
+    // running-but-not-live SOS already was, never treated as an ordinary
+    // snapshot. Overlapping SOS sessions in different groups are also
+    // refused rather than guessed at: this loop can only unambiguously
+    // belong to a live SOS when there is exactly one to choose between.
+    if (live.length === 1) {
+      const result = await recordSosLocation(userId, live[0].id, {
         latitude: snapshot.latitude,
         longitude: snapshot.longitude,
         accuracy: snapshot.accuracy,
       });
-      return { accepted: result.accepted, sosEventId: running.id };
+      return { accepted: result.accepted, sosEventId: live[0].id };
     }
+    throw new HttpError(
+      409,
+      live.length > 1
+        ? "More than one SOS is live; resend from the SOS screen"
+        : "Live location is not being shared for this SOS",
+    );
   }
 
   // Location sharing is a covered connection feature (V1 access model).
