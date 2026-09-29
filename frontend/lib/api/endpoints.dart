@@ -150,6 +150,8 @@ const kUrlFamilySosRespond = '$kUrlFamilySos/{sosEventId}/respond';
 const kUrlFamilySosResolve = '$kUrlFamilySos/{sosEventId}/resolve';
 const kUrlFamilySosTrail = '$kUrlFamilySos/{sosEventId}/trail';
 const kUrlFamilySosPreview = '$kUrlFamilySos/preview';
+String kUrlFamilySosLocationConsent(final String sosEventId) =>
+    '$kUrlFamilySos/$sosEventId/location-consent';
 String kUrlFamilySosLocation(final String sosEventId) =>
     '$kUrlFamilySos/$sosEventId/location';
 

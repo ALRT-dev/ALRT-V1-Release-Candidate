@@ -10,6 +10,9 @@ final providerOfDeviceLocationSource = Provider<DeviceLocationSource>(
   (ref) => const GeolocatorLocationSource(),
 );
 
+/// The clock for location freshness (overridden in tests).
+final providerOfLocationClock = Provider<Clock>((ref) => DateTime.now);
+
 /// Provides [FamilyLocationService].
 final providerOfFamilyLocationService = Provider<FamilyLocationService>(
   FamilyLocationService.new,
@@ -56,8 +59,13 @@ class FamilyLocationService {
 
   /// The phone's location, said truthfully: current, last known (with its
   /// age) or unavailable (with the reason). See [resolveLocationFix].
-  Future<LocationFix> resolveFix() =>
-      resolveLocationFix(_ref.read(providerOfDeviceLocationSource));
+  Future<LocationFix> resolveFix({
+    final Duration timeout = const Duration(seconds: 10),
+  }) => resolveLocationFix(
+    _ref.read(providerOfDeviceLocationSource),
+    now: _ref.read(providerOfLocationClock),
+    timeout: timeout,
+  );
 
   /// A position only when it is CURRENT (fixed in the last two minutes).
   /// Check-ins, answers to "where are you" and journeys send "where you

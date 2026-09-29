@@ -44,6 +44,29 @@ class LocationFix {
   /// When the phone actually fixed the point.
   DateTime? get capturedAt => position?.timestamp;
 
+  /// How old the point is at [now] (a fix ages while a screen stays open).
+  Duration? ageAt(final DateTime now) {
+    final at = capturedAt;
+    if (at == null) return null;
+    final age = now.difference(at);
+    return age.isNegative ? Duration.zero : age;
+  }
+
+  /// Still "where you are now" at [now]: it was current when resolved AND
+  /// has not aged past [maxCurrentAge] since. A point that was current when
+  /// the SOS screen opened is last known a few minutes later.
+  bool isCurrentAt(final DateTime now) =>
+      isCurrent && (ageAt(now) ?? maxCurrentAge * 2) <= maxCurrentAge;
+
+  /// The same fix, said truthfully at [now]: a current fix that has aged
+  /// past the window becomes last known, with its real age.
+  LocationFix at(final DateTime now) {
+    if (!hasPoint) return this;
+    final age = ageAt(now)!;
+    if (isCurrent && age <= maxCurrentAge) return LocationFix.current(position!, age);
+    return LocationFix.lastKnown(position!, age);
+  }
+
   /// "12 min ago", "3 h ago", "just now".
   String get ageLabel => describeAge(age ?? Duration.zero);
 
@@ -73,6 +96,10 @@ String describeAge(final Duration age) {
 
 String accuracyLabel(final double metres) =>
     metres < 1000 ? '±${metres.round()} m' : '±${(metres / 1000).toStringAsFixed(1)} km';
+
+/// The clock the location screens use, so tests can move time on while a
+/// screen is open.
+typedef Clock = DateTime Function();
 
 /// The phone's location API, behind a seam so every case (stale cache,
 /// denied permission, GPS off, a failed request) can be tested.

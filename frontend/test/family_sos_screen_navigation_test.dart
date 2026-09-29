@@ -28,6 +28,10 @@ class _FakeFamilyService extends FamilyService {
   bool fail = false;
   bool answerLost = false;
   int triggers = 0;
+  double? lastLatitude;
+  String? lastMode;
+  String? lastPrecision;
+  DateTime? lastCapturedAt;
   static const _mine = FamilySosEvent(
     id: 'sos-1',
     circleId: 'c1',
@@ -46,6 +50,10 @@ class _FakeFamilyService extends FamilyService {
     final double? locationAccuracyM,
   }) async {
     triggers += 1;
+    lastLatitude = latitude;
+    lastMode = locationMode;
+    lastPrecision = locationPrecision;
+    lastCapturedAt = locationCapturedAt;
     if (fail) return const Failure(AppError(message: 'server said no'));
     if (answerLost) return const Failure(AppError(message: 'timeout'));
     return const Success(_mine);
@@ -101,10 +109,20 @@ class _NoFixSource implements DeviceLocationSource {
 }
 
 class _Source extends _NoFixSource {
-  _Source({this.cachedAge, this.freshNow = false, this.denied = false});
+  _Source({
+    this.cachedAge,
+    this.freshNow = false,
+    this.denied = false,
+    this.now = DateTime.now,
+    this.cachedAt,
+  });
   final Duration? cachedAge;
-  final bool freshNow;
+  bool freshNow;
   final bool denied;
+  final DateTime Function() now;
+
+  /// A fixed moment for the cached point (so it ages as the clock moves).
+  final DateTime? cachedAt;
   Position _p(DateTime at) => Position(
     latitude: -27.47,
     longitude: 153.02,
@@ -121,11 +139,14 @@ class _Source extends _NoFixSource {
   Future<LocationPermission> checkPermission() async =>
       denied ? LocationPermission.deniedForever : LocationPermission.whileInUse;
   @override
-  Future<Position?> lastKnown() async =>
-      cachedAge == null ? null : _p(DateTime.now().subtract(cachedAge!));
+  Future<Position?> lastKnown() async => cachedAt != null
+      ? _p(cachedAt!)
+      : cachedAge == null
+      ? null
+      : _p(now().subtract(cachedAge!));
   @override
   Future<Position> current({required Duration timeout}) async =>
-      freshNow ? _p(DateTime.now()) : throw Exception('no fix');
+      freshNow ? _p(now()) : throw Exception('no fix');
 }
 
 const _okPreview = SosPreview(
@@ -151,6 +172,8 @@ _build({
   SosPreview? preview = _okPreview,
   DeviceLocationSource? source,
   List<FamilySosList> lists = const [],
+  DateTime Function()? clock,
+  FamilySharingLevel myLevel = FamilySharingLevel.precise,
 }) {
   late _FakeFamilyService service;
   late ProviderContainer container;
@@ -193,6 +216,7 @@ _build({
       providerOfDeviceLocationSource.overrideWithValue(
         source ?? _NoFixSource(),
       ),
+      if (clock != null) providerOfLocationClock.overrideWithValue(clock),
       providerOfFamilyLocationService.overrideWith((ref) => _NoLocation(ref)),
       providerOfFamily.overrideWith(
         (ref) => FamilyProvider(
@@ -207,7 +231,12 @@ _build({
               // Someone to reach: with nobody, the screen asks to invite
               // someone instead of offering the hold (sos_preview.dart).
               members: [
-                const FamilyMember(id: 'me-member', userId: 'me', name: 'Me'),
+                FamilyMember(
+                  id: 'me-member',
+                  userId: 'me',
+                  name: 'Me',
+                  sharingLevel: myLevel,
+                ),
                 if (withOthers)
                   const FamilyMember(id: 'm2', userId: 'u2', name: 'Alex'),
               ],
@@ -234,9 +263,21 @@ _build({
   );
 }
 
+/// The harness of the test running now (for tests that open it in a
+/// shared helper).
+({
+  Widget app,
+  GoRouter router,
+  _FakeFamilyService Function() service,
+  ProviderContainer Function() container,
+})? _lastBuild;
+
 Future<void> _holdToSend(WidgetTester tester) async {
   final button = find.byKey(const Key('sos-hold-button'));
   expect(button, findsOneWidget);
+  // The screen scrolls: bring the button into view as a person would.
+  await tester.ensureVisible(button);
+  await tester.pumpAndSettle();
   final gesture = await tester.startGesture(tester.getCenter(button));
   // The body scrolls on short phones, so the tap recognizer only claims
   // the pointer after its deadline; then the hold animation needs a
@@ -558,6 +599,218 @@ void main() {
     await openSos(tester, t.app);
     expect(rich('Not checked:'), findsOneWidget);
     expect(find.byKey(const Key('sos-hold-button')), findsOneWidget);
+    await _teardown(tester);
+  });
+
+  // ---- Review of cb26a8d, finding 3: freshness is judged at send ----
+
+  group('a fix that was fresh at open and has aged by send', () {
+    final t0 = DateTime(2026, 9, 29, 10);
+    late DateTime clockNow;
+    DateTime clock() => clockNow;
+
+    Future<_Source> openFresh(
+      WidgetTester tester, {
+      bool refreshAtSend = false,
+    }) async {
+      clockNow = t0;
+      final source = _Source(
+        cachedAt: t0.subtract(const Duration(seconds: 10)),
+        now: clock,
+      );
+      final t = _build(source: source, clock: clock);
+      await openSos(tester, t.app);
+      expect(find.textContaining('Your location now'), findsOneWidget);
+      // Time moves on past the two-minute window while the screen is open.
+      clockNow = t0.add(const Duration(minutes: 3));
+      await tester.pump(const Duration(seconds: 16));
+      source.freshNow = refreshAtSend;
+      _lastBuild = t;
+      return source;
+    }
+
+    testWidgets('the screen relabels it as last known with its age', (
+      tester,
+    ) async {
+      await openFresh(tester);
+      expect(
+        find.textContaining('Last known location: 3 min ago'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Your location now'), findsNothing);
+      await _teardown(tester);
+    });
+
+    testWidgets('Once: the old point is sent only because it was shown as '
+        'last known, with its real capture time', (tester) async {
+      await openFresh(tester);
+      await tester.tap(find.byKey(const Key('sos-loc-once')));
+      await tester.pumpAndSettle();
+      expect(
+        rich('Your last known location (3 min ago), once.'),
+        findsOneWidget,
+      );
+      await _holdToSend(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+      final s = _lastBuild!.service();
+      expect(s.lastMode, 'once');
+      expect(s.lastLatitude, isNotNull);
+      expect(
+        s.lastCapturedAt,
+        t0.subtract(const Duration(seconds: 10)),
+        reason: 'its real time, never "now"',
+      );
+      await _teardown(tester);
+    });
+
+    testWidgets('Live: the stale point is never the starting point', (
+      tester,
+    ) async {
+      await openFresh(tester);
+      await tester.tap(find.byKey(const Key('sos-loc-live')));
+      await tester.pumpAndSettle();
+      expect(rich('last known location is NOT used'), findsOneWidget);
+      await _holdToSend(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+      final s = _lastBuild!.service();
+      expect(s.triggers, 1, reason: 'the SOS still goes');
+      expect(s.lastMode, 'live');
+      expect(s.lastLatitude, isNull);
+      expect(s.lastCapturedAt, isNull);
+      await _teardown(tester);
+    });
+
+    testWidgets('Live: when the phone can refresh at send, the fresh point '
+        'is the starting point', (tester) async {
+      await openFresh(tester, refreshAtSend: true);
+      await tester.tap(find.byKey(const Key('sos-loc-live')));
+      await tester.pumpAndSettle();
+      await _holdToSend(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+      final s = _lastBuild!.service();
+      expect(s.lastMode, 'live');
+      expect(s.lastLatitude, isNotNull);
+      expect(s.lastCapturedAt, clockNow, reason: 'the refreshed fix');
+      await _teardown(tester);
+    });
+
+    testWidgets('Once chosen as "where you are now", aged during the hold, '
+        'no refresh: sent WITHOUT location and the sender is told', (
+      tester,
+    ) async {
+      clockNow = t0;
+      final source = _Source(
+        cachedAt: t0.subtract(const Duration(seconds: 10)),
+        now: clock,
+      );
+      final t = _build(source: source, clock: clock);
+      await openSos(tester, t.app);
+      await tester.tap(find.byKey(const Key('sos-loc-once')));
+      await tester.pumpAndSettle();
+      expect(rich('Where you are now, once.'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('sos-hold-button')));
+      await tester.pumpAndSettle();
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('sos-hold-button'))),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      clockNow = t0.add(const Duration(minutes: 3));
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(t.service().lastMode, 'once');
+      expect(t.service().lastLatitude, isNull);
+      expect(find.textContaining('too old to send'), findsOneWidget);
+      await _teardown(tester);
+    });
+
+    testWidgets('No location stays available and sends nothing', (
+      tester,
+    ) async {
+      await openFresh(tester);
+      await tester.tap(find.byKey(const Key('sos-loc-none')));
+      await tester.pumpAndSettle();
+      await _holdToSend(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(_lastBuild!.service().lastMode, 'none');
+      expect(_lastBuild!.service().lastLatitude, isNull);
+      await _teardown(tester);
+    });
+  });
+
+  // ---- Finding 1: the SOS's own precision, separate from group sharing ----
+
+  testWidgets('precision defaults to the group setting and the sender can '
+      'choose suburb only for this SOS', (tester) async {
+    final t = _build(source: _Source(freshNow: true));
+    await openSos(tester, t.app);
+    await tester.tap(find.byKey(const Key('sos-loc-once')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sos-precision-suburb')));
+    await tester.pumpAndSettle();
+    expect(rich('Suburb only, never an exact pin.'), findsOneWidget);
+    await _holdToSend(tester);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(t.service().lastPrecision, 'approximate');
+    await _teardown(tester);
+  });
+
+  testWidgets('an approximate sharer starts at suburb only', (tester) async {
+    final t = _build(
+      source: _Source(freshNow: true),
+      myLevel: FamilySharingLevel.approximate,
+    );
+    await openSos(tester, t.app);
+    await tester.tap(find.byKey(const Key('sos-loc-once')));
+    await tester.pumpAndSettle();
+    await _holdToSend(tester);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(t.service().lastPrecision, 'approximate');
+    await _teardown(tester);
+  });
+
+  // ---- Finding 4: this group's lists only ----
+
+  testWidgets('only this group\'s lists are offered (plus ones needing '
+      'repair); another group\'s default is never preselected', (
+    tester,
+  ) async {
+    final t = _build(
+      lists: const [
+        FamilySosList(
+          id: 'other',
+          ownerUserId: 'me',
+          name: 'Work people',
+          isDefault: true,
+          memberIds: ['x1'],
+          circleId: 'c2',
+        ),
+        FamilySosList(
+          id: 'mine',
+          ownerUserId: 'me',
+          name: 'Close family',
+          memberIds: ['m2'],
+          circleId: 'c1',
+        ),
+        FamilySosList(
+          id: 'mixed',
+          ownerUserId: 'me',
+          name: 'Old mixed',
+          memberIds: ['m2', 'x1'],
+          needsRepair: 'multipleGroups',
+        ),
+      ],
+    );
+    await openSos(tester, t.app);
+    expect(find.text('Work people'), findsNothing);
+    expect(find.text('Close family'), findsOneWidget);
+    expect(find.text('Old mixed'), findsOneWidget);
+    await _holdToSend(tester);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(t.service().triggers, 1);
     await _teardown(tester);
   });
 }

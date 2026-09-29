@@ -2768,7 +2768,12 @@ as String,
 /// @nodoc
 mixin _$FamilySosList {
 
- String get id; String get ownerUserId; String get name; bool get isDefault; List<String> get memberIds; DateTime? get createdAt;
+ String get id; String get ownerUserId; String get name; bool get isDefault; List<String> get memberIds; DateTime? get createdAt;/// The one group everyone on the list belongs to (a list names people
+/// in one group only). Null for an empty list or an old list that
+/// mixes groups.
+ String? get circleId;/// "multipleGroups" (an old list naming people in more than one group)
+/// or "empty": the list must be repaired before it can be used.
+ String? get needsRepair;
 /// Create a copy of FamilySosList
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2781,16 +2786,16 @@ $FamilySosListCopyWith<FamilySosList> get copyWith => _$FamilySosListCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilySosList&&(identical(other.id, id) || other.id == id)&&(identical(other.ownerUserId, ownerUserId) || other.ownerUserId == ownerUserId)&&(identical(other.name, name) || other.name == name)&&(identical(other.isDefault, isDefault) || other.isDefault == isDefault)&&const DeepCollectionEquality().equals(other.memberIds, memberIds)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilySosList&&(identical(other.id, id) || other.id == id)&&(identical(other.ownerUserId, ownerUserId) || other.ownerUserId == ownerUserId)&&(identical(other.name, name) || other.name == name)&&(identical(other.isDefault, isDefault) || other.isDefault == isDefault)&&const DeepCollectionEquality().equals(other.memberIds, memberIds)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.needsRepair, needsRepair) || other.needsRepair == needsRepair));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,ownerUserId,name,isDefault,const DeepCollectionEquality().hash(memberIds),createdAt);
+int get hashCode => Object.hash(runtimeType,id,ownerUserId,name,isDefault,const DeepCollectionEquality().hash(memberIds),createdAt,circleId,needsRepair);
 
 @override
 String toString() {
-  return 'FamilySosList(id: $id, ownerUserId: $ownerUserId, name: $name, isDefault: $isDefault, memberIds: $memberIds, createdAt: $createdAt)';
+  return 'FamilySosList(id: $id, ownerUserId: $ownerUserId, name: $name, isDefault: $isDefault, memberIds: $memberIds, createdAt: $createdAt, circleId: $circleId, needsRepair: $needsRepair)';
 }
 
 
@@ -2801,7 +2806,7 @@ abstract mixin class $FamilySosListCopyWith<$Res>  {
   factory $FamilySosListCopyWith(FamilySosList value, $Res Function(FamilySosList) _then) = _$FamilySosListCopyWithImpl;
 @useResult
 $Res call({
- String id, String ownerUserId, String name, bool isDefault, List<String> memberIds, DateTime? createdAt
+ String id, String ownerUserId, String name, bool isDefault, List<String> memberIds, DateTime? createdAt, String? circleId, String? needsRepair
 });
 
 
@@ -2818,7 +2823,7 @@ class _$FamilySosListCopyWithImpl<$Res>
 
 /// Create a copy of FamilySosList
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? ownerUserId = null,Object? name = null,Object? isDefault = null,Object? memberIds = null,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? ownerUserId = null,Object? name = null,Object? isDefault = null,Object? memberIds = null,Object? createdAt = freezed,Object? circleId = freezed,Object? needsRepair = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,ownerUserId: null == ownerUserId ? _self.ownerUserId : ownerUserId // ignore: cast_nullable_to_non_nullable
@@ -2826,7 +2831,9 @@ as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non
 as String,isDefault: null == isDefault ? _self.isDefault : isDefault // ignore: cast_nullable_to_non_nullable
 as bool,memberIds: null == memberIds ? _self.memberIds : memberIds // ignore: cast_nullable_to_non_nullable
 as List<String>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
-as DateTime?,
+as DateTime?,circleId: freezed == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
+as String?,needsRepair: freezed == needsRepair ? _self.needsRepair : needsRepair // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -2911,10 +2918,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String ownerUserId,  String name,  bool isDefault,  List<String> memberIds,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String ownerUserId,  String name,  bool isDefault,  List<String> memberIds,  DateTime? createdAt,  String? circleId,  String? needsRepair)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FamilySosList() when $default != null:
-return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memberIds,_that.createdAt);case _:
+return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memberIds,_that.createdAt,_that.circleId,_that.needsRepair);case _:
   return orElse();
 
 }
@@ -2932,10 +2939,10 @@ return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memb
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String ownerUserId,  String name,  bool isDefault,  List<String> memberIds,  DateTime? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String ownerUserId,  String name,  bool isDefault,  List<String> memberIds,  DateTime? createdAt,  String? circleId,  String? needsRepair)  $default,) {final _that = this;
 switch (_that) {
 case _FamilySosList():
-return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memberIds,_that.createdAt);case _:
+return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memberIds,_that.createdAt,_that.circleId,_that.needsRepair);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -2952,10 +2959,10 @@ return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memb
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String ownerUserId,  String name,  bool isDefault,  List<String> memberIds,  DateTime? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String ownerUserId,  String name,  bool isDefault,  List<String> memberIds,  DateTime? createdAt,  String? circleId,  String? needsRepair)?  $default,) {final _that = this;
 switch (_that) {
 case _FamilySosList() when $default != null:
-return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memberIds,_that.createdAt);case _:
+return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memberIds,_that.createdAt,_that.circleId,_that.needsRepair);case _:
   return null;
 
 }
@@ -2967,7 +2974,7 @@ return $default(_that.id,_that.ownerUserId,_that.name,_that.isDefault,_that.memb
 @JsonSerializable()
 
 class _FamilySosList implements FamilySosList {
-  const _FamilySosList({required this.id, required this.ownerUserId, required this.name, this.isDefault = false, final  List<String> memberIds = const <String>[], this.createdAt}): _memberIds = memberIds;
+  const _FamilySosList({required this.id, required this.ownerUserId, required this.name, this.isDefault = false, final  List<String> memberIds = const <String>[], this.createdAt, this.circleId, this.needsRepair}): _memberIds = memberIds;
   factory _FamilySosList.fromJson(Map<String, dynamic> json) => _$FamilySosListFromJson(json);
 
 @override final  String id;
@@ -2982,6 +2989,13 @@ class _FamilySosList implements FamilySosList {
 }
 
 @override final  DateTime? createdAt;
+/// The one group everyone on the list belongs to (a list names people
+/// in one group only). Null for an empty list or an old list that
+/// mixes groups.
+@override final  String? circleId;
+/// "multipleGroups" (an old list naming people in more than one group)
+/// or "empty": the list must be repaired before it can be used.
+@override final  String? needsRepair;
 
 /// Create a copy of FamilySosList
 /// with the given fields replaced by the non-null parameter values.
@@ -2996,16 +3010,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilySosList&&(identical(other.id, id) || other.id == id)&&(identical(other.ownerUserId, ownerUserId) || other.ownerUserId == ownerUserId)&&(identical(other.name, name) || other.name == name)&&(identical(other.isDefault, isDefault) || other.isDefault == isDefault)&&const DeepCollectionEquality().equals(other._memberIds, _memberIds)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilySosList&&(identical(other.id, id) || other.id == id)&&(identical(other.ownerUserId, ownerUserId) || other.ownerUserId == ownerUserId)&&(identical(other.name, name) || other.name == name)&&(identical(other.isDefault, isDefault) || other.isDefault == isDefault)&&const DeepCollectionEquality().equals(other._memberIds, _memberIds)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.needsRepair, needsRepair) || other.needsRepair == needsRepair));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,ownerUserId,name,isDefault,const DeepCollectionEquality().hash(_memberIds),createdAt);
+int get hashCode => Object.hash(runtimeType,id,ownerUserId,name,isDefault,const DeepCollectionEquality().hash(_memberIds),createdAt,circleId,needsRepair);
 
 @override
 String toString() {
-  return 'FamilySosList(id: $id, ownerUserId: $ownerUserId, name: $name, isDefault: $isDefault, memberIds: $memberIds, createdAt: $createdAt)';
+  return 'FamilySosList(id: $id, ownerUserId: $ownerUserId, name: $name, isDefault: $isDefault, memberIds: $memberIds, createdAt: $createdAt, circleId: $circleId, needsRepair: $needsRepair)';
 }
 
 
@@ -3016,7 +3030,7 @@ abstract mixin class _$FamilySosListCopyWith<$Res> implements $FamilySosListCopy
   factory _$FamilySosListCopyWith(_FamilySosList value, $Res Function(_FamilySosList) _then) = __$FamilySosListCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String ownerUserId, String name, bool isDefault, List<String> memberIds, DateTime? createdAt
+ String id, String ownerUserId, String name, bool isDefault, List<String> memberIds, DateTime? createdAt, String? circleId, String? needsRepair
 });
 
 
@@ -3033,7 +3047,7 @@ class __$FamilySosListCopyWithImpl<$Res>
 
 /// Create a copy of FamilySosList
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? ownerUserId = null,Object? name = null,Object? isDefault = null,Object? memberIds = null,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? ownerUserId = null,Object? name = null,Object? isDefault = null,Object? memberIds = null,Object? createdAt = freezed,Object? circleId = freezed,Object? needsRepair = freezed,}) {
   return _then(_FamilySosList(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,ownerUserId: null == ownerUserId ? _self.ownerUserId : ownerUserId // ignore: cast_nullable_to_non_nullable
@@ -3041,7 +3055,9 @@ as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non
 as String,isDefault: null == isDefault ? _self.isDefault : isDefault // ignore: cast_nullable_to_non_nullable
 as bool,memberIds: null == memberIds ? _self._memberIds : memberIds // ignore: cast_nullable_to_non_nullable
 as List<String>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
-as DateTime?,
+as DateTime?,circleId: freezed == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
+as String?,needsRepair: freezed == needsRepair ? _self.needsRepair : needsRepair // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

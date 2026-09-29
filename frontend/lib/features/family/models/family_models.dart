@@ -384,6 +384,15 @@ abstract class FamilySosList with _$FamilySosList {
     @Default(false) final bool isDefault,
     @Default(<String>[]) final List<String> memberIds,
     final DateTime? createdAt,
+
+    /// The one group everyone on the list belongs to (a list names people
+    /// in one group only). Null for an empty list or an old list that
+    /// mixes groups.
+    final String? circleId,
+
+    /// "multipleGroups" (an old list naming people in more than one group)
+    /// or "empty": the list must be repaired before it can be used.
+    final String? needsRepair,
   }) = _FamilySosList;
 
   factory FamilySosList.fromJson(Map<String, dynamic> json) =>

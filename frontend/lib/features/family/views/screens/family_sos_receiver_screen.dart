@@ -124,9 +124,15 @@ class _FamilySosReceiverScreenState
       return;
     }
 
-    final trail = await ref
-        .read(providerOfFamily.notifier)
-        .getSosTrail(sosEventId: widget.args.sosEvent.id);
+    // The event too, not only its trail: when the sender stops sharing or
+    // reduces to suburb only, the stored point is cleared on the server and
+    // must disappear here as well (review of cb26a8d, finding 1).
+    final notifier = ref.read(providerOfFamily.notifier);
+    final trail = await notifier.getSosTrail(
+      sosEventId: widget.args.sosEvent.id,
+    );
+    if (!mounted) return;
+    await notifier.refreshActiveSos();
     if (!mounted || trail == null) return;
     setState(() => _trail = trail.points);
   }
@@ -263,7 +269,7 @@ class _FamilySosReceiverScreenState
                 if (!isResolved && isMine) ...[
                   _resolveButtonBuilder(context, ref, sos),
                   SizedBox(height: 10.spMin),
-                  _shareUpdatedLocationButtonBuilder(context, ref),
+                  _sosLocationControlsBuilder(context, ref, sos),
                 ],
                 if (!isResolved && !isMine) ...[
                   _acknowledgeButtonBuilder(sos, mySeen),
@@ -615,16 +621,54 @@ class _FamilySosReceiverScreenState
     }
   }
 
-  /// Lets the person in SOS push a fresh point right now, without waiting
-  /// for the automatic live share's next tick.
-  Widget _shareUpdatedLocationButtonBuilder(
+  /// What this SOS shares, and the sender's controls for it (review of
+  /// cb26a8d, finding 1): send a point now, suburb only / exact, stop
+  /// sharing, or turn live location back on. These change THIS SOS only,
+  /// never group sharing; the backend clears stored coordinates when
+  /// sharing is reduced and a later location update can't undo it. Every
+  /// point goes to the SOS's own recipients, never the whole group.
+  Widget _sosLocationControlsBuilder(
     final BuildContext context,
     final WidgetRef ref,
+    final FamilySosEvent sos,
   ) {
-    return SizedBox(
-      height: 50.spMin,
+    final notifier = ref.read(providerOfFamily.notifier);
+    final live = sos.locationMode == null
+        ? sos.isLive
+        : sos.locationMode == 'live';
+    final suburb = sos.locationPrecision == 'approximate';
+    final status = !live
+        ? sos.locationMode == 'once'
+              ? 'Your location was sent once with this SOS. It is not updating.'
+              : 'This SOS is not sharing your location.'
+        : suburb
+        ? 'Sharing your live location with this SOS: suburb only.'
+        : 'Sharing your exact live location with this SOS.';
+
+    Future<void> change({
+      final SosLocationChoice? mode,
+      final SosPrecisionChoice? precision,
+      required final String done,
+    }) async {
+      final ok = await notifier.setSosLocationConsent(
+        sosEventId: sos.id,
+        mode: mode,
+        precision: precision,
+      );
+      if (!context.mounted) return;
+      if (ok) context.showSuccessToast(message: done);
+    }
+
+    Widget button(
+      final String key,
+      final String label,
+      final IconData icon,
+      final Future<void> Function() onPressed,
+    ) => SizedBox(
       width: double.infinity,
+      height: 46.spMin,
       child: OutlinedButton.icon(
+        key: Key(key),
         style: OutlinedButton.styleFrom(
           foregroundColor: FamilyColors.indigo,
           backgroundColor: Colors.white,
@@ -633,27 +677,71 @@ class _FamilySosReceiverScreenState
             borderRadius: BorderRadius.circular(16.spMin),
           ),
         ),
-        onPressed: () async {
-          final shared = await ref
-              .read(providerOfFamily.notifier)
-              .shareSnapshotNow();
-          if (!context.mounted) return;
-          shared
-              ? context.showSuccessToast(
-                  message: 'Updated snapshot shared with your circle.',
-                )
-              : context.showErrorToast(
-                  message:
-                      'Could not get your location. Check location '
-                      'permissions and try again.',
-                );
-        },
-        icon: Icon(LucideIcons.mapPin, size: 18.spMin),
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18.spMin),
         label: Text(
-          'Share updated location',
-          style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
+          label,
+          style: TextStyle(fontSize: 14.5.spMin, fontWeight: FontWeight.w700),
         ),
       ),
+    );
+
+    return Column(
+      key: const Key('sos-location-controls'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          status,
+          key: const Key('sos-location-consent-status'),
+          style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w600),
+        ),
+        SizedBox(height: 8.spMin),
+        if (live) ...[
+          button('sos-send-now', 'Send my location now', LucideIcons.mapPin,
+              () async {
+            final sent = await notifier.sendSosPointNow(sosEventId: sos.id);
+            if (!context.mounted) return;
+            sent
+                ? context.showSuccessToast(
+                    message: 'Sent to the people this SOS went to.',
+                  )
+                : context.showErrorToast(
+                    message:
+                        'Your phone can\'t find where you are right now. '
+                        'Nothing old was sent.',
+                  );
+          }),
+          SizedBox(height: 8.spMin),
+          suburb
+              ? button('sos-consent-exact', 'Share exact location',
+                  LucideIcons.locateFixed,
+                  () => change(
+                    precision: SosPrecisionChoice.exact,
+                    done: 'This SOS now shares your exact location.',
+                  ))
+              : button('sos-consent-suburb', 'Suburb only',
+                  LucideIcons.mapPinned,
+                  () => change(
+                    precision: SosPrecisionChoice.suburb,
+                    done: 'This SOS now shares your suburb only.',
+                  )),
+          SizedBox(height: 8.spMin),
+          button('sos-consent-stop', 'Stop sharing my location',
+              LucideIcons.mapPinOff,
+              () => change(
+                mode: SosLocationChoice.none,
+                done: 'Your location is no longer shared. Your SOS is still '
+                    'active.',
+              )),
+        ] else
+          button('sos-consent-live', 'Share live location',
+              LucideIcons.radio,
+              () => change(
+                mode: SosLocationChoice.live,
+                done: 'Your live location is shared with the people this '
+                    'SOS went to.',
+              )),
+      ],
     );
   }
 

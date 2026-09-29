@@ -371,6 +371,8 @@ _FamilySosList _$FamilySosListFromJson(Map<String, dynamic> json) =>
       createdAt: json['createdAt'] == null
           ? null
           : DateTime.parse(json['createdAt'] as String),
+      circleId: json['circleId'] as String?,
+      needsRepair: json['needsRepair'] as String?,
     );
 
 Map<String, dynamic> _$FamilySosListToJson(_FamilySosList instance) =>
@@ -381,6 +383,8 @@ Map<String, dynamic> _$FamilySosListToJson(_FamilySosList instance) =>
       'isDefault': instance.isDefault,
       'memberIds': instance.memberIds,
       'createdAt': ?instance.createdAt?.toIso8601String(),
+      'circleId': ?instance.circleId,
+      'needsRepair': ?instance.needsRepair,
     };
 
 _FamilyTransferCandidate _$FamilyTransferCandidateFromJson(

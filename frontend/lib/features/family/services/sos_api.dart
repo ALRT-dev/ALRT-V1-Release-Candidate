@@ -146,6 +146,26 @@ class SosApi {
         onError: Failure.new,
       );
 
+  /// The sender changes what their running SOS shares: stop sharing
+  /// ([mode] "none") or suburb only ([precision] "approximate"), or turn
+  /// it back on. The backend clears stored coordinates and tells the
+  /// SOS's recipients; a later location update can never undo it.
+  Future<Either<Map<String, dynamic>, AppError>> setLocationConsent({
+    required final String sosEventId,
+    final String? mode,
+    final String? precision,
+  }) => runAsyncCall(
+    name: 'setSosLocationConsent',
+    future: () async {
+      final response = await _dio.put<Map<String, dynamic>>(
+        kUrlFamilySosLocationConsent(sosEventId),
+        data: {'locationMode': ?mode, 'locationPrecision': ?precision},
+      );
+      return Success(response.data ?? const <String, dynamic>{});
+    },
+    onError: Failure.new,
+  );
+
   /// One live point for the sender's own live SOS (its audience only).
   Future<Either<void, AppError>> sendLivePoint({
     required final String sosEventId,

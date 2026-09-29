@@ -589,6 +589,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
           speed: speed,
           batteryLevel: batteryLevel,
           isMoving: isMoving,
+          purpose: 'manual',
           circleId: _circleId,
         );
         return const Success(null);

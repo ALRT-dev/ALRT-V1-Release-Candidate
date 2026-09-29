@@ -104,7 +104,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       // SOS (its audience), never the group's snapshot channel. No fix this
       // round: nothing is sent, and nothing old is passed off as new.
       final fix = await _familyLocationService.resolveFix();
-      if (!fix.isCurrent) return;
+      if (!fix.isCurrentAt(_ref.read(providerOfLocationClock)())) return;
       final sent = await _sosApi.sendLivePoint(
         sosEventId: sosEventId,
         latitude: fix.position!.latitude,
@@ -1922,6 +1922,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     final String? sosListId,
     required final SosLocationChoice location,
     final LocationFix? fix,
+    final SosPrecisionChoice? precision,
   }) async {
     state = state.copyWith(sosTriggerState: const FamilyActionState.loading());
 
@@ -1930,15 +1931,21 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     // - once: the fix they saw, with its real time (a last-known point is
     //   sent as last known, never as "now");
     // - live: a current fix only, then live points while it runs.
+    // Freshness is judged NOW, at send, not when the screen opened: a fix
+    // that has aged past the window is never a live starting point.
+    final now = _ref.read(providerOfLocationClock)();
     final isLive = location == SosLocationChoice.live;
     final point = switch (location) {
       SosLocationChoice.none => null,
       SosLocationChoice.once => fix?.hasPoint == true ? fix : null,
-      SosLocationChoice.live => fix?.isCurrent == true ? fix : null,
+      SosLocationChoice.live => fix?.isCurrentAt(now) == true ? fix : null,
     };
-    // Precision follows the sender's own sharing setting; the server
-    // enforces the same ceiling.
-    final precise = state.circle?.me?.sharingLevel == FamilySharingLevel.precise;
+    // The sender's explicit choice for THIS SOS (Exact / Suburb only),
+    // defaulting to their group sharing setting. SOS consent is separate
+    // from ordinary group sharing (open decision R12 on precedence).
+    final precise =
+        (precision ?? SosPrecisionChoice.defaultFor(state.circle?.me?.sharingLevel)) ==
+        SosPrecisionChoice.exact;
 
     final result = await _familyService.triggerFamilySos(
       latitude: point?.position?.latitude,
@@ -1994,6 +2001,54 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         state = state.copyWith(sosRespondState: FamilyActionState.error(error));
       },
     );
+  }
+
+  /// The sender changes what their running SOS shares (stop sharing,
+  /// suburb only, or back on). Returns true when the backend confirmed it.
+  /// Stopping also stops this phone's live loop at once.
+  Future<bool> setSosLocationConsent({
+    required final String sosEventId,
+    final SosLocationChoice? mode,
+    final SosPrecisionChoice? precision,
+  }) async {
+    if (mode == SosLocationChoice.none) _stopSosLiveShare();
+    final result = await _sosApi.setLocationConsent(
+      sosEventId: sosEventId,
+      mode: mode?.name,
+      precision: precision?.wire,
+    );
+    if (!mounted) return false;
+    return result.when(
+      (json) {
+        try {
+          _upsertSosEvent(FamilySosEvent.fromJson(json));
+        } catch (_) {
+          // The change is confirmed either way; the next load refreshes.
+        }
+        if (mode == SosLocationChoice.live) _startSosLiveShare(sosEventId);
+        return true;
+      },
+      (error) {
+        _showToast(message: error.message, isWarning: true);
+        return false;
+      },
+    );
+  }
+
+  /// Sends one current point to MY live SOS right now (its audience only),
+  /// without waiting for the next tick. False when there is no current
+  /// fix or the SOS isn't sharing live.
+  Future<bool> sendSosPointNow({required final String sosEventId}) async {
+    final fix = await _familyLocationService.resolveFix();
+    if (!fix.isCurrentAt(_ref.read(providerOfLocationClock)())) return false;
+    final sent = await _sosApi.sendLivePoint(
+      sosEventId: sosEventId,
+      latitude: fix.position!.latitude,
+      longitude: fix.position!.longitude,
+      capturedAt: fix.capturedAt!,
+      accuracy: fix.position!.accuracy,
+    );
+    return sent.isSuccess;
   }
 
   /// Stands an SOS down. Returns true when the server confirmed it.
@@ -2195,3 +2250,18 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 /// The sender's explicit SOS location choice (review follow-up): No
 /// location, Share location once, Share live location.
 enum SosLocationChoice { none, once, live }
+
+/// How precise the sender's SOS location is, chosen per SOS: an exact pin
+/// or the suburb only. Defaults to the group sharing setting.
+enum SosPrecisionChoice {
+  exact('precise'),
+  suburb('approximate');
+
+  const SosPrecisionChoice(this.wire);
+
+  /// The backend's value (locationPrecision).
+  final String wire;
+
+  static SosPrecisionChoice defaultFor(final FamilySharingLevel? level) =>
+      level == FamilySharingLevel.precise ? exact : suburb;
+}

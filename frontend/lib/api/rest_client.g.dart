@@ -1776,6 +1776,7 @@ class _RestClient implements RestClient {
     double? heading,
     int? batteryLevel,
     bool? isMoving,
+    String? purpose,
     String? circleId,
   }) async {
     final _extra = <String, dynamic>{};
@@ -1790,6 +1791,7 @@ class _RestClient implements RestClient {
       'heading': heading,
       'batteryLevel': batteryLevel,
       'isMoving': isMoving,
+      'purpose': purpose,
     };
     _data.removeWhere((k, v) => v == null);
     final _options = _setStreamType<HttpResponse<dynamic>>(

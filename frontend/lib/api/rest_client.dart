@@ -381,6 +381,10 @@ abstract class RestClient {
     @Field() final double? heading,
     @Field() final int? batteryLevel,
     @Field() final bool? isMoving,
+    // Always "manual" from this app: tells the backend this is ordinary
+    // group sharing. Older apps send nothing here, and the backend treats
+    // their unlabelled points during a live SOS as SOS points.
+    @Field() final String? purpose,
     @Query('circleId') final String? circleId,
   });
 
