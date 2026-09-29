@@ -13,6 +13,16 @@ commercial rules in earlier chats, mock-ups, audit plans and CLAUDE.md.
   reachable from this session, so every live setting below is
   **Not verified**.
 
+## Status (29 Sep 2026, after the review of `cb26a8d`)
+
+Most V1 functionality is implemented with local test coverage. The five
+code-review findings on `cb26a8d` now have fixes with local regression
+tests; they are awaiting verification (independent review, deployed TEST
+and device checks), not closed. Product decisions (14 open, §6),
+configuration (§3) and migration work (§4) remain. Deployed TEST, real
+store-sandbox and real-device validation have not been performed. Launch
+readiness has not been established.
+
 Evidence levels used below:
 
 | Label | Meaning |
@@ -58,7 +68,11 @@ editing; no newer work existed). Commits:
 | `7ca4e30` | Review: backend SOS validation/location, effective time, Restore matching, upgrade recovery |
 | `998a3a2` | Review: app location freshness, SOS choices, backend-driven preview |
 | `7f98fb7` | Review: app Restore per purchase, dated changes, upgrade recovery |
-| (this commit) | Review: documentation corrections and this table |
+| `cb26a8d` | Review: documentation corrections and this table |
+| `67ebf9e` | Review of cb26a8d: backend fixes for findings 1, 2, 4, 5 and verify_v1_findings_round2 |
+| `ace1e8d` | Review of cb26a8d: app fixes for findings 1 to 4 and their tests |
+| `e94f2f8` | Review of cb26a8d: older-app SOS points routed across the sender's groups |
+| (this commit) | Reports corrected for the review of cb26a8d |
 
 TEST keeps `BILLING_ENABLED=false`, under which every access check
 answers yes exactly as before. "None" = not performed. No row has
@@ -68,15 +82,18 @@ Scenario ids: **B-** local backend scripts (`backend/src/scripts/`):
 `AM` verify_v1_access_model (30), `SC` verify_v1_subscription_changes
 (10), `RF` verify_v1_review_followup (21), `EB`
 verify_effective_tier_boundary (5), `LC` verify_family_location_consent
-(40). **F-** Flutter tests (`frontend/test/`): `SP` alrt_plus_store_price
-_screens (9), `RR` v1_restore_refusal_preview (26), `UR`
-v1_upgrade_restore_onboarding (10), `SN` family_sos_screen_navigation
-(12), `SF` family_sos_flow (13), `LF` location_fix (10). **R-** renders
-(13 PNGs, sample prices).
+(40), `R2` verify_v1_findings_round2 (11, run on a server WITHOUT
+`REVENUECAT_SECRET_API_KEY`). **F-** Flutter tests (`frontend/test/`):
+`SP` alrt_plus_store_price_screens (9), `RR` v1_restore_refusal_preview
+(26), `UR` v1_upgrade_restore_onboarding (10), `SN`
+family_sos_screen_navigation (21), `SF` family_sos_flow (13), `LF`
+location_fix (10), `S2` sos_review_round2 (5). **R-** test renders (13
+PNGs, sample prices). The revised SOS send screen, the running-SOS
+controls and the one-group list editor have NO render.
 
 | # | Requirement | Status | Commit | Static | Local backend | Flutter | Render | TEST | Sandbox | Device | Remaining limitation |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Personal access and group coverage separate | Implemented | f3f6f7d | Yes | AM pass | SP, UR pass | R-06/07 | None | None | None | Real store products absent |
+| 1 | Personal access and group coverage separate | Implemented | f3f6f7d | Yes | AM pass | SP, UR pass | R-06/07 | None | None | None | Real store products unverified |
 | 2 | Canonical subscriptions; idempotent, ordered webhook; env/app filters; refunds; TRANSFER | Implemented | f3f6f7d | Yes | AM (10 cases), RF duplicates/out-of-order pass | n/a | n/a | None | None | n/a | Real RevenueCat payloads unverified |
 | 3 | Personal limits (1 place + 3 Ask on Free; unlimited + 10 on ALRT +); sponsorship never raises them | Implemented | f3f6f7d | Yes | AM pass | SP pass | R-08 | None | None | None | Ask counting unit is R03 |
 | 4 | Seats and group cap removed; creating/joining free | Implemented | f3f6f7d | Yes | AM pass | SP pass | n/a | None | n/a | None | Unsponsored group size is R01 |
@@ -87,13 +104,13 @@ v1_upgrade_restore_onboarding (10), `SN` family_sos_screen_navigation
 | 9 | Sponsorship lapse pauses only its group | Implemented | f3f6f7d | Yes | AM pass | RR pass | R-11 | None | None | None | Expiry policy R04 |
 | 10 | Connection features gated per person per group; stop/end never gated | Implemented | f3f6f7d | Yes | AM, RF pass | n/a | n/a | None | n/a | None | |
 | 11 | Guests retired; existing rows untouched and restricted | Implemented (no conversion) | f3f6f7d | Yes | AM pass; guest report run on local data only | n/a | n/a | Guest rows NOT inspected | n/a | n/a | G1 open |
-| 12 | SOS validated before any location write, notification or broadcast | Implemented | 7ca4e30 | Yes | RF: zero eligible, denied access, cross-group preset, selected vs unselected: nothing written or broadcast | SF pass | n/a | None | n/a | None | Older app builds still post live points to the group endpoint (see §2 note) |
-| 13 | SOS location: No location / Share location once / Share live location, explicit, within the SOS audience | Implemented | 7ca4e30, 998a3a2 | Yes | RF: each mode, live points audience-only, stale refused, isLive mismatch refused | SF (4), SN (7) pass | n/a | None | n/a | None | Background live sharing on a locked phone not tested |
-| 14 | Precision enforced before delivery (SOS and Journey) | Implemented | 7ca4e30 | Yes | RF: approximate sender and traveller never store or deliver coordinates; LC precise control | SF pass | n/a | None | n/a | None | Precision for "alerts only"/"off" members is provisional (R12) |
-| 15 | Location freshness: current / last known (with age) / unavailable; never "now" for an old point | Implemented | 998a3a2 | Yes | RF capture time stored | LF (10): stale cache, denied, GPS off, failed request, old "current"; SN last-known and denied | n/a | None | n/a | None | Real GPS behaviour, accuracy and timing need a device |
+| 12 | SOS validated before any location write, notification or broadcast; older apps' live points reach only the SOS audience | Implemented; finding 2 fix awaiting verification | 7ca4e30, 67ebf9e, e94f2f8 | Yes | RF as before; R2: the exact older-app request (no `purpose`) during a live SOS reaches the selected recipient only, not an unselected member, not the group snapshot, also when it names another group; refused (409) during a non-live SOS; labelled manual shares unchanged | S2 (`purpose` sent) | n/a | None | n/a | None | Older apps keep their old screens (no consent controls); their manual shares during a live SOS are narrowed to the SOS audience; minimum supported version is R14 |
+| 13 | SOS location: No location / Share location once / Share live location, explicit, within the SOS audience, changeable while it runs | Implemented; finding 1 fix awaiting verification | 7ca4e30, 998a3a2, 67ebf9e, ace1e8d | Yes | RF as before; R2: precise live SOS reduced to suburb only then stopped: stored point and trail deleted, recipients told, next update stays suburb only / refused, recipient reads show no coordinates; lowering group sharing narrows, raising it never widens; explicit re-enable works; only the sender can change it | SN precision (2), S2 controls (2) | None | None | n/a | None | Precedence between SOS consent and later group changes is provisional (R12); background live sharing on a locked phone not tested |
+| 14 | Precision enforced before delivery (SOS and Journey) | Partial | 7ca4e30, 67ebf9e | Yes | RF, LC pass; R2 SOS precision follows the per-SOS choice | SF, SN pass | n/a | None | n/a | None | SOS has its own per-SOS precision; Journey has NO per-journey choice and follows the group setting at each point ("off"/"alerts only" = suburb label). Keeping Journey consent distinct is not implemented (R12) |
+| 15 | Location freshness: current / last known (with age) / unavailable; never "now" for an old point; judged again at SOS send | Implemented; finding 3 fix awaiting verification | 998a3a2, ace1e8d | Yes | RF capture time stored | LF (10); SN (6 new): fresh at open, clock moved 3 min: relabelled with age; Once sends the old point only if shown as last known, with its real time; Live never starts from it; refresh at send is used; aged during the hold without refresh: sent without location and said so; No location still sends | None | None | n/a | None | Static review finding, not reproduced by a test on cb26a8d (the tests need the new clock seam); real GPS timing needs a device |
 | 16 | SOS preview = backend eligibility, re-checked at send; delivery never promised | Implemented | 7ca4e30, 998a3a2 | Yes | RF: lapsed excluded, removed member (outdated / empty), mixed-group and other-group-only presets, no people, none eligible, device flag | SN (7) pass | n/a | None | n/a | None | "No device registered" is the only delivery signal |
-| 17 | Preset repair opens that preset; Invite only when nobody else exists | Implemented | 998a3a2 | Yes | RF details carry sosListId/presetState | SN, RR pass | n/a | None | n/a | None | The list editor still lets people pick members of several groups (R13) |
-| 18 | Scheduled changes applied at their effective time | Implemented | 7e8a995, 7ca4e30 | Yes | SC (scheduled downgrade, withdrawn, over-capacity), RF (advance renewal before/after, duplicate, out-of-order), EB (1 ms before / exactly at) | UR dated note | n/a | None | NOT verified: real store event shapes | None | Needs sandbox |
+| 17 | One group per SOS list in the editor, the API and the send; preset repair opens that preset; Invite only when nobody else exists | Implemented; finding 4 fix awaiting verification | 998a3a2, 67ebf9e, ace1e8d | Yes | R2: create and update of a mixed list refused (422 SOS_PRESET_OTHER_GROUP); an old mixed list is reported `needsRepair`; once repaired it saves and the send accepts it (recipients = that group's person) | SN (this group's lists only, other group's default not preselected); S2: mixed list opens with a repair notice and saves one group; switching group clears picks | None | None | n/a | None | Several groups in one SOS is a separate future proposal |
+| 18 | Scheduled changes applied at their effective time, including consecutive changes | Implemented; finding 5 fix awaiting verification | 7e8a995, 7ca4e30, 67ebf9e | Yes | SC, RF, EB as before; R2 (no server key): Group 50 -> Group 20 takes effect, no event in between, payer schedules Family: stays Group 20 (capacity 20) until Family is in effect, never Group 50; duplicate ignored, older event ignored, Individual unaffected; reconcile says unchecked | UR dated note | n/a | None | NOT verified: real store event shapes | None | Needs sandbox |
 | 19 | Upgrades Family -> Group 20 -> Group 50 keep the group and ALRT + | Implemented | 7e8a995, 11eac94 | Yes | SC (Google new transaction x2, App Store same transaction) | UR (Android replacement id, iPhone none) | R-09 | None | NOT verified | None | Play replacement mode and App Store levels (C5, C24) |
 | 20 | Ambiguous upgrade: complete payer recovery | Implemented | 7ca4e30, 7f98fb7 | Yes | RF: plain bind refused with replaceable flag, other user 403, payer replaces own smaller plan, old plan's expiry harmless, smaller/other payer refused | UR pass | n/a | None | None | None | ALRT cannot cancel the replaced store subscription; the app tells the payer |
 | 21 | Restore confirms the specific purchases | Implemented | 7ca4e30, 7f98fb7 | Yes | RF: ALRT + active + Family pending = partial; outage/no key = unchecked; unknown and not-on-server ids; unbound confirmed | RR (9), UR (4) pass | n/a | None | None | None | Server key (C22) needed for "pending"; without it answers are "unchecked" |
@@ -103,10 +120,16 @@ v1_upgrade_restore_onboarding (10), `SN` family_sos_screen_navigation
 | 25 | Ask ALRT 3/10 per local day | Implemented | 51b4f27 | Yes | Functions unit tests (36; not re-run this round, unchanged) | n/a | n/a | None | n/a | None | Charging/refund/retry contract unapproved (R03) |
 | 26 | Store / RevenueCat / Firebase configuration | Unverified | n/a | n/a | n/a | n/a | n/a | None | None | None | See §3 |
 
-Note on row 12: app builds from before `998a3a2` send live SOS points to
-the ordinary `POST /api/family/location`, which by design updates the
-group snapshot. New builds use `POST /api/family/sos/:id/location`. An
-old build on a phone is only fixed by updating the app.
+Note on row 12 (supported-client policy, `67ebf9e`, `e94f2f8`): app
+builds from before `998a3a2` send live SOS points to the ordinary
+`POST /api/family/location` without a `purpose`. Current builds send
+`purpose: "manual"` for ordinary shares and use
+`POST /api/family/sos/:id/location` for SOS points. When the sender has a
+live SOS in any of their groups, an unlabelled post is treated as that
+SOS's point (SOS audience and precision only, never the group snapshot);
+while a non-live SOS runs it is refused (409). With no SOS running it is
+an ordinary share, as before. Consequence for old builds: an ordinary
+share made during an SOS reaches only the SOS audience or is refused.
 
 ### How the backend decides purchases and changes
 
@@ -160,6 +183,23 @@ Refusals carry `{ error, code, details }`. Codes: `INDIVIDUAL_REQUIRED`
 `details.hasCandidates`, `sosListId`, `presetState`),
 `SOS_PRESET_OTHER_GROUP` (422, `details.sosListId`).
 
+## 2a. Review of `cb26a8d`: the five findings
+
+"Reproduced" = the regression script failed on `cb26a8d` (run from a
+worktree at that commit, same local database, server without the
+RevenueCat server key: 6 of 10 checks failed) and passes on the fix.
+"Static" = found by reading the code; not reproduced by a test on
+`cb26a8d`. "Awaiting verification" = fixed with local tests only; no
+independent review, deployed TEST or device check yet.
+
+| # | Finding | Evidence of the defect | Status | Fix | Regression scenario and actual result | Remaining limitation |
+|---|---|---|---|---|---|---|
+| 1 | SOS location consent changes ignored during an active SOS | Reproduced (3 checks failed on cb26a8d: a later point restored precise, coordinates and trail kept, group narrowing ignored) | Fixed; awaiting verification | 67ebf9e (backend), ace1e8d (app) | R2: start precise live SOS, send a point; reduce to suburb only: stored coordinates null, SOS trail deleted, recipient socket told, next point delivered suburb only, recipient reads show no coordinates. Stop sharing: point and label cleared, next update 409. Group sharing lowered to approximate then off: SOS narrowed then stopped; raised back to precise: update still 409 (not widened); explicit re-enable: precise point stored. Only the sender may change it (404 for others). App: S2 controls call the endpoint and the view updates; SN per-SOS Exact / Suburb only sent. All pass | Precedence of SOS consent vs later group changes is provisional (R12); Journey has no separate consent (row 14) |
+| 2 | Older apps' live SOS points via `POST /family/location` reach the group | Reproduced (1 check failed on cb26a8d: point written to the group snapshot, no SOS routing) | Fixed; awaiting verification | 67ebf9e, e94f2f8 | R2: the exact older request (no `purpose`) during a live SOS: selected recipient gets `familySosLocation`, unselected member gets nothing, group snapshot and group pings untouched; same when the request names another group; after the sender stops sharing: 409, nothing written; labelled manual share during an SOS: ordinary group share delivered; no SOS: ordinary share. App S2: `purpose: "manual"` sent. All pass | Old builds keep old screens; minimum supported version is R14 |
+| 3 | SOS activation does not recheck freshness | Static (the tests need the new clock seam, so they cannot run on cb26a8d) | Fixed; awaiting verification | ace1e8d | SN with a controlled clock: fresh fix at open, clock moved 3 minutes: relabelled "last known, 3 min ago"; Once: old point sent with its real capture time because it was shown as last known; Live: SOS sent live with NO starting point; Live with a refresh available: fresh point used; Once shown as current but aged during the hold, no refresh: sent without location and the sender told; No location: still sends. All pass | Real GPS timing and the 4-second refresh on a device not checked |
+| 4 | SOS list editor allows several groups | Reproduced (1 check failed on cb26a8d: a mixed list was created, 201) | Fixed; awaiting verification | 67ebf9e, ace1e8d | R2: mixed create and update refused 422 `SOS_PRESET_OTHER_GROUP`; old mixed list reported `needsRepair: multipleGroups`, repaired, then the send accepts it. App S2: mixed list opens with a repair notice and saves only the chosen group; switching group clears picks (nothing hidden kept). SN: only this group's lists offered. All pass | Multi-group SOS is a separate future proposal |
+| 5 | A second scheduled change resurrects the pre-change tier | Reproduced (1 check failed on cb26a8d: Group 50 came back) | Fixed; awaiting verification | 67ebf9e | R2 on a server without `REVENUECAT_SECRET_API_KEY`: Group 50 -> Group 20 scheduled and elapsed, no lifecycle event in between, payer schedules Family: group stays Group 20 (capacity 20), row tier written as group20, Family pending; duplicate event "duplicate"; older event "ignored"; Family applies only on a store event naming it; ALRT + unaffected throughout. All pass | Real store event sequences need sandbox |
+
 ## 3. Exact reconfiguration table
 
 Nothing here was changed. Every "Current" value is **Not verified** unless
@@ -186,12 +226,12 @@ never shown.
 | C16 | Firestore rules `entitlements/{uid}` | Code: client cannot write | Unchanged; backend writes with admin SDK | None | n/a | | | | Rules test |
 | C17 | Firebase function secrets | `REVENUECAT_AUTH` used by retired function | Remove after C12 | Delete secret | Config | Owner | C12 | Re-create | Secret list |
 | C18 | Backend Firebase credentials | Backend already uses `serviceAccountKey.json` (file, not env) | Service account needs Firestore write on `entitlements` | Confirm IAM role | Config | Owner | | | Mirror doc written on a sandbox purchase |
-| C19 | Database migration | Not applied anywhere | `20260928000000_v1_access_model` applied TEST then prod | `prisma migrate deploy` | Migration | Engineering | D1 | See §4 | Tables present |
+| C19 | Database migration | Not verified; not applied by this work | `20260928000000_v1_access_model` applied TEST then prod | `prisma migrate deploy` | Migration | Engineering | D1 | See §4 | Tables present |
 | C20 | Apple/Google test identities | Not verified | Sandbox testers for eligible and ineligible trial, Family payer, member | Create | Config | Owner | C1, C4 | n/a | Test matrix §5 |
-| C22 | Backend env `REVENUECAT_SECRET_API_KEY` (optional) | Not set | RevenueCat secret (server) API key per environment, read-only use: `GET /v1/subscribers/{id}` to confirm pending changes and spot unrecorded purchases. Never shipped in the app | Add as a secret on TEST first | Config | Owner | C8 | Remove env (pending changes then wait for store events) | Sandbox App Store upgrade shows the new tier within a minute |
-| C23 | Database migration 2 | Not applied anywhere | `20260929000000_v1_subscription_changes` (additive columns) after C19 | `prisma migrate deploy` | Migration | Engineering | C19 | Drop the added columns | Columns present |
+| C22 | Backend env `REVENUECAT_SECRET_API_KEY` (optional) | Not verified; not set by this work | RevenueCat secret (server) API key per environment, read-only use: `GET /v1/subscribers/{id}` to confirm pending changes and spot unrecorded purchases. Never shipped in the app | Add as a secret on TEST first | Config | Owner | C8 | Remove env (pending changes then wait for store events) | Sandbox App Store upgrade shows the new tier within a minute |
+| C23 | Database migration 2 | Not verified; not applied by this work | `20260929000000_v1_subscription_changes` (additive columns) after C19 | `prisma migrate deploy` | Migration | Engineering | C19 | Drop the added columns | Columns present |
 | C24 | App Store subscription group levels | Not verified | Group 50 highest, Group 20, Family lowest in the group-plans subscription group, so moving up is an upgrade (immediate, prorated refund) and down is a downgrade (at renewal) | Set levels | Config | Owner | C2 | Reorder before first sale | Sandbox: Family -> Group 20 immediate; Group 50 -> Family at renewal |
-| C25 | Database migration 3 | Not applied anywhere | `20260930000000_v1_review_followup` (additive columns) after C23 | `prisma migrate deploy` | Migration | Engineering | C23 | Drop the added columns | Columns present |
+| C25 | Database migration 3 | Not verified; not applied by this work | `20260930000000_v1_review_followup` (additive columns) after C23 | `prisma migrate deploy` | Migration | Engineering | C23 | Drop the added columns | Columns present |
 | C21 | Store listing / legal copy | Not verified | Individual trial wording per platform, group "no trial", SOS safety statement | Legal review | Decision (R09) | Owner | | | Sign-off |
 
 ## 4. Migration, rollout and rollback
@@ -253,37 +293,46 @@ unused), or run `DROP TABLE "StoreSubscription", "SponsorshipIntent",
 "CircleFundingMode";` only after taking a backup, because it discards
 recorded purchases. Re-add C12 if the old Ask ALRT function is restored.
 
-## 5. Test results for this review (local only)
+## 5. Test results (local only)
 
-Backend, local Postgres+PostGIS, simulated RevenueCat webhooks, fake
-RevenueCat server API, billing on unless stated:
+Latest run, 29 Sep 2026, for the review of `cb26a8d`. Backend suites ran
+against code at `e94f2f8`; app suites at `ace1e8d` (no app change since).
+Local Postgres+PostGIS, simulated RevenueCat webhooks. Three local
+servers: billing on with a fake RevenueCat server API, billing off, and
+billing on WITHOUT `REVENUECAT_SECRET_API_KEY` (for R2).
 
-| Script | Result |
-|---|---|
-| verify_v1_review_followup (new) | 21 passed, 0 failed |
-| verify_effective_tier_boundary (new, no server) | 5 passed, 0 failed |
-| verify_v1_subscription_changes | 10 passed, 0 failed |
-| verify_v1_access_model | 30 passed, 0 failed |
-| verify_saved_location_limit | 5 passed (billing on) / 3 passed (billing off) |
-| verify_family_location_consent (billing off) | 40 passed; the SOS positive control now sets the sender to precise, because an approximate sender no longer delivers SOS coordinates (intended change) |
-| verify_circle_list_state / leave_and_alert_link / sos_history / stage9a_journey_recipient / targeted_check_in_request (billing off) | 5 / 12 / 8 / 13 / 14 passed |
-| verify_severity_override_phrases | 18 passed |
-| `tsc --noEmit` | Clean apart from the pre-existing `serviceAccountKey.json` import |
+| Script | Server | Result |
+|---|---|---|
+| verify_v1_findings_round2 (new) | billing on, no server key | 11 passed, 0 failed. On `cb26a8d` (worktree, first 10 checks): 4 passed, 6 failed (findings 1, 2, 4, 5 reproduced; the consent-owner check "passed" there only because the route did not exist) |
+| verify_v1_review_followup | billing on | 21 passed. One check changed: its "ordinary snapshot during an SOS is not trail data" step now sends `purpose: "manual"`, because an unlabelled post during a live SOS is now, by design, an SOS point (finding 2). Before that edit it failed 20/21 on the fixed code |
+| verify_v1_access_model | billing on | 30 passed |
+| verify_v1_subscription_changes | billing on | 10 passed |
+| verify_effective_tier_boundary | no server | 5 passed |
+| verify_saved_location_limit | billing on / off | 5 passed / 3 passed |
+| verify_family_location_consent | billing off | 40 passed |
+| verify_sos_history / circle_list_state / targeted_check_in_request / family_leave_and_alert_link / stage9a_journey_recipient | billing off | 8 / 5 / 14 / 12 / 13 passed |
+| verify_severity_override_phrases | no server | 18 passed |
+| `tsc --noEmit` | | Clean apart from the pre-existing `serviceAccountKey.json` import |
 
-App: `flutter test` 368 passed, 33 skipped (opt-in renders); `flutter
-analyze` 6 pre-existing infos. New or changed this round: location_fix
-(10), family_sos_screen_navigation (12), family_sos_flow (13),
-v1_restore_refusal_preview (26), v1_upgrade_restore_onboarding (10).
-Renders regenerated (13, unchanged screens).
+App (`ace1e8d`): `flutter test` 382 passed, 33 skipped (the opt-in
+screenshot renders, `ALRT_SCREENSHOTS=1`; not run this round).
+`flutter analyze`: 6 infos, all in files this work did not touch. New
+this round: 9 tests in family_sos_screen_navigation (now 21) and
+sos_review_round2 (5).
 
-Not performed: deployed TEST checks, store-sandbox purchases, real-device
-runs, Ask ALRT functions re-run (unchanged this round).
+Not performed or not rerun: deployed TEST checks, store-sandbox
+purchases, real-device runs, the 33 opt-in renders (none exist for the
+revised SOS screen, running-SOS controls or list editor), Ask ALRT
+functions unit tests (unchanged, not rerun). Passing local tests show the
+scenarios listed; they are not evidence for anything they do not cover.
 
 ## 6. Open decisions: current provisional behaviour
 
 Nothing in this table is approved. "Now" is what the code does,
 provisionally. "Proposal" is a suggestion only: none of the proposals are
-implemented.
+implemented. These are product decisions, not implementation defects
+(defects are in §2a). Open: 14 (R01 to R12, R14, G1). R13 is closed by
+the reviewer's one-group rule.
 
 | ID | Decision | Now (provisional, in code) | Proposal (NOT approved, NOT in code) |
 |---|---|---|---|
@@ -298,8 +347,9 @@ implemented.
 | R09 | Trial and legal wording | Store-driven disclosures | Legal review |
 | R10 | Points vs XP | Unchanged | Decide separately |
 | R11 | Group Places; Family tab name | No limit; free; adults and host manage | An abuse limit; rename with store screenshots |
-| R12 | SOS/Journey precision for members whose sharing is "alerts only" or "off" | Explicit SOS/Journey shares still allowed, delivered as suburb only (never coordinates); the SOS screen defaults to No location for them | Decide whether "off" should block SOS/Journey location entirely |
-| R13 | SOS lists spanning groups | The list editor lets people pick members of several groups; the send refuses a list naming anyone outside the group (and the app opens that list to fix it) | Restrict the editor to one group per list, or make lists per group |
+| R12 | Precedence between explicit SOS/Journey location consent and ordinary group sharing | SOS: the sender chooses None / Once / Live and Exact / Suburb only per SOS (default from group sharing); that choice can be finer than group sharing. While it runs, LOWERING group sharing narrows it (approximate -> suburb only; off or alerts only -> stops sharing); RAISING group sharing never widens it; the sender can widen it again only with the SOS's own control. Journey: no per-journey choice; each point follows the group setting ("off"/"alerts only" = suburb label, never coordinates). "Off" is never treated as "approximate" for a running SOS | Exact question: when a person gives explicit SOS or Journey consent and later changes ordinary group sharing, which wins? And should Journey get the same per-journey choice as SOS? |
+| R13 | SOS lists spanning groups | CLOSED: one group per list in editor, API and send (reviewer instruction, `67ebf9e`, `ace1e8d`) | Multi-group SOS is a separate future proposal |
+| R14 | Older app builds (supported-client policy) | Unlabelled `POST /family/location` during a live SOS goes to that SOS only; refused while a non-live SOS runs; ordinary otherwise. No minimum version is enforced | Set a minimum supported app version (forced update) before billing is switched on |
 | G1 | Existing guest members | Not converted; keep guest restrictions; count as people | Inspect TEST/production with the read-only report first; then decide per host. No blanket conversion to adult |
 
 ### Ask ALRT: failure and retry charging, exactly as coded
@@ -325,11 +375,12 @@ or implemented.
 ## 7. Launch blockers and checks still needed
 
 1. Store products, subscription groups and levels, offers, Play
-   replacement and RevenueCat mapping (C1 to C12, C22, C24) not created or
-   verified.
+   replacement and RevenueCat mapping (C1 to C12, C22, C24): live state
+   unverified; nothing was created or changed by this work.
 2. Real RevenueCat event sequences for upgrades, scheduled downgrades and
    advance renewals must be confirmed in sandbox.
-3. Decisions R01 to R05, R08, R12, R13 and G1.
+3. Decisions: 14 open (R01 to R12, R14, G1); R01 to R05, R08, R12, R14
+   and G1 affect launch.
 4. Existing `plus` purchasers need re-sync or mapping (C15).
 5. Migrations 1 to 3 applied to TEST (not done).
 6. Device checks: the SOS hold button reachable without scrolling on
@@ -338,3 +389,12 @@ or implemented.
    push delivery; the Family green next to the Check in green.
 7. Earlier launch items (iOS signing and build, APNs, Maps, Apple sandbox,
    TEST source sync) not rechecked here.
+8. The five review findings on `cb26a8d` are fixed locally and await
+   verification: an independent review of `67ebf9e`, `ace1e8d` and
+   `e94f2f8`, then deployed TEST (after migrations) and device checks:
+   consent changes seen on a recipient's phone, an older build during a
+   live SOS, freshness at send with real GPS.
+9. No render of the revised SOS send screen, the running-SOS controls or
+   the one-group list editor; a visual check (render or device) is
+   needed, including hold-button reachability now that the precision
+   choice adds a row.

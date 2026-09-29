@@ -126,6 +126,17 @@ explicit instruction from the product owner in the current session.
   backend (who is left out and why, delivery never promised); a broken
   list opens THAT list, and "Invite someone" appears only when the group
   has nobody else.
+- SOS review of cb26a8d (29 Sep 2026): freshness is judged at SEND
+  (providerOfLocationClock): an aged fix is relabelled "last known" with
+  its age; Live never starts from a stale point; Once sends an old point
+  only if it was shown as last known before the hold, else the SOS goes
+  without location and says so. Each SOS has Exact / Suburb only
+  (default from group sharing). The running-SOS view offers send now (to
+  the SOS audience), suburb only / exact, stop sharing and share live
+  again, and never an ordinary group share. Ordinary location posts send
+  purpose "manual". SOS lists are one group each: the editor picks the
+  group first, switching clears picks, a mixed old list opens with a
+  repair notice; the SOS screen shows only this group's lists.
 - The leaderboard never shows other users' identities.
 
 ## Commercial rules (V1 access model, master spec 28 Sep 2026)

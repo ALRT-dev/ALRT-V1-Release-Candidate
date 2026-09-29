@@ -96,15 +96,33 @@ reintroduce seats, a group-count cap or a single global plan flag.
   preset, at least one eligible recipient, location choice) is validated
   BEFORE any location write, push or socket event; a refused SOS stores
   nothing. The SOS point never writes the group snapshot channel. The
-  sender's explicit per-SOS choice is stored (none / once / live) with the
-  real capture time; precision is never finer than the sender's sharing
-  setting (approximate = suburb label, coordinates not stored). Live
-  points only via POST /sos/:id/location (sender, live SOS, current
+  sender's explicit per-SOS choice is stored (none / once / live, and
+  precise / approximate, defaulting to the group sharing setting) with the
+  real capture time (approximate = suburb label, coordinates not stored).
+  Live points only via POST /sos/:id/location (sender, live SOS, current
   points, audience-only socket); the trail is the SOS's own points.
   GET /sos/preview uses the same audience resolver as the send. Journey
-  points honour the same precision rule. End
-  wording is factual ("SOS ended", "[Name] ended their SOS."), never
-  "safe" or "resolved".
+  points follow the group setting at each point (no per-journey choice).
+- SOS consent while it runs (review of cb26a8d, 29 Sep 2026): a location
+  update only READS the SOS's stored consent, never widens it. PUT
+  /sos/:id/location-consent (sender only, active SOS) reduces or restores
+  it; reducing clears stored coordinates and the SOS's own pings and
+  tells the audience. Lowering group sharing narrows a running SOS
+  (approximate -> suburb only; off / alerts only -> none); raising it
+  never widens it. This precedence is provisional (R12).
+- Older apps (supported-client policy, R14): current apps send
+  purpose "manual" on POST /family/location. An unlabelled post while
+  the sender has a live SOS in ANY of their groups is that SOS's point
+  (audience only, never the group snapshot); during a non-live SOS it is
+  refused (409). Never let it fall through to the group channel.
+- SOS lists name people in ONE group (create, update and send; 422
+  SOS_PRESET_OTHER_GROUP). GET sos-lists reports circleId and
+  needsRepair. Multi-group SOS is a separate proposal.
+- Elapsed scheduled changes are materialized (materializeDueChangesFor)
+  before ANY later subscription mutation: webhook, pending-change record,
+  confirm, intent, bind. Never overwrite a due pending change.
+- SOS end wording is factual ("SOS ended", "[Name] ended their SOS."),
+  never "safe" or "resolved".
 
 ## Google Maps proxy (decided Stage 5, 2026-08-22)
 
