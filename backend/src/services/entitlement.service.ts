@@ -122,11 +122,21 @@ export const materializeDueChangesFor = async (userId: string, now = new Date())
   for (const row of due) await materializeDueChange(row, now);
 };
 
-/** Writes a change whose effective time has passed onto the row. */
+/**
+ * Writes a change whose effective time has passed onto the row. Guarded by
+ * [sub]'s own updatedAt: if a concurrent mutation (a webhook, a confirm, a
+ * pending-change record) already moved this row past what [sub] shows -
+ * including having already materialized or superseded this very change -
+ * this older snapshot must not overwrite it (finding 7, review of
+ * 28bdec1). On conflict, the current row is returned as-is rather than
+ * retried: whichever concurrent write got there first already decided
+ * this row's fate, and the caller's own subsequent read (this function's
+ * every caller re-reads shortly after) will see it.
+ */
 const materializeDueChange = async (sub: StoreSubscription, now = new Date()) => {
   if (!sub.pendingEffectiveAt || !sub.pendingTier || sub.pendingEffectiveAt > now) return sub;
-  return prisma.storeSubscription.update({
-    where: { id: sub.id },
+  await prisma.storeSubscription.updateMany({
+    where: { id: sub.id, updatedAt: sub.updatedAt },
     data: {
       tier: sub.pendingTier,
       productId: sub.pendingProductId ?? sub.productId,
@@ -138,6 +148,9 @@ const materializeDueChange = async (sub: StoreSubscription, now = new Date()) =>
       pendingEffectiveAt: null,
     },
   });
+  // Whether this call's own guarded write landed or a concurrent one beat
+  // it to this row, the current row is the truth either way.
+  return prisma.storeSubscription.findUniqueOrThrow({ where: { id: sub.id } });
 };
 
 // ---------------------------------------------------------------------------
@@ -907,72 +920,105 @@ export const applyRevenueCatEvent = async (
   });
   if (!user) return finish({ action: "ignored", reason: "unknown user id" });
 
-  const stored = await prisma.storeSubscription.findUnique({
-    where: { originalTransactionId },
-  });
-  // A change dated for earlier that has now arrived is applied first, so
-  // this event is compared with the tier really in force.
-  const existing = stored ? await materializeDueChange(stored) : null;
-  if (existing && existing.lastEventAt > eventAt) {
-    return finish({ action: "ignored", reason: "older than the state already applied" });
-  }
-  if (existing && existing.userId !== user.id) {
-    // Purchase ownership only moves through TRANSFER, never a stray event.
-    return finish({ action: "ignored", reason: "transaction belongs to another user" });
-  }
-  if (existing && (existing.tier === "individual") !== (tier === "individual")) {
-    // Never let one transaction switch between personal and sponsorship.
-    return finish({ action: "ignored", reason: "tier family changed on one transaction" });
-  }
-
-  // A lifecycle event naming a different product on the same transaction is
-  // the store confirming a change has taken effect (for example the RENEWAL
-  // that starts a scheduled downgrade). Only then does the tier move.
-  //
   // The new period's start (purchased_at) can be in the future: a renewal
   // collected in advance. Then the change is recorded with that effective
-  // time and the current tier and capacity stay until it arrives.
+  // time and the current tier and capacity stay until it arrives. This is
+  // stable across the row (does not depend on it), so it's read once.
   const periodStart = event.purchased_at_ms ? new Date(event.purchased_at_ms) : null;
   const startsLater = Boolean(periodStart && periodStart.getTime() > Date.now());
-  const differs = Boolean(existing && existing.tier !== tier);
-  const deferChange = differs && startsLater;
-  const tierChanged = differs && !startsLater;
-  const pendingConfirmed =
-    existing && !deferChange && sameProduct(existing.pendingProductId, productId);
 
-  const data = {
-    tier: deferChange ? existing!.tier : tier,
-    productId: deferChange ? existing!.productId : productId!,
-    ...(deferChange && {
-      pendingTier: tier,
-      pendingProductId: productId!,
-      pendingEffectiveAt: periodStart!,
-      pendingRequestedAt: existing!.pendingRequestedAt ?? eventAt,
-    }),
-    store: event.store ?? existing?.store ?? null,
-    environment: event.environment ?? existing?.environment ?? null,
-    status,
-    periodType: event.period_type ?? existing?.periodType ?? null,
-    expiresAt: event.expiration_at_ms
-      ? new Date(event.expiration_at_ms)
-      : status === "expired" || status === "refunded"
-        ? eventAt
-        : (existing?.expiresAt ?? null),
-    gracePeriodExpiresAt: event.grace_period_expiration_at_ms
-      ? new Date(event.grace_period_expiration_at_ms)
-      : null,
-    lastEventAt: eventAt,
-    ...(tierChanged ? { tierChangedAt: eventAt, changeConfirmedVia: "webhook" } : {}),
-    ...(pendingConfirmed || status === "expired" || status === "refunded"
-      ? { pendingProductId: null, pendingTier: null, pendingRequestedAt: null, pendingEffectiveAt: null }
-      : {}),
-  };
+  // Read the row, decide what to write, and write it, guarded by the row's
+  // own updatedAt: if a concurrent mutation (another webhook, a confirm, a
+  // pending-change record, or materializeDueChangesFor) changed the row
+  // between the read and this write, the guard fails and everything is
+  // re-read and re-decided from scratch, never written blindly from a
+  // snapshot that may already be stale. An older event's snapshot must
+  // never overwrite a newer scheduled or confirmed tier (finding 7, review
+  // of 28bdec1). A handful of attempts covers ordinary contention; beyond
+  // that, something is wrong and failing loudly (letting RevenueCat's own
+  // webhook retry try again) is safer than writing over unknown state.
+  let sub: StoreSubscription;
+  let tierChanged = false;
+  for (let attempt = 0; ; attempt++) {
+    const stored = await prisma.storeSubscription.findUnique({
+      where: { originalTransactionId },
+    });
+    // A change dated for earlier that has now arrived is applied first, so
+    // this event is compared with the tier really in force.
+    const existing = stored ? await materializeDueChange(stored) : null;
+    if (existing && existing.lastEventAt > eventAt) {
+      return finish({ action: "ignored", reason: "older than the state already applied" });
+    }
+    if (existing && existing.userId !== user.id) {
+      // Purchase ownership only moves through TRANSFER, never a stray event.
+      return finish({ action: "ignored", reason: "transaction belongs to another user" });
+    }
+    if (existing && (existing.tier === "individual") !== (tier === "individual")) {
+      // Never let one transaction switch between personal and sponsorship.
+      return finish({ action: "ignored", reason: "tier family changed on one transaction" });
+    }
 
-  const sub = existing
-    ? await prisma.storeSubscription.update({ where: { id: existing.id }, data })
-    : await prisma.storeSubscription.create({
+    // A lifecycle event naming a different product on the same transaction
+    // is the store confirming a change has taken effect (for example the
+    // RENEWAL that starts a scheduled downgrade). Only then does the tier
+    // move.
+    const differs = Boolean(existing && existing.tier !== tier);
+    const deferChange = differs && startsLater;
+    const thisTierChanged = differs && !startsLater;
+    const pendingConfirmed =
+      existing && !deferChange && sameProduct(existing.pendingProductId, productId);
+
+    const data = {
+      tier: deferChange ? existing!.tier : tier,
+      productId: deferChange ? existing!.productId : productId!,
+      ...(deferChange && {
+        pendingTier: tier,
+        pendingProductId: productId!,
+        pendingEffectiveAt: periodStart!,
+        pendingRequestedAt: existing!.pendingRequestedAt ?? eventAt,
+      }),
+      store: event.store ?? existing?.store ?? null,
+      environment: event.environment ?? existing?.environment ?? null,
+      status,
+      periodType: event.period_type ?? existing?.periodType ?? null,
+      expiresAt: event.expiration_at_ms
+        ? new Date(event.expiration_at_ms)
+        : status === "expired" || status === "refunded"
+          ? eventAt
+          : (existing?.expiresAt ?? null),
+      gracePeriodExpiresAt: event.grace_period_expiration_at_ms
+        ? new Date(event.grace_period_expiration_at_ms)
+        : null,
+      lastEventAt: eventAt,
+      ...(thisTierChanged ? { tierChangedAt: eventAt, changeConfirmedVia: "webhook" } : {}),
+      ...(pendingConfirmed || status === "expired" || status === "refunded"
+        ? { pendingProductId: null, pendingTier: null, pendingRequestedAt: null, pendingEffectiveAt: null }
+        : {}),
+    };
+
+    if (!existing) {
+      sub = await prisma.storeSubscription.create({
         data: { ...data, userId: user.id, originalTransactionId },
       });
+      tierChanged = thisTierChanged;
+      break;
+    }
+    const guarded = await prisma.storeSubscription.updateMany({
+      where: { id: existing.id, updatedAt: existing.updatedAt },
+      data,
+    });
+    if (guarded.count > 0) {
+      sub = await prisma.storeSubscription.findUniqueOrThrow({ where: { id: existing.id } });
+      tierChanged = thisTierChanged;
+      break;
+    }
+    if (attempt >= 4) {
+      throw new Error(
+        `applyRevenueCatEvent: storeSubscription ${existing.id} kept changing underneath this event`,
+      );
+    }
+    // Lost the race: loop and re-read + re-decide against the current row.
+  }
 
   if (tierChanged && tier !== "individual") {
     await consumeReplaceIntents(sub.id, tier);
@@ -1034,46 +1080,63 @@ const recordPendingChange = async (
   }
   const txId = event.original_transaction_id || event.transaction_id;
   await materializeDueChangesFor(userId);
-  let row = txId
-    ? await prisma.storeSubscription.findUnique({ where: { originalTransactionId: txId } })
-    : null;
-  if (!row) {
-    // Google can report the change against the new purchase token: find
-    // the payer's one current subscription for the old product instead.
-    const candidates = (
-      await prisma.storeSubscription.findMany({
-        where: { userId, supersededAt: null },
-      })
-    ).filter((r) => sameProduct(r.productId, event.product_id) && isSubscriptionLive(r));
-    row = candidates.length === 1 ? candidates[0]! : null;
+
+  // Read, decide and write are retried together, guarded by the row's own
+  // updatedAt: a concurrent mutation (a webhook, a confirm, or
+  // materializeDueChangesFor) between this read and this write must never
+  // be overwritten by this event's now-stale snapshot (finding 7, review
+  // of 28bdec1). Re-read and re-decide from scratch on conflict, rather
+  // than retrying a write already known to be based on stale state.
+  for (let attempt = 0; ; attempt++) {
+    let row = txId
+      ? await prisma.storeSubscription.findUnique({ where: { originalTransactionId: txId } })
+      : null;
+    if (!row) {
+      // Google can report the change against the new purchase token: find
+      // the payer's one current subscription for the old product instead.
+      const candidates = (
+        await prisma.storeSubscription.findMany({
+          where: { userId, supersededAt: null },
+        })
+      ).filter((r) => sameProduct(r.productId, event.product_id) && isSubscriptionLive(r));
+      row = candidates.length === 1 ? candidates[0]! : null;
+    }
+    if (!row) return { action: "ignored", reason: "product change for an unknown subscription" };
+    if (row.userId !== userId) {
+      return { action: "ignored", reason: "transaction belongs to another user" };
+    }
+    if ((row.tier === "individual") !== (newTier === "individual")) {
+      return { action: "ignored", reason: "tier family changed on one transaction" };
+    }
+    if (row.lastEventAt > eventAt) {
+      return { action: "ignored", reason: "older than the state already applied" };
+    }
+    const reverted = sameProduct(event.new_product_id, row.productId);
+    const guarded = await prisma.storeSubscription.updateMany({
+      where: { id: row.id, updatedAt: row.updatedAt },
+      data: reverted
+        ? { pendingProductId: null, pendingTier: null, pendingRequestedAt: null, pendingEffectiveAt: null, lastEventAt: eventAt }
+        : {
+            pendingProductId: event.new_product_id!,
+            pendingTier: newTier,
+            pendingRequestedAt: eventAt,
+            pendingEffectiveAt: null,
+            lastEventAt: eventAt,
+          },
+    });
+    if (guarded.count > 0) {
+      return {
+        action: "applied",
+        reason: reverted ? "pending change withdrawn" : `pending ${newTier} (not in effect yet)`,
+      };
+    }
+    if (attempt >= 4) {
+      throw new Error(
+        `recordPendingChange: storeSubscription ${row.id} kept changing underneath this event`,
+      );
+    }
+    // Lost the race: loop and re-read + re-decide against the current row.
   }
-  if (!row) return { action: "ignored", reason: "product change for an unknown subscription" };
-  if (row.userId !== userId) {
-    return { action: "ignored", reason: "transaction belongs to another user" };
-  }
-  if ((row.tier === "individual") !== (newTier === "individual")) {
-    return { action: "ignored", reason: "tier family changed on one transaction" };
-  }
-  if (row.lastEventAt > eventAt) {
-    return { action: "ignored", reason: "older than the state already applied" };
-  }
-  const reverted = sameProduct(event.new_product_id, row.productId);
-  await prisma.storeSubscription.update({
-    where: { id: row.id },
-    data: reverted
-      ? { pendingProductId: null, pendingTier: null, pendingRequestedAt: null, pendingEffectiveAt: null, lastEventAt: eventAt }
-      : {
-          pendingProductId: event.new_product_id!,
-          pendingTier: newTier,
-          pendingRequestedAt: eventAt,
-          pendingEffectiveAt: null,
-          lastEventAt: eventAt,
-        },
-  });
-  return {
-    action: "applied",
-    reason: reverted ? "pending change withdrawn" : `pending ${newTier} (not in effect yet)`,
-  };
 };
 
 /**
@@ -1261,8 +1324,14 @@ const readStoreRecord = async (
     const hit = inEffect(row.pendingProductId!, row.pendingRequestedAt);
     if (!hit || !row.pendingTier) continue;
     const at = new Date();
-    await prisma.storeSubscription.update({
-      where: { id: row.id },
+    // Guarded by the row's own updatedAt (finding 7, review of 28bdec1): a
+    // concurrent webhook or pending-change write between the read above
+    // and this write must never be overwritten by this now-stale
+    // snapshot. Unlike the webhook path this call is re-run on demand, so
+    // a lost race here simply confirms on the next call rather than
+    // retrying - there is nothing stale to correct by retrying blind.
+    const guarded = await prisma.storeSubscription.updateMany({
+      where: { id: row.id, updatedAt: row.updatedAt },
       data: {
         tier: row.pendingTier,
         productId: row.pendingProductId!,
@@ -1274,6 +1343,7 @@ const readStoreRecord = async (
         pendingRequestedAt: null,
       },
     });
+    if (guarded.count === 0) continue;
     await consumeReplaceIntents(row.id, row.pendingTier);
     confirmedChanges += 1;
   }
