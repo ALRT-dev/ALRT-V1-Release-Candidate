@@ -50,12 +50,12 @@ export const initializeScheduledTasks = () => {
       // A journey past its stop time ends itself and drops its location,
       // so nothing keeps sharing because a phone went quiet.
       await endLapsedJourneys();
-      // Same guarantee for SOS: live share stops at the 4 hour cap even if
+      // Same guarantee for SOS: live share stops after 1 hour unless the sender extends even if
       // nobody stands it down by hand.
       await endLapsedSosEvents();
       // Stored location points follow the same rules: gone an hour after
       // they were shared, with only a running SOS trail excepted, and
-      // nothing at all past the 4-hour live-share cap. This ran daily,
+      // nothing at all past the 1-hour SOS limit. This ran daily,
       // which left expired coordinates on disk for up to another 23 hours.
       await pruneFamilyLocationPings();
     } catch (error) {

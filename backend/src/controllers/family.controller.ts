@@ -947,6 +947,23 @@ export const resolveSosController = async (
   }
 };
 
+/** POST /api/family/sos/:sosEventId/extend — the sender confirms: keep going another hour. */
+export const extendSosController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const { sosEventId } = req.params;
+    if (!sosEventId) throw new HttpError(400, "sosEventId is required");
+    const sos = await familyService.extendSos(userId, sosEventId);
+    res.status(200).json(sos);
+  } catch (error) {
+    next(error);
+  }
+};
+
 /** GET /api/family/sos/history — stood-down SOS events with who saw them. */
 export const getSosHistoryController = async (
   req: Request,

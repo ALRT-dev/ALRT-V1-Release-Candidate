@@ -71,8 +71,8 @@ to change are in `docs/V1_ACCESS_MODEL_IMPLEMENTATION.md`. In short:
 - A Family/Group plan covers check-ins, check on, SOS, Journey and
   location sharing inside ONE nominated group; members join free. It gives
   nobody personal benefits, including the payer.
-- Only Individual has a trial (30 days Android / one month iPhone,
-  subject to store eligibility and final wording).
+- Only Individual has a trial: 2 weeks on both iPhone and Android (decided
+  3 Oct 2026), subject to store eligibility and final wording.
 - Guests are retired for V1.
 - Earlier values in this section (3 free saved locations, 8 seats across
   4 groups with the payer using a seat, a covered seat carrying every

@@ -41,10 +41,11 @@ const MAX_TOKENS = 1000;
  * account. Group sponsorship never raises it, for members or the payer.
  * Supersedes the earlier 5/30 and 3/20 values.
  *
- * Counting unit (open decision R03, unchanged here): one unit per AI
- * fallback attempt that reaches the model call. Library and
- * emergency-number answers never count. Until R03 is decided, copy must
- * describe this honestly (it is not "successful answers").
+ * Counting unit (decided 3 Oct 2026): every question and answer counts as
+ * 1, whether it is answered from the library, the emergency-number lookup
+ * or the AI. At the cap the local emergency number is still shown (and not
+ * counted). A request that fails (model error, assistant switched off) is
+ * not counted.
  */
 export const AI_DAILY_LIMIT = { free: 3, individual: 10 } as const;
 
@@ -210,6 +211,31 @@ async function consumeAiQuota(uid: string, plan: Plan, timeZone: string): Promis
   });
 }
 
+/** True when today's allowance is already used up (no increment). */
+async function atDailyCap(uid: string, plan: Plan, timeZone: string): Promise<boolean> {
+  const snap = await db()
+    .collection("agentUsage")
+    .doc(uid)
+    .collection("days")
+    .doc(localDayKey(new Date(), timeZone))
+    .get();
+  return ((snap.data()?.aiCount as number | undefined) ?? 0) >= AI_DAILY_LIMIT[plan];
+}
+
+/** Give one question back after a request that failed. */
+async function refundQuota(uid: string, timeZone: string): Promise<void> {
+  const ref = db()
+    .collection("agentUsage")
+    .doc(uid)
+    .collection("days")
+    .doc(localDayKey(new Date(), timeZone));
+  await db().runTransaction(async (txn) => {
+    const snap = await txn.get(ref);
+    const count = (snap.data()?.aiCount as number | undefined) ?? 0;
+    if (count > 0) txn.set(ref, { aiCount: count - 1 }, { merge: true });
+  });
+}
+
 function emergencyAnswer(iso: string): string | null {
   const number = EMERGENCY_NUMBERS[iso];
   if (!number) return null;
@@ -273,19 +299,30 @@ export const askAlrt = onCall(
     if (!question) throw new HttpsError("invalid-argument", "A question is required.");
     if (question.length > MAX_QUESTION_CHARS) throw new HttpsError("invalid-argument", "Question is too long.");
 
-    // 1. Pre-written library (no AI, no quota). Seed + Firestore overrides.
+    const plan = await planFor(uid);
+    const timeZone = await effectiveTimeZone(
+      uid,
+      zoneFromRequest(data.timeZone, data.utcOffsetMinutes)
+    );
+
+    // 1. Pre-written library (no AI). Counts as 1 question. Seed + Firestore overrides.
     const entries = await loadEntries();
     const match = bestMatch(question, entries);
     if (match) {
+      await consumeAiQuota(uid, plan, timeZone);
       logger.info("ask_alrt_answered", { uid, source: "library" as Source, entry: match.entry.id });
       return { answer: match.entry.answer, source: "library" as Source, usedAI: false };
     }
 
-    // 2. Emergency-number lookup from the resolved table (no AI, no quota).
+    // 2. Emergency-number lookup from the resolved table (no AI). Counts as 1
+    //    question, but at the daily cap the number is still shown, uncounted.
     const lookup = detectEmergencyLookup(question);
     if (lookup) {
       const answer = emergencyAnswer(lookup.iso);
       if (answer) {
+        if (!(await atDailyCap(uid, plan, timeZone))) {
+          await consumeAiQuota(uid, plan, timeZone);
+        }
         logger.info("ask_alrt_answered", { uid, source: "emergency_lookup" as Source, iso: lookup.iso });
         return { answer, source: "emergency_lookup" as Source, usedAI: false };
       }
@@ -302,11 +339,6 @@ export const askAlrt = onCall(
       );
     }
 
-    const plan = await planFor(uid);
-    const timeZone = await effectiveTimeZone(
-      uid,
-      zoneFromRequest(data.timeZone, data.utcOffsetMinutes)
-    );
     await consumeAiQuota(uid, plan, timeZone);
 
     const history = (data.history ?? [])
@@ -329,6 +361,7 @@ export const askAlrt = onCall(
         messages: [...history, { role: "user", content: question }],
       });
     } catch (err) {
+      await refundQuota(uid, timeZone).catch(() => undefined);
       logger.error("Ask ALRT model call failed", { uid, error: (err as Error).message });
       throw new HttpsError("internal", "Ask ALRT is unavailable right now. Please try again.");
     }
