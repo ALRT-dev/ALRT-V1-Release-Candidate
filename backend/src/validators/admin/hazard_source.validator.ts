@@ -89,6 +89,9 @@ export const createHazardSourceForAdminBodySchema = z.object({
   sourceNativeSymbol: z.string().max(100).optional(),
   lifecycleStatus: z.enum(HazardSourceLifecycleStatus).optional(),
   healthStatus: z.enum(HazardSourceHealthStatus).optional(),
+  lastReviewedAt: z.coerce.date().optional(),
+  expiryReviewAt: z.coerce.date().optional(),
+  licensingNotes: z.string().max(2000).optional(),
 });
 
 export type CreateHazardSourceForAdminBody = z.infer<
@@ -163,6 +166,9 @@ export const updateHazardSourceForAdminBodySchema = z.object({
   sourceNativeSymbol: z.string().max(100).nullable().optional(),
   lifecycleStatus: z.enum(HazardSourceLifecycleStatus).optional(),
   healthStatus: z.enum(HazardSourceHealthStatus).optional(),
+  lastReviewedAt: z.coerce.date().nullable().optional(),
+  expiryReviewAt: z.coerce.date().nullable().optional(),
+  licensingNotes: z.string().max(2000).nullable().optional(),
 });
 
 export type UpdateHazardSourceForAdminBody = z.infer<

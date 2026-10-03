@@ -209,6 +209,22 @@ export interface AdminHazardSource {
   lastSuccessfulFetch: string | null;
   lastAlertSeen: string | null;
   lastHealthError: string | null;
+  lastReviewedAt: string | null;
+  expiryReviewAt: string | null;
+  licensingNotes: string | null;
+}
+
+export interface AdminAuditLogEntry {
+  id: string;
+  adminId: string | null;
+  admin: { id: string; email: string; name: string | null } | null;
+  action: string;
+  targetType: string;
+  targetId: string | null;
+  reason: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 // --- Categories ------------------------------------------------------

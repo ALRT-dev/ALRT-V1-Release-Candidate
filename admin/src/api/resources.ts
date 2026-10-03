@@ -8,6 +8,7 @@ import type {
   AdminAppUser,
   AdminConfiguration,
   AdminHazard,
+  AdminAuditLogEntry,
   AdminHazardSource,
   AdminProfile,
   AdminStats,
@@ -120,6 +121,10 @@ export const listHazardSources = (params: { page?: number; pageSize?: number; se
 // alert to. A plain POST, same as any real admin creating a real source.
 export const createHazardSource = (data: { id: string; name: string; url: string }) =>
   apiPost<AdminHazardSource>("/api/admin/hazard-sources", data);
+
+export const listAuditLog = (
+  params: { page?: number; pageSize?: number; targetType?: string; targetId?: string } = {},
+) => apiGet<AdminAuditLogEntry[]>(`/api/admin/audit-log${buildQuery(params)}`);
 
 export const updateHazardSource = (
   sourceId: string,

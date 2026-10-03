@@ -7,6 +7,8 @@ import type {
   UpdateHazardSourceLicenseForAdminBody,
 } from "../../validators/admin/hazard_source.validator.js";
 import { HttpError } from "../../models/http_error.js";
+import type { AdminRequest } from "../../middlewares/auth.admin.middleware.js";
+import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 import {
   getHazardSources,
   getHazardSourceById,
@@ -19,6 +21,52 @@ import {
   updateHazardSourceLicense,
   deleteHazardSourceLicense,
 } from "../../services/hazard_source.service.js";
+
+/**
+ * Audit snapshot of a source's registry configuration. `secretRef` is a
+ * reference name, not a secret, but is still recorded only as changed/not.
+ */
+const SOURCE_AUDIT_FIELDS = [
+  "name",
+  "url",
+  "country",
+  "region",
+  "coverage",
+  "sourceType",
+  "authorityLevel",
+  "feedUrl",
+  "format",
+  "accessMethod",
+  "adapterKey",
+  "scheduleMinutes",
+  "warningTypes",
+  "sourceNativeSeverity",
+  "sourceNativeSymbol",
+  "lifecycleStatus",
+  "licenseId",
+  "licensingNotes",
+  "lastReviewedAt",
+  "expiryReviewAt",
+  "advisoryText",
+] as const;
+
+const diffSourceForAudit = (
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+) => {
+  const changedBefore: Record<string, unknown> = {};
+  const changedAfter: Record<string, unknown> = {};
+  for (const key of SOURCE_AUDIT_FIELDS) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+      changedBefore[key] = before[key] ?? null;
+      changedAfter[key] = after[key] ?? null;
+    }
+  }
+  if (before["secretRef"] !== after["secretRef"]) {
+    changedAfter["secretRefChanged"] = true;
+  }
+  return { before: changedBefore, after: changedAfter };
+};
 
 export const getHazardSourcesForAdmin = async (
   req: Request,
@@ -72,6 +120,15 @@ export const createHazardSourceForAdmin = async (
     const body: CreateHazardSourceForAdminBody = req.body;
 
     const source = await createHazardSource(body);
+
+    await recordAdminAuditEntry({
+      adminId: (req as AdminRequest).admin?.id ?? null,
+      action: "hazardSource.create",
+      targetType: "HazardSource",
+      targetId: source.id,
+      after: { name: source.name, url: source.url },
+    });
+
     res.status(201).json(source);
   } catch (error) {
     next(error);
@@ -91,7 +148,24 @@ export const updateHazardSourceForAdmin = async (
       throw new HttpError(400, "Source ID is required");
     }
 
+    const existing = await getHazardSourceById(sourceId);
     const source = await updateHazardSource(sourceId, body);
+
+    const changes = diffSourceForAudit(
+      existing as unknown as Record<string, unknown>,
+      source as unknown as Record<string, unknown>,
+    );
+    if (Object.keys(changes.after).length > 0) {
+      await recordAdminAuditEntry({
+        adminId: (req as AdminRequest).admin?.id ?? null,
+        action: "hazardSource.update",
+        targetType: "HazardSource",
+        targetId: sourceId,
+        before: changes.before,
+        after: changes.after,
+      });
+    }
+
     res.status(200).json(source);
   } catch (error) {
     next(error);
@@ -110,7 +184,17 @@ export const deleteHazardSourceForAdmin = async (
       throw new HttpError(400, "Source ID is required");
     }
 
+    const existing = await getHazardSourceById(sourceId);
     const result = await deleteHazardSource(sourceId);
+
+    await recordAdminAuditEntry({
+      adminId: (req as AdminRequest).admin?.id ?? null,
+      action: "hazardSource.delete",
+      targetType: "HazardSource",
+      targetId: sourceId,
+      before: { name: existing.name, url: existing.url },
+    });
+
     res.status(200).json(result);
   } catch (error) {
     next(error);

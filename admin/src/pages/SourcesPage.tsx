@@ -7,6 +7,11 @@ import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import { ApiError } from "../api/client";
 import type { AdminHazardSource } from "../api/types";
 
+const toDateInput = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : "");
+
+const isReviewOverdue = (iso: string | null) =>
+  iso !== null && new Date(iso).getTime() < Date.now();
+
 export const SourcesPage = () => {
   const { hasRole } = useAuth();
   const { notifySuccess, notifyError } = useToast();
@@ -41,6 +46,11 @@ export const SourcesPage = () => {
       secretRef: source.secretRef,
       lifecycleStatus: source.lifecycleStatus,
       warningTypes: source.warningTypes,
+      sourceNativeSeverity: source.sourceNativeSeverity,
+      sourceNativeSymbol: source.sourceNativeSymbol,
+      licensingNotes: source.licensingNotes,
+      lastReviewedAt: source.lastReviewedAt,
+      expiryReviewAt: source.expiryReviewAt,
     });
   };
 
@@ -76,9 +86,12 @@ export const SourcesPage = () => {
       </div>
 
       <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
-        Source lifecycle, adapter, schedule, access reference and health fields
-        are now stored on each source for TEST configuration. Secret values are
-        never entered here; use a secret reference only.
+        Source lifecycle, review dates, licensing terms and health are recorded
+        on each source. Suspending or retiring a source stops it being
+        ingested. Feed URL, adapter and schedule are recorded for reference;
+        the ingestion code still decides which feeds run. Secret values are
+        never entered here; use a secret reference only. Every change is
+        recorded in the Audit Log.
       </div>
 
       <div className="toolbar">
@@ -104,6 +117,8 @@ export const SourcesPage = () => {
               <th>License</th>
               <th>Status</th>
               <th>Health</th>
+              <th>Last fetch</th>
+              <th>Review due</th>
               <th>Adapter</th>
               <th>Schedule</th>
               <th>Active hazards</th>
@@ -121,7 +136,17 @@ export const SourcesPage = () => {
                 </td>
                 <td>{source.license?.badgeText ?? "-"}</td>
                 <td>{source.lifecycleStatus}</td>
-                <td>{source.healthStatus}</td>
+                <td title={source.lastHealthError ?? undefined}>{source.healthStatus}</td>
+                <td>
+                  {source.lastSuccessfulFetch
+                    ? new Date(source.lastSuccessfulFetch).toLocaleString()
+                    : "-"}
+                </td>
+                <td>
+                  {source.expiryReviewAt
+                    ? `${toDateInput(source.expiryReviewAt)}${isReviewOverdue(source.expiryReviewAt) ? " (overdue)" : ""}`
+                    : "-"}
+                </td>
                 <td>{source.adapterKey ?? "-"}</td>
                 <td>{source.scheduleMinutes ? `${source.scheduleMinutes} min` : "-"}</td>
                 <td>{source.hazardsCount}</td>
@@ -157,6 +182,8 @@ export const SourcesPage = () => {
                 ["accessMethod", "Access method"],
                 ["adapterKey", "Adapter key"],
                 ["secretRef", "Secret reference"],
+                ["sourceNativeSeverity", "Source-native severity terms"],
+                ["sourceNativeSymbol", "Source-native symbol"],
               ] as const).map(([key, label]) => (
                 <div className="field" key={key}>
                   <label htmlFor={`source-${key}`}>{label}</label>
@@ -200,6 +227,34 @@ export const SourcesPage = () => {
                   ))}
                 </select>
               </div>
+            </div>
+            <div className="field-grid">
+              <div className="field">
+                <label htmlFor="source-last-reviewed">Last reviewed</label>
+                <input
+                  id="source-last-reviewed"
+                  type="date"
+                  value={toDateInput(configDraft.lastReviewedAt)}
+                  onChange={(event) => setConfigDraft((current) => ({ ...current, lastReviewedAt: event.target.value || null }))}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="source-expiry-review">Next review due</label>
+                <input
+                  id="source-expiry-review"
+                  type="date"
+                  value={toDateInput(configDraft.expiryReviewAt)}
+                  onChange={(event) => setConfigDraft((current) => ({ ...current, expiryReviewAt: event.target.value || null }))}
+                />
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="source-licensing-notes">Licensing and access terms</label>
+              <textarea
+                id="source-licensing-notes"
+                value={configDraft.licensingNotes ?? ""}
+                onChange={(event) => setConfigDraft((current) => ({ ...current, licensingNotes: event.target.value || null }))}
+              />
             </div>
             <div className="field">
               <label htmlFor="source-warning-types">Warning types (comma-separated)</label>

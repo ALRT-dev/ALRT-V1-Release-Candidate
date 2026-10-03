@@ -13,6 +13,7 @@ const NAV_ITEMS: { to: string; label: string }[] = [
   { to: "/configuration", label: "Configuration" },
   { to: "/webhook-keys", label: "Webhook API Keys" },
   { to: "/ask-alrt", label: "Ask ALRT" },
+  { to: "/audit-log", label: "Audit Log" },
 ];
 
 export const Layout = () => {
