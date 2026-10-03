@@ -15,6 +15,8 @@ import { AIPromptsPage } from "./pages/AIPromptsPage";
 import { ConfigurationPage } from "./pages/ConfigurationPage";
 import { WebhookKeysPage } from "./pages/WebhookKeysPage";
 import { AskAlrtPage } from "./pages/AskAlrtPage";
+import { AskAlrtLibraryPage } from "./pages/AskAlrtLibraryPage";
+import { EmergencyNumbersPage } from "./pages/EmergencyNumbersPage";
 
 function App() {
   return (
@@ -40,6 +42,8 @@ function App() {
             <Route path="/configuration" element={<ConfigurationPage />} />
             <Route path="/webhook-keys" element={<WebhookKeysPage />} />
             <Route path="/ask-alrt" element={<AskAlrtPage />} />
+            <Route path="/ask-alrt-library" element={<AskAlrtLibraryPage />} />
+            <Route path="/emergency-numbers" element={<EmergencyNumbersPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

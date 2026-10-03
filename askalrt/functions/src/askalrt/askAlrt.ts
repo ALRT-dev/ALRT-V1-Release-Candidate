@@ -24,7 +24,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { loadSystemPrompt } from "./promptOverride";
 import { loadEntries } from "./entriesLoader";
 import { bestMatch, detectEmergencyLookup } from "./matching";
-import { EMERGENCY_NUMBERS } from "../lib/emergencyLogic";
+import { aliasesFromNames, loadEmergencyConfig } from "./emergencyOverrides";
 import { isAgentEnabled } from "./remoteConfigGate";
 import { extractUsedAlertIds } from "./citations";
 
@@ -210,10 +210,14 @@ async function consumeAiQuota(uid: string, plan: Plan, timeZone: string): Promis
   });
 }
 
-function emergencyAnswer(iso: string): string | null {
-  const number = EMERGENCY_NUMBERS[iso];
+function emergencyAnswer(
+  iso: string,
+  table: Readonly<Record<string, string>>,
+  names: Readonly<Record<string, string>> = {}
+): string | null {
+  const number = table[iso];
   if (!number) return null;
-  const name = ISO_NAMES[iso] ?? iso;
+  const name = names[iso] ?? ISO_NAMES[iso] ?? iso;
   return `In ${name}, the emergency number is ${number}. If you are in danger, call it now. ALRT is a helper, it does not contact emergency services for you.`;
 }
 
@@ -282,9 +286,10 @@ export const askAlrt = onCall(
     }
 
     // 2. Emergency-number lookup from the resolved table (no AI, no quota).
-    const lookup = detectEmergencyLookup(question);
+    const emergency = await loadEmergencyConfig();
+    const lookup = detectEmergencyLookup(question, aliasesFromNames(emergency.names));
     if (lookup) {
-      const answer = emergencyAnswer(lookup.iso);
+      const answer = emergencyAnswer(lookup.iso, emergency.table, emergency.names);
       if (answer) {
         logger.info("ask_alrt_answered", { uid, source: "emergency_lookup" as Source, iso: lookup.iso });
         return { answer, source: "emergency_lookup" as Source, usedAI: false };

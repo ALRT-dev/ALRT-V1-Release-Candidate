@@ -98,12 +98,23 @@ const EMERGENCY_INTENT = ["emergency number", "police", "ambulance", "fire briga
  * a known country, return the ISO + intent flag so the caller can answer from
  * the emergency table with no AI. Otherwise null.
  */
-export function detectEmergencyLookup(question: string): { iso: string } | null {
+export function detectEmergencyLookup(
+  question: string,
+  extraAliases: Readonly<Record<string, string>> = {}
+): { iso: string } | null {
   const norm = normalize(question);
   const hasIntent = EMERGENCY_INTENT.some((p) => norm.includes(normalize(p)));
   if (!hasIntent) return null;
+  // Built-in aliases keep their original substring match. Aliases coming from
+  // the Admin Portal's country names are matched as whole words only, so a
+  // name like "Oman" cannot fire inside "woman".
   for (const [name, iso] of Object.entries(COUNTRY_ALIASES)) {
     if (norm.includes(normalize(name))) return { iso };
+  }
+  const padded = ` ${norm} `;
+  for (const [name, iso] of Object.entries(extraAliases)) {
+    const key = normalize(name);
+    if (key && padded.includes(` ${key} `)) return { iso };
   }
   return null;
 }
