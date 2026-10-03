@@ -22,7 +22,8 @@ service cloud.firestore {
 
     // ----- Ask ALRT answer library: readable by the app; edited in Console --
     // The function reads it via the admin SDK (bypasses rules). Sarah edits it
-    // in the Firebase Console. No client writes.
+    // in the Admin Portal (Ask ALRT Answers, written by the backend through the
+    // admin SDK) or in the Firebase Console. No client writes.
     match /askAlrtEntries/{entryId} {
       allow read: if isSignedIn();
       allow write: if false;
@@ -31,6 +32,8 @@ service cloud.firestore {
     // ----- Ask ALRT system prompt override: server-only, edited in Console --
     // Same pattern as askAlrtEntries, but never read by the client directly -
     // only the askAlrt callable reads it (via the admin SDK, bypasses rules).
+    // Docs: systemPrompt (Console), emergencyNumbers (Admin Portal, Emergency
+    // Numbers page: { numbers: {ISO: "000"}, names: {ISO: "Name"} }).
     match /askAlrtConfig/{docId} {
       allow read: if false;
       allow write: if false;

@@ -323,3 +323,30 @@ export interface WebhookApiKeyCreatedResponse extends WebhookApiKeyListItem {
   apiKey: string;
   message: string;
 }
+
+// --- Ask ALRT answer library + emergency numbers -------------------------
+
+export type AskAlrtEntryOrigin = "built_in" | "customised" | "custom";
+
+export interface AskAlrtEntry {
+  id: string;
+  triggers: string[];
+  keywords: string[];
+  answer: string;
+  enabled: boolean;
+  /** built_in: app's bundled text, not yet saved; customised: saved over a
+   * built-in id; custom: a new answer with its own id. */
+  origin: AskAlrtEntryOrigin;
+  hasBuiltIn: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+export interface EmergencyNumberRow {
+  iso: string;
+  name: string;
+  number: string;
+  /** True when the number is the starting-list value rather than a saved edit. */
+  isDefault: boolean;
+  defaultNumber: string | null;
+}

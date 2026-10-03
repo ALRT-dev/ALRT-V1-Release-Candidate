@@ -13,8 +13,10 @@ import type {
   AdminStats,
   AIPrompt,
   AIPromptGroup,
+  AskAlrtEntry,
   AppUserListResponse,
   DashboardStats,
+  EmergencyNumberRow,
   HazardCategory,
   HazardReviewStatus,
   HazardSeverity,
@@ -204,3 +206,34 @@ export const setWebhookApiKeyActive = (keyId: string, isActive: boolean) =>
 
 export const deleteWebhookApiKey = (keyId: string) =>
   apiDelete<{ message: string }>(`/api/admin/webhook-api-keys/${keyId}`);
+
+// --- Ask ALRT answer library -------------------------------------------
+
+export const listAskAlrtEntries = () =>
+  apiGet<AskAlrtEntry[]>("/api/admin/ask-alrt/entries");
+
+export const saveAskAlrtEntry = (
+  id: string,
+  input: { triggers: string[]; keywords: string[]; answer: string; enabled: boolean },
+) => apiPut<AskAlrtEntry>(`/api/admin/ask-alrt/entries/${encodeURIComponent(id)}`, input);
+
+export const deleteAskAlrtEntry = (id: string) =>
+  apiDelete<{ success: boolean; revertedToBuiltIn: boolean }>(
+    `/api/admin/ask-alrt/entries/${encodeURIComponent(id)}`,
+  );
+
+// --- Emergency numbers ---------------------------------------------------
+
+export const listEmergencyNumbers = () =>
+  apiGet<EmergencyNumberRow[]>("/api/admin/ask-alrt/emergency-numbers");
+
+export const saveEmergencyNumber = (input: { iso: string; number: string; name: string }) =>
+  apiPut<EmergencyNumberRow>("/api/admin/ask-alrt/emergency-numbers", input);
+
+export const removeEmergencyNumber = (iso: string) =>
+  apiDelete<{ success: boolean }>(
+    `/api/admin/ask-alrt/emergency-numbers/${encodeURIComponent(iso)}`,
+  );
+
+export const importEmergencyDefaults = () =>
+  apiPost<{ added: number }>("/api/admin/ask-alrt/emergency-numbers/import-defaults");
