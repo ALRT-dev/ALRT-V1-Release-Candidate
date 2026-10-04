@@ -58,6 +58,7 @@ import {
   markContentNotified,
 } from "./hazard_cache.service.js";
 import { notifyFamiliesAboutNewHazard } from "./family_alert.service.js";
+import { recordSourceFetchResult } from "./hazard_source.service.js";
 
 export enum ExternalSourceId {
   rfs = "rfs",
@@ -956,6 +957,18 @@ const fetchHazardsFromSource = async <T = any>(
       );
     }
 
+    // A source an admin has suspended or retired in the registry is not
+    // ingested. Sources with no registry status are treated as active.
+    if (
+      source.lifecycleStatus === "suspended" ||
+      source.lifecycleStatus === "retired"
+    ) {
+      console.warn(
+        `Skipping ${sourceId}: lifecycle status is ${source.lifecycleStatus}.`,
+      );
+      return [];
+    }
+
     // Handle single URL
     if (apiUrl) {
       // Check if parseFunction is async (RSS feeds)
@@ -963,6 +976,10 @@ const fetchHazardsFromSource = async <T = any>(
         const hazards = await (
           parseFunction as () => Promise<HazardDataWithRelations[]>
         )();
+        await recordSourceFetchResult(sourceId, {
+          ok: true,
+          hazardCount: hazards.length,
+        });
         return hazards.map((hazard) => ({
           ...hazard,
           source: source,
@@ -986,6 +1003,10 @@ const fetchHazardsFromSource = async <T = any>(
       const hazards = (parseFunction as (data: T) => HazardDataWithRelations[])(
         data,
       );
+      await recordSourceFetchResult(sourceId, {
+        ok: true,
+        hazardCount: hazards.length,
+      });
 
       return hazards.map((hazard) => ({
         ...hazard,
@@ -996,6 +1017,8 @@ const fetchHazardsFromSource = async <T = any>(
 
     // Handle multiple URLs
     if (apiUrls && apiUrls.length > 0) {
+      let failedUrls = 0;
+      let lastUrlError = "";
       const hazardsPromises = apiUrls.map(async (singleUrl) => {
         try {
           const response = await fetch(singleUrl, {
@@ -1023,17 +1046,32 @@ const fetchHazardsFromSource = async <T = any>(
           }));
         } catch (error) {
           console.error(`Error fetching ${sourceId} from ${singleUrl}:`, error);
+          failedUrls += 1;
+          lastUrlError = error instanceof Error ? error.message : String(error);
           return [];
         }
       });
 
       const hazardsArrays = await Promise.all(hazardsPromises);
-      return hazardsArrays.flat();
+      const allHazards = hazardsArrays.flat();
+      // Failing only when every feed failed; one bad feed of several is
+      // reported as healthy so a partial outage does not hide the source.
+      await recordSourceFetchResult(
+        sourceId,
+        failedUrls === apiUrls.length
+          ? { ok: false, error: lastUrlError }
+          : { ok: true, hazardCount: allHazards.length },
+      );
+      return allHazards;
     }
 
     return [];
   } catch (error) {
     console.error(`Error fetching ${sourceId} data:`, error);
+    await recordSourceFetchResult(sourceId, {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 };

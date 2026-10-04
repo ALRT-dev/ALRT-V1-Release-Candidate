@@ -100,16 +100,22 @@ npm run preview      # preview a production build locally
 See `V1_RECONCILIATION_REPORT.md` §24 for the full list with reasoning.
 Summary:
 
-- No Audit Log viewer - `AdminAuditLog` rows are written (Stage 7B) but no
-  read endpoint exists yet on the backend.
+- Audit Log viewer (admin and super admin only) reads
+  `GET /api/admin/audit-log`; source create, update and delete are recorded
+  with before/after of the changed fields.
 - No Emergency Information screen - no backend model exists.
 - Category icon image upload is not supported (text fields only); the
   backend supports multipart image upload but it wasn't built into V1.
 - AI Prompt create/delete and Configuration `value` editing are
   intentionally not exposed - both are backend-supported but high-risk to
   expose in a first version with no operational track record yet.
-- Source enable/disable and source-health metrics are not shown because
-  the backend schema doesn't track either.
+- Source registry: lifecycle status, health, review dates, licensing notes
+  and source-native severity/symbol are editable or shown on Sources.
+  Suspended or retired sources are skipped by ingestion. Feed URL, adapter
+  and schedule are recorded for reference only: the ingestion code
+  (`backend/src/services/ingestion.service.ts`) still has a fixed list of
+  feeds and a fixed 15-minute timer, so a new source needs an adapter added
+  in code before it ingests.
 - ALRT+/subscription entitlement and family-circle membership are not
   shown on the Users screen because the Admin API doesn't currently expose
   either for app users.

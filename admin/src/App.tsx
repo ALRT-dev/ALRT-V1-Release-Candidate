@@ -17,6 +17,7 @@ import { WebhookKeysPage } from "./pages/WebhookKeysPage";
 import { AskAlrtPage } from "./pages/AskAlrtPage";
 import { AskAlrtLibraryPage } from "./pages/AskAlrtLibraryPage";
 import { EmergencyNumbersPage } from "./pages/EmergencyNumbersPage";
+import { AuditLogPage } from "./pages/AuditLogPage";
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
             <Route path="/ask-alrt" element={<AskAlrtPage />} />
             <Route path="/ask-alrt-library" element={<AskAlrtLibraryPage />} />
             <Route path="/emergency-numbers" element={<EmergencyNumbersPage />} />
+            <Route path="/audit-log" element={<AuditLogPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

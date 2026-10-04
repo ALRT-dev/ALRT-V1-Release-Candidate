@@ -57,6 +57,9 @@ export interface CreateHazardSourceData {
   sourceNativeSymbol?: string | undefined;
   lifecycleStatus?: HazardSourceLifecycleStatus | undefined;
   healthStatus?: HazardSourceHealthStatus | undefined;
+  lastReviewedAt?: Date | undefined;
+  expiryReviewAt?: Date | undefined;
+  licensingNotes?: string | undefined;
 }
 
 /**
@@ -94,6 +97,9 @@ export interface UpdateHazardSourceData {
   sourceNativeSymbol?: string | null | undefined;
   lifecycleStatus?: HazardSourceLifecycleStatus | undefined;
   healthStatus?: HazardSourceHealthStatus | undefined;
+  lastReviewedAt?: Date | null | undefined;
+  expiryReviewAt?: Date | null | undefined;
+  licensingNotes?: string | null | undefined;
 }
 
 /**
@@ -255,6 +261,9 @@ export const createHazardSource = async (data: CreateHazardSourceData) => {
       ...(data.sourceNativeSymbol && { sourceNativeSymbol: data.sourceNativeSymbol }),
       ...(data.lifecycleStatus && { lifecycleStatus: data.lifecycleStatus }),
       ...(data.healthStatus && { healthStatus: data.healthStatus }),
+      ...(data.lastReviewedAt && { lastReviewedAt: data.lastReviewedAt }),
+      ...(data.expiryReviewAt && { expiryReviewAt: data.expiryReviewAt }),
+      ...(data.licensingNotes && { licensingNotes: data.licensingNotes }),
     },
     include: {
       license: true,
@@ -350,6 +359,9 @@ export const updateHazardSource = async (
       ...(data.sourceNativeSymbol !== undefined && { sourceNativeSymbol: data.sourceNativeSymbol }),
       ...(data.lifecycleStatus !== undefined && { lifecycleStatus: data.lifecycleStatus }),
       ...(data.healthStatus !== undefined && { healthStatus: data.healthStatus }),
+      ...(data.lastReviewedAt !== undefined && { lastReviewedAt: data.lastReviewedAt }),
+      ...(data.expiryReviewAt !== undefined && { expiryReviewAt: data.expiryReviewAt }),
+      ...(data.licensingNotes !== undefined && { licensingNotes: data.licensingNotes }),
     },
     include: {
       license: true,
@@ -585,4 +597,37 @@ export const deleteHazardSourceLicense = async (
   });
 
   return { message: "License deleted successfully" };
+};
+
+
+/**
+ * Records the outcome of one ingestion fetch on the source's registry row, so
+ * the portal can show whether a source is healthy, stale or failing.
+ * Never throws: health bookkeeping must not break ingestion.
+ */
+export const recordSourceFetchResult = async (
+  sourceId: string,
+  result: { ok: boolean; hazardCount?: number; error?: string },
+): Promise<void> => {
+  const now = new Date();
+  try {
+    await prisma.hazardSource.update({
+      where: { id: sourceId },
+      data: result.ok
+        ? {
+            healthStatus: "healthy",
+            lastHealthCheck: now,
+            lastSuccessfulFetch: now,
+            lastHealthError: null,
+            ...((result.hazardCount ?? 0) > 0 && { lastAlertSeen: now }),
+          }
+        : {
+            healthStatus: "failing",
+            lastHealthCheck: now,
+            lastHealthError: (result.error ?? "Unknown error").slice(0, 500),
+          },
+    });
+  } catch (error) {
+    console.error(`Failed to record health for source ${sourceId}:`, error);
+  }
 };

@@ -377,6 +377,12 @@ model HazardSource {
   lastAlertSeen        DateTime?
   lastHealthError      String?
 
+  // Registry governance: when the configuration was last reviewed, when the
+  // next review is mandatory, and free-text licence/access terms.
+  lastReviewedAt DateTime?
+  expiryReviewAt DateTime?
+  licensingNotes String?
+
   advisoryText  String? // Standard advisory text associated with this source
   copyrightText String? // Copyright information for this source
   copyrightLink String? // Link to copyright or attribution details

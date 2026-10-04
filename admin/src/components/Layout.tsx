@@ -15,6 +15,7 @@ const NAV_ITEMS: { to: string; label: string }[] = [
   { to: "/ask-alrt", label: "Ask ALRT" },
   { to: "/ask-alrt-library", label: "Ask ALRT Answers" },
   { to: "/emergency-numbers", label: "Emergency Numbers" },
+  { to: "/audit-log", label: "Audit Log" },
 ];
 
 export const Layout = () => {
