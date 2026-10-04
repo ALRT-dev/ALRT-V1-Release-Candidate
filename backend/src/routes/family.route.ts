@@ -83,6 +83,7 @@ import {
   deleteSosListController,
   respondSosController,
   resolveSosController,
+  extendSosController,
   getSosTrailController,
   getActiveSosController,
   getSosHistoryController,
@@ -227,6 +228,7 @@ familyRouter.get("/sos/preview", previewSosController);
 familyRouter.get("/sos/history", getSosHistoryController);
 familyRouter.post("/sos/:sosEventId/respond", validate(respondFamilySosSchema), respondSosController);
 familyRouter.post("/sos/:sosEventId/resolve", resolveSosController);
+familyRouter.post("/sos/:sosEventId/extend", extendSosController);
 // Live trail behind an active SOS: exists only until stand-down wipes it.
 familyRouter.get("/sos/:sosEventId/trail", getSosTrailController);
 // The sender's live points for one live SOS: its audience only.

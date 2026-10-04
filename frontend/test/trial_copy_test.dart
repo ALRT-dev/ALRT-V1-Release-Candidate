@@ -95,7 +95,7 @@ void main() {
   });
 
   test('the dummy/TEST-unlock preview uses the V1 Individual trial, not the '
-      'withdrawn 14-day value', () {
-    expect(kConfiguredFreeTrialPhrase, '1-month free trial');
+      'withdrawn earlier values', () {
+    expect(kConfiguredFreeTrialPhrase, '2-week free trial');
   });
 }

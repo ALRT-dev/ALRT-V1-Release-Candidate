@@ -34,7 +34,9 @@ import {
 } from "./entitlement.service.js";
 
 const INVITE_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I/L
-const DEFAULT_MAX_MEMBERS = 10;
+// Hard cap for an individually funded group: nobody can go over it, and a
+// child takes a seat like anyone else. Sponsored groups use their plan's 6/20/50.
+const DEFAULT_MAX_MEMBERS = 20;
 
 // ---------------------------------------------------------------------------
 // Geo helpers
@@ -1422,9 +1424,10 @@ export const joinCircleWithCode = async (userId: string, code: string) => {
       coverage.fundingMode === "sponsored" ? coverage.capacity : null;
     if (sponsoredCapacity === null) {
       const people = await tx.familyMember.count({ where: { circleId: invite.circleId } });
-      if (people >= invite.circle.maxMembers) {
+      const cap = Math.max(invite.circle.maxMembers, DEFAULT_MAX_MEMBERS);
+      if (people >= cap) {
         throw new HttpError(400, "This group is full", "GROUP_FULL", {
-          capacity: invite.circle.maxMembers,
+          capacity: cap,
           sponsored: false,
         });
       }
@@ -2682,7 +2685,7 @@ const narrowRunningSosFor = async (memberId: string, level: string) => {
  * One live point for the sender's own running SOS. Goes to that SOS's
  * audience only (socket + the SOS row + its trail) and never to the
  * group's snapshot channel. Only a live SOS takes points, only while it
- * runs (4-hour cap), only fresh points, at the SOS's precision.
+ * runs (1-hour limit, extendable by the sender), only fresh points, at the SOS's precision.
  */
 export const recordSosLocation = async (
   userId: string,
@@ -2699,7 +2702,7 @@ export const recordSosLocation = async (
     include: { member: { select: { userId: true, sharingLevel: true } } },
   });
   if (!sos || sos.member.userId !== userId) throw new HttpError(404, "SOS event not found");
-  if (sos.status !== "active" || sos.createdAt.getTime() <= Date.now() - SOS_MAX_DURATION_MS) {
+  if (sos.status !== "active" || sosExpiresAt(sos).getTime() <= Date.now()) {
     throw new HttpError(409, "This SOS has ended, so live sharing has stopped");
   }
   const live = sos.locationMode ? sos.locationMode === "live" : sos.isLive;
@@ -3000,17 +3003,13 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
   assertSosAudience(sos, userId, sos.member.user.id);
   if (sos.status !== "active") return sos;
 
-  // Who may end someone else's SOS is open decision R06; the existing rule
-  // (the sender or the group host) stays, and the actual actor is recorded.
-  const canResolve = sos.memberId === membership.id || membership.role === "owner";
-  if (!canResolve) {
-    throw new HttpError(
-      403,
-      "Only the person who sent the SOS or the group host can end it",
-    );
+  // Decided rule: only the person who sent the SOS can end it. The group
+  // host cannot end someone else's SOS.
+  if (sos.memberId !== membership.id) {
+    throw new HttpError(403, "Only the person who sent the SOS can end it");
   }
 
-  // Ending also wipes the trigger position now, exactly as the 4-hour
+  // Ending also wipes the trigger position now, exactly as the 1-hour
   // auto-end already does (endLapsedSosEvents) - the ended row keeps
   // who/when/how long, never where. The stored status value stays
   // "resolved" for existing clients; it is never shown as "resolved".
@@ -3041,24 +3040,13 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
 
   const memberName =
     sos.member.nickname || sos.member.user.name || "A family member";
-  const endedBySender = sos.memberId === membership.id;
-  let actorName = memberName;
-  if (!endedBySender) {
-    const actor = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true },
-    });
-    actorName = membership.nickname || actor?.name || "The group host";
-  }
 
   // Factual ending wording (master spec §12): never "safe" or "resolved".
   const audience = await sosAudienceUserIds(sos);
   await notifyUsers({
     userIds: audience.filter((id) => id !== userId),
     title: "SOS ended",
-    body: endedBySender
-      ? `${memberName} ended their SOS.`
-      : `${actorName} ended ${memberName}'s SOS.`,
+    body: `${memberName} ended their SOS.`,
     data: { circleId: membership.circleId, sosEventId: sos.id },
     type: PushNotificationType.familySosResolved,
     socketEvent: SocketEvent.familySosResolved,
@@ -3075,7 +3063,9 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
 };
 
 /**
- * Locked spec: SOS live share caps at 4 hours. An SOS that is never stood
+ * Locked spec: an SOS (and its live share) lasts 1 hour. The sender can
+ * confirm to extend it by another hour (extendSos); nobody else can.
+ * Original wording: SOS live share caps at 4 hours. An SOS that is never stood
  * down by hand must stand itself down, or a phone that goes quiet keeps
  * sharing a location forever: the 1-hour purge only touches events with a
  * `resolvedAt`, so an event left active is never swept at all.
@@ -3084,12 +3074,45 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
  * and delete the live-share trail the way a manual stand-down does. History
  * keeps only the time and the duration.
  */
-export const SOS_MAX_DURATION_MS = 4 * 60 * 60 * 1000;
+export const SOS_MAX_DURATION_MS = 60 * 60 * 1000;
+
+/** When this SOS stands itself down: 1 hour from the start, or from the
+ * sender's latest confirmation to keep it going. */
+export const sosExpiresAt = (sos: {
+  createdAt: Date;
+  liveUntil?: Date | null;
+}): Date =>
+  sos.liveUntil ?? new Date(sos.createdAt.getTime() + SOS_MAX_DURATION_MS);
+
+/** Sender confirms the SOS should keep going: another hour from now. */
+export const extendSos = async (userId: string, sosEventId: string) => {
+  const sos = await prisma.familySosEvent.findUnique({
+    where: { id: sosEventId },
+    include: { member: { select: { userId: true } } },
+  });
+  if (!sos || sos.member.userId !== userId) {
+    throw new HttpError(404, "SOS event not found");
+  }
+  if (sos.status !== "active" || sosExpiresAt(sos).getTime() <= Date.now()) {
+    throw new HttpError(409, "This SOS has ended");
+  }
+  return prisma.familySosEvent.update({
+    where: { id: sos.id },
+    data: { liveUntil: new Date(Date.now() + SOS_MAX_DURATION_MS) },
+  });
+};
 
 export const endLapsedSosEvents = async (): Promise<number> => {
-  const cutoff = new Date(Date.now() - SOS_MAX_DURATION_MS);
+  const now0 = new Date();
+  const cutoff = new Date(now0.getTime() - SOS_MAX_DURATION_MS);
   const lapsed = await prisma.familySosEvent.findMany({
-    where: { status: "active", createdAt: { lte: cutoff } },
+    where: {
+      status: "active",
+      OR: [
+        { liveUntil: { lte: now0 } },
+        { liveUntil: null, createdAt: { lte: cutoff } },
+      ],
+    },
     include: {
       member: { select: memberIdentitySelect },
       responses: { include: { member: { select: memberIdentitySelect } } },
@@ -3127,7 +3150,7 @@ export const endLapsedSosEvents = async (): Promise<number> => {
         title: "SOS ended",
         // The app formats "This SOS expired at [time]" in local time from
         // resolvedAt; the push can't know the reader's time zone.
-        body: "This SOS expired after 4 hours. Live sharing has stopped.",
+        body: "This SOS expired after 1 hour. Live sharing has stopped.",
         data: { circleId: sos.circleId, sosEventId: sos.id, expired: true },
         type: PushNotificationType.familySosResolved,
         socketEvent: SocketEvent.familySosResolved,

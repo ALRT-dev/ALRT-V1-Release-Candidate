@@ -813,7 +813,7 @@ export const notifyFamiliesAboutNewHazard = async (hazard: Hazard) => {
  * - Ordinary points are deleted after 1 hour, the snapshot rule.
  * - The exception is the trail of a live SOS, which has to survive while
  *   the SOS runs so receivers can watch movement. It is bounded by the
- *   4-hour live-share cap and deleted outright at stand-down, so nothing
+ *   1-hour SOS limit (extendable by the sender) and deleted outright at stand-down, so nothing
  *   here can keep a trail alive past its event.
  *
  * Run every few minutes, alongside the snapshot purge.
@@ -821,15 +821,21 @@ export const notifyFamiliesAboutNewHazard = async (hazard: Hazard) => {
 export const pruneFamilyLocationPings = async () => {
   const now = Date.now();
   const snapshotCutoff = new Date(now - 60 * 60 * 1000);
-  const liveShareCapCutoff = new Date(now - 4 * 60 * 60 * 1000);
+  const liveShareCapCutoff = new Date(now - 60 * 60 * 1000);
 
-  // Members with an SOS still running inside the 4-hour cap. The trail is
+  // Members with an SOS still running inside the 1-hour SOS limit (or the sender's extension). The trail is
   // exactly the points since that SOS started (the same definition
   // getSosTrail and stand-down use) — NOT everything the member ever
   // shared. A snapshot from before the SOS still expires on its hour,
   // whatever happens afterwards.
   const activeSos = await prisma.familySosEvent.findMany({
-    where: { status: "active", createdAt: { gte: liveShareCapCutoff } },
+    where: {
+      status: "active",
+      OR: [
+        { liveUntil: { gt: new Date(now) } },
+        { liveUntil: null, createdAt: { gte: liveShareCapCutoff } },
+      ],
+    },
     select: { memberId: true, createdAt: true },
   });
   // A member has at most one active SOS (triggerSos cancels the previous
@@ -872,7 +878,10 @@ export const pruneFamilyLocationPings = async () => {
     ),
     // Nothing outlives the live-share cap, whatever its event says.
     prisma.familyLocationPing.deleteMany({
-      where: { createdAt: { lt: liveShareCapCutoff } },
+      where: {
+        createdAt: { lt: liveShareCapCutoff },
+        ...(sosMemberIds.length > 0 && { memberId: { notIn: sosMemberIds } }),
+      },
     }),
   ]);
 

@@ -1,21 +1,21 @@
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// Preview-only trial length for the QA dummy paywall, where there is no
-/// real [StoreProduct] to read. V1 (master spec 28 Sep 2026): only
-/// Individual has a trial, 30 days on Android and one month on iPhone,
-/// subject to store configuration; the old 14-day value is withdrawn.
+/// real [StoreProduct] to read. V1 (decided 3 Oct 2026): only Individual
+/// has a trial, 2 weeks on both iPhone and Android, subject to store
+/// configuration; the earlier 14-day/1-month/30-day values are withdrawn.
 /// Never used to override what a real product says.
-const kConfiguredFreeTrialPhrase = '1-month free trial';
+const kConfiguredFreeTrialPhrase = '2-week free trial';
 
 /// A free-trial phrase built from [product]'s own introductory-offer data,
-/// e.g. "1-month free trial" — never assumed, never hardcoded against a real
+/// e.g. "2-week free trial" — never assumed, never hardcoded against a real
 /// product. Returns null when the store has not configured a free (price
 /// zero) introductory offer for this product, so callers never claim a
 /// trial that RevenueCat/the store says does not exist.
 String? freeTrialPhrase(final StoreProduct product) {
   final offer = freeTrialOffer(product);
   if (offer == null) return null;
-  // Compound-adjective form ("30-day", "1-month") is always singular.
+  // Compound-adjective form ("2-week", "30-day") is always singular.
   return '${offer.count}-${_unitWord(offer.unit)} free trial';
 }
 
@@ -26,14 +26,14 @@ class TrialOffer {
   final int count;
   final PeriodUnit unit;
 
-  /// "1 month", "30 days", "2 weeks": exactly what the store configured.
-  /// An iPhone "1 month" is never rewritten as "30 days" or vice versa.
+  /// "2 weeks", "30 days", "1 month": exactly what the store configured.
+  /// A store period is never rewritten into another unit.
   String get duration {
     final word = _unitWord(unit)!;
     return count == 1 ? '1 $word' : '$count ${word}s';
   }
 
-  /// Button label: "Start 1 month free" / "Start 30 days free".
+  /// Button label: "Start 2 weeks free".
   String get startCta => 'Start $duration free';
 
   @override

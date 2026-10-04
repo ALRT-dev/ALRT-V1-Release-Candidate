@@ -3,7 +3,7 @@
  *
  * These answers are the FIRST line of response — matched by matching.ts before
  * any model is called. Answers are written to the locked product rules so they
- * stay accurate (no phone numbers, 2-state location, hold-3s SOS, 1-month trial,
+ * stay accurate (no phone numbers, 2-state location, hold-3s SOS, 2-week trial,
  * V1 access model, no en-dashes). Edit freely; add rows as questions come up.
  *
  * To make these editable without a release, they can later be moved to a
@@ -45,7 +45,7 @@ export const KNOWLEDGE_BASE: readonly KnowledgeEntry[] = [
     triggers: ["track someone", "live tracking", "follow someone", "see where they are all the time"],
     keywords: ["track", "tracking", "continuous", "monitor"],
     answer:
-      "ALRT does not track people continuously. You can send a one time snapshot that expires in an hour, and live sharing exists only during an active SOS and stops on its own after 4 hours. Watching a place forever is a map feature, watching a person forever is not something the app does.",
+      "ALRT does not track people continuously. You can send a one time snapshot that expires in an hour, and live sharing exists only during an active SOS and stops on its own after 1 hour unless the sender confirms to keep it going. Watching a place forever is a map feature, watching a person forever is not something the app does.",
   },
   {
     id: "family_circle",
@@ -66,7 +66,7 @@ export const KNOWLEDGE_BASE: readonly KnowledgeEntry[] = [
     triggers: ["how much does it cost", "price", "subscription", "alrt plus", "how much is it"],
     keywords: ["cost", "price", "pay", "subscription", "plus"],
     answer:
-      "Alerts, the live map and emergency guidance are always free, with one saved place and 3 Ask ALRT questions a day. ALRT + Individual is for you: unlimited saved places and 10 Ask ALRT questions a day, and only Individual can have a free trial. Family and Group plans cover check-ins, SOS and Journey for one group. The app shows current prices straight from your app store.",
+      "Alerts, the live map and emergency guidance are always free, with one saved place and 3 Ask ALRT questions a day. ALRT + Individual is for you: unlimited saved places and 10 Ask ALRT questions a day, and only Individual has a 2-week free trial. Family and Group plans cover check-ins, SOS and Journey for one group. The app shows current prices straight from your app store.",
   },
   {
     id: "seats",

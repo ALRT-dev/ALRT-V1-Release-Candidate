@@ -1253,8 +1253,12 @@ model FamilySosEvent {
   // and keep the old whole-circle audience.
   recipientUserIds   String[] @default([])
   audienceRestricted Boolean  @default(false)
-  // Who actually ended it (the sender, or the host where allowed).
+  // Who actually ended it (the sender only).
   endedByMemberId    String?
+
+  // An SOS lasts 1 hour from the start. The sender can confirm to keep it
+  // going; each confirmation sets this to now + 1 hour. Null = never extended.
+  liveUntil DateTime?
 
   circle    FamilyCircle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
   member    FamilyMember        @relation(fields: [memberId], references: [id], onDelete: Cascade)
