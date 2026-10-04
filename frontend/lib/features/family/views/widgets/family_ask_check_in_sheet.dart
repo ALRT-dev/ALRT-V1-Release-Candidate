@@ -135,7 +135,7 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
             ),
             SizedBox(height: 4.spMin),
             Text(
-              'They get one tap to say they are safe. They choose whether '
+              'They get one tap to check in. They choose whether '
               'to share where they are; you never send your own location.',
               style: TextStyle(
                 fontSize: 12.5.spMin,

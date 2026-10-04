@@ -36,11 +36,20 @@ const MODEL = "claude-haiku-4-5";
 const MAX_TOKENS = 1000;
 
 /**
- * Daily AI-question caps. Canned/library answers do NOT count.
- * V1 product-owner ruling (V1_RECONCILIATION_REPORT S11): free = 5/day,
- * ALRT+ = 30/day. Previously 3/20 - do not reintroduce those values.
+ * Daily AI-question caps (master spec 28 Sep 2026, §14): ALRT Free 3,
+ * ALRT + Individual (or its trial) 10, per LOCAL calendar day, once per
+ * account. Group sponsorship never raises it, for members or the payer.
+ * Supersedes the earlier 5/30 and 3/20 values.
+ *
+ * Counting unit (open decision R03, unchanged here): one unit per AI
+ * fallback attempt that reaches the model call. Library and
+ * emergency-number answers never count. Until R03 is decided, copy must
+ * describe this honestly (it is not "successful answers").
  */
-export const AI_DAILY_LIMIT = { free: 5, plus: 30 } as const;
+export const AI_DAILY_LIMIT = { free: 3, individual: 10 } as const;
+
+/** A time zone may change at most once per this window (travel, DST-safe). */
+const TZ_CHANGE_MIN_MS = 24 * 60 * 60 * 1000;
 
 const MAX_QUESTION_CHARS = 2000;
 const MAX_HISTORY_TURNS = 10;
@@ -77,38 +86,127 @@ interface AskRequest {
   /** Legacy free-text grounding, used only when `nearbyAlerts` is absent. */
   context?: string;
   language?: string;
+  /** IANA time zone of the device, e.g. "Australia/Perth" (local day). */
+  timeZone?: string;
+  /** Fallback when the app can't name its zone: minutes east of UTC now. */
+  utcOffsetMinutes?: number;
 }
 
-type Plan = "free" | "plus";
+type Plan = "free" | "individual";
 type Source = "library" | "emergency_lookup" | "ai";
 
-function yyyymmdd(d: Date): string {
-  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(
-    d.getUTCDate()
-  ).padStart(2, "0")}`;
+/** True for a time zone Intl accepts (rejects junk and offsets). */
+export function isValidTimeZone(tz: unknown): tz is string {
+  if (typeof tz !== "string" || tz.length === 0 || tz.length > 64) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
+/**
+ * A zone the day can be counted in: a valid IANA name, or "offset:<min>"
+ * built from the app's current UTC offset (-720..+840 minutes).
+ */
+export function zoneFromRequest(timeZone: unknown, utcOffsetMinutes: unknown): string | null {
+  if (isValidTimeZone(timeZone)) return timeZone;
+  if (
+    typeof utcOffsetMinutes === "number" &&
+    Number.isInteger(utcOffsetMinutes) &&
+    utcOffsetMinutes >= -720 &&
+    utcOffsetMinutes <= 840
+  ) {
+    return `offset:${utcOffsetMinutes}`;
+  }
+  return null;
+}
+
+/** YYYYMMDD of [d] in [timeZone] (server clock, never the device's). */
+export function localDayKey(d: Date, timeZone: string): string {
+  if (timeZone.startsWith("offset:")) {
+    const shifted = new Date(d.getTime() + Number(timeZone.slice(7)) * 60_000);
+    return `${shifted.getUTCFullYear()}${String(shifted.getUTCMonth() + 1).padStart(2, "0")}${String(
+      shifted.getUTCDate()
+    ).padStart(2, "0")}`;
+  }
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  return `${get("year")}${get("month")}${get("day")}`;
+}
+
+/**
+ * Personal plan from the backend-written mirror entitlements/{uid}
+ * ({ individual, individualExpiresAt, version }). The backend is the only
+ * writer and the only place that interprets store events; this function
+ * never re-derives cancellation or expiry from RevenueCat. The legacy
+ * `plan: "plus"` field is honoured only when the new fields are absent.
+ */
 async function planFor(uid: string): Promise<Plan> {
-  const ent = await db().collection("entitlements").doc(uid).get();
-  return (ent.data()?.plan as Plan | undefined) === "plus" ? "plus" : "free";
+  const data = (await db().collection("entitlements").doc(uid).get()).data();
+  if (!data) return "free";
+  if (typeof data.individual === "boolean") {
+    if (!data.individual) return "free";
+    const exp = data.individualExpiresAt as number | null | undefined;
+    return exp == null || exp > Date.now() ? "individual" : "free";
+  }
+  return data.plan === "plus" ? "individual" : "free";
+}
+
+/**
+ * The time zone this account's day is counted in. A device may report a
+ * new zone (travel), but the stored zone changes at most once per 24
+ * hours, so hopping zones can't open extra "days".
+ */
+async function effectiveTimeZone(uid: string, reported: string | null): Promise<string> {
+  const ref = db().collection("agentUsage").doc(uid);
+  const usable = (z: string | undefined): z is string =>
+    !!z && (z.startsWith("offset:") || isValidTimeZone(z));
+  return db().runTransaction(async (txn) => {
+    const snap = await txn.get(ref);
+    const stored = snap.data()?.timeZone as string | undefined;
+    const setAt = (snap.data()?.timeZoneSetAt as number | undefined) ?? 0;
+    const now = Date.now();
+    if (reported && reported !== stored) {
+      if (!usable(stored) || now - setAt >= TZ_CHANGE_MIN_MS) {
+        txn.set(ref, { timeZone: reported, timeZoneSetAt: now }, { merge: true });
+        return reported;
+      }
+    }
+    return usable(stored) ? stored : "UTC";
+  });
 }
 
 /** Atomic AI-quota check + increment. Throws resource-exhausted at the cap. */
-async function consumeAiQuota(uid: string, plan: Plan): Promise<void> {
+async function consumeAiQuota(uid: string, plan: Plan, timeZone: string): Promise<void> {
   const limit = AI_DAILY_LIMIT[plan];
-  const ref = db().collection("agentUsage").doc(uid).collection("days").doc(yyyymmdd(new Date()));
+  const ref = db()
+    .collection("agentUsage")
+    .doc(uid)
+    .collection("days")
+    .doc(localDayKey(new Date(), timeZone));
   await db().runTransaction(async (txn) => {
     const snap = await txn.get(ref);
     const count = (snap.data()?.aiCount as number | undefined) ?? 0;
     if (count >= limit) {
       throw new HttpsError(
         "resource-exhausted",
-        plan === "plus"
-          ? `You have reached today's limit of ${AI_DAILY_LIMIT.plus} assistant questions. Try again tomorrow.`
-          : `You have reached today's limit of ${AI_DAILY_LIMIT.free} assistant questions. ALRT+ raises this to ${AI_DAILY_LIMIT.plus} per day.`
+        plan === "individual"
+          ? `You've used today's ${AI_DAILY_LIMIT.individual} Ask ALRT questions. They reset tomorrow.`
+          : `You've used today's ${AI_DAILY_LIMIT.free} Ask ALRT questions. They reset tomorrow, or ALRT + Individual gives you ${AI_DAILY_LIMIT.individual} a day.`
       );
     }
-    txn.set(ref, { aiCount: count + 1, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    txn.set(
+      ref,
+      { aiCount: count + 1, timeZone, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
   });
 }
 
@@ -210,7 +308,11 @@ export const askAlrt = onCall(
     }
 
     const plan = await planFor(uid);
-    await consumeAiQuota(uid, plan);
+    const timeZone = await effectiveTimeZone(
+      uid,
+      zoneFromRequest(data.timeZone, data.utcOffsetMinutes)
+    );
+    await consumeAiQuota(uid, plan, timeZone);
 
     const history = (data.history ?? [])
       .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")

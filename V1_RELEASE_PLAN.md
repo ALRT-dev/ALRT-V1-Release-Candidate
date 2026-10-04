@@ -54,14 +54,30 @@ Do not wholesale-merge historical branches. Reconcile:
 
 ## Final product rules to apply
 
-### ALRT+
+### ALRT +
 
-- Free: 1 saved location.
-- Free Ask ALRT AI quota: 5/day.
-- ALRT+ owner Ask ALRT AI quota: 30/day.
-- ALRT+ owner can host up to 8 family seats.
-- ALRT+ includes a 1-month free trial.
-- Joining another user's family group does not require ALRT+.
+SUPERSEDED on 28 September 2026 by the reconciled master specification.
+The current rules, what is implemented, and the external settings still
+to change are in `docs/V1_ACCESS_MODEL_IMPLEMENTATION.md`. In short:
+
+- Brand: "ALRT +", with a space.
+- Products (target AU monthly, store prices always shown): Individual
+  A$5.99, Family A$15.99 (one group, up to 6 people), Group 20 A$24.99,
+  Group 50 A$49.99. The A$9.99 / A$99.99 plan and any annual saving are
+  withdrawn; no annual plan is approved.
+- Free: 1 saved place besides where you are; 3 Ask ALRT a day.
+  Individual (or its trial): unlimited saved places; 10 Ask ALRT a day;
+  unlimited group memberships. No four-group limit, no seats.
+- A Family/Group plan covers check-ins, check on, SOS, Journey and
+  location sharing inside ONE nominated group; members join free. It gives
+  nobody personal benefits, including the payer.
+- Only Individual has a trial (30 days Android / one month iPhone,
+  subject to store eligibility and final wording).
+- Guests are retired for V1.
+- Earlier values in this section (3 free saved locations, 8 seats across
+  4 groups with the payer using a seat, a covered seat carrying every
+  benefit, A$9.99/A$99.99, one-month trial for everything) must not be
+  used.
 
 ### SOS
 

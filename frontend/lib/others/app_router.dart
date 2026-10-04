@@ -27,17 +27,17 @@ import 'package:hazard_app/features/profile/views/screens/points_breakdown_scree
 import 'package:hazard_app/features/auth/views/screens/email_auth_screen.dart';
 import 'package:hazard_app/features/auth/views/screens/forgot_password_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_expired_screen.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_welcome_screen.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:hazard_app/features/learn/views/screens/learn_topics_screen.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_on_map_screen.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:hazard_app/features/notification/views/screens/manage_notifications_screen.dart';
+import 'package:hazard_app/features/onboarding/views/onboarding_alrt_plus_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_complete_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_disclaimer_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_legal_screen.dart';
@@ -99,6 +99,12 @@ class AppRouter {
           path: OnboardingLegalScreen.route,
           builder: (context, state) {
             return const OnboardingLegalScreen();
+          },
+        ),
+        GoRoute(
+          path: OnboardingAlrtPlusScreen.route,
+          builder: (context, state) {
+            return const OnboardingAlrtPlusScreen();
           },
         ),
         GoRoute(
@@ -266,20 +272,18 @@ class AppRouter {
           ),
         ),
         GoRoute(
-          path: AlrtPlusWelcomeScreen.route,
-          builder: (context, state) => AlrtPlusWelcomeScreen(
-            args: state.extra as AlrtPlusWelcomeScreenArgs?,
+          path: AlrtPlusGroupPaywallScreen.route,
+          builder: (context, state) => AlrtPlusGroupPaywallScreen(
+            args: state.extra as AlrtPlusGroupPaywallArgs?,
           ),
+        ),
+        GoRoute(
+          path: AlrtPlusChooseScreen.route,
+          builder: (context, state) => const AlrtPlusChooseScreen(),
         ),
         GoRoute(
           path: AlrtPlusManageScreen.route,
           builder: (context, state) => const AlrtPlusManageScreen(),
-        ),
-        GoRoute(
-          path: AlrtPlusExpiredScreen.route,
-          builder: (context, state) => AlrtPlusExpiredScreen(
-            entitlement: state.extra as EntitlementInfo?,
-          ),
         ),
         GoRoute(
           path: SafetyProfileScreen.onboardingRoute,

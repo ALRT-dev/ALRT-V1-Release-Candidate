@@ -242,7 +242,7 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
             Text(
               journey.isLive
                   ? 'Live location — updates as they move.'
-                  : 'Snap points only — departure, roughly every 10 '
+                  : 'Periodic updates only: departure, roughly every 10 '
                         'minutes, and arrival.',
               style: TextStyle(
                 fontSize: 12.5.spMin,

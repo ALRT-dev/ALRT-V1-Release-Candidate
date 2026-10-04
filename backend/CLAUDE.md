@@ -24,25 +24,105 @@ explicit instruction from the product owner in the current session.
 - Scheduled snapshots: one point per time, 1-hour expiry, never continuous.
 - Call buttons only by advance grant; phone numbers are never returned to
   the caller's client for display.
-- Guests never request locations. No mute/snooze for circle SOS receipt.
+- Legacy guests never request locations. No mute/snooze for circle SOS
+  receipt.
+- Daily (scheduled check-ins) only ever sends a reminder; a scheduled job
+  never posts a check-in for anyone (open decision R07).
+- Severity text overrides (drill/test/resolved) match phrases, never
+  substrings: see isInfoOverride and verify_severity_override_phrases.ts.
 - Leaderboard responses never identify other users (anonymise name, no
   email/id for anyone but the caller).
 
-## Commercial rules
+## Commercial rules (V1 access model, master spec 28 Sep 2026)
 
-- Invited members never hit a paywall; join-by-code is free.
-- Seats (product owner 2026-09-03): ALRT+ = 8 seats across up to 4 owned
-  circles (MAX_SEATS_TOTAL=8, MAX_OWNED_CIRCLES=4 in family.service.ts).
-  A seat is an invited, non-guest (person, circle) pair in an owned
-  circle. The paying host's own membership never uses a seat; invited
-  adults/children use one each; guests use none; joining someone else's
-  circle consumes nothing of the joiner's. Seats are checked on join, not
-  on circle creation.
-- Billing is not launched: every circle defaults to plan `plus`. When the
-  entitlement system ships, new circles default to `free`.
-- Ownership transfer (§29): eligible = active subscription + enough free
-  seats to absorb the whole circle; ineligible members are returned greyed
-  with a reason, never hidden.
+Supersedes the seat model (8 seats / 4 owned circles / free guests) and
+the "hosting needs ALRT+" rule. Full record, reconfiguration table and
+open decisions: docs/V1_ACCESS_MODEL_IMPLEMENTATION.md. Do not
+reintroduce seats, a group-count cap or a single global plan flag.
+
+- entitlement.service.ts is the only place store state becomes access.
+  StoreSubscription rows are written only by the authenticated,
+  idempotent RevenueCat webhook (event id receipts, newest-event-wins,
+  product -> tier via RC_PRODUCT_TIERS, no built-in product ids).
+- Personal access = a live `individual` StoreSubscription (or its trial):
+  unlimited saved places, 10 Ask ALRT a day. Free: 1 saved place besides
+  the own-location follow, 3 Ask ALRT a day. Group sponsorship never
+  grants personal benefits, payer included. User.plan and Firestore
+  entitlements/{uid} are write-only mirrors of personal access.
+- Group access is per person per group (getConnectionAccess):
+  `sponsored` groups are covered while their bound Family/Group plan is
+  live (capacity 6/20/50 counts everyone in that group, enforced on join
+  under a row lock); `individual` groups need each participant to hold
+  Individual. One person's lapse never pauses anyone else; a lapsed
+  sponsorship pauses only its own group and never switches it to
+  individual funding without an explicit host action.
+- Gated (402): check in, check on, SOS, Journey start/extend, location
+  requests and snapshots. Never gated: stopping, ending, leaving,
+  declining, an SOS's own live share while it runs.
+- Creating and joining groups is free; there is no commercial cap on
+  groups (a technical abuse ceiling of 100 created groups remains).
+  Consumer guests are retired: no new guest invites, old guest codes are
+  refused, existing guest rows count as people.
+- A sponsorship binds once to the group chosen before checkout
+  (SponsorshipIntent, host only) or later by its payer; never re-pointed.
+- Tier changes (2026-09-28 follow-up): PRODUCT_CHANGE is a REQUEST and
+  never moves the active tier; it is kept as pendingTier until a store
+  event names the new product on that transaction, or RevenueCat's server
+  API (REVENUECAT_SECRET_API_KEY, optional) shows it in effect. Upgrades
+  Family -> Group 20 -> Group 50 are started by the current payer with an
+  intent that names the subscription it replaces; a new store transaction
+  (Google replacement) takes over the SAME group and the old row is
+  superseded, never counted twice. Smaller tiers change in the store at
+  renewal. An ambiguous replacement is never guessed (stays unbound).
+- Refusals carry a stable `code` (HttpErrorCode): INDIVIDUAL_REQUIRED,
+  GROUP_PLAN_ENDED, SAVED_PLACE_LIMIT, GROUP_FULL, GROUP_ALREADY_COVERED,
+  PLAN_TOO_SMALL, CHANGE_IN_STORE, HOST_ONLY, PAYER_ONLY,
+  NO_SOS_RECIPIENTS, SOS_PRESET_OTHER_GROUP. The app branches on the code,
+  never on wording.
+- POST /api/access/reconcile only confirms pending changes and REPORTS
+  store purchases not yet recorded; it never grants access itself.
+- Legacy guests: nothing converts them automatically.
+  scripts/inspect_guest_members.ts is a read-only report.
+- Billing is still off on TEST (BILLING_ENABLED=false): every access check
+  answers yes, exactly as before.
+- Hosting and ownership transfer are administrative, not paid: children
+  and legacy guests can't host; payer departure/reassignment is open
+  decision R02.
+- SOS: the audience is stored on the event (recipientUserIds) and every
+  read, response, trail, socket and end notification is limited to it;
+  no SOS without at least one eligible recipient; a preset naming someone
+  in another group is refused (422); no stale stored coordinates.
+- SOS location (review 29 Sep 2026): everything (membership, access,
+  preset, at least one eligible recipient, location choice) is validated
+  BEFORE any location write, push or socket event; a refused SOS stores
+  nothing. The SOS point never writes the group snapshot channel. The
+  sender's explicit per-SOS choice is stored (none / once / live, and
+  precise / approximate, defaulting to the group sharing setting) with the
+  real capture time (approximate = suburb label, coordinates not stored).
+  Live points only via POST /sos/:id/location (sender, live SOS, current
+  points, audience-only socket); the trail is the SOS's own points.
+  GET /sos/preview uses the same audience resolver as the send. Journey
+  points follow the group setting at each point (no per-journey choice).
+- SOS consent while it runs (review of cb26a8d, 29 Sep 2026): a location
+  update only READS the SOS's stored consent, never widens it. PUT
+  /sos/:id/location-consent (sender only, active SOS) reduces or restores
+  it; reducing clears stored coordinates and the SOS's own pings and
+  tells the audience. Lowering group sharing narrows a running SOS
+  (approximate -> suburb only; off / alerts only -> none); raising it
+  never widens it. This precedence is provisional (R12).
+- Older apps (supported-client policy, R14): current apps send
+  purpose "manual" on POST /family/location. An unlabelled post while
+  the sender has a live SOS in ANY of their groups is that SOS's point
+  (audience only, never the group snapshot); during a non-live SOS it is
+  refused (409). Never let it fall through to the group channel.
+- SOS lists name people in ONE group (create, update and send; 422
+  SOS_PRESET_OTHER_GROUP). GET sos-lists reports circleId and
+  needsRepair. Multi-group SOS is a separate proposal.
+- Elapsed scheduled changes are materialized (materializeDueChangesFor)
+  before ANY later subscription mutation: webhook, pending-change record,
+  confirm, intent, bind. Never overwrite a due pending change.
+- SOS end wording is factual ("SOS ended", "[Name] ended their SOS."),
+  never "safe" or "resolved".
 
 ## Google Maps proxy (decided Stage 5, 2026-08-22)
 

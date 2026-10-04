@@ -186,8 +186,8 @@ class _FamilyGroupSettingsScreenState
             onChanged: (value) => setState(() => _sosWholeCircle = value),
           ),
           _ruleBuilder(
-            title: 'Journeys are snap points only',
-            subtitle: 'Never a live trail — departure, ~10 min points, arrival',
+            title: 'Journeys use periodic updates only',
+            subtitle: 'Never live location: departure, about every 10 minutes, arrival',
             value: _snapPointsOnly ?? circle.journeysSnapPointsOnly,
             isOwner: isOwner,
             onChanged: (value) => setState(() => _snapPointsOnly = value),

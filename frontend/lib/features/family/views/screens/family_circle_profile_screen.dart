@@ -188,7 +188,7 @@ class _FamilyCircleProfileScreenState
           ),
           SizedBox(height: 4.spMin),
           Text(
-            'A daily reminder to let your family know you are safe.',
+            'A daily reminder to check in with your group.',
             style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
           ),
           SizedBox(height: 8.spMin),
@@ -277,8 +277,8 @@ class _FamilyCircleProfileScreenState
                 SizedBox(width: 10.spMin),
                 Expanded(
                   child: Text(
-                    '${schedule.timeOfDay} — '
-                    '${schedule.mode == FamilyScheduledCheckInMode.automatic ? 'checks in for you' : 'reminds you'}',
+                    // Both modes remind; nothing is ever posted for you.
+                    '${schedule.timeOfDay} · reminds you',
                     style: TextStyle(
                       fontSize: 14.spMin,
                       fontWeight: FontWeight.w600,
@@ -331,19 +331,13 @@ class _FamilyCircleProfileScreenState
             ListTile(
               leading: const Icon(LucideIcons.bellRing),
               title: const Text('Remind me to check in'),
-              subtitle: const Text('You get a one-tap "I\'m safe" prompt'),
+              subtitle: const Text('You get a one-tap reminder to check in'),
               onTap: () => Navigator.of(
                 sheetContext,
               ).pop(FamilyScheduledCheckInMode.prompted),
             ),
-            ListTile(
-              leading: const Icon(LucideIcons.checkCheck),
-              title: const Text('Check in for me automatically'),
-              subtitle: const Text('Your family sees you as safe at this time'),
-              onTap: () => Navigator.of(
-                sheetContext,
-              ).pop(FamilyScheduledCheckInMode.automatic),
-            ),
+            // No "check in for me automatically": a scheduled job never
+            // posts a check-in for anyone (master spec §11, R07).
             SizedBox(height: 8.spMin),
           ],
         ),

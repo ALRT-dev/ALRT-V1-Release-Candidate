@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -16,21 +17,14 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 ///
 /// The colour is the point: a group is recognised before its name is read,
 /// which is why the cards are full-bleed gradients rather than list rows.
-/// The seat card at the bottom is the honest arithmetic of what the
-/// subscription is paying for, so the cost of one more group is visible
-/// before it is spent rather than at the paywall.
+/// V1 access model: no seats and no group-count limit. How each group is
+/// paid for is shown on My plans, not here.
 class FamilySwitchGroupScreen extends ConsumerWidget {
   const FamilySwitchGroupScreen({super.key});
 
   static const route = '/family-switch-group';
 
-  /// ALRT+ carries 8 seats across up to 4 owned circles (locked spec).
-  static const _maxSeats = 8;
-
   static const _page = Color(0xFF0E0E12);
-  static const _seatLabel = Color(0xFFE05A00);
-  static const _seatPillBackground = Color(0xFFFFF3E8);
-  static const _seatPillInk = Color(0xFFB84500);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -62,19 +56,14 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.spMin),
-            child: _seatCardBuilder(circles),
-          ),
           _actionsBuilder(context, ref),
         ],
       ),
     );
   }
 
-  /// Being in a group never closes the door on the next one: joining with a
-  /// code is free and unlimited, and a host can split their seats across up
-  /// to 4 groups they own. Both paths live here, on the switcher, where the
+  /// Being in a group never closes the door on the next one: joining and
+  /// creating groups are free and unlimited. Both paths live here, on the switcher, where the
   /// question "can I be in another group?" actually gets asked.
   Widget _actionsBuilder(final BuildContext context, final WidgetRef ref) {
     ref.listen(providerOfFamily.select((s) => s.joinCircleState), (
@@ -82,7 +71,8 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
       next,
     ) {
       if (prev != next && next.isError && next.error != null) {
-        context.showErrorToast(message: next.error!.message);
+        // A full group says so, with its capacity; never a payment ask.
+        showFamilyActionError(context, ref, next.error!);
       }
     });
     ref.listen(providerOfFamily.select((s) => s.createCircleState), (
@@ -202,8 +192,8 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
           Padding(
             padding: EdgeInsets.only(top: 10.spMin),
             child: Text(
-              'Joining with a code is always free, in as many Family circles '
-              'as you like. Your ALRT+ seats can host up to 4 circles.',
+              'Joining with a code is always free, in as many groups as you '
+              'like. Creating a group is free too.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11.spMin,
@@ -540,7 +530,7 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
         ),
         SizedBox(width: 8.spMin),
         Text(
-          '$safeCount of ${circle.members.length} safe',
+          '$safeCount of ${circle.members.length} checked in',
           style: TextStyle(
             fontSize: 11.spMin,
             fontWeight: FontWeight.w700,
@@ -551,97 +541,16 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
     );
   }
 
-  /// The seat arithmetic, spelled out. Only circles you own spend your seats,
-  /// so joined groups are deliberately absent from the breakdown. A seat is
-  /// an invited full member: you never use one yourself as host, and guests
-  /// never use one (product owner 2026-09-03).
-  Widget _seatCardBuilder(final List<FamilyCircleSummary> circles) {
-    final owned = circles.where((c) => c.isOwned).toList();
-    final used = owned.fold<int>(0, (sum, c) => sum + c.seatCount);
-    final spare = (_maxSeats - used).clamp(0, _maxSeats);
-
-    return Container(
-      margin: EdgeInsets.only(top: 3.spMin),
-      padding: EdgeInsets.symmetric(horizontal: 15.spMin, vertical: 14.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 4.spMin),
-                  child: Text(
-                    'SEATS ACROSS YOUR CIRCLES',
-                    style: TextStyle(
-                      fontSize: 10.spMin,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                      color: _seatLabel,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 10.spMin),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 11.spMin,
-                  vertical: 6.spMin,
-                ),
-                decoration: BoxDecoration(
-                  color: _seatPillBackground,
-                  borderRadius: BorderRadius.circular(12.spMin),
-                ),
-                child: Text(
-                  '$used of $_maxSeats\nused',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11.spMin,
-                    height: 1.2,
-                    fontWeight: FontWeight.w800,
-                    color: _seatPillInk,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 9.spMin),
-          Text(
-            owned.isEmpty
-                ? "You don't host a circle yet, so none of your seats are "
-                      'in use.'
-                : '${owned.map((c) => '${c.name} ${c.seatCount}').join(' · ')}'
-                      '\n$spare spare · you never use a seat yourself, '
-                      'and guests are free',
-            style: TextStyle(
-              fontSize: 12.spMin,
-              height: 1.5,
-              color: FamilyColors.v31Ink,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Everything that isn't the current group still needs a word: who hosts
-  /// it decides whether it costs you a seat.
+  /// Everything that isn't the current group still needs a word: who
+  /// hosts it.
   String _roleLabelOf(final FamilyCircleSummary summary) =>
       summary.isOwned ? 'YOU HOST' : 'JOINED';
 
   String _subtitleOf(final FamilyCircleSummary summary) {
-    final seats = summary.isOwned
-        ? '${summary.seatCount} ${summary.seatCount == 1 ? 'seat' : 'seats'}'
-        : 'no seats of yours';
     final people = '${summary.memberCount} '
         '${summary.memberCount == 1 ? 'person' : 'people'}';
     final host = summary.isOwned ? 'you host' : 'hosted by someone else';
-    return '$seats · $people · $host';
+    return '$people · $host';
   }
 
   /// The group's chosen beacon, falling back to the family indigo so a group

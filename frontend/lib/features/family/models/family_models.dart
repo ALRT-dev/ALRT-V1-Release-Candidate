@@ -384,6 +384,15 @@ abstract class FamilySosList with _$FamilySosList {
     @Default(false) final bool isDefault,
     @Default(<String>[]) final List<String> memberIds,
     final DateTime? createdAt,
+
+    /// The one group everyone on the list belongs to (a list names people
+    /// in one group only). Null for an empty list or an old list that
+    /// mixes groups.
+    final String? circleId,
+
+    /// "multipleGroups" (an old list naming people in more than one group)
+    /// or "empty": the list must be repaired before it can be used.
+    final String? needsRepair,
   }) = _FamilySosList;
 
   factory FamilySosList.fromJson(Map<String, dynamic> json) =>
@@ -575,6 +584,15 @@ abstract class FamilySosEvent with _$FamilySosEvent {
     final double? latitude,
     final double? longitude,
     final String? locationLabel,
+    // The sender's explicit choice for this SOS: none | once | live (null
+    // on SOS events from before it existed).
+    final String? locationMode,
+    // precise | approximate (suburb label only, never coordinates).
+    final String? locationPrecision,
+    // When the phone actually fixed the point. Older than the SOS itself
+    // means a last-known location, and the app says how old.
+    final DateTime? locationCapturedAt,
+    final double? locationAccuracyM,
     final FamilyMemberSnippet? member,
     @Default(<FamilySosResponse>[]) final List<FamilySosResponse> responses,
     final DateTime? resolvedAt,

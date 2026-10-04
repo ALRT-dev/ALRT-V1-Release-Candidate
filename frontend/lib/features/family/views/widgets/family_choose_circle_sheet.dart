@@ -4,7 +4,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
 import 'package:hazard_app/features/family/utils/group_state.dart';
 import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
@@ -50,7 +49,6 @@ class _ChooseCircleSheet extends ConsumerWidget {
       providerOfFamily.select((s) => s.activeSosEvents),
     );
     final isHostOfOpen = open?.me?.role == FamilyRole.owner;
-    final seatsUsed = seatsUsedAcrossHostedCircles(circles);
     final media = MediaQuery.of(context);
     final bottom = media.viewInsets.bottom > media.viewPadding.bottom
         ? media.viewInsets.bottom
@@ -110,10 +108,16 @@ class _ChooseCircleSheet extends ConsumerWidget {
                     ),
                     SizedBox(height: 8.spMin),
                   ],
-                  if (circles.any((c) => c.isOwned)) ...[
-                    _membershipCardBuilder(context, seatsUsed),
-                    SizedBox(height: 8.spMin),
-                  ],
+                  // How each group is paid for lives on My plans, not here.
+                  _actionRowBuilder(
+                    context,
+                    icon: LucideIcons.badgeCheck,
+                    label: 'My plans',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.push('/alrt-plus/manage');
+                    },
+                  ),
                   if (isHostOfOpen)
                     _actionRowBuilder(
                       context,
@@ -192,7 +196,7 @@ class _ChooseCircleSheet extends ConsumerWidget {
     final subtitle = pending > 0
         ? '$pending check-in ${pending == 1 ? 'request' : 'requests'} waiting on you'
         : summary.isOwned
-            ? '${summary.seatCount} ${summary.seatCount == 1 ? 'seat' : 'seats'} · you host'
+            ? '${summary.memberCount} ${summary.memberCount == 1 ? 'person' : 'people'} · you host'
             : '${summary.memberCount} ${summary.memberCount == 1 ? 'person' : 'people'} · joined';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -278,56 +282,6 @@ class _ChooseCircleSheet extends ConsumerWidget {
               Icon(Icons.chevron_right, size: 20.spMin, color: context.onSurfaceMuted),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _membershipCardBuilder(final BuildContext context, final int seatsUsed) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 12.spMin),
-      decoration: BoxDecoration(
-        color: FamilyColors.indigoLight,
-        borderRadius: BorderRadius.circular(14.spMin),
-      ),
-      child: Row(
-        children: [
-          Icon(LucideIcons.users, size: 18.spMin, color: FamilyColors.indigoDark),
-          SizedBox(width: 10.spMin),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Circle membership',
-                  style: TextStyle(
-                    fontSize: 14.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: FamilyColors.indigoDark,
-                  ),
-                ),
-                Text(
-                  'Seats across the circles you host',
-                  style: TextStyle(fontSize: 12.spMin, color: FamilyColors.v31Ink),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 5.spMin),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10.spMin),
-            ),
-            child: Text(
-              '$seatsUsed of $kFamilyMaxSeats seats',
-              style: TextStyle(
-                fontSize: 12.spMin,
-                fontWeight: FontWeight.w800,
-                color: FamilyColors.indigoDark,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

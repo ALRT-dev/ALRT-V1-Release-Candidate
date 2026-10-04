@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/family/utils/sos_preview.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -63,6 +64,12 @@ class _FamilySosReceiverScreenState
   GoogleMapController? _mapController;
   LatLng? _followedTarget;
 
+  /// Bumped at the start of every trail refresh so a slower, superseded
+  /// request can never overwrite what a later one already showed (finding
+  /// 4, review of 28bdec1: a stale response must not restore a trail a
+  /// newer Stop/Suburb only already cleared).
+  int _trailRequestSeq = 0;
+
   /// Set the moment the acknowledgment is tapped, so a double tap or a slow
   /// network cannot post it twice before the response arrives.
   bool _acknowledging = false;
@@ -72,7 +79,7 @@ class _FamilySosReceiverScreenState
   /// opened with (a banner or push captured earlier) still says active.
   bool _serverSaysEnded = false;
 
-  /// True from the moment I confirm "I'm safe" on my own SOS.
+  /// True from the moment I confirm "End SOS" on my own SOS.
   bool _standingDown = false;
 
   @override
@@ -123,10 +130,22 @@ class _FamilySosReceiverScreenState
       return;
     }
 
-    final trail = await ref
-        .read(providerOfFamily.notifier)
-        .getSosTrail(sosEventId: widget.args.sosEvent.id);
-    if (!mounted || trail == null) return;
+    // Each tick gets its own sequence number: if a later tick already
+    // started (and possibly already finished) by the time this one's
+    // awaits resolve, this response is stale and must not overwrite
+    // whatever the later one showed.
+    final requestSeq = ++_trailRequestSeq;
+
+    // The event too, not only its trail: when the sender stops sharing or
+    // reduces to suburb only, the stored point is cleared on the server and
+    // must disappear here as well (review of cb26a8d, finding 1).
+    final notifier = ref.read(providerOfFamily.notifier);
+    final trail = await notifier.getSosTrail(
+      sosEventId: widget.args.sosEvent.id,
+    );
+    if (!mounted || requestSeq != _trailRequestSeq) return;
+    await notifier.refreshActiveSos();
+    if (!mounted || trail == null || requestSeq != _trailRequestSeq) return;
     setState(() => _trail = trail.points);
   }
 
@@ -170,6 +189,27 @@ class _FamilySosReceiverScreenState
 
   @override
   Widget build(BuildContext context) {
+    // A consent reduction (Stop or Suburb only) clears the stored point
+    // server-side and wipes this SOS's own trail with it (finding 4,
+    // review of 28bdec1). A locally cached trail fetched before the
+    // change must not go on showing a point the sender just withdrew, so
+    // clear it the moment the event's own stored point disappears.
+    ref.listen<FamilySosEvent?>(
+      providerOfFamily.select(
+        (s) => s.activeSosEvents
+            .where((e) => e.id == widget.args.sosEvent.id)
+            .firstOrNull,
+      ),
+      (previous, next) {
+        if (next != null &&
+            previous?.latitude != null &&
+            next.latitude == null &&
+            _trail.isNotEmpty) {
+          setState(() => _trail = const []);
+        }
+      },
+    );
+
     // Prefer the live copy from state (updated by socket events); once the
     // SOS has ended, the history copy carries the final acknowledgments.
     final stateCopy = ref.watch(
@@ -230,16 +270,10 @@ class _FamilySosReceiverScreenState
         )
         .firstOrNull;
 
-    // Where the person is right now: the socket-patched member location is
-    // the freshest, then the newest trail point, then the trigger snapshot.
-    final liveMember = ref.watch(
-      providerOfFamily.select(
-        (s) => s.circle?.members.where((m) => m.id == sos.memberId).firstOrNull,
-      ),
-    );
-    final position = !isResolved && (liveMember?.hasLiveLocation ?? false)
-        ? LatLng(liveMember!.latitude!, liveMember.longitude!)
-        : !isResolved && _trail.isNotEmpty
+    // Where the SOS says they are: its own newest live point, then the
+    // point sent with it. Never the sender's ordinary group location: an
+    // SOS location belongs to the SOS and its audience.
+    final position = !isResolved && _trail.isNotEmpty
         ? LatLng(_trail.last.latitude, _trail.last.longitude)
         : sos.latitude != null && sos.longitude != null
         ? LatLng(sos.latitude!, sos.longitude!)
@@ -268,7 +302,7 @@ class _FamilySosReceiverScreenState
                 if (!isResolved && isMine) ...[
                   _resolveButtonBuilder(context, ref, sos),
                   SizedBox(height: 10.spMin),
-                  _shareUpdatedLocationButtonBuilder(context, ref),
+                  _sosLocationControlsBuilder(context, ref, sos),
                 ],
                 if (!isResolved && !isMine) ...[
                   _acknowledgeButtonBuilder(sos, mySeen),
@@ -308,12 +342,16 @@ class _FamilySosReceiverScreenState
                 children: [
                   Text(
                     // The person IN SOS reads "Your SOS"; everyone else
-                    // reads the sender's name. Two-phone QA 2026-09-09:
-                    // the sender saw "Family member is marked safe".
+                    // reads the sender's name. Ending wording is factual
+                    // (master spec §12): never "safe" or "resolved".
                     isMine
-                        ? (isResolved ? 'Your SOS has ended' : 'Your SOS')
+                        ? (_standingDown
+                              ? 'Ending SOS…'
+                              : isResolved
+                              ? 'Your SOS has ended.'
+                              : 'Your SOS')
                         : (isResolved
-                              ? '$name is marked safe'
+                              ? '$name ended their SOS.'
                               : '$name triggered SOS'),
                     style: TextStyle(
                       color: Colors.white,
@@ -393,11 +431,7 @@ class _FamilySosReceiverScreenState
           SizedBox(width: 8.spMin),
           Expanded(
             child: Text(
-              sos.locationLabel != null
-                  ? 'Near ${sos.locationLabel}'
-                  : isResolved
-                  ? 'Location was shared with the circle'
-                  : 'Live location shared with the circle',
+              sosLocationLine(sos, ended: isResolved),
               style: TextStyle(
                 fontSize: 14.spMin,
                 fontWeight: FontWeight.w600,
@@ -523,15 +557,17 @@ class _FamilySosReceiverScreenState
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: FamilyColors.safeGreen,
+          backgroundColor: FamilyColors.sosRed,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16.spMin),
           ),
         ),
-        onPressed: () => _confirmAndResolve(context, ref, sos),
+        onPressed: _standingDown
+            ? null
+            : () => _confirmAndResolve(context, ref, sos),
         child: Text(
-          "I'm safe",
+          _standingDown ? 'Ending SOS…' : 'Cancel SOS',
           style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
         ),
       ),
@@ -552,11 +588,12 @@ class _FamilySosReceiverScreenState
     var confirmedStop = false;
     await showConfirmationSheet(
       context: context,
-      title: 'Stop your SOS?',
+      title: 'You are ending your SOS',
       description:
-          'Your family stops seeing this alert and it moves to '
-          'your history.',
-      confirmButtonText: 'Stop SOS',
+          'The people it reached stop seeing it, and it moves to your '
+          'history.',
+      confirmButtonText: 'End SOS',
+      cancelButtonText: 'Keep SOS active',
       onPressedConfirm: (_, __) => confirmedStop = true,
     );
     if (!confirmedStop || !context.mounted) return;
@@ -570,6 +607,7 @@ class _FamilySosReceiverScreenState
             'Live location sharing ends immediately and the '
             'trail is deleted. This cannot be undone.',
         confirmButtonText: 'Stop live sharing',
+        cancelButtonText: 'Keep sharing',
         onPressedConfirm: (_, __) => confirmedStopLive = true,
       );
       if (!confirmedStopLive || !context.mounted) return;
@@ -593,7 +631,7 @@ class _FamilySosReceiverScreenState
     if (!ok) {
       setState(() => _standingDown = false);
       context.showErrorToast(
-        message: 'Could not end your SOS. Check your connection and try again.',
+        message: "We couldn't confirm your SOS has ended. Try again.",
       );
       return;
     }
@@ -611,21 +649,66 @@ class _FamilySosReceiverScreenState
     final navContext = ref.read(providerOfGlobalNavigatorKey).currentContext;
     if (navContext != null && navContext.mounted) {
       navContext.showSuccessToast(
-        message: 'Your SOS has ended. Your circle has been told.',
+        message: 'Your SOS has ended.',
       );
     }
   }
 
-  /// Lets the person in SOS push a fresh point right now, without waiting
-  /// for the automatic live share's next tick.
-  Widget _shareUpdatedLocationButtonBuilder(
+  /// What this SOS shares, and the sender's controls for it (review of
+  /// cb26a8d, finding 1): send a point now, suburb only / exact, stop
+  /// sharing, or turn live location back on. These change THIS SOS only,
+  /// never group sharing; the backend clears stored coordinates when
+  /// sharing is reduced and a later location update can't undo it. Every
+  /// point goes to the SOS's own recipients, never the whole group.
+  Widget _sosLocationControlsBuilder(
     final BuildContext context,
     final WidgetRef ref,
+    final FamilySosEvent sos,
   ) {
-    return SizedBox(
-      height: 50.spMin,
+    final notifier = ref.read(providerOfFamily.notifier);
+    final live = sos.locationMode == null
+        ? sos.isLive
+        : sos.locationMode == 'live';
+    final once = sos.locationMode == 'once';
+    final suburb = sos.locationPrecision == 'approximate';
+    // A Once chosen with no fix available at send time has nothing
+    // retained to withdraw or reduce - it behaves like "none" for these
+    // controls (finding 5, review of 28bdec1).
+    final hasRetainedLocation = sos.latitude != null || sos.locationLabel != null;
+    final status = !live
+        ? once && hasRetainedLocation
+              ? suburb
+                    ? 'Your suburb was shared once with this SOS. It is not updating.'
+                    : 'Your location was sent once with this SOS. It is not updating.'
+              : 'This SOS is not sharing your location.'
+        : suburb
+        ? 'Sharing your live location with this SOS: suburb only.'
+        : 'Sharing your exact live location with this SOS.';
+
+    Future<void> change({
+      final SosLocationChoice? mode,
+      final SosPrecisionChoice? precision,
+      required final String done,
+    }) async {
+      final ok = await notifier.setSosLocationConsent(
+        sosEventId: sos.id,
+        mode: mode,
+        precision: precision,
+      );
+      if (!context.mounted) return;
+      if (ok) context.showSuccessToast(message: done);
+    }
+
+    Widget button(
+      final String key,
+      final String label,
+      final IconData icon,
+      final Future<void> Function() onPressed,
+    ) => SizedBox(
       width: double.infinity,
+      height: 46.spMin,
       child: OutlinedButton.icon(
+        key: Key(key),
         style: OutlinedButton.styleFrom(
           foregroundColor: FamilyColors.indigo,
           backgroundColor: Colors.white,
@@ -634,27 +717,94 @@ class _FamilySosReceiverScreenState
             borderRadius: BorderRadius.circular(16.spMin),
           ),
         ),
-        onPressed: () async {
-          final shared = await ref
-              .read(providerOfFamily.notifier)
-              .shareSnapshotNow();
-          if (!context.mounted) return;
-          shared
-              ? context.showSuccessToast(
-                  message: 'Updated snapshot shared with your circle.',
-                )
-              : context.showErrorToast(
-                  message:
-                      'Could not get your location. Check location '
-                      'permissions and try again.',
-                );
-        },
-        icon: Icon(LucideIcons.mapPin, size: 18.spMin),
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18.spMin),
         label: Text(
-          'Share updated location',
-          style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
+          label,
+          style: TextStyle(fontSize: 14.5.spMin, fontWeight: FontWeight.w700),
         ),
       ),
+    );
+
+    return Column(
+      key: const Key('sos-location-controls'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          status,
+          key: const Key('sos-location-consent-status'),
+          style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w600),
+        ),
+        SizedBox(height: 8.spMin),
+        if (live) ...[
+          button('sos-send-now', 'Send my location now', LucideIcons.mapPin,
+              () async {
+            final sent = await notifier.sendSosPointNow(sosEventId: sos.id);
+            if (!context.mounted) return;
+            sent
+                ? context.showSuccessToast(
+                    message: 'Sent to the people this SOS went to.',
+                  )
+                : context.showErrorToast(
+                    message:
+                        'Your phone can\'t find where you are right now. '
+                        'Nothing old was sent.',
+                  );
+          }),
+          SizedBox(height: 8.spMin),
+          suburb
+              ? button('sos-consent-exact', 'Share exact location',
+                  LucideIcons.locateFixed,
+                  () => change(
+                    precision: SosPrecisionChoice.exact,
+                    done: 'This SOS now shares your exact location.',
+                  ))
+              : button('sos-consent-suburb', 'Suburb only',
+                  LucideIcons.mapPinned,
+                  () => change(
+                    precision: SosPrecisionChoice.suburb,
+                    done: 'This SOS now shares your suburb only.',
+                  )),
+          SizedBox(height: 8.spMin),
+          button('sos-consent-stop', 'Stop sharing my location',
+              LucideIcons.mapPinOff,
+              () => change(
+                mode: SosLocationChoice.none,
+                done: 'Your location is no longer shared. Your SOS is still '
+                    'active.',
+              )),
+        ] else if (once && hasRetainedLocation) ...[
+          // Finding 5, review of 28bdec1: a Once/Exact sender must be able
+          // to remove or reduce the retained location while the SOS stays
+          // active - previously these controls showed only for Live.
+          // There is no live loop behind a Once snapshot, so only the
+          // reduce direction is offered (suburb only, if currently exact);
+          // widening back to exact would show a promise nothing can fulfil.
+          if (!suburb) ...[
+            button('sos-consent-suburb', 'Suburb only',
+                LucideIcons.mapPinned,
+                () => change(
+                  precision: SosPrecisionChoice.suburb,
+                  done: 'This SOS now shares your suburb only.',
+                )),
+            SizedBox(height: 8.spMin),
+          ],
+          button('sos-consent-stop', 'Stop sharing my location',
+              LucideIcons.mapPinOff,
+              () => change(
+                mode: SosLocationChoice.none,
+                done: 'Your location is no longer shared. Your SOS is still '
+                    'active.',
+              )),
+        ] else
+          button('sos-consent-live', 'Share live location',
+              LucideIcons.radio,
+              () => change(
+                mode: SosLocationChoice.live,
+                done: 'Your live location is shared with the people this '
+                    'SOS went to.',
+              )),
+      ],
     );
   }
 

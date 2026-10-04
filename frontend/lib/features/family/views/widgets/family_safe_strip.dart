@@ -70,8 +70,8 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
               children: [
                 Text(
                   _sent
-                      ? 'Your family has been told you are safe.'
-                      : 'Near this alert? Let your family know you are okay.',
+                      ? 'You checked in. Your group can see it.'
+                      : 'Near this alert? You can check in with your group.',
                   style: TextStyle(
                     fontSize: 13.spMin,
                     fontWeight: FontWeight.w600,
@@ -150,7 +150,7 @@ class _FamilySafeStripState extends ConsumerState<FamilySafeStrip> {
     await ref
         .read(providerOfFamily.notifier)
         .checkIn(
-          message: title == null ? "I'm safe" : 'Safe — near "$title"',
+          message: title == null ? 'Checked in' : 'Checked in near "$title"',
           shareLocation: choice == CheckInConsentChoice.checkInAndShareLocation,
           hazardId: widget.hazard.id,
         );

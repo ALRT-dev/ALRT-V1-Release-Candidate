@@ -324,12 +324,20 @@ class FamilyService {
     final double? longitude,
     final String? sosListId,
     required final bool isLive,
+    final String? locationMode,
+    final String? locationPrecision,
+    final DateTime? locationCapturedAt,
+    final double? locationAccuracyM,
   }) {
     return _familyRepository.triggerFamilySos(
       latitude: latitude,
       longitude: longitude,
       sosListId: sosListId,
       isLive: isLive,
+      locationMode: locationMode,
+      locationPrecision: locationPrecision,
+      locationCapturedAt: locationCapturedAt,
+      locationAccuracyM: locationAccuracyM,
     );
   }
 

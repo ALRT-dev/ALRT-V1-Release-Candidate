@@ -57,17 +57,24 @@ explicit instruction from the product owner in the current session.
   deleted (not archived, not aggregated).
 - SOS live share caps at 4 hours; stand-down wipes the trail and history
   keeps only time and duration, never locations.
-- Journeys are snap points by default (departure, ~10 min points, arrival);
-  live is per-journey opt-in and never an ALRT+ upsell.
+- Journeys use periodic updates by default (departure, ~10 min points,
+  arrival; say "Periodic updates" and "Live location", not "snap
+  points"); live is per-journey opt-in and never an upsell by itself.
 - Automatic scheduled snapshots keep the full safeguard set: agreed once on
   the owner's phone, visible badge, cancellable anytime, one point per time,
   1-hour expiry, never continuous.
 - Call buttons appear only by an advance grant; phone numbers are never
   displayed to the caller.
-- Family SOS wording (product-owner instruction 2026-08-30): the sender's
-  resolve action reads "I'm safe", the receiver's acknowledgment reads
-  "I've seen this", and the after-event screen/header reads "SOS
-  ended" — never "On my way", "Emergency ended", or "SOS resolved". "On my
+- Family SOS wording (master spec 28 Sep 2026, supersedes the 2026-08-30
+  "I'm safe" resolve label): Cancel SOS -> "You are ending your SOS" ->
+  End SOS / Keep SOS active -> "Ending SOS..." -> "Your SOS has ended."
+  Failure: "We couldn't confirm your SOS has ended. Try again."
+  Recipient: "[Name] ended their SOS." History: "SOS ended by [Name] at
+  [time]." Expiry: "This SOS expired at [time]." Never "safe", "marked
+  safe" or "resolved" anywhere (UI, pushes, widgets). Check-ins are
+  factual ("Checked in"), never a claim of safety. Unchanged from
+  2026-08-30: the receiver's acknowledgment reads "I've seen this", and
+  never "On my way", "Emergency ended", or "SOS resolved". "On my
   way" is removed from the flow entirely (button and history entry both);
   there is no other deliberate response and deliberately no Monitoring
   option. The one-tap local-emergency-call button is removed from both the
@@ -100,20 +107,85 @@ explicit instruction from the product owner in the current session.
   requester's tracker always NAME who was asked and who has answered,
   never a bare count. "Who has checked in" is one answer everywhere
   (CheckInRoll): header, chips, split member list, tiles.
-- Guests never request locations. There is no mute/snooze for circle SOS
+- Guests are retired for V1 (no new guest invites); legacy guest rows
+  still never request locations. There is no mute/snooze for circle SOS
   receipt — leaving is the only opt-out.
+- SOS audience (master spec §12): an SOS reaches only people in the group
+  it is sent from who can currently receive it; the backend stores that
+  audience and refuses an SOS with nobody to reach ("Add someone first")
+  and a preset naming someone in another group. Show recipients and
+  whether location is shared before sending.
+- Location truth (review 29 Sep 2026): a position is "current" only if
+  fixed in the last two minutes and reasonably accurate
+  (location_fix.dart). Check-ins, location answers and journeys send
+  current positions only. The SOS screen offers No location / Share
+  location once / Share live location with the phone's real state; a
+  last-known point is shown with its age and only sent when chosen; SOS
+  can always be sent without location. Live SOS points go to the SOS
+  endpoint only, never the group snapshot. The SOS preview comes from the
+  backend (who is left out and why, delivery never promised); a broken
+  list opens THAT list, and "Invite someone" appears only when the group
+  has nobody else.
+- SOS review of cb26a8d (29 Sep 2026): freshness is judged at SEND
+  (providerOfLocationClock): an aged fix is relabelled "last known" with
+  its age; Live never starts from a stale point; Once sends an old point
+  only if it was shown as last known before the hold, else the SOS goes
+  without location and says so. Each SOS has Exact / Suburb only
+  (default from group sharing). The running-SOS view offers send now (to
+  the SOS audience), suburb only / exact, stop sharing and share live
+  again, and never an ordinary group share. Ordinary location posts send
+  purpose "manual". SOS lists are one group each: the editor picks the
+  group first, switching clears picks, a mixed old list opens with a
+  repair notice; the SOS screen shows only this group's lists.
 - The leaderboard never shows other users' identities.
 
-## Commercial rules
+## Commercial rules (V1 access model, master spec 28 Sep 2026)
 
-- Invited members never see a paywall; joining via a code is always free.
-- The paywall appears only at group creation. Alerts, the map and 000
-  guidance stay free, always.
-- Seats (product owner 2026-09-03): ALRT+ = 8 seats across up to 4 owned
-  circles. A seat is an invited, non-guest (person, circle) pair in a
-  circle you own — the paying host never uses a seat, invited full
-  members use one each, guests use none; joiners consume nothing of
-  their own.
+These replace the earlier seat model (8 seats / 4 owned circles / free
+guests) and the "paywall only at group creation" rule. Source of truth:
+docs/V1_ACCESS_MODEL_IMPLEMENTATION.md.
+
+- Products: ALRT Free; ALRT + Individual (personal); ALRT + Family (one
+  nominated group, up to 6 people); Group 20; Group 50. Target AU monthly
+  prices A$5.99 / 15.99 / 24.99 / 49.99 are targets only: always show the
+  store's localized price, period and offer. No annual plan or annual
+  saving claim is approved.
+- Personal (Individual or its trial only): unlimited saved places, 10 Ask
+  ALRT a day, joining unlimited groups. Free: one saved place besides
+  where you are, 3 Ask ALRT a day. Sponsorship never raises personal
+  limits, for members or the payer.
+- A Family/Group plan covers check in, check on, SOS, Journey and
+  location sharing inside its ONE group; members join free. In a group
+  with no plan, each active participant needs Individual or its trial.
+- The app never decides access: read GET /api/access (personal plan and
+  each group's coverage, separately) and handle the backend's 402/409/422.
+- Only Individual has an introductory trial. Never promise one for a
+  group plan. Show price, duration, renewal and the post-trial charge
+  before purchase; "Continue with ALRT Free", Restore, Terms and Privacy
+  are always reachable. A cancelled store sheet returns quietly; pending
+  is not active.
+- Paywall moments: the second saved place (Individual), Ask ALRT limit
+  (Individual), connection features in an unfunded group, an optional
+  onboarding offer, and one ALRT + entry in Profile ("For myself" /
+  "Cover a group"). At most one upgrade presentation per screen; opening
+  a screen never triggers a modal paywall.
+- Plan names and colours (product owner 2026-09-28, replacing the master
+  spec teal/purple/blue): the personal plan is shown as just "ALRT +"
+  (never "Individual" in UI copy; the store product and backend tier keep
+  the id `individual`), purple #7B359A, gradient #4A1766 -> #8E3FB3.
+  ALRT + Family bright green #0A7F4F, gradient #05603B -> #17A96A.
+  ALRT + Group 20/50 blue #1F5CAD, gradient #123A73 -> #2468C4. "Cover a
+  group" before a size is chosen uses green -> blue. Plans in force show
+  on their gradient (PlanCoverageCard, PlanHero, PlanChoiceCard) with
+  plain words for who and what is covered. Billing colours never recolour
+  official warnings, red SOS, the green Check in button or the Family
+  navigation. Wordmark stays orange.
+- Access refusals are answered by code (access_refusal.dart): an ended
+  group plan never sells ALRT +, a full group offers the payer an upgrade,
+  permission refusals offer nothing to buy, "no SOS recipients" asks to
+  invite someone. Restore never says "restored" unless ALRT confirms it
+  (restore_outcome.dart).
+- Say "people", never "seats". Joining with a code is always free.
 - Prices come from the store (RevenueCat), never hardcoded.
 
 ## Google Maps architecture (decided Stage 5, 2026-08-22)

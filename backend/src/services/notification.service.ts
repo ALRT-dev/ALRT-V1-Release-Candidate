@@ -8,6 +8,7 @@ import {
 } from "../utils/hazard.util.js";
 import { isUnderNotificationCooldown } from "./hazard_cache.service.js";
 import { getCacheClient } from "../utils/cache_client.util.js";
+import { pausedSavedPlaceIds } from "./location_subscription.service.js";
 
 /**
  * A function to get user push notification tokens of a specific user by their user ID.
@@ -166,6 +167,8 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
         },
       },
       select: {
+        id: true,
+        isOwnLocation: true,
         user: {
           select: {
             id: true,
@@ -175,11 +178,20 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
       },
     });
 
+    // V1 access model: extra saved places beyond a Free account's one are
+    // paused (no alert fan-out) once personal Individual has lapsed.
+    const pausedIds = await pausedSavedPlaceIds(
+      subscriptions.filter((s) => !s.isOwnLocation).map((s) => s.user.id),
+    );
+    const activeSubscriptions = subscriptions.filter(
+      (s) => s.isOwnLocation || !pausedIds.has(s.id),
+    );
+
     // Dedupe by user (a user can have multiple overlapping location
     // subscriptions match the same hazard) before applying the cooldown, so
     // one user with several matching saved locations only spends one slot.
     const uniqueUsers = new Map(
-      subscriptions.map((sub) => [sub.user.id, sub.user]),
+      activeSubscriptions.map((sub) => [sub.user.id, sub.user]),
     );
     // An Emergency Warning is never rate-limited away: the cooldown exists
     // to stop a flood of low-band pushes, not to drop the one that says

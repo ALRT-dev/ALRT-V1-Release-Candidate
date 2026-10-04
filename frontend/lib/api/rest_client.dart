@@ -381,6 +381,10 @@ abstract class RestClient {
     @Field() final double? heading,
     @Field() final int? batteryLevel,
     @Field() final bool? isMoving,
+    // Always "manual" from this app: tells the backend this is ordinary
+    // group sharing. Older apps send nothing here, and the backend treats
+    // their unlabelled points during a live SOS as SOS points.
+    @Field() final String? purpose,
     @Query('circleId') final String? circleId,
   });
 
@@ -512,6 +516,12 @@ abstract class RestClient {
     @Field() final double? longitude,
     @Field() final String? sosListId,
     @Field() required final bool isLive,
+    // none | once | live: the sender's explicit location choice.
+    @Field() final String? locationMode,
+    @Field() final String? locationPrecision,
+    // ISO-8601: when the phone fixed the point (older = last known).
+    @Field() final String? locationCapturedAt,
+    @Field() final double? locationAccuracyM,
     @Query('circleId') final String? circleId,
   });
 

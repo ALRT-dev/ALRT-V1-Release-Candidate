@@ -1,3 +1,11 @@
+import 'package:hazard_app/features/family/views/screens/family_sos_list_edit_screen.dart';
+import 'package:hazard_app/features/family/services/family_location_service.dart';
+import 'package:hazard_app/features/family/services/sos_api.dart';
+import 'package:hazard_app/features/family/services/location_fix.dart';
+import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
+import 'package:hazard_app/features/family/utils/sos_preview.dart';
+import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'dart:async';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:collection/collection.dart';
@@ -47,12 +55,50 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
   String? _selectedListId;
   bool _listTouched = false;
 
-  /// The sender's own choice, made before triggering — SOS must never
-  /// assume live location sharing is wanted (low battery, or any other
-  /// reason to send without a continuous stream). Defaults on: most
-  /// people want live sharing in an emergency, but it is a real,
-  /// visible, changeable choice, not an unconditional side effect.
-  bool _liveLocationEnabled = true;
+  /// The sender's explicit location choice (review follow-up): No
+  /// location, Share location once, Share live location. Null until the
+  /// phone has been asked where it is; then a visible, changeable default:
+  /// live when there is a CURRENT fix and the person shares location in
+  /// this group, otherwise No location. A last-known point is never
+  /// chosen for them.
+  SosLocationChoice? _choice;
+  LocationFix? _fix;
+
+  /// Exact pin or suburb only, for THIS SOS. Defaults to the group sharing
+  /// setting; the sender can change it here (separate from group sharing).
+  SosPrecisionChoice? _precision;
+
+  /// The fix as it reads NOW: a point that was current when the screen
+  /// opened is shown as last known, with its age, once it ages past the
+  /// window. [_ticker] keeps the wording honest while the screen is open.
+  LocationFix? get _fixNow => _fix?.at(_now());
+  DateTime Function() get _now => ref.read(providerOfLocationClock);
+  Timer? _ticker;
+
+  /// What the sender saw when they started holding: a last-known point
+  /// shown with its age counts as explicitly accepted for "Once".
+  bool _acceptedLastKnown = false;
+
+  /// The fix kind the screen actually last painted (set every build, in
+  /// [_locationChoiceBuilder]). A fix ages between repaints - [_fixNow] is
+  /// recomputed fresh every time it's read, so calling it again at the
+  /// instant the hold starts can already read "last known" even though
+  /// the screen still shows the older "current" wording from its last
+  /// paint. Starting the hold must be judged against what was actually
+  /// shown, not a value recomputed at that instant (finding 6, review of
+  /// 28bdec1).
+  LocationFixKind? _shownFixKind;
+
+  /// Set when the send had to go without the chosen point (it went stale
+  /// and no fresh fix came), so the sent screen says so.
+  String? _sentLocationNote;
+
+  /// Who the backend says the SOS reaches now (the send re-checks).
+  SosPreview? _preview;
+  bool _previewFailed = false;
+  String? _previewKey;
+
+  bool get _liveLocationEnabled => _choice == SosLocationChoice.live;
 
   @override
   void initState() {
@@ -60,14 +106,49 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     _holdController.addStatusListener((status) {
       if (status == AnimationStatus.completed) _fireSos();
     });
-    Future.microtask(
-      () => ref.read(providerOfFamily.notifier).loadSosLists(),
-    );
+    Future.microtask(() async {
+      await ref.read(providerOfFamily.notifier).loadSosLists();
+      _loadPreview();
+    });
+    _resolveFix();
+    _ticker = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _resolveFix() async {
+    final fix = await ref.read(providerOfFamilyLocationService).resolveFix();
+    if (!mounted) return;
+    final level = ref.read(providerOfFamily).circle?.me?.sharingLevel;
+    final sharesHere =
+        level == FamilySharingLevel.precise ||
+        level == FamilySharingLevel.approximate;
+    setState(() {
+      _fix = fix;
+      _choice ??= fix.isCurrent && sharesHere
+          ? SosLocationChoice.live
+          : SosLocationChoice.none;
+      _precision ??= SosPrecisionChoice.defaultFor(level);
+    });
+  }
+
+  Future<void> _loadPreview() async {
+    final key = _selectedListId ?? '';
+    _previewKey = key;
+    final result = await ref
+        .read(providerOfSosApi)
+        .preview(sosListId: _selectedListId);
+    if (!mounted || _previewKey != key) return;
+    setState(() {
+      _preview = result.isSuccess ? result.success : null;
+      _previewFailed = result.isFailure;
+    });
   }
 
   @override
   void dispose() {
     _returnTimer?.cancel();
+    _ticker?.cancel();
     _holdController.dispose();
     super.dispose();
   }
@@ -80,18 +161,39 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     final circleName = ref.watch(
       providerOfFamily.select((s) => s.circle?.name ?? 'your family circle'),
     );
-    final sosLists = ref.watch(providerOfFamily.select((s) => s.sosLists));
+    // One group per list: only lists for THIS group are offered, plus old
+    // lists that need repair (so they can be opened and fixed).
+    final circleId = ref.watch(providerOfFamily.select((s) => s.circle?.id));
+    final sosLists = ref
+        .watch(providerOfFamily.select((s) => s.sosLists))
+        .where(
+          (l) =>
+              l.needsRepair != null ||
+              l.circleId == null ||
+              l.circleId == circleId,
+        )
+        .toList();
     // Global app: the local emergency number, never a hard-coded 000.
     final emergencyNumber = ref.watch(providerOfEmergencyNumber);
 
     // Default list preselected until the user picks one themselves.
     if (!_listTouched && _selectedListId == null) {
-      final defaultList = sosLists.where((l) => l.isDefault).firstOrNull;
+      final defaultList = sosLists
+          .where((l) => l.isDefault && l.needsRepair == null)
+          .firstOrNull;
       if (defaultList != null) _selectedListId = defaultList.id;
     }
     final selectedList = sosLists
         .where((l) => l.id == _selectedListId)
         .firstOrNull;
+    final others = ref.watch(
+      providerOfFamily.select((s) => s.circle?.others ?? const <FamilyMember>[]),
+    );
+    final preview = sosPreview(
+      others: others,
+      list: selectedList,
+      live: _liveLocationEnabled,
+    );
     final targetLabel = selectedList == null
         ? 'all $memberCount members of $circleName'
         : 'the ${selectedList.memberIds.length} people on '
@@ -146,18 +248,29 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                       SizedBox(height: 8.spMin),
                       Text(
                         _sent
-                            ? (_liveLocationEnabled
-                                  ? 'Your live location is now shared with '
-                                        '${selectedList?.name ?? circleName}. They can '
-                                        'watch your movements on the map until you stand '
-                                        'down from the Family tab, for up to 4 hours.'
-                                  : '${selectedList?.name ?? circleName} has been '
-                                        'alerted. Your location is not being shared live.')
-                            : (_liveLocationEnabled
-                                  ? 'Sends an SOS and your live location '
-                                        'to $targetLabel.'
-                                  : 'Sends an SOS to $targetLabel. Your live '
-                                        'location will not be shared.'),
+                            ? _sentLocationNote ?? switch (_choice) {
+                                SosLocationChoice.live =>
+                                  'Your live location is now shared with '
+                                      'the people this SOS went to, until you '
+                                      'end it, for up to 4 hours.',
+                                SosLocationChoice.once =>
+                                  'The people this SOS went to were sent your '
+                                      'location once. It won\'t update.',
+                                _ =>
+                                  'The people this SOS went to were alerted '
+                                      'without your location.',
+                              }
+                            : switch (_choice) {
+                                SosLocationChoice.live =>
+                                  'Sends an SOS and your live location to '
+                                      '$targetLabel.',
+                                SosLocationChoice.once =>
+                                  'Sends an SOS and your location once to '
+                                      '$targetLabel. It won\'t update.',
+                                _ =>
+                                  'Sends an SOS to $targetLabel, without '
+                                      'your location.',
+                              },
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.8),
@@ -197,12 +310,17 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                           ),
                         ),
                         SizedBox(height: 10.spMin),
-                        _liveLocationToggleBuilder(),
+                        _locationChoiceBuilder(),
+                        SizedBox(height: 10.spMin),
+                        _previewBuilder(preview),
                       ],
                       const Spacer(),
-                      _sent ? _sentIndicatorBuilder() : _holdButtonBuilder(),
+                      _sent
+                          ? _sentIndicatorBuilder()
+                          : _blockerBuilder(preview, sosLists, emergencyNumber) ??
+                                _holdButtonBuilder(),
                       SizedBox(height: 14.spMin),
-                      if (!_sent)
+                      if (!_sent && _blockerBuilder(preview, sosLists, emergencyNumber) == null)
                         Text(
                           'Keep holding to send',
                           style: TextStyle(
@@ -247,10 +365,15 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     final isSelected = _selectedListId == id;
 
     return GestureDetector(
-      onTap: () => setState(() {
-        _listTouched = true;
-        _selectedListId = id;
-      }),
+      onTap: () {
+        setState(() {
+          _listTouched = true;
+          _selectedListId = id;
+          _preview = null;
+          _previewFailed = false;
+        });
+        _loadPreview();
+      },
       child: Container(
         width: double.infinity,
         margin: EdgeInsets.only(top: 8.spMin),
@@ -304,37 +427,449 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     );
   }
 
-  /// The sender's explicit choice, made before triggering — never an
-  /// assumed default the sender didn't see. Off is a real option, not a
-  /// hidden path: low battery, or any other reason not to start a
-  /// continuous location stream, stays fully supported.
-  Widget _liveLocationToggleBuilder() {
+  /// No location / Share location once / Share live location, with the
+  /// phone's real location state above them. "Once" with live off is
+  /// always labelled as a point being sent, never as "not shared".
+  Widget _locationChoiceBuilder() {
+    final fix = _fixNow;
+    // Record what this build actually shows: onTapDown reads this instead
+    // of recomputing the fix kind fresh at touch time (finding 6, review
+    // of 28bdec1).
+    _shownFixKind = fix?.kind;
+    final unavailableReason = fix?.reason;
+    final onceEnabled = fix != null && fix.hasPoint;
+    final liveEnabled =
+        fix != null &&
+        unavailableReason != LocationUnavailableReason.servicesOff &&
+        unavailableReason != LocationUnavailableReason.permissionDenied;
+    final onceText = fix == null
+        ? 'Checking your location…'
+        : fix.isCurrent
+        ? 'Where you are now, sent once. It won\'t update.'
+        : fix.kind == LocationFixKind.lastKnown
+        ? 'Your last known location, from ${fix.ageLabel}. It won\'t update.'
+        : 'Not available: ${fix.statusLine}';
+    final liveText = fix == null
+        ? 'Checking your location…'
+        : !liveEnabled
+        ? 'Not available: ${fix.statusLine}'
+        : fix.isCurrent
+        ? 'Updates while your SOS runs, up to 4 hours.'
+        : 'Your last known location is NOT used. Starts when your phone '
+              'finds you, then updates while your SOS runs, up to 4 hours.';
+    Widget segment(
+      final SosLocationChoice value,
+      final String label, {
+      required final bool enabled,
+    }) {
+      final selected = _choice == value;
+      return Expanded(
+        child: Opacity(
+          opacity: enabled ? 1 : 0.45,
+          child: InkWell(
+            key: Key('sos-loc-${value.name}'),
+            borderRadius: BorderRadius.circular(10.spMin),
+            onTap: enabled && !_sent
+                ? () => setState(() => _choice = value)
+                : null,
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 8.spMin),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10.spMin),
+              ),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected ? FamilyColors.sosDarkRed : Colors.white,
+                  fontSize: 12.5.spMin,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final chosenText = switch (_choice) {
+      null => 'Checking your location…',
+      SosLocationChoice.none => 'No location: your SOS is sent without where you are.',
+      SosLocationChoice.once => 'Share location once: $onceText',
+      SosLocationChoice.live => 'Share live location: $liveText',
+    };
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 4.spMin),
+      key: const Key('sos-location-choice'),
+      width: double.infinity,
+      padding: EdgeInsets.all(10.spMin),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(14.spMin),
         border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              'Share live location',
+          Text(
+            fix == null ? 'Checking your location…' : fix.statusLine,
+            key: const Key('sos-location-status'),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 6.spMin),
+          Row(
+            children: [
+              segment(SosLocationChoice.none, 'No location', enabled: true),
+              SizedBox(width: 6.spMin),
+              segment(SosLocationChoice.once, 'Once', enabled: onceEnabled),
+              SizedBox(width: 6.spMin),
+              segment(SosLocationChoice.live, 'Live', enabled: liveEnabled),
+            ],
+          ),
+          SizedBox(height: 6.spMin),
+          Text(
+            chosenText,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 12.spMin,
+              height: 1.35,
+            ),
+          ),
+          if (_choice == SosLocationChoice.once ||
+              _choice == SosLocationChoice.live) ...[
+            SizedBox(height: 6.spMin),
+            Row(
+              children: [
+                _precisionChip(SosPrecisionChoice.exact, 'Exact'),
+                SizedBox(width: 6.spMin),
+                _precisionChip(SosPrecisionChoice.suburb, 'Suburb only'),
+              ],
+            ),
+          ],
+          if (fix != null && !fix.hasPoint)
+            Text(
+              'You can still send your SOS without location.',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 14.spMin,
-                fontWeight: FontWeight.w600,
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Exact pin or suburb only, for this SOS only (group sharing is not
+  /// changed). Starts at the group setting.
+  Widget _precisionChip(final SosPrecisionChoice value, final String label) {
+    final selected = _precision == value;
+    return InkWell(
+      key: Key('sos-precision-${value.name}'),
+      borderRadius: BorderRadius.circular(16.spMin),
+      onTap: _sent ? null : () => setState(() => _precision = value),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 4.spMin),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(16.spMin),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? FamilyColors.sosDarkRed : Colors.white,
+            fontSize: 11.5.spMin,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Before sending: exactly who the backend says it reaches now, who is
+  /// left out and why, and what location they get. Eligible is never
+  /// presented as "delivered".
+  Widget _previewBuilder(final LocalSosPreview local) {
+    Widget line(final IconData icon, final String label, final String text) =>
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 4.spMin),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 16.spMin, color: Colors.white),
+              SizedBox(width: 8.spMin),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '$label ',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      TextSpan(text: text),
+                    ],
+                  ),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.spMin,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+    final p = _preview;
+    final names = p == null
+        ? local.recipientsLine
+        : joinNames(p.recipients.map((r) => r.name).toList());
+    final excluded = p?.excluded ?? const <SosPreviewPerson>[];
+    final limited = p?.recipients.where((r) => r.deliveryLimited).toList() ??
+        const <SosPreviewPerson>[];
+    final fixNow = _fixNow;
+    final suburb = _precision == SosPrecisionChoice.suburb
+        ? ' Suburb only, never an exact pin.'
+        : '';
+    final locationLine = switch (_choice) {
+      null => 'Checking…',
+      SosLocationChoice.none => 'None.',
+      SosLocationChoice.once =>
+        fixNow?.kind == LocationFixKind.lastKnown
+            ? 'Your last known location (${fixNow!.ageLabel}), once.$suburb'
+            : 'Where you are now, once. It won\'t update.$suburb',
+      SosLocationChoice.live =>
+        'Your live location, updating until you end the SOS (up to 4 '
+            'hours).$suburb',
+    };
+    return Container(
+      key: const Key('sos-preview'),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 10.spMin),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14.spMin),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          line(
+            Icons.people_alt_outlined,
+            'Goes to:',
+            p == null && !_previewFailed
+                ? '$names (checking who can receive it…)'
+                : names.isEmpty
+                ? 'No one yet'
+                : names,
+          ),
+          if (_previewFailed)
+            line(
+              Icons.info_outline,
+              'Not checked:',
+              'ALRT will check who can receive it when you send.',
+            ),
+          if (excluded.isNotEmpty)
+            line(
+              Icons.person_off_outlined,
+              'Not included:',
+              excluded
+                  .map((e) => '${e.name} (${excludedReason(e.reason)})')
+                  .join(', '),
+            ),
+          if (p?.preset?.state == 'outdated')
+            line(
+              Icons.warning_amber_rounded,
+              'List out of date:',
+              '${p!.preset!.removedCount} ${p.preset!.removedCount == 1 ? 'person has' : 'people have'} left since you made "${p.preset!.name}".',
+            ),
+          line(Icons.place_outlined, 'Location:', locationLine),
+          if (limited.isNotEmpty)
+            line(
+              Icons.notifications_off_outlined,
+              'May not be notified:',
+              '${joinNames(limited.map((r) => r.name).toList())} (no phone '
+                  'registered for alerts). They will see it in ALRT.',
+            ),
+          Padding(
+            padding: EdgeInsets.only(top: 2.spMin),
+            child: Text(
+              'Notifications can be delayed or missed; ALRT can\'t promise '
+              'delivery.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 11.5.spMin,
               ),
             ),
           ),
-          Switch(
-            value: _liveLocationEnabled,
-            activeThumbColor: Colors.white,
-            activeTrackColor: FamilyColors.safeGreen,
-            inactiveThumbColor: Colors.white.withValues(alpha: 0.7),
-            inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
-            onChanged: (value) => setState(() => _liveLocationEnabled = value),
+        ],
+      ),
+    );
+  }
+
+  /// What replaces the hold button when an SOS can't go anywhere yet, or
+  /// null when it can. Each case gets its own fix: invite people only when
+  /// there are none; open the exact list when a list needs repair.
+  Widget? _blockerBuilder(
+    final LocalSosPreview local,
+    final List<FamilySosList> lists,
+    final String emergencyNumber,
+  ) {
+    final p = _preview;
+    if (p == null) {
+      // Not checked yet (or failed): only block when there is plainly
+      // nobody else in the group. The send re-checks everything.
+      return local.isEmpty ? _nobodyToReachBuilder(emergencyNumber) : null;
+    }
+    switch (p.state) {
+      case SosPreviewState.ok:
+      case SosPreviewState.senderNoAccess:
+        return null;
+      case SosPreviewState.noPeople:
+        return _nobodyToReachBuilder(emergencyNumber);
+      case SosPreviewState.noneEligible:
+        return _blockPanel(
+          key: 'sos-none-eligible',
+          title: 'No one here can receive an SOS right now',
+          body:
+              'Everyone ${_selectedListId == null ? 'in this group' : 'on this list'} '
+              'needs ALRT +, or a group plan that is active. If you are in '
+              'immediate danger, call $emergencyNumber.',
+          action: _selectedListId == null ? null : 'Edit this list',
+          onAction: _selectedListId == null
+              ? null
+              : () => _openList(lists, _selectedListId!),
+        );
+      case SosPreviewState.presetInvalid:
+        final preset = p.preset;
+        return _blockPanel(
+          key: 'sos-preset-invalid',
+          title: '"${preset?.name ?? 'This list'}" needs fixing',
+          body:
+              '${preset?.state == 'empty' ? 'No one on it is in this group any more.' : 'It names people from another group.'} '
+              'Edit it, or choose "Everyone" above. If you are in immediate '
+              'danger, call $emergencyNumber.',
+          action: 'Edit "${preset?.name ?? 'this list'}"',
+          onAction: preset == null ? null : () => _openList(lists, preset.id),
+        );
+    }
+  }
+
+  /// Opens THIS list for editing (never a blank new list).
+  Future<void> _openList(final List<FamilySosList> lists, final String id) async {
+    final list = lists.where((l) => l.id == id).firstOrNull;
+    if (list == null) {
+      context.showErrorToast(message: 'That list could not be found.');
+      return;
+    }
+    await context.push(
+      FamilySosListEditScreen.route,
+      extra: FamilySosListEditScreenArgs(list: list),
+    );
+    if (!mounted) return;
+    await ref.read(providerOfFamily.notifier).loadSosLists();
+    _loadPreview();
+  }
+
+  Widget _blockPanel({
+    required final String key,
+    required final String title,
+    required final String body,
+    final String? action,
+    final VoidCallback? onAction,
+  }) {
+    return Container(
+      key: Key(key),
+      width: double.infinity,
+      padding: EdgeInsets.all(16.spMin),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16.spMin),
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.spMin,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 6.spMin),
+          Text(
+            body,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 13.5.spMin,
+              height: 1.4,
+            ),
+          ),
+          if (action != null && onAction != null) ...[
+            SizedBox(height: 12.spMin),
+            FilledButton(
+              onPressed: onAction,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: FamilyColors.sosDarkRed,
+                shape: const StadiumBorder(),
+              ),
+              child: Text(action),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// No one to send to: say so before the hold, never after it.
+  Widget _nobodyToReachBuilder(final String emergencyNumber) {
+    return Container(
+      key: const Key('sos-nobody'),
+      width: double.infinity,
+      padding: EdgeInsets.all(16.spMin),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16.spMin),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Add someone first',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.spMin,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 6.spMin),
+          Text(
+            'Your SOS needs at least one other person to reach. If you are '
+            'in immediate danger, call $emergencyNumber.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 13.5.spMin,
+              height: 1.4,
+            ),
+          ),
+          SizedBox(height: 12.spMin),
+          FilledButton(
+            onPressed: () => context.push(FamilyInviteScreen.route),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: FamilyColors.sosDarkRed,
+              shape: const StadiumBorder(),
+            ),
+            child: const Text('Invite someone'),
           ),
         ],
       ),
@@ -345,6 +880,14 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     return GestureDetector(
       key: const Key('sos-hold-button'),
       onTapDown: (_) {
+        // What they see as they start holding is what they agree to: a
+        // point already labelled "last known, N min ago" is accepted.
+        // Judged against what the screen last actually painted
+        // (_shownFixKind), not a value recomputed fresh at this instant -
+        // a fix can go stale between repaints, and a touch that started
+        // while the screen still read "current" must not silently count
+        // as last-known acceptance (finding 6, review of 28bdec1).
+        _acceptedLastKnown = _shownFixKind == LocationFixKind.lastKnown;
         HapticFeedback.mediumImpact();
         _holdController.forward(from: 0);
       },
@@ -492,9 +1035,13 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     final notifier = ref.read(providerOfFamily.notifier);
     FamilySosEvent? sos;
     try {
+      final choice = _choice ?? SosLocationChoice.none;
+      final fix = await _fixForSend(choice);
       sos = await notifier.triggerSos(
         sosListId: _selectedListId,
-        isLive: _liveLocationEnabled,
+        location: choice,
+        fix: fix,
+        precision: _precision,
       );
       if (!mounted) return;
       if (sos == null) {
@@ -510,11 +1057,59 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       setState(() => _sent = true);
       _returnToFamilyAfterSend();
     } else {
+      _holdController.reset();
+      // Nobody to reach, a list from another group, or no access here:
+      // each gets its own answer. Only an unknown failure says "retry".
+      final refusal = AccessRefusal.fromError(
+        ref.read(providerOfFamily).sosTriggerState.error,
+      );
+      if (refusal != null) {
+        await showAccessRefusalSheet(context, ref, refusal);
+        return;
+      }
       context.showErrorToast(
         message: 'Could not send the SOS. Check your connection and retry.',
       );
-      _holdController.reset();
     }
+  }
+
+  /// The point to send, judged at the moment of sending (review of
+  /// cb26a8d, finding 3). A fix that was current when the screen opened
+  /// may have aged: then ALRT asks the phone again, briefly.
+  /// - Live never starts from a stale point: without a fresh fix the SOS
+  ///   goes live with no starting point, and points follow when the phone
+  ///   finds the person.
+  /// - Once sends an old point only if it was shown as "last known" with
+  ///   its age before the hold began; otherwise it goes without location.
+  /// SOS is never held back waiting for location.
+  Future<LocationFix?> _fixForSend(final SosLocationChoice choice) async {
+    if (choice == SosLocationChoice.none) return null;
+    final now = _now();
+    final fix = _fix;
+    if (fix != null && fix.isCurrentAt(now)) return fix;
+    LocationFix? fresh;
+    try {
+      fresh = await ref
+          .read(providerOfFamilyLocationService)
+          .resolveFix(timeout: const Duration(seconds: 4));
+    } catch (_) {
+      fresh = null;
+    }
+    if (fresh != null && fresh.isCurrentAt(_now())) {
+      if (mounted) setState(() => _fix = fresh);
+      return fresh;
+    }
+    if (choice == SosLocationChoice.live) {
+      _sentLocationNote = null;
+      return null;
+    }
+    if (_acceptedLastKnown && fix != null && fix.hasPoint) {
+      return fix.at(_now());
+    }
+    _sentLocationNote =
+        'Your location had become too old to send as "where you are now", '
+        'so this SOS went without it.';
+    return null;
   }
 
   /// Product decision 2026-09-09: once the server has confirmed the SOS,

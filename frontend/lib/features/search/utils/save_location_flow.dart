@@ -10,7 +10,8 @@ import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_
 
 /// The one "Save this location" tap handler, shared by every Subscribe
 /// button on the Search tab. It runs the provider's decision, shows the
-/// ALRT+ explanation sheet and paywall from the tapped screen's own
+/// explanation sheet and the ALRT + Individual paywall (personal limits
+/// point to Individual, never to a group plan) from the tapped screen's own
 /// context, and then saves the location the person was in the middle of
 /// saving, all without a restart. Every outcome ends in something visible.
 bool _saveInFlight = false;
@@ -44,15 +45,12 @@ Future<void> _handleSaveLocationTap(
     final purchased = await showAlrtPlusUpsellSheet(
       context: context,
       icon: AlrtPlusUpsellIcons.savedLocation,
-      title: 'One free saved location',
-      message: outcome.fromServer
-          ? 'Your account already has its $kFreeSavedLocationsLimit free '
-                'saved location. ALRT+ removes the limit, so you can save as '
-                'many as you like.'
-          : 'Free accounts can save $kFreeSavedLocationsLimit location. '
-                'ALRT+ removes the limit, so you can save as many as you '
-                'like.',
-      primaryLabel: 'See ALRT+',
+      title: 'One saved place on ALRT Free',
+      message:
+          'ALRT Free includes $kFreeSavedLocationsLimit saved place as well '
+          'as where you are. ALRT + gives you unlimited saved '
+          'places. Family and Group plans don\'t change this.',
+      primaryLabel: 'See ALRT +',
       onPrimary: (ctx) => ctx
           .push<bool>(
             AlrtPlusPaywallScreen.route,
@@ -69,10 +67,10 @@ Future<void> _handleSaveLocationTap(
     if (outcome is SaveLocationNeedsPlus) {
       context.showErrorToast(
         message: outcome.fromServer
-            ? 'Your ALRT+ purchase is not on the server yet. Try again in a '
-                  'moment.'
-            : 'ALRT+ did not activate on this phone yet. Try again in a '
-                  'moment.',
+            ? 'Purchase confirmed. We\'re updating your access. Try again '
+                  'in a moment.'
+            : 'Purchase confirmed. We\'re updating your access. Try again '
+                  'in a moment.',
       );
       return;
     }

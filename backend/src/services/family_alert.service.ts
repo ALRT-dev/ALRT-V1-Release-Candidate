@@ -22,7 +22,9 @@ import {
   requireMembership,
   serializeMember,
   toSuburbLabel,
+  recordSosLocation,
 } from "./family.service.js";
+import { assertConnectionAccess } from "./entitlement.service.js";
 
 /**
  * Hazards this severe (or worse) trigger family proximity alerts.
@@ -66,6 +68,8 @@ export const shareLocationSnapshot = async (
     batteryLevel?: number | undefined;
     isMoving?: boolean | undefined;
     via?: FamilySnapshotSource | undefined;
+    /** False = an unlabelled post from an older app (see below). */
+    labelled?: boolean | undefined;
   },
   circleId?: string,
 ) => {
@@ -75,6 +79,57 @@ export const shareLocationSnapshot = async (
   if (membership.sharingLevel === "off") {
     return { accepted: false, reason: "sharing is off" };
   }
+
+  // An SOS point never goes through the group snapshot channel. Older
+  // apps still post live SOS points here with via "sos": those go to the
+  // running live SOS only (its audience, its precision), exactly like
+  // POST /sos/:id/location. With no live SOS running, "sos" is just an
+  // ordinary snapshot and needs access like any other.
+  // Older apps send their live SOS loop here, unlabelled. When that
+  // person has a LIVE SOS running, an unlabelled post is unambiguously that
+  // loop: it goes to the SOS audience only, at the SOS's own precision, and
+  // never updates the group snapshot. A labelled "manual" share (current
+  // apps) is ordinary, separately consented sharing and is untouched.
+  const unlabelledFromOldApp = snapshot.via === "manual" && snapshot.labelled === false;
+  if (snapshot.via === "sos" || unlabelledFromOldApp) {
+    // Any of the person's groups, not only the one this request names: an
+    // older app whose selected group changed mid-SOS must not leak the
+    // loop into another group's snapshot.
+    const myMemberIds = (
+      await prisma.familyMember.findMany({ where: { userId }, select: { id: true } })
+    ).map((m) => m.id);
+    const running = await prisma.familySosEvent.findMany({
+      where: { memberId: { in: myMemberIds }, status: "active" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, locationMode: true, isLive: true },
+    });
+    const live = running.filter((r) => (r.locationMode ? r.locationMode === "live" : r.isLive));
+    // An unlabelled point never falls through to ordinary group sharing
+    // (finding 3, review of 28bdec1): the absence of an active SOS is not
+    // manual-sharing consent, so a delayed point arriving after SOS end -
+    // or with no SOS running at all - is refused here exactly like a
+    // running-but-not-live SOS already was, never treated as an ordinary
+    // snapshot. Overlapping SOS sessions in different groups are also
+    // refused rather than guessed at: this loop can only unambiguously
+    // belong to a live SOS when there is exactly one to choose between.
+    if (live.length === 1) {
+      const result = await recordSosLocation(userId, live[0].id, {
+        latitude: snapshot.latitude,
+        longitude: snapshot.longitude,
+        accuracy: snapshot.accuracy,
+      });
+      return { accepted: result.accepted, sosEventId: live[0].id };
+    }
+    throw new HttpError(
+      409,
+      live.length > 1
+        ? "More than one SOS is live; resend from the SOS screen"
+        : "Live location is not being shared for this SOS",
+    );
+  }
+
+  // Location sharing is a covered connection feature (V1 access model).
+  await assertConnectionAccess(userId, membership.circleId);
 
   const ping = snapshot;
 
@@ -176,11 +231,11 @@ export const createLocationRequest = async (
 
   const membership = await requireMembership(userId, target.circleId);
 
-  // Locked rule: guests never request locations. They receive the circle's
-  // alerts and can say "I'm Safe", and that is the whole of it.
+  // Legacy guests (retired for V1) still never request locations.
   if (membership.role === "guest") {
     throw new HttpError(403, "Guests cannot request locations");
   }
+  await assertConnectionAccess(userId, membership.circleId);
 
   // Group rule: when the owner has turned off 'anyone can ask for a
   // snapshot', only the owner may send location requests.

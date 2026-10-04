@@ -87,7 +87,7 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
       hasAnswered: hasAnswered,
       isNearAlert: isNearAlert,
     );
-    final safe = chip == 'Safe';
+    final safe = chip == 'Checked in';
     final chipInk = safe ? FamilyColors.safeGreen : FamilyColors.amber;
     final chipBackground =
         safe ? FamilyColors.safeGreenLight : FamilyColors.amberLight;
@@ -265,7 +265,7 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
       case FamilyRole.owner:
         return 'Hosts this circle';
       case FamilyRole.guest:
-        return 'Guest · gets alerts and can check in · uses no seat';
+        return 'Guest · gets alerts and can check in';
       case FamilyRole.adult:
       case FamilyRole.child:
         return 'Member of this circle';

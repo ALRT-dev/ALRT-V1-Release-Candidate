@@ -6,9 +6,9 @@ import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.d
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Calm amber banner shown on the family screen while the store retries a
-/// failed ALRT+ renewal. States the grace period plainly, one action.
-/// Renders nothing when billing is fine.
+/// Calm amber banner on My plans while the store retries a failed renewal
+/// of the person's ALRT + Individual. Access continues until the store
+/// says it has ended. Renders nothing when billing is fine.
 class BillingIssueBanner extends ConsumerWidget {
   const BillingIssueBanner({super.key});
 
@@ -62,8 +62,8 @@ class BillingIssueBanner extends ConsumerWidget {
                 ),
                 SizedBox(height: 2.spMin),
                 Text(
-                  'Your family layer stays on while the store retries. Update '
-                  'your payment method to keep everyone covered.',
+                  'ALRT + stays on while the store retries. Update your '
+                  'payment method to keep it.',
                   style: TextStyle(
                     fontSize: 11.5.spMin,
                     height: 1.5,
@@ -73,7 +73,7 @@ class BillingIssueBanner extends ConsumerWidget {
                 SizedBox(height: 10.spMin),
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: AlrtPlusStyle.ctaGradient,
+                    color: const Color(0xFF6E4E10),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Material(

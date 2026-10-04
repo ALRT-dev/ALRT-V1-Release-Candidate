@@ -6,17 +6,16 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 
-/// The host-transition screen: this circle has no current, entitled host —
-/// the owner's ALRT+ lapsed, or they left/deleted their account.
+/// The host-transition screen: this circle has no current host, because
+/// the owner left or deleted their account. (V1 access model: billing
+/// never starts a host transition; a lapsed plan pauses features, which
+/// My plans explains.)
 ///
 /// The tone is deliberate: nothing is deleted, nobody is blamed, SOS/
 /// check-ins/journeys keep working the entire time, and the two ways
 /// forward are stated as facts. Taking over is offered to members; the
 /// backend is the judge of eligibility, so the button always tries and the
-/// refusal reason comes back in plain words. The entitlement-lapse reason
-/// is unreachable until billing ships (hostTransitionActive can only be
-/// true for that reason once BILLING_ENABLED is on); the owner-left/
-/// deleted reason applies regardless of billing.
+/// refusal reason comes back in plain words.
 class FamilyGroupPausedScreen extends ConsumerStatefulWidget {
   const FamilyGroupPausedScreen({super.key});
 
@@ -63,9 +62,7 @@ class _FamilyGroupPausedScreenState
     final host = circle.hostTransitionHostName ?? 'The host';
     final days = circle.hostTransitionDaysLeft;
     final locked = circle.hostTransitionLocked;
-    final leftOrLapsed = circle.hostTransitionReason == 'owner_left'
-        ? '$host left as host'
-        : "$host's ALRT+ ended";
+    final leftOrLapsed = '$host left as host';
 
     return Container(
       padding: EdgeInsets.fromLTRB(16.spMin, 52.spMin, 16.spMin, 18.spMin),
@@ -146,11 +143,11 @@ class _FamilyGroupPausedScreenState
           ),
           SizedBox(height: 4.spMin),
           Text(
-            'SOS, check-ins, journeys and the member list all keep working '
-            'exactly as before, for everyone. Nothing is deleted and '
-            'nobody is removed automatically — only inviting new people '
-            'and changing circle settings need a host, and only once the '
-            'window above has passed.',
+            'SOS, check-ins, journeys and the member list keep working as '
+            'before. Nothing is deleted and nobody is removed '
+            'automatically. Only inviting new people and changing group '
+            'settings need a host, and only once the window above has '
+            'passed.',
             style: TextStyle(
               fontSize: 12.spMin,
               height: 1.7,
@@ -186,10 +183,9 @@ class _FamilyGroupPausedScreenState
           ),
           SizedBox(height: 4.spMin),
           Text(
-            'Taking over makes you the host and moves this circle onto '
-            "your ALRT+ seats, so invites and settings unlock again. "
-            "You'll need an active subscription and enough free seats "
-            'for all ${circle.members.length} members.',
+            'Taking over makes you the host, so invites and settings '
+            'unlock again. Hosting is free. How the group is paid for '
+            'does not change.',
             style: TextStyle(
               fontSize: 12.spMin,
               height: 1.7,
@@ -340,7 +336,7 @@ class _FamilyGroupPausedScreenState
     setState(() => _takingOver = false);
     if (refusal == null) {
       context.showSuccessToast(
-        message: "You're hosting now — invites and settings are unlocked",
+        message: "You're hosting now. Invites and settings are unlocked.",
       );
       Navigator.of(context).maybePop();
     } else {

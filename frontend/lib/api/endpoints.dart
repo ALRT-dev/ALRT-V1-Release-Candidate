@@ -88,6 +88,15 @@ const kUrlNotificationsTest = '$kUrlNotifications/test';
 
 const kUrlSupport = '$kUrlApi/support';
 
+// ---------------------------- ACCESS (V1) ----------------------------
+
+/// Personal plan and per-group coverage, computed by the backend.
+const kUrlAccess = '$kUrlApi/access';
+const kUrlAccessSponsorshipIntents = '$kUrlAccess/sponsorship-intents';
+const kUrlAccessReconcile = '$kUrlAccess/reconcile';
+String kUrlAccessBindSponsorship(final String subscriptionId) =>
+    '$kUrlAccess/sponsorships/$subscriptionId/bind';
+
 // ---------------------------- FAMILY ----------------------------
 
 const kUrlFamily = '$kUrlApi/family';
@@ -140,6 +149,11 @@ const kUrlFamilySosHistory = '$kUrlFamilySos/history';
 const kUrlFamilySosRespond = '$kUrlFamilySos/{sosEventId}/respond';
 const kUrlFamilySosResolve = '$kUrlFamilySos/{sosEventId}/resolve';
 const kUrlFamilySosTrail = '$kUrlFamilySos/{sosEventId}/trail';
+const kUrlFamilySosPreview = '$kUrlFamilySos/preview';
+String kUrlFamilySosLocationConsent(final String sosEventId) =>
+    '$kUrlFamilySos/$sosEventId/location-consent';
+String kUrlFamilySosLocation(final String sosEventId) =>
+    '$kUrlFamilySos/$sosEventId/location';
 
 // ---------------------------- XP / SCORING ----------------------------
 

@@ -76,6 +76,12 @@ export const familyLocationPingSchema = z.object({
   heading: z.number().min(0).max(360).optional(),
   batteryLevel: z.number().int().min(0).max(100).optional(),
   isMoving: z.boolean().optional(),
+  // Supported-client policy (review, 29 Sep 2026): current apps label an
+  // ordinary, separately consented share "manual". An unlabelled post is
+  // treated as coming from an older app; while that person has a live SOS
+  // running, it is that SOS's live loop and is routed to the SOS audience
+  // only (see shareLocationSnapshot), never the group channel.
+  purpose: z.enum(["manual"]).optional(),
 });
 
 export type FamilyLocationPingInput = z.infer<typeof familyLocationPingSchema>;
@@ -170,7 +176,38 @@ export const triggerFamilySosSchema = z.object({
   // never silently assume live location sharing is wanted (e.g. low
   // battery, or any other reason to send SOS without a continuous stream).
   isLive: z.boolean(),
+  // The explicit location choice: No location / Share location once /
+  // Share live location. Older apps omit it; it is then read from isLive
+  // and whether a point was sent.
+  locationMode: z.enum(["none", "once", "live"]).optional(),
+  // Never finer than the sender's own sharing setting (enforced server side).
+  locationPrecision: z.enum(["precise", "approximate"]).optional(),
+  // When the phone actually fixed the point (a last-known point is sent
+  // with its real, older time; never presented as "now").
+  locationCapturedAt: z.string().datetime().optional(),
+  locationAccuracyM: z.number().min(0).max(100000).optional(),
 });
+
+export const sosLocationPointSchema = z.object({
+  latitude: latitudeSchema,
+  longitude: longitudeSchema,
+  accuracy: z.number().min(0).max(100000).optional(),
+  capturedAt: z.string().datetime().optional(),
+});
+
+export type SosLocationPointInput = z.infer<typeof sosLocationPointSchema>;
+
+/** The sender narrows, stops or explicitly re-enables sharing for one SOS. */
+export const sosLocationConsentSchema = z
+  .object({
+    locationMode: z.enum(["none", "once", "live"]).optional(),
+    locationPrecision: z.enum(["precise", "approximate"]).optional(),
+  })
+  .refine((v) => v.locationMode !== undefined || v.locationPrecision !== undefined, {
+    message: "Nothing to change",
+  });
+
+export type SosLocationConsentInput = z.infer<typeof sosLocationConsentSchema>;
 
 export type TriggerFamilySosInput = z.infer<typeof triggerFamilySosSchema>;
 

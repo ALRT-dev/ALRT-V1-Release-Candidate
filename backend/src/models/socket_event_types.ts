@@ -15,6 +15,7 @@ export enum SocketEvent {
   familyPlaceEvent = "familyPlaceEvent", // arrival/departure at a saved place
   familyLocationRequest = "familyLocationRequest", // target only: someone asked where you are
   familySos = "familySos", // SOS triggered
+  familySosLocation = "familySosLocation", // a live point for one SOS, its audience only
   familySosResponse = "familySosResponse", // seen / on my way / called
   familySosResolved = "familySosResolved", // SOS resolved or cancelled
   familyHazardProximity = "familyHazardProximity", // a member is near an active hazard

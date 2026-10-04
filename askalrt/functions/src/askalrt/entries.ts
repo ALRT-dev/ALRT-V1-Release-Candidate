@@ -4,7 +4,7 @@
  * These answers are the FIRST line of response — matched by matching.ts before
  * any model is called. Answers are written to the locked product rules so they
  * stay accurate (no phone numbers, 2-state location, hold-3s SOS, 1-month trial,
- * host-pays seats, no en-dashes). Edit freely; add rows as questions come up.
+ * V1 access model, no en-dashes). Edit freely; add rows as questions come up.
  *
  * To make these editable without a release, they can later be moved to a
  * Firestore collection or Remote Config and merged over this seed (see README).
@@ -66,14 +66,14 @@ export const KNOWLEDGE_BASE: readonly KnowledgeEntry[] = [
     triggers: ["how much does it cost", "price", "subscription", "alrt plus", "how much is it"],
     keywords: ["cost", "price", "pay", "subscription", "plus"],
     answer:
-      "ALRT+ is 7.99 per month or 79.99 per year, with a 1 month free trial for everyone. Core safety alerts are never behind the paywall. If you host a circle you pay, anyone you invite joins for free.",
+      "Alerts, the live map and emergency guidance are always free, with one saved place and 3 Ask ALRT questions a day. ALRT + Individual is for you: unlimited saved places and 10 Ask ALRT questions a day, and only Individual can have a free trial. Family and Group plans cover check-ins, SOS and Journey for one group. The app shows current prices straight from your app store.",
   },
   {
     id: "seats",
-    triggers: ["how do seats work", "seat cost", "how many people can i add"],
-    keywords: ["seats", "seat", "hosting"],
+    triggers: ["how do seats work", "seat cost", "how many people can i add", "how many people can join"],
+    keywords: ["seats", "seat", "hosting", "people"],
     answer:
-      "ALRT+ gives you 8 seats across up to 4 circles you host. A seat is used per person per circle you host, including your own. Joining someone else's circle is always free and never uses your seats.",
+      "Creating and joining groups is free, and you can be in as many as you like. For check-ins, SOS and Journey, each person needs ALRT + Individual, or one person can cover a single group with Family (up to 6 people), Group 20 or Group 50. Everyone in that group counts, including the payer.",
   },
   {
     id: "phone_numbers",

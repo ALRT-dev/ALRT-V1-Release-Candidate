@@ -1,6 +1,8 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
+import 'package:hazard_app/features/subscription/models/access_models.dart';
+import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -9,8 +11,8 @@ final providerOfRevenueCat = Provider<RevenueCatService>(
   (ref) => RevenueCatService(),
 );
 
-/// The free tier saves at most this many locations, no matter what
-/// (locked ALRT+ limits; moves to Remote Config in a later pass).
+/// ALRT Free saves this many places besides where you are (V1 access
+/// model). The backend's GET /api/access carries the live number.
 const kFreeSavedLocationsLimit = 1;
 
 /// Whether the QA unlock is live: the env flag AND the dev flavour.
@@ -23,16 +25,34 @@ const kFreeSavedLocationsLimit = 1;
 bool get isAlrtPlusTestUnlocked =>
     appFlavor == 'dev' && dotenv.env['ALRT_PLUS_TEST_UNLOCK'] == 'true';
 
-/// True when the signed-in user has an active ALRT+ entitlement. Ensures
-/// RevenueCat is configured for the current user before reading status.
-/// `ref.refresh(providerOfAlrtPlus)` re-checks after a purchase.
+/// The access the backend computed for the signed-in person: personal
+/// plan and each group's coverage, separately (GET /api/access). Null
+/// when signed out or when the backend can't be reached, so callers can
+/// say "couldn't check" instead of guessing.
+/// `ref.invalidate(providerOfAccess)` re-reads after a purchase.
+final providerOfAccess = FutureProvider.autoDispose<AccessSummary?>((
+  ref,
+) async {
+  final userId = ref.watch(providerOfLoggedInUser)?.id;
+  if (userId == null) return null;
+  final result = await ref.read(providerOfAccessRepository).getAccess();
+  return result.isSuccess ? result.success : null;
+});
+
+/// True when the signed-in person has ALRT + Individual (or its trial):
+/// the PERSONAL plan only. A Family/Group plan never makes this true,
+/// for members or the payer (V1 access model). Read from the backend;
+/// when it can't be reached, the store's own `individual` entitlement is
+/// used as a display hint (the server still enforces every limit).
 final providerOfAlrtPlus = FutureProvider.autoDispose<bool>((ref) async {
   final userId = ref.watch(providerOfLoggedInUser)?.id;
   if (userId == null) return false;
   // Test-build escape hatch: sideloaded QA builds can't complete store
   // purchases, so CI sets ALRT_PLUS_TEST_UNLOCK=true in .env to open the
-  // ALRT+ gates. Never set in store builds.
+  // ALRT + gates. Never set in store builds.
   if (isAlrtPlusTestUnlocked) return true;
+  final access = await ref.watch(providerOfAccess.future);
+  if (access != null) return access.personal.isIndividual;
   final rc = ref.watch(providerOfRevenueCat);
   await rc.ensureConfigured(userId);
   return rc.isPlus(forUserId: userId);

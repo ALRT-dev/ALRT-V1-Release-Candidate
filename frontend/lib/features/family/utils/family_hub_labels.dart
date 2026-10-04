@@ -2,13 +2,11 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 /// Pure label helpers for the Family hub, kept widget-free so the wording
-/// the hub shows for seats, tiles, the one "Check in" button and a member's
-/// state can be unit-tested without pumping the screen.
-
-/// ALRT+ carries this many seats across the circles one person hosts
-/// (locked billing rule; MAX_SEATS_TOTAL in family.service.ts). Not a
-/// per-circle cap, and never changed here.
-const kFamilyMaxSeats = 8;
+/// the hub shows for people, tiles, the one "Check in" button and a
+/// member's state can be unit-tested without pumping the screen.
+///
+/// V1 (master spec 28 Sep 2026): no seats, and check-in wording is factual.
+/// A check-in says someone checked in, never that they are safe.
 
 /// The single check-in control's label (product decision 8 Sep 2026: it
 /// says "Check in", because that is what it does; whether a location goes
@@ -37,35 +35,23 @@ String askersLabel(final List<String> names) {
 }
 
 /// The card title over the Check in button: "Amy requested a check-in",
-/// "Amy, Tom +2 requested a check-in", or the plain invitation.
+/// "Amy, Tom +2 requested a check-in", or the card's own name.
 String checkInCardTitle(final List<String> askers) => askers.isEmpty
-    ? "Let your circle know you're okay"
+    ? 'Your check-in'
     : '${askersLabel(askers)} requested a check-in';
 
 /// "View 4 requests" — only when there is more than one to view.
 String? viewRequestsLabel(final int count) =>
     count > 1 ? 'View $count requests' : null;
 
-/// Seats in use across every circle the caller hosts. Only owned circles
-/// spend the caller's seats; joined circles never do, and the host and
-/// guests never hold a seat (seatCount already excludes them).
-int seatsUsedAcrossHostedCircles(final List<FamilyCircleSummary> circles) =>
-    circles.where((c) => c.isOwned).fold<int>(0, (sum, c) => sum + c.seatCount);
+/// "4 people" / "1 person": the group's size, with no billing mechanics
+/// (those live on My plans, master spec §11).
+String peopleLine(final int count) => count == 1 ? '1 person' : '$count people';
 
-/// "3 of 8 seats used across circles you host" — worded so a host with two
-/// circles never reads the number as this circle's alone.
-String hostedSeatLine({
-  required final int seatsUsed,
-  final int maxSeats = kFamilyMaxSeats,
-}) {
-  final used = seatsUsed.clamp(0, maxSeats);
-  return '$used of $maxSeats seats used across circles you host';
-}
-
-/// The line a non-host sees where the host sees the seat line.
+/// The line a non-host sees under the group name.
 String hostedByLine(final String? hostName) =>
     hostName == null || hostName.isEmpty
-        ? 'Joining is free · you use none of your own seats here'
+        ? 'Joining is free'
         : 'Hosted by $hostName · joining is free';
 
 /// Four quick tiles fit in one row up to a modest text scale; past that
@@ -116,16 +102,18 @@ String memberStatusLine({
   return 'No check-in yet';
 }
 
-/// The short chip on a member row. "Waiting" is deliberate: it says the
-/// circle is waiting on their check-in, not that anything is wrong.
+/// The short chip on a member row, factual only (master spec §11):
+/// "Checked in", "Waiting" only while a real request is outstanding,
+/// otherwise "No recent check-in". Never "Safe".
 String memberStatusChip({
   required final FamilyMember member,
   required final bool? hasAnswered,
   required final bool isNearAlert,
 }) {
   if (isNearAlert) return 'Near';
-  if (hasAnswered ?? member.isCheckedInRecently) return 'Safe';
-  return 'Waiting';
+  if (hasAnswered ?? member.isCheckedInRecently) return 'Checked in';
+  if (hasAnswered == false) return 'Waiting';
+  return 'No recent check-in';
 }
 
 /// The longer, honest reading of the chip, for the details sheet.
@@ -139,10 +127,16 @@ String memberStatusExplanation({
         'check in, or request a one-time snapshot.';
   }
   if (hasAnswered ?? member.isCheckedInRecently) {
-    return 'They have checked in as safe on the current roll.';
+    return 'They checked in. A check-in says they checked in, not how they '
+        'are.';
   }
-  return "They haven't checked in yet. That is silence, not danger — ask "
-      'them to check in, or request a one-time snapshot.';
+  if (hasAnswered == false) {
+    return "They haven't answered the check-in request yet. That is "
+        'silence, not danger. You can ask again, or request a one-time '
+        'snapshot.';
+  }
+  return "They haven't checked in recently. That is silence, not danger. "
+      'You can ask them to check in.';
 }
 
 /// Which circles a check-in goes to.
@@ -150,7 +144,7 @@ String memberStatusExplanation({
 /// Answering an ask is a deliberate act in one circle: with an ask owed
 /// in the open circle, the check-in goes there only ([owedRequestId] set,
 /// empty list = "the current circle"). With nothing owed here, a
-/// spontaneous check-in tells every circle you are all right, EXCEPT a
+/// spontaneous check-in goes to every circle, EXCEPT a
 /// circle where someone is waiting on your check-in: answering that ask
 /// must be your own tap there (Switch circle, then Check in), never a
 /// side effect of checking in somewhere else.

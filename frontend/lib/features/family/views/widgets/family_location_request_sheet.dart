@@ -1,3 +1,5 @@
+import 'package:hazard_app/features/shared/providers/navigator_key_provider.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -173,16 +175,26 @@ class _FamilyLocationRequestSheetState
         .read(providerOfFamily.notifier)
         .respondToLocationRequest(requestId: widget.requestId, share: true);
     if (!mounted) return;
+    final error = shared
+        ? null
+        : ref.read(providerOfFamily.notifier).lastLocationError;
+    final root = ref.read(providerOfGlobalNavigatorKey).currentContext;
     Navigator.of(context).pop();
-    shared
-        ? context.showSuccessToast(
-            message: 'Snapshot shared. It expires in 1 hour.',
-          )
-        : context.showErrorToast(
-            message:
-                'Could not share your location. Check location permissions '
-                'and try again.',
-          );
+    final target = root;
+    if (target == null || !target.mounted) return;
+    if (shared) {
+      target.showSuccessToast(
+        message: 'Snapshot shared. It expires in 1 hour.',
+      );
+    } else if (error != null && target.mounted) {
+      await showFamilyActionError(target, ref, error);
+    } else {
+      target.showErrorToast(
+        message:
+            'Could not share your location. Check location permissions '
+            'and try again.',
+      );
+    }
   }
 
   Future<void> _decline() async {

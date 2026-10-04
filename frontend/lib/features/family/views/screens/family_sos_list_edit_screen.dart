@@ -14,12 +14,15 @@ class FamilySosListEditScreenArgs {
   final FamilySosList? list;
 }
 
-/// Pick exactly who, in which group, this SOS reaches.
+/// Pick exactly who, in ONE group, this SOS list reaches.
 ///
-/// Members are shown per group because that is how the sender thinks of
-/// them, but the list itself is a flat set of people: someone picked in two
-/// groups is counted once, and the note says so. The count on the save
-/// button is that deduplicated truth, never the sum of ticks.
+/// An SOS goes to the group it is sent from, so a list names people in one
+/// group only (review of cb26a8d, finding 4; the backend refuses anything
+/// else with SOS_PRESET_OTHER_GROUP). The sender picks the group first;
+/// switching group clears every pick, so nothing hidden is kept. An old
+/// list that mixes groups opens with a repair notice and only the chosen
+/// group's people, and saving it repairs it. Several groups in one SOS is a
+/// separate future proposal, not this screen.
 class FamilySosListEditScreen extends ConsumerStatefulWidget {
   const FamilySosListEditScreen({super.key, this.args});
 
@@ -46,6 +49,12 @@ class _FamilySosListEditScreenState
 
   List<FamilySosRecipientGroup>? _groups;
   bool _loadFailed = false;
+
+  /// The one group this list is for.
+  String? _circleId;
+
+  /// People taken off an old list because they were in another group.
+  int _removedForRepair = 0;
   bool _saving = false;
 
   FamilySosList? get _existing => widget.args?.list;
@@ -72,6 +81,51 @@ class _FamilySosListEditScreenState
     setState(() {
       _groups = groups;
       _loadFailed = groups == null;
+      if (groups != null && groups.isNotEmpty) _chooseInitialGroup(groups);
+    });
+  }
+
+  /// The list's own group; for an old mixed list, the group holding most
+  /// of its people; for a new list, the group being viewed. Picks outside
+  /// that group are dropped and counted, so the notice can say so.
+  void _chooseInitialGroup(final List<FamilySosRecipientGroup> groups) {
+    Set<String> idsOf(final FamilySosRecipientGroup g) =>
+        g.members.map((m) => m.memberId).toSet();
+    final existing = _existing;
+    FamilySosRecipientGroup? chosen;
+    if (existing?.circleId != null) {
+      chosen = groups.where((g) => g.circleId == existing!.circleId).firstOrNull;
+    }
+    if (chosen == null && _pickedMemberIds.isNotEmpty) {
+      final ranked = [...groups]
+        ..sort(
+          (a, b) => idsOf(b)
+              .intersection(_pickedMemberIds)
+              .length
+              .compareTo(idsOf(a).intersection(_pickedMemberIds).length),
+        );
+      if (idsOf(ranked.first).intersection(_pickedMemberIds).isNotEmpty) {
+        chosen = ranked.first;
+      }
+    }
+    final viewing = ref.read(providerOfFamily).circle?.id;
+    chosen ??=
+        groups.where((g) => g.circleId == viewing).firstOrNull ?? groups.first;
+    _circleId = chosen.circleId;
+    final keep = idsOf(chosen);
+    final before = _pickedMemberIds.length;
+    _pickedMemberIds.retainAll(keep);
+    _removedForRepair = before - _pickedMemberIds.length;
+  }
+
+  /// Switching group clears every pick: nothing from the other group is
+  /// kept out of sight.
+  void _switchGroup(final String circleId) {
+    if (circleId == _circleId) return;
+    setState(() {
+      _circleId = circleId;
+      _pickedMemberIds.clear();
+      _removedForRepair = 0;
     });
   }
 
@@ -94,7 +148,10 @@ class _FamilySosListEditScreenState
           else if (_loadFailed)
             _retryBuilder()
           else ...[
-            for (final group in groups!) ...[
+            if (_existing?.needsRepair != null || _removedForRepair > 0)
+              _repairNoticeBuilder(),
+            if (groups!.length > 1) _groupPickerBuilder(groups),
+            for (final group in groups.where((g) => g.circleId == _circleId)) ...[
               _groupHeaderBuilder(group),
               _groupCardBuilder(group),
             ],
@@ -110,9 +167,9 @@ class _FamilySosListEditScreenState
                 border: Border.all(color: _noteBorder),
               ),
               child: Text(
-                'Each circle is separate — a person picked in two circles is '
-                'counted once. If someone leaves a circle, they drop off '
-                'this list automatically.',
+                'A list names people in one group: an SOS reaches only the '
+                'group it is sent from. If someone leaves the group, they '
+                'drop off this list automatically.',
                 style: TextStyle(
                   fontSize: 12.spMin,
                   height: 1.65,
@@ -168,7 +225,7 @@ class _FamilySosListEditScreenState
                       ),
                     ),
                     Text(
-                      'Pick exactly who, in which circle, this SOS reaches',
+                      'Pick exactly who in one group this SOS reaches',
                       style: TextStyle(
                         fontSize: 11.5.spMin,
                         color: Colors.white.withValues(alpha: 0.8),
@@ -219,6 +276,65 @@ class _FamilySosListEditScreenState
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _repairNoticeBuilder() {
+    final removed = _removedForRepair;
+    return Container(
+      key: const Key('sos-list-repair-notice'),
+      margin: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 0),
+      padding: EdgeInsets.all(12.spMin),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E5),
+        borderRadius: BorderRadius.circular(14.spMin),
+        border: Border.all(color: const Color(0xFFF5C77E)),
+      ),
+      child: Text(
+        _existing?.needsRepair == 'empty' && removed == 0
+            ? 'No one on this list is in a group with you any more. Pick '
+                  'people to use it again.'
+            : 'This list named people in more than one group. An SOS goes '
+                  'to one group, so this list is now for the group below'
+                  '${removed > 0 ? ' and $removed ${removed == 1 ? 'person' : 'people'} from other groups ${removed == 1 ? 'was' : 'were'} taken off' : ''}. '
+                  'Save to repair it.',
+        style: TextStyle(fontSize: 12.5.spMin, height: 1.45),
+      ),
+    );
+  }
+
+  /// Which group this list is for. Changing it clears the picks.
+  Widget _groupPickerBuilder(final List<FamilySosRecipientGroup> groups) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'GROUP',
+            style: TextStyle(
+              fontSize: 11.spMin,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+              color: const Color(0xFFFF6B01),
+            ),
+          ),
+          SizedBox(height: 6.spMin),
+          Wrap(
+            spacing: 8.spMin,
+            runSpacing: 8.spMin,
+            children: [
+              for (final g in groups)
+                ChoiceChip(
+                  key: Key('sos-list-group-${g.circleId}'),
+                  label: Text(g.name),
+                  selected: g.circleId == _circleId,
+                  onSelected: (_) => _switchGroup(g.circleId),
+                ),
+            ],
           ),
         ],
       ),
@@ -492,7 +608,8 @@ class _FamilySosListEditScreenState
         .saveSosList(
           sosListId: _existing?.id,
           name: _nameController.text.trim(),
-          memberIds: _pickedMemberIds.toList(),
+          // Only the chosen group's people (the backend refuses more).
+          memberIds: _pickedInChosenGroup().toList(),
           isDefault: _existing?.isDefault,
         );
     if (!mounted) return;
@@ -502,6 +619,14 @@ class _FamilySosListEditScreenState
     } else {
       context.showErrorToast(message: "Couldn't save the list. Try again.");
     }
+  }
+
+  Set<String> _pickedInChosenGroup() {
+    final group = _groups?.where((g) => g.circleId == _circleId).firstOrNull;
+    if (group == null) return _pickedMemberIds;
+    return _pickedMemberIds.intersection(
+      group.members.map((m) => m.memberId).toSet(),
+    );
   }
 
   void _delete() async {

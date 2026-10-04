@@ -1,39 +1,64 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
-import 'package:hazard_app/features/subscription/utils/store_price.dart';
-import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
+import 'package:hazard_app/features/subscription/utils/paywall_copy.dart';
+import 'package:hazard_app/features/subscription/utils/restore_outcome.dart';
 import 'package:hazard_app/features/subscription/utils/purchase_error_message.dart';
-import 'package:hazard_app/features/subscription/utils/alrt_plus_limits.dart';
+import 'package:hazard_app/features/subscription/utils/store_price.dart';
 import 'package:hazard_app/features/subscription/utils/trial_copy.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_welcome_screen.dart';
-import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_benefits.dart';
-import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
+import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
+import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
+import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:hazard_app/features/shared/utils/open_link.dart';
-import 'package:hazard_app/features/shared/utils/app_links.dart';
 
-/// Why the paywall opened; the headline speaks to that moment.
-enum AlrtPlusPaywallReason { hostCircle, savedLocation, general }
+/// Why the Individual paywall opened (master spec §8, §13, §14). It only
+/// ever opens from a personal-limit or participation moment, or from the
+/// one ALRT + entry; opening another screen never triggers it.
+enum AlrtPlusPaywallReason {
+  /// The second saved place (Free has one besides where you are).
+  savedLocation,
+
+  /// Today's Ask ALRT questions are used up.
+  askLimit,
+
+  /// Taking part in a group funded by Individual.
+  individualGroup,
+
+  /// The ALRT + entry in Profile, onboarding or the chooser.
+  general,
+
+  /// Legacy value from the old seat model (hosting needed ALRT+). Hosting
+  /// is free now; kept so an old deep link still opens the general view.
+  hostCircle,
+}
 
 class AlrtPlusPaywallArgs {
   const AlrtPlusPaywallArgs({this.reason = AlrtPlusPaywallReason.general});
   final AlrtPlusPaywallReason reason;
 }
 
-/// The ALRT+ gate sheet. Per the product rules this appears only at a
-/// premium moment (hosting a family circle, a second saved location), never
-/// during onboarding, and always renders store prices, never hardcoded
-/// ones. Pops `true` if the user ends up entitled to ALRT+.
+/// The ALRT + Individual purchase screen (master spec §9, teal identity).
+///
+/// Prices, periods and any trial come from the store; a trial is offered
+/// only when the store says this account is eligible, and while products
+/// or eligibility are loading the screen says so instead of guessing.
+/// Pops `true` once the backend confirms Individual (or the purchase is
+/// confirmed and access is still updating).
 class AlrtPlusPaywallScreen extends ConsumerStatefulWidget {
-  const AlrtPlusPaywallScreen({super.key, this.args});
+  const AlrtPlusPaywallScreen({super.key, this.args, this.isAndroidOverride});
 
   static const route = '/alrt-plus';
 
   final AlrtPlusPaywallArgs? args;
+
+  /// Tests pin the platform; the app reads it from the device.
+  final bool? isAndroidOverride;
 
   @override
   ConsumerState<AlrtPlusPaywallScreen> createState() =>
@@ -41,19 +66,24 @@ class AlrtPlusPaywallScreen extends ConsumerStatefulWidget {
 }
 
 class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
-  Offering? _offering;
-  Package? _selected;
+  static const _identity = PlanIdentity.individual;
+
+  Package? _package;
+  TrialOffer? _trial;
   bool _loading = true;
   bool _busy = false;
-  String? _error;
+  String? _notice;
+  bool _noticeIsError = false;
+  bool _confirmedUpdating = false;
 
-  /// QA builds without store keys show dummy plan cards so the whole
-  /// gate -> purchase -> welcome flow can be walked. Never true in store
-  /// builds (driven by ALRT_PLUS_TEST_UNLOCK, which CI sets only for the
-  /// sideloaded dev flavour).
+  /// QA builds without store keys preview the flow with labelled dummy
+  /// values; never true in store builds.
   bool _dummy = false;
 
-  bool _dummyYearlySelected = true;
+  bool get _isAndroid =>
+      widget.isAndroidOverride ?? (!kIsWeb && Platform.isAndroid);
+
+  String get _store => storeName(isAndroid: _isAndroid);
 
   @override
   void initState() {
@@ -62,630 +92,330 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
   }
 
   Future<void> _load() async {
-    // Test-build escape hatch: never contact RevenueCat under test-unlock -
-    // go straight to the dummy plan cards instead of calling the real SDK.
     if (isAlrtPlusTestUnlocked) {
       setState(() {
-        _offering = null;
-        _selected = null;
         _dummy = true;
         _loading = false;
-        _error = null;
       });
       return;
     }
     final rc = ref.read(providerOfRevenueCat);
     if (!rc.hasKeys) {
       setState(() {
-        _offering = null;
-        _selected = null;
-        _dummy = false;
         _loading = false;
-        _error =
-            'This build has no billing key, so ALRT+ cannot be bought here.';
+        _notice =
+            'This build has no billing key, so ALRT + cannot be '
+            'bought here.';
+        _noticeIsError = true;
       });
       return;
     }
     setState(() {
       _loading = true;
-      _error = null;
+      _notice = null;
     });
-    final offering = await rc.currentOffering();
+    final offering = await rc.offering(RevenueCatService.personalOfferingId);
+    final package =
+        offering?.monthly ?? offering?.availablePackages.firstOrNull;
+    Map<String, IntroEligibilityStatus> eligibility = const {};
+    if (package != null && !_isAndroid) {
+      eligibility = await rc.introEligibility([
+        package.storeProduct.identifier,
+      ]);
+    }
     if (!mounted) return;
-    final packages = offering?.availablePackages ?? const <Package>[];
     setState(() {
-      _offering = offering;
-      _selected = offering?.annual ?? packages.firstOrNull;
-      _dummy = false;
+      _package = package;
+      _trial = package == null
+          ? null
+          : eligibleTrialOffer(
+              product: package.storeProduct,
+              eligibility: eligibility[package.storeProduct.identifier],
+              isAndroid: _isAndroid,
+            );
       _loading = false;
-      if (offering == null) {
-        _error =
-            'ALRT+ plans could not be loaded. Check your connection and '
-            'tap Try again.';
-      } else if (packages.isEmpty) {
-        _error = 'ALRT+ has no plans in the store yet.';
-      } else {
-        _error = null;
+      if (package == null) {
+        _notice =
+            'ALRT + could not be loaded from the store. '
+            'Check your connection and try again.';
+        _noticeIsError = true;
       }
     });
   }
 
-  /// The trial phrase to show, built from the real selected product's own
-  /// introductory-offer data — never assumed. Null means the store hasn't
-  /// configured a free trial for this product, so nothing claims one. The
-  /// dummy/QA path has no real product to read, so it shows the confirmed
-  /// commercial offer's trial length as a preview of the intended real one.
-  String? get _trialPhrase {
-    if (_dummy) return kConfiguredFreeTrialPhrase;
-    final selected = _selected;
-    return selected == null ? null : freeTrialPhrase(selected.storeProduct);
+  String get _price => _dummy
+      ? 'A\$5.99 (preview)'
+      : (_package == null ? '' : storePriceLabel(_package!.storeProduct));
+
+  String get _period => _dummy
+      ? 'month'
+      : (_package == null
+            ? ''
+            : billingPeriodNoun(
+                    _package!.storeProduct,
+                    _package!.packageType,
+                  ) ??
+                  'period');
+
+  TrialOffer? get _trialShown =>
+      _dummy ? const TrialOffer(1, PeriodUnit.month) : _trial;
+
+  String get _ctaLabel {
+    if (_loading) return kCheckingPlans;
+    final trial = _trialShown;
+    if (trial != null) return trial.startCta;
+    return subscribeCta(price: _price, period: _period);
   }
 
-  Future<void> _finishEntitled() async {
-    ref.invalidate(providerOfAlrtPlus);
-    ref.invalidate(providerOfExpiredAlrtPlus);
-    ref.invalidate(providerOfAlrtPlusBillingIssue);
-    if (!mounted) return;
-    // The welcome moment is for new hosts; a plan change from an existing
-    // circle skips straight back.
-    final hasCircle = ref.read(providerOfFamily).circle != null;
-    if (!hasCircle) {
-      await context.push(
-        AlrtPlusWelcomeScreen.route,
-        extra: AlrtPlusWelcomeScreenArgs(trialPhrase: _trialPhrase),
-      );
+  String get _zeroPrice {
+    final product = _package?.storeProduct;
+    final intro = product?.introductoryPrice;
+    if (intro != null && intro.priceString.trim().isNotEmpty) {
+      return intro.priceString;
     }
-    if (mounted) Navigator.of(context).pop(true);
+    final code = product?.currencyCode ?? 'AUD';
+    return NumberFormat.simpleCurrency(name: code).format(0);
   }
 
   Future<void> _subscribe() async {
+    if (_busy) return;
     if (_dummy) {
-      if (_busy) return;
-      setState(() => _busy = true);
-      await Future<void>.delayed(const Duration(milliseconds: 900));
-      if (!mounted) return;
-      setState(() => _busy = false);
-      await _finishEntitled();
+      Navigator.of(context).pop(true);
       return;
     }
-    final package = _selected;
-    if (package == null || _busy) return;
-    setState(() => _busy = true);
+    final package = _package;
+    if (package == null) return;
+    setState(() {
+      _busy = true;
+      _notice = null;
+    });
     try {
-      final ok = await ref.read(providerOfRevenueCat).purchase(package);
-      if (ok) {
-        await _finishEntitled();
-      } else if (mounted) {
-        setState(
-          () => _error =
-              'The store did not confirm ALRT+ for this account. '
-              'Tap Restore purchases, or try again.',
-        );
-      }
+      await ref.read(providerOfRevenueCat).purchasePackage(package);
+      await _confirmWithBackend();
     } catch (error) {
       final message = purchaseErrorMessage(error);
-      if (mounted) setState(() => _error = message);
+      if (mounted && message != null) {
+        setState(() {
+          _notice = message;
+          _noticeIsError = message != kPurchasePending;
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  /// The store said yes; access comes from the backend once RevenueCat's
+  /// webhook lands. Poll briefly, then say plainly that it's updating.
+  Future<void> _confirmWithBackend() async {
+    final repo = ref.read(providerOfAccessRepository);
+    for (var attempt = 0; attempt < 5; attempt++) {
+      final result = await repo.getAccess();
+      if (result.isSuccess && result.success.personal.isIndividual) {
+        _invalidateAccess();
+        if (mounted) Navigator.of(context).pop(true);
+        return;
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+    }
+    _invalidateAccess();
+    if (mounted) {
+      setState(() {
+        _confirmedUpdating = true;
+        _notice = kPurchaseConfirmedUpdating;
+        _noticeIsError = false;
+      });
+    }
+  }
+
+  void _invalidateAccess() {
+    ref.invalidate(providerOfAccess);
+    ref.invalidate(providerOfAlrtPlus);
+    ref.invalidate(providerOfExpiredAlrtPlus);
+    ref.invalidate(providerOfAlrtPlusBillingIssue);
+  }
+
   Future<void> _restore() async {
     if (_busy) return;
-    // Test-build escape hatch: never contact RevenueCat under test-unlock -
-    // there is no real purchase to restore on a dummy plan.
     if (isAlrtPlusTestUnlocked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No previous ALRT + purchase found.')),
-      );
+      _snack('Preview build: nothing to restore.');
       return;
     }
-    setState(() => _busy = true);
-    final ok = await ref.read(providerOfRevenueCat).restore();
+    setState(() {
+      _busy = true;
+      _notice = null;
+    });
+    final outcome = await runRestore(ref);
+    if (!mounted) return;
+    _invalidateAccess();
+    final access = ref.read(providerOfAccessRepository);
+    final personal = outcome.kind == RestoreOutcomeKind.confirmed
+        ? await access.getAccess()
+        : null;
     if (!mounted) return;
     setState(() => _busy = false);
-    if (ok) {
-      ref.invalidate(providerOfAlrtPlus);
-      ref.invalidate(providerOfExpiredAlrtPlus);
-      ref.invalidate(providerOfAlrtPlusBillingIssue);
+    if (personal != null &&
+        personal.isSuccess &&
+        personal.success.personal.isIndividual) {
+      _snack(outcome.message);
       Navigator.of(context).pop(true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No previous ALRT + purchase found.')),
-      );
+      return;
     }
+    setState(() {
+      _notice = outcome.message;
+      _noticeIsError = outcome.isError;
+    });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AlrtPlusStyle.body,
-      body: Column(
-        children: [
-          _bandBuilder(context),
-          Expanded(
-            child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AlrtPlusStyle.magenta,
-                    ),
-                  )
-                : ListView(
-                    padding: EdgeInsets.fromLTRB(
-                      18.spMin,
-                      16.spMin,
-                      18.spMin,
-                      24.spMin,
-                    ),
-                    children: [
-                      // Product decision 2026-09-10: the paywall opens with
-                      // the free promise (alerts are always free), then the
-                      // Free and ALRT+ columns side by side, then one line
-                      // on who ALRT+ is for. Every cell quotes an enforced
-                      // allowance; prices come from the store below.
-                      const AlrtPlusLavNote(
-                        lead: kAlrtPlusFreeLead,
-                        text: kAlrtPlusFreeText,
-                      ),
-                      SizedBox(height: 14.spMin),
-                      const AlrtPlusBenefitsTable(),
-                      SizedBox(height: 10.spMin),
-                      Text(
-                        kAlrtPlusHostLine,
-                        style: TextStyle(
-                          fontSize: 12.5.spMin,
-                          height: 1.45,
-                          fontWeight: FontWeight.w600,
-                          color: AlrtPlusStyle.ink,
-                        ),
-                      ),
-                      SizedBox(height: 14.spMin),
-                      SizedBox(height: 4.spMin),
-                      if (_offering != null) _planRowBuilder(),
-                      if (_dummy) _dummyPlanRowBuilder(),
-                      if (_error != null)
-                        Padding(
-                          padding: EdgeInsets.symmetric(vertical: 10.spMin),
-                          child: Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: const Color(0xFFCC1010),
-                              fontSize: 13.spMin,
-                            ),
-                          ),
-                        ),
-                      if (_offering == null && !_dummy)
-                        TextButton(
-                          onPressed: _busy ? null : _load,
-                          child: Text(
-                            'Try again',
-                            style: TextStyle(
-                              fontSize: 13.spMin,
-                              fontWeight: FontWeight.w700,
-                              color: AlrtPlusStyle.magenta,
-                            ),
-                          ),
-                        ),
-                      SizedBox(height: 14.spMin),
-                      AlrtPlusCta(
-                        label: _trialPhrase != null
-                            ? 'Start ${_trialPhrase!}'
-                            : 'Subscribe now',
-                        busy: _busy,
-                        onPressed: (_selected == null && !_dummy)
-                            ? null
-                            : _subscribe,
-                      ),
-                      SizedBox(height: 9.spMin),
-                      _priceLineBuilder(),
-                      TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        child: Text(
-                          'Maybe later',
-                          style: TextStyle(
-                            fontSize: 12.5.spMin,
-                            fontWeight: FontWeight.w600,
-                            color: AlrtPlusStyle.inkSoft,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _busy ? null : _restore,
-                        child: Text(
-                          'Restore purchases',
-                          style: TextStyle(
-                            fontSize: 12.spMin,
-                            color: AlrtPlusStyle.inkFaint,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _trialPhrase != null
-                            ? 'Billed through your app store after your '
-                                  'free trial. Cancel anytime in your store '
-                                  'account.'
-                            : 'Billed through your app store. Cancel '
-                                  'anytime in your store account.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 10.spMin,
-                          height: 1.6,
-                          color: AlrtPlusStyle.inkFaint,
-                        ),
-                      ),
-                      // Apple 3.1.2: terms and privacy must be IN the
-                      // purchase flow, not just at sign-up. A Wrap, not a
-                      // Row: on a 360 px phone or at large text the two
-                      // links overflowed the row.
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          TextButton(
-                            onPressed: () => openLink(
-                              context: context,
-                              link: AppLinks.termsOfUse,
-                            ),
-                            child: Text(
-                              'Terms of Use',
-                              style: TextStyle(
-                                fontSize: 11.spMin,
-                                color: AlrtPlusStyle.inkFaint,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '·',
-                            style: TextStyle(
-                              color: AlrtPlusStyle.inkFaint,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => openLink(
-                              context: context,
-                              link: AppLinks.privacyPolicy,
-                            ),
-                            child: Text(
-                              'Privacy Policy',
-                              style: TextStyle(
-                                fontSize: 11.spMin,
-                                color: AlrtPlusStyle.inkFaint,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _bandBuilder(final BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(gradient: AlrtPlusStyle.bandGradient),
-      padding: EdgeInsets.only(
-        top: MediaQuery.paddingOf(context).top + 4.spMin,
-        left: 10.spMin,
-        right: 22.spMin,
-        bottom: 22.spMin,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          IconButton(
-            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
-            icon: Icon(
-              LucideIcons.arrowLeft,
-              color: Colors.white,
-              size: 22.spMin,
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(left: 12.spMin),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const AlrtPlusPill(onDark: true),
-                SizedBox(height: 12.spMin),
-                Text(
-                  _headline,
-                  style: TextStyle(
-                    fontSize: 23.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    height: 1.18,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 7.spMin),
-                Text(
-                  _subline,
-                  style: TextStyle(
-                    fontSize: 13.spMin,
-                    height: 1.55,
-                    color: Colors.white.withValues(alpha: 0.78),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  void _snack(final String text) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   AlrtPlusPaywallReason get _reason =>
       widget.args?.reason ?? AlrtPlusPaywallReason.general;
 
-  String get _headline => switch (_reason) {
-    AlrtPlusPaywallReason.savedLocation => 'Save every place that matters',
-    AlrtPlusPaywallReason.hostCircle ||
-    AlrtPlusPaywallReason.general => 'Let your family stay connected',
-  };
-
-  String get _subline => switch (_reason) {
+  /// One line on why this opened, above the benefits. Never a surprise
+  /// modal: each reason matches a moment the person chose.
+  String? get _reasonLine => switch (_reason) {
     AlrtPlusPaywallReason.savedLocation =>
-      'Free accounts save one location. ALRT+ removes the limit, and '
-          'lets you host your own family circle. Joining a circle is '
-          'always free.',
-    AlrtPlusPaywallReason.hostCircle || AlrtPlusPaywallReason.general =>
-      'Host your own family circle with check-ins, saved places and '
-          'SOS. Joining a circle is always free.',
+      'ALRT Free includes one saved place as well as where you are.',
+    AlrtPlusPaywallReason.askLimit =>
+      'You\'ve used today\'s Ask ALRT questions on ALRT Free.',
+    AlrtPlusPaywallReason.individualGroup =>
+      'This group has no Family or Group plan, so each person taking part '
+          'needs ALRT +.',
+    AlrtPlusPaywallReason.general || AlrtPlusPaywallReason.hostCircle => null,
   };
 
-  /// The label for a package: the standard monthly/yearly names, or the
-  /// store's own name for a custom package, so an offering set up with
-  /// other identifiers still renders instead of an empty row.
-  static String packageTitle(final Package package) =>
-      switch (package.packageType) {
-        PackageType.monthly => 'MONTHLY',
-        PackageType.annual => 'YEARLY',
-        PackageType.weekly => 'WEEKLY',
-        PackageType.twoMonth => '2 MONTHS',
-        PackageType.threeMonth => '3 MONTHS',
-        PackageType.sixMonth => '6 MONTHS',
-        PackageType.lifetime => 'LIFETIME',
-        PackageType.custom || PackageType.unknown =>
-          package.storeProduct.title.isNotEmpty
-              ? package.storeProduct.title.toUpperCase()
-              : package.identifier.toUpperCase(),
-      };
-
-  /// The packages to show, monthly and yearly first when present, then
-  /// anything else the offering carries.
-  static List<Package> packagesToShow(final Offering offering) {
-    final ordered = <Package>[
-      ?offering.monthly,
-      ?offering.annual,
-    ];
-    for (final package in offering.availablePackages) {
-      if (!ordered.contains(package)) ordered.add(package);
-    }
-    return ordered;
-  }
-
-  Widget _planRowBuilder() {
-    final offering = _offering;
-    if (offering == null) return const SizedBox.shrink();
-    final packages = packagesToShow(offering);
-    if (packages.isEmpty) return const SizedBox.shrink();
-    return Wrap(
-      spacing: 10.spMin,
-      runSpacing: 10.spMin,
-      children: [
-        for (final package in packages)
-          SizedBox(
-            width: packages.length == 1
-                ? double.infinity
-                : (MediaQuery.sizeOf(context).width - 36.spMin - 10.spMin) / 2,
-            child: _planCardBuilder(package, title: packageTitle(package)),
+  @override
+  Widget build(BuildContext context) {
+    final trial = _trialShown;
+    return Scaffold(
+      backgroundColor: kPaywallBody,
+      body: Column(
+        children: [
+          PlanHero(
+            identity: _identity,
+            heading: kIndividualHeading,
+            intro: kIndividualIntro,
+            onClose: _busy ? null : () => Navigator.of(context).pop(false),
           ),
-      ],
-    );
-  }
-
-  Widget _planCardBuilder(
-    final Package package, {
-    required final String title,
-  }) {
-    final selected = _selected == package;
-    final product = package.storeProduct;
-    return GestureDetector(
-      onTap: () => setState(() => _selected = package),
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14.spMin, horizontal: 10.spMin),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF9F0FC) : Colors.white,
-          borderRadius: BorderRadius.circular(18.spMin),
-          border: Border.all(
-            color: selected ? AlrtPlusStyle.magenta : AlrtPlusStyle.cardLine,
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 10.spMin,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: selected
-                    ? AlrtPlusStyle.magenta
-                    : AlrtPlusStyle.inkFaint,
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                18.spMin,
+                16.spMin,
+                18.spMin,
+                24.spMin,
               ),
-            ),
-            SizedBox(height: 5.spMin),
-            // The store's own formatted amount, exactly as it gave it.
-            Text(
-              product.priceString,
-              style: TextStyle(
-                fontSize: 22.spMin,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                color: AlrtPlusStyle.ink,
-              ),
-            ),
-            SizedBox(height: 2.spMin),
-            // The ISO currency code when the amount is a bare "$" (Play
-            // formats AUD that way), and the store's billing period.
-            Text(
-              [
-                ?storeCurrencySuffix(product),
-                perPeriodLabel(product, package.packageType),
-              ].where((s) => s.isNotEmpty).join(' · '),
-              style: TextStyle(
-                fontSize: 11.spMin,
-                color: selected ? AlrtPlusStyle.magenta : AlrtPlusStyle.inkSoft,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _dummyPlanRowBuilder() {
-    Widget card({
-      required final String title,
-      required final String price,
-      required final String per,
-      required final bool selected,
-      required final VoidCallback onTap,
-    }) {
-      return Expanded(
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              vertical: 14.spMin,
-              horizontal: 10.spMin,
-            ),
-            decoration: BoxDecoration(
-              color: selected ? const Color(0xFFF9F0FC) : Colors.white,
-              borderRadius: BorderRadius.circular(18.spMin),
-              border: Border.all(
-                color: selected
-                    ? AlrtPlusStyle.magenta
-                    : AlrtPlusStyle.cardLine,
-                width: selected ? 2 : 1,
-              ),
-            ),
-            child: Column(
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 10.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                    color: selected
-                        ? AlrtPlusStyle.magenta
-                        : AlrtPlusStyle.inkFaint,
+                if (_reasonLine != null) ...[
+                  PaywallNotice(text: _reasonLine!),
+                  SizedBox(height: 12.spMin),
+                ],
+                PaywallCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final b in kIndividualBenefits)
+                        PlanBenefit(text: b, identity: _identity),
+                      SizedBox(height: 6.spMin),
+                      PaywallFinePrint(kIndividualUnlimitedGroupsLine),
+                    ],
                   ),
                 ),
-                SizedBox(height: 5.spMin),
-                Text(
-                  price,
-                  style: TextStyle(
-                    fontSize: 22.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    color: AlrtPlusStyle.ink,
+                SizedBox(height: 12.spMin),
+                _planRow(),
+                SizedBox(height: 12.spMin),
+                PaywallFinePrint(kIndividualScope),
+                SizedBox(height: 16.spMin),
+                if (_notice != null) ...[
+                  PaywallNotice(text: _notice!, isError: _noticeIsError),
+                  SizedBox(height: 12.spMin),
+                ],
+                if (_confirmedUpdating)
+                  PlanCta(
+                    label: 'Done',
+                    identity: _identity,
+                    onPressed: () => Navigator.of(context).pop(true),
+                  )
+                else
+                  PlanCta(
+                    label: _ctaLabel,
+                    identity: _identity,
+                    busy: _busy,
+                    onPressed: (_loading || (_package == null && !_dummy))
+                        ? null
+                        : _subscribe,
                   ),
-                ),
-                SizedBox(height: 2.spMin),
-                Text(
-                  per,
-                  style: TextStyle(
-                    fontSize: 11.spMin,
-                    color: selected
-                        ? AlrtPlusStyle.magenta
-                        : AlrtPlusStyle.inkSoft,
+                SizedBox(height: 10.spMin),
+                if (!_loading && (_package != null || _dummy))
+                  PaywallFinePrint(
+                    individualDisclosure(
+                      store: _store,
+                      price: _price,
+                      period: _period,
+                      zeroPrice: trial == null
+                          ? null
+                          : (_dummy ? 'A\$0.00' : _zeroPrice),
+                      trialDuration: trial?.duration,
+                    ),
+                    center: true,
                   ),
+                if (_dummy)
+                  PaywallFinePrint(
+                    'Preview build: not store prices, no real purchase.',
+                    center: true,
+                  ),
+                if (!_loading && _package == null && !_dummy && !_busy)
+                  TextButton(onPressed: _load, child: const Text('Try again')),
+                SizedBox(height: 14.spMin),
+                PaywallFooter(
+                  busy: _busy,
+                  onContinueFree: () => Navigator.of(context).pop(false),
+                  onRestore: _restore,
                 ),
               ],
             ),
           ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            card(
-              title: 'MONTHLY',
-              price: 'US\$9.99',
-              per: 'USD · per month',
-              selected: !_dummyYearlySelected,
-              onTap: () => setState(() => _dummyYearlySelected = false),
-            ),
-            SizedBox(width: 10.spMin),
-            card(
-              title: 'YEARLY',
-              price: 'US\$99.99',
-              per: 'USD · per year',
-              selected: _dummyYearlySelected,
-              onTap: () => setState(() => _dummyYearlySelected = true),
-            ),
-          ],
-        ),
-        SizedBox(height: 8.spMin),
-        Text(
-          'Preview prices in USD · billing bypass build only · not store '
-          'prices, no real purchase',
-          style: TextStyle(
-            fontSize: 10.spMin,
-            color: AlrtPlusStyle.inkFaint,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  /// Names the selected plan's store price and period (amount, currency
-  /// and period all from the store), so the button above and this line
-  /// always agree with the highlighted card.
-  Widget _priceLineBuilder() {
-    final selected = _selected;
-    final trial = _trialPhrase;
-    final String pricePart;
-    if (_dummy) {
-      final preview = _dummyYearlySelected
-          ? 'US\$99.99 USD a year'
-          : 'US\$9.99 USD a month';
-      pricePart = trial != null
-          ? '$trial, then $preview (preview, not a store price)'
-          : '$preview (preview, not a store price)';
-    } else if (selected != null) {
-      final phrase = pricePerPeriodPhrase(
-        selected.storeProduct,
-        selected.packageType,
-      );
-      pricePart = trial != null ? '$trial, then $phrase' : phrase;
-    } else {
-      pricePart = trial != null
-          ? '$trial, then the price shown above'
-          : 'Price shown above';
-    }
-    return Text(
-      '$pricePart · $kAlrtPlusSeats seats · cancel anytime',
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 11.spMin,
-        height: 1.5,
-        color: AlrtPlusStyle.inkFaint,
+  /// The one Individual plan: name left, store price right.
+  Widget _planRow() {
+    final accent = _identity.accentFor(context);
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
+      decoration: BoxDecoration(
+        color: _identity.tint,
+        borderRadius: BorderRadius.circular(16.spMin),
+        border: Border.all(color: accent, width: 2),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: accent, size: 22.spMin),
+          SizedBox(width: 10.spMin),
+          Expanded(
+            child: Text(
+              'ALRT +',
+              style: TextStyle(
+                fontSize: 14.spMin,
+                fontWeight: FontWeight.w700,
+                color: kPaywallInk,
+              ),
+            ),
+          ),
+          Text(
+            _loading ? '…' : (_price.isEmpty ? '' : '$_price/$_period'),
+            style: TextStyle(
+              fontSize: 14.spMin,
+              fontWeight: FontWeight.w700,
+              color: kPaywallInk,
+            ),
+          ),
+        ],
       ),
     );
   }

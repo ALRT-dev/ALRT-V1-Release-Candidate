@@ -7,10 +7,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// What the person chose on the check-in consent sheet.
 enum CheckInConsentChoice {
-  /// Check in as safe; send no location at all.
+  /// Check in; send no location at all.
   checkInOnly,
 
-  /// Check in as safe AND share a one-hour location snapshot.
+  /// Check in AND share a one-hour location snapshot.
   checkInAndShareLocation,
 }
 
@@ -101,11 +101,11 @@ class _CheckInConsentSheetBody extends StatelessWidget {
       case CheckInLocationOffer.preciseSnapshot:
         return '$who will see that you checked in, not where you are. '
             'Sharing a location snapshot for the next hour is your '
-            'choice, every time - it is never sent automatically.';
+            'choice, every time. It is never sent automatically.';
       case CheckInLocationOffer.suburbOnly:
         return '$who will see that you checked in, not where you are. '
             'Your sharing level is Approximate, so sharing adds your '
-            'suburb for the next hour - never a precise pin. It is your '
+            'suburb for the next hour, never a precise pin. It is your '
             'choice, every time.';
       case CheckInLocationOffer.none:
         return '$who will see that you checked in, not where you are. '
@@ -156,7 +156,7 @@ class _CheckInConsentSheetBody extends StatelessWidget {
                 Expanded(
                   child: Text(
                     requesterName == null
-                        ? 'Check in as safe'
+                        ? 'Check in'
                         : 'Check in for $requesterName',
                     style: TextStyle(
                       fontSize: 18.spMin,

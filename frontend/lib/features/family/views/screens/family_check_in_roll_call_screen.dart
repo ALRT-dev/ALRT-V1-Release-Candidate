@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -269,17 +270,21 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
     // asking them directly, which is a request they can decline.
     return TextButton(
       onPressed: () async {
-        final sent = await ref
-            .read(providerOfFamily.notifier)
-            .requestMemberLocation(memberId: member.id);
+        final notifier = ref.read(providerOfFamily.notifier);
+        final sent = await notifier.requestMemberLocation(memberId: member.id);
         if (!context.mounted) return;
-        sent
-            ? context.showSuccessToast(
-                message: '${member.name} was asked to share where they are.',
-              )
-            : context.showErrorToast(
-                message: 'Could not send the request. Try again.',
-              );
+        final error = notifier.lastLocationError;
+        if (sent) {
+          context.showSuccessToast(
+            message: '${member.name} was asked to share where they are.',
+          );
+        } else if (error != null) {
+          await showFamilyActionError(context, ref, error);
+        } else {
+          context.showErrorToast(
+            message: 'Could not send the request. Try again.',
+          );
+        }
       },
       child: Text(
         'Ask',

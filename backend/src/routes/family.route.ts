@@ -25,6 +25,8 @@ import {
   respondFamilyLocationRequestSchema,
   bulkFamilyLocationRequestSchema,
   triggerFamilySosSchema,
+  sosLocationPointSchema,
+  sosLocationConsentSchema,
   respondFamilySosSchema,
   transferFamilyOwnershipSchema,
 } from "../validators/family.validator.js";
@@ -70,6 +72,9 @@ import {
   deletePlaceController,
   updatePlacePrefController,
   triggerSosController,
+  previewSosController,
+  recordSosLocationController,
+  setSosLocationConsentController,
   listSosListsController,
   listSosRecipientsController,
   takeOverCircleController,
@@ -214,6 +219,8 @@ familyRouter.delete("/sos-lists/:sosListId", deleteSosListController);
 
 familyRouter.post("/sos", validate(triggerFamilySosSchema), triggerSosController);
 familyRouter.get("/sos/active", getActiveSosController);
+// Who an SOS would reach now (the same check the send repeats).
+familyRouter.get("/sos/preview", previewSosController);
 // Retained history: stood-down events and who acknowledged them (never
 // locations). Literal segment, registered before the /sos/:sosEventId/*
 // routes so it can never be read as an event id.
@@ -222,6 +229,10 @@ familyRouter.post("/sos/:sosEventId/respond", validate(respondFamilySosSchema), 
 familyRouter.post("/sos/:sosEventId/resolve", resolveSosController);
 // Live trail behind an active SOS: exists only until stand-down wipes it.
 familyRouter.get("/sos/:sosEventId/trail", getSosTrailController);
+// The sender's live points for one live SOS: its audience only.
+familyRouter.post("/sos/:sosEventId/location", validate(sosLocationPointSchema), recordSosLocationController);
+// The sender changes what this SOS shares (narrow, stop or re-enable).
+familyRouter.put("/sos/:sosEventId/location-consent", validate(sosLocationConsentSchema), setSosLocationConsentController);
 
 
 // Journeys — a trip the traveller chooses to share, always with a hard stop

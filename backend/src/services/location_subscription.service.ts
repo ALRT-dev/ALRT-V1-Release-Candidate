@@ -1,7 +1,7 @@
 import type { LocationSubscription } from "@prisma/client";
 import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
-import { hasActiveSubscription } from "./entitlement.service.js";
+import { getPersonalAccess } from "./entitlement.service.js";
 
 /**
  * Retrieves all location subscriptions for a user, optionally filtered by bounding box.
@@ -25,7 +25,7 @@ export const getUserLocationSubscriptions = async ({
   northeastLng?: number;
   southwestLat?: number;
   southwestLng?: number;
-}): Promise<LocationSubscription[]> => {
+}): Promise<(LocationSubscription & { isPaused: boolean })[]> => {
   const subscriptions = await prisma.locationSubscription.findMany({
     where: {
       userId: userId!,
@@ -45,7 +45,10 @@ export const getUserLocationSubscriptions = async ({
     ],
   });
 
-  return subscriptions;
+  // Paused places (Free account over its allowance) are listed, flagged,
+  // and receive no alerts until Individual is active again.
+  const paused = await pausedSavedPlaceIds([userId]);
+  return subscriptions.map((s) => ({ ...s, isPaused: paused.has(s.id) }));
 };
 
 /**
@@ -118,9 +121,6 @@ export const getSingleUserLocationSubscriptionByBounds = async ({
  * @param name - The name of the subscription (optional)
  * @returns The created LocationSubscription
  */
-/** Free-tier cap on saved locations, matching kFreeSavedLocationsLimit in the app. */
-const FREE_SAVED_LOCATIONS_LIMIT = 1;
-
 export const createUserLocationSubscription = async ({
   userId,
   northeastLat,
@@ -138,35 +138,68 @@ export const createUserLocationSubscription = async ({
   address?: string | undefined;
   name?: string | undefined;
 }): Promise<LocationSubscription> => {
-  // Free tier caps SAVED locations at 1 (the own-location follow is
-  // exempt). The app shows the paywall at the same threshold, but the
-  // limit was client-side only, so any direct API call or a multi-device
-  // race sailed past it. Like the circle gate in family.service, this is
-  // dormant until BILLING_ENABLED flips: hasActiveSubscription returns
-  // true for everyone pre-billing.
-  if (!(await hasActiveSubscription(userId))) {
-    const savedCount = await prisma.locationSubscription.count({
-      where: { userId, isOwnLocation: false },
+  // V1 access model: one extra saved place free, unlimited with personal
+  // ALRT + Individual (or its trial) only. Group sponsorship never raises
+  // it, for members or the payer. The own-location follow never counts.
+  // Dormant until BILLING_ENABLED flips (everyone is unlimited before).
+  //
+  // Count and insert happen under a per-user transaction lock, so two
+  // devices saving at once can't both slip under the limit.
+  const personal = await getPersonalAccess(userId);
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`saved-places:${userId}`}))`;
+    if (personal.extraSavedPlaces !== null) {
+      const savedCount = await tx.locationSubscription.count({
+        where: { userId, isOwnLocation: false },
+      });
+      if (savedCount >= personal.extraSavedPlaces) {
+        throw new HttpError(
+          402,
+          `ALRT Free includes ${personal.extraSavedPlaces} saved place as well as where you are. ALRT + Individual gives you unlimited saved places.`,
+          "SAVED_PLACE_LIMIT",
+        );
+      }
+    }
+    return tx.locationSubscription.create({
+      data: {
+        userId,
+        northeastLat,
+        northeastLng,
+        southwestLat,
+        southwestLng,
+        ...(address && { address }),
+        ...(name && { name }),
+      },
     });
-    if (savedCount >= FREE_SAVED_LOCATIONS_LIMIT) {
-      throw new HttpError(
-        403,
-        `Free accounts can save up to ${FREE_SAVED_LOCATIONS_LIMIT} locations. ALRT+ removes the limit.`,
-      );
+  });
+};
+
+/**
+ * Saved places (never the own-location follow) that are paused for these
+ * users: a Free account keeps its allowance of saved places and the rest
+ * stop receiving alerts until Individual is active again. Nothing is
+ * deleted, so the places come back on resubscribing.
+ *
+ * PROVISIONAL (open decision R04): which place stays active is not yet
+ * decided; until it is, the OLDEST saved place stays active.
+ */
+export const pausedSavedPlaceIds = async (
+  userIds: string[],
+): Promise<Set<string>> => {
+  const paused = new Set<string>();
+  for (const userId of [...new Set(userIds)]) {
+    const personal = await getPersonalAccess(userId);
+    if (personal.extraSavedPlaces === null) continue;
+    const places = await prisma.locationSubscription.findMany({
+      where: { userId, isOwnLocation: false },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    for (const place of places.slice(personal.extraSavedPlaces)) {
+      paused.add(place.id);
     }
   }
-
-  return await prisma.locationSubscription.create({
-    data: {
-      userId,
-      northeastLat,
-      northeastLng,
-      southwestLat,
-      southwestLng,
-      ...(address && { address }),
-      ...(name && { name }),
-    },
-  });
+  return paused;
 };
 
 /**

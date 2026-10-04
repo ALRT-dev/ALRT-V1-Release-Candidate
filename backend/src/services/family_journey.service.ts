@@ -1,9 +1,11 @@
+import { convertLatLngToAddress } from "./google_map.service.js";
 import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
 import { SocketEvent } from "../models/socket_event_types.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
-import { requireMembership, notifyCircle } from "./family.service.js";
+import { requireMembership, notifyCircle, toSuburbLabel } from "./family.service.js";
 import { sendPushNotificationToUser } from "./notification.service.js";
+import { assertConnectionAccess } from "./entitlement.service.js";
 
 // Locked journey rules:
 // - A journey always has a hard stop the traveller chose. Nothing is
@@ -37,6 +39,9 @@ const journeyInclude = {
 } as const;
 
 /** Shapes a journey for the client. Location travels only while active. */
+const preciseOk = (journey: any) =>
+  !journey.member?.sharingLevel || journey.member.sharingLevel === "precise";
+
 export const serializeJourney = (journey: any) => {
   const isActive = journey.status === "active" && journey.endsAt > new Date();
   return {
@@ -55,9 +60,10 @@ export const serializeJourney = (journey: any) => {
     canExtend: journey.grantedMinutes < MAX_TOTAL_MINUTES,
     maxTotalMinutes: MAX_TOTAL_MINUTES,
     // A finished journey keeps its times and nothing else: the event log
-    // survives, the location data does not.
-    latitude: isActive ? journey.latitude : null,
-    longitude: isActive ? journey.longitude : null,
+    // survives, the location data does not. The traveller's precision
+    // setting holds here too: only "precise" ever delivers coordinates.
+    latitude: isActive && preciseOk(journey) ? journey.latitude : null,
+    longitude: isActive && preciseOk(journey) ? journey.longitude : null,
     locationLabel: isActive ? journey.locationLabel : null,
     recipients: (journey.recipients ?? []).map((r: any) => ({
       memberId: r.memberId,
@@ -83,6 +89,9 @@ export const startJourney = async (
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
+  // Journey is a covered connection feature (V1 access model). Stop and
+  // the automatic end are never gated.
+  await assertConnectionAccess(userId, membership.circleId);
 
   if (!ALLOWED_START_MINUTES.includes(input.durationMinutes)) {
     const options = ALLOWED_START_MINUTES;
@@ -174,6 +183,8 @@ export const extendJourney = async (
   if (journey.status !== "active") {
     throw new HttpError(400, "That journey has already ended");
   }
+  // Extending is new sharing, so it needs access like starting does.
+  await assertConnectionAccess(userId, journey.circleId);
   if (minutes < 1 || minutes > MAX_BLOCK_MINUTES) {
     throw new HttpError(
       400,
@@ -321,14 +332,24 @@ export const recordJourneyPoint = async (
     throw new HttpError(400, "That journey has already ended");
   }
 
+  // Enforced before storing: anything but "precise" keeps a suburb label
+  // and never stores the coordinates.
+  const precise = journey.member.sharingLevel === "precise";
+  let label = input.locationLabel;
+  if (!precise && label === undefined) {
+    try {
+      const address = await convertLatLngToAddress(input.latitude, input.longitude);
+      if (address) label = toSuburbLabel(address);
+    } catch {
+      // No label rather than a precise point.
+    }
+  }
   const updated = await prisma.familyJourney.update({
     where: { id: journey.id },
     data: {
-      latitude: input.latitude,
-      longitude: input.longitude,
-      ...(input.locationLabel !== undefined && {
-        locationLabel: input.locationLabel,
-      }),
+      latitude: precise ? input.latitude : null,
+      longitude: precise ? input.longitude : null,
+      ...(label !== undefined && { locationLabel: label }),
     },
     include: journeyInclude,
   });
@@ -370,7 +391,7 @@ const endActiveJourneysFor = async (memberId: string) => {
 const requireOwnJourney = async (userId: string, journeyId: string) => {
   const journey = await prisma.familyJourney.findUnique({
     where: { id: journeyId },
-    include: { member: { select: { userId: true } } },
+    include: { member: { select: { userId: true, sharingLevel: true } } },
   });
   if (!journey) throw new HttpError(404, "Journey not found");
   if (journey.member.userId !== userId) {

@@ -69,10 +69,18 @@ model User {
 
   // ALRT+ entitlement, synced from RevenueCat via POST /api/revenuecat/webhook.
   // RevenueCat app_user_id == User.id (the app calls Purchases.logIn(user.id)).
+  //
+  // V1 access model (master spec 28 Sep 2026): these four fields are now a
+  // compatibility mirror of the PERSONAL Individual entitlement only
+  // (plus = Individual or its trial is active). The canonical record is
+  // StoreSubscription; group sponsorship never sets User.plan.
   plan          FamilyPlan @default(free)
   planExpiresAt DateTime? // Entitlement expiry reported by RevenueCat
   planStore     String? // APP_STORE | PLAY_STORE | STRIPE | PROMOTIONAL
   planUpdatedAt DateTime? // Last webhook event applied
+
+  storeSubscriptions StoreSubscription[]
+  sponsorshipIntents SponsorshipIntent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -709,9 +717,130 @@ enum FamilyRole {
   owner
   adult
   child
-  // A guest receives the circle's alerts and can say "I'm Safe", but never
-  // requests anyone's location and consumes no seat on the owner's plan.
+  // Legacy V0 role, retired for V1 (master spec §5): no new guests are
+  // created. Existing guest rows are ordinary people for capacity counting
+  // and keep their old permissions. Nothing converts them automatically;
+  // scripts/inspect_guest_members.ts reports what exists (read-only) so
+  // the owner can decide per group.
   guest
+}
+
+// ---------------------------------------------------------------------------
+// V1 access model (master spec 28 Sep 2026)
+// ---------------------------------------------------------------------------
+
+// What a store product sells. Individual is personal; the other three
+// sponsor ONE nominated group of up to 6 / 20 / 50 people.
+enum PlanTier {
+  individual
+  family
+  group20
+  group50
+}
+
+enum StoreSubscriptionStatus {
+  active // paid or trial period running, renewing
+  cancelled // renewal turned off; access continues until expiresAt
+  billingIssue // payment failing; access continues until expiresAt/grace
+  expired // access ended
+  refunded // revoked by the store
+}
+
+// How a group's connection features are paid for.
+//  individual: each active participant needs their own Individual/trial.
+//  sponsored:  one payer's Family/Group purchase covers the group. Stays
+//              sponsored (paused) after the purchase lapses until someone
+//              explicitly switches it back; never switched silently.
+enum CircleFundingMode {
+  individual
+  sponsored
+}
+
+// One store subscription (one original transaction), created and updated
+// only by the verified RevenueCat webhook. `userId` is the subscriber /
+// payer (RevenueCat app_user_id == User.id).
+model StoreSubscription {
+  id                    String                  @id @default(uuid())
+  userId                String
+  tier                  PlanTier
+  productId             String
+  store                 String?
+  environment           String? // SANDBOX | PRODUCTION
+  originalTransactionId String                  @unique
+  status                StoreSubscriptionStatus
+  periodType            String? // TRIAL | INTRO | NORMAL
+  expiresAt             DateTime?
+  gracePeriodExpiresAt  DateTime?
+  // Timestamp of the newest event applied; older events never overwrite.
+  lastEventAt           DateTime
+
+  // Sponsorship binding. Set once, to the group chosen before checkout
+  // (SponsorshipIntent) or by the payer afterwards; never re-pointed.
+  boundCircleId String?
+  boundAt       DateTime?
+
+  // A change the payer requested (PRODUCT_CHANGE) that the store has not
+  // confirmed in effect yet. The active tier above never moves early.
+  pendingProductId   String?
+  pendingTier        PlanTier?
+  pendingRequestedAt DateTime?
+  // When the pending tier takes effect, if the store has said so (for
+  // example a renewal collected in advance of its period). Until then the
+  // current tier and capacity stay in force.
+  pendingEffectiveAt DateTime?
+  tierChangedAt      DateTime?
+  changeConfirmedVia String? // webhook | revenuecat_api
+  // Set when a newer store transaction took over this plan's group (an
+  // upgrade or a confirmed change issued as a new transaction). Kept as
+  // history; never counted for coverage again.
+  supersededAt   DateTime?
+  supersededById String?
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boundCircle FamilyCircle? @relation(fields: [boundCircleId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([boundCircleId])
+}
+
+// "I am about to buy <tier> for <circle>": created by the payer right before
+// the store sheet opens, after the capacity check. The webhook binds the
+// resulting purchase to it; the circle can never be changed afterwards.
+model SponsorshipIntent {
+  id          String   @id @default(uuid())
+  payerUserId String
+  circleId    String
+  tier        PlanTier
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  subscriptionId String? @unique
+  // Upgrade: the live subscription for this group that the purchase
+  // replaces (same payer). Null for a first plan.
+  replacesSubscriptionId String?
+
+  payer  User         @relation(fields: [payerUserId], references: [id], onDelete: Cascade)
+  circle FamilyCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([payerUserId, consumedAt])
+  @@index([replacesSubscriptionId])
+}
+
+// Durable receipt of every authenticated RevenueCat event: duplicates are
+// acknowledged without being re-applied.
+model RevenueCatWebhookEvent {
+  id          String    @id // RevenueCat event.id
+  type        String
+  appUserId   String?
+  productId   String?
+  eventAt     DateTime?
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  result      String?
 }
 
 // How much of a member's location the rest of the circle can see.
@@ -769,6 +898,11 @@ model FamilyCircle {
   journeysSnapPointsOnly   Boolean @default(true) // journeys never live-track
 
   createdById String
+
+  // V1 access model: who pays for this group's connection features.
+  fundingMode  CircleFundingMode   @default(individual)
+  sponsorships StoreSubscription[]
+  sponsorshipIntents SponsorshipIntent[]
 
   // Host-transition (7-day grace period): set when the circle is left
   // without a host — the owner's entitlement lapsed, they left, or their
@@ -900,8 +1034,8 @@ model FamilyInvite {
   isRevoked Boolean   @default(false)
   expiresAt DateTime?
 
-  // Anyone joining with this code becomes a guest: alerts and "I'm Safe"
-  // only, no location requests, and no seat consumed on the owner's plan.
+  // Legacy V0: a guest code. V1 refuses these codes at join; the flag is
+  // kept so old codes can be recognised and refused.
   isGuestInvite Boolean @default(false)
 
   circle FamilyCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
@@ -925,12 +1059,16 @@ model FamilyLocationPing {
   heading      Float? // degrees
   batteryLevel Int?
   isMoving     Boolean @default(false)
+  // Set for points shared into one SOS's live trail: those points belong
+  // to that SOS's audience only and never update the group's snapshot.
+  sosEventId   String?
 
   member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
   @@index([memberId, createdAt])
+  @@index([sosEventId])
 }
 
 model FamilyCheckIn {
@@ -1097,7 +1235,26 @@ model FamilySosEvent {
   longitude     Float?
   locationLabel String?
 
+  // The sender's explicit location choice for THIS SOS (none | once |
+  // live) and the precision it is delivered at (precise | approximate:
+  // suburb label only, coordinates never stored). When the point was
+  // actually fixed on the phone, so a last-known point is never shown as
+  // "now". Null on events from before these fields.
+  locationMode       String?
+  locationPrecision  String?
+  locationCapturedAt DateTime?
+  locationAccuracyM  Float?
+
   resolvedAt DateTime?
+
+  // The authorised audience, fixed when the SOS starts (master spec §12).
+  // Only the sender and these users may read, respond to or be told about
+  // this SOS. Events from before this field have audienceRestricted=false
+  // and keep the old whole-circle audience.
+  recipientUserIds   String[] @default([])
+  audienceRestricted Boolean  @default(false)
+  // Who actually ended it (the sender, or the host where allowed).
+  endedByMemberId    String?
 
   circle    FamilyCircle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
   member    FamilyMember        @relation(fields: [memberId], references: [id], onDelete: Cascade)

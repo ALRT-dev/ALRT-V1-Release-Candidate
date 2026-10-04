@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:hazard_app/features/subscription/utils/alrt_plus_limits.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/invite_code.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_invite_scanner_sheet.dart';
-import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
-import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_upsell_sheet.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Joining is free and unlimited: any number of groups, any time, with a
-/// code. Only HOSTING is an ALRT+ moment, so only the create path may show
-/// the paywall. Both entry points (the empty state and the group switcher)
-/// go through here so the rules can't drift apart.
+/// Joining and creating groups are free and unlimited (V1 access model).
+/// Both entry points (the empty state and the group switcher) go through
+/// here so the rules can't drift apart.
 ///
 /// Two equal ways in: type the code, or tap "Scan a code" and point the
 /// camera at the host's invite QR (which encodes the bare code - see
@@ -34,9 +28,9 @@ Future<void> showJoinGroupSheet(
     title: 'Join with a code',
     subtitle:
         'Got an invite code? Type it, or scan the host\'s QR. Joining '
-        'is always free, and you can be in as many Family circles as you like.',
+        'is always free, and you can be in as many groups as you like.',
     hint: 'e.g. ALRT-7F3K2',
-    buttonLabel: 'Join circle',
+    buttonLabel: 'Join group',
     capitalization: TextCapitalization.characters,
     scanButtonLabel: 'Scan a code',
     onScan: showFamilyInviteScannerSheet,
@@ -66,7 +60,7 @@ Future<void> showJoinGroupSheet(
 /// A valid code goes through the exact same join() as a typed one; nothing
 /// is sent for a cancelled or unreadable scan. Errors from the server
 /// (unknown / revoked / expired / used-up code, full circle, already a
-/// member, no free seats) surface through the screens' existing
+/// member, group plan full) surface through the screens' existing
 /// joinCircleState listeners, word for word.
 Future<void> scanInviteQrAndJoin(
   final BuildContext context,
@@ -84,84 +78,25 @@ Future<void> showCreateGroupSheet(
 ) {
   return _showFieldSheet(
     context: context,
-    title: 'Name your Family circle',
+    title: 'Name your group',
     subtitle:
-        'e.g. Nixon Family, Netball Mums, Site Crew. Your ALRT+ seats '
-        'can be split across up to 4 Family circles you host.',
-    hint: 'Circle name',
-    buttonLabel: 'Create a Family circle',
+        'e.g. Nixon Family, Netball Mums, Site Crew. Creating a group is '
+        'free. For check-ins, SOS and Journey, each person needs ALRT +, '
+        'or you can cover the whole group with a Family or Group plan.',
+    hint: 'Group name',
+    buttonLabel: 'Create group',
     onSubmit: (final name) {
       if (name.isEmpty) {
-        context.showErrorToast(message: 'Give your Family circle a name first');
+        context.showErrorToast(message: 'Give your group a name first');
         return false;
       }
-      _createGated(context, ref, name);
+      // V1 access model: creating a group is free and there is no limit on
+      // how many groups anyone hosts or joins. Paid access is checked on
+      // the connection features themselves, per person, by the backend.
+      ref.read(providerOfFamily.notifier).createCircle(name: name);
       return true;
     },
   );
-}
-
-/// Owned-circle cap, matching MAX_OWNED_CIRCLES in family.service.ts —
-/// applies regardless of plan tier, since there is only one paid tier.
-const _kMaxOwnedCircles = kAlrtPlusMaxOwnedCircles;
-
-/// ALRT+ moment: hosting needs a subscription (with its free trial). The
-/// paywall shows only here, never on a join. A friendly sheet explains why
-/// before the paywall opens; a second sheet catches the owned-circle cap,
-/// which a subscription cannot raise, so it never suggests upgrading.
-Future<void> _createGated(
-  final BuildContext context,
-  final WidgetRef ref,
-  final String name,
-) async {
-  final isPlus = await ref.read(providerOfAlrtPlus.future);
-  if (!context.mounted) return;
-  if (!isPlus) {
-    final subscribed = await showAlrtPlusUpsellSheet(
-      context: context,
-      icon: AlrtPlusUpsellIcons.hostCircle,
-      iconGradient: familyUpsellGradient,
-      title: 'Hosting needs ALRT+',
-      message:
-          'Joining a Family circle is always free. Hosting your own — '
-          'invites, seats, circle settings — needs ALRT+.',
-      primaryLabel: 'See ALRT+',
-      onPrimary: (ctx) => ctx
-          .push<bool>(
-            AlrtPlusPaywallScreen.route,
-            extra: const AlrtPlusPaywallArgs(
-              reason: AlrtPlusPaywallReason.hostCircle,
-            ),
-          )
-          .then((value) => value ?? false),
-    );
-    if (!subscribed || !context.mounted) return;
-  }
-
-  final ownedCircles = ref
-      .read(providerOfFamily)
-      .circles
-      .where((circle) => circle.isOwned)
-      .length;
-  if (ownedCircles >= _kMaxOwnedCircles) {
-    if (!context.mounted) return;
-    await showAlrtPlusUpsellSheet(
-      context: context,
-      icon: AlrtPlusUpsellIcons.circleLimit,
-      iconGradient: familyUpsellGradient,
-      title: 'You already host $_kMaxOwnedCircles circles',
-      message:
-          'ALRT+ covers up to $_kMaxOwnedCircles Family circles per host. '
-          'To create a new one, delete or hand off hosting of an '
-          'existing circle first.',
-      primaryLabel: 'Manage your circles',
-      onPrimary: (ctx) =>
-          ctx.push<bool>('/family-switch-group').then((_) => false),
-    );
-    return;
-  }
-
-  ref.read(providerOfFamily.notifier).createCircle(name: name);
 }
 
 /// A rounded single-field input sheet; keyboard-safe. Returns via [onSubmit],

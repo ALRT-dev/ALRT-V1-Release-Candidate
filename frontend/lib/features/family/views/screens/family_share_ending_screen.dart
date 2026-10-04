@@ -172,7 +172,7 @@ class _FamilyShareEndingScreenState
                     ),
                     onPressed: _isBusy ? null : _handleStopNow,
                     child: Text(
-                      "Stop now, I'm safe",
+                      'Stop sharing now',
                       style: TextStyle(
                         fontSize: 14.spMin,
                         fontWeight: FontWeight.w800,

@@ -54,7 +54,21 @@ class _FakeGateway implements PurchasesGateway {
   Future<Offering?> currentOffering() async => null;
 
   @override
-  Future<Set<String>> purchase(Package package) => throw UnimplementedError();
+  Future<Offerings?> offerings() async => null;
+
+  @override
+  Future<Map<String, IntroEligibilityStatus>> introEligibility(
+    List<String> productIdentifiers,
+  ) async => const {};
+
+  @override
+  Future<Set<String>> purchase(
+    Package package, {
+    String? replacingProductId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CustomerInfo> restorePurchases() => throw UnimplementedError();
 }
 
 void main() {
@@ -64,7 +78,7 @@ void main() {
   test(
     'an existing subscriber is entitled without any purchase prompt',
     () async {
-      final g = _FakeGateway()..entitlementsByUser['amy'] = {'plus'};
+      final g = _FakeGateway()..entitlementsByUser['amy'] = {'individual'};
       final rc = service(g);
       await rc.ensureConfigured('amy');
       expect(await rc.isPlus(forUserId: 'amy'), isTrue);
@@ -82,7 +96,7 @@ void main() {
   test(
     'switching accounts signs the SDK in as the new id before reading',
     () async {
-      final g = _FakeGateway()..entitlementsByUser['amy'] = {'plus'};
+      final g = _FakeGateway()..entitlementsByUser['amy'] = {'individual'};
       final rc = service(g);
       await rc.ensureConfigured('amy');
       expect(await rc.isPlus(forUserId: 'amy'), isTrue);
@@ -99,7 +113,7 @@ void main() {
   test(
     "a failed switch (offline) reads nothing, never the previous account's entitlement",
     () async {
-      final g = _FakeGateway()..entitlementsByUser['amy'] = {'plus'};
+      final g = _FakeGateway()..entitlementsByUser['amy'] = {'individual'};
       final rc = service(g);
       await rc.ensureConfigured('amy');
       g.logInFails = true;
@@ -118,7 +132,7 @@ void main() {
   test(
     'a read for a different account than the one signed in answers no',
     () async {
-      final g = _FakeGateway()..entitlementsByUser['amy'] = {'plus'};
+      final g = _FakeGateway()..entitlementsByUser['amy'] = {'individual'};
       final rc = service(g);
       await rc.ensureConfigured('amy');
       expect(await rc.isPlus(forUserId: 'bob'), isFalse);
@@ -128,7 +142,7 @@ void main() {
   test(
     'signing out of ALRT signs the store identity out; a new sign-in starts clean',
     () async {
-      final g = _FakeGateway()..entitlementsByUser['amy'] = {'plus'};
+      final g = _FakeGateway()..entitlementsByUser['amy'] = {'individual'};
       final rc = service(g);
       await rc.ensureConfigured('amy');
       await rc.signOut();
@@ -141,7 +155,7 @@ void main() {
   );
 
   test('restore returns the entitlement the store account holds', () async {
-    final g = _FakeGateway()..entitlementsByUser['amy'] = {'plus'};
+    final g = _FakeGateway()..entitlementsByUser['amy'] = {'individual'};
     final rc = service(g);
     await rc.ensureConfigured('amy');
     expect(await rc.restore(), isTrue);
@@ -150,7 +164,7 @@ void main() {
   test(
     'without a billing key nothing is configured and nothing is entitled',
     () async {
-      final g = _FakeGateway()..entitlementsByUser['amy'] = {'plus'};
+      final g = _FakeGateway()..entitlementsByUser['amy'] = {'individual'};
       final rc = RevenueCatService(gateway: g, apiKeyOverride: '');
       await rc.ensureConfigured('amy');
       expect(rc.hasKeys, isFalse);

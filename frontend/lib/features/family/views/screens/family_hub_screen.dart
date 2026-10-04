@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -38,7 +39,6 @@ import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
-import 'package:hazard_app/features/subscription/views/widgets/billing_issue_banner.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -91,7 +91,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             _headerBuilder(circle),
-            const SliverToBoxAdapter(child: BillingIssueBanner()),
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.all(20.spMin),
@@ -461,73 +460,33 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// Hosts: "2 of 8 seats used" with a bar and "you and guests are free";
-  /// everyone else: who hosts, and that joining costs them nothing.
-  /// Billing rules are unchanged; this only shows them.
+  /// Who hosts and how many people are here, plus the live pill. Billing
+  /// mechanics (plans, capacity, who pays) live on My plans, not on the
+  /// connection screen (master spec §11).
   Widget _seatLineBuilder(final FamilyCircle circle) {
     final isOwner = circle.me?.role == FamilyRole.owner;
-    if (!isOwner) {
-      final host = circle.members
-          .where((m) => m.role == FamilyRole.owner)
-          .map((m) => m.name)
-          .firstOrNull;
-      return Row(
-        children: [
-          Expanded(
-            child: Text(
-              hostedByLine(host),
-              style: TextStyle(
-                fontSize: 12.5.spMin,
-                color: Colors.white.withValues(alpha: 0.85),
-              ),
-            ),
-          ),
-          _livePillBuilder(),
-        ],
-      );
-    }
-    final circles = ref.watch(providerOfFamily.select((s) => s.circles));
-    final used = seatsUsedAcrossHostedCircles(circles).clamp(0, kFamilyMaxSeats);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final host = circle.members
+        .where((m) => m.role == FamilyRole.owner)
+        .map((m) => m.name)
+        .firstOrNull;
+    final line = isOwner
+        ? '${peopleLine(circle.members.length)} · you host'
+        : '${peopleLine(circle.members.length)} · ${hostedByLine(host)}';
+    return Row(
       children: [
-        Row(
-          children: [
-            Icon(LucideIcons.armchair, size: 14.spMin, color: Colors.white),
-            SizedBox(width: 6.spMin),
-            Expanded(
-              child: Text(
-                '$used of $kFamilyMaxSeats seats used',
-                style: TextStyle(
-                  fontSize: 12.5.spMin,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            Text(
-              'you and guests are free',
-              style: TextStyle(
-                fontSize: 11.5.spMin,
-                color: Colors.white.withValues(alpha: 0.8),
-              ),
-            ),
-            SizedBox(width: 8.spMin),
-            _livePillBuilder(),
-          ],
-        ),
-        SizedBox(height: 7.spMin),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(3.spMin),
-          child: SizedBox(
-            height: 5.spMin,
-            child: LinearProgressIndicator(
-              value: used / kFamilyMaxSeats,
-              backgroundColor: Colors.white.withValues(alpha: 0.22),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFFE879F9)),
+        Icon(LucideIcons.users, size: 14.spMin, color: Colors.white),
+        SizedBox(width: 6.spMin),
+        Expanded(
+          child: Text(
+            line,
+            style: TextStyle(
+              fontSize: 12.5.spMin,
+              fontWeight: FontWeight.w700,
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
         ),
+        _livePillBuilder(),
       ],
     );
   }
@@ -692,9 +651,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               ),
               SizedBox(height: 4.spMin),
               Text(
-                'The new host covers every invited member here with their '
-                'own ALRT+ seats (guests and the host are free). You stay on '
-                'as a member.',
+                'The new host runs invites and group settings. How the group '
+                'is paid for does not change, and you stay on as a member.',
                 style: TextStyle(
                   fontSize: 12.5.spMin,
                   color: AppColors.mediumGrey,
@@ -770,10 +728,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       context: context,
       title: 'Hand the circle to ${picked.name}?',
       description:
-          'Everyone here moves onto ${picked.name}\'s ALRT+ seats and '
-          'everything keeps working. You stay on as a member and use one of '
-          'their seats; ${picked.name} uses none as the new host — only '
-          'they can hand hosting back.',
+          '${picked.name} will run invites and group settings. Everything '
+          'keeps working, how the group is paid for does not change, and '
+          'you stay on as a member. Only ${picked.name} can hand hosting '
+          'back.',
       confirmButtonText: 'Transfer hosting',
       onPressedConfirm: (_, __) => confirmed = true,
     );
@@ -1997,7 +1955,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     ) {
       ref.listen(providerOfFamily.select(selector), (prev, next) {
         if (prev != next && next.isError && next.error != null) {
-          context.showErrorToast(message: next.error!.message);
+          // A coded refusal (plan ended, ALRT + needed...) gets its own
+          // sheet; anything else stays a toast.
+          showFamilyActionError(context, ref, next.error!);
         }
       });
     }

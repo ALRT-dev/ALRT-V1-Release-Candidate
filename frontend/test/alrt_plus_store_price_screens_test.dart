@@ -2,69 +2,84 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/providers/states/family_provider_state.dart';
-import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
+import 'package:hazard_app/features/subscription/models/access_models.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
+import 'package:hazard_app/features/subscription/utils/paywall_copy.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
-import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_benefits.dart';
 import 'package:hazard_app/others/app_theme.dart';
-import 'package:purchases_flutter/purchases_flutter.dart' show StoreProduct;
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 import 'support/fake_store_gateway.dart';
 
-/// Build 48: every price a person sees is the store's amount and currency,
-/// consistent across the plan cards, the line under the purchase button
-/// and the subscription summary. A fake store answers like Google Play
-/// does for an Australian account (AUD formatted with a bare "$").
-class _LiveOn extends LiveConnectionNotifier {
-  @override
-  bool build() => true;
-}
+/// V1 purchase screens (master spec 28 Sep 2026, §6, §8, §9): exact
+/// wording, store prices only, a trial only for an eligible Individual
+/// account, and "Continue with ALRT Free", Restore, Terms and Privacy
+/// always reachable. A fake store answers like Google Play for an
+/// Australian account (AUD formatted with a bare "$").
 
-Future<RevenueCatService> _service({bool entitled = false}) async {
+Future<RevenueCatService> _service({
+  bool trial = false,
+  IntroEligibilityStatus eligibility =
+      IntroEligibilityStatus.introEligibilityStatusEligible,
+}) async {
   final service = RevenueCatService(
-    gateway: FakeStoreGateway(entitled: entitled),
+    gateway: FakeStoreGateway(trial: trial, eligibility: eligibility),
     apiKeyOverride: 'test-key',
   );
   await service.ensureConfigured('u-test');
   return service;
 }
 
+GroupAccess _group({
+  String id = 'g1',
+  String name = 'Nixon Family',
+  String role = 'owner',
+  int people = 3,
+  GroupSponsorship? sponsorship,
+  GroupFundingMode mode = GroupFundingMode.individual,
+}) => GroupAccess(
+  circleId: id,
+  name: name,
+  role: role,
+  fundingMode: mode,
+  peopleCount: people,
+  capacity: sponsorship == null ? null : sponsoredCapacity(sponsorship.tier),
+  sponsorship: sponsorship,
+  connectionAllowed: true,
+  connectionReason: 'individual',
+);
+
+AccessSummary _access({
+  PersonalAccess personal = PersonalAccess.free,
+  List<GroupAccess> groups = const [],
+}) => AccessSummary(
+  billingEnabled: true,
+  personal: personal,
+  groups: groups,
+  unboundSponsorships: const [],
+  computedAt: DateTime(2026, 9, 28),
+);
+
 Widget _app(
   Widget home,
   RevenueCatService service, {
-  bool plus = false,
-  double textScale = 1.0,
+  AccessSummary? access,
 }) => ProviderScope(
   overrides: [
     providerOfRevenueCat.overrideWithValue(service),
-    providerOfFamily.overrideWith(
-      (ref) => FamilyProvider(
-        ref: ref,
-        bootstrap: false,
-        state: const FamilyProviderState(hasLoadedOnce: true),
-      ),
+    providerOfAccess.overrideWith((ref) async => access ?? _access()),
+    providerOfAlrtPlus.overrideWith(
+      (ref) async => access?.personal.isIndividual ?? false,
     ),
-    providerOfLiveConnection.overrideWith(_LiveOn.new),
     providerOfAlrtPlusBillingIssue.overrideWith((ref) async => false),
-    providerOfAlrtPlus.overrideWith((ref) async => plus),
     providerOfExpiredAlrtPlus.overrideWith((ref) async => null),
   ],
   child: ScreenUtilInit(
     designSize: const Size(375, 812),
-    builder: (_, __) => MaterialApp(
-      theme: AppTheme.lightPalette,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(textScale),
-        ),
-        child: child!,
-      ),
-      home: home,
-    ),
+    builder: (_, __) => MaterialApp(theme: AppTheme.lightPalette, home: home),
   ),
 );
 
@@ -72,8 +87,7 @@ void main() {
   setUp(() {
     final view =
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
-    // A narrow phone (360 logical px wide, like many Android phones), tall
-    // enough that the paywall's list builds every row without scrolling.
+    // A narrow phone, tall enough that every row builds without scrolling.
     view.physicalSize = const Size(1080, 7500);
     view.devicePixelRatio = 3.0;
   });
@@ -84,92 +98,263 @@ void main() {
     view.resetDevicePixelRatio();
   });
 
-  testWidgets(
-    'paywall cards, currency line and the line under the button all quote the store',
-    (tester) async {
+  group('Individual paywall', () {
+    testWidgets('eligible Android account: exact copy, store price, trial CTA '
+        'and disclosure', (tester) async {
+      final service = await _service(trial: true);
+      await tester.pumpWidget(
+        _app(const AlrtPlusPaywallScreen(isAndroidOverride: true), service),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kIndividualHeading), findsOneWidget);
+      expect(find.text(kIndividualIntro), findsOneWidget);
+      for (final b in kIndividualBenefits) {
+        expect(find.text(b), findsOneWidget);
+      }
+      expect(find.text(kIndividualUnlimitedGroupsLine), findsOneWidget);
+      expect(find.text(kIndividualScope), findsOneWidget);
+      expect(find.text(r'$5.99 AUD/month'), findsOneWidget);
+      expect(find.text('Start 1 month free'), findsOneWidget);
+      expect(
+        find.text(
+          r'Eligible subscribers only. $0.00 today, then $5.99 AUD/month '
+          'after 1 month. Renews automatically unless cancelled. Manage or '
+          'cancel in your Google Play account.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(kContinueFree), findsOneWidget);
+      expect(find.text('Restore purchases'), findsOneWidget);
+      expect(find.text('Terms'), findsOneWidget);
+      expect(find.text('Privacy'), findsOneWidget);
+    });
+
+    testWidgets('iPhone account the store says is ineligible: no trial '
+        'wording anywhere', (tester) async {
+      final service = await _service(
+        trial: true,
+        eligibility: IntroEligibilityStatus.introEligibilityStatusIneligible,
+      );
+      await tester.pumpWidget(
+        _app(const AlrtPlusPaywallScreen(isAndroidOverride: false), service),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(r'Subscribe for $5.99 AUD/month'), findsOneWidget);
+      expect(find.textContaining('month free'), findsNothing);
+      expect(find.textContaining('free trial'), findsNothing);
+      expect(find.textContaining('Eligible subscribers'), findsNothing);
+      expect(
+        find.textContaining('Manage or cancel in your App Store account.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('unknown iPhone eligibility never claims a trial', (
+      tester,
+    ) async {
+      final service = await _service(
+        trial: true,
+        eligibility: IntroEligibilityStatus.introEligibilityStatusUnknown,
+      );
+      await tester.pumpWidget(
+        _app(const AlrtPlusPaywallScreen(isAndroidOverride: false), service),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Start 1 month free'), findsNothing);
+      expect(find.text(r'Subscribe for $5.99 AUD/month'), findsOneWidget);
+    });
+
+    testWidgets('the saved-place reason says what Free includes', (
+      tester,
+    ) async {
       final service = await _service();
-      await tester.pumpWidget(_app(const AlrtPlusPaywallScreen(), service));
+      await tester.pumpWidget(
+        _app(
+          const AlrtPlusPaywallScreen(
+            isAndroidOverride: true,
+            args: AlrtPlusPaywallArgs(
+              reason: AlrtPlusPaywallReason.savedLocation,
+            ),
+          ),
+          service,
+        ),
+      );
       await tester.pumpAndSettle();
-
-      // Cards: the store's formatted amount, then "AUD · per <period>".
-      expect(find.text(r'$9.99'), findsOneWidget);
-      expect(find.text(r'$99.99'), findsOneWidget);
-      expect(find.text('AUD · per month'), findsOneWidget);
-      expect(find.text('AUD · per year'), findsOneWidget);
-      // The annual package is preselected; the line under the button
-      // names its price with the currency, not a hard-coded figure.
-      expect(find.textContaining(r'$99.99 AUD a year'), findsOneWidget);
-      expect(find.textContaining('US\$'), findsNothing);
-      expect(find.textContaining('Preview prices'), findsNothing);
-      // The free promise, then Free and ALRT+ side by side, then who
-      // ALRT+ is for.
-      expect(find.textContaining(kAlrtPlusFreeLead), findsOneWidget);
-      expect(find.text('FREE'), findsOneWidget);
-      expect(find.text('ALRT+'), findsOneWidget);
-      expect(find.text('Unlimited'), findsOneWidget);
-      expect(find.text(kAlrtPlusHostLine), findsOneWidget);
-
-      await tester.tap(find.text(r'$9.99'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining(r'$9.99 AUD a month'), findsOneWidget);
-      expect(find.textContaining(r'$99.99 AUD a year'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets('the paywall holds together at large text', (tester) async {
-    final service = await _service();
-    await tester.pumpWidget(
-      _app(const AlrtPlusPaywallScreen(), service, textScale: 1.4),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('AUD · per month'), findsOneWidget);
-    expect(tester.takeException(), isNull, reason: 'no overflow at 1.4x');
+      expect(
+        find.text(
+          'ALRT Free includes one saved place as well as where you are.',
+        ),
+        findsOneWidget,
+      );
+    });
   });
 
-  testWidgets(
-    'the manage screen quotes the same store price for the active plan',
-    (tester) async {
-      final service = await _service(entitled: true);
+  group('Cover a group', () {
+    testWidgets('lists hosted groups, three plans with store prices, no '
+        'trial, and scope for the chosen group', (tester) async {
+      final service = await _service();
       await tester.pumpWidget(
-        _app(const AlrtPlusManageScreen(), service, plus: true),
+        _app(
+          const AlrtPlusGroupPaywallScreen(isAndroidOverride: true),
+          service,
+          access: _access(
+            groups: [
+              _group(),
+              _group(id: 'g2', name: 'Weekend Crew', role: 'adult'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kGroupHeading), findsOneWidget);
+      expect(find.text(kGroupExplanation), findsOneWidget);
+      expect(find.text('GROUP YOU WILL COVER'), findsOneWidget);
+      expect(find.text('Nixon Family'), findsOneWidget);
+      // Only groups you host can be covered.
+      expect(find.text('Weekend Crew'), findsNothing);
+      // The hero badge names the selected plan too.
+      expect(find.text('ALRT + Family'), findsWidgets);
+      expect(find.text('ALRT + Group 20'), findsOneWidget);
+      expect(find.text('ALRT + Group 50'), findsOneWidget);
+      expect(find.text(r'$15.99 AUD/month'), findsOneWidget);
+      expect(find.text(r'$24.99 AUD/month'), findsOneWidget);
+      expect(find.text(r'$49.99 AUD/month'), findsOneWidget);
+      expect(find.text(r'Subscribe for $15.99 AUD/month'), findsOneWidget);
+      expect(
+        find.text(groupScope(capacity: 6, group: 'Nixon Family')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          r'$15.99 AUD charged on confirmation. No free trial. Renews '
+          'monthly unless cancelled. Manage or cancel in your Google Play '
+          'account.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(kSosSafetyStatement), findsOneWidget);
+      expect(find.text(kContinueFree), findsOneWidget);
+
+      await tester.tap(find.text('ALRT + Group 20'));
+      await tester.pumpAndSettle();
+      expect(find.text(r'Subscribe for $24.99 AUD/month'), findsOneWidget);
+      expect(
+        find.text(groupScope(capacity: 20, group: 'Nixon Family')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a plan smaller than the group is marked too small', (
+      tester,
+    ) async {
+      final service = await _service();
+      await tester.pumpWidget(
+        _app(
+          const AlrtPlusGroupPaywallScreen(isAndroidOverride: true),
+          service,
+          access: _access(groups: [_group(people: 7)]),
+        ),
       );
       await tester.pumpAndSettle();
       expect(
-        find.textContaining(r'Monthly · $9.99 AUD a month'),
+        find.text('Up to 6 people · too small for this group'),
         findsOneWidget,
       );
-      expect(find.textContaining('renews 9 Oct 2026'), findsOneWidget);
-    },
-  );
+    });
 
-  testWidgets(
-    'the manage screen shows no price when the store cannot say',
-    (tester) async {
-      final gateway = FakeStoreGateway(entitled: true);
-      final service = RevenueCatService(
-        gateway: _NoProducts(gateway),
-        apiKeyOverride: 'test-key',
-      );
-      await service.ensureConfigured('u-test');
+    testWidgets('someone who hosts no group is told to create one first', (
+      tester,
+    ) async {
+      final service = await _service();
       await tester.pumpWidget(
-        _app(const AlrtPlusManageScreen(), service, plus: true),
+        _app(
+          const AlrtPlusGroupPaywallScreen(isAndroidOverride: true),
+          service,
+          access: _access(groups: [_group(role: 'adult')]),
+        ),
       );
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('Monthly · renews 9 Oct 2026'),
+        find.textContaining('You need to host a group before you can cover'),
         findsOneWidget,
       );
-      expect(find.textContaining('AUD'), findsNothing);
-      expect(find.textContaining(r'$9.99'), findsNothing);
-    },
-  );
-}
+    });
+  });
 
-/// The fake store, but its product lookup fails (offline store).
-class _NoProducts extends FakeStoreGateway {
-  _NoProducts(FakeStoreGateway base) : super(entitled: base.entitled);
-  @override
-  Future<List<StoreProduct>> products(List<String> identifiers) =>
-      throw StateError('store unreachable');
+  group('My plans', () {
+    testWidgets('a Family payer without Individual is personally on ALRT '
+        'Free, and sees the group they cover', (tester) async {
+      final service = await _service();
+      await tester.pumpWidget(
+        _app(
+          const AlrtPlusManageScreen(),
+          service,
+          access: _access(
+            groups: [
+              _group(
+                mode: GroupFundingMode.sponsored,
+                sponsorship: const GroupSponsorship(
+                  tier: PlanTier.family,
+                  live: true,
+                  status: 'active',
+                  expiresAt: null,
+                  coveredBy: 'Sarah',
+                  youPay: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('ALRT Free'), findsOneWidget);
+      expect(find.text('ALRT + Family'), findsOneWidget);
+      expect(
+        find.text('Covers everyone here · 3 of 6 people'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Paid by you.'), findsOneWidget);
+      expect(find.text('Upgrade to ALRT + Group 20'), findsOneWidget);
+      expect(find.textContaining('seat'), findsNothing);
+    });
+
+    testWidgets('a covered member sees who covers the group, never that '
+        'they own a plan', (tester) async {
+      final service = await _service();
+      await tester.pumpWidget(
+        _app(
+          const AlrtPlusManageScreen(),
+          service,
+          access: _access(
+            groups: [
+              _group(
+                role: 'adult',
+                mode: GroupFundingMode.sponsored,
+                sponsorship: const GroupSponsorship(
+                  tier: PlanTier.group20,
+                  live: true,
+                  status: 'active',
+                  expiresAt: null,
+                  coveredBy: 'Sarah',
+                  youPay: false,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('ALRT Free'), findsOneWidget);
+      expect(
+        find.text('Covers everyone here · 3 of 20 people'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Paid by Sarah.'), findsOneWidget);
+      // Only the payer can upgrade.
+      expect(find.textContaining('Upgrade to'), findsNothing);
+    });
+  });
 }

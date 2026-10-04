@@ -14,8 +14,10 @@ import mapsRouter from "./maps.route.js";
 import familyRouter from "./family.route.js";
 import guideRouter from "./guide.route.js";
 import publicRouter from "./public.route.js";
+import accessRouter from "./access.route.js";
 
 export {
+  accessRouter,
   authRouter,
   userRouter,
   hazardRouter,

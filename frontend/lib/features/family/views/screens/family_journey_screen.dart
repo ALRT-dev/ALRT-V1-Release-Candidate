@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -254,7 +255,7 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
           14.hSizedBox,
           _noteBuilder(
             'A banner stays visible the whole time you are sharing, and '
-            'Stop is one tap. Not an ALRT+ upsell.',
+            'Stop is one tap, any time.',
           ),
           18.hSizedBox,
           _startButtonBuilder(),
@@ -298,14 +299,14 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
         8.hSizedBox,
         Text(
           snapPointsOnly
-              ? 'This circle is set to snap points only: your circle sees '
-                    'your departure, a point about every 10 minutes, and '
+              ? 'This group uses periodic updates only: they see your '
+                    'departure, an update about every 10 minutes, and '
                     'your arrival.'
               : _isLive
                   ? 'Your position updates as you move, until the journey '
                         'stops. It still ends at the time you picked.'
-                  : 'Snap points: your departure, a point about every 10 '
-                        'minutes, and your arrival. Nothing in between.',
+                  : 'Periodic updates: your departure, an update about every '
+                        '10 minutes, and your arrival. Nothing in between.',
           style: TextStyle(
             fontSize: 11.spMin,
             height: 1.6,
@@ -470,8 +471,8 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
                 Text(
                   journey.isLive
                       ? 'Live updates as you move.'
-                      : 'Snap points: departure, about every 10 minutes, '
-                            'and arrival.',
+                      : 'Periodic updates: departure, about every 10 '
+                            'minutes, and arrival.',
                   style: TextStyle(
                     fontSize: 12.5.spMin,
                     fontWeight: FontWeight.w600,
@@ -648,17 +649,25 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
     if (!mounted) return;
     if (ok) {
       context.showSuccessToast(message: 'Sharing your journey');
-    } else {
-      context.showErrorToast(message: 'Could not start sharing');
+      return;
     }
+    final error = ref.read(providerOfFamily).journeyState.error;
+    error != null
+        ? await showFamilyActionError(context, ref, error)
+        : context.showErrorToast(message: 'Could not start sharing');
   }
 
   Future<void> _handleExtend() async {
     final ok = await ref.read(providerOfFamily.notifier).extendJourney();
     if (!mounted) return;
-    context.showSuccessToast(
-      message: ok ? 'Sharing extended' : 'Could not extend',
-    );
+    if (ok) {
+      context.showSuccessToast(message: 'Sharing extended');
+      return;
+    }
+    final error = ref.read(providerOfFamily).journeyState.error;
+    error != null
+        ? await showFamilyActionError(context, ref, error)
+        : context.showErrorToast(message: 'Could not extend');
   }
 
   Future<void> _handleStop() async {

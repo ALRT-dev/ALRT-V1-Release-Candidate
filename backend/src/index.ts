@@ -24,6 +24,7 @@ import {
   familyRouter,
   guideRouter,
   publicRouter,
+  accessRouter,
 } from "./routes/index.js";
 import { errorHandlerMiddleware } from "./middlewares/error_handler.middleware.js";
 import { unknownRouteMiddleware } from "./middlewares/unknown_route.middleware.js";
@@ -115,6 +116,7 @@ app.use("/api/support", supportRouter);
 app.use("/api/maps", mapsRouter);
 app.use("/api/guides", guideRouter);
 app.use("/api/family", familyRouter);
+app.use("/api/access", accessRouter);
 // Previously mounted twice under two casings of the same import
 // (revenuecatRouter/revenueCatRouter, both ./revenuecat.route.js) - the
 // earlier mount sat before apiGeneralRateLimiter (which applies as

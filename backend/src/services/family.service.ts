@@ -9,6 +9,7 @@ import type {
   FamilySosResponseType,
 } from "@prisma/client";
 import prisma from "../utils/prisma_client.util.js";
+import { convertLatLngToAddress } from "./google_map.service.js";
 import { HttpError } from "../models/http_error.js";
 import { SocketEvent } from "../models/socket_event_types.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
@@ -23,10 +24,13 @@ import {
   touchActivityStreak,
 } from "./xp_ledger.service.js";
 import {
-  billingEnabled,
+  assertConnectionAccess,
+  assertSponsoredCapacity,
   defaultCirclePlan,
-  hasActiveSubscription,
-  isCirclePaused,
+  getConnectionAccess,
+  getGroupCoverage,
+  type ConnectionAccess,
+  type GroupCoverage,
 } from "./entitlement.service.js";
 
 const INVITE_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I/L
@@ -197,6 +201,34 @@ export const getCircleUserIds = async (
   return members.map((m) => m.userId);
 };
 
+/** Socket + push to an explicit set of users (e.g. one SOS's audience). */
+const notifyUsers = async ({
+  userIds,
+  title,
+  body,
+  data,
+  type,
+  socketEvent,
+  socketData,
+}: {
+  userIds: string[];
+  title: string;
+  body: string;
+  data: object;
+  type: PushNotificationType;
+  socketEvent: SocketEvent;
+  socketData: any;
+}) => {
+  const unique = [...new Set(userIds)];
+  if (unique.length === 0) return;
+  sendSocketEventToUsers({ userIds: unique, event: socketEvent, data: socketData });
+  await Promise.allSettled(
+    unique.map((userId) =>
+      sendPushNotificationToUser({ userId, title, body, data, type }),
+    ),
+  );
+};
+
 export const notifyCircle = async ({
   circleId,
   excludeMemberIds = [],
@@ -275,17 +307,15 @@ export const notifyCircle = async ({
 // Circle CRUD
 // ---------------------------------------------------------------------------
 
-// Seat model (locked spec, seat rule confirmed by the product owner
-// 2026-09-03): ALRT+ grants 8 seats spendable across up to 4 owned
-// circles. A seat is an INVITED, non-guest (person, circle) pair in a
-// circle you own — the same person in two of your circles uses two seats.
-// The paying host's own membership never uses a seat; guests never use a
-// seat; joining someone else's circle consumes nothing of your own.
-const MAX_OWNED_CIRCLES = 4;
-const MAX_SEATS_TOTAL = 8;
-
-/** Roles that hold a seat on the owner's plan: invited full members only. */
-const SEAT_FREE_ROLES: FamilyRole[] = ["owner", "guest"];
+// V1 access model (master spec 28 Sep 2026) replaces the old seat model
+// (8 seats across 4 owned circles, guests free). There is no commercial
+// limit on how many groups anyone joins or hosts, and no seats: a
+// sponsored group counts every person in it against its own 6/20/50
+// capacity (entitlement.service), and an individually funded group needs
+// each active participant to hold Individual. What remains here is a
+// purely technical anti-abuse ceiling on groups one account can create,
+// set far above any real use so it never acts as a plan limit.
+const MAX_CREATED_CIRCLES_ABUSE_CEILING = 100;
 
 /** An ask to check in is "open" for this long; after that it is history. */
 const CHECK_IN_ASK_FRESH_MS = 24 * 60 * 60 * 1000;
@@ -299,25 +329,15 @@ const CHECK_IN_ASK_FRESH_MS = 24 * 60 * 60 * 1000;
  */
 const HOST_TRANSITION_GRACE_DAYS = 7;
 
-/**
- * Seats used across every circle the user owns: one per invited full
- * member (adult/child). The host is the payer, so their own membership in
- * each circle they own is free; guests are free too (they receive alerts
- * and can say "I'm Safe" but hold no seat), so inviting one never costs
- * the owner anything.
- */
-export const countOwnedSeats = async (ownerUserId: string) => {
-  return prisma.familyMember.count({
-    where: {
-      circle: { createdById: ownerUserId },
-      role: { notIn: SEAT_FREE_ROLES },
-    },
-  });
-};
-
 export interface HostTransitionState {
-  /** True once the circle has no current, entitled host. */
+  /** True once the circle has no current host. */
   active: boolean;
+  /**
+   * Only `owner_left` is produced now. `entitlement_lapsed` stays in the
+   * type for old app builds: under the V1 model a host's personal plan
+   * lapsing pauses only that person's own paid participation, never the
+   * group or its hosting.
+   */
   reason: "owner_left" | "entitlement_lapsed" | null;
   /** When the transition began, for display — null when not active. */
   startedAt: Date | null;
@@ -343,18 +363,10 @@ const NOT_IN_TRANSITION: HostTransitionState = {
  * trusted from a stale flag — this is the single source of truth used by
  * the hub banner, take-over eligibility, and the host-admin lock.
  *
- * Two ways a circle ends up here:
- *  - `owner_left`: the owner left the circle or their account was deleted.
- *    `hostTransitionStartedAt`/`hostTransitionHostName` on the circle record
- *    are the only trace of this, since the owner's FamilyMember row is gone.
- *  - `entitlement_lapsed`: an owner row still exists, but `isCirclePaused`
- *    is true. The start time is that host's `planUpdatedAt` (the moment
- *    the RevenueCat webhook recorded the lapse), not a stored field, so
- *    this case needs no explicit "start" call anywhere.
- *
- * Unreachable in the `entitlement_lapsed` shape until BILLING_ENABLED is
- * on, same as `isCirclePaused` itself — but `owner_left` applies regardless
- * of billing, since leaving or deleting an account is not a billing event.
+ * A circle ends up here when the owner left the circle or their account
+ * was deleted. `hostTransitionStartedAt`/`hostTransitionHostName` on the
+ * circle record are the only trace of this, since the owner's FamilyMember
+ * row is gone. Billing never starts a host transition (V1 access model).
  */
 export const getHostTransitionState = async (
   circleId: string,
@@ -370,7 +382,7 @@ export const getHostTransitionState = async (
 
   const host = await prisma.familyMember.findFirst({
     where: { circleId, role: "owner" },
-    include: { user: { select: { id: true, name: true, planUpdatedAt: true } } },
+    select: { id: true },
   });
 
   let startedAt: Date | null = null;
@@ -381,10 +393,6 @@ export const getHostTransitionState = async (
     startedAt = circle.hostTransitionStartedAt;
     reason = "owner_left";
     hostName = circle.hostTransitionHostName;
-  } else if (host && (await isCirclePaused(host.userId))) {
-    startedAt = host.user.planUpdatedAt ?? new Date();
-    reason = "entitlement_lapsed";
-    hostName = host.nickname || host.user.name || null;
   } else if (!host) {
     // No owner row and no recorded start time — data predating this
     // feature, or a direct DB edit. Anchor to now rather than leaving the
@@ -431,33 +439,28 @@ export const assertHostAdminNotLocked = async (circleId: string) => {
 };
 
 export const createCircle = async (userId: string, name: string) => {
-  // Hosting needs ALRT+ once billing ships; joining stays free. The app
-  // shows the paywall first, and this is the backstop behind it.
-  if (billingEnabled() && !(await hasActiveSubscription(userId))) {
-    throw new HttpError(
-      403,
-      "Hosting a group needs ALRT+. Joining a group is always free.",
-    );
-  }
-
-  const ownedCircles = await prisma.familyCircle.count({
+  // V1: creating a group is free. A group starts individually funded (each
+  // participant needs Individual for the connection features) and its host
+  // can later cover it with a Family/Group plan, which needs the group to
+  // exist first so it can be chosen before checkout. The paid gates are on
+  // the features themselves (assertConnectionAccess), per person.
+  const createdCircles = await prisma.familyCircle.count({
     where: { createdById: userId },
   });
-  if (ownedCircles >= MAX_OWNED_CIRCLES) {
+  if (createdCircles >= MAX_CREATED_CIRCLES_ABUSE_CEILING) {
     throw new HttpError(
-      400,
-      `You can own up to ${MAX_OWNED_CIRCLES} circles on your plan`,
+      429,
+      "You've created a lot of groups. Remove one you no longer use, or contact support.",
     );
   }
 
-  // The creator's own membership costs nothing (the host never uses a
-  // seat), so a full seat ledger is no bar to opening another circle -
-  // only the 4-circle cap above is. Seats are checked when people JOIN.
   return prisma.familyCircle.create({
     data: {
       name,
       createdById: userId,
-      // `plus` while billing is off, `free` once it is switched on.
+      fundingMode: "individual",
+      // Legacy field kept for old app builds; access is computed by
+      // entitlement.service, never read from here.
       plan: defaultCirclePlan(),
       maxMembers: DEFAULT_MAX_MEMBERS,
       members: {
@@ -478,20 +481,14 @@ export const listCirclesForUser = async (userId: string) => {
     },
   });
 
-  // Only invited full members hold a seat - never the host, never a
-  // guest - so the ledger counts exactly those. Counted separately because
-  // a filtered _count would replace the headcount.
-  const seatCounts = await prisma.familyMember.groupBy({
-    by: ["circleId"],
-    where: {
-      circleId: { in: memberships.map((m) => m.circleId) },
-      role: { notIn: SEAT_FREE_ROLES },
-    },
-    _count: { _all: true },
-  });
-  const seatCountByCircle = new Map(
-    seatCounts.map((row) => [row.circleId, row._count._all]),
-  );
+  // V1 access model: per-group funding, capacity and this person's own
+  // connection access, so the hub can say who covers which group.
+  const coverageByCircle = new Map<string, GroupCoverage>();
+  const accessByCircle = new Map<string, ConnectionAccess>();
+  for (const m of memberships) {
+    coverageByCircle.set(m.circleId, await getGroupCoverage(m.circleId));
+    accessByCircle.set(m.circleId, await getConnectionAccess(userId, m.circleId));
+  }
 
   // One-glance state per group, so the hub can say "2 of 3 · waiting on
   // Amy" or "SOS live · Tom" for groups that are NOT open, not just the
@@ -528,7 +525,7 @@ export const listCirclesForUser = async (userId: string) => {
       select: { circleId: true, createdAt: true, targetMemberIds: true },
     }),
     prisma.familySosEvent.findMany({
-      where: { circleId: { in: circleIds }, status: "active" },
+      where: { circleId: { in: circleIds }, status: "active", ...sosVisibleTo(userId) },
       select: {
         id: true,
         circleId: true,
@@ -594,7 +591,12 @@ export const listCirclesForUser = async (userId: string) => {
     role: membership.role,
     myMemberId: membership.id,
     memberCount: membership.circle._count.members,
-    seatCount: seatCountByCircle.get(membership.circleId) ?? 0,
+    // Deprecated (old seat model): now simply the number of people.
+    seatCount: membership.circle._count.members,
+    fundingMode: coverageByCircle.get(membership.circleId)?.fundingMode ?? "individual",
+    capacity: coverageByCircle.get(membership.circleId)?.capacity ?? null,
+    sponsorshipLive: coverageByCircle.get(membership.circleId)?.sponsorship?.live ?? false,
+    connectionAccess: accessByCircle.get(membership.circleId) ?? null,
     isOwned: membership.circle.createdById === userId,
     joinedAt: membership.createdAt,
     checkedInCount: checkedInByCircle.get(membership.circleId) ?? 0,
@@ -625,7 +627,7 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
         orderBy: { createdAt: "asc" },
       },
       sosEvents: {
-        where: { status: "active" },
+        where: { status: "active", ...sosVisibleTo(userId) },
         include: {
           member: { select: memberIdentitySelect },
           responses: { include: { member: { select: memberIdentitySelect } } },
@@ -849,51 +851,20 @@ export const leaveCircle = async (
 // ---------------------------------------------------------------------------
 
 /**
- * Why a member cannot take over the circle, or `null` when they can.
- * §29: eligible = an adult member, active subscription, and enough free
- * seats — the same administrative bar as creating or revoking invites,
- * which children and guests already can't do. Taking over means every
- * seat-holding membership of this circle moves onto the candidate's own
- * 8-seat / 4-circle pool. [seatsNeeded] is the number of seats the circle
- * will occupy on the candidate's plan once they host it: every non-guest
- * member except the candidate themself (the new host is free; the old
- * host becomes an adult and now holds a seat).
+ * Why a member cannot host the circle, or `null` when they can.
+ *
+ * V1: hosting is an administrative role, not a paid one. Paying for a
+ * sponsored group stays with the purchase's payer whoever hosts (payer
+ * departure and reassignment are open decision R02), and an individually
+ * funded group needs no one to pay for the group as a whole. So the only
+ * bar left is the role: children and legacy guests don't host.
  */
-const seatsNeededForNewHost = (
-  members: { id: string; role: FamilyRole }[],
-  newHostMemberId: string,
-): number =>
-  members.filter(
-    (member) => member.role !== "guest" && member.id !== newHostMemberId,
-  ).length;
-
 const transferIneligibilityReason = async (
-  candidateUserId: string,
-  seatsNeeded: number,
+  _candidateUserId: string,
   candidateRole?: FamilyRole,
 ): Promise<string | null> => {
-  // A guest holds no seat and never hosts; they stay listed but greyed (§29).
-  if (candidateRole === "guest") {
-    return "Guests can't host";
-  }
-  // Hosting is the circle's most administrative role — same bar as
-  // creating/revoking invites, which children already can't do.
-  if (candidateRole === "child") {
-    return "Children can't host";
-  }
-  if (!(await hasActiveSubscription(candidateUserId))) {
-    return "Needs an active ALRT+ subscription";
-  }
-  const ownedCircles = await prisma.familyCircle.count({
-    where: { createdById: candidateUserId },
-  });
-  if (ownedCircles >= MAX_OWNED_CIRCLES) {
-    return `Already owns ${MAX_OWNED_CIRCLES} circles`;
-  }
-  const seatsFree = MAX_SEATS_TOTAL - (await countOwnedSeats(candidateUserId));
-  if (seatsFree < seatsNeeded) {
-    return `Needs ${seatsNeeded} free seats, has ${seatsFree}`;
-  }
+  if (candidateRole === "guest") return "Guests can't host";
+  if (candidateRole === "child") return "Children can't host";
   return null;
 };
 
@@ -922,11 +893,7 @@ export const listTransferCandidates = async (
   const candidates = [];
   for (const member of members) {
     if (member.id === membership.id) continue;
-    const reason = await transferIneligibilityReason(
-      member.userId,
-      seatsNeededForNewHost(members, member.id),
-      member.role,
-    );
+    const reason = await transferIneligibilityReason(member.userId, member.role);
     candidates.push({
       memberId: member.id,
       name: member.nickname || member.user.name || "Family member",
@@ -965,12 +932,8 @@ export const transferOwnership = async (
     throw new HttpError(404, "Member not found in this circle");
   }
 
-  const memberCount = await prisma.familyMember.count({
-    where: { circleId: membership.circleId },
-  });
   const reason = await transferIneligibilityReason(
     newOwnerMember.userId,
-    memberCount,
     newOwnerMember.role,
   );
   if (reason) {
@@ -1046,15 +1009,7 @@ export const takeOverCircle = async (userId: string, circleId?: string) => {
     where: { circleId: membership.circleId, role: "owner" },
   });
 
-  const members = await prisma.familyMember.findMany({
-    where: { circleId: membership.circleId },
-    select: { id: true, role: true },
-  });
-  const reason = await transferIneligibilityReason(
-    userId,
-    seatsNeededForNewHost(members, membership.id),
-    membership.role,
-  );
+  const reason = await transferIneligibilityReason(userId, membership.role);
   if (reason) {
     throw new HttpError(400, `You can't take over this circle: ${reason}`);
   }
@@ -1063,7 +1018,6 @@ export const takeOverCircle = async (userId: string, circleId?: string) => {
     where: { id: membership.circleId },
     data: {
       createdById: userId,
-      plan: "plus",
       hostTransitionStartedAt: null,
       hostTransitionHostName: null,
     },
@@ -1217,6 +1171,11 @@ export const updateOwnMember = async (
     data,
   });
 
+  // A narrower setting applies to a running SOS at once (provisional, R12).
+  if (input.sharingLevel !== undefined && input.sharingLevel !== "precise") {
+    await narrowRunningSosFor(membership.id, input.sharingLevel);
+  }
+
   await notifyCircle({
     circleId: membership.circleId,
     socketEvent: SocketEvent.familyCircleUpdate,
@@ -1331,9 +1290,15 @@ export const createInvite = async (
   if (membership.role === "guest") {
     throw new HttpError(403, "Guests cannot create invites");
   }
-  // Locked commercial rule (product owner 2026-08-07): every non-guest
-  // joiner consumes one of the OWNER's ALRT+ seats, so only the owner —
-  // the person paying for those seats — may invite people in.
+  // V1 retires consumer guests: no new guest invites.
+  if (isGuestInvite) {
+    throw new HttpError(
+      400,
+      "Guest invites are no longer available. Invite them as a member instead.",
+    );
+  }
+  // Only the host invites. In a sponsored group each joiner uses part of
+  // the plan's capacity, which is checked again when they join.
   if (membership.role !== "owner") {
     throw new HttpError(
       403,
@@ -1425,42 +1390,62 @@ export const joinCircleWithCode = async (userId: string, code: string) => {
     );
   }
 
-  if (invite.circle.members.length >= invite.circle.maxMembers) {
-    throw new HttpError(400, "This family circle is full");
+  // V1 retires consumer guests: an old guest code is not redeemed as a
+  // full member (that would widen what it grants) nor as a guest.
+  if (invite.isGuestInvite) {
+    throw new HttpError(
+      404,
+      "This guest invite is no longer valid. Ask the host for a new invite.",
+    );
   }
 
   if (invite.circle.members.some((m) => m.userId === userId)) {
     throw new HttpError(400, "You are already a member of this circle");
   }
 
-  // Joining consumes a seat on the OWNER's plan, never the joiner's. Guests
-  // hold no seat, so a guest invite skips the check entirely.
-  if (!invite.isGuestInvite) {
-    const ownerSeatsUsed = await countOwnedSeats(invite.circle.createdById);
-    if (ownerSeatsUsed >= MAX_SEATS_TOTAL) {
-      throw new HttpError(
-        400,
-        "This circle's plan has no free seats. Ask the owner to free one up.",
-      );
+  // Joining is free for the joiner. Everything that depends on the current
+  // headcount runs inside one transaction holding the circle row lock, so
+  // two simultaneous joins (or a replayed invite) can't both take the last
+  // place. The (circleId, userId) unique index stops duplicate rows.
+  const member = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "FamilyCircle" WHERE id = ${invite.circleId} FOR UPDATE`;
+    const fresh = await tx.familyInvite.findUnique({ where: { id: invite.id } });
+    if (!fresh || fresh.isRevoked || fresh.useCount >= fresh.maxUses) {
+      throw new HttpError(404, "This invite code can no longer be used. Ask the host for a new one.");
     }
-  }
-
-  const [member] = await prisma.$transaction([
-    prisma.familyMember.create({
-      data: {
-        circleId: invite.circleId,
-        userId,
-        role: invite.isGuestInvite ? "guest" : "adult",
-      },
+    // Sponsored groups: every person counts against the plan's 6/20/50,
+    // which replaces the record's own size limit (a Group 50 must reach
+    // 50). Other groups keep the technical maxMembers limit; their real
+    // capacity is open decision R01.
+    const coverage = await assertSponsoredCapacity(invite.circleId, 1, tx);
+    const sponsoredCapacity =
+      coverage.fundingMode === "sponsored" ? coverage.capacity : null;
+    if (sponsoredCapacity === null) {
+      const people = await tx.familyMember.count({ where: { circleId: invite.circleId } });
+      if (people >= invite.circle.maxMembers) {
+        throw new HttpError(400, "This group is full", "GROUP_FULL", {
+          capacity: invite.circle.maxMembers,
+          sponsored: false,
+        });
+      }
+    }
+    const already = await tx.familyMember.findFirst({
+      where: { circleId: invite.circleId, userId },
+      select: { id: true },
+    });
+    if (already) throw new HttpError(400, "You are already a member of this circle");
+    const created = await tx.familyMember.create({
+      data: { circleId: invite.circleId, userId, role: "adult" },
       include: {
         user: { select: { id: true, name: true, profilePictureUrl: true } },
       },
-    }),
-    prisma.familyInvite.update({
+    });
+    await tx.familyInvite.update({
       where: { id: invite.id },
       data: { useCount: { increment: 1 } },
-    }),
-  ]);
+    });
+    return created;
+  });
 
   await notifyCircle({
     circleId: invite.circleId,
@@ -1496,6 +1481,9 @@ export const createCheckIn = async (
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
+  await assertConnectionAccess(userId, membership.circleId);
+  // "safe" is the stored value of an ordinary check-in (enum kept for
+  // existing rows); it is never shown or pushed as a claim of safety.
   const status: FamilyCheckInStatus = input.status ?? "safe";
 
   // An alert link is only stored when it names a real, published alert
@@ -1550,18 +1538,20 @@ export const createCheckIn = async (
 
   const memberName =
     checkIn.member.nickname || checkIn.member.user.name || "A family member";
-  const isSafe = status === "safe";
+  const isHelp = status === "needsHelp";
 
+  // A check-in is factual: it says the person checked in, never that they
+  // are safe (master spec §11).
   await notifyCircle({
     circleId: membership.circleId,
     excludeMemberIds: [membership.id],
-    title: isSafe ? `${memberName} is safe` : `${memberName} needs help`,
+    title: isHelp ? `${memberName} needs help` : `${memberName} checked in`,
     // The member's own message stays inside the app: a lock-screen
     // preview is not the place for free text about someone's situation.
-    body: isSafe ? "Checked in safe" : "Reach out now. Open ALRT for details.",
+    body: isHelp ? "Reach out now. Open ALRT for details." : "Open ALRT to see their check-in.",
     data: { circleId: membership.circleId, checkInId: checkIn.id },
     type: PushNotificationType.familyCheckIn,
-    urgent: !isSafe,
+    urgent: isHelp,
     socketEvent: SocketEvent.familyCheckIn,
     socketData: checkIn,
   });
@@ -1579,6 +1569,8 @@ export const requestCheckIn = async (
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
+  // "Check on" is a covered connection feature (V1 access model).
+  await assertConnectionAccess(userId, membership.circleId);
 
   // Targets: only real members of THIS circle, never the requester
   // (nobody is waiting on themself), de-duplicated. An ask that names
@@ -1641,8 +1633,8 @@ export const requestCheckIn = async (
     body:
       input.message ||
       (isTargeted
-        ? `${requesterName} asked you to check in. Are you safe?`
-        : `${requesterName} asked everyone to check in. Are you safe?`),
+        ? `${requesterName} asked you to check in.`
+        : `${requesterName} asked everyone to check in.`),
     data: { circleId: membership.circleId, requestId: request.id },
     type: PushNotificationType.familyCheckInRequest,
     socketEvent: SocketEvent.familyCheckInRequest,
@@ -1734,7 +1726,7 @@ const withHazardTitles = async <T extends { hazardId: string | null }>(
 };
 
 // ---------------------------------------------------------------------------
-// Scheduled check-ins — a member's daily "are you safe?" routine.
+// Scheduled check-ins: a member's Daily reminder to check in (never a check-in).
 // timeOfDay is Australia/Brisbane local time (fixed UTC+10, no DST in QLD).
 // ---------------------------------------------------------------------------
 
@@ -1840,24 +1832,16 @@ export const fireDueScheduledCheckIns = async () => {
     include: scheduledCheckInInclude,
   });
 
-  // Paused circles skip their scheduled check-ins without consuming them:
-  // lastFiredAt stays untouched, so the schedule resumes the day the
-  // circle does. Hosts are resolved once per circle, not per schedule.
-  const pausedByCircle = new Map<string, boolean>();
-  const circleIds = [...new Set(due.map((s) => s.circleId))];
-  for (const circleId of circleIds) {
-    const host = await prisma.familyMember.findFirst({
-      where: { circleId, role: "owner" },
-      select: { userId: true },
-    });
-    pausedByCircle.set(
-      circleId,
-      host ? await isCirclePaused(host.userId) : false,
-    );
-  }
-
   for (const schedule of due) {
-    if (pausedByCircle.get(schedule.circleId) === true) continue;
+    // Paused access skips the schedule without consuming it: lastFiredAt
+    // stays untouched, so it resumes the day access does. Access is per
+    // person per group (V1): a sponsored group whose plan lapsed, or an
+    // individually funded group where this person has no Individual.
+    const access = await getConnectionAccess(
+      schedule.member.userId,
+      schedule.circleId,
+    );
+    if (!access.allowed) continue;
 
     // Claim the schedule first so a crash mid-fire can't double-notify.
     await prisma.familyScheduledCheckIn.update({
@@ -1866,27 +1850,20 @@ export const fireDueScheduledCheckIns = async () => {
     });
 
     try {
-      if (schedule.mode === "automatic") {
-        // Post a "safe" check-in on the member's behalf, reusing the normal
-        // check-in flow (circle notification, streak touch, lastCheckInAt).
-        // Scoped to the schedule's own circle, not the member's first one.
-        await createCheckIn(
-          schedule.member.userId,
-          { status: "safe", message: "Scheduled check-in" },
-          schedule.circleId,
-        );
-      } else {
-        await sendPushNotificationToUser({
-          userId: schedule.member.userId,
-          title: "Daily check-in",
-          body: "Time for your check-in — let your family know you're safe.",
-          data: {
-            circleId: schedule.circleId,
-            scheduledCheckInId: schedule.id,
-          },
-          type: PushNotificationType.familyScheduledCheckInPrompt,
-        });
-      }
+      // Daily is a reminder in both modes (master spec §11, R07 open).
+      // A scheduled job never posts a check-in for someone: that would
+      // tell the group something the person never did. The "automatic"
+      // mode value is kept for existing rows until R07 is decided.
+      await sendPushNotificationToUser({
+        userId: schedule.member.userId,
+        title: "Daily check-in",
+        body: "It's time for your check-in. Open ALRT to check in.",
+        data: {
+          circleId: schedule.circleId,
+          scheduledCheckInId: schedule.id,
+        },
+        type: PushNotificationType.familyScheduledCheckInPrompt,
+      });
     } catch (error) {
       console.error(
         `Scheduled check-in ${schedule.id} failed to fire:`,
@@ -2070,9 +2047,28 @@ const MAX_SOS_LISTS = 4;
 
 export const listSosLists = async (userId: string) => {
   await requireMembership(userId);
-  return prisma.familySosList.findMany({
+  const lists = await prisma.familySosList.findMany({
     where: { ownerUserId: userId },
     orderBy: { createdAt: "asc" },
+  });
+  // Each list says which ONE group it belongs to (V1: one group per SOS
+  // list), or null with the reason when it needs repair: people from
+  // several groups (made before this rule), or nobody left on it.
+  const members = await prisma.familyMember.findMany({
+    where: { id: { in: [...new Set(lists.flatMap((l) => l.memberIds))] } },
+    select: { id: true, circleId: true },
+  });
+  const circleOf = new Map(members.map((m) => [m.id, m.circleId]));
+  return lists.map((list) => {
+    const circles = new Set(
+      list.memberIds.map((id) => circleOf.get(id)).filter((c): c is string => !!c),
+    );
+    return {
+      ...list,
+      circleId: circles.size === 1 ? [...circles][0]! : null,
+      needsRepair: circles.size > 1 ? "multipleGroups" : circles.size === 0 ? "empty" : null,
+      missingCount: list.memberIds.filter((id) => !circleOf.has(id)).length,
+    };
   });
 };
 
@@ -2094,6 +2090,19 @@ const assertSosListMembersValid = async (
   });
   if (validCount !== memberIds.length) {
     throw new HttpError(400, "Every recipient must be in one of your circles");
+  }
+  // V1 rule, the same one triggerSos enforces: one group per SOS list.
+  const circles = await prisma.familyMember.findMany({
+    where: { id: { in: memberIds } },
+    select: { circleId: true },
+    distinct: ["circleId"],
+  });
+  if (circles.length > 1) {
+    throw new HttpError(
+      422,
+      "An SOS list can only name people in one group. Choose one group.",
+      "SOS_PRESET_OTHER_GROUP",
+    );
   }
 };
 
@@ -2219,6 +2228,183 @@ export const pruneMembersFromSosLists = async (
 // SOS
 // ---------------------------------------------------------------------------
 
+export type SosLocationMode = "none" | "once" | "live";
+export type SosLocationPrecision = "precise" | "approximate";
+
+/** How old a point may be and still be shown as where someone is now. */
+export const SOS_POINT_MAX_AGE_MS = 2 * 60 * 1000;
+
+export interface SosAudienceCandidate {
+  memberId: string;
+  userId: string;
+  name: string;
+  eligible: boolean;
+  /** Why not eligible: needs ALRT + here, or the group's plan ended. */
+  reason: "needs_individual" | "sponsorship_paused" | null;
+  /** No device registered: the SOS reaches them in the app, but a push
+   * notification may not arrive. Eligibility is never a delivery promise. */
+  deliveryLimited: boolean;
+}
+
+export interface SosAudience {
+  preset: {
+    id: string;
+    name: string;
+    /** ok | outdated (names people who have left) | otherGroup | empty */
+    state: "ok" | "outdated" | "otherGroup" | "empty";
+    removedCount: number;
+    otherGroupCount: number;
+  } | null;
+  candidates: SosAudienceCandidate[];
+}
+
+/**
+ * Who an SOS from [membership] would reach right now, with or without a
+ * preset. The SAME function backs the preview and the send, so what the
+ * sender is shown is what the send enforces, re-checked at activation.
+ */
+export const resolveSosAudience = async (
+  userId: string,
+  membership: { id: string; circleId: string },
+  sosListId?: string,
+): Promise<SosAudience> => {
+  let preset: SosAudience["preset"] = null;
+  let memberIds: string[] | null = null;
+  if (sosListId) {
+    const list = await prisma.familySosList.findFirst({
+      where: { id: sosListId, ownerUserId: userId },
+    });
+    if (!list) throw new HttpError(404, "SOS list not found");
+    const listed = await prisma.familyMember.findMany({
+      where: { id: { in: list.memberIds } },
+      select: { id: true, circleId: true },
+    });
+    const otherGroupCount = listed.filter((m) => m.circleId !== membership.circleId).length;
+    const removedCount = list.memberIds.length - listed.length;
+    const inGroup = listed.filter((m) => m.circleId === membership.circleId && m.id !== membership.id);
+    preset = {
+      id: list.id,
+      name: list.name,
+      state:
+        otherGroupCount > 0
+          ? "otherGroup"
+          : inGroup.length === 0
+            ? "empty"
+            : removedCount > 0
+              ? "outdated"
+              : "ok",
+      removedCount,
+      otherGroupCount,
+    };
+    memberIds = inGroup.map((m) => m.id);
+  }
+  const members = await prisma.familyMember.findMany({
+    where: {
+      circleId: membership.circleId,
+      id: memberIds ? { in: memberIds } : { not: membership.id },
+    },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      userId: true,
+      nickname: true,
+      user: { select: { name: true, _count: { select: { devices: true } } } },
+    },
+  });
+  const candidates: SosAudienceCandidate[] = [];
+  const seen = new Set<string>();
+  for (const m of members) {
+    if (m.userId === userId || seen.has(m.userId)) continue;
+    seen.add(m.userId);
+    const access = await getConnectionAccess(m.userId, membership.circleId);
+    candidates.push({
+      memberId: m.id,
+      userId: m.userId,
+      name: m.nickname || m.user.name || "Family member",
+      eligible: access.allowed,
+      reason: access.allowed
+        ? null
+        : access.reason === "sponsorship_paused"
+          ? "sponsorship_paused"
+          : "needs_individual",
+      deliveryLimited: m.user._count.devices === 0,
+    });
+  }
+  return { preset, candidates };
+};
+
+/**
+ * GET /api/family/sos/preview: exactly who an SOS would reach now, and
+ * why anyone is left out. Never a delivery promise.
+ */
+export const previewSos = async (
+  userId: string,
+  sosListId?: string,
+  circleId?: string,
+) => {
+  const membership = await requireMembership(userId, circleId);
+  const access = await getConnectionAccess(userId, membership.circleId);
+  const audience = await resolveSosAudience(userId, membership, sosListId);
+  const eligible = audience.candidates.filter((c) => c.eligible);
+  const state = !access.allowed
+    ? "senderNoAccess"
+    : audience.preset && (audience.preset.state === "otherGroup" || audience.preset.state === "empty")
+      ? "presetInvalid"
+      : audience.candidates.length === 0
+        ? "noPeople"
+        : eligible.length === 0
+          ? "noneEligible"
+          : "ok";
+  return {
+    circleId: membership.circleId,
+    state,
+    senderAccess: access,
+    preset: audience.preset,
+    recipients: eligible.map((c) => ({
+      memberId: c.memberId,
+      name: c.name,
+      deliveryLimited: c.deliveryLimited,
+    })),
+    excluded: audience.candidates
+      .filter((c) => !c.eligible)
+      .map((c) => ({ memberId: c.memberId, name: c.name, reason: c.reason })),
+  };
+};
+
+/** The explicit per-SOS location mode, from the new field or the old pair. */
+export const sosLocationModeOf = (input: {
+  locationMode?: SosLocationMode | undefined;
+  isLive: boolean;
+  latitude?: number | undefined;
+  longitude?: number | undefined;
+}): SosLocationMode => {
+  if (input.locationMode) return input.locationMode;
+  if (input.isLive) return "live";
+  return input.latitude !== undefined && input.longitude !== undefined ? "once" : "none";
+};
+
+/**
+ * The precision an SOS starts with. The sender's explicit choice on the SOS
+ * screen wins: SOS consent is its own consent, separate from ordinary group
+ * sharing, and "Off" for ordinary sharing is not turned into "approximate"
+ * here. Only when no choice was sent (older apps) is it taken from the
+ * group setting: exact for "precise", suburb only otherwise.
+ */
+export const sosPrecisionFor = (
+  sharingLevel: string,
+  requested?: SosLocationPrecision,
+): SosLocationPrecision =>
+  requested ?? (sharingLevel === "precise" ? "precise" : "approximate");
+
+const suburbLabelFor = async (latitude: number, longitude: number) => {
+  try {
+    const address = await convertLatLngToAddress(latitude, longitude);
+    return address ? toSuburbLabel(address) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const triggerSos = async (
   userId: string,
   input: {
@@ -2226,57 +2412,110 @@ export const triggerSos = async (
     longitude?: number | undefined;
     sosListId?: string | undefined;
     isLive: boolean;
+    locationMode?: SosLocationMode | undefined;
+    locationPrecision?: SosLocationPrecision | undefined;
+    locationCapturedAt?: string | undefined;
+    locationAccuracyM?: number | undefined;
   },
   circleId?: string,
 ) => {
+  // Everything is validated BEFORE any location write, notification or
+  // broadcast: membership, access, the preset, at least one eligible
+  // recipient and the location choice. A refused SOS changes nothing and
+  // tells nobody; its point is never stored.
   const membership = await requireMembership(userId, circleId);
+  // SOS is a covered connection feature (V1 access model), per person and
+  // per group. Ending an SOS is never gated.
+  await assertConnectionAccess(userId, membership.circleId);
 
-  // §28: with a preset, the SOS reaches exactly that list's members
-  // (which may span the sender's circles). Without one, the whole
-  // selected circle — the implicit "Everyone" default.
-  let listRecipientUserIds: string[] | null = null;
-  let listName: string | null = null;
-  if (input.sosListId) {
-    const sosList = await prisma.familySosList.findFirst({
-      where: { id: input.sosListId, ownerUserId: userId },
-    });
-    if (!sosList) throw new HttpError(404, "SOS list not found");
-    const recipients = await prisma.familyMember.findMany({
-      where: { id: { in: sosList.memberIds } },
-      select: { userId: true },
-    });
-    listRecipientUserIds = [
-      ...new Set(
-        recipients.map((r) => r.userId).filter((id) => id !== userId),
-      ),
-    ];
-    listName = sosList.name;
-    if (listRecipientUserIds.length === 0) {
-      throw new HttpError(
-        400,
-        `"${sosList.name}" has no reachable members. Update the list first.`,
-      );
+  const mode = sosLocationModeOf(input);
+  if ((mode === "live") !== input.isLive) {
+    throw new HttpError(400, "isLive must match the location choice");
+  }
+  const hasPoint =
+    mode !== "none" && input.latitude !== undefined && input.longitude !== undefined;
+  let capturedAt: Date | null = null;
+  if (hasPoint && input.locationCapturedAt) {
+    capturedAt = new Date(input.locationCapturedAt);
+    if (Number.isNaN(capturedAt.getTime()) || capturedAt.getTime() > Date.now() + 60_000) {
+      throw new HttpError(400, "The location time is not valid");
     }
   }
 
-  // A member has at most one active SOS: cancel any previous one first.
+  // The audience (master spec §12): with a preset, exactly that list's
+  // members; without one, everyone else in this group. Either way only
+  // people in THIS group who currently have access here. A preset naming
+  // someone in another group is refused, not widened or quietly trimmed.
+  const audience = await resolveSosAudience(userId, membership, input.sosListId);
+  const listName = audience.preset?.name ?? null;
+  if (audience.preset?.state === "otherGroup") {
+    throw new HttpError(
+      422,
+      `"${audience.preset.name}" includes people from another group. Edit it so it only names people in this group, or send to everyone in this group.`,
+      "SOS_PRESET_OTHER_GROUP",
+      { sosListId: audience.preset.id },
+    );
+  }
+  const recipientUserIds = audience.candidates.filter((c) => c.eligible).map((c) => c.userId);
+  if (recipientUserIds.length === 0) {
+    const presetEmpty = audience.preset?.state === "empty";
+    throw new HttpError(
+      422,
+      presetEmpty
+        ? `No one on "${listName}" is in this group any more. Edit the list first. If you are in immediate danger, call your local emergency number.`
+        : audience.candidates.length === 0
+          ? "Add someone first. You need at least one other person to send an SOS. If you are in immediate danger, call your local emergency number."
+          : listName
+            ? `No one on "${listName}" can receive an SOS right now. Edit the list first. If you are in immediate danger, call your local emergency number.`
+            : "No one in this group can receive an SOS right now. If you are in immediate danger, call your local emergency number.",
+      "NO_SOS_RECIPIENTS",
+      {
+        hasCandidates: audience.candidates.length > 0,
+        ...(audience.preset && { sosListId: audience.preset.id, presetState: audience.preset.state }),
+      },
+    );
+  }
+
+  // --- validated: side effects start here ---------------------------------
+
+  // A member has at most one active SOS: the previous one is replaced.
   await prisma.familySosEvent.updateMany({
     where: { memberId: membership.id, status: "active" },
-    data: { status: "cancelled", resolvedAt: new Date() },
+    data: {
+      status: "cancelled",
+      resolvedAt: new Date(),
+      endedByMemberId: membership.id,
+      latitude: null,
+      longitude: null,
+      locationLabel: null,
+    },
   });
 
-  const latitude = input.latitude ?? membership.latitude ?? null;
-  const longitude = input.longitude ?? membership.longitude ?? null;
-
+  // Location comes only from this SOS itself, at the precision allowed,
+  // and stays inside this SOS's audience: it never writes the group's
+  // snapshot channel. "approximate" keeps a suburb label and discards the
+  // coordinates. No point sent means no location (never a stored one).
+  const precision = sosPrecisionFor(membership.sharingLevel, input.locationPrecision);
+  const label = hasPoint ? await suburbLabelFor(input.latitude!, input.longitude!) : null;
+  // The chosen precision is consent, not a location, so it is stored
+  // whether or not a starting point came with this SOS (finding 1, review
+  // of 28bdec1): starting Live with no GPS fix yet must not leave the SOS
+  // to fall back to the group's ordinary sharing level on the first later
+  // point. locationMode is stored unconditionally for the same reason.
   const sos = await prisma.familySosEvent.create({
     data: {
       circleId: membership.circleId,
       memberId: membership.id,
       isLive: input.isLive,
-      ...(latitude !== null && { latitude }),
-      ...(longitude !== null && { longitude }),
-      ...(membership.locationLabel && {
-        locationLabel: membership.locationLabel,
+      recipientUserIds,
+      audienceRestricted: true,
+      locationMode: mode,
+      locationPrecision: precision,
+      ...(hasPoint && {
+        locationCapturedAt: capturedAt ?? new Date(),
+        ...(input.locationAccuracyM !== undefined && { locationAccuracyM: input.locationAccuracyM }),
+        ...(label && { locationLabel: label }),
+        ...(precision === "precise" && { latitude: input.latitude!, longitude: input.longitude! }),
       }),
     },
     include: {
@@ -2284,52 +2523,317 @@ export const triggerSos = async (
       responses: true,
     },
   });
+  if (hasPoint && precision === "precise") {
+    await prisma.familyLocationPing.create({
+      data: {
+        memberId: membership.id,
+        sosEventId: sos.id,
+        latitude: input.latitude!,
+        longitude: input.longitude!,
+        ...(input.locationAccuracyM !== undefined && { accuracy: input.locationAccuracyM }),
+      },
+    });
+  }
 
   const memberName =
     sos.member.nickname || sos.member.user.name || "A family member";
   const title = `🆘 ${memberName} triggered SOS`;
   // No suburb on the lock screen: where they are is inside the app, for
-  // members only, after a tap.
-  const body = "Open ALRT to see where they are and respond.";
+  // the audience only, after a tap.
+  const body = "Open ALRT to see their SOS and respond.";
   const data = {
     circleId: membership.circleId,
     sosEventId: sos.id,
     ...(listName && { sosListName: listName }),
   };
 
-  if (listRecipientUserIds != null) {
-    sendSocketEventToUsers({
-      userIds: listRecipientUserIds,
-      event: SocketEvent.familySos,
-      data: sos,
-    });
-    await Promise.allSettled(
-      listRecipientUserIds.map((recipientUserId) =>
-        sendPushNotificationToUser({
-          userId: recipientUserId,
-          title,
-          body,
-          data,
-          type: PushNotificationType.familySos,
-          urgent: true,
-        }),
-      ),
-    );
-  } else {
-    await notifyCircle({
-      circleId: membership.circleId,
-      excludeMemberIds: [membership.id],
-      title,
-      body,
-      data,
-      type: PushNotificationType.familySos,
-      urgent: true,
-      socketEvent: SocketEvent.familySos,
-      socketData: sos,
-    });
-  }
+  // Only the stored audience is told, by socket and push. A queued push is
+  // not a delivery: the app shows "seen" only from an explicit response.
+  sendSocketEventToUsers({
+    userIds: [userId, ...recipientUserIds],
+    event: SocketEvent.familySos,
+    data: sos,
+  });
+  await Promise.allSettled(
+    recipientUserIds.map((recipientUserId) =>
+      sendPushNotificationToUser({
+        userId: recipientUserId,
+        title,
+        body,
+        data,
+        type: PushNotificationType.familySos,
+        urgent: true,
+      }),
+    ),
+  );
 
   return sos;
+};
+
+/**
+ * Changes what a RUNNING SOS shares, effective at once for new points, live
+ * broadcasts, what recipients can read, and what was already stored:
+ * - mode "none": sharing stops; the stored point, label and trail are
+ *   deleted and recipients are told there is no location;
+ * - precision "approximate": coordinates and the precise trail are
+ *   deleted; only a suburb label remains;
+ * - mode "once": live updates stop; the last point stays.
+ * The sender may also widen it again explicitly here. A location update
+ * never changes consent (recordSosLocation only reads it).
+ */
+export const setSosLocationConsent = async (
+  sosEventId: string,
+  change: { mode?: SosLocationMode | undefined; precision?: SosLocationPrecision | undefined },
+  opts: { actingUserId?: string; reduceOnly?: boolean } = {},
+) => {
+  const sos = await prisma.familySosEvent.findUnique({
+    where: { id: sosEventId },
+    include: { member: { select: { userId: true, sharingLevel: true } } },
+  });
+  if (!sos || (opts.actingUserId && sos.member.userId !== opts.actingUserId)) {
+    throw new HttpError(404, "SOS event not found");
+  }
+  if (sos.status !== "active") throw new HttpError(409, "This SOS has ended");
+  const curMode: SosLocationMode =
+    (sos.locationMode as SosLocationMode | null) ?? (sos.isLive ? "live" : sos.latitude != null ? "once" : "none");
+  const curPrecision: SosLocationPrecision =
+    (sos.locationPrecision as SosLocationPrecision | null) ?? sosPrecisionFor(sos.member.sharingLevel);
+  const rank = { none: 0, once: 1, live: 2 } as const;
+  let mode = change.mode ?? curMode;
+  let precision = change.precision ?? curPrecision;
+  if (opts.reduceOnly) {
+    if (rank[mode] > rank[curMode]) mode = curMode;
+    if (precision === "precise" && curPrecision === "approximate") precision = "approximate";
+  }
+  const stop = mode === "none";
+  const dropPrecise = stop || precision === "approximate";
+  // The row update and the trail purge must land as one unit (finding 2,
+  // review of 28bdec1): a concurrent recordSosLocation that is mid-flight
+  // (e.g. paused in an address lookup) must never insert a point between
+  // this update and its own ping cleanup. Postgres's row lock on the
+  // FamilySosEvent update serializes against recordSosLocation's own
+  // guarded, transactional write to the same row, so whichever commits
+  // first fully finishes - trail included - before the other proceeds.
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.familySosEvent.update({
+      where: { id: sos.id },
+      data: {
+        locationMode: mode,
+        isLive: mode === "live",
+        locationPrecision: precision,
+        ...(dropPrecise && { latitude: null, longitude: null }),
+        ...(stop && {
+          locationLabel: null,
+          locationCapturedAt: null,
+          locationAccuracyM: null,
+        }),
+      },
+      include: {
+        member: { select: memberIdentitySelect },
+        responses: { include: { member: { select: memberIdentitySelect } } },
+      },
+    });
+    if (dropPrecise) {
+      await tx.familyLocationPing.deleteMany({ where: { sosEventId: sos.id } });
+    }
+    return row;
+  });
+  sendSocketEventToUsers({
+    userIds: await sosAudienceUserIds(updated),
+    event: SocketEvent.familySosLocation,
+    data: {
+      sosEventId: sos.id,
+      latitude: updated.latitude,
+      longitude: updated.longitude,
+      locationLabel: updated.locationLabel,
+      locationCapturedAt: updated.locationCapturedAt,
+      locationPrecision: precision,
+      locationMode: mode,
+    },
+  });
+  return updated;
+};
+
+/**
+ * PROVISIONAL precedence (open decision R12): lowering ordinary group
+ * sharing while an SOS runs also narrows that SOS, never widens it:
+ * "approximate" -> suburb only; "alerts only" or "off" -> SOS location
+ * stops. The sender can re-enable sharing for that SOS explicitly.
+ */
+const narrowRunningSosFor = async (memberId: string, level: string) => {
+  const running = await prisma.familySosEvent.findMany({
+    where: { memberId, status: "active" },
+    select: { id: true },
+  });
+  for (const sos of running) {
+    await setSosLocationConsent(
+      sos.id,
+      level === "approximate"
+        ? { precision: "approximate" }
+        : level === "off" || level === "alertsOnly"
+          ? { mode: "none" }
+          : {},
+      { reduceOnly: true },
+    );
+  }
+};
+
+/**
+ * One live point for the sender's own running SOS. Goes to that SOS's
+ * audience only (socket + the SOS row + its trail) and never to the
+ * group's snapshot channel. Only a live SOS takes points, only while it
+ * runs (4-hour cap), only fresh points, at the SOS's precision.
+ */
+export const recordSosLocation = async (
+  userId: string,
+  sosEventId: string,
+  input: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number | undefined;
+    capturedAt?: string | undefined;
+  },
+) => {
+  const sos = await prisma.familySosEvent.findUnique({
+    where: { id: sosEventId },
+    include: { member: { select: { userId: true, sharingLevel: true } } },
+  });
+  if (!sos || sos.member.userId !== userId) throw new HttpError(404, "SOS event not found");
+  if (sos.status !== "active" || sos.createdAt.getTime() <= Date.now() - SOS_MAX_DURATION_MS) {
+    throw new HttpError(409, "This SOS has ended, so live sharing has stopped");
+  }
+  const live = sos.locationMode ? sos.locationMode === "live" : sos.isLive;
+  if (!live) {
+    throw new HttpError(409, "Live location was not chosen for this SOS");
+  }
+  const capturedAt = input.capturedAt ? new Date(input.capturedAt) : new Date();
+  if (
+    Number.isNaN(capturedAt.getTime()) ||
+    capturedAt.getTime() > Date.now() + 60_000 ||
+    capturedAt.getTime() < Date.now() - SOS_POINT_MAX_AGE_MS
+  ) {
+    throw new HttpError(400, "Live points must be current");
+  }
+  // suburbLabelFor is a slow address lookup; the sender's consent (or the
+  // SOS itself) can change while it is in flight (finding 2, review of
+  // 28bdec1: an upload can read Live/Exact permission, pause during the
+  // lookup, then restore and broadcast exact location after Stop or
+  // Suburb only completes). Apply the point only if the row is still
+  // exactly as read - guarded by updatedAt, atomically with the ping it
+  // creates - and if a concurrent consent change (or SOS end) beat us to
+  // it, re-check what is current now and act on THAT, once, never the
+  // stale wider permission.
+  const label = await suburbLabelFor(input.latitude, input.longitude);
+
+  const applyPoint = async (
+    row: typeof sos,
+  ): Promise<{ updated: Awaited<ReturnType<typeof prisma.familySosEvent.findUniqueOrThrow>>; precision: SosLocationPrecision } | null> => {
+    const precision =
+      (row.locationPrecision as SosLocationPrecision | null) ??
+      sosPrecisionFor(row.member.sharingLevel);
+    return prisma.$transaction(async (tx) => {
+      const guarded = await tx.familySosEvent.updateMany({
+        where: { id: sosEventId, updatedAt: row.updatedAt, status: "active" },
+        data: {
+          locationPrecision: precision,
+          locationCapturedAt: capturedAt,
+          ...(input.accuracy !== undefined && { locationAccuracyM: input.accuracy }),
+          ...(label && { locationLabel: label }),
+          ...(precision === "precise" && { latitude: input.latitude, longitude: input.longitude }),
+        },
+      });
+      if (guarded.count === 0) return null;
+      if (precision === "precise") {
+        await tx.familyLocationPing.create({
+          data: {
+            memberId: row.memberId,
+            sosEventId: row.id,
+            latitude: input.latitude,
+            longitude: input.longitude,
+            ...(input.accuracy !== undefined && { accuracy: input.accuracy }),
+          },
+        });
+      }
+      const updated = await tx.familySosEvent.findUniqueOrThrow({
+        where: { id: sosEventId },
+        include: {
+          member: { select: memberIdentitySelect },
+          responses: { include: { member: { select: memberIdentitySelect } } },
+        },
+      });
+      return { updated, precision };
+    });
+  };
+
+  let result = await applyPoint(sos);
+  if (!result) {
+    const fresh = await prisma.familySosEvent.findUnique({
+      where: { id: sosEventId },
+      include: { member: { select: { userId: true, sharingLevel: true } } },
+    });
+    if (!fresh || fresh.status !== "active") {
+      throw new HttpError(409, "This SOS has ended, so live sharing has stopped");
+    }
+    const freshLive = fresh.locationMode ? fresh.locationMode === "live" : fresh.isLive;
+    if (!freshLive) {
+      throw new HttpError(409, "Live location was not chosen for this SOS");
+    }
+    result = await applyPoint(fresh);
+    if (!result) {
+      throw new HttpError(409, "This SOS's sharing changed while sending; try again");
+    }
+  }
+
+  const { updated, precision } = result;
+  sendSocketEventToUsers({
+    userIds: await sosAudienceUserIds(updated),
+    event: SocketEvent.familySosLocation,
+    data: {
+      sosEventId: sos.id,
+      latitude: updated.latitude,
+      longitude: updated.longitude,
+      locationLabel: updated.locationLabel,
+      locationCapturedAt: updated.locationCapturedAt,
+      locationPrecision: precision,
+    },
+  });
+  return { accepted: true, precision };
+};
+
+/**
+ * Prisma filter: SOS events [userId] may see. New events are visible to
+ * their sender and stored recipients only; events from before the stored
+ * audience existed keep their old whole-group visibility.
+ */
+const sosVisibleTo = (userId: string) => ({
+  OR: [
+    { audienceRestricted: false },
+    { recipientUserIds: { has: userId } },
+    { member: { userId } },
+  ],
+});
+
+/** Throws 404 unless [userId] is the sender or in the stored audience. */
+const assertSosAudience = (
+  sos: { audienceRestricted: boolean; recipientUserIds: string[] },
+  userId: string,
+  senderUserId: string,
+) => {
+  if (!sos.audienceRestricted) return;
+  if (userId === senderUserId || sos.recipientUserIds.includes(userId)) return;
+  throw new HttpError(404, "SOS event not found");
+};
+
+/** Who is told about changes to this SOS (never the whole group by default). */
+const sosAudienceUserIds = async (sos: {
+  circleId: string;
+  audienceRestricted: boolean;
+  recipientUserIds: string[];
+  member: { user: { id: string } } | { userId: string };
+}) => {
+  const senderId = "userId" in sos.member ? sos.member.userId : sos.member.user.id;
+  if (sos.audienceRestricted) return [senderId, ...sos.recipientUserIds];
+  return getCircleUserIds(sos.circleId);
 };
 
 export const respondToSos = async (
@@ -2348,6 +2852,7 @@ export const respondToSos = async (
   if (!sos) throw new HttpError(404, "SOS event not found");
 
   const membership = await requireMembership(userId, sos.circleId);
+  assertSosAudience(sos, userId, sos.member.user.id);
   // Late acknowledgments are blocked: once an SOS has ended its response
   // list is a closed record, so history shows exactly who saw it while
   // it ran and nobody can add to it afterwards.
@@ -2408,10 +2913,11 @@ export const respondToSos = async (
     type: PushNotificationType.familySosResponse,
   });
 
-  // Everyone else keeps the third-person update.
-  await notifyCircle({
-    circleId: membership.circleId,
-    excludeMemberIds: [membership.id, sos.memberId],
+  // The rest of this SOS's audience (never people outside it) gets the
+  // third-person update.
+  const audience = await sosAudienceUserIds(sos);
+  await notifyUsers({
+    userIds: audience.filter((id) => id !== userId && id !== sos.member.user.id),
     title: "SOS update",
     body: actionText,
     data: { circleId: membership.circleId, sosEventId: sos.id },
@@ -2439,6 +2945,9 @@ export const getSosTrail = async (userId: string, sosEventId: string) => {
       memberId: true,
       createdAt: true,
       status: true,
+      audienceRestricted: true,
+      recipientUserIds: true,
+      member: { select: { userId: true } },
     },
   });
   if (!sos) throw new HttpError(404, "SOS event not found");
@@ -2450,6 +2959,8 @@ export const getSosTrail = async (userId: string, sosEventId: string) => {
   if (!membership) {
     throw new HttpError(403, "You are not a member of this circle");
   }
+  // Only the sender and the SOS's own audience see the trail.
+  assertSosAudience(sos, userId, sos.member.userId);
 
   // Stand-down wipes the trail (locked spec), so a resolved SOS has no
   // trail to serve. Without this gate, a point shared AFTER stand-down
@@ -2459,8 +2970,12 @@ export const getSosTrail = async (userId: string, sosEventId: string) => {
     return { sosEventId: sos.id, points: [] };
   }
 
+  // New events: exactly the points shared into THIS SOS. Older events
+  // keep the old definition (points since it started).
   const points = await prisma.familyLocationPing.findMany({
-    where: { memberId: sos.memberId, createdAt: { gte: sos.createdAt } },
+    where: sos.audienceRestricted
+      ? { sosEventId: sos.id }
+      : { memberId: sos.memberId, createdAt: { gte: sos.createdAt } },
     orderBy: { createdAt: "asc" },
     select: {
       latitude: true,
@@ -2482,24 +2997,29 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
   if (!sos) throw new HttpError(404, "SOS event not found");
 
   const membership = await requireMembership(userId, sos.circleId);
+  assertSosAudience(sos, userId, sos.member.user.id);
   if (sos.status !== "active") return sos;
 
+  // Who may end someone else's SOS is open decision R06; the existing rule
+  // (the sender or the group host) stays, and the actual actor is recorded.
   const canResolve = sos.memberId === membership.id || membership.role === "owner";
   if (!canResolve) {
     throw new HttpError(
       403,
-      "Only the person who triggered the SOS or the circle owner can resolve it",
+      "Only the person who sent the SOS or the group host can end it",
     );
   }
 
-  // Stand-down also wipes the trigger position now, exactly as the 4-hour
-  // auto-end already does (endLapsedSosEvents) - the resolved row keeps
-  // who/when/how long, never where.
+  // Ending also wipes the trigger position now, exactly as the 4-hour
+  // auto-end already does (endLapsedSosEvents) - the ended row keeps
+  // who/when/how long, never where. The stored status value stays
+  // "resolved" for existing clients; it is never shown as "resolved".
   const resolved = await prisma.familySosEvent.update({
     where: { id: sos.id },
     data: {
       status: "resolved",
       resolvedAt: new Date(),
+      endedByMemberId: membership.id,
       latitude: null,
       longitude: null,
       locationLabel: null,
@@ -2521,16 +3041,34 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
 
   const memberName =
     sos.member.nickname || sos.member.user.name || "A family member";
+  const endedBySender = sos.memberId === membership.id;
+  let actorName = memberName;
+  if (!endedBySender) {
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+    actorName = membership.nickname || actor?.name || "The group host";
+  }
 
-  await notifyCircle({
-    circleId: membership.circleId,
-    excludeMemberIds: [membership.id],
-    title: "SOS resolved",
-    body: `${memberName} is now marked safe`,
+  // Factual ending wording (master spec §12): never "safe" or "resolved".
+  const audience = await sosAudienceUserIds(sos);
+  await notifyUsers({
+    userIds: audience.filter((id) => id !== userId),
+    title: "SOS ended",
+    body: endedBySender
+      ? `${memberName} ended their SOS.`
+      : `${actorName} ended ${memberName}'s SOS.`,
     data: { circleId: membership.circleId, sosEventId: sos.id },
     type: PushNotificationType.familySosResolved,
     socketEvent: SocketEvent.familySosResolved,
     socketData: resolved,
+  });
+  // The sender's own other devices close their SOS screen too.
+  sendSocketEventToUsers({
+    userIds: [userId],
+    event: SocketEvent.familySosResolved,
+    data: resolved,
   });
 
   return resolved;
@@ -2580,15 +3118,17 @@ export const endLapsedSosEvents = async (): Promise<number> => {
     ),
   );
 
-  // Tell the open screens, so a receiver's map stops showing a live dot.
+  // Tell the open screens (this SOS's audience only), so a receiver's map
+  // stops showing a live dot.
   await Promise.allSettled(
-    lapsed.map((sos) =>
-      notifyCircle({
-        circleId: sos.circleId,
-        excludeMemberIds: [],
+    lapsed.map(async (sos) =>
+      notifyUsers({
+        userIds: await sosAudienceUserIds(sos),
         title: "SOS ended",
-        body: "Live sharing reached its 4 hour limit and has stopped.",
-        data: { circleId: sos.circleId, sosEventId: sos.id },
+        // The app formats "This SOS expired at [time]" in local time from
+        // resolvedAt; the push can't know the reader's time zone.
+        body: "This SOS expired after 4 hours. Live sharing has stopped.",
+        data: { circleId: sos.circleId, sosEventId: sos.id, expired: true },
         type: PushNotificationType.familySosResolved,
         socketEvent: SocketEvent.familySosResolved,
         // The whole row, as a manual stand-down sends: the app's parser
@@ -2630,6 +3170,7 @@ export const getSosHistory = async (userId: string, circleId?: string) => {
       circleId: membership.circleId,
       status: { not: "active" },
       createdAt: { gte: since },
+      ...sosVisibleTo(userId),
     },
     include: {
       member: { select: memberIdentitySelect },
@@ -2671,7 +3212,7 @@ export const getActiveSos = async (userId: string, circleId?: string) => {
     circleIds = memberships.map((m) => m.circleId);
   }
   return prisma.familySosEvent.findMany({
-    where: { circleId: { in: circleIds }, status: "active" },
+    where: { circleId: { in: circleIds }, status: "active", ...sosVisibleTo(userId) },
     include: {
       member: { select: memberIdentitySelect },
       responses: {
