@@ -168,6 +168,11 @@ jobs:
     environment: test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Stops the checkout step leaving GITHUB_TOKEN auth behind: it
+          # overrides the MATCH_GIT_BASIC_AUTHORIZATION header that fastlane
+          # match needs to reach the separate ios-certificates repo.
+          persist-credentials: false
 
       - uses: subosito/flutter-action@v2
         with:
@@ -275,6 +280,64 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
+
+      - name: Configure Xcode to use the installed dev profile
+        run: |
+          OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
+          NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$NEW"
+          PROFILE_NAME=""
+          for PROFILE in "$OLD"/*.mobileprovision; do
+            [ -f "$PROFILE" ] || continue
+            DECODED="$(mktemp)"
+            if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
+              APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
+              if [[ "$APP_ID" == *".com.safetyalrt.alrt.dev" ]]; then
+                PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED")"
+                cp -f "$PROFILE" "$NEW/"
+                rm -f "$DECODED"
+                break
+              fi
+            fi
+            rm -f "$DECODED"
+          done
+          if [ -z "$PROFILE_NAME" ]; then
+            echo "::error::No installed provisioning profile found for com.safetyalrt.alrt.dev"
+            exit 1
+          fi
+          python3 - "$PROFILE_NAME" ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI-dev.plist <<'PY'
+          import pathlib
+          import sys
+
+          profile_name, *paths = sys.argv[1:]
+          expected_name = "match AppStore com.safetyalrt.alrt.dev"
+          files = [(pathlib.Path(path), pathlib.Path(path).read_text()) for path in paths]
+          if any(expected_name not in contents for _, contents in files):
+              raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
+          for path, contents in files:
+              path.write_text(contents.replace(expected_name, profile_name))
+          PY
+
+      - name: Select Xcode 26 (App Store Connect requires the iOS 26 SDK)
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$XC" ]; then
+            echo "::error::No Xcode 26 on this runner. Installed:"; ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Refresh CocoaPods specs (the runner's copy is out of date)
+        working-directory: frontend/ios
+        run: |
+          # Podfile.lock pins Firebase 12.2.0 but the current Flutter Firebase
+          # plugins need 12.17.x, so pod install cannot resolve the old lock.
+          # This CI-only build starts from a fresh resolve; the committed
+          # lock file is not changed.
+          rm -f Podfile.lock
+          pod repo update
 
       - name: Build the signed iPhone app (dev flavour, isolated test backend)
         run: |
