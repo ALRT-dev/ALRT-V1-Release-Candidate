@@ -281,6 +281,10 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
 
+      - name: Refresh CocoaPods specs (the runner's copy is out of date)
+        working-directory: frontend/ios
+        run: pod repo update
+
       - name: Build the signed iPhone app (dev flavour, isolated test backend)
         run: |
           BUILD_NUMBER="${{ inputs.build_number }}"
