@@ -34,9 +34,9 @@ class AccessibleAlertsSection extends ConsumerWidget {
         ),
         4.hSizedBox,
         Text(
-          'Deaf or hard of hearing: urgent alerts vibrate strongly. '
-          'Vision impairment: urgent alerts are read aloud when the app is open. '
-          'These follow what you tick above. Every alert also has a Listen button.',
+          'Deaf or hard of hearing: urgent alerts vibrate strongly, and you '
+          'can turn this on or off here. Every alert also has a Listen button '
+          'at the bottom that reads it aloud.',
           style: TextStyle(fontSize: 12.5.spMin, color: AppColors.grey),
         ),
         12.hSizedBox,
