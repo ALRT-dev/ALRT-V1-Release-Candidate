@@ -127,16 +127,10 @@ void main() {
       source: HazardSource(id: sourceId ?? 'qldFire', name: 'src', shape: shape),
     );
 
-    test('Global humanitarian off hides a GDACS alert on the map too', () {
+    test('Global humanitarian folded into Official: the old switch no longer hides GDACS', () {
       final gdacs = official(sourceId: 'gdacsGlobal');
-      expect(hazardMatchesMapFilters(gdacs, const HazardFiltersProviderState()), isTrue);
       expect(
         hazardMatchesMapFilters(gdacs, const HazardFiltersProviderState(globalHumanitarian: false)),
-        isFalse,
-      );
-      // A state agency alert is untouched by that switch.
-      expect(
-        hazardMatchesMapFilters(official(), const HazardFiltersProviderState(globalHumanitarian: false)),
         isTrue,
       );
     });

@@ -60,15 +60,12 @@ void main() {
     Hazard hazardWith({final HazardSource? source, final bool aws = false}) =>
         Hazard(id: 'h1', source: source, isAwsCompliant: aws);
 
-    test('a GDACS alert is global humanitarian, not official', () {
+    test('a GDACS alert is now official (global feeds fold into Official)', () {
       final hazard = hazardWith(
         source: const HazardSource(id: 'gdacsGlobal', name: 'GDACS'),
       );
-      expect(hazard.isGlobalHumanitarian, isTrue);
-      expect(
-        AlertSourceSystem.of(hazard),
-        AlertSourceSystem.globalHumanitarian,
-      );
+      expect(hazard.isGlobalHumanitarian, isFalse);
+      expect(AlertSourceSystem.of(hazard), AlertSourceSystem.official);
     });
 
     test('an agency alert stays official', () {
