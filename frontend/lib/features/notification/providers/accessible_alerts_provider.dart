@@ -83,7 +83,7 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
           _explicitVibration ?? cohorts.contains(SafetyCohort.deaf),
       // No switch in Notifications. Read-aloud is on only when the safety
       // profile says Vision impairment; everyone else uses Listen.
-      readAloud: cohorts.contains(SafetyCohort.vision),
+      readAloud: false,
     );
   }
 }
