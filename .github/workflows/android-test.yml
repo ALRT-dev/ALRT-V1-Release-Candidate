@@ -346,7 +346,12 @@ jobs:
       # minutes on a change that didn't pass its own suite. Runs the
       # whole of frontend/test/, not just new files.
       - name: Run flutter test
-        run: flutter test
+        run: |
+          set +e
+          flutter test --reporter expanded 2>&1 | tee /tmp/ft.txt
+          code=${PIPESTATUS[0]}
+          grep -E "\[E\]|Expected:|Actual:|Error:|lib/.*error" /tmp/ft.txt | head -60 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
+          exit $code
 
       # Same dev flavour/app id as android-apk.yml - only DEV_BASE_URL
       # and (when billing_mode=test_store) RevenueCat differ, via the
