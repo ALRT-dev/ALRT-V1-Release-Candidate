@@ -8,10 +8,14 @@
        Google reversed-client-id URL scheme, no matching
        LSApplicationQueriesSchemes entry. A TEST build therefore carries no
        production Google OAuth identity; Google Sign-In is simply
-       unavailable on it (the app tolerates that - the button fails
-       gracefully, email/password login is unaffected). If a TEST-only
-       iOS OAuth client is ever created, add ITS values here, never the
-       production ones. Keep every other key in step with Info.plist. -->
+       unavailable on it (tapping the Google button shows "No active
+       configuration. Make sure GIDClientID is set in Info.plist").
+       A TEST-only iOS OAuth client (bundle id com.safetyalrt.alrt.dev) is
+       NOT committed here: the iOS Dev TestFlight workflow adds its
+       GIDClientID and reversed-client-id URL scheme to this file at build
+       time from the TEST_GOOGLE_IOS_CLIENT_ID repository Secret (see
+       frontend/ios/TEST_IOS_SETUP.md section 7). Never put the production
+       values here. Keep every other key in step with Info.plist. -->
   <dict>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true />

@@ -18,7 +18,7 @@ role.
 | Entitlements / App Group | `Runner/Runner.entitlements`, `group.com.safetyalrt.alrt` | `Runner/Runner-dev.entitlements`, `group.com.safetyalrt.alrt.dev` | `CODE_SIGN_ENTITLEMENTS` per configuration; widget: `AlrtWidget-dev.entitlements`, `AlrtWidgetConfig.appGroup`; Dart: `HomeWidgetKeys.appGroupId` |
 | Backend | `https://api.safetyalrt.com` | `https://api-test.safetyalrt.com` (hardcoded in the workflow) | `.env` `DEV_BASE_URL` |
 | Billing | RevenueCat Apple key from secrets | `ALRT_PLUS_TEST_UNLOCK=true`, both RevenueCat keys blank, RevenueCat never initialised | workflow `.env` |
-| Google Sign-In (Dart) | `GOOGLE_OAUTH_SERVER_CLIENT_ID` from secrets | blank | workflow `.env` |
+| Google Sign-In (Dart) | `GOOGLE_OAUTH_SERVER_CLIENT_ID` from secrets | `TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID` repository Secret; blank = Google Sign-In off (see §7) | workflow `.env` |
 | Google Maps | `GOOGLE_MAPS_API_KEY` from the production secret (Dart + `Maps.xcconfig`) | `TEST_GOOGLE_MAPS_API_KEY_IOS` repository Secret (does not exist yet, see §2); blank = Maps disabled, never the production key | workflow `.env` + `ios/Flutter/Maps.xcconfig` |
 | Signing | `ci_certs` lane, profile `match AppStore com.safetyalrt.alrt`, `ExportOptionsCI.plist` | `ci_certs_dev` lane, profile `match AppStore com.safetyalrt.alrt.dev`, `ExportOptionsCI-dev.plist` | `ios/fastlane/Fastfile` |
 | TestFlight upload | `ci_upload` lane (Appfile default app, the live ALRT) | `ci_upload_dev` lane: `app_identifier` pinned to `com.safetyalrt.alrt.dev` and refuses any other ipa | `ios/fastlane/Fastfile` |
@@ -134,3 +134,52 @@ and an empty build number, and watch it. Expected: match creates the `.dev`
 App Store profile, `flutter build ipa --flavor dev` signs with it,
 `ci_upload_dev` uploads to ALRT Dev only. A build then appears under ALRT Dev
 → TestFlight after Apple processes it; the live ALRT app is never touched.
+
+## 7. Sign-in on the TEST build (Google and Apple)
+
+Two errors seen on the first TestFlight build both come from configuration
+that lives outside the code, and both are fixed with the steps below.
+
+### 7.1 Google: "No active configuration. Make sure GIDClientID is set in Info.plist"
+
+`Runner/Info-dev.plist` deliberately has no Google client (it must never carry
+the production one), so the Google SDK has nothing to start with. Create a
+TEST-only iOS client and give it to the workflow:
+
+1. Google Cloud Console (the project that owns the existing OAuth clients) →
+   APIs & Services → Credentials → Create credentials → OAuth client ID →
+   Application type **iOS**. Name `ALRT TEST iOS`. Bundle ID
+   `com.safetyalrt.alrt.dev`. Team ID `JR89M7CYPR`. Copy the client ID
+   (`<digits>-<hash>.apps.googleusercontent.com`).
+2. GitHub → repository Settings → Secrets and variables → Actions → Secrets →
+   New repository secret:
+   - `TEST_GOOGLE_IOS_CLIENT_ID` = the iOS client ID from step 1.
+   - `TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID` = the **Web** OAuth client ID. It
+     must equal the test backend's `GOOGLE_OAUTH_CLIENT_ID_WEB`, because the
+     ID token the app sends is issued for this client and the backend checks
+     it against that value.
+3. Re-run `iOS Dev TestFlight`. The "Enable Google Sign-In" step adds
+   `GIDClientID`, the reversed-client-id URL scheme and the matching
+   `LSApplicationQueriesSchemes` entry to `Info-dev.plist` on the runner only.
+   Nothing is committed back.
+
+Set both secrets or neither; the workflow stops the build if only one is set.
+The Google client IDs are public identifiers, so these are low-risk values,
+but keep them the TEST ones, never the production iOS client.
+
+### 7.2 Apple / backend: "jwt audience invalid. expected: not-configured-phase1"
+
+The Apple identity token is issued for the app's bundle ID, and the backend
+rejects it unless `APPLE_OAUTH_AUDIENCE` equals that exact value. The
+deployed test backend (`https://api-test.safetyalrt.com`) is still running
+with the boot-time placeholder `not-configured-phase1`; the repo only ever
+holds a blank (`.env.test.example`), so this cannot be fixed in code.
+
+1. On the test backend's environment (the `.env.test` / secret store the
+   deployed container reads), set `APPLE_OAUTH_AUDIENCE=com.safetyalrt.alrt.dev`.
+2. Restart or redeploy the test backend so it re-reads the value.
+3. Apple sign-in on the ALRT Dev build now verifies. (The App ID
+   `com.safetyalrt.alrt.dev` must have **Sign in with Apple** enabled - §3.)
+
+Do not point the production backend at the `.dev` bundle ID; production keeps
+`com.safetyalrt.alrt`.
