@@ -157,6 +157,10 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
         // AND have NOT initiated account deletion (scheduledDeletionAt is null)
         user: {
           scheduledDeletionAt: null, // Exclude users who have initiated account deletion
+          // Anyone who has blocked the poster never gets a push about their alert
+          ...(reportedById && {
+            blocksMade: { none: { blockedId: reportedById } },
+          }),
           pushNotificationSettings: {
             some: {
               ...notificationFilter,

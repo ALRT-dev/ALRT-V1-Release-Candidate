@@ -2,6 +2,7 @@ import type { Hazard } from "@prisma/client";
 import { withPublicCoords, withPublicReporter } from "../utils/hazard.util.js";
 import { getSocketClient } from "../utils/socket_client.util.js";
 import { SocketEvent } from "../models/socket_event_types.js";
+import { listUserIdsWhoBlocked } from "./community_safety.service.js";
 import { getUserIdsForLocationSubscriptionBounds } from "./location_subscription.service.js";
 
 /**
@@ -85,8 +86,11 @@ export const sendSocketEventAboutHazardToSubscribers = async ({
       southwestLng: hazardSouthwestLng,
     });
 
+    const blockerIds = hazard.reportedById
+      ? new Set(await listUserIdsWhoBlocked(hazard.reportedById))
+      : new Set<string>();
     const filteredUserIds = userIds.filter(
-      (id) => !excludeUserIds?.includes(id)
+      (id) => !excludeUserIds?.includes(id) && !blockerIds.has(id)
     );
 
     sendSocketEventToUsers({

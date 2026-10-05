@@ -312,6 +312,16 @@ export const getHazardById = async (
       if (!isOwner && !isLive) {
         return res.status(404).json({ message: "Hazard not found" });
       }
+      // A viewer who has blocked the poster gets the same 404.
+      if (!isOwner && requesterId && hazard.reportedById) {
+        const blocked = await prisma.userBlock.findFirst({
+          where: { blockerId: requesterId, blockedId: hazard.reportedById },
+          select: { id: true },
+        });
+        if (blocked) {
+          return res.status(404).json({ message: "Hazard not found" });
+        }
+      }
     }
 
     const hazardWithPresignedUrls = await enrichHazardsWithPresignedUrls([

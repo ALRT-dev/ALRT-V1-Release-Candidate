@@ -688,6 +688,14 @@ export const buildHazardsWhereClauseRaw = (
       );
       queryParams.push(userId);
       paramIndex++;
+      // Blocking is enforced here, in the database query, so every list and
+      // map path honours it. A blocked poster's alerts never reach the
+      // blocker, and the blocker's own alerts are never hidden from them.
+      whereConditions.push(
+        `(h."reportedById" IS NULL OR h."reportedById" NOT IN (SELECT "blockedId" FROM "UserBlock" WHERE "blockerId" = $${paramIndex}))`,
+      );
+      queryParams.push(userId);
+      paramIndex++;
     } else {
       whereConditions.push(
         `h."reviewStatus" = 'accepted'::"HazardReviewStatus"`,

@@ -37,6 +37,7 @@ export const getAlertsGeo = async (
     const showExpired = status === "historical";
 
     const { hazards, totalCount } = await getHazardsForGeoJson({
+      userId: res.userId,
       showExpired,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,

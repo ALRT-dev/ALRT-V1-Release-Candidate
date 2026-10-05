@@ -116,6 +116,17 @@ export const listBlockedUserIds = async (
   return rows.map((row) => row.blockedId);
 };
 
+/** Everyone who has blocked this account (used to keep alerts from reaching them). */
+export const listUserIdsWhoBlocked = async (
+  blockedId: string,
+): Promise<string[]> => {
+  const rows = await prisma.userBlock.findMany({
+    where: { blockedId },
+    select: { blockerId: true },
+  });
+  return rows.map((row) => row.blockerId);
+};
+
 /** Blocked accounts, with enough to render a manageable list and undo it. */
 export const listBlockedUsers = async (blockerId: string) => {
   const rows = await prisma.userBlock.findMany({
