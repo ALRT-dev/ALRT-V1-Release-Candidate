@@ -211,8 +211,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   Widget _buildAuthButtons() {
     return Column(
       children: [
-        _buildEmailButton(),
-        12.hSizedBox,
+        // Email sign-in is off: people use Google or Apple.
+        if (const bool.fromEnvironment('ALRT_EMAIL_AUTH')) ...[
+          _buildEmailButton(),
+          12.hSizedBox,
+        ],
         Row(
           spacing: 12.spMin,
           children: [

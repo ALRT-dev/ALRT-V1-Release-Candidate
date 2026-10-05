@@ -1570,3 +1570,13 @@ model UserBlock {
   @@unique([blockerId, blockedId])
   @@index([blockerId])
 }
+
+/// One row per email that has started a free trial. The email is stored only
+/// as a keyed one-way hash, and the row is deliberately NOT linked to User so
+/// it survives account deletion and stops the same email claiming a second
+/// trial.
+model TrialRecord {
+  id           String   @id @default(uuid())
+  emailHash    String   @unique
+  firstTrialAt DateTime @default(now())
+}

@@ -10,6 +10,7 @@ import {
   verifyMicrosoftOAuth,
 } from "../controllers/auth.controller.js";
 import { validate } from "../middlewares/validation.middleware.js";
+import { requireEmailPasswordAuth } from "../middlewares/email_auth_gate.middleware.js";
 import {
   registerSchema,
   loginSchema,
@@ -25,11 +26,13 @@ const authRouter = router();
 
 authRouter.post(
   "/email-password/register",
+  requireEmailPasswordAuth,
   validate(registerSchema),
   registerWithEmailAndPassword
 );
 authRouter.post(
   "/email-password/login",
+  requireEmailPasswordAuth,
   validate(loginSchema),
   loginWithEmailAndPassword
 );
@@ -48,11 +51,13 @@ authRouter.post("/refresh-token", validate(refreshTokenSchema), refreshToken);
 
 authRouter.post(
   "/password-reset/request",
+  requireEmailPasswordAuth,
   validate(passwordResetRequestSchema),
   requestPasswordResetController
 );
 authRouter.post(
   "/password-reset/confirm",
+  requireEmailPasswordAuth,
   validate(passwordResetConfirmSchema),
   confirmPasswordResetController
 );

@@ -5,6 +5,7 @@ import {
   type StoreSubscription,
   type StoreSubscriptionStatus,
 } from "@prisma/client";
+import { isTrialEligible, recordTrialStart } from "./trial_ledger.service.js";
 import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
 import { effectiveTierAt } from "../utils/subscription_effective.util.js";
@@ -756,6 +757,9 @@ export const getAccessSummary = async (userId: string) => {
     : [];
   return {
     billingEnabled: billingEnabled(),
+    // False once this email has started a trial before, so the app stops
+    // advertising a free trial it can no longer offer.
+    trialEligible: await isTrialEligible(userId),
     personal,
     groups,
     unboundSponsorships,
@@ -995,6 +999,12 @@ export const applyRevenueCatEvent = async (
         ? { pendingProductId: null, pendingTier: null, pendingRequestedAt: null, pendingEffectiveAt: null }
         : {}),
     };
+
+    // Remember that this email has used its free trial, even if the account
+    // is deleted later.
+    if (event.period_type === "TRIAL") {
+      await recordTrialStart(user.id);
+    }
 
     if (!existing) {
       sub = await prisma.storeSubscription.create({

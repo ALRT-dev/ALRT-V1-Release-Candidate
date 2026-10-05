@@ -52,6 +52,13 @@ export const config = {
   // video of strangers, minors and private property are the highest-risk
   // part of posting an alert. When false, create/update report requests
   // that carry media files are rejected (see blockCommunityReportMedia).
+  // Email and password sign-in is off: people sign in with Google or Apple.
+  // Turn on only for a test environment or an app-store review login.
+  emailPasswordAuthEnabled:
+    getOptionalEnv("EMAIL_PASSWORD_AUTH_ENABLED", "false") === "true",
+  // Secret used to scramble emails in the free-trial record. Falls back to
+  // the access-token secret so it works before it is set explicitly.
+  trialLedgerSecret: getOptionalEnv("TRIAL_LEDGER_SECRET", ""),
   // Bump when the legal text changes; stored against each user on acceptance.
   termsVersion: getOptionalEnv("TERMS_VERSION", "2026-08-01"),
   privacyVersion: getOptionalEnv("PRIVACY_VERSION", "2026-08-01"),
