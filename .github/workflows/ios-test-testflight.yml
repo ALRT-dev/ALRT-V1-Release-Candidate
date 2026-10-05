@@ -276,6 +276,43 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
 
+      - name: Configure Xcode to use the installed dev profile
+        run: |
+          OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
+          NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$NEW"
+          PROFILE_NAME=""
+          for PROFILE in "$OLD"/*.mobileprovision; do
+            [ -f "$PROFILE" ] || continue
+            DECODED="$(mktemp)"
+            if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
+              APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
+              if [[ "$APP_ID" == *".com.safetyalrt.alrt.dev" ]]; then
+                PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED")"
+                cp -f "$PROFILE" "$NEW/"
+                rm -f "$DECODED"
+                break
+              fi
+            fi
+            rm -f "$DECODED"
+          done
+          if [ -z "$PROFILE_NAME" ]; then
+            echo "::error::No installed provisioning profile found for com.safetyalrt.alrt.dev"
+            exit 1
+          fi
+          python3 - "$PROFILE_NAME" ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI-dev.plist <<'PY'
+          import pathlib
+          import sys
+
+          profile_name, *paths = sys.argv[1:]
+          expected_name = "match AppStore com.safetyalrt.alrt.dev"
+          files = [(pathlib.Path(path), pathlib.Path(path).read_text()) for path in paths]
+          if any(expected_name not in contents for _, contents in files):
+              raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
+          for path, contents in files:
+              path.write_text(contents.replace(expected_name, profile_name))
+          PY
+
       - name: Build the signed iPhone app (dev flavour, isolated test backend)
         run: |
           BUILD_NUMBER="${{ inputs.build_number }}"
