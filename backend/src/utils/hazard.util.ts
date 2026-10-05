@@ -1391,10 +1391,11 @@ export const toPublicReporter = <
 };
 
 /** Applies toPublicReporter to a hazard object's reportedBy, if it has one. */
-export const withPublicReporter = <T extends { reportedBy?: any }>(
+export const withPublicReporter = <T extends object>(
   hazard: T,
   viewerId?: string
 ): T => {
-  if (!hazard || !("reportedBy" in hazard) || !hazard.reportedBy) return hazard;
-  return { ...hazard, reportedBy: toPublicReporter(hazard.reportedBy, viewerId) };
+  const h = hazard as any;
+  if (!h || !("reportedBy" in h) || !h.reportedBy) return hazard;
+  return { ...h, reportedBy: toPublicReporter(h.reportedBy, viewerId) } as T;
 };

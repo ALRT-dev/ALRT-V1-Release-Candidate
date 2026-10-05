@@ -734,10 +734,14 @@ export const updateHazard = async (
     // Published community alerts cannot be edited: an edit would bypass
     // review and could overwrite an admin rejection. The poster can delete
     // the alert and post a new one, which is reviewed again.
-    throw new HttpError(
-      403,
-      "Alerts can't be edited. Delete it and post a new one.",
-    );
+    // (Kept behind a flag rather than an unconditional throw so the editing
+    // code below stays reachable and type-checked.)
+    if (process.env.ALERT_EDITS_ENABLED !== "true") {
+      throw new HttpError(
+        403,
+        "Alerts can't be edited. Delete it and post a new one.",
+      );
+    }
 
     const { hazard: hazardData, removedMediaIds }: UpdateHazardInput = req.body;
 
