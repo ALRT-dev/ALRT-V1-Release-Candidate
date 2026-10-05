@@ -283,9 +283,13 @@ jobs:
             BUILD_NUMBER=$((100 + ${{ github.run_number }}))
           fi
           echo "Building with build number $BUILD_NUMBER"
+          set +e
           flutter build ipa --release --flavor dev -t lib/main_dev.dart \
             --build-number="$BUILD_NUMBER" \
-            --export-options-plist=ios/ExportOptionsCI-dev.plist
+            --export-options-plist=ios/ExportOptionsCI-dev.plist 2>&1 | tee /tmp/ipa.txt
+          code=${PIPESTATUS[0]}
+          grep -E "error:|Error:|Exception|failed|No profile|signing" /tmp/ipa.txt | head -40 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
+          exit $code
 
       # ci_upload_dev (not the production ci_upload lane) pins the App Store
       # Connect record to com.safetyalrt.alrt.dev / "ALRT Dev" and refuses any
