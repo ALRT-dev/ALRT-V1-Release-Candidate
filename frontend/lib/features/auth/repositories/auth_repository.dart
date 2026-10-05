@@ -54,6 +54,12 @@ class AuthRepositoryImpl implements AuthRepository {
     return runAsyncCall(
       name: 'initializeGoogleSignIn',
       future: () async {
+        // Test builds have no Google settings on purpose. Starting Google
+        // sign-in without them can crash the app at launch on iPhone, so
+        // skip it; the Google button is hidden in those builds too.
+        if (Env.googleAuthServerClientId.isEmpty) {
+          return const Success(null);
+        }
         await _googleSignIn.initialize(
           serverClientId: Env.googleAuthServerClientId,
         );
