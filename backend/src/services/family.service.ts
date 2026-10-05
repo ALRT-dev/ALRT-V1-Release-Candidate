@@ -2728,9 +2728,7 @@ export const recordSosLocation = async (
   // stale wider permission.
   const label = await suburbLabelFor(input.latitude, input.longitude);
 
-  const applyPoint = async (
-    row: typeof sos,
-  ): Promise<{ updated: Awaited<ReturnType<typeof prisma.familySosEvent.findUniqueOrThrow>>; precision: SosLocationPrecision } | null> => {
+  const applyPoint = async (row: typeof sos) => {
     const precision =
       (row.locationPrecision as SosLocationPrecision | null) ??
       sosPrecisionFor(row.member.sharingLevel);

@@ -112,13 +112,14 @@ export const shareLocationSnapshot = async (
     // snapshot. Overlapping SOS sessions in different groups are also
     // refused rather than guessed at: this loop can only unambiguously
     // belong to a live SOS when there is exactly one to choose between.
-    if (live.length === 1) {
-      const result = await recordSosLocation(userId, live[0].id, {
+    const onlyLive = live.length === 1 ? live[0] : undefined;
+    if (onlyLive) {
+      const result = await recordSosLocation(userId, onlyLive.id, {
         latitude: snapshot.latitude,
         longitude: snapshot.longitude,
         accuracy: snapshot.accuracy,
       });
-      return { accepted: result.accepted, sosEventId: live[0].id };
+      return { accepted: result.accepted, sosEventId: onlyLive.id };
     }
     throw new HttpError(
       409,
