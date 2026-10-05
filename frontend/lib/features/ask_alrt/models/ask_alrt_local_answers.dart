@@ -75,7 +75,8 @@ abstract final class AskAlrtLocalAnswers {
           'The shape tells you who issued the alert. Triangle: an AWS '
           'warning, the only source that states a level in words (Advice, '
           'Watch and Act, Emergency Warning). Diamond: an official source, '
-          'including state agencies and global feeds. Circle: an unverified community report. "
+          'including state agencies and global feeds. Circle: an unverified '
+          'community report. '
           "Shield: ALRT's own assessment. The full key is on the map under "
           'the layers button.',
     ),
