@@ -318,6 +318,17 @@ jobs:
               path.write_text(contents.replace(expected_name, profile_name))
           PY
 
+      - name: Select Xcode 26 (App Store Connect requires the iOS 26 SDK)
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$XC" ]; then
+            echo "::error::No Xcode 26 on this runner. Installed:"; ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
       - name: Refresh CocoaPods specs (the runner's copy is out of date)
         working-directory: frontend/ios
         run: |
