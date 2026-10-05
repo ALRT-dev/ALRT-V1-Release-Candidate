@@ -168,6 +168,11 @@ jobs:
     environment: test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Stops the checkout step leaving GITHUB_TOKEN auth behind: it
+          # overrides the MATCH_GIT_BASIC_AUTHORIZATION header that fastlane
+          # match needs to reach the separate ios-certificates repo.
+          persist-credentials: false
 
       - uses: subosito/flutter-action@v2
         with:
