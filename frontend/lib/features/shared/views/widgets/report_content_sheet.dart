@@ -64,12 +64,13 @@ class _ReportContentSheetState extends ConsumerState<_ReportContentSheet> {
   }
 
   Future<void> _block() async {
-    if (_busy) return;
+    final hazardId = widget.hazard.id;
+    if (hazardId == null || _busy) return;
     setState(() => _busy = true);
     try {
       await ref
           .read(providerOfBlockedUsers.notifier)
-          .blockPosterOfHazard(widget.hazard.id);
+          .blockPosterOfHazard(hazardId);
       if (!mounted) return;
       Navigator.of(context).maybePop();
       context.showSuccessToast(
