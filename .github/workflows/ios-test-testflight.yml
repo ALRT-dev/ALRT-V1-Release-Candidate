@@ -288,7 +288,7 @@ jobs:
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=ios/ExportOptionsCI-dev.plist 2>&1 | tee /tmp/ipa.txt
           code=${PIPESTATUS[0]}
-          grep -v "CDN:" /tmp/ipa.txt | tail -30 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
+          grep -v "CDN:" /tmp/ipa.txt | grep -v "^ *\(/opt\|<internal\)" | grep -iE "could not|satisfy|depends|conflict|pod |version|required" | head -30 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
           exit $code
 
       # ci_upload_dev (not the production ci_upload lane) pins the App Store
