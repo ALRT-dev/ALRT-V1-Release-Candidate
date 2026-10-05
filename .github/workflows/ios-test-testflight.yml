@@ -283,7 +283,13 @@ jobs:
 
       - name: Refresh CocoaPods specs (the runner's copy is out of date)
         working-directory: frontend/ios
-        run: pod repo update
+        run: |
+          # Podfile.lock pins Firebase 12.2.0 but the current Flutter Firebase
+          # plugins need 12.17.x, so pod install cannot resolve the old lock.
+          # This CI-only build starts from a fresh resolve; the committed
+          # lock file is not changed.
+          rm -f Podfile.lock
+          pod repo update
 
       - name: Build the signed iPhone app (dev flavour, isolated test backend)
         run: |
