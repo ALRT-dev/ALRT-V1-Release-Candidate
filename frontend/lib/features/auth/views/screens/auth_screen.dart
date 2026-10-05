@@ -18,6 +18,7 @@ import 'package:hazard_app/features/shared/utils/app_links.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/views/widgets/button.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/others/env.dart';
 import 'package:hazard_app/others/app_theme.dart';
 import 'package:hazard_app/others/app_wrapper.dart';
 
@@ -223,7 +224,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                 ? Expanded(child: _buildAppleButton())
                 // : Expanded(child: _buildMicrosoftButton()),
                 : SizedBox.shrink(),
-            Expanded(child: _buildGoogleButton()),
+            // Only offer Google when this build has its Google settings. Test
+            // builds leave them blank on purpose, and tapping Google there
+            // can crash the app on iPhone.
+            if (Env.googleAuthServerClientId.isNotEmpty)
+              Expanded(child: _buildGoogleButton()),
           ],
         ),
         // 12.hSizedBox,
