@@ -31,10 +31,10 @@
 # so fastlane match creates it (additive to the existing MATCH_GIT_URL
 # certs repo; does not touch or revoke the production certificate/profile).
 #
-# Google Sign-In and RevenueCat SDK keys continue to use the shared CI
-# configuration, but Maps uses a dedicated TEST-only key. The TEST workflow
-# never falls back to the production Maps key. ALRT_PLUS_TEST_UNLOCK=true
-# bypasses RevenueCat
+# Everything else (Maps, Google Sign-In, RevenueCat SDK keys) intentionally
+# reuses the SAME repo-level secrets ios-testflight.yml already uses -
+# this workflow does not migrate the Google Maps key or touch RevenueCat
+# production webhooks. ALRT_PLUS_TEST_UNLOCK=true bypasses RevenueCat
 # entirely for entitlement checks (already-existing mechanism, see
 # alrt_plus_provider.dart) - no real purchase-flow testing happens via this
 # workflow, matching android-test.yml.
@@ -84,7 +84,7 @@ jobs:
         run: |
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}"
-            echo "GOOGLE_MAPS_API_KEY=${{ secrets.TEST_GOOGLE_MAPS_API_KEY_IOS }}"
+            echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}"
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE=${{ secrets.REVENUECAT_API_KEY_APPLE }}"
@@ -93,10 +93,11 @@ jobs:
             echo "ALRT_PLUS_TEST_UNLOCK=true"
           } > .env
 
-      # iOS reads the TEST-only Maps key from this xcconfig (see AppDelegate.swift).
-      # No production-key fallback is allowed for this workflow.
+      # iOS reads the Maps key from this xcconfig (see AppDelegate.swift) -
+      # same shared key ios-testflight.yml uses, per this repo's Google
+      # Maps key migration plan not yet being executed.
       - name: Create ios/Flutter/Maps.xcconfig
-        run: echo "GOOGLE_MAPS_API_KEY=${{ secrets.TEST_GOOGLE_MAPS_API_KEY_IOS }}" > ios/Flutter/Maps.xcconfig
+        run: echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}" > ios/Flutter/Maps.xcconfig
 
       - run: flutter pub get
 
