@@ -123,10 +123,13 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
         package.storeProduct.identifier,
       ]);
     }
+    // This email has had its free trial before: never advertise another.
+    final access = await ref.read(providerOfAccess.future);
+    final trialAllowed = access?.trialEligible ?? true;
     if (!mounted) return;
     setState(() {
       _package = package;
-      _trial = package == null
+      _trial = package == null || !trialAllowed
           ? null
           : eligibleTrialOffer(
               product: package.storeProduct,

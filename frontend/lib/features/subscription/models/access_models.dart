@@ -230,6 +230,7 @@ class UnboundSponsorship {
 class AccessSummary {
   const AccessSummary({
     required this.billingEnabled,
+    this.trialEligible = true,
     required this.personal,
     required this.groups,
     required this.unboundSponsorships,
@@ -239,6 +240,7 @@ class AccessSummary {
   factory AccessSummary.fromJson(final Map<String, dynamic> json) =>
       AccessSummary(
         billingEnabled: json['billingEnabled'] == true,
+        trialEligible: json['trialEligible'] != false,
         personal: json['personal'] is Map
             ? PersonalAccess.fromJson(
                 Map<String, dynamic>.from(json['personal'] as Map),
@@ -257,6 +259,9 @@ class AccessSummary {
       );
 
   final bool billingEnabled;
+
+  /// False once this email has started a free trial before.
+  final bool trialEligible;
   final PersonalAccess personal;
   final List<GroupAccess> groups;
   final List<UnboundSponsorship> unboundSponsorships;

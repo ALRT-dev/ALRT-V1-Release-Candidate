@@ -56,6 +56,12 @@ export const config = {
   // Turn on only for a test environment or an app-store review login.
   emailPasswordAuthEnabled:
     getOptionalEnv("EMAIL_PASSWORD_AUTH_ENABLED", "false") === "true",
+  // Comma-separated emails allowed to sign in with a password even while
+  // email sign-in is off: the App Store / Google Play reviewer account.
+  reviewLoginEmails: getOptionalEnv("REVIEW_LOGIN_EMAILS", "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
   // Secret used to scramble emails in the free-trial record. Falls back to
   // the access-token secret so it works before it is set explicitly.
   trialLedgerSecret: getOptionalEnv("TRIAL_LEDGER_SECRET", ""),

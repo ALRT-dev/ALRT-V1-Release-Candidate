@@ -10,7 +10,10 @@ import {
   verifyMicrosoftOAuth,
 } from "../controllers/auth.controller.js";
 import { validate } from "../middlewares/validation.middleware.js";
-import { requireEmailPasswordAuth } from "../middlewares/email_auth_gate.middleware.js";
+import {
+  requireEmailLoginAllowed,
+  requireEmailPasswordAuth,
+} from "../middlewares/email_auth_gate.middleware.js";
 import {
   registerSchema,
   loginSchema,
@@ -32,7 +35,7 @@ authRouter.post(
 );
 authRouter.post(
   "/email-password/login",
-  requireEmailPasswordAuth,
+  requireEmailLoginAllowed,
   validate(loginSchema),
   loginWithEmailAndPassword
 );

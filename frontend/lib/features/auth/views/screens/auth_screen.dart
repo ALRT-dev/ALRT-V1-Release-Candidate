@@ -228,6 +228,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         ),
         // 12.hSizedBox,
         // if (Platform.isIOS) _buildMicrosoftButton(),
+        // A quiet link for the App Store / Google Play reviewer login. The
+        // server only lets the listed reviewer emails in (REVIEW_LOGIN_EMAILS).
+        if (!const bool.fromEnvironment('ALRT_EMAIL_AUTH'))
+          TextButton(
+            onPressed: _handleEmailAuth,
+            child: Text(
+              'App review sign-in',
+              style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
+            ),
+          ),
       ],
     );
   }
