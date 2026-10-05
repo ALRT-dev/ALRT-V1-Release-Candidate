@@ -87,7 +87,7 @@ class UserSocketManager {
             name: 'Listen to updateUserXp socket event',
             future: () async {
               final xpPoints = data['xpPoints'] as int?;
-              final reliabilityScore = data['reliabilityScore'] as double?;
+              final reliabilityScore = (data['reliabilityScore'] as num?)?.toDouble();
 
               if (xpPoints != null) {
                 _userXpUpdateStreamController.add(xpPoints);

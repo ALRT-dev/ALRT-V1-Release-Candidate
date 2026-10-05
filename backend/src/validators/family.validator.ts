@@ -68,12 +68,17 @@ export const updateFamilyMemberSchema = z.object({
 
 export type UpdateFamilyMemberInput = z.infer<typeof updateFamilyMemberSchema>;
 
+const negativeToUndefined = (v: unknown) =>
+  typeof v === "number" && v < 0 ? undefined : v;
+
 export const familyLocationPingSchema = z.object({
   latitude: latitudeSchema,
   longitude: longitudeSchema,
-  accuracy: z.number().min(0).max(100000).optional(),
-  speed: z.number().min(0).max(1000).optional(),
-  heading: z.number().min(0).max(360).optional(),
+  // Phones report -1 for "unknown" speed, heading and accuracy. Treat a
+  // negative reading as missing instead of rejecting the whole ping.
+  accuracy: z.preprocess(negativeToUndefined, z.number().max(100000).optional()),
+  speed: z.preprocess(negativeToUndefined, z.number().max(1000).optional()),
+  heading: z.preprocess(negativeToUndefined, z.number().max(360).optional()),
   batteryLevel: z.number().int().min(0).max(100).optional(),
   isMoving: z.boolean().optional(),
   // Supported-client policy (review, 29 Sep 2026): current apps label an

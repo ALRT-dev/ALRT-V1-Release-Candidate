@@ -47,7 +47,7 @@ Users will ask what the shapes, colours, and words on their alerts mean. This is
 
 ## Shape says WHO issued the alert
 - **Triangle: AWS warning.** From the Australian Warning System. This is the ONLY source that states a severity level in words: Advice, Watch and Act, or Emergency Warning.
-- **Diamond: official source.** State agencies and services (fire, police, health, transport, utilities). No level word is written; the colour carries the urgency.
+- **Diamond: official source.** State agencies and services (fire, police, health, transport, utilities), plus global feeds such as international disaster alerts. No level word is written; the colour carries the urgency.
 - **Circle: community report.** Posted by a person nearby through the app, unverified. Community circles wear their category colour, never an urgency colour. Others can confirm or dispute a report.
 - **Shield: ALRT itself.** Colour only, never a level word.
 
@@ -70,6 +70,10 @@ Weather (blue), Health (orange), Security (red), Traffic (green), Utilities (amb
 - **Always free:** alerts, the live map, and emergency-call guidance. No paywall ever gates safety information.
 - **ALRT never contacts emergency services.** Calling the emergency number is always the user's one tap, and every alert carries this disclaimer.
 - **Report an ALRT:** anyone can post a community report from the footer's ALRT button; it appears as a circle, unverified, for others to confirm.
+- **Community report rules:** reports are text only for now (no photos or video). ALRT tidies the wording into calm, factual language and shows the place as a suburb, never an exact address, and no one can see who posted a report. A report can't be edited, but its poster can delete it at any time. Points for a report are only earned once it has expired, and deleting a report removes any points it earned. Similar reports nearby are offered for confirming instead of being posted twice. Anyone can report a community alert or block its poster from the alert itself.
+- **Safety Profile:** an optional set of choices (older adult, children in my care, mobility or disability needs, medical condition, deaf or hard of hearing, vision impairment, visiting Australia, essential worker, pets or livestock) kept only on the person's phone. It shapes the For You tips. If a person chooses Vision impairment, alerts are read aloud to them; anyone can also tap Listen on a single alert.
+- **ALRT Intel:** ALRT's own assessments, shown with the shield. It has its own on/off switch, separate from Official and Community.
+- **Child mode:** a switch on the device (not an age check) that keeps the map, alerts, SOS and check-ins but turns off posting community reports. An optional PIN is needed to turn it off. Nothing about it leaves the phone.
 - **Plans:** ALRT Free includes alerts, the map, navigation, one saved place (besides where you are) and 3 Ask ALRT questions a day. ALRT + Individual is personal: unlimited saved places, 10 Ask ALRT questions a day, and joining unlimited groups; only Individual can have a free trial. A Family plan (up to 6 people), Group 20 or Group 50 lets one payer cover check-ins, SOS and Journey in ONE group; it gives nobody personal benefits, including the payer. Creating and joining groups is free.
 - **Location privacy:** location leaves a phone only by its owner's action; there is no continuous tracking. Location snapshots are one moment, sent on purpose, and expire after 1 hour. An SOS lasts 1 hour; only the person who sent it can end it, or confirm to keep it going for another hour. The trail is wiped on stand-down. Journeys share periodic updates by default; live location is per-journey opt-in.
 - **Check-ins:** a check-in says someone checked in, never that they are safe. "I've seen this" on an SOS is a deliberate tap by the recipient.

@@ -10,7 +10,11 @@ export const setUserLocationSchema = z.object({
     .number()
     .min(-180, "Longitude must be between -180 and 180")
     .max(180, "Longitude must be between -180 and 180"),
-  locationName: z.string().min(1, "Location name is required"),
+  // A failed address lookup on the phone must not block onboarding.
+  locationName: z
+    .string()
+    .nullish()
+    .transform((v) => v?.trim() || "Current location"),
 });
 
 export type SetUserLocationInput = z.infer<typeof setUserLocationSchema>;

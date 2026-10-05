@@ -7,6 +7,7 @@ import 'package:hazard_app/features/map/providers/service_providers.dart';
 import 'package:hazard_app/features/map/services/location_service.dart';
 import 'package:hazard_app/features/profile/providers/my_hazards_provider.dart';
 import 'package:hazard_app/features/profile/providers/states/my_hazards_provider_state.dart';
+import 'package:hazard_app/features/report/providers/duplicate_report_provider.dart';
 import 'package:hazard_app/features/report/providers/states/create_update_report_provider_state.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_types.dart';
@@ -177,6 +178,20 @@ class CreateReportProvider
         _mapProvider.getMapHazards();
       },
       (error) {
+        // A repeat of a live alert nearby is not a failed upload: offer to
+        // confirm the existing alert instead and drop this attempt.
+        final duplicate = DuplicateReport.fromErrorDetails(
+          error.extraData['details'],
+        );
+        if (duplicate != null) {
+          updateCreatingHazardReports(
+            state.creatingUpdatingHazardReports
+                .where((chr) => chr.id != creatingHazardReport.id)
+                .toList(),
+          );
+          _ref.read(providerOfDuplicateReport.notifier).state = duplicate;
+          return;
+        }
         updateCreatingHazardReport(
           creatingHazardReport.copyWith(
             state: CreatingUpdatingHazardReportState.error(error),

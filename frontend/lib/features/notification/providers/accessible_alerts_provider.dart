@@ -40,7 +40,9 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
     return AccessibleAlertsSettings(
       strongVibration:
           _explicitVibration ?? cohorts.contains(SafetyCohort.deaf),
-      readAloud: _explicitReadAloud ?? cohorts.contains(SafetyCohort.vision),
+      // No switch in Notifications. Read-aloud is on only when the safety
+      // profile says Vision impairment; everyone else uses Listen.
+      readAloud: cohorts.contains(SafetyCohort.vision),
     );
   }
 
@@ -79,7 +81,9 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
     state = AccessibleAlertsSettings(
       strongVibration:
           _explicitVibration ?? cohorts.contains(SafetyCohort.deaf),
-      readAloud: _explicitReadAloud ?? cohorts.contains(SafetyCohort.vision),
+      // No switch in Notifications. Read-aloud is on only when the safety
+      // profile says Vision impairment; everyone else uses Listen.
+      readAloud: cohorts.contains(SafetyCohort.vision),
     );
   }
 }

@@ -161,7 +161,8 @@ class NotificationService {
     final title = message.notification?.title ?? data['title'] as String?;
     final body = message.notification?.body ?? data['body'] as String?;
     final text = [
-      band == 'critical' ? 'Critical alert.' : 'Take action alert.',
+      // No severity word is spoken: only the Australian Warning System
+      // writes a level, and it is already in the title.
       if (title != null && title.isNotEmpty) title,
       if (body != null && body.isNotEmpty) body,
     ].join(' ');

@@ -6,6 +6,7 @@ import { updateUserOwnLocationSubscriptionRadius } from "./location_subscription
 import { getAllMainHazardCategoryIds } from "./hazard_category.service.js";
 import { recordXpEvent } from "./xp_ledger.service.js";
 import { XpEventType } from "@prisma/client";
+import { config } from "../utils/config.js";
 
 /**
  * Marks the disclaimer as accepted for a given user
@@ -29,6 +30,10 @@ export const acceptTermsOfService = async (userId: string): Promise<void> => {
     where: { id: userId },
     data: {
       isTOSAccepted: true,
+      termsAcceptedAt: new Date(),
+      termsVersion: config.termsVersion,
+      privacyVersion: config.privacyVersion,
+      guidelinesVersion: config.guidelinesVersion,
 
       // Also accept the privacy policy as it is part of the terms of service.
       isPrivacyPolicyAccepted: true,

@@ -291,12 +291,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               );
             case PushNotificationType.familyLocationRequest:
               // Consent-first: open the Share once / Not now sheet.
-              final requestId = remoteMessage.data['locationRequestId'];
+              // Structured fields ride in the decoded payload (see journeyId below).
+              final requestId = remoteMessage.payload['locationRequestId'] ??
+                  remoteMessage.data['locationRequestId'];
               if (requestId is String && requestId.isNotEmpty) {
                 showFamilyLocationRequestSheet(
                   context: context,
                   requestId: requestId,
-                  requesterName: remoteMessage.data['requesterName'],
+                  requesterName: (remoteMessage.payload['requesterName'] ??
+                      remoteMessage.data['requesterName']) as String?,
                 );
               }
               return;
@@ -323,7 +326,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               // The push exists for the locked-phone case: open the SOS
               // itself if it is still live, otherwise land on the hub.
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
-              final sosEventId = remoteMessage.data['sosEventId'];
+              final sosEventId = remoteMessage.payload['sosEventId'] ??
+                  remoteMessage.data['sosEventId'];
               unawaited(
                 ref
                     .read(providerOfFamily.notifier)

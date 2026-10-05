@@ -64,11 +64,12 @@ class _ReportContentSheetState extends ConsumerState<_ReportContentSheet> {
   }
 
   Future<void> _block() async {
-    final reporterId = widget.hazard.reportedBy?.id;
-    if (reporterId == null || _busy) return;
+    if (_busy) return;
     setState(() => _busy = true);
     try {
-      await ref.read(providerOfBlockedUsers.notifier).block(reporterId);
+      await ref
+          .read(providerOfBlockedUsers.notifier)
+          .blockPosterOfHazard(widget.hazard.id);
       if (!mounted) return;
       Navigator.of(context).maybePop();
       context.showSuccessToast(
@@ -83,7 +84,7 @@ class _ReportContentSheetState extends ConsumerState<_ReportContentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final canBlock = widget.hazard.reportedBy?.id != null;
+    final canBlock = widget.hazard.reportedBy != null;
 
     return SafeArea(
       top: false,

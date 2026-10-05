@@ -164,7 +164,10 @@ abstract class Hazard with _$Hazard {
   /// This system may be retired later. Everything that makes the square
   /// exist hangs off this one set and [isGlobalHumanitarian] — empty the set
   /// and the shape stops being produced everywhere at once.
-  static const globalHumanitarianSourceIds = {'gdacsGlobal'};
+  // Folded into Official (product owner, 5 Oct 2026): GDACS now shows as a
+  // diamond under the Official switch. Kept empty rather than deleted so the
+  // square can be brought back by listing the source id here.
+  static const globalHumanitarianSourceIds = <String>{};
 
   /// Whether this alert came from a global humanitarian feed (the square).
   bool get isGlobalHumanitarian {

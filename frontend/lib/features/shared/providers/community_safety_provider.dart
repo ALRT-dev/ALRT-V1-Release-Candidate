@@ -31,6 +31,14 @@ class BlockedUsersNotifier extends AsyncNotifier<List<BlockedUser>> {
     await future;
   }
 
+  /// Blocks whoever posted this alert, without the app ever learning who.
+  Future<void> blockPosterOfHazard(final String hazardId) async {
+    final client = ref.read(providerOfRestClient);
+    await client.blockUser(body: {'hazardId': hazardId});
+    ref.invalidateSelf();
+    await future;
+  }
+
   Future<void> unblock(final String userId) async {
     final client = ref.read(providerOfRestClient);
     await client.unblockUser(userId: userId);

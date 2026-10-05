@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
+import 'package:hazard_app/features/report/providers/duplicate_report_provider.dart';
+import 'package:hazard_app/features/report/views/widgets/duplicate_report_sheet.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/models/alrt_location_model.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
@@ -32,6 +34,10 @@ import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+/// Community report photo/video. Off for V1. Matches backend COMMUNITY_REPORT_MEDIA_ENABLED.
+const bool kCommunityReportMediaEnabled =
+    bool.fromEnvironment('ALRT_REPORT_MEDIA', defaultValue: false);
 
 /// The soft grey the report page sits on, from the V3.1 prototype.
 const _pageColor = Color(0xFFF0EEF2);
@@ -108,6 +114,13 @@ class _CreateUpdateReportScreenState
 
   @override
   Widget build(BuildContext context) {
+    // A repeat of a live alert nearby: offer to confirm that one instead.
+    ref.listen<DuplicateReport?>(providerOfDuplicateReport, (_, duplicate) {
+      if (duplicate == null) return;
+      ref.read(providerOfDuplicateReport.notifier).state = null;
+      showDuplicateReportSheet(context: context, duplicate: duplicate);
+    });
+
     return Scaffold(
       // The soft grey page the prototype uses. White cards float on it, so
       // each one reads as a distinct thing to do instead of dissolving into
@@ -247,13 +260,17 @@ class _CreateUpdateReportScreenState
                   helper: 'optional',
                   child: _descriptionBuilder(),
                 ),
-                _sectionBuilder(
-                  isOptional: true,
-                  isDone: hasMedia,
-                  label: 'Photos',
-                  helper: 'optional',
-                  child: _mediaBuilder(),
-                ),
+                // Photo/video is switched off for the V1 release (privacy and
+                // moderation risk). Build with --dart-define=ALRT_REPORT_MEDIA=true
+                // to bring it back; the backend flag must match.
+                if (kCommunityReportMediaEnabled)
+                  _sectionBuilder(
+                    isOptional: true,
+                    isDone: hasMedia,
+                    label: 'Photos',
+                    helper: 'optional',
+                    child: _mediaBuilder(),
+                  ),
                 _headlinePreviewBuilder(),
               ],
             ),

@@ -48,6 +48,20 @@ export const config = {
   runScheduledJobsInTest:
     getOptionalEnv("RUN_SCHEDULED_JOBS_IN_TEST", "false") === "true",
 
+  // Photo/video on community reports. OFF for the V1 release: images and
+  // video of strangers, minors and private property are the highest-risk
+  // part of posting an alert. When false, create/update report requests
+  // that carry media files are rejected (see blockCommunityReportMedia).
+  // Bump when the legal text changes; stored against each user on acceptance.
+  termsVersion: getOptionalEnv("TERMS_VERSION", "2026-08-01"),
+  privacyVersion: getOptionalEnv("PRIVACY_VERSION", "2026-08-01"),
+  guidelinesVersion: getOptionalEnv("COMMUNITY_GUIDELINES_VERSION", "2026-08-01"),
+  communityReportsPerHour: parseInt(getOptionalEnv("COMMUNITY_REPORTS_PER_HOUR", "3"), 10),
+  communityReportsPerDay: parseInt(getOptionalEnv("COMMUNITY_REPORTS_PER_DAY", "10"), 10),
+  communityDuplicateRadiusMeters: parseInt(getOptionalEnv("COMMUNITY_DUPLICATE_RADIUS_M", "500"), 10),
+  communityReportMediaEnabled:
+    getOptionalEnv("COMMUNITY_REPORT_MEDIA_ENABLED", "false") === "true",
+
   // CORS / Socket.IO — comma-separated origins; localhost/127.0.0.1 still allowed in non-prod when list does not match
   cors: {
     allowedOrigins: getOptionalEnv(

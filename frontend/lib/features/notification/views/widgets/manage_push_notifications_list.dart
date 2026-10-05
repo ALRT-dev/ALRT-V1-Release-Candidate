@@ -206,7 +206,7 @@ class _ManagePushNotificationsListState
               10.hSizedBox,
               _filterToggleCard(
                 title: 'Official',
-                description: 'State agencies, global humanitarian and ALRT Intel alerts',
+                description: 'State agencies, global feeds and ALRT Intel alerts',
                 isEnabled: officialNonAws,
                 onToggle: (value) {
                   filterProvider.updateOfficialNonAws(value);

@@ -1360,3 +1360,33 @@ const findClosestAllowedSeverity = (
 
   return allowedWithIndices[0]!.severity;
 };
+
+/**
+ * Privacy rule: other people never see who posted a community report.
+ * For a viewer who is not the reporter, strip name, XP and reliability and
+ * keep only what the app needs: the opaque id (for Block and "mine"
+ * checks) and the Unverified/verified status badge. The reporter sees
+ * their own full record.
+ */
+export const toPublicReporter = <
+  T extends { id?: string | null } & Record<string, any>,
+>(
+  reporter: T | null | undefined,
+  viewerId?: string
+): Record<string, any> | null => {
+  if (!reporter) return null;
+  if (reporter.id && reporter.id === viewerId) return reporter;
+  // Other people never see who posted: no id, name or photo.
+  return {
+    reportsStatus: reporter.reportsStatus,
+  };
+};
+
+/** Applies toPublicReporter to a hazard object's reportedBy, if it has one. */
+export const withPublicReporter = <T extends { reportedBy?: any }>(
+  hazard: T,
+  viewerId?: string
+): T => {
+  if (!hazard || !("reportedBy" in hazard) || !hazard.reportedBy) return hazard;
+  return { ...hazard, reportedBy: toPublicReporter(hazard.reportedBy, viewerId) };
+};

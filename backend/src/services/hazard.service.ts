@@ -24,6 +24,7 @@ import {
   buildHazardsWhereClauseRaw,
   mapAiReviewStatus,
   withPublicCoords,
+  toPublicReporter,
 } from "../utils/hazard.util.js";
 import { getPromptById } from "./ai-prompt.service.js";
 import { getAIPromptConfiguration } from "./configuration.service.js";
@@ -56,6 +57,12 @@ export const getHazardsApplyingFilters = async (
   },
 ): Promise<Hazard[]> => {
   const { userId, page = 1, pageSize = 20 } = params;
+
+  // Nobody can list another person's alerts: the poster filter only works
+  // for your own.
+  if (params.reportedById && params.reportedById !== userId) {
+    return [];
+  }
 
   const whereClause = buildHazardsWhereClause(params);
 
@@ -126,7 +133,7 @@ export const getHazardsApplyingFilters = async (
     return {
       ...withPublicCoords(hazardWithoutVotes, userId),
       userVoteType: votes?.[0]?.voteType,
-      reportedBy: enhancedReportedBy,
+      reportedBy: toPublicReporter(enhancedReportedBy, userId),
     };
   });
 };
@@ -429,7 +436,7 @@ export const getHazardsApplyingFiltersRaw = async (
     return {
       ...withPublicCoords(cleanHazard, userId),
       userVoteType: userVoteType || undefined,
-      reportedBy: enhancedReportedBy,
+      reportedBy: toPublicReporter(enhancedReportedBy, userId),
       category: hazard.categoryId
         ? {
             id: hazard.categoryId,
@@ -552,6 +559,7 @@ Please analyze this hazard report:
       reviewStatus?: unknown;
       reviewFeedback?: unknown;
       title: string;
+      description?: unknown;
       summary: string;
       callsToAction: string[];
       confidence: "high" | "medium" | "low";
@@ -570,6 +578,9 @@ Please analyze this hazard report:
         reviewFeedback: aiReview.reviewFeedback,
       }),
       title: aiReview.title,
+      ...(typeof aiReview.description === "string" && {
+        description: aiReview.description,
+      }),
       summary: aiReview.summary,
       callsToAction: aiReview.callsToAction,
       confidence: aiReview.confidence,

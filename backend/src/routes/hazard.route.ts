@@ -26,6 +26,7 @@ import {
 import {
   uploadMultiple,
   handleMulterError,
+  blockCommunityReportMedia,
 } from "../middlewares/upload.middleware.js";
 import {
   hazardGetIpLimiter,
@@ -66,6 +67,7 @@ hazardRouter.post(
   requireAuth,
   uploadMultiple,
   handleMulterError,
+  blockCommunityReportMedia,
   validate(createHazardSchema),
   createHazard,
 );
@@ -74,6 +76,7 @@ hazardRouter.put(
   requireAuth,
   uploadMultiple,
   handleMulterError,
+  blockCommunityReportMedia,
   validate(updateHazardSchema),
   updateHazard,
 );

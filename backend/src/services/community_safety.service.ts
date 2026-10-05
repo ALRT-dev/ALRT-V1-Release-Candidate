@@ -124,7 +124,6 @@ export const listBlockedUsers = async (blockerId: string) => {
     select: {
       blockedId: true,
       createdAt: true,
-      blocked: { select: { id: true, name: true } },
     },
   });
 
@@ -132,7 +131,7 @@ export const listBlockedUsers = async (blockerId: string) => {
     userId: row.blockedId,
     // A blocked account still needs something to identify it in the list,
     // or the user cannot tell which block to undo.
-    name: row.blocked.name ?? "Community member",
+    name: "Blocked poster",
     blockedAt: row.createdAt,
   }));
 };

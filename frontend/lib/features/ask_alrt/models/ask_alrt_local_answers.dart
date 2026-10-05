@@ -66,18 +66,16 @@ abstract final class AskAlrtLocalAnswers {
         'what does the diamond mean',
         'what does the circle mean',
         'what does the shield mean',
-        'what does the square mean',
       ],
       keywords: [
         'shape', 'shapes', 'triangle', 'diamond', 'circle', 'shield',
-        'square', 'symbol', 'icon',
+        'symbol', 'icon',
       ],
       answer:
           'The shape tells you who issued the alert. Triangle: an AWS '
           'warning, the only source that states a level in words (Advice, '
-          'Watch and Act, Emergency Warning). Diamond: an official agency. '
-          'Rounded square: a global humanitarian feed, carrying that '
-          "source's own scale. Circle: an unverified community report. "
+          'Watch and Act, Emergency Warning). Diamond: an official source, '
+          'including state agencies and global feeds. Circle: an unverified community report. "
           "Shield: ALRT's own assessment. The full key is on the map under "
           'the layers button.',
     ),

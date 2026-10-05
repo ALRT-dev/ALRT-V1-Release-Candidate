@@ -218,9 +218,6 @@ class _HazardFiltersBottomsheetContentState
           _filtersProvider.select((value) => value.userReported),
         );
 
-        final globalHumanitarian = ref.watch(
-          _filtersProvider.select((value) => value.globalHumanitarian),
-        );
         final alrtIntel = ref.watch(
           _filtersProvider.select((value) => value.alrtIntel),
         );
@@ -235,24 +232,12 @@ class _HazardFiltersBottomsheetContentState
             children: [
               _switchBuilder(
                 title: 'Official',
-                subtitle: 'State agencies and services',
+                subtitle: 'State agencies, services and global feeds',
                 isEnabled: officialAlerts,
                 onToggle: (value) {
                   ref
                       .read(_filtersProvider.notifier)
                       .updateOfficialNonAws(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-              10.hSizedBox,
-              _switchBuilder(
-                title: 'Global humanitarian',
-                subtitle: 'Disasters rated for international response',
-                isEnabled: globalHumanitarian,
-                onToggle: (value) {
-                  ref
-                      .read(_filtersProvider.notifier)
-                      .updateGlobalHumanitarian(value);
                   widget.onFiltersUpdated?.call();
                 },
               ),

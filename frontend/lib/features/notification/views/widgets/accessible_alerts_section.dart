@@ -34,8 +34,9 @@ class AccessibleAlertsSection extends ConsumerWidget {
         ),
         4.hSizedBox,
         Text(
-          'For emergencies you need to feel or hear, not just see. '
-          'These follow your safety profile until you set them yourself.',
+          'Deaf or hard of hearing: urgent alerts vibrate strongly. '
+          'Vision impairment: urgent alerts are read aloud when the app is open. '
+          'These follow what you tick above. Every alert also has a Listen button.',
           style: TextStyle(fontSize: 12.5.spMin, color: AppColors.grey),
         ),
         12.hSizedBox,
@@ -52,16 +53,7 @@ class AccessibleAlertsSection extends ConsumerWidget {
           6.hSizedBox,
           _testVibrationRowBuilder(context, notifier),
         ],
-        8.hSizedBox,
-        _toggleCardBuilder(
-          icon: LucideIcons.volume2,
-          title: 'Read urgent alerts aloud',
-          subtitle: 'Take-action and critical alerts are spoken when the '
-              'app is open, and every alert has a Listen button. Made for '
-              'vision-impaired users; handy for anyone driving.',
-          value: settings.readAloud,
-          onChanged: notifier.setReadAloud,
-        ),
+        // No read-aloud switch: it follows the Vision impairment option above.
       ],
     );
   }

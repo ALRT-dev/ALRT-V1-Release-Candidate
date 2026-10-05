@@ -1,5 +1,5 @@
 import type { Hazard } from "@prisma/client";
-import { withPublicCoords } from "../utils/hazard.util.js";
+import { withPublicCoords, withPublicReporter } from "../utils/hazard.util.js";
 import { getSocketClient } from "../utils/socket_client.util.js";
 import { SocketEvent } from "../models/socket_event_types.js";
 import { getUserIdsForLocationSubscriptionBounds } from "./location_subscription.service.js";
@@ -94,7 +94,7 @@ export const sendSocketEventAboutHazardToSubscribers = async ({
       event: socketEvent,
       // Broadcast copies go to arbitrary subscribers: suburb-precision only
       // for community reports.
-      data: withPublicCoords(hazard),
+      data: withPublicReporter(withPublicCoords(hazard)),
     });
   } catch (error) {
     console.error("Error sending socket event about new hazard:", error);

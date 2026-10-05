@@ -2,6 +2,7 @@ import multer from "multer";
 import type { Request, Response, NextFunction } from "express";
 import { HttpError } from "../models/http_error.js";
 import { validateMediaFile } from "../services/s3.service.js";
+import { config } from "../utils/config.js";
 import { CATEGORY_IMAGE_UPLOAD_FIELDS } from "../constants/category_image.constants.js";
 
 // Configure multer for memory storage
@@ -187,4 +188,24 @@ export const handleCategoryImagesMulterError = (
     return next(new HttpError(400, error.message));
   }
   next(error);
+};
+
+/**
+ * Release kill switch for photo/video on community reports. Place after
+ * uploadMultiple + handleMulterError. Rejects any request that carries
+ * media files while COMMUNITY_REPORT_MEDIA_ENABLED is not "true".
+ */
+export const blockCommunityReportMedia = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) => {
+  if (config.communityReportMediaEnabled) return next();
+  const files = req.files as Express.Multer.File[] | undefined;
+  if (Array.isArray(files) && files.length > 0) {
+    return next(
+      new HttpError(400, "Photos and video are not available on reports yet.")
+    );
+  }
+  next();
 };

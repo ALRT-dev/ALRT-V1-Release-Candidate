@@ -346,7 +346,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     return Row(
       spacing: 12.spMin,
       children: [
-        Expanded(child: _buildEditButton()),
+        // Editing a published alert is off: an edit would skip review.
+        // The poster can delete it and post a new one.
         Expanded(child: _buildDeleteButton()),
       ],
     );

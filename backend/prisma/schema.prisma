@@ -23,6 +23,12 @@ model User {
   isPrivacyPolicyAccepted Boolean @default(false)
   isDisclaimerAccepted    Boolean @default(false)
 
+  // Which version of the legal text was accepted, and when.
+  termsAcceptedAt   DateTime?
+  termsVersion      String?
+  privacyVersion    String?
+  guidelinesVersion String?
+
   xpPoints         Int   @default(0)
   reliabilityScore Float @default(0.0)
 

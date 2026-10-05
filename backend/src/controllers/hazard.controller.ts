@@ -26,9 +26,14 @@ import {
 import { HttpError } from "../models/http_error.js";
 import { SocketEvent } from "../models/socket_event_types.js";
 import {
-  awardFirstReport,
+  reverseReportXp,
   handleReportReviewOutcome,
 } from "../services/xp_ledger.service.js";
+import {
+  assertCanPostCommunityReport,
+  containsRawIdentifiers,
+  toSuburbOnlyLocationName,
+} from "../utils/community_report_guard.js";
 import { calculateUserReportsStatus } from "../services/user.service.js";
 import { config } from "../utils/config.js";
 import {
@@ -46,6 +51,7 @@ import {
   adjustExpirationTime,
   buildHazardInclude,
   withPublicCoords,
+  withPublicReporter,
   withCorroborationCount,
 } from "../utils/hazard.util.js";
 import { parseBoolean } from "../utils/parse.util.js";
@@ -295,6 +301,19 @@ export const getHazardById = async (
       await cacheHazard(id, hazard);
     }
 
+    // Only live, approved alerts can be opened by ID. The poster can still
+    // open their own (to see its status or delete it); everyone else gets 404.
+    {
+      const { userId: requesterId } = res;
+      const isOwner = !!requesterId && hazard.reportedById === requesterId;
+      const isLive =
+        hazard.reviewStatus === HazardReviewStatus.accepted &&
+        (!hazard.expiresAt || new Date(hazard.expiresAt) > new Date());
+      if (!isOwner && !isLive) {
+        return res.status(404).json({ message: "Hazard not found" });
+      }
+    }
+
     const hazardWithPresignedUrls = await enrichHazardsWithPresignedUrls([
       hazard,
     ]);
@@ -304,7 +323,10 @@ export const getHazardById = async (
       .status(200)
       .json(
         withCorroborationCount(
-          withPublicCoords(hazardWithPresignedUrls[0] as any, viewerId),
+          withPublicReporter(
+            withPublicCoords(hazardWithPresignedUrls[0] as any, viewerId),
+            viewerId,
+          ),
         ),
       );
   } catch (error) {
@@ -366,6 +388,15 @@ export const createHazard = async (
     }
     if (!category) {
       throw new HttpError(400, "Invalid or missing hazard category");
+    }
+
+    if (userId && !useDummy) {
+      await assertCanPostCommunityReport({
+        userId,
+        categoryId: category.id,
+        latitude,
+        longitude,
+      });
     }
 
     const uploadedFiles = req.files as Express.Multer.File[] | undefined;
@@ -451,10 +482,25 @@ export const createHazard = async (
         "Your alrt is awaiting review because the attached media could not be automatically screened.";
     }
 
+    // Safety net behind the AI: an accepted report must come back with a
+    // cleaned description, and none of the published text may still contain
+    // phone numbers, emails, links, street addresses or number plates.
+    if (
+      review.reviewStatus === HazardReviewStatus.accepted &&
+      !useDummy &&
+      (typeof review.description !== "string" ||
+        containsRawIdentifiers(review.title, review.description))
+    ) {
+      review.reviewStatus = HazardReviewStatus.pending;
+      review.reviewFeedback =
+        "Your alrt is awaiting a quick check before it is published.";
+    }
+
     const {
       reviewStatus,
       reviewFeedback,
       title: suggestedTitle,
+      description: cleanedDescription,
       summary: aiSummary,
       confidence: aiConfidence,
       callsToAction,
@@ -501,7 +547,15 @@ export const createHazard = async (
       const hazard = await tx.hazard.create({
         data: {
           title: suggestedTitle || title || "An unverified incident",
-          description: description || "",
+          // Store the cleaned-up text, never the raw submission, whenever
+          // the AI review produced one (addresses, names and offensive or
+          // alarmist wording are removed there). If the review could not
+          // run the report stays pending and the raw text is kept for an
+          // admin to review.
+          description:
+            typeof cleanedDescription === "string"
+              ? cleanedDescription
+              : description || "",
           reviewStatus: reviewStatus,
           reviewFeedback: mediaModerationFeedback || reviewFeedback,
           ...(reviewStatus === HazardReviewStatus.accepted && {
@@ -514,7 +568,7 @@ export const createHazard = async (
           reportedById: userId,
           latitude,
           longitude,
-          locationName,
+          locationName: toSuburbOnlyLocationName(locationName),
           confidenceScore,
           confidenceScoreCalculatedAt: new Date(),
           ...(occurredAt && { occurredAt: new Date(occurredAt) }),
@@ -591,10 +645,6 @@ export const createHazard = async (
     // once, on top of whatever the review outcome pays. Awarded on posting
     // rather than on approval, because it marks the moment someone became a
     // contributor, not the quality of that one report.
-    if (userId) {
-      await awardFirstReport(userId, hazard.id);
-    }
-
     if (reviewStatus === HazardReviewStatus.accepted) {
       // Send push notifications to users who subscribed to this area when a new hazard is created
       // This will ignore the user who reported the hazard
@@ -670,6 +720,14 @@ export const updateHazard = async (
     if (existingHazard.reportedById !== userId) {
       throw new HttpError(403, "Forbidden: You cannot update this hazard");
     }
+
+    // Published community alerts cannot be edited: an edit would bypass
+    // review and could overwrite an admin rejection. The poster can delete
+    // the alert and post a new one, which is reviewed again.
+    throw new HttpError(
+      403,
+      "Alerts can't be edited. Delete it and post a new one.",
+    );
 
     const { hazard: hazardData, removedMediaIds }: UpdateHazardInput = req.body;
 
@@ -1006,6 +1064,9 @@ export const deleteHazard = async (
       where: { id },
       include: buildHazardInclude(),
     });
+
+    // Deleting an alert takes back any points it earned.
+    await reverseReportXp(id);
 
     // Delete media files from S3 after successful hazard deletion
     if (s3KeysToDelete.length > 0) {

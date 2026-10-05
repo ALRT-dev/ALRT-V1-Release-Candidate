@@ -4,7 +4,6 @@ import prisma from "../utils/prisma_client.util.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
 import {
   getFormattedHazardSeverity,
-  getFormattedHazardSeverityBand,
 } from "../utils/hazard.util.js";
 import { isUnderNotificationCooldown } from "./hazard_cache.service.js";
 import { getCacheClient } from "../utils/cache_client.util.js";
@@ -333,7 +332,16 @@ export const pushSafeHazard = (hazard: Hazard): Record<string, unknown> => {
     reviewedById: _reviewer,
     ...safe
   } = hazard as Hazard & Record<string, unknown>;
-  return { ...safe, reportedById: hazard.reportedById ? "community" : null };
+  // Keep only a marker that a person reported it (the app uses it for the
+  // "community report" label); no id, name or scores go into a push.
+  const reporter = (hazard as Record<string, any>).reportedBy;
+  return {
+    ...safe,
+    reportedById: hazard.reportedById ? "community" : null,
+    ...(reporter
+      ? { reportedBy: { reportsStatus: reporter.reportsStatus } }
+      : {}),
+  };
 };
 
 /** FCM tokens Firebase reported dead on the last send; removed from UserDevice. */
@@ -554,21 +562,20 @@ export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
  * forbidden from banding at all).
  */
 export const getNotificationTitleForNewHazard = (hazard: Hazard): string => {
-  const { severity, title, isAwsCompliant, severityBand, reportedById } =
-    hazard;
+  const { severity, title, isAwsCompliant, reportedById } = hazard;
 
   if (reportedById) {
     return `Community report | ${title}`;
   }
 
-  const formattedSeverity = getFormattedHazardSeverity(severity);
-  const foramttedSeverityBand = getFormattedHazardSeverityBand(severityBand);
+  // Only the Australian Warning System writes a severity word (its own
+  // level, verbatim). Every other official source is shown by colour only,
+  // so its push title is just the alert title.
+  if (isAwsCompliant) {
+    return `${getFormattedHazardSeverity(severity)} | ${title}`;
+  }
 
-  const requiredSeverity = isAwsCompliant
-    ? formattedSeverity
-    : foramttedSeverityBand;
-
-  return `${requiredSeverity} | ${title}`;
+  return title;
 };
 
 /**

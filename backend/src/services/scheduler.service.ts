@@ -9,6 +9,7 @@ import {
 import { fireDueScheduledCheckIns } from "./family.service.js";
 import { endLapsedJourneys } from "./family_journey.service.js";
 import { endLapsedSosEvents } from "./family.service.js";
+import { awardExpiredReports } from "./xp_ledger.service.js";
 
 /**
  * Initializes scheduled tasks for the application
@@ -60,6 +61,15 @@ export const initializeScheduledTasks = () => {
       await pruneFamilyLocationPings();
     } catch (error) {
       console.error("Expired family location purge failed:", error);
+    }
+  });
+
+  // Pay points for community reports once their expiry time has passed
+  cron.schedule("*/10 * * * *", async () => {
+    try {
+      await awardExpiredReports();
+    } catch (error) {
+      console.error("Expired report points sweep failed:", error);
     }
   });
 

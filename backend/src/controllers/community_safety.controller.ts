@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { HttpError } from "../models/http_error.js";
+import prisma from "../utils/prisma_client.util.js";
 import * as communitySafety from "../services/community_safety.service.js";
 import type {
   BlockUserInput,
@@ -42,7 +43,16 @@ export const blockUserController = async (
 ) => {
   try {
     const blockerId = requireUserId(res);
-    const { userId: blockedId } = req.body as BlockUserInput;
+    const { userId, hazardId } = req.body as BlockUserInput;
+    let blockedId = userId;
+    if (!blockedId && hazardId) {
+      const hazard = await prisma.hazard.findUnique({
+        where: { id: hazardId },
+        select: { reportedById: true },
+      });
+      blockedId = hazard?.reportedById ?? undefined;
+    }
+    if (!blockedId) throw new HttpError(404, "Nothing to block");
     const result = await communitySafety.blockUser(blockerId, blockedId);
     res.status(200).json(result);
   } catch (error) {

@@ -84,7 +84,6 @@ abstract class HazardFiltersProviderState with _$HazardFiltersProviderState {
       awsAdvice ||
       officialNonAws ||
       userReported ||
-      globalHumanitarian ||
       alrtIntel ||
       selectedCategoryIds.isNotEmpty;
 
@@ -92,7 +91,6 @@ abstract class HazardFiltersProviderState with _$HazardFiltersProviderState {
   /// phone (the API predates the global humanitarian and Intel switches,
   /// so those two filter the results after they arrive).
   bool allowsHazard(final Hazard hazard) {
-    if (!globalHumanitarian && hazard.isGlobalHumanitarian) return false;
     if (!alrtIntel && hazard.isAlrtIntel) return false;
     return true;
   }
@@ -105,7 +103,6 @@ abstract class HazardFiltersProviderState with _$HazardFiltersProviderState {
     if (!awsAdvice) count++;
     if (!officialNonAws) count++;
     if (!userReported) count++;
-    if (!globalHumanitarian) count++;
     if (!alrtIntel) count++;
     count += allCategoryIds.length - selectedCategoryIds.length;
     return count;

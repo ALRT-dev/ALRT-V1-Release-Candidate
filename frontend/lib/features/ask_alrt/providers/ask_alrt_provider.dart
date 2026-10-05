@@ -201,6 +201,8 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
   bool _isLimitError(final FirebaseFunctionsException exception) {
     final message = exception.message?.toLowerCase() ?? '';
     final details = exception.details?.toString().toLowerCase() ?? '';
-    return message.contains('limit') || details.contains('limit');
+    return exception.code == 'resource-exhausted' ||
+        message.contains('limit') ||
+        details.contains('limit');
   }
 }

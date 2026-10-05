@@ -46,13 +46,7 @@ class AlertKeyContent extends StatelessWidget {
           icon: LucideIcons.diamond,
           iconColor: AlertCardStyle.bandAction,
           title: 'Diamond · official source',
-          subtitle: 'State agencies and services',
-        ),
-        _keyRowBuilder(
-          icon: LucideIcons.square,
-          iconColor: const Color(0xFF7E8B9A),
-          title: 'Rounded square · global humanitarian',
-          subtitle: "Carries the source's own scale, not an AWS level",
+          subtitle: 'State agencies, services and global feeds',
         ),
         _keyRowBuilder(
           icon: LucideIcons.circle,

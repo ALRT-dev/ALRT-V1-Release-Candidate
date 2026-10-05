@@ -290,8 +290,33 @@ export const handleReportReviewOutcome = async (
       return { pointsAwarded: event.points, newXpTotal };
     }
 
-    if (hazard.reviewStatus !== HazardReviewStatus.accepted) return null;
+    // Accepted reports earn nothing yet: points are paid once the alert's
+    // own expiry time has passed (see awardExpiredReports), so a report that
+    // is deleted or pulled while live never pays out.
+    return null;
+  } catch (error) {
+    console.error("Scoring v2 failed for hazard", hazard.id, error);
+    return null;
+  }
+};
 
+/** Pays the approved-report points (+ bonuses) for one expired, accepted report. */
+const awardApprovedReport = async (
+  hazard: Pick<
+    Hazard,
+    | "id"
+    | "reportedById"
+    | "reviewStatus"
+    | "categoryId"
+    | "latitude"
+    | "longitude"
+    | "occurredAt"
+  >,
+): Promise<{ pointsAwarded: number; newXpTotal: number } | null> => {
+  const userId = hazard.reportedById;
+  if (!userId) return null;
+
+  try {
     const streakDays = await touchActivityStreak(userId);
     const multiplier = streakMultiplierFor(streakDays);
     const points = Math.round(XP_POINTS.reportApproved * multiplier);
@@ -706,4 +731,85 @@ export const getXpSummary = async (userId: string) => {
       createdAt: e.createdAt,
     })),
   };
+};
+
+/**
+ * Scheduled sweep: pays points for community reports whose expiry time has
+ * passed. Safe to run repeatedly — a report that already has an approved
+ * event is skipped.
+ */
+export const awardExpiredReports = async (): Promise<number> => {
+  const now = new Date();
+  const since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const due = await prisma.hazard.findMany({
+    where: {
+      reviewStatus: HazardReviewStatus.accepted,
+      reportedById: { not: null },
+      expiresAt: { lt: now, gt: since },
+    },
+    select: {
+      id: true,
+      reportedById: true,
+      reviewStatus: true,
+      categoryId: true,
+      latitude: true,
+      longitude: true,
+      occurredAt: true,
+    },
+    orderBy: { expiresAt: "asc" },
+    take: 200,
+  });
+
+  let paid = 0;
+  for (const hazard of due) {
+    const already = await prisma.xpEvent.findFirst({
+      where: { hazardId: hazard.id, type: XpEventType.reportApproved },
+      select: { id: true },
+    });
+    if (already) continue;
+    const result = await awardApprovedReport(hazard);
+    if (result && hazard.reportedById) {
+      paid += 1;
+      await awardFirstReport(hazard.reportedById, hazard.id);
+    }
+  }
+  return paid;
+};
+
+/**
+ * Takes back every point a report earned (approval, official match, wide
+ * corroboration) when its owner deletes it. Floors at 0 like all XP.
+ */
+export const reverseReportXp = async (hazardId: string): Promise<void> => {
+  try {
+    const events = await prisma.xpEvent.findMany({
+      where: {
+        hazardId,
+        points: { gt: 0 },
+        type: {
+          in: [
+            XpEventType.reportApproved,
+            XpEventType.officialMatch,
+            XpEventType.reportWidelyCorroborated,
+          ],
+        },
+      },
+    });
+    for (const event of events) {
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id: event.userId },
+          select: { xpPoints: true },
+        });
+        if (!user) return;
+        await tx.user.update({
+          where: { id: event.userId },
+          data: { xpPoints: Math.max(0, user.xpPoints - event.points) },
+        });
+        await tx.xpEvent.delete({ where: { id: event.id } });
+      });
+    }
+  } catch (error) {
+    console.error("XP reversal failed for hazard", hazardId, error);
+  }
 };

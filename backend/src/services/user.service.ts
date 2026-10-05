@@ -1,4 +1,5 @@
 import { HazardVoteType } from "@prisma/client";
+import { invalidateHazardCaches } from "./hazard_cache.service.js";
 import { getAllMainHazardCategoryIds } from "./hazard_category.service.js";
 import prisma from "../utils/prisma_client.util.js";
 import { UserReportsStatus } from "../enums/user_reports_status_types.js";
@@ -365,12 +366,10 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
 
   // Use a transaction for database operations
   await prisma.$transaction(async (tx) => {
-    // Step 3: Anonymize hazards reported by user (set reportedById to null)
-    await tx.hazard.updateMany({
-      where: { reportedById: userId },
-      data: { reportedById: null },
-    });
-    console.log(`Anonymized hazards for user ${userId}`);
+    // Step 3: Delete the person's own alerts with the account. Left behind,
+    // an alert with no poster would be treated as an official one.
+    await tx.hazard.deleteMany({ where: { reportedById: userId } });
+    console.log(`Deleted alerts for user ${userId}`);
 
     // Step 3.5: Resolve Family circles this user owns before their own
     // membership cascades away with the user record below. A circle where
@@ -436,6 +435,8 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
 
     console.log(`Successfully deleted user ${userId} and all associated data`);
   });
+
+  await invalidateHazardCaches().catch(() => undefined);
 
   // Best-effort: tell the remaining members of each circle that lost its
   // host. Never blocks the deletion itself on a notification failure.
