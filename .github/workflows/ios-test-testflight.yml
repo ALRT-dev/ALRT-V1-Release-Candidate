@@ -281,6 +281,20 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
 
+      - name: Make the installed signing profile visible to the current Xcode
+        run: |
+          # fastlane 2.228 saves profiles under ~/Library/MobileDevice; newer
+          # Xcode versions read ~/Library/Developer/Xcode/UserData instead.
+          xcodebuild -version | head -1
+          NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$NEW"
+          if [ -d "$OLD" ]; then cp -f "$OLD"/*.mobileprovision "$NEW"/ 2>/dev/null || true; fi
+          echo "profiles (old location):"; ls "$OLD" 2>/dev/null | wc -l
+          echo "profiles (new location):"; ls "$NEW" | wc -l
+          for f in "$NEW"/*.mobileprovision; do [ -f "$f" ] && security cms -D -i "$f" 2>/dev/null | grep -A1 -E '<key>Name</key>' | tail -1; done
+          security find-identity -v -p codesigning | tail -3
+
       - name: Refresh CocoaPods specs (the runner's copy is out of date)
         working-directory: frontend/ios
         run: |
