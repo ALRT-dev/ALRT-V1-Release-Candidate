@@ -149,6 +149,10 @@ on:
         options:
           - bypass
           - platform_sandbox
+      crash_logs_only:
+        description: "Only print the newest TestFlight crash reports testers shared (no build, no upload)"
+        type: boolean
+        default: false
 
 # The actual Flutter/iOS project lives in frontend/, not the repo root -
 # see the header comment above. Applies to every plain `run:` step below;
@@ -162,7 +166,29 @@ defaults:
     working-directory: frontend
 
 jobs:
+  crash-logs:
+    if: ${{ inputs.crash_logs_only }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: test
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Print the newest shared TestFlight crash reports (read only)
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          pip install --quiet "pyjwt[crypto]"
+          python3 .github/scripts/testflight_crash_logs.py
+
   build:
+    if: ${{ !inputs.crash_logs_only }}
     runs-on: macos-15
     timeout-minutes: 90
     environment: test
