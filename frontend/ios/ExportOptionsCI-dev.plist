@@ -18,6 +18,8 @@
 	<dict>
 		<key>com.safetyalrt.alrt.dev</key>
 		<string>match AppStore com.safetyalrt.alrt.dev</string>
+		<key>com.safetyalrt.alrt.dev.watchkitapp</key>
+		<string>match AppStore com.safetyalrt.alrt.dev.watchkitapp</string>
 	</dict>
 	<key>uploadSymbols</key>
 	<true/>

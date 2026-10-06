@@ -7,6 +7,7 @@ import 'package:hazard_app/features/home_screen_widget/family_widget_model.dart'
 import 'package:hazard_app/features/home_screen_widget/home_widget_keys.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_service.dart';
 import 'package:hazard_app/features/home_screen_widget/models/family_widget_payload.dart';
+import 'package:hazard_app/features/wearable/watch_bridge.dart';
 
 /// Builds the Family status widget payload from [FamilyProviderState] and
 /// pushes it. Wired via a listener on the family provider, so it runs on every
@@ -30,6 +31,9 @@ class FamilyWidgetSync {
         '${payload.moreCircles}|${_groupSignature(state)}';
     if (signature == _lastSignature) return;
     _lastSignature = signature;
+    // The Apple Watch reads the same payload (names of circles and one
+    // status line each; never members or locations).
+    WatchBridge.push(payload);
 
     _pending = _pending.then((_) => _pushWithIcons(state, payload));
   }
@@ -39,6 +43,7 @@ class FamilyWidgetSync {
   /// next person to sign in on this device does not briefly inherit them.
   static Future<void> clear() {
     _lastSignature = null;
+    WatchBridge.clear();
     return HomeWidgetService.updateFamily(
       FamilyWidgetModel.signedOut(DateTime.now()),
     );

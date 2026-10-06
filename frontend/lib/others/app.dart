@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/api/auth_session_events.dart';
+import 'package:hazard_app/features/wearable/watch_bridge.dart';
 import 'package:hazard_app/features/auth/views/screens/auth_screen.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
 import 'package:hazard_app/others/app_router.dart';
@@ -28,6 +29,10 @@ class _MyAppState extends ConsumerState<MyApp> {
   void initState() {
     super.initState();
     _router = AppRouter.buildRouter(ref);
+
+    // Apple Watch companion: answer the watch from first launch, including
+    // when the watch wakes this app in the background (no screen shown).
+    WatchBridge.attach(ref);
 
     // When the refresh token is rejected the session cannot be recovered
     // silently — route back to the auth screen from anywhere in the app.

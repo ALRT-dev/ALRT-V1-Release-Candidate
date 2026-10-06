@@ -100,11 +100,16 @@ platform :ios do
       key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
       is_key_content_base64: true
     )
+    # The Apple Watch companion (AlrtWatch target) ships inside the TEST
+    # app and needs its own App ID and profile. Registering the App ID is
+    # additive (it never touches an existing one) and only happens on a
+    # generate run; match then creates the profile next to the existing one.
+    ensure_bundle_id("com.safetyalrt.alrt.dev.watchkitapp", "ALRT Dev Watch") if options[:generate].to_s == "true"
     match(
       type: "appstore",
       readonly: options[:generate].to_s != "true",
       api_key: api_key,
-      app_identifier: "com.safetyalrt.alrt.dev"
+      app_identifier: ["com.safetyalrt.alrt.dev", "com.safetyalrt.alrt.dev.watchkitapp"]
     )
     update_code_signing_settings(
       use_automatic_signing: false,
@@ -114,6 +119,15 @@ platform :ios do
       bundle_identifier: "com.safetyalrt.alrt.dev",
       code_sign_identity: "Apple Distribution",
       profile_name: "match AppStore com.safetyalrt.alrt.dev"
+    )
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Runner.xcodeproj",
+      targets: ["AlrtWatch"],
+      team_id: "JR89M7CYPR",
+      bundle_identifier: "com.safetyalrt.alrt.dev.watchkitapp",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.safetyalrt.alrt.dev.watchkitapp"
     )
   end
 
@@ -168,6 +182,19 @@ platform :ios do
   end
 
   # -------------------------------------- HELPERS --------------------------------------
+
+  # Registers an App ID on the Apple Developer account if it is not there
+  # yet (uses the App Store Connect API key already set by the lane). Never
+  # modifies or deletes an existing App ID.
+  def ensure_bundle_id(identifier, name)
+    existing = Spaceship::ConnectAPI::BundleId.find(identifier)
+    if existing
+      UI.message("App ID #{identifier} already registered")
+    else
+      Spaceship::ConnectAPI::BundleId.create(name: name, platform: "IOS", identifier: identifier)
+      UI.success("Registered App ID #{identifier}")
+    end
+  end
   
   def increment_version_code(pubspec_path)
     content = File.read(pubspec_path)

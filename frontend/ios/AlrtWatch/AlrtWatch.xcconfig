@@ -1,0 +1,9 @@
+// Apple Watch companion build settings.
+// Only Flutter's generated values are pulled in (version name and build
+// number, so the watch app always carries the iPhone app's version, which
+// App Store Connect requires). Never the Pods or Maps configuration: the
+// watch app links nothing from the iPhone app.
+#include? "../Flutter/Generated.xcconfig"
+
+MARKETING_VERSION = $(FLUTTER_BUILD_NAME)
+CURRENT_PROJECT_VERSION = $(FLUTTER_BUILD_NUMBER)

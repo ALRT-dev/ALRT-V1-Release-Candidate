@@ -334,41 +334,59 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
 
-      - name: Configure Xcode to use the installed dev profile
+      - name: Configure Xcode to use the installed dev profiles (iPhone app and Apple Watch app)
         run: |
           OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
           NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
           mkdir -p "$NEW"
-          PROFILE_NAME=""
-          for PROFILE in "$OLD"/*.mobileprovision; do
-            [ -f "$PROFILE" ] || continue
-            DECODED="$(mktemp)"
-            if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
-              APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
-              if [[ "$APP_ID" == *".com.safetyalrt.alrt.dev" ]]; then
-                PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED")"
-                cp -f "$PROFILE" "$NEW/"
-                rm -f "$DECODED"
-                break
+          # bundle id -> the name fastlane match gave its profile. Both must
+          # be found: the watch app is embedded in the iPhone app.
+          RENAMES=()
+          for BUNDLE in com.safetyalrt.alrt.dev com.safetyalrt.alrt.dev.watchkitapp; do
+            PROFILE_NAME=""
+            for PROFILE in "$OLD"/*.mobileprovision; do
+              [ -f "$PROFILE" ] || continue
+              DECODED="$(mktemp)"
+              if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
+                APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
+                if [[ "$APP_ID" == *".$BUNDLE" ]]; then
+                  PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED")"
+                  cp -f "$PROFILE" "$NEW/"
+                  rm -f "$DECODED"
+                  break
+                fi
               fi
+              rm -f "$DECODED"
+            done
+            if [ -z "$PROFILE_NAME" ]; then
+              echo "::error::No installed provisioning profile found for $BUNDLE. On the first run with the Apple Watch app, dispatch this workflow with generate_certs=true."
+              exit 1
             fi
-            rm -f "$DECODED"
+            echo "$BUNDLE -> $PROFILE_NAME"
+            RENAMES+=("$BUNDLE" "$PROFILE_NAME")
           done
-          if [ -z "$PROFILE_NAME" ]; then
-            echo "::error::No installed provisioning profile found for com.safetyalrt.alrt.dev"
-            exit 1
-          fi
-          python3 - "$PROFILE_NAME" ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI-dev.plist <<'PY'
+          python3 - ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI-dev.plist -- "${RENAMES[@]}" <<'PY'
           import pathlib
           import sys
 
-          profile_name, *paths = sys.argv[1:]
-          expected_name = "match AppStore com.safetyalrt.alrt.dev"
-          files = [(pathlib.Path(path), pathlib.Path(path).read_text()) for path in paths]
-          if any(expected_name not in contents for _, contents in files):
-              raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
-          for path, contents in files:
-              path.write_text(contents.replace(expected_name, profile_name))
+          args = sys.argv[1:]
+          split = args.index("--")
+          paths, pairs = args[:split], args[split + 1:]
+          files = {pathlib.Path(p): pathlib.Path(p).read_text() for p in paths}
+          for bundle, profile_name in zip(pairs[0::2], pairs[1::2]):
+              expected = f"match AppStore {bundle}"
+              for path, contents in files.items():
+                  if expected not in contents:
+                      raise SystemExit(f"Expected signing profile {expected!r} was not found in {path}")
+                  # Exact-name replace: "...alrt.dev" must not rewrite the
+                  # prefix of "...alrt.dev.watchkitapp", so match whole
+                  # quoted values only.
+                  for quote in ('"', ">"):
+                      closing = '"' if quote == '"' else "<"
+                      contents = contents.replace(f"{quote}{expected}{closing}", f"{quote}{profile_name}{closing}")
+                  files[path] = contents
+          for path, contents in files.items():
+              path.write_text(contents)
           PY
 
       - name: Select Xcode 26 (App Store Connect requires the iOS 26 SDK)

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>ALRT</string>
+	<!-- The iPhone app this watch app belongs to: com.safetyalrt.alrt for
+	     the live app, com.safetyalrt.alrt.dev for TEST (set per build
+	     configuration as ALRT_COMPANION_BUNDLE_ID). Flutter's build tool
+	     also reads this key to detect the watch companion. -->
+	<key>WKCompanionAppBundleIdentifier</key>
+	<string>$(ALRT_COMPANION_BUNDLE_ID)</string>
+	<key>WKApplication</key>
+	<true/>
+	<key>WKRunsIndependentlyOfCompanionApp</key>
+	<false/>
+</dict>
+</plist>
