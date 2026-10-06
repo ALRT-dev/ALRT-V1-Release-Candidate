@@ -191,6 +191,18 @@ jobs:
           pip install --quiet "pyjwt[crypto]"
           python3 .github/scripts/testflight_crash_logs.py
 
+      - name: Can the TEST backend be reached? (what the app calls at start-up)
+        run: |
+          H=api-test.safetyalrt.com
+          echo "== DNS"; getent hosts "$H" || echo "DNS lookup failed"
+          echo "== TLS certificate"
+          echo | timeout 15 openssl s_client -connect "$H:443" -servername "$H" 2>/dev/null \
+            | openssl x509 -noout -subject -issuer -dates -ext subjectAltName 2>/dev/null || echo "no certificate / connection failed"
+          for p in / /api/hazard-categories /api/users/me /api/app/version-policy /api/ask-alrt/allowance; do
+            printf "%-32s " "$p"
+            curl -sS -o /dev/null -m 20 -w "HTTP %{http_code} in %{time_total}s\n" "https://$H$p" || echo "request failed"
+          done
+
   build:
     if: ${{ !inputs.crash_logs_only }}
     runs-on: macos-15

@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/auth/providers/service_providers.dart';
 import 'package:hazard_app/features/map/providers/hazard_markers_bitmaps_provider.dart';
@@ -35,25 +37,43 @@ class AppInitializationProvider extends Notifier<bool> {
     // The SIM's country decides which emergency number the app offers, so
     // it is read before any screen can ask. Never throws, and a null just
     // falls the resolution through to device region.
-    await SimCountry.load();
+    await _bounded('loadSimCountry', SimCountry.load, 3);
     if (!ref.mounted) return;
 
     // initialize these things after shared preference is initialized but before logged in user is initialized
     await Future.wait([
       _initializeLoggedInUser(),
-      _initializeGoogleSignIn(),
+      _bounded('initializeGoogleSignIn', _initializeGoogleSignIn, 8),
     ]);
     if (!ref.mounted) return;
 
     // initialize these things after logged in user is initialized
     await Future.wait([
-      _getCurrentUserLocation(),
-      _generateMarkerBitmaps(),
-      _initializeMainCategories(),
+      _bounded('getCurrentUserLocation', _getCurrentUserLocation, 8),
+      _bounded('generateMarkerBitmaps', _generateMarkerBitmaps, 10),
+      _bounded('initializeMainCategories', _initializeMainCategories, 10),
     ]);
     if (!ref.mounted) return;
 
     state = true;
+  }
+
+  /// Runs one start-up step without ever holding the splash screen: it may
+  /// take at most [seconds] and any error is logged and dropped. Each step
+  /// already copes with having no result (categories and markers reload on
+  /// use, location is asked for again), so the app always moves on to
+  /// sign-in, onboarding or home instead of sitting on the splash while a
+  /// slow or unreachable server is retried.
+  Future<void> _bounded(
+    final String name,
+    final Future<void> Function() step,
+    final int seconds,
+  ) async {
+    try {
+      await step().timeout(Duration(seconds: seconds));
+    } catch (error) {
+      log('Start-up step $name skipped: $error', name: 'AppInitialization');
+    }
   }
 
   /// Initializes the shared preferences instance.
@@ -70,8 +90,8 @@ class AppInitializationProvider extends Notifier<bool> {
   }
 
   /// Initialize google sign-in.
-  Future<void> _initializeGoogleSignIn() {
-    return ref.read(providerOfAuthService).initializeGoogleSignIn();
+  Future<void> _initializeGoogleSignIn() async {
+    await ref.read(providerOfAuthService).initializeGoogleSignIn();
   }
 
   /// Initializes the current logged in user.
@@ -103,8 +123,8 @@ class AppInitializationProvider extends Notifier<bool> {
         .generateMarkerBitmaps();
   }
 
-  Future<void> _initializeMainCategories() {
-    return ref
+  Future<void> _initializeMainCategories() async {
+    await ref
         .read(providerOfMainCategories.notifier)
         .getAllMainHazardCategories();
   }
