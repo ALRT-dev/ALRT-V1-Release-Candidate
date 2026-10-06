@@ -8,6 +8,7 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/check_in_roll.dart';
 import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
 import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
+import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_check_in_roll_call_screen.dart';
@@ -935,7 +936,12 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         child: Icon(LucideIcons.siren, size: 16.spMin, color: FamilyColors.sosRed),
       ),
       title: Text(
-        endedAt == null ? '$who · ended' : '$who · ended ${timeago.format(endedAt)}',
+        // An SOS that ran out its hour expired; nobody ended it.
+        sosExpired(sos)
+            ? '$who · expired ${timeago.format(sosExpiredAt(sos)!)}'
+            : endedAt == null
+            ? '$who · ended'
+            : '$who · ended ${timeago.format(endedAt)}',
         style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
@@ -1542,7 +1548,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     ? '${journey.remaining.inMinutes} min'
                     : 'Journey',
                 tint: const Color(0xFFF5E9FA),
-                ink: const Color(0xFF9C27B0),
+                ink: FamilyColors.v31Indigo,
                 isLit: isSharing,
                 onTap: () => context.push(FamilyJourneyScreen.route),
               ),

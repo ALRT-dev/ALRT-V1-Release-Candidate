@@ -25,11 +25,15 @@ explicit instruction from the product owner in the current session.
 - V3 section labels: #B84500, uppercase, letter-spaced. Exception: the
   Report an ALRT screen takes the V3.1 prototype's brighter #FF6B01, which
   is what that prototype specifies for its own section labels.
-- Family indigo is #3D3DDF (FamilyColors.indigo), from the V3.1
-  prototype. The family header gradient is #4B4BF0 -> #3229C4 (55%)
-  -> #1E1780 at 165 degrees with a soft radial highlight top-right;
-  the page behind family cards is #F0EEF5 and family section labels
-  are #FF6B01, not the V3 rust.
+- Family palette is the approved purple (product owner, 8 Sep 2026,
+  commit ed05fcc; it superseded the V3.1 indigo #3D3DDF): accent
+  #7B3FA0 (FamilyColors.v31Indigo, which FamilyColors.indigo points
+  to) for buttons, selected chips and links; the family header gradient
+  is #4A1C7A -> #42186C (45%) -> #2A0E45 with a soft radial highlight
+  top-right (FamilyColors.headerGradient); the page behind family cards
+  is #ECE8F2 (FamilyColors.v31Page). Take Family colours from
+  family_colors.dart, never a one-off hex (the old Family purple
+  #9C27B0 is retired).
 - Footer (when rebuilt as the floating capsule): active slot gets a lit grey
   pill, the ALRT slot uses the full six-path ALRT logo SVG (32x26, never
   redrawn or substituted) and opens Report, the Alerts bell always carries
@@ -55,8 +59,13 @@ explicit instruction from the product owner in the current session.
   tracking, ever.
 - Snapshots expire after 1 hour: the event log is kept, the locations are
   deleted (not archived, not aggregated).
-- SOS live share caps at 4 hours; stand-down wipes the trail and history
-  keeps only time and duration, never locations.
+- SOS lasts 1 hour (product owner, 3 Oct 2026, commit f89a8d3; replaces
+  the 4-hour cap). The sender can extend it by another hour from now
+  ("Extend 1 hour", POST /api/family/sos/:id/extend) or end it; copy
+  says "SOS lasts 1 hour. You can extend it or end it." The sender's
+  running SOS shows "Live until [time]" from liveUntil. Stand-down or
+  expiry wipes the trail and history keeps only time and duration,
+  never locations.
 - Journeys use periodic updates by default (departure, ~10 min points,
   arrival; say "Periodic updates" and "Live location", not "snap
   points"); live is per-journey opt-in and never an upsell by itself.

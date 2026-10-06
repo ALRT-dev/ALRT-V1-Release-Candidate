@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -10,12 +12,13 @@ import 'package:hazard_app/features/family/views/screens/family_sos_lists_screen
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
 import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
+import 'package:hazard_app/features/subscription/utils/store_management.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
 import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// Shows [error] the right way: a coded access refusal gets its own sheet
 /// with the one or two actions that actually help; anything else stays a
@@ -46,7 +49,11 @@ Future<void> showAccessRefusalSheet(
       .read(providerOfAccess.future)
       .catchError((_) => null);
   final group = id == null ? null : access?.groupById(id);
-  final p = refusalPresentation(refusal, group: group);
+  final p = refusalPresentation(
+    refusal,
+    group: group,
+    hasIndividual: access?.personal.isIndividual ?? false,
+  );
   if (!context.mounted) return;
   final action = await showModalBottomSheet<RefusalAction>(
     context: context,
@@ -78,14 +85,34 @@ Future<void> showAccessRefusalSheet(
         ),
       );
     case RefusalAction.renewInStore:
-      final url = await ref.read(providerOfRevenueCat).managementUrl();
-      if (url != null) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      } else if (context.mounted) {
+      final opened = await openSubscriptionManagement(
+        ref.read(providerOfRevenueCat),
+      );
+      if (!opened && context.mounted) {
         context.showErrorToast(
           message: 'Open your app store\'s subscriptions to renew it.',
         );
       }
+    case RefusalAction.useOwnAlrtPlus:
+      if (id == null) return;
+      final result = await ref
+          .read(providerOfAccessRepository)
+          .switchToIndividualFunding(circleId: id);
+      if (!context.mounted) return;
+      if (result.isFailure) {
+        context.showErrorToast(message: result.failure.message);
+        return;
+      }
+      // Coverage changed: re-read access and the group so paused features
+      // come back for everyone with their own ALRT +.
+      ref.invalidate(providerOfAccess);
+      ref.invalidate(providerOfAlrtPlus);
+      unawaited(ref.read(providerOfFamily.notifier).load(silent: true));
+      context.showSuccessToast(
+        message:
+            'This group now uses each person\'s own ALRT +. Everyone who '
+            'has it can carry on.',
+      );
     case RefusalAction.inviteSomeone:
       await context.push(FamilyInviteScreen.route);
     case RefusalAction.editSosList:
@@ -184,7 +211,8 @@ class _RefusalSheet extends StatelessWidget {
   }
 
   PlanIdentity _identityFor(final RefusalAction action) => switch (action) {
-    RefusalAction.seeAlrtPlus => PlanIdentity.individual,
+    RefusalAction.seeAlrtPlus ||
+    RefusalAction.useOwnAlrtPlus => PlanIdentity.individual,
     RefusalAction.coverGroup ||
     RefusalAction.upgradeGroup ||
     RefusalAction.renewInStore => PlanIdentity.group,

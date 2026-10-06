@@ -82,6 +82,21 @@ class RevenueCatService {
     }
   }
 
+  /// [ensureConfigured] for whoever is signed in to ALRT, for callers that
+  /// must not fail because of it: paywalls before they read the store,
+  /// Restore, and app start or sign-in. No user, or a build without keys
+  /// (bypass/preview builds), is a quiet no-op. A configure that throws
+  /// (offline, store unavailable) is swallowed and tried again next time,
+  /// so the caller's own "couldn't load" wording still applies.
+  Future<void> ensureConfiguredFor(final String? userId) async {
+    if (userId == null || userId.isEmpty || !_hasKeys) return;
+    try {
+      await ensureConfigured(userId);
+    } catch (_) {
+      // Left unconfigured: every read then answers "unavailable".
+    }
+  }
+
   /// Signs the SDK out when the ALRT account signs out, so the next person
   /// on this phone starts with no identity and no entitlement.
   Future<void> signOut() async {

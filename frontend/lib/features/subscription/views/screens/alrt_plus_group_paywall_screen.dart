@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/subscription/models/access_models.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
@@ -145,6 +146,10 @@ class _AlrtPlusGroupPaywallScreenState
       return;
     }
     setState(() => _loading = true);
+    // Signed in as this ALRT user before the store is read, so the
+    // purchase that follows is attributed to the right account.
+    await rc.ensureConfiguredFor(ref.read(providerOfLoggedInUser)?.id);
+    if (!mounted) return;
     final offering = await rc.offering(RevenueCatService.groupsOfferingId);
     if (!mounted) return;
     setState(() {

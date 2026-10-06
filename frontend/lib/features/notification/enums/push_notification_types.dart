@@ -13,6 +13,10 @@ enum PushNotificationType {
   familySos,
   familySosResponse,
   familySosResolved,
+  // To the SOS sender only, about 10 minutes before their SOS's end time
+  // (data: sosEventId, circleId). Tapping opens their running SOS, where
+  // "Extend 1 hour" lives.
+  familySosEndingSoon,
   familyHazardProximity,
   familyCircleUpdate,
   familyLocationRequest,

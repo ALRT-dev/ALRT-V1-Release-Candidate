@@ -313,7 +313,8 @@ void main() {
       final p = sosPreview(others: others, list: null, live: true);
       expect(p.recipientsLine, 'Alex, Morgan and Taylor');
       expect(p.locationLine, contains('live location'));
-      expect(p.locationLine, contains('4 hours'));
+      expect(p.locationLine, contains('SOS lasts 1 hour'));
+      expect(p.locationLine, isNot(contains('4 hours')));
     });
 
     test('a list, not live: only its people, and the one-time point', () {

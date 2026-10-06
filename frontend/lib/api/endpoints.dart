@@ -96,6 +96,15 @@ const kUrlAccessSponsorshipIntents = '$kUrlAccess/sponsorship-intents';
 const kUrlAccessReconcile = '$kUrlAccess/reconcile';
 String kUrlAccessBindSponsorship(final String subscriptionId) =>
     '$kUrlAccess/sponsorships/$subscriptionId/bind';
+/// Host only: returns a group whose plan has ended to individual funding,
+/// so everyone with their own ALRT + can carry on there.
+String kUrlAccessIndividualFunding(final String circleId) =>
+    '$kUrlAccess/groups/$circleId/individual-funding';
+
+// ---------------------------- APP ----------------------------
+
+/// Public: the lowest app version each platform still supports.
+const kUrlAppVersionPolicy = '$kUrlApi/app/version-policy';
 
 // ---------------------------- FAMILY ----------------------------
 
@@ -154,6 +163,9 @@ String kUrlFamilySosLocationConsent(final String sosEventId) =>
     '$kUrlFamilySos/$sosEventId/location-consent';
 String kUrlFamilySosLocation(final String sosEventId) =>
     '$kUrlFamilySos/$sosEventId/location';
+/// The sender keeps their SOS going: liveUntil becomes now + 1 hour.
+String kUrlFamilySosExtend(final String sosEventId) =>
+    '$kUrlFamilySos/$sosEventId/extend';
 
 // ---------------------------- XP / SCORING ----------------------------
 

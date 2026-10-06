@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/api/auth_session_events.dart';
+import 'package:hazard_app/features/app_update/providers/force_update_provider.dart';
+import 'package:hazard_app/features/app_update/views/force_update_screen.dart';
 import 'package:hazard_app/features/auth/views/screens/auth_screen.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
 import 'package:hazard_app/others/app_router.dart';
@@ -49,6 +51,9 @@ class _MyAppState extends ConsumerState<MyApp> {
         (value) => value.appName,
       ),
     );
+    // Set by the version-policy check (AppWrapper, at start). Once this
+    // build is below the minimum, nothing else is reachable.
+    final requiredUpdate = ref.watch(providerOfForceUpdate);
 
     return ScreenUtilInit(
       minTextAdapt: true,
@@ -92,7 +97,9 @@ class _MyAppState extends ConsumerState<MyApp> {
                   maxScaleFactor: 1.3,
                 ),
               ),
-              child: child ?? const SizedBox.shrink(),
+              child: requiredUpdate != null
+                  ? ForceUpdateScreen(storeUrl: requiredUpdate.storeUrl)
+                  : child ?? const SizedBox.shrink(),
             );
           },
         );

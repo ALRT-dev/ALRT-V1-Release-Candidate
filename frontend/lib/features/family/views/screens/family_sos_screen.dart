@@ -4,6 +4,7 @@ import 'package:hazard_app/features/family/services/sos_api.dart';
 import 'package:hazard_app/features/family/services/location_fix.dart';
 import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
 import 'package:hazard_app/features/family/utils/sos_preview.dart';
+import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'dart:async';
@@ -251,8 +252,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                             ? _sentLocationNote ?? switch (_choice) {
                                 SosLocationChoice.live =>
                                   'Your live location is now shared with '
-                                      'the people this SOS went to, until you '
-                                      'end it, for up to 4 hours.',
+                                      'the people this SOS went to. '
+                                      '$kSosDurationLine',
                                 SosLocationChoice.once =>
                                   'The people this SOS went to were sent your '
                                       'location once. It won\'t update.',
@@ -454,9 +455,10 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
         : !liveEnabled
         ? 'Not available: ${fix.statusLine}'
         : fix.isCurrent
-        ? 'Updates while your SOS runs, up to 4 hours.'
+        ? 'Updates while your SOS runs. $kSosDurationLine'
         : 'Your last known location is NOT used. Starts when your phone '
-              'finds you, then updates while your SOS runs, up to 4 hours.';
+              'finds you, then updates while your SOS runs. '
+              '$kSosDurationLine';
     Widget segment(
       final SosLocationChoice value,
       final String label, {
@@ -645,8 +647,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             ? 'Your last known location (${fixNow!.ageLabel}), once.$suburb'
             : 'Where you are now, once. It won\'t update.$suburb',
       SosLocationChoice.live =>
-        'Your live location, updating until you end the SOS (up to 4 '
-            'hours).$suburb',
+        'Your live location, updating while the SOS runs. '
+            '$kSosDurationLine$suburb',
     };
     return Container(
       key: const Key('sos-preview'),

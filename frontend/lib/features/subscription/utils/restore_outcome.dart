@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/subscription/models/access_models.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
@@ -174,6 +175,11 @@ Future<RestoreOutcome> runRestore(
   final Duration wait = const Duration(seconds: 2),
 }) async {
   List<String> products;
+  // Restore needs the SDK signed in as this ALRT user first; without it
+  // the store read below refuses and the person is told it failed.
+  await ref
+      .read(providerOfRevenueCat)
+      .ensureConfiguredFor(ref.read(providerOfLoggedInUser)?.id);
   try {
     products = await ref.read(providerOfRevenueCat).restoreActiveProducts();
   } catch (_) {

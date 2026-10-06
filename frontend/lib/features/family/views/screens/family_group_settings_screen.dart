@@ -51,7 +51,7 @@ class _FamilyGroupSettingsScreenState
     Color(0xFFE0362B),
     Color(0xFFF5A623),
     Color(0xFF4DA8FF),
-    Color(0xFF9C27B0),
+    FamilyColors.v31HeaderGlow,
     Color(0xFFEC1C7D),
     Color(0xFF1D1D21),
     Color(0xFF8A8792),

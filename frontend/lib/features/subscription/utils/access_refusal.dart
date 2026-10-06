@@ -89,6 +89,11 @@ enum RefusalAction {
   renewInStore,
   inviteSomeone,
   editSosList,
+
+  /// A lapsed sponsored group goes back to each person's own ALRT +
+  /// (POST /api/access/groups/:circleId/individual-funding). Offered to
+  /// the host only, and only when they have ALRT + themselves.
+  useOwnAlrtPlus,
 }
 
 class RefusalPresentation {
@@ -113,10 +118,13 @@ const _dangerLine =
     'If you are in immediate danger, call your local emergency number.';
 
 /// Wording and actions for [refusal], given what the person is in the
-/// group it concerns ([group], from GET /api/access, may be null).
+/// group it concerns ([group], from GET /api/access, may be null) and
+/// whether they have their own ALRT + ([hasIndividual], the personal plan
+/// or its trial).
 RefusalPresentation refusalPresentation(
   final AccessRefusal refusal, {
   final GroupAccess? group,
+  final bool hasIndividual = false,
 }) {
   final isHost = group?.isHost ?? false;
   final youPay = group?.sponsorship?.youPay ?? false;
@@ -135,6 +143,14 @@ RefusalPresentation refusalPresentation(
       );
     case AccessRefusalKind.groupPlanEnded:
       // Never an ALRT + upsell: buying it would not switch this group on.
+      // A host who already has ALRT + can instead move the group back to
+      // each person's own ALRT + (the backend allows the host only).
+      final canUseOwn = isHost && hasIndividual;
+      final primary = youPay
+          ? RefusalAction.renewInStore
+          : isHost
+          ? RefusalAction.coverGroup
+          : null;
       return RefusalPresentation(
         title: 'This group\'s plan has ended',
         body:
@@ -144,17 +160,17 @@ RefusalPresentation refusalPresentation(
                 ? ''
                 : isHost
                 ? ''
-                : ' The person who paid, or the host, can renew or replace it.'}',
-        primary: youPay
-            ? RefusalAction.renewInStore
-            : isHost
-            ? RefusalAction.coverGroup
-            : null,
+                : ' The person who paid, or the host, can renew or replace it.'}'
+            '${canUseOwn ? ' Or use your own ALRT + here: then everyone with '
+                      'their own ALRT + can carry on in this group.' : ''}',
+        primary: primary,
         primaryLabel: youPay
             ? 'Renew in your app store'
             : isHost
             ? 'Cover this group'
             : null,
+        secondary: canUseOwn ? RefusalAction.useOwnAlrtPlus : null,
+        secondaryLabel: canUseOwn ? 'Use my own ALRT +' : null,
       );
     case AccessRefusalKind.groupFull:
       final s = group?.sponsorship;

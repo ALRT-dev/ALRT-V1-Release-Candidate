@@ -1,4 +1,5 @@
 import 'package:hazard_app/features/family/models/family_models.dart';
+import 'package:hazard_app/features/family/utils/sos_timing.dart';
 
 /// The phone's own guess at who an SOS reaches, from the group it has
 /// loaded. Shown only until the backend's preview (sos_api.dart) answers,
@@ -29,7 +30,7 @@ class LocalSosPreview {
   /// keeps updating; with it off, the one point taken when it is sent
   /// (when the phone has one), never updated.
   String get locationLine => live
-      ? 'Your live location, updating until you end the SOS (up to 4 hours).'
+      ? 'Your live location, updating while the SOS runs. $kSosDurationLine'
       : 'Where you are when you send it, once. It won\'t update.';
 }
 
