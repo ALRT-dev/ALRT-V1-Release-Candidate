@@ -419,12 +419,29 @@ jobs:
           echo "Building with build number $BUILD_NUMBER"
           # TEST builds only: show the email sign-in button (the app hides it by
           # default). The server still decides who may sign in with a password.
-          flutter build ipa --release --flavor dev -t lib/main_dev.dart \
+          # Full Xcode output goes to a log file; on failure every Xcode
+          # error is printed with context (Flutter itself shows only the
+          # first one), so one run is enough to see all of them.
+          LOG="$RUNNER_TEMP/flutter-build-ios.log"
+          if ! flutter build ipa --release --flavor dev -t lib/main_dev.dart \
             --dart-define=ALRT_EMAIL_AUTH=true \
             --dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} \
             --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }} \
             --build-number="$BUILD_NUMBER" \
-            --export-options-plist=ios/ExportOptionsCI-dev.plist
+            --export-options-plist=ios/ExportOptionsCI-dev.plist \
+            -v > "$LOG" 2>&1; then
+            echo "::group::Xcode errors"
+            grep -nE "(error|fatal error): |\*\* (ARCHIVE|BUILD) FAILED" "$LOG" | head -80 || true
+            echo "::endgroup::"
+            echo "::group::Context around the first errors"
+            grep -nE "error: " "$LOG" | head -5 | cut -d: -f1 | while read -r N; do
+              sed -n "$((N > 25 ? N - 25 : 1)),$((N + 5))p" "$LOG"; echo "-----"
+            done
+            echo "::endgroup::"
+            tail -40 "$LOG"
+            exit 1
+          fi
+          tail -15 "$LOG"
 
       # ci_upload_dev (not the production ci_upload lane) pins the App Store
       # Connect record to com.safetyalrt.alrt.dev / "ALRT Dev" and refuses any
