@@ -24,9 +24,47 @@ project.build_configurations.each do |config|
   config.build_settings["ALRT_COMPANION_BUNDLE_ID"] = host
 end
 
-if project.targets.any? { |t| t.name == "AlrtWatch" }
+def apply_watch_settings(watch)
+  xcconfig = watch.project.files.find { |f| f.path == "AlrtWatch.xcconfig" } or abort("AlrtWatch.xcconfig reference missing")
+  watch.build_configurations.each do |config|
+  dev = config.name.end_with?("-dev")
+  host = dev ? "com.safetyalrt.alrt.dev" : "com.safetyalrt.alrt"
+  config.base_configuration_reference = xcconfig
+  s = config.build_settings
+  s["PRODUCT_NAME"] = "$(TARGET_NAME)"
+  s["PRODUCT_BUNDLE_IDENTIFIER"] = "#{host}.watchkitapp"
+  s["ALRT_COMPANION_BUNDLE_ID"] = host
+  s["INFOPLIST_FILE"] = "AlrtWatch/Info.plist"
+  s["GENERATE_INFOPLIST_FILE"] = "YES"
+  s["INFOPLIST_KEY_CFBundleDisplayName"] = "ALRT"
+  s["INFOPLIST_KEY_WKCompanionAppBundleIdentifier"] = "$(ALRT_COMPANION_BUNDLE_ID)"
+  s["INFOPLIST_KEY_UISupportedInterfaceOrientations"] = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown"
+  s["ASSETCATALOG_COMPILER_APPICON_NAME"] = dev ? "AppIcon-dev" : "AppIcon-prod"
+  s["SDKROOT"] = "watchos"
+  # The project level says SUPPORTED_PLATFORMS = iphoneos; without this the
+  # watch target inherits it and Xcode builds it for iPhone.
+  s["SUPPORTED_PLATFORMS"] = "watchos watchsimulator"
+  s["WATCHOS_DEPLOYMENT_TARGET"] = WATCHOS
+  s["TARGETED_DEVICE_FAMILY"] = "4"
+  s["SWIFT_VERSION"] = "5.0"
+  s["SKIP_INSTALL"] = "YES"
+  s["ENABLE_PREVIEWS"] = "YES"
+  s["CODE_SIGN_STYLE"] = "Automatic"
+  s["DEVELOPMENT_TEAM"] = TEAM
+  s["CODE_SIGN_IDENTITY"] = "Apple Development"
+  s["LD_RUNPATH_SEARCH_PATHS"] = ["$(inherited)", "@executable_path/Frameworks"]
+  s["SWIFT_EMIT_LOC_STRINGS"] = "YES"
+  s.delete("IPHONEOS_DEPLOYMENT_TARGET")
+  s.delete("ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME")
+  end
+end
+
+
+existing = project.targets.find { |t| t.name == "AlrtWatch" }
+if existing
+  apply_watch_settings(existing)
   project.save
-  puts "AlrtWatch already present; project-level settings ensured."
+  puts "AlrtWatch already present; settings re-applied."
   exit 0
 end
 
@@ -52,33 +90,7 @@ watch.resources_build_phase.add_file_reference(group.new_reference("Assets.xcass
 group.new_reference("Info.plist")
 xcconfig = group.new_reference("AlrtWatch.xcconfig")
 
-watch.build_configurations.each do |config|
-  dev = config.name.end_with?("-dev")
-  host = dev ? "com.safetyalrt.alrt.dev" : "com.safetyalrt.alrt"
-  config.base_configuration_reference = xcconfig
-  s = config.build_settings
-  s["PRODUCT_NAME"] = "$(TARGET_NAME)"
-  s["PRODUCT_BUNDLE_IDENTIFIER"] = "#{host}.watchkitapp"
-  s["ALRT_COMPANION_BUNDLE_ID"] = host
-  s["INFOPLIST_FILE"] = "AlrtWatch/Info.plist"
-  s["GENERATE_INFOPLIST_FILE"] = "YES"
-  s["INFOPLIST_KEY_CFBundleDisplayName"] = "ALRT"
-  s["INFOPLIST_KEY_WKCompanionAppBundleIdentifier"] = "$(ALRT_COMPANION_BUNDLE_ID)"
-  s["INFOPLIST_KEY_UISupportedInterfaceOrientations"] = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown"
-  s["ASSETCATALOG_COMPILER_APPICON_NAME"] = dev ? "AppIcon-dev" : "AppIcon-prod"
-  s["SDKROOT"] = "watchos"
-  s["WATCHOS_DEPLOYMENT_TARGET"] = WATCHOS
-  s["TARGETED_DEVICE_FAMILY"] = "4"
-  s["SWIFT_VERSION"] = "5.0"
-  s["SKIP_INSTALL"] = "YES"
-  s["ENABLE_PREVIEWS"] = "YES"
-  s["CODE_SIGN_STYLE"] = "Automatic"
-  s["DEVELOPMENT_TEAM"] = TEAM
-  s["CODE_SIGN_IDENTITY"] = "Apple Development"
-  s["LD_RUNPATH_SEARCH_PATHS"] = ["$(inherited)", "@executable_path/Frameworks"]
-  s["SWIFT_EMIT_LOC_STRINGS"] = "YES"
-  s.delete("IPHONEOS_DEPLOYMENT_TARGET")
-end
+apply_watch_settings(watch)
 
 # Embed the watch app in the iPhone app (Xcode's "Embed Watch Content").
 # Placed straight after "Embed Frameworks" and before Flutter's
