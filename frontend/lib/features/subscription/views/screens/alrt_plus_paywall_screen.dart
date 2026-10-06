@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
 import 'package:hazard_app/features/subscription/utils/paywall_copy.dart';
@@ -114,6 +115,10 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
       _loading = true;
       _notice = null;
     });
+    // The SDK must be signed in as this ALRT user before any store read
+    // (offerings, trial eligibility), or eligibility answers for nobody.
+    await rc.ensureConfiguredFor(ref.read(providerOfLoggedInUser)?.id);
+    if (!mounted) return;
     final offering = await rc.offering(RevenueCatService.personalOfferingId);
     final package =
         offering?.monthly ?? offering?.availablePackages.firstOrNull;
@@ -160,8 +165,11 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
                   ) ??
                   'period');
 
+  /// The preview build shows the V1 trial length (2 weeks, decided 3 Oct
+  /// 2026; see kConfiguredFreeTrialPhrase). A real product only ever
+  /// shows what the store configured.
   TrialOffer? get _trialShown =>
-      _dummy ? const TrialOffer(1, PeriodUnit.month) : _trial;
+      _dummy ? const TrialOffer(2, PeriodUnit.week) : _trial;
 
   String get _ctaLabel {
     if (_loading) return kCheckingPlans;

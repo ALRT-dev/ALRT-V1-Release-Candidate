@@ -172,7 +172,7 @@ class _FamilyOnboardingScreenState
                       borderRadius: BorderRadius.circular(15.spMin),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF9C27B0).withValues(
+                          color: FamilyColors.v31Indigo.withValues(
                             alpha: 0.32,
                           ),
                           blurRadius: 24.0,

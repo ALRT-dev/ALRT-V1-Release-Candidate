@@ -597,6 +597,13 @@ abstract class FamilySosEvent with _$FamilySosEvent {
     @Default(<FamilySosResponse>[]) final List<FamilySosResponse> responses,
     final DateTime? resolvedAt,
     final DateTime? createdAt,
+    // When this SOS stands itself down: 1 hour from the start, or from the
+    // sender's latest "Extend 1 hour". Null = never extended (then it is
+    // createdAt + 1 hour; see sos_timing.dart).
+    final DateTime? liveUntil,
+    // Who ended it by hand (the sender only). Null on an SOS that expired
+    // on its own, and on events from before this field existed.
+    final String? endedByMemberId,
   }) = _FamilySosEvent;
 
   factory FamilySosEvent.fromJson(Map<String, dynamic> json) =>

@@ -4,7 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/alrt_plus_style.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:hazard_app/features/subscription/utils/store_management.dart';
 
 /// Calm amber banner on My plans while the store retries a failed renewal
 /// of the person's ALRT + Individual. Access continues until the store
@@ -110,22 +110,11 @@ class BillingIssueBanner extends ConsumerWidget {
     final WidgetRef ref,
     final BuildContext context,
   ) async {
-    final url = await ref.read(providerOfRevenueCat).managementUrl();
-    if (url == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Update your payment method in your app store account settings.',
-            ),
-          ),
-        );
-      }
-      return;
-    }
-    try {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (_) {
+    // RevenueCat's managementURL, else the store's own subscriptions page.
+    final opened = await openSubscriptionManagement(
+      ref.read(providerOfRevenueCat),
+    );
+    if (!opened) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -10,12 +10,12 @@ import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_p
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/utils/paywall_copy.dart';
 import 'package:hazard_app/features/subscription/utils/restore_outcome.dart';
+import 'package:hazard_app/features/subscription/utils/store_management.dart';
 import 'package:hazard_app/features/subscription/views/widgets/billing_issue_banner.dart';
 import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
 import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// "My plans" (master spec §8, §16): the personal plan and each group's
 /// coverage, shown SEPARATELY, as the backend computed them
@@ -42,16 +42,11 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
       _snack(fallback);
       return;
     }
-    final url = await ref.read(providerOfRevenueCat).managementUrl();
-    if (url == null) {
-      _snack(fallback);
-      return;
-    }
-    try {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (_) {
-      _snack(fallback);
-    }
+    // RevenueCat's managementURL, else the store's own subscriptions page.
+    final opened = await openSubscriptionManagement(
+      ref.read(providerOfRevenueCat),
+    );
+    if (!opened) _snack(fallback);
   }
 
   bool _restoring = false;

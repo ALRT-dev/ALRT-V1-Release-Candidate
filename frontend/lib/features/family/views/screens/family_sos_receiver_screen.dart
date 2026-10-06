@@ -1,4 +1,5 @@
 import 'package:hazard_app/features/family/utils/sos_preview.dart';
+import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -82,6 +83,9 @@ class _FamilySosReceiverScreenState
 
   /// True from the moment I confirm "End SOS" on my own SOS.
   bool _standingDown = false;
+
+  /// True while "Extend 1 hour" is waiting for the server.
+  bool _extending = false;
 
   @override
   void initState() {
@@ -301,6 +305,8 @@ class _FamilySosReceiverScreenState
                 _locationCardBuilder(sos, isResolved),
                 SizedBox(height: 16.spMin),
                 if (!isResolved && isMine) ...[
+                  _liveUntilBuilder(sos),
+                  SizedBox(height: 10.spMin),
                   _resolveButtonBuilder(context, ref, sos),
                   SizedBox(height: 10.spMin),
                   _sosLocationControlsBuilder(context, ref, sos),
@@ -345,7 +351,12 @@ class _FamilySosReceiverScreenState
                     // The person IN SOS reads "Your SOS"; everyone else
                     // reads the sender's name. Ending wording is factual
                     // (master spec §12): never "safe" or "resolved".
-                    isMine
+                    // An SOS that ran out its hour says so (locked
+                    // wording), for the sender and recipients alike: it
+                    // was not ended by anyone.
+                    isResolved && !_standingDown && sosExpired(sos)
+                        ? sosExpiredLine(sos)!
+                        : isMine
                         ? (_standingDown
                               ? 'Ending SOS…'
                               : isResolved
@@ -363,7 +374,9 @@ class _FamilySosReceiverScreenState
                   if (sos.createdAt != null)
                     Text(
                       isResolved
-                          ? 'SOS ended'
+                          ? (sosExpired(sos)
+                                ? (isMine ? 'Your SOS' : "$name's SOS")
+                                : 'SOS ended')
                           : sos.isLive
                           ? 'Live location on · started ${timeago.format(sos.createdAt!)}'
                           : 'Started ${timeago.format(sos.createdAt!)} · live location off',
@@ -550,6 +563,95 @@ class _FamilySosReceiverScreenState
           ),
         ],
       ),
+    );
+  }
+
+  /// The sender's running SOS: when it stands itself down, in local time,
+  /// and the one way to keep it going ("SOS lasts 1 hour. You can extend
+  /// it or end it.").
+  Widget _liveUntilBuilder(final FamilySosEvent sos) {
+    final line = sosLiveUntilLine(sos);
+    return Container(
+      key: const Key('sos-live-until'),
+      padding: EdgeInsets.fromLTRB(14.spMin, 12.spMin, 12.spMin, 12.spMin),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14.spMin),
+        border: Border.all(color: const Color(0xFFE6E6EA)),
+      ),
+      child: Row(
+        children: [
+          Icon(LucideIcons.clock, size: 18.spMin, color: FamilyColors.sosRed),
+          SizedBox(width: 10.spMin),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (line != null)
+                  Text(
+                    line,
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1D1D21),
+                    ),
+                  ),
+                SizedBox(height: 2.spMin),
+                Text(
+                  kSosDurationLine,
+                  style: TextStyle(
+                    fontSize: 12.spMin,
+                    color: AppColors.mediumGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8.spMin),
+          OutlinedButton(
+            key: const Key('sos-extend'),
+            onPressed: _extending || _standingDown
+                ? null
+                : () => _extend(sos),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: FamilyColors.sosRed,
+              side: const BorderSide(color: FamilyColors.sosRed),
+              shape: const StadiumBorder(),
+              padding: EdgeInsets.symmetric(horizontal: 12.spMin),
+            ),
+            child: Text(
+              _extending ? 'Extending…' : 'Extend 1 hour',
+              style: TextStyle(
+                fontSize: 13.spMin,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _extend(final FamilySosEvent sos) async {
+    if (_extending) return;
+    setState(() => _extending = true);
+    final error = await ref
+        .read(providerOfFamily.notifier)
+        .extendSos(sosEventId: sos.id);
+    if (!mounted) return;
+    setState(() => _extending = false);
+    if (error != null) {
+      context.showErrorToast(message: error);
+      return;
+    }
+    final updated = ref
+        .read(providerOfFamily)
+        .activeSosEvents
+        .where((e) => e.id == sos.id)
+        .firstOrNull;
+    final line = updated == null ? null : sosLiveUntilLine(updated);
+    context.showSuccessToast(
+      message: line == null ? 'Your SOS was extended.' : '$line.',
     );
   }
 

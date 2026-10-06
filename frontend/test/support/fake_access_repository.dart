@@ -61,4 +61,17 @@ class FakeAccessRepository implements AccessRepository {
     binds.add((subscriptionId, circleId, replaceExisting));
     return Success(bindResult);
   }
+
+  final individualFundingSwitches = <String>[];
+  AppError? individualFundingError;
+
+  @override
+  Future<Either<String, AppError>> switchToIndividualFunding({
+    required final String circleId,
+  }) async {
+    individualFundingSwitches.add(circleId);
+    final error = individualFundingError;
+    if (error != null) return Failure(error);
+    return const Success('individual');
+  }
 }

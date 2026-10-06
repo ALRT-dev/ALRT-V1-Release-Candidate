@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,8 @@ import 'package:hazard_app/features/shared/providers/app_initialization_provider
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/providers/repository_providers.dart';
 import 'package:hazard_app/features/shared/views/screens/splash_screen.dart';
+import 'package:hazard_app/features/app_update/providers/force_update_provider.dart';
+import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 
 class AppWrapperArgs {
   const AppWrapperArgs({this.homeScreenArgs});
@@ -119,6 +123,17 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
     // if (!mounted) return;
 
     final loggedInUser = ref.read(providerOfLoggedInUser);
+    // App start and every sign-in come through here: sign RevenueCat in as
+    // this user once, so paywalls, Restore and plan reads never meet an
+    // unconfigured SDK. A build without keys skips it quietly.
+    if (loggedInUser != null) {
+      unawaited(
+        ref.read(providerOfRevenueCat).ensureConfiguredFor(loggedInUser.id),
+      );
+    }
+    // A build the backend no longer supports is stopped here, on a
+    // full-screen "Please update ALRT" (shown by MyApp over any route).
+    unawaited(ref.read(providerOfForceUpdate.notifier).check());
     if (loggedInUser != null) {
       // Check if account is scheduled for deletion
       if (loggedInUser.scheduledDeletionAt != null) {

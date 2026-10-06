@@ -166,6 +166,25 @@ class SosApi {
     onError: Failure.new,
   );
 
+  /// The sender keeps their running SOS going for another hour from now
+  /// (POST /api/family/sos/:id/extend). Answers the new end time from the
+  /// stored row; the backend refuses an SOS that has already ended (409)
+  /// or isn't the caller's own (404).
+  Future<Either<DateTime?, AppError>> extend({
+    required final String sosEventId,
+  }) => runAsyncCall(
+    name: 'extendSos',
+    future: () async {
+      final response = await _dio.post<dynamic>(
+        kUrlFamilySosExtend(sosEventId),
+      );
+      final data = response.data;
+      final raw = data is Map ? data['liveUntil'] : null;
+      return Success(raw is String ? DateTime.tryParse(raw) : null);
+    },
+    onError: Failure.new,
+  );
+
   /// One live point for the sender's own live SOS (its audience only).
   Future<Either<void, AppError>> sendLivePoint({
     required final String sosEventId,

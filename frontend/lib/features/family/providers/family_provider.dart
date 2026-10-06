@@ -9,6 +9,7 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
+import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'package:hazard_app/features/family/providers/family_socket_manager_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
@@ -80,8 +81,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   /// SOS live share: while MY SOS is active the phone shares a point every
   /// [_sosLiveInterval]. This is the single permitted continuous stream
-  /// (locked spec); the server caps the event at 4 hours and stand-down
-  /// wipes the trail.
+  /// (locked spec); an SOS lasts 1 hour unless the sender extends it, the
+  /// server stands it down at its end time, and stand-down wipes the trail.
   static const _sosLiveInterval = Duration(seconds: 20);
   Timer? _sosLiveTimer;
 
@@ -89,7 +90,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     _sosLiveTimer?.cancel();
     _sosLiveTimer = Timer.periodic(_sosLiveInterval, (_) async {
       // Stop the loop the moment my SOS is no longer active, whichever
-      // side ended it (my stand-down, or the server's 4-hour lapse).
+      // side ended it (my stand-down, or the server's expiry at the end
+      // of its hour).
       final myMemberId = state.circle?.myMemberId;
       final mineActive = state.activeSosEvents.any(
         (event) =>
@@ -2035,6 +2037,37 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       (error) {
         _showToast(message: error.message, isWarning: true);
         return false;
+      },
+    );
+  }
+
+  /// The sender keeps MY running SOS going for another hour from now.
+  /// Patches the new end time in at once, then re-reads the live list so
+  /// the screen shows what the server holds. Returns null on success, or
+  /// a friendly reason to show (extendSosErrorMessage) when refused.
+  Future<String?> extendSos({required final String sosEventId}) async {
+    final result = await _sosApi.extend(sosEventId: sosEventId);
+    if (!mounted) return null;
+    return result.when(
+      (liveUntil) {
+        if (liveUntil != null) {
+          state = state.copyWith(
+            activeSosEvents: [
+              for (final event in state.activeSosEvents)
+                event.id == sosEventId
+                    ? event.copyWith(liveUntil: liveUntil)
+                    : event,
+            ],
+          );
+        }
+        unawaited(_refreshActiveSosEvents());
+        return null;
+      },
+      (error) {
+        // 409/404: it already ended on the server. Re-read so the screen
+        // shows it as ended instead of offering the button again.
+        unawaited(_refreshActiveSosEvents());
+        return extendSosErrorMessage(error);
       },
     );
   }

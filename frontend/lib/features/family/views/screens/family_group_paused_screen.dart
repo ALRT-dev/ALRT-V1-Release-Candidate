@@ -210,7 +210,7 @@ class _FamilyGroupPausedScreenState
                 borderRadius: BorderRadius.circular(14.spMin),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF9C27B0).withValues(alpha: 0.3),
+                    color: FamilyColors.v31Indigo.withValues(alpha: 0.3),
                     blurRadius: 18.0,
                     offset: const Offset(0, 8),
                   ),
@@ -293,8 +293,8 @@ class _FamilyGroupPausedScreenState
                 ),
               ),
               subtitle: Text(
-                'An eligible member takes over hosting and their '
-                'subscription carries the circle',
+                'Another person in the circle takes over as host. '
+                'Hosting is free',
                 style: TextStyle(
                   fontSize: 10.5.spMin,
                   color: FamilyColors.v31Ink,
@@ -314,8 +314,7 @@ class _FamilyGroupPausedScreenState
                 ),
               ),
               subtitle: Text(
-                'Everyone removed and told. All snapshots deleted. '
-                'Seats return',
+                'Everyone removed and told. All snapshots deleted',
                 style: TextStyle(
                   fontSize: 10.5.spMin,
                   color: FamilyColors.v31Ink,

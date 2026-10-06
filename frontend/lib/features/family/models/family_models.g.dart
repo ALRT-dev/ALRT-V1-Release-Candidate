@@ -677,6 +677,10 @@ _FamilySosEvent _$FamilySosEventFromJson(
   createdAt: json['createdAt'] == null
       ? null
       : DateTime.parse(json['createdAt'] as String),
+  liveUntil: json['liveUntil'] == null
+      ? null
+      : DateTime.parse(json['liveUntil'] as String),
+  endedByMemberId: json['endedByMemberId'] as String?,
 );
 
 Map<String, dynamic> _$FamilySosEventToJson(_FamilySosEvent instance) =>
@@ -697,6 +701,8 @@ Map<String, dynamic> _$FamilySosEventToJson(_FamilySosEvent instance) =>
       'responses': instance.responses.map((e) => e.toJson()).toList(),
       'resolvedAt': ?instance.resolvedAt?.toIso8601String(),
       'createdAt': ?instance.createdAt?.toIso8601String(),
+      'liveUntil': ?instance.liveUntil?.toIso8601String(),
+      'endedByMemberId': ?instance.endedByMemberId,
     };
 
 const _$FamilySosStatusEnumMap = {

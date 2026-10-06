@@ -39,6 +39,14 @@ abstract class AccessRepository {
     required final String circleId,
     final bool replaceExisting = false,
   });
+
+  /// Host only: returns a group whose plan has ended to individual
+  /// funding, so each person's own ALRT + covers them there. Answers the
+  /// group's new funding mode ("individual"). The backend refuses a
+  /// non-host (403 HOST_ONLY) and a group whose plan is still live (409).
+  Future<Either<String, AppError>> switchToIndividualFunding({
+    required final String circleId,
+  });
 }
 
 class AccessRepositoryImpl implements AccessRepository {
@@ -123,6 +131,24 @@ class AccessRepositoryImpl implements AccessRepository {
               ? BindResult.fromJson(Map<String, dynamic>.from(data))
               : const BindResult(),
         );
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<String, AppError>> switchToIndividualFunding({
+    required final String circleId,
+  }) {
+    return runAsyncCall(
+      name: 'switchToIndividualFunding',
+      future: () async {
+        final response = await _dio.post<dynamic>(
+          kUrlAccessIndividualFunding(circleId),
+        );
+        final data = response.data;
+        final mode = data is Map ? data['fundingMode']?.toString() : null;
+        return Success(mode ?? 'individual');
       },
       onError: Failure.new,
     );

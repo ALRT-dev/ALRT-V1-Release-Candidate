@@ -337,6 +337,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
               return _gotoFamilyCheckInRollCallScreen();
             case PushNotificationType.familySos:
+            case PushNotificationType.familySosEndingSoon:
               // The push exists for the locked-phone case: open the SOS
               // itself if it is still live, otherwise land on the hub.
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
+import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
@@ -107,10 +108,13 @@ class FamilySosResolvedScreen extends ConsumerWidget {
             ),
             5.hSizedBox,
             Text(
-              stoppedAt == null
+              // Nobody ended an SOS that ran out its hour: say it expired
+              // (locked wording) rather than that someone stopped it.
+              sosExpiredLine(e) ??
+              (stoppedAt == null
                   ? '$who stopped sharing'
                   : '$who stopped sharing at '
-                        '${TimeOfDay.fromDateTime(stoppedAt).format(context)}',
+                        '${TimeOfDay.fromDateTime(stoppedAt).format(context)}'),
               style: TextStyle(
                 fontSize: 13.spMin,
                 color: Colors.white.withValues(alpha: 0.85),
