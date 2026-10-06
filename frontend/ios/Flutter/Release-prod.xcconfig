@@ -1,0 +1,7 @@
+// Build settings for the Release-prod configuration (Runner target).
+// CocoaPods names its settings file after the exact configuration, so
+// each flavour/build type includes its own; the shared Debug/Release
+// files pointed at Pods-Runner.debug/.release, which never exist here.
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release-prod.xcconfig"
+#include "Generated.xcconfig"
+#include? "Maps.xcconfig"

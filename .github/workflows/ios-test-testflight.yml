@@ -493,6 +493,32 @@ jobs:
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=ios/ExportOptionsCI-dev.plist
 
+      # Diagnostic, read only: what the device will actually check at launch.
+      # Prints the signed app's entitlements, the embedded profile's
+      # entitlements, the frameworks it links and embeds, and the Info.plist
+      # keys, so a launch-time refusal can be matched against them.
+      - name: Inspect the signed app (entitlements, profile, frameworks)
+        if: ${{ !inputs.simulator_smoke }}
+        run: |
+          IPA="$(ls build/ios/ipa/*.ipa | head -1)"
+          D="$RUNNER_TEMP/ipa"; rm -rf "$D"; mkdir -p "$D"; unzip -q "$IPA" -d "$D"
+          APP="$(ls -d "$D"/Payload/*.app | head -1)"
+          echo "== app entitlements"; codesign -d --entitlements :- "$APP" 2>/dev/null || true
+          echo "== embedded profile entitlements"
+          security cms -D -i "$APP/embedded.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          /usr/libexec/PlistBuddy -c 'Print :Entitlements' "$RUNNER_TEMP/profile.plist" || true
+          /usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist" || true
+          /usr/libexec/PlistBuddy -c 'Print :ExpirationDate' "$RUNNER_TEMP/profile.plist" || true
+          echo "== codesign verify"; codesign --verify --deep --strict --verbose=2 "$APP" 2>&1 | tail -5 || true
+          echo "== linked libraries"; otool -L "$APP/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")" | head -80
+          echo "== embedded frameworks"; ls "$APP/Frameworks" || true
+          echo "== bundles"; ls "$APP" | grep -i bundle || true
+          echo "== Info.plist keys"; /usr/libexec/PlistBuddy -c 'Print' "$APP/Info.plist" | grep -E '^    [A-Za-z]' | sed 's/ = .*//' | sort | tr '\n' ' '; echo
+          echo "== MinimumOSVersion"; /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist"
+          echo "== Flutter build mode check (a debug engine cannot run outside Xcode)"
+          ls "$APP/Frameworks/App.framework" || true
+          strings "$APP/Frameworks/Flutter.framework/Flutter" | grep -m3 -E "Dart_IsPrecompiledRuntime|kDartVmSnapshot" || true
+
       # ci_upload_dev (not the production ci_upload lane) pins the App Store
       # Connect record to com.safetyalrt.alrt.dev / "ALRT Dev" and refuses any
       # ipa whose bundle id is not exactly that, so this step can never reach

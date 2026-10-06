@@ -43,6 +43,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4AD4DEA683BA8FA71D62DEE3 /* Profile-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Profile-prod.xcconfig; path = Flutter/Profile-prod.xcconfig; sourceTree = "<group>"; };
+		41CE474B80FE44D9D28F4BBA /* Release-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release-prod.xcconfig; path = Flutter/Release-prod.xcconfig; sourceTree = "<group>"; };
+		A6EF1E5EDB0FC43962BBC8D8 /* Debug-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Debug-prod.xcconfig; path = Flutter/Debug-prod.xcconfig; sourceTree = "<group>"; };
+		D0EA8105712F90EA0F1A6432 /* Profile-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Profile-dev.xcconfig; path = Flutter/Profile-dev.xcconfig; sourceTree = "<group>"; };
+		500B103FB5CBEFBFBB655720 /* Release-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release-dev.xcconfig; path = Flutter/Release-dev.xcconfig; sourceTree = "<group>"; };
+		4C62807FAF6464A64926EC71 /* Debug-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Debug-dev.xcconfig; path = Flutter/Debug-dev.xcconfig; sourceTree = "<group>"; };
 		035A7FF8D63782E270A4DA22 /* Pods-Runner.debug-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug-dev.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -120,6 +126,12 @@
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
+				4AD4DEA683BA8FA71D62DEE3 /* Profile-prod.xcconfig */,
+				41CE474B80FE44D9D28F4BBA /* Release-prod.xcconfig */,
+				A6EF1E5EDB0FC43962BBC8D8 /* Debug-prod.xcconfig */,
+				D0EA8105712F90EA0F1A6432 /* Profile-dev.xcconfig */,
+				500B103FB5CBEFBFBB655720 /* Release-dev.xcconfig */,
+				4C62807FAF6464A64926EC71 /* Debug-dev.xcconfig */,
 			);
 			name = Flutter;
 			sourceTree = "<group>";
@@ -508,7 +520,7 @@
 		};
 		19A190162E7D2FF400B7BF3A /* Debug-dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			baseConfigurationReference = 4C62807FAF6464A64926EC71 /* Debug-dev.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = "[Dev] ALRT";
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "";
@@ -612,7 +624,7 @@
 		};
 		19A190192E7D2FFA00B7BF3A /* Release-dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			baseConfigurationReference = 500B103FB5CBEFBFBB655720 /* Release-dev.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = "[Dev] ALRT";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-dev";
@@ -710,7 +722,7 @@
 		};
 		19A1901C2E7D300100B7BF3A /* Profile-dev */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			baseConfigurationReference = D0EA8105712F90EA0F1A6432 /* Profile-dev.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = "[Dev] ALRT";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-dev";
@@ -808,7 +820,7 @@
 		};
 		249021D4217E4FDB00AE95B9 /* Profile-prod */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			baseConfigurationReference = 4AD4DEA683BA8FA71D62DEE3 /* Profile-prod.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = ALRT;
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-prod";
@@ -1001,7 +1013,7 @@
 		};
 		97C147061CF9000F007C117D /* Debug-prod */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			baseConfigurationReference = A6EF1E5EDB0FC43962BBC8D8 /* Debug-prod.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = ALRT;
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-prod";
@@ -1030,7 +1042,7 @@
 		};
 		97C147071CF9000F007C117D /* Release-prod */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			baseConfigurationReference = 41CE474B80FE44D9D28F4BBA /* Release-prod.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = ALRT;
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-prod";
