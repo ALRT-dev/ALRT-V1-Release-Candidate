@@ -17,8 +17,7 @@ extension AppSurfaceColors on BuildContext {
   bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
 
   /// Card / sheet / bottom-sheet background.
-  Color get surfaceCard =>
-      isDarkMode ? AppTheme.darkSurface : AppColors.white;
+  Color get surfaceCard => isDarkMode ? AppTheme.darkSurface : AppColors.white;
 
   /// The page background beneath cards.
   Color get surfaceScaffold =>
@@ -29,7 +28,8 @@ extension AppSurfaceColors on BuildContext {
       isDarkMode ? AppTheme.darkSurfaceRaised : AppColors.extraLightGrey;
 
   /// Primary text and icon colour.
-  Color get onSurface => isDarkMode ? AppTheme.darkTextPrimary : AppColors.black;
+  Color get onSurface =>
+      isDarkMode ? AppTheme.darkTextPrimary : AppColors.black;
 
   /// Secondary text: subtitles, section labels, timestamps.
   Color get onSurfaceMuted =>
@@ -40,6 +40,7 @@ extension AppSurfaceColors on BuildContext {
 
   /// Card drop shadow - a black shadow reads as a smudge on an already-
   /// dark card, so Dark mode uses a softer, more contained one.
-  Color get cardShadow =>
-      isDarkMode ? Colors.black.withValues(alpha: 0.35) : AppColors.shadowColorLight;
+  Color get cardShadow => isDarkMode
+      ? Colors.black.withValues(alpha: 0.35)
+      : AppColors.shadowColorLight;
 }

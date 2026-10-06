@@ -32,7 +32,9 @@ Dio dioInstance({
     ..interceptors.add(
       InterceptorsWrapper(
         onResponse: (response, handler) {
-          log('[${response.requestOptions.method}]: ${response.requestOptions.path} ------------------------------------------------------- [${response.statusCode}]');
+          log(
+            '[${response.requestOptions.method}]: ${response.requestOptions.path} ------------------------------------------------------- [${response.statusCode}]',
+          );
           return handler.next(response);
         },
       ),

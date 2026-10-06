@@ -1,4 +1,3 @@
-import 'dart:developer';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,8 +37,6 @@ class UserService {
         AppError(message: 'No access token found'),
       );
     }
-
-    log('Access Token :: $accessToken');
 
     final result = await _userRepository.getCurrentUser();
 

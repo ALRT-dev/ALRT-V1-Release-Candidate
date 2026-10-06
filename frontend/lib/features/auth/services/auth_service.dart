@@ -1,4 +1,3 @@
-import 'dart:developer';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -35,8 +34,6 @@ class AuthService {
     final result = await _authRepository.signInWithGoogle();
 
     await result.whenSuccess((response) {
-      log('Access Token ::  ${response.accessToken}');
-      log('Refresh Token ::  ${response.refreshToken}');
       return Future.wait([
         _saveAuthMethod(
           authMethod: AuthMethod.google,
@@ -65,8 +62,6 @@ class AuthService {
     );
 
     await result.whenSuccess((response) {
-      log('Access Token ::  ${response.accessToken}');
-      log('Refresh Token ::  ${response.refreshToken}');
       return Future.wait([
         _saveAuthMethod(
           authMethod: AuthMethod.google,
@@ -86,8 +81,6 @@ class AuthService {
     final result = await _authRepository.signInWithApple();
 
     await result.whenSuccess((response) {
-      log('Access Token ::  ${response.accessToken}');
-      log('Refresh Token ::  ${response.refreshToken}');
       return Future.wait([
         _saveAuthMethod(
           authMethod: AuthMethod.apple,
@@ -107,8 +100,6 @@ class AuthService {
     final result = await _authRepository.signInWithMicrosoft();
 
     await result.whenSuccess((response) {
-      log('Access Token ::  ${response.accessToken}');
-      log('Refresh Token ::  ${response.refreshToken}');
       return Future.wait([
         _saveAuthMethod(
           authMethod: AuthMethod.microsoft,

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:app_settings/app_settings.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_compass/flutter_compass.dart';
@@ -105,10 +106,17 @@ class LocationRepositoryImpl extends LocationRepository {
           ),
         );
 
-        final placemarks = await placemarkFromCoordinates(
-          position.latitude,
-          position.longitude,
-        );
+        // The address is a nicety: a failed or slow lookup (offline, or no
+        // geocoder on the device) must never throw away a good position.
+        var placemarks = const <Placemark>[];
+        try {
+          placemarks = await placemarkFromCoordinates(
+            position.latitude,
+            position.longitude,
+          ).timeout(const Duration(seconds: 4));
+        } catch (error) {
+          log('Address lookup failed: $error', name: 'LocationRepository');
+        }
 
         String? address;
         if (placemarks.isNotEmpty) {

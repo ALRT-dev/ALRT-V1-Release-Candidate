@@ -43,7 +43,8 @@ class AccessibleAlertsSection extends ConsumerWidget {
         _toggleCardBuilder(
           icon: LucideIcons.vibrate,
           title: 'Strong vibration for urgent alerts',
-          subtitle: 'Take-action and critical alerts arrive with a long, '
+          subtitle:
+              'Take-action and critical alerts arrive with a long, '
               'hard vibration pattern. Made for deaf and hard-of-hearing '
               'users; anyone can turn it on.',
           value: settings.strongVibration,
@@ -82,7 +83,8 @@ class AccessibleAlertsSection extends ConsumerWidget {
             shown
                 ? context.showSuccessToast(message: 'Test alert sent')
                 : context.showWarningToast(
-                    message: 'Notifications for ALRT are off in Android settings, so nothing can vibrate.',
+                    message:
+                        'Notifications for ALRT are off in Android settings, so nothing can vibrate.',
                   );
           },
           child: Text(

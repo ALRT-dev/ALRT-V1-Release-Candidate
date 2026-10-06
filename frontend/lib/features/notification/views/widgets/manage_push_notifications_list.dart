@@ -150,7 +150,8 @@ class _ManagePushNotificationsListState
 
         return _sectionContainerBuilder(
           title: 'Alert Types',
-          subtitle: 'Which alerts can send you a push. The same names as the map and feed filters; saved to your account.',
+          subtitle:
+              'Which alerts can send you a push. The same names as the map and feed filters; saved to your account.',
           trailing: _customToggleSwitch(
             isEnabled: isAnyAlertTypeEnabled,
             onToggle: (_) {
@@ -206,7 +207,8 @@ class _ManagePushNotificationsListState
               10.hSizedBox,
               _filterToggleCard(
                 title: 'Official',
-                description: 'State agencies, global feeds and ALRT Intel alerts',
+                description:
+                    'State agencies, global feeds and ALRT Intel alerts',
                 isEnabled: officialNonAws,
                 onToggle: (value) {
                   filterProvider.updateOfficialNonAws(value);

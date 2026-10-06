@@ -61,7 +61,11 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.only(left: 20.spMin, right: 20.spMin, bottom: 10.spMin),
+        padding: EdgeInsets.only(
+          left: 20.spMin,
+          right: 20.spMin,
+          bottom: 10.spMin,
+        ),
         child: Container(
           height: 62.spMin,
           decoration: BoxDecoration(
@@ -137,7 +141,9 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
         return Icon(
           tab.iconData,
           size: 23.spMin,
-          color: isActive ? HomeTabbar.familyIndigo : HomeTabbar.familyIndigo.withValues(alpha: 0.75),
+          color: isActive
+              ? HomeTabbar.familyIndigo
+              : HomeTabbar.familyIndigo.withValues(alpha: 0.75),
         );
       case HomeTab.profile:
         return _profileAvatarBuilder(isActive: isActive);

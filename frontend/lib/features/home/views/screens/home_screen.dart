@@ -50,6 +50,7 @@ import 'package:hazard_app/features/shared/providers/hazard_socket_manager_provi
 import 'package:hazard_app/features/shared/providers/user_socket_manager_provider.dart';
 import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
 import 'package:toastification/toastification.dart';
+import 'package:hazard_app/features/map/utils/maps_availability.dart';
 
 class HomeScreenArgs {
   /// The tab to open; null keeps whatever tab is already selected.
@@ -109,6 +110,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.read(providerOfSocketService).ensureConnected();
     if (ref.read(providerOfFamily).hasLoadedOnce) {
       ref.read(providerOfFamily.notifier).load(silent: true);
+    }
+    // Alerts that arrived while the app was away come over no socket, and
+    // expired ones send no event, so reload whichever alert views are open.
+    if (ref.exists(providerOfNotificationsFeed)) {
+      ref
+          .read(providerOfNotificationsFeed.notifier)
+          .getNotificationsFeedHazards(silent: true);
+    }
+    if (MapsAvailability.available && ref.exists(providerOfMap)) {
+      ref.read(providerOfMap.notifier).getMapHazards();
     }
   }
 
@@ -292,14 +303,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             case PushNotificationType.familyLocationRequest:
               // Consent-first: open the Share once / Not now sheet.
               // Structured fields ride in the decoded payload (see journeyId below).
-              final requestId = remoteMessage.payload['locationRequestId'] ??
+              final requestId =
+                  remoteMessage.payload['locationRequestId'] ??
                   remoteMessage.data['locationRequestId'];
               if (requestId is String && requestId.isNotEmpty) {
                 showFamilyLocationRequestSheet(
                   context: context,
                   requestId: requestId,
-                  requesterName: (remoteMessage.payload['requesterName'] ??
-                      remoteMessage.data['requesterName']) as String?,
+                  requesterName:
+                      (remoteMessage.payload['requesterName'] ??
+                              remoteMessage.data['requesterName'])
+                          as String?,
                 );
               }
               return;
@@ -326,7 +340,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               // The push exists for the locked-phone case: open the SOS
               // itself if it is still live, otherwise land on the hub.
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
-              final sosEventId = remoteMessage.payload['sosEventId'] ??
+              final sosEventId =
+                  remoteMessage.payload['sosEventId'] ??
                   remoteMessage.data['sosEventId'];
               unawaited(
                 ref

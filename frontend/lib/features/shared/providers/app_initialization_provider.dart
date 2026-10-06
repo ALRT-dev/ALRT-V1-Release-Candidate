@@ -75,8 +75,17 @@ class AppInitializationProvider extends Notifier<bool> {
   }
 
   /// Initializes the current logged in user.
-  Future<void> _initializeLoggedInUser() {
-    return ref.refresh(providerOfLoggedInUserFetcher.future);
+  ///
+  /// Capped at 20 seconds so a poor connection can't hold the splash for the
+  /// client's full request timeout; the wrapper then offers a retry.
+  Future<void> _initializeLoggedInUser() async {
+    try {
+      await ref
+          .refresh(providerOfLoggedInUserFetcher.future)
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {
+      // Read by AppWrapper through providerOfLoggedInUserFetcher.
+    }
   }
 
   /// Gets the location of the current user.

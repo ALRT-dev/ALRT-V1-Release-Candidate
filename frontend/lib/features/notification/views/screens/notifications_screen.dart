@@ -42,35 +42,45 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          NotificationsAppBar(),
-          10.hSizedBox.sliverBox,
-          // Live Alerts / Learn switch (V3: the feed and the learn hub
-          // share the Alerts surface).
-          _modeToggleBuilder().sliverBox,
-          10.hSizedBox.sliverBox,
-          if (_mode == _FeedMode.liveAlerts) ...[
-            SubscribedLocationsFiltersList().sliverBox,
+      body: RefreshIndicator(
+        // Pull down to fetch the latest alerts (Live Alerts only; Learn has
+        // nothing to refresh).
+        notificationPredicate: (notification) =>
+            _mode == _FeedMode.liveAlerts && notification.depth == 0,
+        onRefresh: () => ref
+            .read(providerOfNotificationsFeed.notifier)
+            .getNotificationsFeedHazards(silent: true),
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            NotificationsAppBar(),
             10.hSizedBox.sliverBox,
-            HazardNotificationsList(),
-            30.hSizedBox.sliverBox,
-          ] else
-            SliverToBoxAdapter(
-              // The feed already scrolls, so Learn must not bring its own
-              // scroll view: a sliver gives its child unbounded height.
-              child: LearnTopicsView(
-                isScrollable: false,
-                padding: EdgeInsets.fromLTRB(
-                  16.spMin,
-                  4.spMin,
-                  16.spMin,
-                  120.spMin,
+            // Live Alerts / Learn switch (V3: the feed and the learn hub
+            // share the Alerts surface).
+            _modeToggleBuilder().sliverBox,
+            10.hSizedBox.sliverBox,
+            if (_mode == _FeedMode.liveAlerts) ...[
+              SubscribedLocationsFiltersList().sliverBox,
+              10.hSizedBox.sliverBox,
+              HazardNotificationsList(),
+              30.hSizedBox.sliverBox,
+            ] else
+              SliverToBoxAdapter(
+                // The feed already scrolls, so Learn must not bring its own
+                // scroll view: a sliver gives its child unbounded height.
+                child: LearnTopicsView(
+                  isScrollable: false,
+                  padding: EdgeInsets.fromLTRB(
+                    16.spMin,
+                    4.spMin,
+                    16.spMin,
+                    120.spMin,
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     ).keyboardDismisser(context);
   }

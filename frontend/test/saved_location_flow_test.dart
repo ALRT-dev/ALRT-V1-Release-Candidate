@@ -76,7 +76,7 @@ class _QuietSocket extends SocketService {
 class _QuietFeed extends NotificationsFeedProvider {
   _QuietFeed(Ref ref) : super(ref: ref, state: NotificationsFeedProviderState());
   @override
-  Future<void> getNotificationsFeedHazards() async {}
+  Future<void> getNotificationsFeedHazards({bool silent = false}) async {}
 }
 
 const _brisbane = AlrtLocation(

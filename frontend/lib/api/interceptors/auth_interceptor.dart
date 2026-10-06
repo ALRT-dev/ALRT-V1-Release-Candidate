@@ -37,8 +37,7 @@ class AuthInterceptor implements Interceptor {
 
     final isUnauthorized = response?.statusCode == 401;
     final isRefreshCall = requestOptions.path.contains(kUrlRefreshToken);
-    final alreadyRetried =
-        requestOptions.extra[_retriedExtraKey] == true;
+    final alreadyRetried = requestOptions.extra[_retriedExtraKey] == true;
 
     if (!isUnauthorized || isRefreshCall || alreadyRetried) {
       return handler.next(err);
@@ -47,9 +46,12 @@ class AuthInterceptor implements Interceptor {
     // The server rejected our token: force one refresh and retry once.
     final newAccessToken = await _refreshAccessToken();
     if (newAccessToken == null) {
-      // Refresh failed — the session is gone. Clear tokens and tell the app.
-      await _clearStoredTokens();
-      AuthSessionEvents.notifySessionExpired();
+      // Only a refresh the server answered and refused ends the session. A
+      // dropped connection mid-refresh keeps the person signed in.
+      if (_lastRefreshRefusedByServer) {
+        await _clearStoredTokens();
+        AuthSessionEvents.notifySessionExpired();
+      }
       return handler.next(err);
     }
 
@@ -140,7 +142,8 @@ class AuthInterceptor implements Interceptor {
       final expirationDate = await TokenHandler.getExpirationDateTime(
         token: accessToken,
       );
-      isExpired = expirationDate == null ||
+      isExpired =
+          expirationDate == null ||
           DateTime.now().add(_expiryBuffer).isAfter(expirationDate);
     } catch (_) {
       isExpired = true;
@@ -166,8 +169,16 @@ class AuthInterceptor implements Interceptor {
     return refreshFuture;
   }
 
+  /// Whether the last failed refresh got an answer from the server (as
+  /// opposed to no connection), or found no refresh token to send.
+  bool _lastRefreshRefusedByServer = false;
+
   Future<String?> _doRefreshAccessToken() async {
     final newAccessTokenResult = await _generateNewAccessToken();
+    _lastRefreshRefusedByServer = newAccessTokenResult.when(
+      (_) => false,
+      (error) => error.code != null || error.requestUri == null,
+    );
     return newAccessTokenResult.whenSuccess((success) {
       // save the new access token to the local storage.
       _sharedPreferencesRepository.saveString(

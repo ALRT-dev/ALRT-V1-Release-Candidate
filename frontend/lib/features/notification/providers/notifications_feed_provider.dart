@@ -90,8 +90,11 @@ class NotificationsFeedProvider
     });
   }
 
-  /// Fetches the hazards that the user has subscribed to for notifications
-  Future<void> getNotificationsFeedHazards() async {
+  /// Fetches the hazards that the user has subscribed to for notifications.
+  ///
+  /// [silent] keeps the current list on screen while it reloads (app resume,
+  /// pull to refresh) instead of swapping it for a spinner.
+  Future<void> getNotificationsFeedHazards({final bool silent = false}) async {
     final selectedCategoryIds = _ref
         .read(providerOfHazardFiltersForNotifications)
         .selectedCategoryIds
@@ -116,10 +119,16 @@ class NotificationsFeedProvider
         .read(providerOfHazardFiltersForNotifications)
         .userReported;
 
-    state = state.copyWith(
-      getNotificationsFeedHazardsState:
-          const GetNotificationsFeedHazardsState.loading(),
+    final hasList = state.getNotificationsFeedHazardsState.maybeWhen(
+      success: (_) => true,
+      orElse: () => false,
     );
+    if (!silent || !hasList) {
+      state = state.copyWith(
+        getNotificationsFeedHazardsState:
+            const GetNotificationsFeedHazardsState.loading(),
+      );
+    }
 
     // Reset current page to 1 when fetching the first page
     updateCurrentPage(1);
