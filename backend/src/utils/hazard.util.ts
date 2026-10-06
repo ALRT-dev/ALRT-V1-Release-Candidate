@@ -532,6 +532,7 @@ export const buildHazardsWhereClauseRaw = (
     awsAdvice,
     officialNonAws,
     userReported,
+    officialOnly,
     reportedById,
     reviewStatus,
     severities,
@@ -666,6 +667,12 @@ export const buildHazardsWhereClauseRaw = (
   // If any filter conditions exist, add them as OR conditions
   if (filterConditions.length > 0) {
     whereConditions.push(`(${filterConditions.join(" OR ")})`);
+  }
+
+  // Admin list sent userReported=false explicitly: official hazards only.
+  // (Absent means both, which is why this is a separate flag.)
+  if (officialOnly) {
+    whereConditions.push(`h."reportedById" IS NULL`);
   }
 
   // Apply reporter filter if provided

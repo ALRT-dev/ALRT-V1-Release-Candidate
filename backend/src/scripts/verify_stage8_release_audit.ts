@@ -154,6 +154,28 @@ async function main() {
     },
   );
 
+  await check(
+    "GET /api/app/version-policy is public and returns the force-update shape (blank env = null)",
+    async () => {
+      const res = await api("/api/app/version-policy");
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      const body = res.body as any;
+      for (const platform of ["ios", "android"]) {
+        const p = body[platform];
+        assert.ok(p, `${platform} present`);
+        assert.deepEqual(Object.keys(p).sort(), ["minBuild", "minVersion", "storeUrl"]);
+        assert.ok(p.minVersion === null || typeof p.minVersion === "string");
+        assert.ok(p.minBuild === null || Number.isInteger(p.minBuild));
+        assert.ok(p.storeUrl === null || typeof p.storeUrl === "string");
+        // Mirrors this server's own env: blank means no requirement.
+        const suffix = platform.toUpperCase();
+        if (!process.env[`MIN_APP_VERSION_${suffix}`]) assert.equal(p.minVersion, null);
+        if (!process.env[`MIN_APP_BUILD_${suffix}`]) assert.equal(p.minBuild, null);
+        if (!process.env[`APP_STORE_URL_${suffix}`]) assert.equal(p.storeUrl, null);
+      }
+    },
+  );
+
   console.log(`\n${passed} checks passed.`);
 }
 

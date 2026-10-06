@@ -68,6 +68,14 @@ async function main() {
   // --- Setup ---------------------------------------------------------
   console.log("Setup");
 
+  // The seeded super admin starts with a temporary password, and every admin
+  // route except change-password, /users/me and logout now refuses it until
+  // it is changed (checked in §10 below). Flip it off for the rest of the setup.
+  await prisma.admin.updateMany({
+    where: { email: SUPER_ADMIN_EMAIL },
+    data: { mustChangePassword: false },
+  });
+
   const superLogin = await api("/api/admin/auth/login", {
     method: "POST",
     body: { email: SUPER_ADMIN_EMAIL, password: SUPER_ADMIN_PASSWORD },
@@ -580,6 +588,190 @@ async function main() {
       body: { syncOption: "not-a-real-option" },
     });
     assert.equal(res.status, 400);
+  });
+
+  console.log();
+
+  // --- §10 Temporary password, hazards source filter, Ask ALRT admin -----
+  console.log("§10 Temporary password enforced server-side");
+
+  const tempEmail = `stage7b-temp-${uniqueSuffix}@test.local`;
+  const tempPassword = "TempAdmin123!Xx";
+  const createTemp = await api("/api/admin/users/create", {
+    method: "POST",
+    token: superAdminToken,
+    body: { email: tempEmail, password: tempPassword, name: "Stage 7B Temp", role: "admin" },
+  });
+  assert.equal(createTemp.status, 201, JSON.stringify(createTemp.body));
+  const tempLogin = await api("/api/admin/auth/login", {
+    method: "POST",
+    body: { email: tempEmail, password: tempPassword },
+  });
+  assert.equal(tempLogin.status, 200, JSON.stringify(tempLogin.body));
+  const tempToken = (tempLogin.body as any).accessToken as string;
+
+  await check("login reports mustChangePassword=true for a new admin", async () => {
+    assert.equal((tempLogin.body as any).mustChangePassword, true);
+  });
+
+  await check("every other admin route answers 403 PASSWORD_CHANGE_REQUIRED until it is changed", async () => {
+    for (const [method, path] of [
+      ["GET", "/api/admin/hazards?pageSize=10"],
+      ["GET", "/api/admin/ai-prompts"],
+      ["GET", "/api/admin/users/admins"],
+      ["GET", "/api/admin/ask-alrt/config"],
+      ["PUT", "/api/admin/ask-alrt/config"],
+    ] as const) {
+      const res = await api(path, {
+        method,
+        token: tempToken,
+        ...(method === "PUT" ? { body: { enabled: false } } : {}),
+      });
+      assert.equal(res.status, 403, `${method} ${path}: ${JSON.stringify(res.body)}`);
+      assert.equal((res.body as any).code, "PASSWORD_CHANGE_REQUIRED", `${method} ${path}`);
+    }
+  });
+
+  await check("GET /api/admin/users/me stays open and reports the flag", async () => {
+    const res = await api("/api/admin/users/me", { token: tempToken });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(JSON.stringify(res.body).includes('"mustChangePassword":true'), true);
+  });
+
+  await check("POST /api/admin/auth/logout stays open", async () => {
+    const res = await api("/api/admin/auth/logout", { method: "POST", token: tempToken });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  });
+
+  const newTempPassword = "ChangedAdmin456!Yy";
+  await check("POST /api/admin/auth/change-password clears the flag, then routes open", async () => {
+    const res = await api("/api/admin/auth/change-password", {
+      method: "POST",
+      token: tempToken,
+      body: { currentPassword: tempPassword, newPassword: newTempPassword, confirmPassword: newTempPassword },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const row = await prisma.admin.findUnique({ where: { email: tempEmail } });
+    assert.equal(row!.mustChangePassword, false);
+    const hazards = await api("/api/admin/hazards?pageSize=10", { token: tempToken });
+    assert.equal(hazards.status, 200, JSON.stringify(hazards.body));
+  });
+
+  console.log("§10b Admin hazards list: userReported=false means official only");
+  const marker = `stage7b-source-${uniqueSuffix}`;
+  // An official hazard is one from a source (the list only shows rows with
+  // a source or a living reporter).
+  const source = await prisma.hazardSource.findFirst();
+  assert.ok(source, "a seeded hazard source must exist for setup");
+  const official = await prisma.hazard.create({
+    data: {
+      title: `${marker} official`,
+      description: "official",
+      categoryId: category!.id,
+      sourceId: source!.id,
+      reportedById: null,
+      reviewStatus: HazardReviewStatus.pending,
+    },
+  });
+  const community = await prisma.hazard.create({
+    data: {
+      title: `${marker} community`,
+      description: "community",
+      categoryId: category!.id,
+      reportedById: testUser.id,
+      reviewStatus: HazardReviewStatus.pending,
+    },
+  });
+  const listIds = async (extra: string) => {
+    const res = await api(
+      `/api/admin/hazards?reviewStatus=pending&pageSize=100&searchString=${encodeURIComponent(marker)}${extra}`,
+      { token: adminToken },
+    );
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const rows = Array.isArray(res.body) ? res.body : (res.body as any).data ?? (res.body as any).hazards;
+    return new Set((rows as any[]).map((h) => h.id));
+  };
+  await check("absent = both, true = community only, false = official only", async () => {
+    const both = await listIds("");
+    assert.ok(both.has(official.id) && both.has(community.id));
+    const onlyCommunity = await listIds("&userReported=true");
+    assert.ok(onlyCommunity.has(community.id) && !onlyCommunity.has(official.id));
+    const onlyOfficial = await listIds("&userReported=false");
+    assert.ok(onlyOfficial.has(official.id) && !onlyOfficial.has(community.id));
+  });
+  await prisma.hazard.deleteMany({ where: { id: { in: [official.id, community.id] } } });
+
+  console.log("§10c Ask ALRT kill switch and test-page limit");
+  await check("GET /api/admin/ask-alrt/config: any admin, {enabled, forcedOffByEnv}", async () => {
+    const res = await api("/api/admin/ask-alrt/config", { token: moderatorToken });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(typeof (res.body as any).enabled, "boolean");
+    assert.equal(typeof (res.body as any).forcedOffByEnv, "boolean");
+  });
+  await check("PUT /api/admin/ask-alrt/config: a moderator is refused", async () => {
+    const res = await api("/api/admin/ask-alrt/config", { method: "PUT", token: moderatorToken, body: { enabled: false } });
+    assert.equal(res.status, 403);
+  });
+  await check("PUT rejects a body that is not {enabled: boolean}", async () => {
+    const res = await api("/api/admin/ask-alrt/config", { method: "PUT", token: adminToken, body: { enabled: "no" } });
+    assert.equal(res.status, 400);
+  });
+  await check("admin turns the AI off: saved, audited, and the AI path answers 503 at once", async () => {
+    const res = await api("/api/admin/ask-alrt/config", { method: "PUT", token: adminToken, body: { enabled: false } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((res.body as any).enabled, false);
+    const row = await prisma.askAlrtConfig.findUnique({ where: { key: "agent" } });
+    assert.deepEqual(row!.value, { enabled: false });
+    const audit = await prisma.adminAuditLog.findFirst({
+      where: { action: "ask_alrt_config.update" },
+      orderBy: { createdAt: "desc" },
+    });
+    assert.ok(audit, "audit row");
+    assert.deepEqual(audit!.after, { enabled: false });
+    // A question no library entry or emergency lookup answers needs the AI.
+    const ai = await api("/api/admin/ask-alrt/ask", {
+      method: "POST",
+      token: adminToken,
+      body: { question: "zzqx unusual question needing the model" },
+    });
+    assert.equal(ai.status, 503, JSON.stringify(ai.body));
+    // Library answers keep working while the AI is off.
+    const lib = await api("/api/admin/ask-alrt/ask", {
+      method: "POST",
+      token: adminToken,
+      body: { question: "how do i send an sos" },
+    });
+    assert.equal(lib.status, 200, JSON.stringify(lib.body));
+    assert.equal((lib.body as any).source, "library");
+  });
+  await check("admin turns it back on", async () => {
+    const res = await api("/api/admin/ask-alrt/config", { method: "PUT", token: adminToken, body: { enabled: true } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((res.body as any).enabled, true);
+  });
+  await check("the test page allows 50 asks per admin per hour, then 429", async () => {
+    // The changed-password admin has asked nothing yet.
+    for (let i = 0; i < 50; i++) {
+      const r = await api("/api/admin/ask-alrt/ask", {
+        method: "POST",
+        token: tempToken,
+        body: { question: "how do i send an sos" },
+      });
+      assert.equal(r.status, 200, `ask ${i + 1}: ${JSON.stringify(r.body)}`);
+    }
+    const over = await api("/api/admin/ask-alrt/ask", {
+      method: "POST",
+      token: tempToken,
+      body: { question: "how do i send an sos" },
+    });
+    assert.equal(over.status, 429, JSON.stringify(over.body));
+    // Another admin's allowance is separate.
+    const other = await api("/api/admin/ask-alrt/ask", {
+      method: "POST",
+      token: superAdminToken,
+      body: { question: "how do i send an sos" },
+    });
+    assert.equal(other.status, 200, JSON.stringify(other.body));
   });
 
   console.log(`\n${passed} checks passed.`);

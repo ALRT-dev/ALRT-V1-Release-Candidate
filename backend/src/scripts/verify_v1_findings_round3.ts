@@ -262,12 +262,19 @@ const main = async () => {
     "two live SOS at once, in different groups: an unlabelled point is refused rather than guessed at",
     async () => {
       const other = await createGroup(H, "Round3 second group");
-      const idA = (
-        await sos(H, g, { isLive: true, locationMode: "live", locationPrecision: "precise", latitude: LAT, longitude: LNG })
-      ).body.id as string;
-      const idB = (
-        await sos(H, other, { isLive: true, locationMode: "live", locationPrecision: "precise", latitude: LAT, longitude: LNG })
-      ).body.id as string;
+      // Under the current access rules an SOS needs at least one eligible
+      // recipient (NO_SOS_RECIPIENTS otherwise), and in an individually
+      // funded group that recipient needs Individual too.
+      const W = await register("SecondGroup3");
+      await buy(W, "individual");
+      await joinOk(W, await inviteCode(H, other));
+      const sentA = await sos(H, g, { isLive: true, locationMode: "live", locationPrecision: "precise", latitude: LAT, longitude: LNG });
+      assert.ok(sentA.status === 201 || sentA.status === 200, `SOS A: ${sentA.status} ${JSON.stringify(sentA.body)}`);
+      const idA = sentA.body.id as string;
+      const sentB = await sos(H, other, { isLive: true, locationMode: "live", locationPrecision: "precise", latitude: LAT, longitude: LNG });
+      assert.ok(sentB.status === 201 || sentB.status === 200, `SOS B: ${sentB.status} ${JSON.stringify(sentB.body)}`);
+      const idB = sentB.body.id as string;
+      assert.notEqual(idA, idB);
       const ambiguous = await api(`/api/family/location?circleId=${g}`, {
         method: "POST",
         token: H.token,
@@ -325,7 +332,9 @@ const main = async () => {
         expiration_at_ms: startsAt + 30 * DAY,
       });
       assert.equal(renewal.body.action, "applied", JSON.stringify(renewal.body));
-      while (Date.now() < startsAt - 100) await settle(100);
+      // Wait until the scheduled change is actually due (startsAt has
+      // passed), so the next events must materialize it before anything else.
+      while (Date.now() < startsAt + 200) await settle(100);
       // Fired together: the scheduled group20 change becoming due (via the
       // next event's own materializeDueChangesFor) and a fresh
       // PRODUCT_CHANGE request racing it on the same row.

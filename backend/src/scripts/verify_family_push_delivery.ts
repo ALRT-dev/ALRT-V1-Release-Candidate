@@ -142,7 +142,9 @@ async function main() {
       for (const m of msgs) {
         assert.equal(m.android?.notification?.channelId, "alrt_alerts");
         assert.doesNotMatch(m.notification?.body ?? "", /Dave/);
-        assert.match(m.notification?.title ?? "", /Tom is safe/);
+        // Check-in wording is factual ("Tom checked in"), never "is safe".
+        assert.match(m.notification?.title ?? "", /Tom checked in/);
+        assert.doesNotMatch(m.notification?.title ?? "", /is safe/);
       }
       const t = tokensOf("familyCheckIn");
       assert.ok(!t.has(tom.device), "the person checking in is not pushed");
@@ -183,8 +185,100 @@ async function main() {
       }
     });
 
+    console.log("\n§4b SOS ending soon (sender reminder)");
+    {
+      const { remindSosEndingSoon, extendSos } = await import("../services/family.service.js");
+      captured.length = 0;
+      const live = await triggerSos(amy.id, { isLive: false, locationMode: "none" } as any, circleId);
+      await check("a new SOS stores liveUntil 1 hour from the start, and GET /sos/active shows it", async () => {
+        assert.ok(live.liveUntil, "liveUntil set at the start");
+        const ms = new Date(live.liveUntil!).getTime() - new Date(live.createdAt).getTime();
+        assert.ok(Math.abs(ms - 60 * 60 * 1000) < 5000, `liveUntil is 1 hour after createdAt (${ms}ms)`);
+        const active = await api(`/api/family/sos/active?circleId=${circleId}`, { token: host.token });
+        assert.equal(active.status, 200, JSON.stringify(active.body));
+        const row = (active.body as any[]).find((s) => s.id === live.id);
+        assert.ok(row && typeof row.liveUntil === "string", "liveUntil in the active SOS response");
+        assert.ok(!("endingSoonNotifiedFor" in row) || row.endingSoonNotifiedFor === null);
+      });
+      captured.length = 0;
+      await remindSosEndingSoon();
+      await check("nothing is sent while more than 10 minutes remain", () => {
+        assert.equal(of("familySosEndingSoon").length, 0);
+      });
+      // Move the end into the reminder window (as if 52 minutes had passed).
+      await prisma.familySosEvent.update({
+        where: { id: live.id },
+        data: { liveUntil: new Date(Date.now() + 8 * 60 * 1000) },
+      });
+      captured.length = 0;
+      await remindSosEndingSoon();
+      await check("about 10 minutes before liveUntil the SENDER alone gets one reminder", () => {
+        const msgs = of("familySosEndingSoon");
+        assert.equal(msgs.length, 1);
+        const m = msgs[0]!;
+        assert.deepEqual(m.tokens, [amy.device]);
+        assert.equal(m.notification?.title, "Your SOS ends in 10 minutes");
+        assert.equal(m.notification?.body, "Open ALRT to extend it by an hour or end it.");
+        assert.doesNotMatch(`${m.notification?.title} ${m.notification?.body}`, /[–—]/);
+        const p = JSON.parse(m.data!.payload as string);
+        assert.equal(p.sosEventId, live.id);
+        assert.equal(p.circleId, circleId);
+        assert.equal(m.android?.notification?.channelId, "alrt_alerts_urgent");
+        assert.equal((m.android?.notification as any)?.tag, `sos-ending:${live.id}`);
+      });
+      captured.length = 0;
+      await remindSosEndingSoon();
+      await check("the next run does not send it again for the same liveUntil", () => {
+        assert.equal(of("familySosEndingSoon").length, 0);
+      });
+      const extended = await extendSos(amy.id, live.id);
+      captured.length = 0;
+      await remindSosEndingSoon();
+      await check("after the sender extends, no reminder until the new hour is nearly up", () => {
+        assert.ok(extended.liveUntil && extended.liveUntil.getTime() > Date.now() + 50 * 60 * 1000);
+        assert.equal(of("familySosEndingSoon").length, 0);
+      });
+      await prisma.familySosEvent.update({
+        where: { id: live.id },
+        data: { liveUntil: new Date(Date.now() + 9 * 60 * 1000) },
+      });
+      captured.length = 0;
+      await remindSosEndingSoon();
+      await check("the extended hour gets its own single reminder", () => {
+        assert.equal(of("familySosEndingSoon").length, 1);
+      });
+      // An older row with no stored liveUntil ends 1 hour after createdAt.
+      await prisma.familySosEvent.update({
+        where: { id: live.id },
+        data: {
+          liveUntil: null,
+          endingSoonNotifiedFor: null,
+          createdAt: new Date(Date.now() - 55 * 60 * 1000),
+        },
+      });
+      captured.length = 0;
+      await remindSosEndingSoon();
+      await remindSosEndingSoon();
+      await check("an older SOS with no stored liveUntil is reminded once, from createdAt + 1 hour", () => {
+        assert.equal(of("familySosEndingSoon").length, 1);
+      });
+      await resolveSos(amy.id, live.id);
+      captured.length = 0;
+      await remindSosEndingSoon();
+      await check("an ended SOS is never reminded", () => {
+        assert.equal(of("familySosEndingSoon").length, 0);
+      });
+    }
+
     console.log("\n§5 A departed member");
+    captured.length = 0;
     await leaveCircle(tom.id, circleId);
+    await check("leaving sends no announcement push to the group", () => {
+      assert.equal(of("familyCircleUpdate").length, 0, "no 'left your family circle' push");
+      for (const m of captured) {
+        assert.doesNotMatch(m.notification?.body ?? "", /left your family circle/);
+      }
+    });
     captured.length = 0;
     await checkIn(amy.id, { status: "safe" }, circleId);
     await check("receives nothing after leaving", () => {

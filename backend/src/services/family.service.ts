@@ -533,6 +533,7 @@ export const listCirclesForUser = async (userId: string) => {
         circleId: true,
         memberId: true,
         createdAt: true,
+        liveUntil: true,
         member: {
           select: { nickname: true, user: { select: { name: true } } },
         },
@@ -571,7 +572,7 @@ export const listCirclesForUser = async (userId: string) => {
   }
   const sosByCircle = new Map<
     string,
-    { id: string; memberId: string; memberName: string; createdAt: Date }
+    { id: string; memberId: string; memberName: string; createdAt: Date; liveUntil: Date }
   >();
   for (const sos of activeSos) {
     // Newest first, so the first one seen per circle is the latest.
@@ -581,6 +582,7 @@ export const listCirclesForUser = async (userId: string) => {
       memberId: sos.memberId,
       memberName: sos.member.nickname || sos.member.user.name || "Family member",
       createdAt: sos.createdAt,
+      liveUntil: sosExpiresAt(sos),
     });
   }
 
@@ -694,7 +696,7 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
       serializeMember(m, { forSelf: m.userId === userId }),
     ),
     places: circle.places,
-    activeSosEvents: circle.sosEvents,
+    activeSosEvents: circle.sosEvents.map(withLiveUntil),
     latestCheckInRequest: latestRequest,
     checkInRequests,
     createdAt: circle.createdAt,
@@ -836,12 +838,11 @@ export const leaveCircle = async (
     membership.nickname ?? undefined,
   ).catch((error) => console.error("SOS list prune failed on leave:", error));
 
-  const leaverName = membership.nickname || "A family member";
+  // Product spec: when someone leaves, the member list updates but NO
+  // announcement push is sent. No title/body/type here, so notifyCircle
+  // sends only the socket event that refreshes everyone's member list.
   await notifyCircle({
     circleId: membership.circleId,
-    title: "Family circle update",
-    body: `${leaverName} left your family circle`,
-    type: PushNotificationType.familyCircleUpdate,
     socketEvent: SocketEvent.familyCircleUpdate,
     socketData: { circleId: membership.circleId },
   });
@@ -1417,14 +1418,16 @@ export const joinCircleWithCode = async (userId: string, code: string) => {
     }
     // Sponsored groups: every person counts against the plan's 6/20/50,
     // which replaces the record's own size limit (a Group 50 must reach
-    // 50). Other groups keep the technical maxMembers limit; their real
-    // capacity is open decision R01.
+    // 50). Individually funded groups are capped at 20, strictly: the cap
+    // never goes above 20 whatever the row's own maxMembers says, and older
+    // rows still holding the retired default of 10 get the same 20 (their
+    // stored value predates the 20 rule and is not a host choice).
     const coverage = await assertSponsoredCapacity(invite.circleId, 1, tx);
     const sponsoredCapacity =
       coverage.fundingMode === "sponsored" ? coverage.capacity : null;
     if (sponsoredCapacity === null) {
       const people = await tx.familyMember.count({ where: { circleId: invite.circleId } });
-      const cap = Math.max(invite.circle.maxMembers, DEFAULT_MAX_MEMBERS);
+      const cap = DEFAULT_MAX_MEMBERS;
       if (people >= cap) {
         throw new HttpError(400, "This group is full", "GROUP_FULL", {
           capacity: cap,
@@ -2514,6 +2517,8 @@ export const triggerSos = async (
       audienceRestricted: true,
       locationMode: mode,
       locationPrecision: precision,
+      // Stored from the start so every read can show "Live until".
+      liveUntil: new Date(Date.now() + SOS_MAX_DURATION_MS),
       ...(hasPoint && {
         locationCapturedAt: capturedAt ?? new Date(),
         ...(input.locationAccuracyM !== undefined && { locationAccuracyM: input.locationAccuracyM }),
@@ -3100,6 +3105,83 @@ export const extendSos = async (userId: string, sosEventId: string) => {
   });
 };
 
+/** A running SOS as the app reads it: liveUntil always filled in (older
+ * rows stored null and end 1 hour after the start). */
+const withLiveUntil = <T extends { createdAt: Date; liveUntil?: Date | null }>(
+  sos: T,
+): T & { liveUntil: Date } => ({ ...sos, liveUntil: sosExpiresAt(sos) });
+
+/** How long before liveUntil the sender is reminded. */
+export const SOS_ENDING_SOON_LEAD_MS = 10 * 60 * 1000;
+
+/**
+ * "Your SOS ends in 10 minutes": one push to the SOS SENDER (never the
+ * audience) about 10 minutes before liveUntil, so they can extend it by an
+ * hour or end it. Runs every minute from the scheduler. Sent once per SOS
+ * per liveUntil value: endingSoonNotifiedFor records the liveUntil that was
+ * reminded about, and an extension moves liveUntil past it, so the next
+ * hour gets its own reminder. The marker is claimed with a conditional
+ * update before the push, so two overlapping runs never both send.
+ */
+export const remindSosEndingSoon = async (): Promise<number> => {
+  const now = Date.now();
+  const horizon = new Date(now + SOS_ENDING_SOON_LEAD_MS);
+  const legacyStartCutoff = new Date(
+    now + SOS_ENDING_SOON_LEAD_MS - SOS_MAX_DURATION_MS,
+  );
+  const candidates = await prisma.familySosEvent.findMany({
+    where: {
+      status: "active",
+      OR: [
+        { liveUntil: { gt: new Date(now), lte: horizon } },
+        { liveUntil: null, createdAt: { lte: legacyStartCutoff } },
+      ],
+    },
+    select: {
+      id: true,
+      circleId: true,
+      createdAt: true,
+      liveUntil: true,
+      endingSoonNotifiedFor: true,
+      member: { select: { userId: true } },
+    },
+  });
+
+  let sent = 0;
+  for (const sos of candidates) {
+    const until = sosExpiresAt(sos);
+    if (until.getTime() <= now) continue; // the lapse sweep ends it
+    if (sos.endingSoonNotifiedFor?.getTime() === until.getTime()) continue;
+    const claimed = await prisma.familySosEvent.updateMany({
+      where: {
+        id: sos.id,
+        status: "active",
+        liveUntil: sos.liveUntil,
+        endingSoonNotifiedFor: sos.endingSoonNotifiedFor,
+      },
+      data: {
+        endingSoonNotifiedFor: until,
+        // Older rows get their implicit end stored, so the marker compares
+        // against the same value next time.
+        ...(sos.liveUntil === null && { liveUntil: until }),
+      },
+    });
+    if (claimed.count === 0) continue;
+    await sendPushNotificationToUser({
+      userId: sos.member.userId,
+      title: "Your SOS ends in 10 minutes",
+      body: "Open ALRT to extend it by an hour or end it.",
+      data: { circleId: sos.circleId, sosEventId: sos.id },
+      type: PushNotificationType.familySosEndingSoon,
+      urgent: true,
+      // One tray entry per SOS: a later reminder replaces the earlier one.
+      collapseKey: `sos-ending:${sos.id}`,
+    });
+    sent += 1;
+  }
+  return sent;
+};
+
 export const endLapsedSosEvents = async (): Promise<number> => {
   const now0 = new Date();
   const cutoff = new Date(now0.getTime() - SOS_MAX_DURATION_MS);
@@ -3232,7 +3314,7 @@ export const getActiveSos = async (userId: string, circleId?: string) => {
     }
     circleIds = memberships.map((m) => m.circleId);
   }
-  return prisma.familySosEvent.findMany({
+  const events = await prisma.familySosEvent.findMany({
     where: { circleId: { in: circleIds }, status: "active", ...sosVisibleTo(userId) },
     include: {
       member: { select: memberIdentitySelect },
@@ -3242,4 +3324,5 @@ export const getActiveSos = async (userId: string, circleId?: string) => {
     },
     orderBy: { createdAt: "desc" },
   });
+  return events.map(withLiveUntil);
 };

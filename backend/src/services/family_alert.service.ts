@@ -650,7 +650,7 @@ const flagMemberNearHazard = async (
   await notifyCircle({
     circleId: member.circleId,
     title: `${severityLabel} near ${name}`,
-    body: `${hazard.title} — ${distanceKm.toFixed(1)} km from ${name}'s location`,
+    body: `${hazard.title}, ${distanceKm.toFixed(1)} km from ${name}'s location`,
     // The shared push wrapper (sendPushNotificationToTokens) already
     // JSON-stringifies this whole object into data.payload exactly once —
     // matching viewHazard's `data: hazard` — so the hazard's fields must

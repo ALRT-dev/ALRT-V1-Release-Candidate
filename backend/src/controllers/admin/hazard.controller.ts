@@ -85,6 +85,10 @@ export const getHazardsForAdmin = async (
       awsAdvice: parseBoolean(awsAdvice),
       officialNonAws: parseBoolean(officialNonAws),
       userReported: parseBoolean(userReported),
+      // userReported=false sent explicitly = official only; absent = both.
+      officialOnly:
+        userReported !== undefined &&
+        String(userReported).toLowerCase() === "false",
       reviewStatus,
       reportedById,
       severities,

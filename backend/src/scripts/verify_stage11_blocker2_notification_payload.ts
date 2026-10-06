@@ -172,18 +172,46 @@ async function runChecks({
 }) {
   console.log("Blocker 2 - familyHazardProximity push payload shape");
 
+  const { releaseHazardPushClaims } = await import("../services/notification.service.js");
+  // One push per person per hazard event (0f07831): the member and the
+  // saved place are both near this hazard, but the one person in the circle
+  // hears about it once. Clear any claim left by an earlier run first.
+  await releaseHazardPushClaims(hazard.id);
   captured.length = 0;
   await notifyFamiliesAboutNewHazard(hazard as any);
+  const firstRun = captured.filter(
+    (m) => m.data?.notificationType === "familyHazardProximity",
+  );
 
   await check(
-    "exactly two familyHazardProximity pushes were sent (one member-triggered, one place-triggered)",
+    "exactly ONE familyHazardProximity push per person per hazard event (member and place both qualify)",
     () => {
-      const proximityMessages = captured.filter(
-        (m) => m.data?.notificationType === "familyHazardProximity",
-      );
-      assert.equal(proximityMessages.length, 2, JSON.stringify(captured));
+      assert.equal(firstRun.length, 1, JSON.stringify(captured));
+      const decoded = JSON.parse(firstRun[0]!.data!.payload as string);
+      assert.ok(decoded.memberId, "the member-triggered path runs first and wins the claim");
     },
   );
+
+  // The place-triggered payload shape still has to be right. Releasing the
+  // claim (a deliberate re-issue) lets it through: the member path does not
+  // fire again (FamilyMemberHazardAlert already records this pair), so the
+  // second run sends exactly the one place-triggered push.
+  await releaseHazardPushClaims(hazard.id);
+  captured.length = 0;
+  await notifyFamiliesAboutNewHazard(hazard as any);
+  const secondRun = captured.filter(
+    (m) => m.data?.notificationType === "familyHazardProximity",
+  );
+  await check(
+    "after a released claim, the place-triggered push is the only one sent",
+    () => {
+      assert.equal(secondRun.length, 1, JSON.stringify(captured));
+      const decoded = JSON.parse(secondRun[0]!.data!.payload as string);
+      assert.ok(decoded.placeId, "place-triggered");
+    },
+  );
+  captured.length = 0;
+  captured.push(...firstRun, ...secondRun);
 
   const decode = (m: CapturedMessage) => {
     const raw = m.data?.payload;

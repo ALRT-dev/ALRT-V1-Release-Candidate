@@ -201,6 +201,21 @@ export const config = {
     workflowId: getRequiredEnv("SIGHTENGINE_WORKFLOW_ID"),
   },
 
+  // Force-update policy served at GET /api/app/version-policy (public).
+  // Blank = no requirement for that platform (served as null).
+  appVersionPolicy: {
+    ios: {
+      minVersion: getOptionalEnv("MIN_APP_VERSION_IOS", "").trim(),
+      minBuild: getOptionalEnv("MIN_APP_BUILD_IOS", "").trim(),
+      storeUrl: getOptionalEnv("APP_STORE_URL_IOS", "").trim(),
+    },
+    android: {
+      minVersion: getOptionalEnv("MIN_APP_VERSION_ANDROID", "").trim(),
+      minBuild: getOptionalEnv("MIN_APP_BUILD_ANDROID", "").trim(),
+      storeUrl: getOptionalEnv("APP_STORE_URL_ANDROID", "").trim(),
+    },
+  },
+
   // Webhook API Key
   WEBHOOK_API_KEY: getOptionalEnv("WEBHOOK_API_KEY", ""),
 

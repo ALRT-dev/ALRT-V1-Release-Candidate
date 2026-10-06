@@ -132,8 +132,16 @@ echo "== Step 2/4: applying raw SQL for migrations not representable in schema.p
 # index, which schema.prisma's @@index/@@unique cannot represent). Run
 # each such migration's SQL directly against the datasource before it is
 # recorded as applied.
+#
+# 20260902000000_repair_hazard_geom_generated_columns: Hazard.geom and
+# Hazard.geomBox are PostGIS GENERATED ALWAYS ... STORED columns, which
+# schema.prisma can only declare as Unsupported(...) - db push creates them
+# as plain, permanently-NULL columns, so a fresh database matches no hazard
+# in the Map tab's ST_Intersects query (no map pins). The repair migration
+# re-creates them as the real generated columns (idempotent).
 RAW_SQL_MIGRATIONS=(
   "20260202080000_add_partial_unique_index_own_location"
+  "20260902000000_repair_hazard_geom_generated_columns"
 )
 
 for name in "${RAW_SQL_MIGRATIONS[@]}"; do

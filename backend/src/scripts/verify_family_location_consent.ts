@@ -314,10 +314,20 @@ const main = async () => {
   // ------------------------------------------------------------------ P2
   console.log("\nP2 - nested member rows are identity-only everywhere they ride along");
   await setLevel(b.token, "approximate");
-  const snap = await api("/api/family/location", {
+  const unlabelled = await api("/api/family/location", {
     method: "POST",
     token: b.token,
     body: { latitude: LAT, longitude: LNG },
+  });
+  await check("an unlabelled post with no live SOS is refused, never an ordinary snapshot", async () => {
+    assert.equal(unlabelled.status, 409, JSON.stringify(unlabelled.body));
+  });
+  const snap = await api("/api/family/location", {
+    method: "POST",
+    token: b.token,
+    // Current apps label an ordinary share purpose "manual"; an unlabelled
+    // post is refused by design (5a21bd3, older-app policy R14).
+    body: { latitude: LAT, longitude: LNG, purpose: "manual" },
   });
   assert.equal(snap.status, 200, JSON.stringify(snap.body));
   await check("control: approximate + the separate POST /location endpoint also gives label, never the pin", async () => {

@@ -26,6 +26,9 @@ export interface HazardSearchParams {
   awsAdvice?: boolean | undefined;
   officialNonAws?: boolean | undefined;
   userReported?: boolean | undefined;
+  /// Admin hazards list: `userReported=false` was sent explicitly, so only
+  /// official hazards (no community reports) are returned. Absent = both.
+  officialOnly?: boolean | undefined;
   reportedById?: string | undefined;
   reviewStatus?: HazardReviewStatus | undefined;
 

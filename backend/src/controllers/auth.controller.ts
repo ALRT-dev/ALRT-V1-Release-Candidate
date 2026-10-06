@@ -150,6 +150,16 @@ export const verifyGoogleOAuth = async (
       throw new HttpError(400, "ID token has expired");
     }
 
+    // Accounts are matched by email, so an unverified Google email must
+    // never sign in to (or create) an ALRT account: it could belong to
+    // someone else.
+    if (payload.email_verified !== true) {
+      throw new HttpError(
+        401,
+        "Your Google account's email address is not verified. Verify it with Google, then try again.",
+      );
+    }
+
     const email = payload.email!!;
     const name = payload.name || null;
 

@@ -1271,8 +1271,14 @@ model FamilySosEvent {
   endedByMemberId    String?
 
   // An SOS lasts 1 hour from the start. The sender can confirm to keep it
-  // going; each confirmation sets this to now + 1 hour. Null = never extended.
+  // going; each confirmation sets this to now + 1 hour. New SOS events set
+  // it at the start (now + 1 hour); null only on older rows, which end 1
+  // hour after createdAt (sosExpiresAt).
   liveUntil DateTime?
+  // The liveUntil value the sender was last reminded about ("Your SOS ends
+  // in 10 minutes"). An extension sets a new liveUntil, so each liveUntil
+  // value gets exactly one reminder.
+  endingSoonNotifiedFor DateTime?
 
   circle    FamilyCircle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
   member    FamilyMember        @relation(fields: [memberId], references: [id], onDelete: Cascade)

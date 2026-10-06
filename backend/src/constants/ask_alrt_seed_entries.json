@@ -55,7 +55,7 @@
       "location",
       "share"
     ],
-    "answer": "A snapshot is a single point that shows where you are right now. You send it on purpose, it fades and is deleted after 60 minutes, and it never keeps a history. ALRT never tracks a person continuously, the only live sharing is inside an active SOS."
+    "answer": "A snapshot is a single point that shows where you are right now. You send it on purpose, it fades and is deleted after 60 minutes, and it never keeps a history. ALRT never tracks a person in the background. Location is shared only when you choose: a snapshot, a Journey you start, or an SOS you send."
   },
   {
     "id": "live_tracking",
@@ -71,7 +71,7 @@
       "continuous",
       "monitor"
     ],
-    "answer": "ALRT does not track people continuously. You can send a one time snapshot that expires in an hour, and live sharing exists only during an active SOS and stops on its own after 4 hours. Watching a place forever is a map feature, watching a person forever is not something the app does."
+    "answer": "ALRT does not track people in the background. You can send a one time snapshot that expires in an hour. A Journey sends periodic updates by default (when you leave, about every 10 minutes, and when you arrive), and you can turn on live location for that Journey only. An SOS lasts 1 hour, and the person who sent it can extend it by an hour or end it. Watching a place forever is a map feature, watching a person forever is not something the app does."
   },
   {
     "id": "family_circle",

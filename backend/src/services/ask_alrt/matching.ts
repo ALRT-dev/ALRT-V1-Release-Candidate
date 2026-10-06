@@ -91,7 +91,24 @@ export const COUNTRY_ALIASES: Record<string, string> = {
   germany: "DE",
 };
 
-const EMERGENCY_INTENT = ["emergency number", "police", "ambulance", "fire brigade", "call for help", "999", "911", "112", "000"];
+const EMERGENCY_INTENT = [
+  "emergency number",
+  "emergency services",
+  "police",
+  "ambulance",
+  "fire brigade",
+  "call for help",
+  "what number do i call",
+  "number do i call",
+  "number should i call",
+  "number to call",
+  "number do i dial",
+  "who do i call",
+  "999",
+  "911",
+  "112",
+  "000",
+];
 
 /**
  * If the question is clearly asking for a country's emergency number and names
@@ -105,16 +122,49 @@ export function detectEmergencyLookup(
   const norm = normalize(question);
   const hasIntent = EMERGENCY_INTENT.some((p) => norm.includes(normalize(p)));
   if (!hasIntent) return null;
-  // Built-in aliases keep their original substring match. Aliases coming from
+  const padded = ` ${norm} `;
+  // Built-in aliases keep their original substring match (so "australian"
+  // still finds Australia), except the short ones (us, uk, nz), which are
+  // whole words only: "us" must not fire inside "house". Aliases coming from
   // the Admin Portal's country names are matched as whole words only, so a
   // name like "Oman" cannot fire inside "woman".
   for (const [name, iso] of Object.entries(COUNTRY_ALIASES)) {
-    if (norm.includes(normalize(name))) return { iso };
+    const key = normalize(name);
+    if (key.length <= 3 ? padded.includes(` ${key} `) : norm.includes(key)) return { iso };
   }
-  const padded = ` ${norm} `;
   for (const [name, iso] of Object.entries(extraAliases)) {
     const key = normalize(name);
     if (key && padded.includes(` ${key} `)) return { iso };
   }
   return null;
+}
+
+export type LocalAnswer =
+  | { source: "emergency_lookup"; iso: string; answer: string }
+  | { source: "library"; entry: KnowledgeEntry };
+
+/**
+ * The zero-AI answer for a question, or null when the AI has to answer.
+ * A question asking for a NAMED country's emergency number ("what number do
+ * I call in Japan") is answered with that country's number first: the
+ * library's generic emergency answer ("call your local emergency number")
+ * must never win over the number the person actually asked for. Everything
+ * else (including a named country with no number on the list) goes to the
+ * library.
+ */
+export function localAnswer(
+  question: string,
+  entries: readonly KnowledgeEntry[],
+  emergency: {
+    aliases: Readonly<Record<string, string>>;
+    answerFor: (iso: string) => string | null;
+  },
+): LocalAnswer | null {
+  const lookup = detectEmergencyLookup(question, emergency.aliases);
+  const emergencyHit = lookup ? emergency.answerFor(lookup.iso) : null;
+  if (lookup && emergencyHit) {
+    return { source: "emergency_lookup", iso: lookup.iso, answer: emergencyHit };
+  }
+  const match = bestMatch(question, entries);
+  return match ? { source: "library", entry: match.entry } : null;
 }

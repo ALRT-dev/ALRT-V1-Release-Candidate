@@ -27,6 +27,11 @@ export const emergencyNumberIsoParamsSchema = z.object({
   iso: z.string().min(2, "Country code is required").max(2, "Country code must be two letters"),
 });
 
+/** PUT /api/admin/ask-alrt/config: the AI kill switch. */
+export const askAlrtConfigBodySchema = z
+  .object({ enabled: z.boolean({ message: "enabled must be true or false" }) })
+  .strict();
+
 /** Body of an Ask ALRT question (app and Admin Portal test page share this). */
 export const askAlrtBodySchema = z.object({
   question: z.string().min(1, "A question is required").max(2000, "Question is too long"),

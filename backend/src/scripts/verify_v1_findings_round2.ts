@@ -402,13 +402,24 @@ const main = async () => {
   await check(
     "no SOS running: an unlabelled post is refused, never an inferred ordinary share (finding 3, review of 28bdec1)",
     async () => {
+      // The labelled manual share just above legitimately left a group
+      // snapshot. Clear it first, so the assertion below can only fail if
+      // THIS unlabelled post writes one.
+      const before = await memberOf(H, g);
+      await prisma.familyMember.update({
+        where: { id: before.id },
+        data: { latitude: null, longitude: null, locationLabel: null },
+      });
+      assert.equal((await memberOf(H, g)).latitude, null, "snapshot reset");
       const r = await api(`/api/family/location?circleId=${g}`, {
         method: "POST",
         token: H.token,
-        body: { latitude: LAT, longitude: LNG },
+        body: { latitude: LAT + 0.01, longitude: LNG + 0.01 },
       });
       assert.equal(r.status, 409, JSON.stringify(r.body));
-      assert.equal((await memberOf(H, g)).latitude, null, "absence of an SOS was read as sharing consent");
+      const after = await memberOf(H, g);
+      assert.equal(after.latitude, null, "absence of an SOS was read as sharing consent");
+      assert.equal(after.longitude, null, "absence of an SOS was read as sharing consent");
     },
   );
 

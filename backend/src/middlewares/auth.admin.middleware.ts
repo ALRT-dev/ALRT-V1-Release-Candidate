@@ -13,6 +13,18 @@ export interface AdminRequest extends Request {
   };
 }
 
+/** Admin routes an admin with mustChangePassword=true may still call. */
+const ROUTES_ALLOWED_BEFORE_PASSWORD_CHANGE: ReadonlySet<string> = new Set([
+  "POST /api/admin/auth/change-password",
+  "POST /api/admin/auth/logout",
+  "GET /api/admin/users/me",
+]);
+
+const isAllowedBeforePasswordChange = (req: Request): boolean => {
+  const path = (req.originalUrl ?? req.url ?? "").split("?")[0]!.replace(/\/+$/, "");
+  return ROUTES_ALLOWED_BEFORE_PASSWORD_CHANGE.has(`${req.method.toUpperCase()} ${path}`);
+};
+
 /// Middleware to check for a valid admin JWT access token
 export const requireAdminAuth = async (
   req: AdminRequest,
@@ -44,6 +56,7 @@ export const requireAdminAuth = async (
         role: true,
         isActive: true,
         lockedUntil: true,
+        mustChangePassword: true,
       },
     });
 
@@ -57,6 +70,18 @@ export const requireAdminAuth = async (
 
     if (admin.lockedUntil && admin.lockedUntil > new Date()) {
       throw new HttpError(403, "Admin account is temporarily locked");
+    }
+
+    // A temporary password (new admin, or reset by a super admin) must be
+    // changed before anything else: only change-password, the admin's own
+    // profile and logout stay open until then. Enforced here, not just in
+    // the portal, so a scripted client can't skip it.
+    if (admin.mustChangePassword && !isAllowedBeforePasswordChange(req)) {
+      throw new HttpError(
+        403,
+        "Change your temporary password before continuing",
+        "PASSWORD_CHANGE_REQUIRED",
+      );
     }
 
     req.admin = {

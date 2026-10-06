@@ -26,6 +26,7 @@ import {
   publicRouter,
   accessRouter,
   askAlrtRouter,
+  appRouter,
 } from "./routes/index.js";
 import { errorHandlerMiddleware } from "./middlewares/error_handler.middleware.js";
 import { unknownRouteMiddleware } from "./middlewares/unknown_route.middleware.js";
@@ -119,6 +120,8 @@ app.use("/api/guides", guideRouter);
 app.use("/api/family", familyRouter);
 app.use("/api/access", accessRouter);
 app.use("/api/ask-alrt", askAlrtRouter);
+// Public, no auth: the force-update policy the app reads before sign-in.
+app.use("/api/app", appRouter);
 // Previously mounted twice under two casings of the same import
 // (revenuecatRouter/revenueCatRouter, both ./revenuecat.route.js) - the
 // earlier mount sat before apiGeneralRateLimiter (which applies as
@@ -154,6 +157,15 @@ server.listen(config.port, async () => {
   if (!googleMapsKeyLooksValid(config.googleMapsApi.apiKey)) {
     console.warn(
       `GOOGLE_MAPS_API_KEY looks like a placeholder (length ${config.googleMapsApi.apiKey.length}, expected 39 starting with AIza): reverse geocoding and place search will fail`,
+    );
+  }
+
+  // The free-trial record hashes emails with this secret. Without it the
+  // access-token secret is used, so rotating JWT_ACCESS_SECRET would make
+  // every past trial unrecognisable (people could start a second trial).
+  if (!config.trialLedgerSecret) {
+    console.warn(
+      "TRIAL_LEDGER_SECRET is not set: the free-trial record falls back to JWT_ACCESS_SECRET. Set a dedicated secret before rotating JWT_ACCESS_SECRET, or earlier trials will no longer be recognised.",
     );
   }
 

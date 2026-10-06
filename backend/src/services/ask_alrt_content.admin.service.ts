@@ -13,7 +13,12 @@ import {
   type EmergencyNumberRow,
   type SavedEntryDoc,
 } from "../utils/ask_alrt_content.util.js";
-import { clearAskAlrtCache } from "./ask_alrt.service.js";
+import {
+  ASK_ALRT_AGENT_KEY,
+  agentEnabledFromValue,
+  aiForcedOffByEnv,
+  clearAskAlrtCache,
+} from "./ask_alrt.service.js";
 
 /**
  * Admin Portal editing for the two things Ask ALRT reads from the database:
@@ -171,4 +176,38 @@ export const importEmergencyDefaults = async (adminLabel: string): Promise<{ add
   if (added === 0) return { added: 0 };
   await writeEmergency(saved, adminLabel);
   return { added };
+};
+
+// --- AI kill switch ------------------------------------------------------
+
+/**
+ * AskAlrtConfig key "agent" = { enabled: boolean }: the same row
+ * isAiEnabled() reads. Env ASK_ALRT_AI_ENABLED=false forces the AI off
+ * whatever is saved here. Only the AI fallback is switched; library and
+ * emergency-number answers keep working.
+ */
+export interface AskAlrtAiConfig {
+  /** The saved switch (true when nothing is saved). */
+  enabled: boolean;
+  /** True when ASK_ALRT_AI_ENABLED=false keeps the AI off regardless. */
+  forcedOffByEnv: boolean;
+}
+
+export const getAskAlrtAiConfig = async (): Promise<AskAlrtAiConfig> => {
+  const row = await prisma.askAlrtConfig.findUnique({ where: { key: ASK_ALRT_AGENT_KEY } });
+  return { enabled: agentEnabledFromValue(row?.value), forcedOffByEnv: aiForcedOffByEnv() };
+};
+
+export const setAskAlrtAiConfig = async (
+  enabled: boolean,
+  adminLabel: string,
+): Promise<{ before: AskAlrtAiConfig; after: AskAlrtAiConfig }> => {
+  const before = await getAskAlrtAiConfig();
+  await prisma.askAlrtConfig.upsert({
+    where: { key: ASK_ALRT_AGENT_KEY },
+    create: { key: ASK_ALRT_AGENT_KEY, value: { enabled }, updatedBy: adminLabel },
+    update: { value: { enabled }, updatedBy: adminLabel },
+  });
+  clearAskAlrtCache();
+  return { before, after: await getAskAlrtAiConfig() };
 };
