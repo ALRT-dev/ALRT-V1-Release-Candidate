@@ -1,6 +1,8 @@
 # ALRT for Apple Watch: how to test it
 
-Date: 7 October 2026. Branch: `claude/cool-ritchie-zf2xey`. TEST only. The production app, production signing lanes and production backend were not touched.
+Date: 7 October 2026. Branch: `claude/cool-ritchie-zf2xey`. TEST only.
+
+**Build to install: ALRT Dev 1.0.5 (133)**, uploaded to TestFlight by [CI run 37471611135](https://github.com/ALRT-dev/ALRT-V1-Release-Candidate/actions/runs/37471611135) (commit `7154409`). Apple processes a new build for a few minutes after upload; if it does not appear in TestFlight within about 30 minutes, check the App Store Connect email for a processing message. The production app, production signing lanes and production backend were not touched.
 
 ## 1. What you get
 
@@ -21,7 +23,7 @@ How it compares: Life360's watch app offers one-tap check-in and one-tap SOS but
 
 | Layer | Files | Tested here |
 |---|---|---|
-| Watch app (SwiftUI, watchOS 10+) | `frontend/ios/AlrtWatch/*` | Compiled and signed by the iOS Dev TestFlight workflow (see §5) |
+| Watch app (SwiftUI, watchOS 10+) | `frontend/ios/AlrtWatch/*` | Compiled, signed and uploaded by CI run 37471611135 (build 133) |
 | iPhone bridge (Swift) | `frontend/ios/Runner/AppDelegate.swift` (`WatchSessionBridge`) | Same |
 | iPhone bridge (Dart) | `frontend/lib/features/wearable/*`, hook in `family_widget_sync.dart`, `app.dart` | `flutter analyze` clean; 12 new unit tests + 14 existing widget tests pass |
 | Backend | `clientRequestId` on check-in and SOS, circle check on answered asks, `WEARABLE_ACTIONABLE_PUSH` flag (default off), migration `20261007000000_wearable_client_request_id` | `verify_wearable_actions.ts` 12/12 against real Postgres; existing family/SOS scripts unchanged (three scripts fail identically before and after this change; see §6) |
