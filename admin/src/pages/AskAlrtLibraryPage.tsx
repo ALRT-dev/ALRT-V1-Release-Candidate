@@ -10,6 +10,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { AskAlrtAiSwitch } from "../components/AskAlrtAiSwitch";
 import type { AskAlrtEntry, AskAlrtEntryOrigin } from "../api/types";
 
 const MAX_ANSWER = 1200;
@@ -171,6 +172,8 @@ export const AskAlrtLibraryPage = () => {
           </button>
         )}
       </div>
+
+      <AskAlrtAiSwitch />
 
       <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
         Built in answers ship with the assistant. Editing one saves your

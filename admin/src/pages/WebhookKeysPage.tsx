@@ -19,6 +19,7 @@ import {
   buildN8nTestWorkflow,
   webhookUrl,
 } from "../lib/n8nWorkflow";
+import { TEST_SOURCE_ID, ensureTestSource } from "../lib/testSource";
 
 export const WebhookKeysPage = () => {
   const { hasRole } = useAuth();
@@ -71,7 +72,19 @@ export const WebhookKeysPage = () => {
 
   const apiBase = import.meta.env.VITE_API_BASE_URL;
 
-  const downloadN8nWorkflow = () => {
+  const downloadN8nWorkflow = async () => {
+    // The webhook only accepts a sourceId that exists, so make sure the
+    // disposable test source is there before handing out a workflow that
+    // uses it. Moderators cannot create sources; for them the download
+    // still works once an admin has created it.
+    if (canWrite) {
+      try {
+        await ensureTestSource();
+      } catch (err) {
+        notifyError(err instanceof ApiError ? err.message : "Could not create the test source.");
+        return;
+      }
+    }
     const blob = new Blob([JSON.stringify(buildN8nTestWorkflow(apiBase), null, 2)], {
       type: "application/json",
     });
@@ -128,14 +141,18 @@ export const WebhookKeysPage = () => {
           <li>
             Import the test workflow below, choose that credential on the HTTP
             Request node, then run it. It posts one test alert to{" "}
-            <code>{webhookUrl(apiBase)}</code>.
+            <code>{webhookUrl(apiBase)}</code> on the test source{" "}
+            <code>{TEST_SOURCE_ID}</code>, never a real agency's source.
+            {canWrite
+              ? " Downloading the workflow creates that source if it does not exist yet."
+              : " An admin must create that source first (downloading the workflow as an admin does it)."}
           </li>
           <li>
             Check the Alerts page for "n8n test alert", and this table for the
             key's request count.
           </li>
         </ol>
-        <button type="button" className="btn btn-sm" onClick={downloadN8nWorkflow}>
+        <button type="button" className="btn btn-sm" onClick={() => void downloadN8nWorkflow()}>
           Download n8n test workflow
         </button>
       </section>

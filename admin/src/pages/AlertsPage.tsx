@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { usePageForFilters } from "../hooks/usePageForFilters";
+import { Pagination } from "../components/Pagination";
 import {
   createHazard,
-  createHazardSource,
   deleteHazard,
   listHazards,
   syncExternalHazards,
@@ -22,16 +24,17 @@ import {
   testAlertExpiresAt,
 } from "../data/testAlertPresets";
 import type { TestAlertPreset } from "../data/testAlertPresets";
+import { TEST_SOURCE_ID, ensureTestSource } from "../lib/testSource";
 
-// Disposable TEST-only source every "Create Test Alert" preset attaches
-// to - lazily created via the API on first use (see handleCreateTestAlert
-// below), same as the original single dummy-alert button. The env var
-// name predates the picker (it started as one fixed button) but still
-// works exactly the same way: it's only set in admin/.env.test, so a
-// plain production build never inlines it and the button/picker don't
-// exist at all - not just hidden by role/CSS.
-const TEST_SOURCE_ID = "test-dummy";
+// TEST-only "Create Test Alert" picker. Every preset attaches to the
+// disposable TEST_SOURCE_ID source (lib/testSource.ts), lazily created via
+// the API on first use (see handleCreateTestAlert below). The env var name
+// predates the picker (it started as one fixed button) but still works
+// exactly the same way: it's only set in admin/.env.test, so a plain
+// production build never inlines it and the button/picker don't exist at
+// all - not just hidden by role/CSS.
 const testAlertsEnabled = import.meta.env.VITE_ENABLE_DUMMY_ALERTS === "true";
+const PAGE_SIZE = 50;
 
 export const AlertsPage = () => {
   const { hasRole } = useAuth();
@@ -39,8 +42,11 @@ export const AlertsPage = () => {
   const canWrite = hasRole("superAdmin", "admin");
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search.trim());
   const [reviewStatus, setReviewStatus] = useState<HazardReviewStatus | "">("");
   const [origin, setOrigin] = useState<"" | "official" | "community">("");
+  const [showExpired, setShowExpired] = useState(false);
+  const [page, setPage] = usePageForFilters([debouncedSearch, reviewStatus, origin, showExpired]);
   const [selected, setSelected] = useState<AdminHazard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminHazard | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -50,14 +56,23 @@ export const AlertsPage = () => {
   const fetcher = useCallback(
     () =>
       listHazards({
-        searchString: search || undefined,
+        searchString: debouncedSearch || undefined,
         reviewStatus: reviewStatus || undefined,
+        // false = official only, true = community only (backend honours both).
         userReported: origin === "" ? undefined : origin === "community",
-        pageSize: 100,
+        showExpired: showExpired || undefined,
+        page,
+        pageSize: PAGE_SIZE,
       }),
-    [search, reviewStatus, origin],
+    [debouncedSearch, reviewStatus, origin, showExpired, page],
   );
-  const { data, error, loading, refetch } = useApiQuery(fetcher, [search, reviewStatus, origin]);
+  const { data, error, loading, refetch } = useApiQuery(fetcher, [
+    debouncedSearch,
+    reviewStatus,
+    origin,
+    showExpired,
+    page,
+  ]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -99,15 +114,7 @@ export const AlertsPage = () => {
   const handleCreateTestAlert = async (preset: TestAlertPreset) => {
     setCreatingPresetId(preset.id);
     try {
-      try {
-        await createHazardSource({
-          id: TEST_SOURCE_ID,
-          name: "TEST DUMMY SOURCE - DO NOT USE",
-          url: "https://example.invalid/test",
-        });
-      } catch (err) {
-        if (!(err instanceof ApiError && err.status === 400)) throw err;
-      }
+      await ensureTestSource();
       await createHazard({
         title: preset.title,
         description: preset.description,
@@ -163,6 +170,14 @@ export const AlertsPage = () => {
           <option value="official">Official only</option>
           <option value="community">Community only</option>
         </select>
+        <label className="toolbar__check">
+          <input
+            type="checkbox"
+            checked={showExpired}
+            onChange={(event) => setShowExpired(event.target.checked)}
+          />
+          Show expired
+        </label>
         {testAlertsEnabled && canWrite && (
           <button
             type="button"
@@ -239,6 +254,14 @@ export const AlertsPage = () => {
             ))}
           </tbody>
         </table>
+      )}
+      {!loading && !error && data && (
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          itemsOnPage={data.length}
+          onPageChange={setPage}
+        />
       )}
 
       {selected && (

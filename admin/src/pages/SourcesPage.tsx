@@ -1,11 +1,16 @@
 import { useCallback, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { usePageForFilters } from "../hooks/usePageForFilters";
+import { Pagination } from "../components/Pagination";
 import { listHazardSources, updateHazardSource } from "../api/resources";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import { ApiError } from "../api/client";
 import type { AdminHazardSource } from "../api/types";
+
+const PAGE_SIZE = 50;
 
 const toDateInput = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : "");
 
@@ -18,16 +23,19 @@ export const SourcesPage = () => {
   const canWrite = hasRole("superAdmin", "admin");
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search.trim());
+  const [page, setPage] = usePageForFilters([debouncedSearch]);
   const [editing, setEditing] = useState<AdminHazardSource | null>(null);
   const [advisoryDraft, setAdvisoryDraft] = useState("");
   const [configDraft, setConfigDraft] = useState<Partial<AdminHazardSource>>({});
   const [saving, setSaving] = useState(false);
 
   const fetcher = useCallback(
-    () => listHazardSources({ searchString: search || undefined, pageSize: 100 }),
-    [search],
+    () =>
+      listHazardSources({ searchString: debouncedSearch || undefined, page, pageSize: PAGE_SIZE }),
+    [debouncedSearch, page],
   );
-  const { data, error, loading, refetch } = useApiQuery(fetcher, [search]);
+  const { data, error, loading, refetch } = useApiQuery(fetcher, [debouncedSearch, page]);
 
   const startEdit = (source: AdminHazardSource) => {
     setEditing(source);
@@ -165,6 +173,14 @@ export const SourcesPage = () => {
             ))}
           </tbody>
         </table>
+      )}
+      {!loading && !error && data && (
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          itemsOnPage={data.length}
+          onPageChange={setPage}
+        />
       )}
 
       {editing && (

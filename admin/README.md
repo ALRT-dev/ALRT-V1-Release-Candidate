@@ -65,6 +65,13 @@ has no server-side token revocation yet (Stage 7B finding, unchanged) - so
 "logout" is client-side token clearing plus a best-effort call to
 `POST /api/admin/auth/logout`.
 
+First login: a new admin account has `mustChangePassword` set. When login
+(or `GET /api/admin/users/me`) reports it, or when any request comes back
+403 with `code: "PASSWORD_CHANGE_REQUIRED"`, every route sends the admin to
+`/change-password` (no sidebar) until `POST /api/admin/auth/change-password`
+succeeds; then they continue to the page they asked for. The backend
+refuses every other admin route meanwhile, so this is not only a UI gate.
+
 Role (`moderator` / `admin` / `superAdmin`) is read from the authenticated
 admin's own profile (`GET /api/admin/users/me`) and used only to hide
 controls the role cannot use - `src/auth/AuthContext.tsx`'s `hasRole()` is
@@ -100,9 +107,21 @@ npm run preview      # preview a production build locally
 See `V1_RECONCILIATION_REPORT.md` §24 for the full list with reasoning.
 Summary:
 
-- Audit Log viewer (admin and super admin only) reads
-  `GET /api/admin/audit-log`; source create, update and delete are recorded
-  with before/after of the changed fields.
+- Audit Log viewer (admin and super admin only, hidden from moderators'
+  navigation) reads `GET /api/admin/audit-log`; source create, update and
+  delete are recorded with before/after of the changed fields.
+- Paging: Alerts, Moderation, Sources, Users and Audit Log page 50 rows at a
+  time. Only the Users endpoint returns a `total`, so only Users can show
+  "Page X of Y" up front; the hazard, source and audit-log endpoints return
+  a bare array, so those screens show "Page X" and treat a short page as
+  the last one.
+- Ask ALRT AI switch (Ask ALRT and Ask ALRT Answers pages) reads and sets
+  `/api/admin/ask-alrt/config`. Admin and super admin can change it;
+  moderators see it read-only. When the server's environment config forces
+  AI off, the switch is shown disabled.
+- The n8n test workflow posts to the dedicated `test-dummy` source, never
+  a real feed. The webhook rejects unknown source ids, so downloading the
+  workflow as an admin creates that source first.
 - No Emergency Information screen - no backend model exists.
 - Category icon image upload is not supported (text fields only); the
   backend supports multipart image upload but it wasn't built into V1.

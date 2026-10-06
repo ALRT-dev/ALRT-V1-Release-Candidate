@@ -182,8 +182,9 @@ export const AdminAccountsPage = () => {
                 onChange={(event) => setForm({ ...form, password: event.target.value })}
               />
               <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
-                12+ chars, upper/lower/number/symbol. The new admin must
-                change it on first login (mustChangePassword defaults true).
+                12+ chars, upper/lower/number/symbol. The first time they
+                sign in, the portal sends them straight to Change password,
+                and nothing else opens until they choose their own.
               </span>
             </div>
             <div className="field">

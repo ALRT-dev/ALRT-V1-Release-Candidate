@@ -1,7 +1,10 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import type { AdminRole } from "../api/types";
 
-const NAV_ITEMS: { to: string; label: string }[] = [
+// `roles` hides a link from roles the backend would refuse anyway (UX
+// only, the backend is still the gate). No `roles` means every admin role.
+const NAV_ITEMS: { to: string; label: string; roles?: AdminRole[] }[] = [
   { to: "/", label: "Dashboard" },
   { to: "/alerts", label: "Alerts" },
   { to: "/moderation", label: "Moderation" },
@@ -15,18 +18,19 @@ const NAV_ITEMS: { to: string; label: string }[] = [
   { to: "/ask-alrt", label: "Ask ALRT" },
   { to: "/ask-alrt-library", label: "Ask ALRT Answers" },
   { to: "/emergency-numbers", label: "Emergency Numbers" },
-  { to: "/audit-log", label: "Audit Log" },
+  { to: "/audit-log", label: "Audit Log", roles: ["superAdmin", "admin"] },
 ];
 
 export const Layout = () => {
-  const { admin, logout } = useAuth();
+  const { admin, logout, hasRole } = useAuth();
+  const navItems = NAV_ITEMS.filter((item) => !item.roles || hasRole(...item.roles));
 
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
         <div className="app-sidebar__brand">ALRT Admin</div>
         <nav>
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -42,6 +46,9 @@ export const Layout = () => {
         <div className="app-sidebar__footer">
           <div>{admin?.email}</div>
           <div>Role: {admin?.role}</div>
+          <NavLink to="/change-password" className="app-sidebar__nav-link">
+            Change password
+          </NavLink>
           <button
             type="button"
             className="btn btn-sm"
