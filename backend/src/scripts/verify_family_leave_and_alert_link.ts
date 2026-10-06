@@ -131,6 +131,56 @@ async function main() {
   });
   console.log();
 
+  console.log("§1b - individually funded groups are capped at 20, strictly");
+  {
+    const capHost = await registerUser("CapHost");
+    const joiner = await registerUser("CapJoiner");
+    const fillers: string[] = [];
+    const capCircles: string[] = [];
+    // Fills a circle up to [people] (host included) with throwaway people.
+    const fillTo = async (circleId: string, people: number) => {
+      const current = await prisma.familyMember.count({ where: { circleId } });
+      for (let i = current; i < people; i++) {
+        const u = await prisma.user.create({
+          data: { email: `leave-link-filler-${crypto.randomUUID().slice(0, 12)}@test.local`, name: `Filler ${i}` },
+        });
+        fillers.push(u.id);
+        await prisma.familyMember.create({ data: { circleId, userId: u.id } });
+      }
+    };
+    const joinVia = async (circleId: string, memberToken: string) => {
+      const invite = await api(`/api/family/invites?circleId=${circleId}`, { method: "POST", token: capHost.token });
+      assert.equal(invite.status, 201, JSON.stringify(invite.body));
+      return api("/api/family/join", { method: "POST", token: memberToken, body: { code: invite.body.code } });
+    };
+    try {
+      await check("a row claiming a larger maxMembers still stops at 20 people (GROUP_FULL, capacity 20)", async () => {
+        const big = await createCircle(capHost.token, "Cap big");
+        capCircles.push(big);
+        await prisma.familyCircle.update({ where: { id: big }, data: { maxMembers: 50 } });
+        await fillTo(big, 20);
+        const res = await joinVia(big, joiner.token);
+        assert.equal(res.status, 400, JSON.stringify(res.body));
+        assert.equal(res.body.code, "GROUP_FULL");
+        assert.equal(res.body.details?.capacity, 20);
+        assert.equal(await prisma.familyMember.count({ where: { circleId: big } }), 20);
+      });
+      await check("an older row still holding the retired default of 10 takes people up to 20", async () => {
+        const legacy = await createCircle(capHost.token, "Cap legacy");
+        capCircles.push(legacy);
+        await prisma.familyCircle.update({ where: { id: legacy }, data: { maxMembers: 10 } });
+        await fillTo(legacy, 10);
+        const res = await joinVia(legacy, joiner.token);
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+        assert.equal(await prisma.familyMember.count({ where: { circleId: legacy } }), 11);
+      });
+    } finally {
+      await prisma.familyCircle.deleteMany({ where: { id: { in: capCircles } } });
+      await prisma.user.deleteMany({ where: { id: { in: fillers } } });
+    }
+  }
+  console.log();
+
   console.log("§2 - live SOS across circles");
   const circleB = await createCircle(host.token, "Circle B");
   const circleC = await createCircle(amy.token, "Circle C");

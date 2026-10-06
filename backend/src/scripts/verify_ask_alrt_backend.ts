@@ -4,7 +4,7 @@
  *   `npx tsx src/scripts/verify_ask_alrt_backend.ts`
  */
 import assert from "node:assert/strict";
-import { bestMatch, detectEmergencyLookup } from "../services/ask_alrt/matching.js";
+import { bestMatch, detectEmergencyLookup, localAnswer } from "../services/ask_alrt/matching.js";
 import { extractUsedAlertIds } from "../services/ask_alrt/citations.js";
 import {
   AI_DAILY_LIMIT,
@@ -103,6 +103,46 @@ const cases: [string, () => void][] = [
     assert.deepEqual(detectEmergencyLookup("police number in oman", { oman: "OM" }), { iso: "OM" });
     assert.match(emergencyAnswer("JP", saved.table, saved.names) ?? "", /In Japan, the emergency number is 110/);
     assert.equal(emergencyAnswer("QQ", saved.table, saved.names), null);
+  }],
+  ["built-in answers state current SOS and Journey facts", () => {
+    for (const e of BUILT_IN_ENTRIES) {
+      assert.doesNotMatch(e.answer, /4 hours|four hours|only live sharing|live sharing exists only/i, e.id);
+    }
+    const tracking = BUILT_IN_ENTRIES.find((e) => e.id === "live_tracking")!;
+    assert.match(tracking.answer, /SOS lasts 1 hour/);
+    assert.match(tracking.answer, /extend it by an hour or end it/);
+    assert.match(tracking.answer, /Journey/);
+    assert.doesNotMatch(ASK_ALRT_SYSTEM_PROMPT, /[–—]/, "system prompt has no en or em dashes");
+  }],
+  ["a named country's emergency number wins over the generic library answer", () => {
+    const entries = mergeEntries([]);
+    const emergency = resolveEmergency({ numbers: {}, names: {} });
+    const route = (q: string) =>
+      localAnswer(q, entries, {
+        aliases: aliasesFromNames(emergency.names),
+        answerFor: (iso) => emergencyAnswer(iso, emergency.table, emergency.names),
+      });
+    // The generic question alone still gets the library's generic answer...
+    assert.ok(bestMatch("what number do I call", entries), "generic library answer exists");
+    const generic = route("what number do I call");
+    assert.equal(generic?.source, "library");
+    assert.equal(generic?.source === "library" && generic.entry.id, "emergency_generic");
+    // ...but naming a country answers with that country's number.
+    for (const q of [
+      "what number do I call in Japan",
+      "What number do I call in Japan?",
+      "who do i call in an emergency in japan",
+      "emergency services in Japan",
+    ]) {
+      const hit = route(q);
+      assert.equal(hit?.source, "emergency_lookup", q);
+      assert.equal(hit?.source === "emergency_lookup" && hit.iso, "JP", q);
+      assert.match(hit?.source === "emergency_lookup" ? hit.answer : "", /In Japan, the emergency number is 110/, q);
+    }
+    // Short built-in aliases are whole words: "us" never fires inside "house".
+    assert.equal(detectEmergencyLookup("what number do i call from my house in japan", aliasesFromNames(emergency.names))?.iso, "JP");
+    // Unrelated library questions are untouched.
+    assert.equal(route("how do i send an sos")?.source, "library");
   }],
   ["AI context: only valid alert ids are sent and the emergency number must be digits", () => {
     const { text, sentAlertIds } = contextBlock({

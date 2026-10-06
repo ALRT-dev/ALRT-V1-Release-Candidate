@@ -360,9 +360,23 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
     }
   }
 
+  // The person's own photo in each group they belong to: the FamilyMember
+  // rows cascade away with the user, so collect the files first.
+  const memberPhotoUrls = (
+    await prisma.familyMember.findMany({
+      where: { userId, photoUrl: { not: null } },
+      select: { photoUrl: true },
+    })
+  )
+    .map((m) => m.photoUrl)
+    .filter((url): url is string => !!url);
+
   // Circles left in a host transition by this deletion — notified once the
   // transaction (and the user row) is committed.
   const circlesEnteringHostTransition: string[] = [];
+  // Photos of circles deleted along with the account; removed from S3
+  // after the transaction commits.
+  const deletedCirclePhotoUrls: string[] = [];
 
   // Use a transaction for database operations
   await prisma.$transaction(async (tx) => {
@@ -379,11 +393,12 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
     // being silently left without an owner.
     const ownedCircles = await tx.familyCircle.findMany({
       where: { createdById: userId },
-      select: { id: true, _count: { select: { members: true } } },
+      select: { id: true, photoUrl: true, _count: { select: { members: true } } },
     });
     for (const circle of ownedCircles) {
       if (circle._count.members <= 1) {
         await tx.familyCircle.delete({ where: { id: circle.id } });
+        if (circle.photoUrl) deletedCirclePhotoUrls.push(circle.photoUrl);
       } else {
         await tx.familyCircle.update({
           where: { id: circle.id },
@@ -437,6 +452,28 @@ export const executeAccountDeletion = async (userId: string): Promise<void> => {
   });
 
   await invalidateHazardCaches().catch(() => undefined);
+
+  // Best effort, like the profile picture: the person's group photos
+  // (family-member-photos) and the photo of any circle deleted with them
+  // (family-circle-photos). Done after the commit so a failed deletion
+  // never leaves rows pointing at removed files.
+  const familyPhotoKeys = [...memberPhotoUrls, ...deletedCirclePhotoUrls]
+    .map((url) => extractS3KeyFromUrl(url))
+    .filter((key): key is string => !!key);
+  if (familyPhotoKeys.length > 0) {
+    // One failed file never stops the others.
+    const results = await Promise.allSettled(
+      [...new Set(familyPhotoKeys)].map((key) => deleteFileFromS3(key)),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) {
+      console.error(
+        `Error deleting ${failed} of ${results.length} family photo file(s) for user ${userId}`,
+      );
+    } else {
+      console.log(`Deleted ${results.length} family photo file(s) for user ${userId}`);
+    }
+  }
 
   // Best-effort: tell the remaining members of each circle that lost its
   // host. Never blocks the deletion itself on a notification failure.

@@ -110,3 +110,25 @@ export const mapsProxyUserLimiter = rateLimit({
     "Too many map search requests for this account. Please slow down and try again.",
   ),
 });
+
+/**
+ * Admin Portal Ask ALRT test page (POST /api/admin/ask-alrt/ask): 50 asks
+ * per admin per hour, so a stuck test loop or a shared admin login can't
+ * run up the Bedrock bill. In-memory (per process), keyed on the admin id
+ * set by requireAdminAuth, so it must be mounted after that middleware.
+ */
+export const ADMIN_ASK_ALRT_LIMIT_PER_HOUR = 50;
+export const adminAskAlrtTestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: ADMIN_ASK_ALRT_LIMIT_PER_HOUR,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: limiterValidate,
+  keyGenerator: (req: Request) => {
+    const adminId = (req as Request & { admin?: { id?: string } }).admin?.id;
+    return adminId ? `admin:${adminId}` : rateLimitKey(req);
+  },
+  handler: json429Handler(
+    `The Ask ALRT test page allows ${ADMIN_ASK_ALRT_LIMIT_PER_HOUR} questions per admin per hour. Please try again later.`,
+  ),
+});

@@ -4,6 +4,8 @@ import { HttpError } from "../../models/http_error.js";
 import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 import {
   deleteAskAlrtEntry,
+  getAskAlrtAiConfig,
+  setAskAlrtAiConfig,
   importEmergencyDefaults,
   listAskAlrtEntries,
   listEmergencyNumbers,
@@ -147,6 +149,42 @@ export const removeEmergencyNumberController = async (
       before: { number: before.number, name: before.name },
     });
     res.status(200).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** GET /api/admin/ask-alrt/config - the AI kill switch. Any admin role. */
+export const getAskAlrtConfigController = async (
+  _req: AdminRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    res.status(200).json(await getAskAlrtAiConfig());
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** PUT /api/admin/ask-alrt/config {enabled} - admin or above, audit-logged. */
+export const setAskAlrtConfigController = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { enabled } = req.body as { enabled: boolean };
+    const { before, after } = await setAskAlrtAiConfig(enabled, adminLabel(req));
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "ask_alrt_config.update",
+      targetType: "AskAlrtConfig",
+      targetId: "agent",
+      before: { enabled: before.enabled },
+      after: { enabled: after.enabled },
+    });
+    res.status(200).json(after);
   } catch (error) {
     next(error);
   }

@@ -14,7 +14,9 @@ export type HttpErrorCode =
   | "HOST_ONLY"
   | "PAYER_ONLY"
   | "NO_SOS_RECIPIENTS"
-  | "SOS_PRESET_OTHER_GROUP";
+  | "SOS_PRESET_OTHER_GROUP"
+  // Admin Portal: an admin with a temporary password must change it first.
+  | "PASSWORD_CHANGE_REQUIRED";
 
 export class HttpError extends Error {
   statusCode: number

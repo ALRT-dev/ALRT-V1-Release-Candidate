@@ -8,7 +8,7 @@ import {
 } from "./family_alert.service.js";
 import { fireDueScheduledCheckIns } from "./family.service.js";
 import { endLapsedJourneys } from "./family_journey.service.js";
-import { endLapsedSosEvents } from "./family.service.js";
+import { endLapsedSosEvents, remindSosEndingSoon } from "./family.service.js";
 import { awardExpiredReports } from "./xp_ledger.service.js";
 
 /**
@@ -79,6 +79,16 @@ export const initializeScheduledTasks = () => {
       await fireDueScheduledCheckIns();
     } catch (error) {
       console.error("Scheduled check-in firing failed:", error);
+    }
+  });
+
+  // "Your SOS ends in 10 minutes": one reminder to the sender per SOS per
+  // liveUntil value, so they can extend it by an hour or end it.
+  cron.schedule("* * * * *", async () => {
+    try {
+      await remindSosEndingSoon();
+    } catch (error) {
+      console.error("SOS ending-soon reminder failed:", error);
     }
   });
 

@@ -3,7 +3,7 @@ import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
 import { getPersonalAccess } from "./entitlement.service.js";
 import { executeChat } from "./bedrock.service.js";
-import { bestMatch, detectEmergencyLookup, type KnowledgeEntry } from "./ask_alrt/matching.js";
+import { localAnswer, type KnowledgeEntry } from "./ask_alrt/matching.js";
 import {
   aliasesFromNames,
   contextBlock,
@@ -30,9 +30,10 @@ export type { AskRequest, NearbyAlert } from "./ask_alrt/rules.js";
 /**
  * Ask ALRT, inside the backend.
  *
- * Answer order (same as the retired Firebase function):
- *   1. Pre-written library, zero AI.
- *   2. Emergency-number lookup, zero AI.
+ * Answer order:
+ *   1. Emergency-number lookup for a NAMED country, zero AI (so the
+ *      library's generic emergency answer never hides the number asked for).
+ *   2. Pre-written library, zero AI.
  *   3. AI fallback (Claude Haiku on Bedrock), the only path that spends money.
  * Every answer counts as one question against the person's daily allowance.
  * Nothing the person types is stored: only a count per day.
@@ -112,16 +113,33 @@ const loadSystemPrompt = async (): Promise<string> => {
   }
 };
 
-/** AI kill switch: env ASK_ALRT_AI_ENABLED=false, or the saved "agent" setting. Fails open. */
+/** AskAlrtConfig key of the AI kill switch, value { enabled: boolean }. Set
+ * from the Admin Portal (PUT /api/admin/ask-alrt/config). */
+export const ASK_ALRT_AGENT_KEY = "agent";
+
+/** Env ASK_ALRT_AI_ENABLED=false keeps the AI off whatever is saved. */
+export const aiForcedOffByEnv = (): boolean =>
+  (process.env.ASK_ALRT_AI_ENABLED ?? "").trim().toLowerCase() === "false";
+
+/** Only an explicit enabled:false switches it off; no row means on. */
+export const agentEnabledFromValue = (value: unknown): boolean =>
+  (value as { enabled?: unknown } | null)?.enabled !== false;
+
+/** AI kill switch: env ASK_ALRT_AI_ENABLED=false, or the saved "agent" setting.
+ * Fails open on a database error (logged), so an outage of the settings
+ * table never silently turns the assistant off. */
 export const isAiEnabled = async (): Promise<boolean> => {
-  if ((process.env.ASK_ALRT_AI_ENABLED ?? "").trim().toLowerCase() === "false") return false;
+  if (aiForcedOffByEnv()) return false;
   if (fresh(agentCache)) return agentCache.value;
   try {
-    const row = await prisma.askAlrtConfig.findUnique({ where: { key: "agent" } });
-    const enabled = (row?.value as { enabled?: unknown } | null)?.enabled !== false;
+    const row = await prisma.askAlrtConfig.findUnique({ where: { key: ASK_ALRT_AGENT_KEY } });
+    const enabled = agentEnabledFromValue(row?.value);
     agentCache = { at: Date.now(), value: enabled };
     return enabled;
-  } catch {
+  } catch (error) {
+    console.error(
+      `[ask-alrt] AI kill switch read failed, leaving the AI on: ${(error as Error).message}`,
+    );
     return true;
   }
 };
@@ -224,32 +242,32 @@ export const askAlrt = async (
   const count = async (): Promise<number | undefined> =>
     userId ? AI_DAILY_LIMIT[plan] - (await requireQuota(userId, plan, timeZone)) : undefined;
 
-  // 1. Library
-  const match = bestMatch(question, await loadEntries());
-  if (match) {
-    const remainingToday = await count();
-    console.log(JSON.stringify({ event: "ask_alrt_answered", source: "library", entry: match.entry.id }));
-    return { answer: match.entry.answer, source: "library", usedAI: false, ...(remainingToday !== undefined && { remainingToday }) };
-  }
-
-  // 2. Emergency number lookup. At the cap the number is still shown, uncounted.
+  // 1 and 2. Zero-AI answers: a named country's emergency number first (so
+  // "what number do I call in Japan" gets Japan's number, not the library's
+  // generic answer), otherwise the library (see localAnswer).
   const emergency = await loadEmergency();
-  const lookup = detectEmergencyLookup(question, aliasesFromNames(emergency.names));
-  if (lookup) {
-    const answer = emergencyAnswer(lookup.iso, emergency.table, emergency.names);
-    if (answer) {
-      let remainingToday: number | undefined;
-      if (userId) {
-        if (await atDailyCap(userId, plan, timeZone)) {
-          remainingToday = 0;
-        } else {
-          const used = await consumeQuota(userId, plan, timeZone);
-          remainingToday = used === null ? 0 : AI_DAILY_LIMIT[plan] - used;
-        }
+  const local = localAnswer(question, await loadEntries(), {
+    aliases: aliasesFromNames(emergency.names),
+    answerFor: (iso) => emergencyAnswer(iso, emergency.table, emergency.names),
+  });
+  if (local?.source === "library") {
+    const remainingToday = await count();
+    console.log(JSON.stringify({ event: "ask_alrt_answered", source: "library", entry: local.entry.id }));
+    return { answer: local.entry.answer, source: "library", usedAI: false, ...(remainingToday !== undefined && { remainingToday }) };
+  }
+  if (local?.source === "emergency_lookup") {
+    // At the cap the number is still shown, uncounted.
+    let remainingToday: number | undefined;
+    if (userId) {
+      if (await atDailyCap(userId, plan, timeZone)) {
+        remainingToday = 0;
+      } else {
+        const used = await consumeQuota(userId, plan, timeZone);
+        remainingToday = used === null ? 0 : AI_DAILY_LIMIT[plan] - used;
       }
-      console.log(JSON.stringify({ event: "ask_alrt_answered", source: "emergency_lookup", iso: lookup.iso }));
-      return { answer, source: "emergency_lookup", usedAI: false, ...(remainingToday !== undefined && { remainingToday }) };
     }
+    console.log(JSON.stringify({ event: "ask_alrt_answered", source: "emergency_lookup", iso: local.iso }));
+    return { answer: local.answer, source: "emergency_lookup", usedAI: false, ...(remainingToday !== undefined && { remainingToday }) };
   }
 
   // 3. AI fallback
