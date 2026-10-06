@@ -33,6 +33,12 @@
 # empty, and no way for it to resolve to the production URL instead,
 # since changing it now requires a reviewed commit to this repo.
 #
+# Update (product owner, 6 Oct 2026): TEST builds must sign in like the
+# store app, so Google Sign-In now reads the TEST web OAuth client from the
+# repository Secret TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID (the same TEST
+# identity the iOS TEST build uses; never the production one). The
+# paragraph below records the original Phase 1 scope.
+#
 # Phase 1 TEST APK scope (product-owner decision): Google Sign-In and
 # RevenueCat are deliberately blanked/bypassed below so this build connects
 # only to the isolated TEST backend and no other external
@@ -297,9 +303,14 @@ jobs:
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY }}
 
-      # Google Sign-In is blanked here regardless of billing_mode - see the
-      # Phase 1 TEST APK scope comment at the top of this file for why
-      # that's safe to blank without breaking app startup. Google Maps
+      # Google Sign-In uses the same TEST web OAuth client as the iOS TEST
+      # build (repository Secret TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID) as its
+      # serverClientId, so Samsung/Android testers get the Google button.
+      # It only completes once an ANDROID OAuth client for
+      # com.safetyalrt.alrt.dev with this build's signing SHA-1 (below) is
+      # registered in the same Google Cloud project, and the TEST backend's
+      # GOOGLE_OAUTH_CLIENT_ID_WEB matches. Unset secret = button hidden,
+      # exactly as before (the app skips Google setup when it is blank). Google Maps
       # reads the real repository Secret TEST_GOOGLE_MAPS_API_KEY (see
       # "TEST Google Maps API key" comment at the top). DEV_BASE_URL is the
       # hardcoded isolated TEST backend URL - see the comment at the top of
@@ -323,7 +334,7 @@ jobs:
             TEST_UNLOCK_VALUE="true"
           fi
           {
-            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=$GOOGLE_OAUTH_SERVER_CLIENT_ID"
             echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
             echo "GOOGLE_MAPS_ANDROID_PACKAGE_NAME=com.safetyalrt.alrt.dev"
             echo "GOOGLE_MAPS_ANDROID_CERT_SHA1=185E439BFC7A99420CADF0EBA9E14F0AEE662DDB"
@@ -338,6 +349,7 @@ jobs:
         env:
           REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY }}
+          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID }}
 
       # Runs only after .env exists (above): pubspec.yaml declares .env as
       # a Flutter asset (flutter_dotenv), so running this any earlier
