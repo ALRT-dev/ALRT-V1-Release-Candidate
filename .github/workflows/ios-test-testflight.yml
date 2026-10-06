@@ -153,6 +153,10 @@ on:
         description: "Only print the newest TestFlight crash reports testers shared (no build, no upload)"
         type: boolean
         default: false
+      simulator_smoke:
+        description: "Build for the iPhone Simulator, launch it on GitHub's Mac and print any crash (no signing, no upload)"
+        type: boolean
+        default: false
 
 # The actual Flutter/iOS project lives in frontend/, not the repo root -
 # see the header comment above. Applies to every plain `run:` step below;
@@ -350,6 +354,7 @@ jobs:
       # this exact step already required before this file existed at the
       # live location.
       - name: Install signing certificate and profile (ALRT Dev / com.safetyalrt.alrt.dev)
+        if: ${{ !inputs.simulator_smoke }}
         working-directory: frontend/ios
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -361,6 +366,7 @@ jobs:
         run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
 
       - name: Configure Xcode to use the installed dev profile
+        if: ${{ !inputs.simulator_smoke }}
         run: |
           OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
           NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
@@ -418,7 +424,60 @@ jobs:
           rm -f Podfile.lock
           pod repo update
 
+      # Diagnostic only: the same TEST app, built for the Simulator (no
+      # signing), launched on this runner for 90 seconds. Prints whether it
+      # stayed running, its console and error log, and any crash report, and
+      # keeps a screenshot. Nothing is signed or uploaded.
+      - name: Simulator launch test (diagnostic, no upload)
+        if: ${{ inputs.simulator_smoke }}
+        run: |
+          set -x
+          flutter build ios --simulator --debug --flavor dev -t lib/main_dev.dart \
+            --dart-define=ALRT_EMAIL_AUTH=true \
+            --dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} \
+            --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }}
+          APP="$(ls -d build/ios/iphonesimulator/*.app | head -1)"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          UDID="$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          c=[(r,x["udid"]) for r,l in d.items() if "iOS" in r for x in l if x["name"].startswith("iPhone")]
+          print(sorted(c)[-1][1])')"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p "$RUNNER_TEMP/sim"
+          xcrun simctl spawn "$UDID" log stream --level debug \
+            --predicate 'processImagePath CONTAINS "Runner.app" AND (messageType == error OR messageType == fault OR eventMessage CONTAINS[c] "exception" OR eventMessage CONTAINS[c] "crash" OR eventMessage CONTAINS[c] "terminat")' \
+            > "$RUNNER_TEMP/sim/errors.log" 2>&1 &
+          LOGPID=$!
+          xcrun simctl launch --console-pty "$UDID" com.safetyalrt.alrt.dev > "$RUNNER_TEMP/sim/console.log" 2>&1 &
+          for t in 15 30 60 90; do
+            sleep 15
+            if xcrun simctl spawn "$UDID" launchctl list | grep -q "com.safetyalrt.alrt.dev"; then
+              echo "== still running at about ${t}s"
+            else
+              echo "== NOT RUNNING at about ${t}s (exited or crashed)"
+            fi
+          done
+          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/sim/screen.png" || true
+          kill $LOGPID || true
+          echo "===== console (last 200 lines) ====="; tail -200 "$RUNNER_TEMP/sim/console.log"
+          echo "===== error log (last 200 lines) ====="; tail -200 "$RUNNER_TEMP/sim/errors.log"
+          echo "===== crash reports ====="
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/*Runner* ~/Library/Logs/DiagnosticReports/*ALRT* 2>/dev/null | head -3); do
+            echo "--- $f"; head -150 "$f"; cp "$f" "$RUNNER_TEMP/sim/" || true
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.simulator_smoke && always() }}
+        with:
+          name: ALRT-ios-simulator-smoke
+          path: ${{ runner.temp }}/sim
+          retention-days: 7
+
       - name: Build the signed iPhone app (dev flavour, isolated test backend)
+        if: ${{ !inputs.simulator_smoke }}
         run: |
           BUILD_NUMBER="${{ inputs.build_number }}"
           if [ -z "$BUILD_NUMBER" ]; then
@@ -439,6 +498,7 @@ jobs:
       # ipa whose bundle id is not exactly that, so this step can never reach
       # the live ALRT app. The production lane is untouched.
       - name: Upload to TestFlight (ALRT Dev only)
+        if: ${{ !inputs.simulator_smoke }}
         working-directory: frontend/ios
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -455,6 +515,7 @@ jobs:
       # checkout root regardless of the working-directory default above -
       # see the header comment - so it needs the frontend/ prefix here.
       - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.simulator_smoke }}
         with:
           name: ALRT-ios-dev-ipa
           path: frontend/build/ios/ipa/*.ipa
