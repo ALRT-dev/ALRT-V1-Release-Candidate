@@ -14,8 +14,19 @@ WATCHOS = "10.0"
 
 project = Xcodeproj::Project.open(PROJECT)
 runner = project.targets.find { |t| t.name == "Runner" } or abort("Runner target missing")
+# Project level (seen by Runner AND AlrtWatch): the iPhone app's bundle id
+# per configuration. AlrtWatch/Info.plist names its companion with it, and
+# Flutter's build tool resolves that value against RUNNER's settings to
+# detect the watch app. Without it Flutter builds everything with the
+# iPhone SDK and the watch target cannot build.
+project.build_configurations.each do |config|
+  host = config.name.end_with?("-dev") ? "com.safetyalrt.alrt.dev" : "com.safetyalrt.alrt"
+  config.build_settings["ALRT_COMPANION_BUNDLE_ID"] = host
+end
+
 if project.targets.any? { |t| t.name == "AlrtWatch" }
-  puts "AlrtWatch already present; nothing to do."
+  project.save
+  puts "AlrtWatch already present; project-level settings ensured."
   exit 0
 end
 

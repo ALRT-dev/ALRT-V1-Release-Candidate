@@ -601,6 +601,7 @@
 		19A190152E7D2FF400B7BF3A /* Debug-dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALRT_COMPANION_BUNDLE_ID = com.safetyalrt.alrt.dev;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -708,6 +709,7 @@
 		19A190182E7D2FFA00B7BF3A /* Release-dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALRT_COMPANION_BUNDLE_ID = com.safetyalrt.alrt.dev;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = "AppIcon-dev";
 				CLANG_ANALYZER_NONNULL = YES;
@@ -808,6 +810,7 @@
 		19A1901B2E7D300100B7BF3A /* Profile-dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALRT_COMPANION_BUNDLE_ID = com.safetyalrt.alrt.dev;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = "AppIcon-dev";
 				CLANG_ANALYZER_NONNULL = YES;
@@ -906,6 +909,7 @@
 		249021D3217E4FDB00AE95B9 /* Profile-prod */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALRT_COMPANION_BUNDLE_ID = com.safetyalrt.alrt;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = "AppIcon-dev";
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1134,6 +1138,7 @@
 		97C147031CF9000F007C117D /* Debug-prod */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALRT_COMPANION_BUNDLE_ID = com.safetyalrt.alrt;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = "AppIcon-prod";
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1193,6 +1198,7 @@
 		97C147041CF9000F007C117D /* Release-prod */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALRT_COMPANION_BUNDLE_ID = com.safetyalrt.alrt;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = "AppIcon-prod";
 				CLANG_ANALYZER_NONNULL = YES;
