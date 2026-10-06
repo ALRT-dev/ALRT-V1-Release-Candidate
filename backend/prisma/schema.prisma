@@ -1100,11 +1100,16 @@ model FamilyCheckIn {
   requestId String?
   hazardId  String?
 
+  // Client-generated key for one tap (phone or Apple Watch). The same key
+  // twice from the same member is one check-in, never two rows or pushes.
+  clientRequestId String?
+
   member  FamilyMember          @relation(fields: [memberId], references: [id], onDelete: Cascade)
   request FamilyCheckInRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
+  @@unique([memberId, clientRequestId])
   @@index([circleId, createdAt])
   @@index([memberId, createdAt])
 }
@@ -1239,6 +1244,9 @@ model FamilySosEvent {
   id       String          @id @default(uuid())
   circleId String
   memberId String // The member who triggered the SOS
+  // Client-generated key for one SOS hold (phone or Apple Watch): the same
+  // key twice is one SOS, never a second SOS or a second fan-out.
+  clientRequestId String?
   status   FamilySosStatus @default(active)
   // Whether the sender chose continuous live-location sharing for this SOS.
   // Defaults true so every SOS from before this field existed reads as the
@@ -1283,6 +1291,8 @@ model FamilySosEvent {
 
   @@index([circleId, status])
   @@index([memberId, createdAt])
+
+  @@unique([memberId, clientRequestId])
 }
 
 model FamilySosResponse {

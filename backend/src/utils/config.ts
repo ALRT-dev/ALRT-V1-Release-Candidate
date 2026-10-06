@@ -48,6 +48,14 @@ export const config = {
   runScheduledJobsInTest:
     getOptionalEnv("RUN_SCHEDULED_JOBS_IN_TEST", "false") === "true",
 
+  // Apple Watch: when on, check-in request and family SOS pushes carry an
+  // APNs category (ALRT_CHECKIN_REQUEST / ALRT_SOS_RECEIVED) so the ALRT
+  // watch app can show "Check in to <circle>" / "Open on phone" on the
+  // wrist. Off by default: with it off every push is byte-for-byte what it
+  // was before. No other push type is ever affected.
+  wearableActionablePush:
+    getOptionalEnv("WEARABLE_ACTIONABLE_PUSH", "false") === "true",
+
   // Photo/video on community reports. OFF for the V1 release: images and
   // video of strangers, minors and private property are the highest-risk
   // part of posting an alert. When false, create/update report requests

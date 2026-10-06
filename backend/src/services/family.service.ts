@@ -1471,6 +1471,12 @@ export const joinCircleWithCode = async (userId: string, code: string) => {
 // Check-ins
 // ---------------------------------------------------------------------------
 
+/** Prisma's unique-constraint error (a racing duplicate insert). */
+const isUniqueViolation = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { code?: unknown }).code === "P2002";
+
 export const createCheckIn = async (
   userId: string,
   input: {
@@ -1480,11 +1486,40 @@ export const createCheckIn = async (
     longitude?: number | undefined;
     requestId?: string | undefined;
     hazardId?: string | undefined;
+    clientRequestId?: string | undefined;
   },
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
   await assertConnectionAccess(userId, membership.circleId);
+
+  // The same tap arriving twice (watch and phone, or a retry after an
+  // answer was lost) is one check-in: return the row already stored for
+  // this client key, with no second push to the circle.
+  if (input.clientRequestId) {
+    const existing = await prisma.familyCheckIn.findUnique({
+      where: {
+        memberId_clientRequestId: {
+          memberId: membership.id,
+          clientRequestId: input.clientRequestId,
+        },
+      },
+      include: { member: { select: memberIdentitySelect } },
+    });
+    if (existing) return existing;
+  }
+
+  // A check-in only answers an ask from its own circle. An ask from
+  // another circle is not linked (the check-in itself still stands), so
+  // circle A's check-in can never mark circle B's request answered.
+  let answeredRequestId: string | undefined;
+  if (input.requestId) {
+    const ask = await prisma.familyCheckInRequest.findFirst({
+      where: { id: input.requestId, circleId: membership.circleId },
+      select: { id: true },
+    });
+    answeredRequestId = ask?.id;
+  }
   // "safe" is the stored value of an ordinary check-in (enum kept for
   // existing rows); it is never shown or pushed as a claim of safety.
   const status: FamilyCheckInStatus = input.status ?? "safe";
@@ -1513,25 +1548,45 @@ export const createCheckIn = async (
       ? { latitude: input.latitude, longitude: input.longitude }
       : {};
 
-  const checkIn = await prisma.$transaction(async (tx) => {
-    const created = await tx.familyCheckIn.create({
-      data: {
-        circleId: membership.circleId,
-        memberId: membership.id,
-        status,
-        ...(input.message && { message: input.message }),
-        ...coordinates,
-        ...(input.requestId && { requestId: input.requestId }),
-        ...(input.hazardId && { hazardId: input.hazardId }),
-      },
-      include: { member: { select: memberIdentitySelect } },
+  let checkIn;
+  try {
+    checkIn = await prisma.$transaction(async (tx) => {
+      const created = await tx.familyCheckIn.create({
+        data: {
+          circleId: membership.circleId,
+          memberId: membership.id,
+          status,
+          ...(input.message && { message: input.message }),
+          ...coordinates,
+          ...(answeredRequestId && { requestId: answeredRequestId }),
+          ...(input.hazardId && { hazardId: input.hazardId }),
+          ...(input.clientRequestId && { clientRequestId: input.clientRequestId }),
+        },
+        include: { member: { select: memberIdentitySelect } },
+      });
+      await tx.familyMember.update({
+        where: { id: membership.id },
+        data: { lastCheckInAt: created.createdAt },
+      });
+      return created;
     });
-    await tx.familyMember.update({
-      where: { id: membership.id },
-      data: { lastCheckInAt: created.createdAt },
-    });
-    return created;
-  });
+  } catch (error) {
+    // Two copies of the same tap raced past the lookup above: the unique
+    // key let one through; the other returns that row and pushes nothing.
+    if (input.clientRequestId && isUniqueViolation(error)) {
+      const winner = await prisma.familyCheckIn.findUnique({
+        where: {
+          memberId_clientRequestId: {
+            memberId: membership.id,
+            clientRequestId: input.clientRequestId,
+          },
+        },
+        include: { member: { select: memberIdentitySelect } },
+      });
+      if (winner) return winner;
+    }
+    throw error;
+  }
 
   // Checking in counts as daily activity for the streak (no XP awarded —
   // safety actions never earn points, streaks only gate the report bonus).
@@ -2419,6 +2474,7 @@ export const triggerSos = async (
     locationPrecision?: SosLocationPrecision | undefined;
     locationCapturedAt?: string | undefined;
     locationAccuracyM?: number | undefined;
+    clientRequestId?: string | undefined;
   },
   circleId?: string,
 ) => {
@@ -2430,6 +2486,22 @@ export const triggerSos = async (
   // SOS is a covered connection feature (V1 access model), per person and
   // per group. Ending an SOS is never gated.
   await assertConnectionAccess(userId, membership.circleId);
+
+  // The same SOS hold sent twice (watch and phone, or a retry after the
+  // answer was lost) is one SOS: return it, cancel nothing, tell nobody
+  // again.
+  if (input.clientRequestId) {
+    const existing = await prisma.familySosEvent.findUnique({
+      where: {
+        memberId_clientRequestId: {
+          memberId: membership.id,
+          clientRequestId: input.clientRequestId,
+        },
+      },
+      include: { member: { select: memberIdentitySelect }, responses: true },
+    });
+    if (existing) return existing;
+  }
 
   const mode = sosLocationModeOf(input);
   if ((mode === "live") !== input.isLive) {
@@ -2514,6 +2586,7 @@ export const triggerSos = async (
       audienceRestricted: true,
       locationMode: mode,
       locationPrecision: precision,
+      ...(input.clientRequestId && { clientRequestId: input.clientRequestId }),
       ...(hasPoint && {
         locationCapturedAt: capturedAt ?? new Date(),
         ...(input.locationAccuracyM !== undefined && { locationAccuracyM: input.locationAccuracyM }),

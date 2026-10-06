@@ -2,6 +2,7 @@ import { HazardSeverity, type Hazard } from "@prisma/client";
 import { firebaseAdmin } from "../utils/firebase_admin_client.util.js";
 import prisma from "../utils/prisma_client.util.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
+import { config } from "../utils/config.js";
 import {
   getFormattedHazardSeverity,
 } from "../utils/hazard.util.js";
@@ -370,6 +371,21 @@ const pruneDeadTokens = async (
   }
 };
 
+/**
+ * APNs category for the two push types the Apple Watch app acts on, only
+ * while WEARABLE_ACTIONABLE_PUSH is on. Every other type, and every type
+ * with the flag off, gets no category: exactly the payload sent before.
+ */
+export const apnsCategoryFor = (
+  type: PushNotificationType,
+  enabled: boolean = config.wearableActionablePush,
+): string | undefined => {
+  if (!enabled) return undefined;
+  if (type === PushNotificationType.familyCheckInRequest) return "ALRT_CHECKIN_REQUEST";
+  if (type === PushNotificationType.familySos) return "ALRT_SOS_RECEIVED";
+  return undefined;
+};
+
 const sendPushNotificationToTokens = async ({
   tokens,
   title,
@@ -414,6 +430,7 @@ const sendPushNotificationToTokens = async ({
     ).toLowerCase();
     const isUrgent =
       urgent ?? (severityBand === "action" || severityBand === "critical");
+    const apnsCategory = apnsCategoryFor(type);
     const baseMessage = {
       notification: {
         title,
@@ -448,6 +465,7 @@ const sendPushNotificationToTokens = async ({
           aps: {
             sound: "default",
             "interruption-level": isUrgent ? "time-sensitive" : "active",
+            ...(apnsCategory ? { category: apnsCategory } : {}),
           },
         },
       },

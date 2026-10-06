@@ -98,6 +98,8 @@ export const familyCheckInSchema = z.object({
   longitude: longitudeSchema.optional(),
   requestId: z.string().uuid().optional(),
   hazardId: z.string().uuid().optional(),
+  // One tap = one check-in, across the phone and the Apple Watch.
+  clientRequestId: z.string().uuid().optional(),
 });
 
 export type FamilyCheckInInput = z.infer<typeof familyCheckInSchema>;
@@ -191,6 +193,8 @@ export const triggerFamilySosSchema = z.object({
   // with its real, older time; never presented as "now").
   locationCapturedAt: z.string().datetime().optional(),
   locationAccuracyM: z.number().min(0).max(100000).optional(),
+  // One SOS hold = one SOS, across the phone and the Apple Watch.
+  clientRequestId: z.string().uuid().optional(),
 });
 
 export const sosLocationPointSchema = z.object({
