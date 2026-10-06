@@ -38,7 +38,7 @@ Future<void> showAddWidgetSheet(final BuildContext context) async {
             SizedBox(height: 6.spMin),
             Text(
               canPin
-                  ? 'Pick a widget — your launcher will ask you to confirm.'
+                  ? 'Pick a widget. Your launcher will ask you to confirm.'
                   : _manualInstructions(),
               style: TextStyle(
                 fontSize: 12.5.spMin,

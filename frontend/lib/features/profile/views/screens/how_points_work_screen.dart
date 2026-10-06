@@ -170,7 +170,7 @@ class HowPointsWorkScreen extends ConsumerWidget {
           SizedBox(height: 6.spMin),
           Text(
             'Every point you earn (or lose) is recorded and visible here. '
-            'Points come from reports the community can rely on — not from '
+            'Points come from reports the community can rely on, not from '
             'volume, and never from emergencies.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.8),

@@ -13,7 +13,7 @@ import 'package:share_plus/share_plus.dart';
 /// What a shared ALRT link says about the app. Kept short: this travels in
 /// a message, so it leads with what the app does, not with a pitch.
 const _shareMessage =
-    'ALRT sends me safety alerts for where I actually am — bushfire, '
+    'ALRT sends me safety alerts for where I actually am: bushfire, '
     'flood, road and weather warnings from official sources, plus '
     'reports from people nearby.';
 
@@ -283,7 +283,7 @@ class ShareAlrtSheet extends StatelessWidget {
     await SharePlus.instance.share(
       ShareParams(
         text: '$_shareMessage\n\n$link',
-        subject: 'ALRT — safety alerts for where you are',
+        subject: 'ALRT: safety alerts for where you are',
       ),
     );
   }

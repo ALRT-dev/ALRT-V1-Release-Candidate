@@ -920,7 +920,7 @@ abstract final class ForYouLibrary {
           'alerts on, and acting on this app\'s warning without waiting for '
           'confirmation, is advisable.',
       SafetyCohort.vision:
-          'Ask anyone nearby to guide you to higher ground now — bystander '
+          'Ask anyone nearby to guide you to higher ground now. Bystander '
           'help is expected in tsunami evacuations.',
       SafetyCohort.visitor:
           'In Australia a marine warning means leave the water and shore; a '

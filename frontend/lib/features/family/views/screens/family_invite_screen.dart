@@ -56,7 +56,7 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
   /// What a recipient has to do with the code, spelled out once and reused
   /// by copy and share so the two can never drift apart. No URL on purpose.
   static String _redeemInstructions(final String code) =>
-      'Join my family circle on ALRT with code $code — in the app, open '
+      'Join my family circle on ALRT with code $code. In the app, open '
       'Family, tap "I have an invite code" and enter it. Joining is free.';
 
   @override

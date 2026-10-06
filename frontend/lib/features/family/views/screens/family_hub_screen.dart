@@ -186,7 +186,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                         ? 'Invites and circle settings are locked until '
                               'then. SOS, check-ins and journeys still work'
                         : '${circle.hostTransitionDaysLeft ?? 7} days left '
-                              'to choose one — everything else keeps working',
+                              'to choose one. Everything else keeps working',
                     style: TextStyle(
                       fontSize: 10.5.spMin,
                       color: Colors.white.withValues(alpha: 0.9),
@@ -247,7 +247,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   Text(
                     [
                       '${journey.remaining.inMinutes} min left',
-                      if (updatedAt != null) 'started ${timeago.format(updatedAt)}',
+                      if (updatedAt != null)
+                        'started ${timeago.format(updatedAt)}',
                     ].join(' · '),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.82),
@@ -496,7 +497,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   /// switches. Same flows as the "Choose a circle" sheet, nothing extra.
   Widget _bottomActionsBuilder(final FamilyCircle circle) {
     final isOwner = circle.me?.role == FamilyRole.owner;
-    Widget button(final IconData icon, final String label, final VoidCallback onTap) {
+    Widget button(
+      final IconData icon,
+      final String label,
+      final VoidCallback onTap,
+    ) {
       return Expanded(
         child: SizedBox(
           height: 48.spMin,
@@ -504,7 +509,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             style: OutlinedButton.styleFrom(
               foregroundColor: FamilyColors.indigoDark,
               backgroundColor: context.surfaceCard,
-              side: BorderSide(color: FamilyColors.indigo.withValues(alpha: 0.35)),
+              side: BorderSide(
+                color: FamilyColors.indigo.withValues(alpha: 0.35),
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14.spMin),
               ),
@@ -526,10 +533,22 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       spacing: 10.spMin,
       children: [
         if (isOwner)
-          button(LucideIcons.userPlus, 'Add a person', () => context.push(FamilyInviteScreen.route)),
-        button(LucideIcons.qrCode, 'Join with code', () => showJoinGroupSheet(context, ref)),
+          button(
+            LucideIcons.userPlus,
+            'Add a person',
+            () => context.push(FamilyInviteScreen.route),
+          ),
+        button(
+          LucideIcons.qrCode,
+          'Join with code',
+          () => showJoinGroupSheet(context, ref),
+        ),
         if (!isOwner)
-          button(LucideIcons.arrowLeftRight, 'Switch circle', () => showChooseCircleSheet(context, ref)),
+          button(
+            LucideIcons.arrowLeftRight,
+            'Switch circle',
+            () => showChooseCircleSheet(context, ref),
+          ),
       ],
     );
   }
@@ -537,7 +556,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   Widget _overflowMenuBuilder(final FamilyCircle circle) {
     final isOwner = circle.me?.role == FamilyRole.owner;
     return PopupMenuButton<String>(
-      icon: Icon(LucideIcons.ellipsisVertical, color: Colors.white, size: 22.spMin),
+      icon: Icon(
+        LucideIcons.ellipsisVertical,
+        color: Colors.white,
+        size: 22.spMin,
+      ),
       color: context.surfaceCard,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14.spMin),
@@ -623,7 +646,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     }
     if (candidates.candidates.isEmpty) {
       context.showErrorToast(
-        message: 'Invite someone first — there is no one to hand the '
+        message:
+            'Invite someone first. There is no one to hand the '
             'circle to yet.',
       );
       return;
@@ -783,7 +807,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 children: [
                   Text(
                     isMine
-                        ? (sos.isLive ? 'Your SOS is live' : 'Your SOS is active')
+                        ? (sos.isLive
+                              ? 'Your SOS is live'
+                              : 'Your SOS is active')
                         : '$name needs help · SOS',
                     style: TextStyle(
                       color: Colors.white,
@@ -842,16 +868,19 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         )
         .map((r) => r.member?.displayName ?? 'A family member')
         .toList();
-    final seen = sos.responses
-        .where((r) => r.type == FamilySosResponseType.seen)
-        .toList()
-      ..sort((a, b) {
-        final at = a.createdAt;
-        final bt = b.createdAt;
-        if (at == null || bt == null) return 0;
-        return at.compareTo(bt);
-      });
-    final seenNames = seen.map((r) => r.member?.displayName ?? 'A family member');
+    final seen =
+        sos.responses
+            .where((r) => r.type == FamilySosResponseType.seen)
+            .toList()
+          ..sort((a, b) {
+            final at = a.createdAt;
+            final bt = b.createdAt;
+            if (at == null || bt == null) return 0;
+            return at.compareTo(bt);
+          });
+    final seenNames = seen.map(
+      (r) => r.member?.displayName ?? 'A family member',
+    );
     final latestSeenAt = seen.isEmpty ? null : seen.last.createdAt;
 
     final parts = <String>[
@@ -905,7 +934,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         sos.memberId == circle.myMemberId ||
         (sos.member?.user?.id != null &&
             sos.member?.user?.id == ref.read(providerOfLoggedInUser)?.id);
-    final who = isMine ? 'Your SOS' : "${sos.member?.displayName ?? 'A family member'}'s SOS";
+    final who = isMine
+        ? 'Your SOS'
+        : "${sos.member?.displayName ?? 'A family member'}'s SOS";
     final endedAt = sos.resolvedAt ?? sos.createdAt;
     final seen = sos.responses
         .where((r) => r.type == FamilySosResponseType.seen)
@@ -932,10 +963,16 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           color: FamilyColors.sosRedLight,
           shape: BoxShape.circle,
         ),
-        child: Icon(LucideIcons.siren, size: 16.spMin, color: FamilyColors.sosRed),
+        child: Icon(
+          LucideIcons.siren,
+          size: 16.spMin,
+          color: FamilyColors.sosRed,
+        ),
       ),
       title: Text(
-        endedAt == null ? '$who · ended' : '$who · ended ${timeago.format(endedAt)}',
+        endedAt == null
+            ? '$who · ended'
+            : '$who · ended ${timeago.format(endedAt)}',
         style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
@@ -944,7 +981,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
       ),
-      trailing: Icon(Icons.chevron_right, size: 20.spMin, color: AppColors.grey),
+      trailing: Icon(
+        Icons.chevron_right,
+        size: 20.spMin,
+        color: AppColors.grey,
+      ),
     );
   }
 
@@ -952,9 +993,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   /// with an optional count so a section says how much is in it.
   Widget _sectionLabelBuilder(final String title, {final int? count}) {
     return Text(
-      count == null
-          ? title.toUpperCase()
-          : '${title.toUpperCase()} · $count',
+      count == null ? title.toUpperCase() : '${title.toUpperCase()} · $count',
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -1005,9 +1044,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
     );
     if (choice == null || !context.mounted) return;
-    await ref.read(providerOfFamily.notifier).checkIn(
-          shareLocation:
-              choice == CheckInConsentChoice.checkInAndShareLocation,
+    await ref
+        .read(providerOfFamily.notifier)
+        .checkIn(
+          shareLocation: choice == CheckInConsentChoice.checkInAndShareLocation,
         );
   }
 
@@ -1177,7 +1217,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             width: 18.spMin,
             height: 18.spMin,
             decoration: BoxDecoration(
-              color: answered ? FamilyColors.safeGreen : const Color(0xFFFBBF24),
+              color: answered
+                  ? FamilyColors.safeGreen
+                  : const Color(0xFFFBBF24),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -1239,14 +1281,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     final FamilyCheckInRequest request,
   ) async {
     if (outstanding.isEmpty) return;
-    final sent = await ref.read(providerOfFamily.notifier).requestCheckIn(
+    final sent = await ref
+        .read(providerOfFamily.notifier)
+        .requestCheckIn(
           message: request.message,
           memberIds: outstanding.map((m) => m.id).toList(),
         );
     if (!mounted || !sent) return;
     context.showSuccessToast(
-      message:
-          'Nudged ${namesLabel(outstanding.map((m) => m.name).toList())}.',
+      message: 'Nudged ${namesLabel(outstanding.map((m) => m.name).toList())}.',
     );
   }
 
@@ -1272,10 +1315,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
 
   /// Answer every open ask in this circle, after the consent sheet.
   Future<void> _answerAsks(final FamilyCircle circle) => _checkInWithConsent(
-        context,
-        ref,
-        requesterName: _askersStillOwedAnAnswer(circle),
-      );
+    context,
+    ref,
+    requesterName: _askersStillOwedAnAnswer(circle),
+  );
 
   /// The white card that holds the one Check in button. With asks open it
   /// leads with who is waiting (faces, names, how long ago, "View N
@@ -1340,7 +1383,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 'In ${circle.name}',
               ].join(' · '),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5.spMin, color: context.onSurfaceMuted),
+              style: TextStyle(
+                fontSize: 12.5.spMin,
+                color: context.onSurfaceMuted,
+              ),
             ),
             if (viewLabel != null)
               Center(
@@ -1365,19 +1411,28 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                           color: FamilyColors.indigo,
                         ),
                       ),
-                      Icon(LucideIcons.chevronRight, size: 16.spMin, color: FamilyColors.indigo),
+                      Icon(
+                        LucideIcons.chevronRight,
+                        size: 16.spMin,
+                        color: FamilyColors.indigo,
+                      ),
                     ],
                   ),
                 ),
               ),
           ],
-          SizedBox(height: asks.isNotEmpty && viewLabel != null ? 4.spMin : 12.spMin),
+          SizedBox(
+            height: asks.isNotEmpty && viewLabel != null ? 4.spMin : 12.spMin,
+          ),
           _imSafeButtonBuilder(circle, checkInState),
           SizedBox(height: 8.spMin),
           Text(
             'Location sharing is optional',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11.5.spMin, color: context.onSurfaceMuted),
+            style: TextStyle(
+              fontSize: 11.5.spMin,
+              color: context.onSurfaceMuted,
+            ),
           ),
         ],
       ),
@@ -1523,45 +1578,43 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         final isSharing = journey != null && journey.isActive;
 
         final tiles = <Widget>[
-              _quickTileBuilder(
-                icon: LucideIcons.bellRing,
-                // "Ask": this tile asks OTHERS to check in. The one control
-                // that checks YOU in is the big green button above it.
-                label: 'Ask',
-                tint: const Color(0xFFE8F4FF),
-                // 1D7FE0 on the tint is ~4.6:1, the old 4DA8FF was ~2.6:1.
-                ink: const Color(0xFF1D7FE0),
-                // Everyone, or exactly the people you pick: the sheet names
-                // who will be asked before anything is sent, and the
-                // tracker card above shows the answers as they land.
-                onTap: () => showFamilyAskCheckInSheet(context, ref),
+          _quickTileBuilder(
+            icon: LucideIcons.bellRing,
+            // "Ask": this tile asks OTHERS to check in. The one control
+            // that checks YOU in is the big green button above it.
+            label: 'Ask',
+            tint: const Color(0xFFE8F4FF),
+            // 1D7FE0 on the tint is ~4.6:1, the old 4DA8FF was ~2.6:1.
+            ink: const Color(0xFF1D7FE0),
+            // Everyone, or exactly the people you pick: the sheet names
+            // who will be asked before anything is sent, and the
+            // tracker card above shows the answers as they land.
+            onTap: () => showFamilyAskCheckInSheet(context, ref),
+          ),
+          _quickTileBuilder(
+            icon: LucideIcons.navigation,
+            label: isSharing ? '${journey.remaining.inMinutes} min' : 'Journey',
+            tint: const Color(0xFFF5E9FA),
+            ink: const Color(0xFF9C27B0),
+            isLit: isSharing,
+            onTap: () => context.push(FamilyJourneyScreen.route),
+          ),
+          _quickTileBuilder(
+            icon: LucideIcons.clock,
+            label: scheduledCount == 0 ? 'Daily' : '$scheduledCount daily',
+            tint: const Color(0xFFFFF3E8),
+            ink: const Color(0xFFE05A00),
+            isLit: scheduledCount > 0,
+            // Lands on the check-in times, not on the nickname field.
+            onTap: () => context.push(
+              FamilyCircleProfileScreen.route,
+              extra: const FamilyCircleProfileArgs(
+                section: FamilyProfileSection.dailyCheckIn,
               ),
-              _quickTileBuilder(
-                icon: LucideIcons.navigation,
-                label: isSharing
-                    ? '${journey.remaining.inMinutes} min'
-                    : 'Journey',
-                tint: const Color(0xFFF5E9FA),
-                ink: const Color(0xFF9C27B0),
-                isLit: isSharing,
-                onTap: () => context.push(FamilyJourneyScreen.route),
-              ),
-              _quickTileBuilder(
-                icon: LucideIcons.clock,
-                label: scheduledCount == 0 ? 'Daily' : '$scheduledCount daily',
-                tint: const Color(0xFFFFF3E8),
-                ink: const Color(0xFFE05A00),
-                isLit: scheduledCount > 0,
-                // Lands on the check-in times, not on the nickname field.
-                onTap: () => context.push(
-                  FamilyCircleProfileScreen.route,
-                  extra: const FamilyCircleProfileArgs(
-                    section: FamilyProfileSection.dailyCheckIn,
-                  ),
-                ),
-              ),
-              _sosTileBuilder(),
-            ];
+            ),
+          ),
+          _sosTileBuilder(),
+        ];
 
         // Four across up to a modest text scale; two rows of two past it,
         // so "Check-in" and "Journey" never clip at the large text sizes
@@ -1707,9 +1760,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-
-
-
   /// The member list, split by state instead of one flat list: who still
   /// owes a check-in sits on top with an Ask button per row, who has
   /// answered sits below. Both halves read from the same CheckInRoll as
@@ -1751,12 +1801,15 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
               .where((c) => c.memberId == member.id)
               .firstOrNull,
           onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
-          onRequestLocation:
-              canRequest ? () => _requestLocationSnapshot(member) : null,
+          onRequestLocation: canRequest
+              ? () => _requestLocationSnapshot(member)
+              : null,
           onChangeMySharing: isMe
               ? () => context.push(FamilySharingLevelScreen.route)
               : null,
-          onRemove: isOwner && !isMe ? () => _confirmRemoveMember(member) : null,
+          onRemove: isOwner && !isMe
+              ? () => _confirmRemoveMember(member)
+              : null,
         ),
         onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
       );
@@ -1808,10 +1861,14 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                   foregroundColor: FamilyColors.indigo,
                   visualDensity: VisualDensity.compact,
                 ),
-                onPressed: () => context.push(FamilyCheckInRollCallScreen.route),
+                onPressed: () =>
+                    context.push(FamilyCheckInRollCallScreen.route),
                 child: Text(
                   'View all',
-                  style: TextStyle(fontSize: 12.5.spMin, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             if (!iAmGuest && circle.members.length > 1)
@@ -1825,7 +1882,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 icon: Icon(LucideIcons.mapPin, size: 16.spMin),
                 label: Text(
                   'Request location',
-                  style: TextStyle(fontSize: 12.5.spMin, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
           ],
@@ -1855,8 +1915,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     if (!mounted) return;
     if (sent) {
       context.showSuccessToast(
-        message:
-            '${member.name} has been asked to share a one-time snapshot.',
+        message: '${member.name} has been asked to share a one-time snapshot.',
       );
     }
   }
@@ -1891,9 +1950,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       context: context,
       title: 'Remove ${member.name} from the circle?',
       confirmButtonText: 'Remove',
-      onPressedConfirm: (_, __) => ref
-          .read(providerOfFamily.notifier)
-          .removeMember(memberId: member.id),
+      onPressedConfirm: (_, __) =>
+          ref.read(providerOfFamily.notifier).removeMember(memberId: member.id),
     );
   }
 

@@ -36,8 +36,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Community report photo/video. Off for V1. Matches backend COMMUNITY_REPORT_MEDIA_ENABLED.
-const bool kCommunityReportMediaEnabled =
-    bool.fromEnvironment('ALRT_REPORT_MEDIA', defaultValue: false);
+const bool kCommunityReportMediaEnabled = bool.fromEnvironment(
+  'ALRT_REPORT_MEDIA',
+  defaultValue: false,
+);
 
 /// The soft grey the report page sits on, from the V3.1 prototype.
 const _pageColor = Color(0xFFF0EEF2);
@@ -227,7 +229,12 @@ class _CreateUpdateReportScreenState
         children: [
           _disclosureBandBuilder(),
           Padding(
-            padding: EdgeInsets.fromLTRB(16.spMin, 12.spMin, 16.spMin, 28.spMin),
+            padding: EdgeInsets.fromLTRB(
+              16.spMin,
+              12.spMin,
+              16.spMin,
+              28.spMin,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -306,8 +313,8 @@ class _CreateUpdateReportScreenState
     final outline = isDone
         ? const Color(0xFF17A05E)
         : isActive
-            ? _labelColor
-            : const Color(0xFFE8E4EE);
+        ? _labelColor
+        : const Color(0xFFE8E4EE);
 
     return Padding(
       padding: EdgeInsets.only(top: 12.spMin),
@@ -324,7 +331,13 @@ class _CreateUpdateReportScreenState
           borderRadius: BorderRadius.circular(16.spMin),
           border: Border.all(
             color: outline.withValues(alpha: isDone || isActive ? 0.9 : 0.5),
-            width: (isActive ? 2.0 : isDone ? 1.6 : 1.0).spMin,
+            width:
+                (isActive
+                        ? 2.0
+                        : isDone
+                        ? 1.6
+                        : 1.0)
+                    .spMin,
           ),
           boxShadow: [
             if (isActive)
@@ -427,7 +440,6 @@ class _CreateUpdateReportScreenState
       ),
     );
   }
-
 
   /// Shown in place of per-category content before a category is picked, so
   /// the step is still visible and says what will land in it.
@@ -1245,9 +1257,7 @@ class _CreateUpdateReportScreenState
                   color: AppColors.white,
                   borderRadius: BorderRadius.circular(14.spMin),
                   border: Border.all(
-                    color: hasLocation
-                        ? const Color(0xFF17A05E)
-                        : _labelColor,
+                    color: hasLocation ? const Color(0xFF17A05E) : _labelColor,
                     width: (hasLocation ? 1.6 : 2.0).spMin,
                   ),
                   boxShadow: [
@@ -1365,7 +1375,9 @@ class _CreateUpdateReportScreenState
           decoration: BoxDecoration(
             color: const Color(0xFFF6F5F2),
             borderRadius: BorderRadius.circular(12.spMin),
-            border: Border.all(color: AppColors.lightGrey.withValues(alpha: 0.6)),
+            border: Border.all(
+              color: AppColors.lightGrey.withValues(alpha: 0.6),
+            ),
           ),
           padding: EdgeInsets.symmetric(
             horizontal: 13.spMin,
@@ -1408,11 +1420,11 @@ class _CreateUpdateReportScreenState
     required final String? categoryName,
     required final String? locationName,
   }) {
-    final suffix = locationName == null ? '' : ' — $locationName';
+    final suffix = locationName == null ? '' : ', $locationName';
 
-    final selectedChips = chipsForCategoryName(categoryName)
-        .where((c) => _selectedChipIds.contains(c.id) && !c.isOther)
-        .toList();
+    final selectedChips = chipsForCategoryName(
+      categoryName,
+    ).where((c) => _selectedChipIds.contains(c.id) && !c.isOther).toList();
     if (selectedChips.isNotEmpty) {
       selectedChips.sort(
         (a, b) => (b.severityDefault ?? -1).compareTo(a.severityDefault ?? -1),
@@ -1954,5 +1966,4 @@ class _CreateUpdateReportScreenState
       },
     );
   }
-
 }

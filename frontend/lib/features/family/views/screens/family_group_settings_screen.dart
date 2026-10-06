@@ -106,8 +106,10 @@ class _FamilyGroupSettingsScreenState
       if (other.circleId == circle.id) continue;
       final color = _colorOf(other.themeColor);
       if (color == null) continue;
-      takenLabels[color.toARGB32()] =
-          other.name.split(RegExp(r'\s+')).first.toUpperCase();
+      takenLabels[color.toARGB32()] = other.name
+          .split(RegExp(r'\s+'))
+          .first
+          .toUpperCase();
     }
 
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -116,7 +118,8 @@ class _FamilyGroupSettingsScreenState
       backgroundColor: _page,
       body: ListView(
         padding: EdgeInsets.only(
-          bottom: 24.spMin + (bottomInset > bottomSafe ? bottomInset : bottomSafe),
+          bottom:
+              24.spMin + (bottomInset > bottomSafe ? bottomInset : bottomSafe),
         ),
         children: [
           _headerBuilder(circle, selected, isOwner: isOwner),
@@ -187,7 +190,8 @@ class _FamilyGroupSettingsScreenState
           ),
           _ruleBuilder(
             title: 'Journeys use periodic updates only',
-            subtitle: 'Never live location: departure, about every 10 minutes, arrival',
+            subtitle:
+                'Never live location: departure, about every 10 minutes, arrival',
             value: _snapPointsOnly ?? circle.journeysSnapPointsOnly,
             isOwner: isOwner,
             onChanged: (value) => setState(() => _snapPointsOnly = value),
@@ -241,7 +245,7 @@ class _FamilyGroupSettingsScreenState
           style: TextStyle(fontSize: 14.5.spMin, fontWeight: FontWeight.w800),
         ),
         subtitle: Text(
-          'Your name, picture and colour in ${circle.name} — per circle, '
+          'Your name, picture and colour in ${circle.name}, per circle, '
           'never shared with location data.',
           style: TextStyle(fontSize: 11.5.spMin, color: _muted),
         ),
@@ -312,29 +316,29 @@ class _FamilyGroupSettingsScreenState
                   ),
                 ),
                 if (isOwner)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _isSaving ? null : _handleSave,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 15.spMin,
-                      vertical: 8.spMin,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(16.spMin),
-                    ),
-                    child: Text(
-                      _isSaving ? 'SAVING' : 'SAVE',
-                      style: TextStyle(
-                        fontSize: 11.spMin,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.4,
-                        color: const Color(0xFF1D1D21),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _isSaving ? null : _handleSave,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 15.spMin,
+                        vertical: 8.spMin,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(16.spMin),
+                      ),
+                      child: Text(
+                        _isSaving ? 'SAVING' : 'SAVE',
+                        style: TextStyle(
+                          fontSize: 11.spMin,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                          color: const Color(0xFF1D1D21),
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
             SizedBox(height: 6.spMin),
@@ -646,10 +650,12 @@ class _FamilyGroupSettingsScreenState
     final anyone = _anyoneCanRequest == circle.anyoneCanRequestSnapshot
         ? null
         : _anyoneCanRequest;
-    final sosWhole =
-        _sosWholeCircle == circle.sosToWholeGroup ? null : _sosWholeCircle;
-    final snap =
-        _snapPointsOnly == circle.journeysSnapPointsOnly ? null : _snapPointsOnly;
+    final sosWhole = _sosWholeCircle == circle.sosToWholeGroup
+        ? null
+        : _sosWholeCircle;
+    final snap = _snapPointsOnly == circle.journeysSnapPointsOnly
+        ? null
+        : _snapPointsOnly;
 
     if (name == null &&
         themeColor == null &&
@@ -661,7 +667,9 @@ class _FamilyGroupSettingsScreenState
     }
 
     setState(() => _isSaving = true);
-    final ok = await ref.read(providerOfFamily.notifier).updateGroupSettings(
+    final ok = await ref
+        .read(providerOfFamily.notifier)
+        .updateGroupSettings(
           name: name,
           themeColor: themeColor,
           anyoneCanRequestSnapshot: anyone,
@@ -689,5 +697,4 @@ class _FamilyGroupSettingsScreenState
 
   static String _hexOf(final Color color) =>
       '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
-
 }

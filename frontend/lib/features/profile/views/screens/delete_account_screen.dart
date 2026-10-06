@@ -151,7 +151,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
           title: 'Everything else keeps working',
           description:
               'Signing in, Family, check-ins and reporting all work '
-              'normally until day 30 — deletion only takes effect then.',
+              'normally until day 30. Deletion only takes effect then.',
           accent: ProfileColors.familyAndCheckIns,
         ),
       ],
@@ -193,7 +193,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                 4.hSizedBox,
                 Text(
                   'Sign in any time before day 30 and choose to recover '
-                  "your account — signing in alone doesn't cancel the "
+                  "your account. Signing in alone doesn't cancel the "
                   'deletion, you\'ll be asked to confirm.',
                   style: TextStyle(
                     fontSize: 13.spMin,
@@ -211,7 +211,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
 
   Widget _buildAfter30DaysSection() {
     return _buildSectionCard(
-      label: 'After 30 days — permanent',
+      label: 'After 30 days: permanent',
       rows: [
         _buildConsequenceRow(
           icon: LucideIcons.trash2,
@@ -490,7 +490,8 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
         next.maybeWhen(
           success: () {
             context.showSuccessToast(
-              message: 'Deletion scheduled. Your account and data will be permanently removed in 30 days.',
+              message:
+                  'Deletion scheduled. Your account and data will be permanently removed in 30 days.',
             );
             context.go(AppWrapper.route);
           },

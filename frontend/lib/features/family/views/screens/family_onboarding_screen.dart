@@ -106,7 +106,11 @@ class _FamilyOnboardingScreenState
                   ),
                 ),
                 SizedBox(height: 9.spMin),
-                _pitchLineBuilder('One tap ', 'Check in', ' to everyone at once'),
+                _pitchLineBuilder(
+                  'One tap ',
+                  'Check in',
+                  ' to everyone at once',
+                ),
                 _pitchLineBuilder(
                   'Ask for a ',
                   'location snapshot',
@@ -137,7 +141,7 @@ class _FamilyOnboardingScreenState
               border: Border.all(color: const Color(0xFFECD9F4)),
             ),
             child: Text(
-              'Location is shared only when someone chooses it—for a '
+              'Location is shared only when someone chooses it: for a '
               'one-time snapshot, an active SOS, or an active journey. '
               'Live sharing can be stopped at any time.',
               style: TextStyle(
@@ -264,7 +268,9 @@ class _FamilyOnboardingScreenState
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15.spMin),
                               side: BorderSide(
-                                color: FamilyColors.indigo.withValues(alpha: 0.4),
+                                color: FamilyColors.indigo.withValues(
+                                  alpha: 0.4,
+                                ),
                                 width: 1.5,
                               ),
                             ),
@@ -272,7 +278,10 @@ class _FamilyOnboardingScreenState
                           onPressed: joinState.isLoading
                               ? null
                               : () => scanInviteQrAndJoin(context, ref),
-                          icon: Icon(Icons.qr_code_scanner_rounded, size: 18.spMin),
+                          icon: Icon(
+                            Icons.qr_code_scanner_rounded,
+                            size: 18.spMin,
+                          ),
                           label: Text(
                             'Scan invite QR',
                             maxLines: 1,

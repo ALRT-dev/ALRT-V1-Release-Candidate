@@ -124,125 +124,125 @@ class _FamilyCircleProfileScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          _identityHeroBuilder(preview),
-          SizedBox(height: 16.spMin),
-          Text(
-            'NICKNAME',
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: AppColors.grey,
-            ),
-          ),
-          SizedBox(height: 8.spMin),
-          TextField(
-            controller: _nicknameController,
-            maxLength: 30,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: 'How your family sees you',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14.spMin),
-                borderSide: BorderSide.none,
+            _identityHeroBuilder(preview),
+            SizedBox(height: 16.spMin),
+            Text(
+              'NICKNAME',
+              style: TextStyle(
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+                color: AppColors.grey,
               ),
             ),
-          ),
-          SizedBox(height: 20.spMin),
-          Text(
-            'YOUR COLOUR',
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: AppColors.grey,
-            ),
-          ),
-          SizedBox(height: 4.spMin),
-          Text(
-            'Shown as your avatar ring and your pin on the family map.',
-            style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
-          ),
-          SizedBox(height: 12.spMin),
-          Wrap(
-            spacing: 12.spMin,
-            runSpacing: 12.spMin,
-            children: [
-              for (final color in FamilyColors.memberPalette)
-                _swatchBuilder(color),
-            ],
-          ),
-          SizedBox(height: 20.spMin),
-          Text(
-            'DAILY CHECK-IN',
-            key: _dailyCheckInKey,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: AppColors.grey,
-            ),
-          ),
-          SizedBox(height: 4.spMin),
-          Text(
-            'A daily reminder to check in with your group.',
-            style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
-          ),
-          SizedBox(height: 8.spMin),
-          _scheduledCheckInsBuilder(),
-          SizedBox(height: 20.spMin),
-          Text(
-            'SOS LISTS',
-            key: _sosListsKey,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: AppColors.grey,
-            ),
-          ),
-          SizedBox(height: 4.spMin),
-          Text(
-            'Who your SOS reaches. Set up in advance — never during an '
-            'emergency.',
-            style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
-          ),
-          SizedBox(height: 8.spMin),
-          _sosListsBuilder(),
-          SizedBox(height: 28.spMin),
-          SizedBox(
-            height: 52.spMin,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FamilyColors.indigo,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.spMin),
+            SizedBox(height: 8.spMin),
+            TextField(
+              controller: _nicknameController,
+              maxLength: 30,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                counterText: '',
+                hintText: 'How your family sees you',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14.spMin),
+                  borderSide: BorderSide.none,
                 ),
               ),
-              onPressed: _isSaving ? null : _save,
-              child: _isSaving
-                  ? SizedBox(
-                      width: 20.spMin,
-                      height: 20.spMin,
-                      child: const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 16.spMin,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
             ),
-          ),
+            SizedBox(height: 20.spMin),
+            Text(
+              'YOUR COLOUR',
+              style: TextStyle(
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+                color: AppColors.grey,
+              ),
+            ),
+            SizedBox(height: 4.spMin),
+            Text(
+              'Shown as your avatar ring and your pin on the family map.',
+              style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
+            ),
+            SizedBox(height: 12.spMin),
+            Wrap(
+              spacing: 12.spMin,
+              runSpacing: 12.spMin,
+              children: [
+                for (final color in FamilyColors.memberPalette)
+                  _swatchBuilder(color),
+              ],
+            ),
+            SizedBox(height: 20.spMin),
+            Text(
+              'DAILY CHECK-IN',
+              key: _dailyCheckInKey,
+              style: TextStyle(
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+                color: AppColors.grey,
+              ),
+            ),
+            SizedBox(height: 4.spMin),
+            Text(
+              'A daily reminder to check in with your group.',
+              style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
+            ),
+            SizedBox(height: 8.spMin),
+            _scheduledCheckInsBuilder(),
+            SizedBox(height: 20.spMin),
+            Text(
+              'SOS LISTS',
+              key: _sosListsKey,
+              style: TextStyle(
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+                color: AppColors.grey,
+              ),
+            ),
+            SizedBox(height: 4.spMin),
+            Text(
+              'Who your SOS reaches. Set up in advance, never during an '
+              'emergency.',
+              style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
+            ),
+            SizedBox(height: 8.spMin),
+            _sosListsBuilder(),
+            SizedBox(height: 28.spMin),
+            SizedBox(
+              height: 52.spMin,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: FamilyColors.indigo,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.spMin),
+                  ),
+                ),
+                onPressed: _isSaving ? null : _save,
+                child: _isSaving
+                    ? SizedBox(
+                        width: 20.spMin,
+                        height: 20.spMin,
+                        child: const CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        'Save',
+                        style: TextStyle(
+                          fontSize: 16.spMin,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
+            ),
           ],
         ),
       ),
@@ -354,7 +354,9 @@ class _FamilyCircleProfileScreenState
     if (!mounted) return;
 
     added
-        ? context.showSuccessToast(message: 'Daily check-in set for $timeOfDay.')
+        ? context.showSuccessToast(
+            message: 'Daily check-in set for $timeOfDay.',
+          )
         : context.showErrorToast(
             message: 'Could not save the check-in time. Please try again.',
           );
@@ -377,16 +379,14 @@ class _FamilyCircleProfileScreenState
             child: Row(
               children: [
                 Icon(
-                  list.isDefault
-                      ? LucideIcons.star
-                      : LucideIcons.users,
+                  list.isDefault ? LucideIcons.star : LucideIcons.users,
                   size: 18.spMin,
                   color: FamilyColors.indigo,
                 ),
                 SizedBox(width: 10.spMin),
                 Expanded(
                   child: Text(
-                    '${list.name} — ${list.memberIds.length} '
+                    '${list.name}: ${list.memberIds.length} '
                     '${list.memberIds.length == 1 ? 'person' : 'people'}'
                     '${list.isDefault ? ' · default' : ''}',
                     maxLines: 1,
@@ -424,8 +424,7 @@ class _FamilyCircleProfileScreenState
             icon: Icon(LucideIcons.plus, size: 16.spMin),
             label: Text(
               'Add SOS list',
-              style:
-                  TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
             ),
             style: TextButton.styleFrom(foregroundColor: FamilyColors.indigo),
           ),
@@ -532,12 +531,14 @@ class _FamilyCircleProfileScreenState
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
-    final saved = await ref.read(providerOfFamily.notifier).updateMyProfile(
-      nickname: _nicknameController.text.trim().isEmpty
-          ? null
-          : _nicknameController.text.trim(),
-      colorHex: _selectedColorHex,
-    );
+    final saved = await ref
+        .read(providerOfFamily.notifier)
+        .updateMyProfile(
+          nickname: _nicknameController.text.trim().isEmpty
+              ? null
+              : _nicknameController.text.trim(),
+          colorHex: _selectedColorHex,
+        );
     if (!mounted) return;
     setState(() => _isSaving = false);
 

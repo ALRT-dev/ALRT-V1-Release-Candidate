@@ -41,7 +41,7 @@ class FamilyLocationService {
     final position = await getCurrentPositionOrNull();
     if (position == null) {
       log(
-        'No location available — snapshot not shared.',
+        'No location available, snapshot not shared.',
         name: 'FamilyLocationService',
       );
       return false;

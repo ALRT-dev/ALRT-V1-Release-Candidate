@@ -29,15 +29,52 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
       'map and feed. Shapes tell you the source (triangle = Australian '
       'Warning System, diamond = official agency, circle = community '
       'report) and colour tells you urgency. The Family tab does check-ins '
-      'and SOS. ALRT never contacts emergency services for you — if you '
+      'and SOS. ALRT never contacts emergency services for you. If you '
       'are in danger, call $emergencyNumber now.';
 
-  /// Shown when the backend reports a quota-style error mentioning 'limit'.
+  /// Shown at the daily limit when the server gives no message of its own.
   static const limitAnswer =
       "You've reached today's Ask ALRT limit. It resets tomorrow.";
 
+  /// Questions allowed per day on ALRT Free (the server is the authority;
+  /// this only decides whether the sheet offers ALRT +).
+  static const freeDailyLimit = 3;
+
   @override
-  AskAlrtProviderState build() => const AskAlrtProviderState();
+  AskAlrtProviderState build() {
+    Future.microtask(refreshAllowance);
+    return const AskAlrtProviderState();
+  }
+
+  /// The person's local day, as the server counts it (master spec §14).
+  Map<String, dynamic> get _dayZone => {
+    'utcOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes,
+  };
+
+  /// Reads how many questions are left today. Never counts a question and
+  /// never surfaces an error: the line simply stays hidden.
+  Future<void> refreshAllowance() async {
+    try {
+      final dio = ref.read(providerOfDioInstance(true));
+      final response = await dio.get<dynamic>(
+        kUrlAskAlrtAllowance,
+        queryParameters: _dayZone,
+        options: Options(receiveTimeout: const Duration(seconds: 15)),
+      );
+      final data = response.data;
+      if (!ref.mounted || data is! Map) return;
+      final limit = data['limit'];
+      final remaining = data['remaining'];
+      if (limit is! num || remaining is! num) return;
+      state = state.copyWith(
+        dailyLimit: limit.toInt(),
+        remainingToday: remaining.toInt(),
+        limitReached: remaining <= 0,
+      );
+    } catch (_) {
+      // Offline or an older server: no allowance line.
+    }
+  }
 
   /// Sends [question] to the backend, grounded in up to 5 nearby
   /// active alerts from the map state.
@@ -58,26 +95,21 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
 
     final emergencyNumber = ref.read(providerOfEmergencyNumber);
 
-    // The basics are answered on this phone: no network, no model, no wait.
-    // It also means the app can still explain itself when the assistant
-    // backend is unreachable.
-    final local = AskAlrtLocalAnswers.answerFor(
-      trimmed,
-      emergencyNumber: emergencyNumber,
-    );
-    if (local != null) {
-      state = state.copyWith(
-        messages: [
-          ...state.messages,
-          AskAlrtMessage(role: AskAlrtRole.assistant, text: local),
-        ],
-        isSending: false,
-      );
-      return;
-    }
+    // Every answer comes from the server while it can be reached, so each
+    // one counts toward the daily allowance and Admin Portal edits to the
+    // answer library reach people. The on-phone answers are only the
+    // offline backup.
+    String offlineAnswer() =>
+        AskAlrtLocalAnswers.answerFor(
+          trimmed,
+          emergencyNumber: emergencyNumber,
+        ) ??
+        fallbackAnswerFor(emergencyNumber);
 
     var answer = fallbackAnswerFor(emergencyNumber);
     var citedAlerts = const <Hazard>[];
+    int? remainingToday;
+    var limitReached = false;
 
     try {
       final dio = ref.read(providerOfDioInstance(true));
@@ -90,7 +122,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
             'nearbyAlerts': nearbyAlertsPayload,
           // The daily Ask ALRT allowance counts the person's LOCAL day
           // (master spec §14); the server validates and rate-limits changes.
-          'utcOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes,
+          ..._dayZone,
         },
         options: Options(
           sendTimeout: const Duration(seconds: 30),
@@ -102,14 +134,25 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
       if (parsedAnswer != null) {
         answer = parsedAnswer;
         citedAlerts = _resolveCitedAlerts(response.data, groundingAlerts);
+      } else {
+        answer = offlineAnswer();
+      }
+      final data = response.data;
+      if (data is Map && data['remainingToday'] is num) {
+        remainingToday = (data['remainingToday'] as num).toInt();
       }
     } on DioException catch (exception) {
-      answer = _isLimitError(exception)
-          ? limitAnswer
-          : fallbackAnswerFor(emergencyNumber);
+      if (_isLimitError(exception)) {
+        // The server's own message names the plan and its daily number.
+        answer = _serverMessage(exception) ?? limitAnswer;
+        remainingToday = 0;
+        limitReached = true;
+      } else {
+        answer = offlineAnswer();
+      }
     } catch (_) {
-      // Network loss, anything else: stay calm, keep the fallback copy.
-      answer = fallbackAnswerFor(emergencyNumber);
+      // Network loss, anything else: stay calm, answer from the phone.
+      answer = offlineAnswer();
     }
 
     // The sheet may have been closed mid-flight (autoDispose).
@@ -125,6 +168,9 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
         ),
       ],
       isSending: false,
+      remainingToday: remainingToday,
+      limitReached:
+          limitReached || (remainingToday != null && remainingToday <= 0),
     );
   }
 
@@ -133,6 +179,8 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
   /// The sheet is opened from the map rail, so [providerOfMap] is already
   /// alive underneath it and reading it is non-invasive.
   List<Hazard> _gatherNearbyAlerts() {
+    // Never build the map just to ask a question.
+    if (!ref.exists(providerOfMap)) return const <Hazard>[];
     try {
       return ref
           .read(providerOfMap)
@@ -207,5 +255,17 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
   /// True when the backend rejected the call with a quota-style message.
   bool _isLimitError(final DioException exception) {
     return exception.response?.statusCode == 429;
+  }
+
+  /// The server's error text (`{"error": "..."}`), when it sent one.
+  String? _serverMessage(final DioException exception) {
+    final data = exception.response?.data;
+    if (data is Map) {
+      final message = data['error'];
+      if (message is String && message.trim().isNotEmpty) {
+        return message.trim();
+      }
+    }
+    return null;
   }
 }

@@ -50,7 +50,12 @@ abstract final class AskAlrtLocalAnswers {
     ),
     AskAlrtLocalAnswer(
       id: 'send_sos',
-      triggers: ['how do i send an sos', 'send sos', 'start an sos', 'trigger sos'],
+      triggers: [
+        'how do i send an sos',
+        'send sos',
+        'start an sos',
+        'trigger sos',
+      ],
       keywords: ['sos', 'emergency', 'help'],
       answer:
           'Open the SOS screen and hold the button for 3 seconds. You get a '
@@ -68,8 +73,14 @@ abstract final class AskAlrtLocalAnswers {
         'what does the shield mean',
       ],
       keywords: [
-        'shape', 'shapes', 'triangle', 'diamond', 'circle', 'shield',
-        'symbol', 'icon',
+        'shape',
+        'shapes',
+        'triangle',
+        'diamond',
+        'circle',
+        'shield',
+        'symbol',
+        'icon',
       ],
       answer:
           'The shape tells you who issued the alert. Triangle: an AWS '
@@ -90,8 +101,16 @@ abstract final class AskAlrtLocalAnswers {
         'severity levels',
       ],
       keywords: [
-        'colour', 'color', 'red', 'orange', 'yellow', 'grey', 'band',
-        'severity', 'urgent', 'critical',
+        'colour',
+        'color',
+        'red',
+        'orange',
+        'yellow',
+        'grey',
+        'band',
+        'severity',
+        'urgent',
+        'critical',
       ],
       answer:
           'Colour tells you how urgent an alert is. Grey is Info, awareness '
@@ -141,11 +160,12 @@ abstract final class AskAlrtLocalAnswers {
       ],
       keywords: ['track', 'tracking', 'location', 'privacy', 'continuous'],
       answer:
-          'Location is shared only when someone chooses it—for a one-time '
-          'snapshot, an active SOS, or an active journey. Snapshots are '
-          'one moment and expire after an hour. SOS live sharing stops '
-          'after 4 hours at the latest and the trail is deleted when you '
-          'stand down. Live sharing can be stopped at any time.',
+          'Location is shared only when someone chooses it: a one-time '
+          'snapshot, an active SOS, or a journey. Snapshots are one moment '
+          'and expire after an hour. An SOS lasts 1 hour, and the sender '
+          'can extend it or end it; its trail is deleted when it ends. '
+          'Journeys send periodic updates unless you choose live location '
+          'for that journey. Sharing can be stopped at any time.',
     ),
     AskAlrtLocalAnswer(
       id: 'snapshot',

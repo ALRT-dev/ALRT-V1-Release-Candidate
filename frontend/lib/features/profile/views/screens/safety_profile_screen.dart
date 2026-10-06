@@ -53,111 +53,111 @@ class SafetyProfileScreen extends ConsumerWidget {
         top: isOnboarding,
         bottom: false,
         child: ListView(
-        padding: EdgeInsets.fromLTRB(18.spMin, 6.spMin, 18.spMin, 28.spMin),
-        children: [
-          _heroBuilder(),
-          Container(
-            padding: EdgeInsets.all(13.spMin),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14.spMin),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(LucideIcons.lock, size: 16.spMin, color: _inkSoft),
-                SizedBox(width: 10.spMin),
-                Expanded(
-                  child: Text(
-                    'Stays on your phone. What you tick here tailors the '
-                    'For You guidance on alerts, and it never leaves this '
-                    'device. No diagnoses, no details — broad groups only.',
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      height: 1.55,
-                      color: _inkSoft,
+          padding: EdgeInsets.fromLTRB(18.spMin, 6.spMin, 18.spMin, 28.spMin),
+          children: [
+            _heroBuilder(),
+            Container(
+              padding: EdgeInsets.all(13.spMin),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14.spMin),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(LucideIcons.lock, size: 16.spMin, color: _inkSoft),
+                  SizedBox(width: 10.spMin),
+                  Expanded(
+                    child: Text(
+                      'Stays on your phone. What you tick here tailors the '
+                      'For You guidance on alerts, and it never leaves this '
+                      'device. No diagnoses, no details: broad groups only.',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        height: 1.55,
+                        color: _inkSoft,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: 16.spMin),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'THIS ALERT SEASON, MY HOUSEHOLD INCLUDES',
-                  style: TextStyle(
-                    fontSize: 10.5.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: _sectionLabel,
-                  ),
-                ),
+                ],
               ),
-              // Ticking something should visibly land, so the count is
-              // right beside the label rather than left to be guessed.
-              if (selected.isNotEmpty)
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 9.spMin,
-                    vertical: 3.spMin,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _sectionLabel.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
+            ),
+            SizedBox(height: 16.spMin),
+            Row(
+              children: [
+                Expanded(
                   child: Text(
-                    '${selected.length} selected',
+                    'THIS ALERT SEASON, MY HOUSEHOLD INCLUDES',
                     style: TextStyle(
                       fontSize: 10.5.spMin,
                       fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
                       color: _sectionLabel,
                     ),
                   ),
                 ),
-            ],
-          ),
-          SizedBox(height: 10.spMin),
-          Wrap(
-            spacing: 9.spMin,
-            runSpacing: 9.spMin,
-            children: [
-              for (final cohort in SafetyCohort.values)
-                _chipBuilder(
-                  ref,
-                  cohort,
-                  isSelected: selected.contains(cohort),
-                ),
-            ],
-          ),
-          SizedBox(height: 20.spMin),
-          // How urgent alerts reach you lives with the profile that drives
-          // it: ticking Deaf or Vision here is what turns these on.
-          const AccessibleAlertsSection(),
-          SizedBox(height: 18.spMin),
-          Text(
-            'Tick as many or as few as apply. Guidance for other groups stays '
-            'one tap away on every alert, so nothing is hidden from you.',
-            style: TextStyle(
-              fontSize: 11.5.spMin,
-              height: 1.55,
-              color: _inkSoft,
+                // Ticking something should visibly land, so the count is
+                // right beside the label rather than left to be guessed.
+                if (selected.isNotEmpty)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 9.spMin,
+                      vertical: 3.spMin,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _sectionLabel.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${selected.length} selected',
+                      style: TextStyle(
+                        fontSize: 10.5.spMin,
+                        fontWeight: FontWeight.w800,
+                        color: _sectionLabel,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-          SizedBox(height: 12.spMin),
-          Text(
-            'Guidance covers 27 hazard types, from bushfires and floods to '
-            'heatwaves, snakes and boil-water notices. A few alert types '
-            '(police operations, crashes, road closures, events) show no '
-            'card by design: no genuine group difference, no line.',
-            style: TextStyle(
-              fontSize: 11.5.spMin,
-              height: 1.55,
-              color: _inkSoft,
+            SizedBox(height: 10.spMin),
+            Wrap(
+              spacing: 9.spMin,
+              runSpacing: 9.spMin,
+              children: [
+                for (final cohort in SafetyCohort.values)
+                  _chipBuilder(
+                    ref,
+                    cohort,
+                    isSelected: selected.contains(cohort),
+                  ),
+              ],
             ),
-          ),
+            SizedBox(height: 20.spMin),
+            // How urgent alerts reach you lives with the profile that drives
+            // it: ticking Deaf or Vision here is what turns these on.
+            const AccessibleAlertsSection(),
+            SizedBox(height: 18.spMin),
+            Text(
+              'Tick as many or as few as apply. Guidance for other groups stays '
+              'one tap away on every alert, so nothing is hidden from you.',
+              style: TextStyle(
+                fontSize: 11.5.spMin,
+                height: 1.55,
+                color: _inkSoft,
+              ),
+            ),
+            SizedBox(height: 12.spMin),
+            Text(
+              'Guidance covers 27 hazard types, from bushfires and floods to '
+              'heatwaves, snakes and boil-water notices. A few alert types '
+              '(police operations, crashes, road closures, events) show no '
+              'card by design: no genuine group difference, no line.',
+              style: TextStyle(
+                fontSize: 11.5.spMin,
+                height: 1.55,
+                color: _inkSoft,
+              ),
+            ),
           ],
         ),
       ),
@@ -310,7 +310,7 @@ class SafetyProfileScreen extends ConsumerWidget {
             TextButton(
               onPressed: () => _finishOnboardingStep(context),
               child: Text(
-                'Skip — show all guidance equally',
+                'Skip: show all guidance equally',
                 style: TextStyle(
                   fontSize: 13.spMin,
                   color: _inkSoft,

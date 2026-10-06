@@ -42,8 +42,7 @@ class FamilyPlacesScreen extends ConsumerWidget {
             ),
           ),
           SizedBox(height: 10.spMin),
-          for (final place in places)
-            _PlaceCard(place: place, circle: circle!),
+          for (final place in places) _PlaceCard(place: place, circle: circle!),
           SizedBox(height: 4.spMin),
           _addPlaceCardBuilder(context),
           SizedBox(height: 30.spMin),
@@ -93,7 +92,7 @@ class FamilyPlacesScreen extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    'Home, work, school — anywhere that matters',
+                    'Home, work, school: anywhere that matters',
                     style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
                   ),
                 ],
@@ -233,12 +232,14 @@ class _PlaceCardState extends ConsumerState<_PlaceCard> {
             value: value,
             activeTrackColor: FamilyColors.indigo,
             onChanged: (next) {
-              ref.read(providerOfFamily.notifier).updatePlacePref(
-                placeId: widget.place.id,
-                subjectMemberId: member.id,
-                notifyArrivals: isArrival ? next : notifyArrivals,
-                notifyDepartures: isArrival ? notifyDepartures : next,
-              );
+              ref
+                  .read(providerOfFamily.notifier)
+                  .updatePlacePref(
+                    placeId: widget.place.id,
+                    subjectMemberId: member.id,
+                    notifyArrivals: isArrival ? next : notifyArrivals,
+                    notifyDepartures: isArrival ? notifyDepartures : next,
+                  );
             },
           ),
         ],

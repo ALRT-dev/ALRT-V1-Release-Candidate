@@ -45,6 +45,7 @@ const kUrlUserProfilePicture = '$kUrlUser/profile-picture';
 // ---------------------------- ASK ALRT ----------------------------
 
 const kUrlAskAlrt = '$kUrlApi/ask-alrt';
+const kUrlAskAlrtAllowance = '$kUrlApi/ask-alrt/allowance';
 
 const kUrlSubscribeLocation = '$kUrlUser/subscribe-location';
 const kUrlUnsubscribeLocation = '$kUrlUser/unsubscribe-location';

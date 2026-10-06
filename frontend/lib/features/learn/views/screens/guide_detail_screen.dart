@@ -524,7 +524,7 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
 
     if (completion.alreadyCompleted) {
       context.showSuccessToast(
-        message: 'Already completed — nice work staying prepared!',
+        message: 'Already completed. Nice work staying prepared!',
       );
     } else {
       context.showSuccessToast(

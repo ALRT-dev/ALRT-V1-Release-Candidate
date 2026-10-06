@@ -412,7 +412,7 @@ class _OnboardingEmergencyScreenState
                             ),
                             12.hSizedBox,
                             _buildNoticeText(
-                              'Information shown may not be verified or current—always follow official directions from emergency services and local authorities.',
+                              'Information shown may not be verified or current. Always follow official directions from emergency services and local authorities.',
                               false,
                             ),
                             12.hSizedBox,

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/ask_alrt/models/ask_alrt_message.dart';
 import 'package:hazard_app/features/ask_alrt/providers/ask_alrt_provider.dart';
+import 'package:hazard_app/features/ask_alrt/providers/states/ask_alrt_provider_state.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/voice/voice_search_mic_button.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -132,9 +135,54 @@ class _AskAlrtSheetState extends ConsumerState<AskAlrtSheet> {
             ),
             if (state.messages.isEmpty && !state.isSending)
               _buildSuggestionChips(),
+            if (state.limitReached &&
+                (state.dailyLimit ?? AskAlrtProvider.freeDailyLimit) <=
+                    AskAlrtProvider.freeDailyLimit)
+              _buildUpgradePrompt(context),
             _buildDisclaimer(),
             _buildInputRow(state.isSending),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// "2 of 3 questions left today", once the server has said.
+  static String? _allowanceLine(final AskAlrtProviderState state) {
+    final limit = state.dailyLimit;
+    final remaining = state.remainingToday;
+    if (limit == null || remaining == null) return null;
+    final left = remaining.clamp(0, limit);
+    if (left == 0) return 'No questions left today. Resets tomorrow.';
+    return '$left of $limit question${limit == 1 ? '' : 's'} left today';
+  }
+
+  /// Offered once, under the chat, when ALRT Free's daily questions are used.
+  Widget _buildUpgradePrompt(final BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.spMin, 0, 16.spMin, 8.spMin),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: () => context
+              .push<bool>(
+                AlrtPlusPaywallScreen.route,
+                extra: const AlrtPlusPaywallArgs(
+                  reason: AlrtPlusPaywallReason.askLimit,
+                ),
+              )
+              .then((_) {
+                if (!mounted) return;
+                ref.read(providerOfAskAlrt.notifier).refreshAllowance();
+              }),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF7B359A),
+            padding: EdgeInsets.symmetric(vertical: 12.spMin),
+          ),
+          child: Text(
+            'See ALRT + for 10 questions a day',
+            style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
+          ),
         ),
       ),
     );
@@ -185,7 +233,8 @@ class _AskAlrtSheetState extends ConsumerState<AskAlrtSheet> {
                 ),
                 SizedBox(height: 2.spMin),
                 Text(
-                  'Answers grounded in alerts near you',
+                  _allowanceLine(ref.watch(providerOfAskAlrt)) ??
+                      'Answers grounded in alerts near you',
                   style: TextStyle(
                     fontSize: 11.5.spMin,
                     color: Colors.white.withValues(alpha: 0.55),

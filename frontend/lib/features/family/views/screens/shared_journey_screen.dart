@@ -166,7 +166,7 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
             isActive
                 ? 'You can see this because ${journey.memberName} chose to '
                       'share it with you. When it ends, their position is '
-                      'deleted — only the time it ran stays visible.'
+                      'deleted. Only the time it ran stays visible.'
                 : 'This journey has ended. Its position data was deleted '
                       'when it stopped; only the time it ran remains.',
           ),
@@ -248,7 +248,7 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
             4.hSizedBox,
             Text(
               journey.isLive
-                  ? 'Live location — updates as they move.'
+                  ? 'Live location: updates as they move.'
                   : 'Periodic updates only: departure, roughly every 10 '
                         'minutes, and arrival.',
               style: TextStyle(
