@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- All-clear indicator dot (success green). Shape + text always accompany it,
+     so colour never carries the state alone (rule 8). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#0FBE70" />
+    <size android:width="12dp" android:height="12dp" />
+</shape>

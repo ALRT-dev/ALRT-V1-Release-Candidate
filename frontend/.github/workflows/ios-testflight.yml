@@ -1,0 +1,124 @@
+# Builds the iPhone app on a rented cloud Mac and uploads it to TestFlight —
+# no physical Mac needed. Start it by hand: repo -> Actions -> "iOS TestFlight"
+# -> Run workflow. (Mac runners bill at 10x, so this never runs automatically.)
+#
+# ONE-TIME SETUP before the first run (Settings -> Secrets and variables ->
+# Actions). Items 1-3 need someone signed in to App Store Connect for team
+# JR89M7CYPR (the team this app shipped under before):
+#
+#   1. APP_STORE_CONNECT_API_KEY_ID     App Store Connect -> Users and Access
+#   2. APP_STORE_CONNECT_ISSUER_ID      -> Integrations -> App Store Connect
+#   3. APP_STORE_CONNECT_API_KEY_CONTENT   API -> generate a key with
+#      "App Manager" access. ID and Issuer ID are shown on that page; the
+#      KEY_CONTENT is the downloaded .p8 file, base64-encoded
+#      (`base64 -i AuthKey_XXXX.p8`).
+#
+#   4. MATCH_GIT_URL                    A PRIVATE repo that holds the encrypted
+#      signing certificates, e.g. https://github.com/ALRT-dev/ios-certificates
+#      (create it empty if the old one is lost).
+#   5. MATCH_GIT_BASIC_AUTHORIZATION    base64 of "githubuser:personal-access-token"
+#      with read/write access to that repo.
+#   6. MATCH_PASSWORD                   A passphrase you choose; it encrypts the
+#      certificates in that repo. Keep it in the password manager.
+#
+#   7. GOOGLE_MAPS_API_KEY              Same key the Android workflow uses
+#      (already set if the QR build works). Optional but the map is blank
+#      without it: REVENUECAT_API_KEY_APPLE, GOOGLE_OAUTH_SERVER_CLIENT_ID.
+#
+# First run only: tick "generate signing certificates" so fastlane match
+# creates the certificate and profile in the MATCH_GIT_URL repo. Every later
+# run leaves that box unticked and reuses them.
+#
+# The build number defaults to 100 + the run number (old TestFlight builds
+# reached +35, so this always moves forward). Override it only if Apple
+# rejects a duplicate.
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      generate_certs:
+        description: "First run only: generate signing certificates"
+        type: boolean
+        default: false
+      build_number:
+        description: "Build number override (blank = automatic)"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Create .env from repo secrets
+        run: |
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}"
+            echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}"
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE=${{ secrets.REVENUECAT_API_KEY_APPLE }}"
+            echo "REVENUECAT_API_KEY_GOOGLE=${{ secrets.REVENUECAT_API_KEY_GOOGLE }}"
+          } > .env
+
+      # iOS reads the Maps key from this xcconfig (see AppDelegate.swift).
+      - name: Create ios/Flutter/Maps.xcconfig
+        run: echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}" > ios/Flutter/Maps.xcconfig
+
+      - run: flutter pub get
+
+      - name: Install signing certificate and profile
+        working-directory: ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane ci_certs generate:"${{ inputs.generate_certs }}"
+
+      - name: Build the signed iPhone app (prod flavour)
+        run: |
+          BUILD_NUMBER="${{ inputs.build_number }}"
+          if [ -z "$BUILD_NUMBER" ]; then
+            BUILD_NUMBER=$((100 + ${{ github.run_number }}))
+          fi
+          echo "Building with build number $BUILD_NUMBER"
+          flutter build ipa --release --flavor prod -t lib/main_prod.dart \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=ios/ExportOptionsCI.plist
+
+      - name: Upload to TestFlight
+        working-directory: ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          IPA_PATH="$(ls "$GITHUB_WORKSPACE"/build/ios/ipa/*.ipa | head -1)"
+          echo "Uploading $IPA_PATH"
+          export IPA_PATH
+          bundle exec fastlane ci_upload
+
+      # Keep the ipa on the run page too, in case the upload step needs a retry.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ALRT-ios-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 14

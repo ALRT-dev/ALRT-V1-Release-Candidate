@@ -1,0 +1,7 @@
+// Google Maps API key for iOS.
+//
+// Copy this file to `Maps.xcconfig` (same directory) and set your key.
+// `Maps.xcconfig` is gitignored so the key is never committed; CI should write it
+// from a secret. The value is surfaced to the app via the GMSApiKey entry in
+// Info.plist and read in AppDelegate.swift.
+GOOGLE_MAPS_API_KEY = YOUR_IOS_GOOGLE_MAPS_API_KEY

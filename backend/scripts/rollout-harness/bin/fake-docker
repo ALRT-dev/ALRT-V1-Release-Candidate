@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# stand-in for docker: enough of compose/inspect/image/tag/exec to drive the rollout script. State in $FAKE_STATE.
+# Proves control flow only. The SQL path is exercised for real by real-pg-docker (see real-pg-scenarios.sh).
+S="$FAKE_STATE"; OLD="sha256:oldimage000"; NEW="sha256:newimage111"
+running() { cat "$S/running" 2>/dev/null || echo "$OLD"; }
+built()   { cat "$S/built" 2>/dev/null || echo "$OLD"; }
+migrated() { [ -f "$S/migrated" ]; }
+if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
+  case "$1" in
+    ps) echo "NAME  IMAGE  STATUS"; echo "app-test  backend-app  Up";;
+    build) if [ "${SCENARIO:-}" = "build-fail" ]; then echo "fake build error" >&2; exit 17; fi
+           echo "#12 exporting to image"
+           nm=$([ "${SCENARIO:-}" = "naming-mismatch" ] && echo backend-other || echo backend-app)
+           # NAMING_STYLE mirrors what docker prints: BuildKit with a duration (the real TEST host today), BuildKit
+           # without one (older), the classic builder, or no naming line at all (cached / quiet builds)
+           case "${NAMING_STYLE:-duration}" in
+             duration) echo "#12 naming to docker.io/library/$nm 0.0s done";;
+             done)     echo "#12 naming to docker.io/library/$nm done";;
+             tagged)   echo "Successfully tagged $nm:latest";;
+             none)     echo "#12 CACHED";;
+           esac
+           case "${SCENARIO:-}" in same-image) echo "$OLD" > "$S/built";; stale-status|next-image*|status-fail|ledger-dirty|schema-inconsistent|ledger-extra|reapplied) echo "sha256:thirdimage222" > "$S/built";; *) echo "$NEW" > "$S/built";; esac;;
+    config) # `--images app` lists the app's DEPENDENCIES first (postgres), exactly as real compose does; `--format json` names the project
+      if [ "$2" = "--images" ]; then echo "postgis/postgis:15-3.4"; [ "${SCENARIO:-}" = "with-baseline" ] && echo "backend-migrate-baseline"; echo "backend-app"
+      elif [ "$2" = "--format" ]; then printf '{"name":"backend","services":{"app":{"build":{"context":"."},"container_name":"app-test"},"postgres":{"image":"postgis/postgis:15-3.4"}}}\n'; fi;;
+    run) # prisma migrate status from the new image, or a listing of its migration folders
+      if [[ "$*" == *"ls prisma/migrations"* ]]; then
+        if [ -n "${REAL_MIGRATIONS:-}" ]; then ls "$REAL_MIGRATIONS"; exit 0; fi
+        echo "20260902000000_repair_hazard_geom_generated_columns"; echo "20260904000000_family_check_in_request_targets"
+        [ "${SCENARIO:-}" = "ledger-extra" ] || echo "20260905000000_family_host_transition"; echo "migration_lock.toml"; exit 0
+      fi
+      if [ "${SCENARIO:-}" = "db-unreachable" ]; then echo "Error: P1001: Can't reach database server"; exit 1; fi
+      if [ "${SCENARIO:-}" = "status-fail" ]; then echo "Error: something else went wrong"; exit 1; fi
+      if [ "${SCENARIO:-}" = "migration-mismatch" ]; then printf 'Following migration have not yet been applied:\n20260905000000_family_host_transition\n\n'; exit 1; fi
+      if migrated && [ "${SCENARIO:-}" != "stale-status" ]; then echo "Database schema is up to date!"; exit 0; fi
+      printf '2 migrations found in prisma/migrations\n\nFollowing migration have not yet been applied:\n20260904000000_family_check_in_request_targets\n20260905000000_family_host_transition\n\nTo apply migrations in development run prisma migrate dev.\n'; exit 1;;
+    up) echo "$(built)" > "$S/running"; echo "up"; [ "${SCENARIO:-}" = "startup-fail" ] && exit 0
+        # the container's `prisma migrate deploy` applies only what is pending: record whether this start applied anything
+        if ! migrated || [ "${SCENARIO:-}" = "reapplied" ]; then touch "$S/applied-on-up"; fi
+        if [ "${SCENARIO:-}" = "reapplied" ]; then echo "20260906000000_surprise" >> "$S/extra-ledger"; fi
+        touch "$S/migrated";;
+    logs) if [ "${SCENARIO:-}" = "startup-fail" ]; then echo "Error: something"; else echo "2 migrations found"; [ -f "$S/applied-on-up" ] && echo "Applying migration 20260904000000_family_check_in_request_targets"; echo "TEST server is running at PORT:9000"; echo "Scheduled jobs are OFF for TEST"; fi;;
+    exec) shift; while [[ "$1" == -* ]]; do [ "$1" = "-e" ] && shift; shift; done; shift  # service name
+      case "$*" in
+        *"prisma migrate status"*) migrated && { echo "Database schema is up to date!"; exit 0; } || { echo "pending"; exit 1; };;
+        *sha256sum*) f="${@: -1}"; if [ "${SCENARIO:-}" = "image-drift" ]; then echo "deadbeef  $f"; else (cd "$FAKE_REPO/backend" && sha256sum "$f"); fi;;
+        *AUTH_RATE_LIMIT_MAX*) printf '%s %s' "${FAKE_AUTH_MAX:-40}" "${FAKE_AUTH_WINDOW_MS:-900000}";;
+        *"node_modules/.bin/tsx"*) [ "$1" = "sh" ] && exit 0
+          case "$*" in
+            *verify_family_location_consent*) if [ "${SCENARIO:-}" = "consent-fail" ]; then echo "  ok - a"; echo "FAILED: AssertionError"; exit 1; fi; echo "  ok - ..."; echo "All 40 checks passed.";;
+            *verify_sos_history*) if [ "${SCENARIO:-}" = "regress-fail" ]; then echo "FAILED"; exit 1; fi; echo "All 8 checks passed.";;
+            *stage9a*) echo "13 checks passed.";; *targeted*) echo "10 checks passed.";;
+            *circle_list_state*) echo "9 checks passed.";; *seat_rule*) echo "All 7 checks passed.";;
+            *push_notification_settings*) echo "  skipped - cooldown (no CACHE_URL)"; echo "14 checks passed. 1 skipped.";;
+            *leave_and_alert_link*) echo "12 checks passed.";; *alert_filter_matrix*) echo "56 checks passed.";;
+            *family_push_delivery*) echo "11 checks passed.";;
+            *hazard_push_dedupe*) if [ "${SCENARIO:-}" = "rate-limit-12th" ] && [ ! -f "$S/dedupe-429-once" ]; then touch "$S/dedupe-429-once"; echo "Hazard push dedupe (real DB, intercepted FCM)"; echo 'FAILED: AssertionError [ERR_ASSERTION]: {"error":"Too many requests","message":"Too many authentication attempts from this address. Please wait before trying again."}'; exit 1; fi; echo "7 checks passed.";;
+            *saved_location_limit*) echo "3 checks passed. (server enforcement OFF)";;
+            *) echo "6 checks passed.";; esac;;
+        *) exit 0;;
+      esac;;
+    *) exit 0;;
+  esac; exit 0
+fi
+case "$1" in
+  inspect) fmt="$3"; name="$4"; case "$fmt" in *Name*) echo "/$name";; *Labels*) echo backend;; *'{{.Image}}'*) r=$(running); echo "${fmt//\{\{.Image\}\}/$r}" | sed "s/{{.State.Status}}/running/;s/{{.State.StartedAt}}/now/;s/{{.RestartCount}}/0/;s/{{.State.ExitCode}}/0/";;
+      *'{{.Id}}'*) t="$S/tag-$(echo "$name" | tr ':/' '__')"; if [ -f "$t" ]; then cat "$t"; else echo "$name"; fi;; *) echo "?";; esac;;
+  image) [ "$2" = inspect ] || exit 1; name="$5"
+    case "$name" in backend-app|sha256:*) ;; *) echo "Error: No such image: $name" >&2; exit 1;; esac
+    [ "${SCENARIO:-}" = "image-missing" ] && [ "$name" = backend-app ] && { echo "Error: No such image: backend-app" >&2; exit 1; }
+    case "$4" in *Created*) [ "${SCENARIO:-}" = "cached-build" ] && echo "2020-01-01T00:00:00Z" || date -u +%FT%TZ;; *Labels*) echo app;; *) built;; esac;;
+  run) # docker run --rm --entrypoint sh <image id> -c "sha256sum 'f'": the image's own file content
+    f=$(printf '%s' "$*" | sed -nE "s/.*sha256sum '([^']+)'.*/\1/p")
+    if [ "${SCENARIO:-}" = "image-content-mismatch" ]; then echo "deadbeef  $f"; else (cd "$FAKE_REPO/backend" && sha256sum "$f"); fi;;
+  tag) echo "$2" > "$S/tag-$(echo "$3" | tr ':/' '__')";;
+  exec) shift; sql=""; while [[ "$1" == -* ]]; do [ "$1" = "-e" ] && { shift; export "$1"; }; [ "$1" = "-i" ] && sql=stdin; shift; done; shift  # postgres-test
+    cmd="$*"; input=""; [ "$sql" = stdin ] && input=$(cat)
+    case "$cmd" in
+      *'printf %s "$POSTGRES_DB"'*) printf 'alrt_test';;
+      *pg_dump*) echo "PGDMP-fake";;
+      *createdb*) echo "$SCRATCH" >> "$S/dbs";;
+      *dropdb*) grep -vx "$SCRATCH" "$S/dbs" > "$S/dbs.new" 2>/dev/null; mv "$S/dbs.new" "$S/dbs"; echo "dropped $SCRATCH" >> "$S/dropped";;
+      *pg_restore*) [ "${SCENARIO:-}" = "restore-fail" ] && { echo "pg_restore: error: fake"; exit 1; }; exit 0;;
+      *psql*) case "$input" in
+          *pg_database*) echo "postgres"; echo "alrt_test"; cat "$S/dbs" 2>/dev/null || true;;
+          *"count(*) from _prisma_migrations where"*) [ "${SCENARIO:-}" = "ledger-dirty" ] && echo 1 || echo 0;;
+          *"where migration_name in"*) if migrated; then echo "20260904000000_family_check_in_request_targets:t:t:1"; echo "20260905000000_family_host_transition:t:t:1"; fi;;
+          *"-- ledger names"*) echo "20260902000000_repair_hazard_geom_generated_columns"
+            if migrated; then echo "20260904000000_family_check_in_request_targets"; echo "20260905000000_family_host_transition"; fi
+            cat "$S/extra-ledger" 2>/dev/null || true;;
+          *information_schema.columns*) if migrated; then [ "${SCENARIO:-}" = "schema-inconsistent" ] && echo 2 || echo 3; else echo 0; fi;;
+          *FamilyCircle*) if [ "$TARGET_DB" != "alrt_test" ] && [ "${SCENARIO:-}" = "restore-mismatch" ]; then echo "2,5,5,40,10"; else echo "3,7,7,41,11"; fi;;
+          *"from _prisma_migrations"*) echo "20260902000000_repair_hazard_geom_generated_columns|t|f|1";;
+          *) echo "";; esac;;
+      *) exit 0;;
+    esac;;
+  *) exit 0;;
+esac

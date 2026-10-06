@@ -1,0 +1,477 @@
+# Builds an installable Android APK pointed at the ISOLATED INTERNAL-TEST
+# backend, not production. This is a NEW, separate workflow — it does not
+# modify android-apk.yml (still production-connected, unchanged) or
+# android-release.yml (the real Play release pipeline, unchanged).
+#
+# This is the repo-root copy of frontend/.github/workflows/android-test.yml,
+# adapted for this monorepo's layout - GitHub Actions only ever discovers
+# workflows at .github/workflows/ on the actual repository root, so the
+# nested copy (a leftover of frontend/ being imported wholesale from the
+# original frontendV2 repo, where that path WAS the repo root) is invisible
+# to GitHub Actions and can never be dispatched. The nested file is left
+# in place, untouched - this is a new, separate file, not a move.
+#
+# Uses the existing "dev" flavour (com.safetyalrt.alrt.dev) exactly as
+# android-apk.yml does — same app id, same Firebase app. Signing differs:
+# see "Stable TEST-only signing" below - android-apk.yml still ships a
+# plain debug-signed 'dev' build (SHA-1 changes every run), this workflow
+# now requires a dedicated, stable TEST keystore instead. The other real
+# difference is which backend DEV_BASE_URL points at: this workflow sends
+# it to the isolated test backend instead of https://api.safetyalrt.com.
+#
+# DEV_BASE_URL below is a hardcoded literal, not a secret lookup. It was
+# originally sourced from a "test" GitHub Environment secret
+# (TEST_BACKEND_URL), but four consecutive runs - both API-triggered and
+# manually triggered from the GitHub Actions UI - failed with that
+# secret resolving empty, despite the environment name, secret placement,
+# and branch access all being confirmed correct multiple times over, and
+# the secret's value being freshly re-saved. Never diagnosed further, since
+# nothing else was checkable from the GitHub settings UI. This URL was never
+# actually sensitive in the first place - it's the same class of value as
+# the already-public production API hostname - so hardcoding it removes
+# the entire failure mode: there is no lookup left to silently return
+# empty, and no way for it to resolve to the production URL instead,
+# since changing it now requires a reviewed commit to this repo.
+#
+# Phase 1 TEST APK scope (product-owner decision): Google Sign-In and
+# RevenueCat are deliberately blanked/bypassed below so this build connects
+# only to the isolated TEST backend and no other external
+# production-connected service. Google Maps is the one exception - see
+# "TEST Google Maps API key" below - it now ships a real, but
+# Android-app-restricted, TEST-only key. Verified before making this change:
+# - Google Sign-In's init call is wrapped in a caught async call whose
+#   result the app initialization sequence never inspects
+#   (auth_repository.dart / app_initialization_provider.dart) - a blank
+#   client ID cannot crash app startup, it only leaves Google Sign-In
+#   non-functional when tapped. Email/password login is unaffected.
+# - RevenueCat is never contacted on this build regardless of its keys,
+#   since ALRT_PLUS_TEST_UNLOCK=true (kept below) already short-circuits
+#   ensureConfigured() before either key would ever be read
+#   (alrt_plus_provider.dart's isAlrtPlusTestUnlocked gate).
+# - Firebase (google-services.json) is NOT touched here - it remains the
+#   same shared Firebase app the existing [Dev] ALRT build already uses;
+#   this workflow has no mechanism to change that (it's a committed file,
+#   not an env var).
+#
+# TEST Google Maps API key: GOOGLE_MAPS_API_KEY is read from the
+# repository-level Secret TEST_GOOGLE_MAPS_API_KEY (Settings > Secrets and
+# variables > Actions > Secrets), a separate Google Cloud key ("ALRT TEST
+# Android Maps") restricted to this app's package id and the stable TEST
+# signing certificate's SHA-1 (see "Stable TEST-only signing" below for
+# where that SHA-1 comes from) - it cannot be used from any other app or
+# build. Never printed: it flows through this workflow only via `env:`
+# blocks into shell variables, the same pattern every other secret here
+# uses, so GitHub Actions' automatic step-echo of script source never shows
+# it. A missing/empty key does not fail the build (Maps was already blank
+# here until now, and a blank key just leaves the map non-functional, the
+# same non-fatal failure mode as a blank Google Sign-In client id above) -
+# a guard step reports only whether it resolved, by length, never by value.
+#
+# Manual trigger only (workflow_dispatch) — deliberately does not run on
+# push.
+#
+# billing_mode input (added for RevenueCat Test Store validation):
+# - "bypass" (default): unchanged from before this input existed -
+#   ALRT_PLUS_TEST_UNLOCK=true, RevenueCat never contacted, blank keys.
+#   Every existing/normal TEST build keeps this exact behaviour.
+# - "test_store": ALRT_PLUS_TEST_UNLOCK=false (so the app actually calls
+#   RevenueCat's ensureConfigured/isPlus instead of bypassing it), and
+#   REVENUECAT_API_KEY_GOOGLE is read from the repository-level Secret
+#   TEST_REVENUECAT_API_KEY_GOOGLE (Settings > Secrets and variables >
+#   Actions > Secrets - not an Environment secret/variable). History:
+#   this was originally a "test" Environment Variable (reasoning: it's a
+#   publishable RevenueCat SDK key, the same class of value Env.dart's
+#   own comment already documents as safe to ship) - changed to a "test"
+#   Environment Secret after the first test_store run showed the actual
+#   value in that run's log via GitHub Actions' automatic step-level
+#   "env:" debug listing, which only masks values sourced from Secrets,
+#   never Variables. The Environment Secret then repeatedly resolved
+#   empty at build time even after being deleted and re-added fresh
+#   (mirroring an earlier unexplained failure with a different
+#   Environment secret, TEST_BACKEND_URL, in this same repo - never
+#   root-caused). Moved to a repository-level Secret to rule out
+#   whatever is specifically wrong with this repo's "test" Environment
+#   secret resolution. A guard step refuses the build if test_store is
+#   selected but the Secret is empty, so this can never silently fall
+#   back to a blank RevenueCat key. REVENUECAT_API_KEY_APPLE stays blank
+#   either way - Apple/iOS Test Store testing is a separate later step.
+#   test_store also builds --debug instead of --release (see the build
+#   step below) - RevenueCat's SDK refuses to initialize a Test Store
+#   key in a release build and force-closes the app instead, by design.
+#
+# Stable TEST-only signing: without it, every run signs with a fresh,
+# randomly-generated debug keystore (GitHub's runners are ephemeral - the
+# default Android debug keystore is generated on first use and nothing
+# here ever persisted or reused a specific one across runs), so the app's
+# SHA-1 changed on every build. That made it impossible to ever safely
+# restrict a Google Maps API key to this app - a key restricted to one
+# run's SHA-1 would fail on the next. This workflow now decodes a
+# dedicated, low-stakes TEST-only keystore (never the real Play Store
+# upload keystore - a completely separate file and separate secrets, see
+# build.gradle.kts) before building, and refuses to run at all if that
+# keystore's secrets are not configured, rather than silently falling
+# back to the old unstable behaviour. Requires four repository Secrets
+# (Settings > Secrets and variables > Actions > Secrets):
+# TEST_ANDROID_KEYSTORE_BASE64, TEST_ANDROID_KEYSTORE_PASSWORD,
+# TEST_ANDROID_KEY_ALIAS, TEST_ANDROID_KEY_PASSWORD. Applies only to the
+# 'dev' flavour this workflow builds - production signing
+# (android-release.yml, the real upload keystore) is completely
+# untouched by this.
+#
+# Incident: for every run between when this was first added and today,
+# devRelease was STILL silently signing with the ephemeral debug keystore
+# despite all of the above - the guard step passed, the keystore decoded
+# fine, but build.gradle.kts also set signingConfig on buildTypes.release
+# (to plain debug, since hasReleaseKeystore is always false here), and
+# AGP's variant merge gives a buildType's signingConfig priority over a
+# productFlavor's when both set one. Three consecutive bypass builds each
+# reported a different SHA-1 before this was caught. Fixed by moving
+# signingConfig onto each productFlavor only (see build.gradle.kts) and by
+# adding a verification step below that independently reads the decoded
+# keystore's own certificate and compares it against the finished APK's -
+# it now fails the whole workflow, loudly, rather than reporting a
+# fingerprint that might not actually match what was built.
+name: Android Test Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      billing_mode:
+        description: "bypass (default, ALRT_PLUS_TEST_UNLOCK=true) or test_store (real RevenueCat Test Store paywall)"
+        required: false
+        default: "bypass"
+        type: choice
+        options:
+          - bypass
+          - test_store
+
+# The actual Flutter project lives in frontend/, not the repo root, since
+# this repo consolidates backend/frontend/admin/askalrt as subdirectories.
+# This applies to every `run:` step below (flutter pub get, the .env
+# write, flutter build apk) - it does NOT affect actions/checkout,
+# actions/setup-java, subosito/flutter-action (none of them read/write
+# repo-relative files, so working-directory doesn't apply to them), or
+# actions/upload-artifact's `path:` (that one always resolves against the
+# checkout root regardless of this default, hence the explicit `frontend/`
+# prefix on it below).
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail fast, before any setup/build time is spent. This workflow's
+      # whole point is a TEST APK with a STABLE signing identity (needed
+      # so a Google Maps key can ever be safely restricted to it) - it
+      # must never silently fall back to the plain Android debug keystore,
+      # which gets a fresh random SHA-1 every run on GitHub's ephemeral
+      # runners. Distinct secret names from the real Play Store upload
+      # keystore's (ANDROID_UPLOAD_KEYSTORE_BASE64 etc. in
+      # android-release.yml) so the two can never be confused.
+      - name: Verify TEST Android signing secrets are configured
+        run: |
+          missing=()
+          [ -z "${{ secrets.TEST_ANDROID_KEYSTORE_BASE64 }}" ] && missing+=("TEST_ANDROID_KEYSTORE_BASE64")
+          [ -z "${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}" ] && missing+=("TEST_ANDROID_KEYSTORE_PASSWORD")
+          [ -z "${{ secrets.TEST_ANDROID_KEY_ALIAS }}" ] && missing+=("TEST_ANDROID_KEY_ALIAS")
+          [ -z "${{ secrets.TEST_ANDROID_KEY_PASSWORD }}" ] && missing+=("TEST_ANDROID_KEY_PASSWORD")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing required TEST signing secret(s): ${missing[*]}"
+            echo "This workflow requires a stable TEST-only signing identity so the app's SHA-1 stays constant across builds - it refuses to silently fall back to the unstable, freshly-regenerated debug keystore."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Runs the analyzer on every commit (no local Flutter SDK exists in
+      # the environment that prepares these builds, so CI is the only place
+      # this ever runs) but does not fail the whole build over pre-existing
+      # issues elsewhere in this large, long-lived codebase - only a fresh
+      # issue in a file this specific change touched blocks the build.
+      # Still prints the full report and warns loudly on any pre-existing
+      # issue so it never goes unnoticed.
+      - name: Run flutter analyze
+        run: |
+          set +e
+          flutter analyze > /tmp/analyze-output.txt 2>&1
+          status=$?
+          cat /tmp/analyze-output.txt
+          set -e
+          changed_files="
+            lib/features/family/utils/family_sos_authorization.dart
+            lib/features/family/views/widgets/family_sos_strip.dart
+            lib/features/family/views/screens/family_sos_screen.dart
+            lib/features/family/views/screens/family_sos_resolved_screen.dart
+            lib/features/family/views/screens/family_sos_receiver_screen.dart
+            lib/features/family/views/screens/family_hub_screen.dart
+          "
+          fail=0
+          for f in $changed_files; do
+            if grep -q "$f" /tmp/analyze-output.txt; then
+              echo "::error::flutter analyze flagged an issue in changed file: $f"
+              fail=1
+            fi
+          done
+          if [ "$fail" = "1" ]; then
+            echo "::error::flutter analyze found issues in file(s) this change touched - failing the build."
+            exit 1
+          fi
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::flutter analyze reported pre-existing issue(s) outside the files this change touched - not blocking this build, but worth a look."
+          fi
+
+      # Decodes the dedicated TEST-only keystore (verified present above)
+      # into a clearly TEST-named properties file - deliberately never
+      # named key.properties, so it can never be confused with the real
+      # Play Store upload keystore android-release.yml decodes under that
+      # name. build.gradle.kts reads this file (rootProject.file(
+      # "test-key.properties")) and applies it only to the 'dev' flavour;
+      # the 'prod' flavour and every other signing path are untouched.
+      # Removed at the end of the job (see "Remove the decoded TEST
+      # keystore" below), even if the build fails.
+      - name: Decode the TEST keystore and write test-key.properties
+        working-directory: frontend/android
+        env:
+          TEST_ANDROID_KEYSTORE_BASE64: ${{ secrets.TEST_ANDROID_KEYSTORE_BASE64 }}
+          TEST_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
+          TEST_ANDROID_KEY_ALIAS: ${{ secrets.TEST_ANDROID_KEY_ALIAS }}
+          TEST_ANDROID_KEY_PASSWORD: ${{ secrets.TEST_ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$TEST_ANDROID_KEYSTORE_BASE64" | base64 -d > test-keystore.jks
+          {
+            echo "storePassword=$TEST_ANDROID_KEYSTORE_PASSWORD"
+            echo "keyPassword=$TEST_ANDROID_KEY_PASSWORD"
+            echo "keyAlias=$TEST_ANDROID_KEY_ALIAS"
+            echo "storeFile=test-keystore.jks"
+          } > test-key.properties
+
+      # Only relevant when billing_mode=test_store - see the billing_mode
+      # comment at the top of this file. Checks presence by length only;
+      # the value itself is never printed. Sourced from a repository-
+      # level Secret (not an Environment secret/variable) specifically so
+      # GitHub Actions' own automatic step-level "env:" debug listing
+      # masks it - see the billing_mode comment at the top of this file
+      # for why that distinction matters and why this moved off the
+      # "test" Environment entirely.
+      - name: Verify the RevenueCat Test Store key is configured
+        if: ${{ inputs.billing_mode == 'test_store' }}
+        run: |
+          if [ -z "$REVENUECAT_API_KEY_GOOGLE" ]; then
+            echo "::error::billing_mode=test_store requires the repository Secret TEST_REVENUECAT_API_KEY_GOOGLE to be set (Settings > Secrets and variables > Actions > Secrets)."
+            echo "This workflow refuses to build test_store with a blank RevenueCat key - that would silently disable the paywall instead of testing it."
+            exit 1
+          fi
+          echo "REVENUECAT_API_KEY_GOOGLE is set (length: ${#REVENUECAT_API_KEY_GOOGLE} characters). Value itself is never printed."
+        env:
+          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
+
+      # Reports only whether TEST_GOOGLE_MAPS_API_KEY resolved (by length),
+      # never its value. Non-fatal if empty - see the "TEST Google Maps API
+      # key" comment at the top of this file for why a blank key is safe
+      # (Maps just stays non-functional, not a build failure), unlike the
+      # signing-secrets guard above which does fail the build.
+      - name: Verify the TEST Google Maps API key is configured
+        run: |
+          if [ -z "$GOOGLE_MAPS_API_KEY" ]; then
+            echo "::warning::TEST_GOOGLE_MAPS_API_KEY is not set - this build's GOOGLE_MAPS_API_KEY will be blank, same as before this key existed."
+          else
+            echo "TEST_GOOGLE_MAPS_API_KEY is set (length: ${#GOOGLE_MAPS_API_KEY} characters). Value itself is never printed."
+          fi
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY }}
+
+      # Google Sign-In is blanked here regardless of billing_mode - see the
+      # Phase 1 TEST APK scope comment at the top of this file for why
+      # that's safe to blank without breaking app startup. Google Maps
+      # reads the real repository Secret TEST_GOOGLE_MAPS_API_KEY (see
+      # "TEST Google Maps API key" comment at the top). DEV_BASE_URL is the
+      # hardcoded isolated TEST backend URL - see the comment at the top of
+      # this file for why this is a literal, not a secret lookup.
+      # REVENUECAT_API_KEY_GOOGLE and ALRT_PLUS_TEST_UNLOCK depend on
+      # billing_mode - see the billing_mode comment at the top of this file.
+      # USE_DUMMY_AI_FOR_REPORTS=true makes a community "post an alert"
+      # report ask the backend to skip its AI review call (see
+      # hazard_repository.dart's useDummyAiForReports and
+      # reviewHazard's useDummy branch, backend/src/services/hazard.service.ts)
+      # - the backend re-checks NODE_ENV server-side regardless of what
+      # this flag says, so it has no effect unless the backend is
+      # genuinely running as the TEST environment.
+      - name: Create .env pointed at the isolated test backend
+        run: |
+          if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
+            REVENUECAT_GOOGLE_VALUE="$REVENUECAT_API_KEY_GOOGLE"
+            TEST_UNLOCK_VALUE="false"
+          else
+            REVENUECAT_GOOGLE_VALUE=""
+            TEST_UNLOCK_VALUE="true"
+          fi
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
+            echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
+            echo "GOOGLE_MAPS_ANDROID_PACKAGE_NAME=com.safetyalrt.alrt.dev"
+            echo "GOOGLE_MAPS_ANDROID_CERT_SHA1=185E439BFC7A99420CADF0EBA9E14F0AEE662DDB"
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE="
+            echo "REVENUECAT_API_KEY_GOOGLE=$REVENUECAT_GOOGLE_VALUE"
+            echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
+            echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
+            echo "USE_DUMMY_AI_FOR_REPORTS=true"
+          } > .env
+        env:
+          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY }}
+
+      # Runs only after .env exists (above): pubspec.yaml declares .env as
+      # a Flutter asset (flutter_dotenv), so running this any earlier
+      # fails asset bundling with "No file or variants found for asset:
+      # .env" before a single test executes - this exact ordering bug
+      # broke the first attempt at this step. Fails the job (and skips
+      # the build below) on any red test, rather than spending build
+      # minutes on a change that didn't pass its own suite. Runs the
+      # whole of frontend/test/, not just new files.
+      - name: Run flutter test
+        run: flutter test
+
+      # Same dev flavour/app id as android-apk.yml - only DEV_BASE_URL
+      # and (when billing_mode=test_store) RevenueCat differ, via the
+      # .env written above. No GOOGLE_MAPS_API_KEY env var here - Maps is
+      # blanked for this Phase 1 TEST APK (see top of file), so nothing
+      # reads it.
+      #
+      # test_store builds --debug, not --release: RevenueCat's SDK only
+      # initializes a Test Store API key inside a debug build - a
+      # release build (any flavour) using a Test Store key shows a
+      # "Wrong API Key" dialog and force-closes itself, by design, so a
+      # test key can never accidentally ship to real users. bypass mode
+      # never contacts RevenueCat at all, so it keeps building --release
+      # unchanged, matching android-apk.yml's real signing story more
+      # closely for that path. Flutter's debug output filename differs
+      # from release's (app-dev-debug.apk vs app-dev-release.apk), so
+      # the actual path is captured via this step's output and consumed
+      # by upload-artifact below - it can't be a fixed literal anymore.
+      - name: Build the APK (debug for test_store, release for bypass)
+        id: build
+        run: |
+          # The app shows commit and billing mode on its Profile screen
+          # (build label), so a phone can prove which build it runs.
+          # TEST builds only: show the email sign-in button (the app hides it by default).
+          # The server still decides who may sign in with a password.
+          DEFINES="--dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }} --dart-define=ALRT_EMAIL_AUTH=true"
+          if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
+            flutter build apk --debug --flavor dev -t lib/main_dev.dart $DEFINES
+            echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-debug.apk" >> "$GITHUB_OUTPUT"
+            echo "apk_filename=app-dev-debug.apk" >> "$GITHUB_OUTPUT"
+          else
+            flutter build apk --release --flavor dev -t lib/main_dev.dart $DEFINES
+            echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-release.apk" >> "$GITHUB_OUTPUT"
+            echo "apk_filename=app-dev-release.apk" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Independently verifies devRelease actually got signed with the
+      # decoded TEST keystore, rather than trusting that Gradle applied the
+      # signingConfig the workflow intended. Added after a real incident:
+      # build.gradle.kts used to set signingConfig on both
+      # productFlavors.dev (devTest) and buildTypes.release (debug, since
+      # hasReleaseKeystore is always false here) - AGP's variant merge
+      # gives a buildType's signingConfig priority over a productFlavor's,
+      # so devRelease was silently signed with the ephemeral, freshly
+      # regenerated Android debug keystore on every run, despite the TEST
+      # keystore secrets being configured correctly and the guard step
+      # above passing. That produced a different, unstable SHA-1 on every
+      # build (confirmed directly: three consecutive bypass runs reported
+      # three different values). Fixed in build.gradle.kts (signingConfig
+      # now lives only on each productFlavor, never on buildTypes.release),
+      # but this step exists so a future regression of the same kind fails
+      # the workflow loudly instead of silently re-reporting a fingerprint
+      # that no longer matches what a Google Maps key was restricted to.
+      #
+      # Compares two independently-derived SHA-1s:
+      #  - the decoded TEST keystore's own certificate (`keytool -list -v`
+      #    read directly from test-keystore.jks, before it's deleted below)
+      #  - the finished APK's actual signing certificate (`apksigner
+      #    verify --print-certs` - see the previous version of this step
+      #    for why apksigner is used over `keytool -printcert -jarfile`)
+      # and fails if they differ, printing neither value in that case -
+      # only the single, confirmed-matching SHA-1 is ever printed. Neither
+      # extraction command touches the keystore/key passwords or base64
+      # content beyond what's needed to open the keystore file itself, and
+      # both password secrets are passed via `-storepass:env`/`env:`, never
+      # written into the command line or echoed.
+      - name: Verify the built APK is signed with the decoded TEST keystore
+        run: |
+          KEYSTORE_SHA1=$(keytool -list -v -keystore android/test-keystore.jks -alias "$TEST_ANDROID_KEY_ALIAS" -storepass:env TEST_ANDROID_KEYSTORE_PASSWORD | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//')
+
+          APKSIGNER=$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools" -name apksigner -type f | sort -V | tail -1)
+          APK_SHA1_RAW=$("$APKSIGNER" verify --print-certs "build/app/outputs/flutter-apk/${{ steps.build.outputs.apk_filename }}" | grep "certificate SHA-1 digest:" | awk '{print $NF}')
+          APK_SHA1=$(echo "$APK_SHA1_RAW" | tr 'a-f' 'A-F' | sed 's/../&:/g;s/:$//')
+
+          if [ -z "$KEYSTORE_SHA1" ]; then
+            echo "::error::Could not read a certificate SHA-1 from the decoded TEST keystore (test-keystore.jks) - check that TEST_ANDROID_KEY_ALIAS and TEST_ANDROID_KEYSTORE_PASSWORD are correct."
+            exit 1
+          fi
+          if [ -z "$APK_SHA1" ]; then
+            echo "::error::Could not read a certificate SHA-1 from the built APK via apksigner."
+            exit 1
+          fi
+          if [ "$KEYSTORE_SHA1" != "$APK_SHA1" ]; then
+            echo "::error::The built APK is signed with a DIFFERENT identity than the decoded TEST keystore - devRelease did not use the intended signingConfig. Refusing to report a fingerprint that would not match a Google Maps API key restricted to the real TEST keystore."
+            exit 1
+          fi
+
+          echo "TEST APK signing certificate SHA-1 (verified against the decoded TEST keystore): $KEYSTORE_SHA1"
+          echo "### TEST APK signing certificate (verified)" >> "$GITHUB_STEP_SUMMARY"
+          echo "SHA-1: \`$KEYSTORE_SHA1\`" >> "$GITHUB_STEP_SUMMARY"
+
+          # So the downloaded binary can be checked on a computer, not only
+          # trusted from this log: the APK's own sha256 (compare with
+          # `sha256sum` on the unzipped file) and apksigner's full report
+          # (signature schemes and SHA-256 certificate digest).
+          APK_FILE="build/app/outputs/flutter-apk/${{ steps.build.outputs.apk_filename }}"
+          APK_SHA256=$(sha256sum "$APK_FILE" | awk '{print $1}')
+          echo "TEST APK file sha256: $APK_SHA256  ${{ steps.build.outputs.apk_filename }}"
+          echo "APK file sha256: \`$APK_SHA256\` (${{ steps.build.outputs.apk_filename }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "---- apksigner verify --verbose --print-certs"
+          "$APKSIGNER" verify --verbose --print-certs "$APK_FILE" | grep -E "Verified using|certificate SHA-256 digest|certificate SHA-1 digest|Verifies"
+        env:
+          TEST_ANDROID_KEY_ALIAS: ${{ secrets.TEST_ANDROID_KEY_ALIAS }}
+          TEST_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
+
+      # Always runs, even if the build above failed, so a decoded TEST
+      # keystore is never left behind in the runner's workspace.
+      - name: Remove the decoded TEST keystore and properties file
+        if: always()
+        working-directory: frontend/android
+        run: rm -f test-keystore.jks test-key.properties
+
+      # Workflow artifact only - deliberately does NOT publish to the
+      # dev-latest GitHub Release android-apk.yml owns, so this can never
+      # overwrite the existing production-connected QR-code build. Path
+      # comes from the build step's output above (debug vs release
+      # filenames differ) - upload-artifact still resolves `path:`
+      # against the checkout root regardless of the working-directory
+      # default, which is why that output is already prefixed with
+      # frontend/. Named per billing_mode so a bypass and a test_store
+      # artifact from two different runs are never confused.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ALRT-android-test-apk-${{ inputs.billing_mode }}
+          path: ${{ steps.build.outputs.apk_path }}
+          retention-days: 14

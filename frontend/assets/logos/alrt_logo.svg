@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 555 412" width="555" height="412">
+  <!--
+    The ALRT mark, TRACED from the supplied master artwork
+    (Transparent_Logo.png, 1708x1354), not redrawn. Every number below is
+    measured off that file, with the mark's bounding box
+    (576,291)-(1131,703) moved to the origin.
+
+    Three rows, each 103 tall, every end fully rounded (r 51.5):
+      1  red bar closed by an orange dot, OVERLAPPING
+      2  orange dot opening an orange bar
+      3  red bar closed by an orange dot, OVERLAPPING
+    That asymmetry is the mark. Nothing here may be simplified to
+    "three lines".
+
+    The overlap is its own colour, #DE3A3A, drawn as an explicit lens:
+    the intersection of the bar's right cap with the dot. It is NOT a
+    blend mode. Compositing red under or over orange at any alpha leaves
+    the blue channel near 0, and the master's overlap has blue 58, so no
+    blend can reproduce it. The previous version of this file had the
+    bars 457 wide, which never reached the dots, so the overlap did not
+    exist at all.
+
+    Row tops are 292, 450 and 600 in the master, so the row gaps are 158
+    and 150. That unevenness is in the supplied artwork and is
+    reproduced rather than tidied up.
+
+    Colours are the master's own: red #FF0004, orange #FF6B00,
+    overlap #DE3A3A.
+  -->
+  <g>
+    <!-- Row 1: bar, dot over it, then the overlap lens -->
+    <rect x="3.5" y="1" width="484.5" height="103" rx="51.5" fill="#FF0004" />
+    <circle cx="502.5" cy="52.5" r="51.5" fill="#FF6B00" />
+    <path d="M469.5 12.96 A51.5 51.5 0 0 1 469.5 92.04 A51.5 51.5 0 0 1 469.5 12.96 Z" fill="#DE3A3A" />
+
+    <!-- Row 2: dot on the left, bar on the right, no overlap -->
+    <circle cx="52" cy="210.5" r="51.5" fill="#FF6B00" />
+    <rect x="142" y="159" width="407" height="103" rx="51.5" fill="#FF6B00" />
+
+    <!-- Row 3: same as row 1 -->
+    <rect x="3.5" y="309" width="484.5" height="103" rx="51.5" fill="#FF0004" />
+    <circle cx="502.5" cy="360.5" r="51.5" fill="#FF6B00" />
+    <path d="M469.5 320.96 A51.5 51.5 0 0 1 469.5 400.04 A51.5 51.5 0 0 1 469.5 320.96 Z" fill="#DE3A3A" />
+  </g>
+</svg>
