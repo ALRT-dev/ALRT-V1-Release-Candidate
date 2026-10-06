@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
+import { usePageForFilters } from "../hooks/usePageForFilters";
+import { Pagination } from "../components/Pagination";
 import { listHazards, reviewHazard } from "../api/resources";
 import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
@@ -10,18 +12,31 @@ import type { AdminHazard, HazardReviewStatus } from "../api/types";
 
 type QueueTab = "pending" | "accepted" | "rejected";
 
+const PAGE_SIZE = 50;
+
 export const ModerationPage = () => {
   const { notifySuccess, notifyError } = useToast();
   const [tab, setTab] = useState<QueueTab>("pending");
   const [selected, setSelected] = useState<AdminHazard | null>(null);
   const [rejectTarget, setRejectTarget] = useState<AdminHazard | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [showExpired, setShowExpired] = useState(false);
+  const [page, setPage] = usePageForFilters([tab, showExpired]);
 
+  // userReported=true: community reports only. Official alerts are
+  // auto-accepted on ingest and must not flood this queue.
   const fetcher = useCallback(
-    () => listHazards({ reviewStatus: tab as HazardReviewStatus, pageSize: 100 }),
-    [tab],
+    () =>
+      listHazards({
+        reviewStatus: tab as HazardReviewStatus,
+        userReported: true,
+        showExpired: showExpired || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+      }),
+    [tab, showExpired, page],
   );
-  const { data, error, loading, refetch } = useApiQuery(fetcher, [tab]);
+  const { data, error, loading, refetch } = useApiQuery(fetcher, [tab, showExpired, page]);
 
   const approve = async (hazard: AdminHazard) => {
     setBusyId(hazard.id);
@@ -80,6 +95,14 @@ export const ModerationPage = () => {
             {t[0].toUpperCase() + t.slice(1)}
           </button>
         ))}
+        <label className="toolbar__check">
+          <input
+            type="checkbox"
+            checked={showExpired}
+            onChange={(event) => setShowExpired(event.target.checked)}
+          />
+          Show expired
+        </label>
       </div>
 
       {loading && <LoadingState label="Loading moderation queue..." />}
@@ -140,6 +163,14 @@ export const ModerationPage = () => {
             ))}
           </tbody>
         </table>
+      )}
+      {!loading && !error && data && (
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          itemsOnPage={data.length}
+          onPageChange={setPage}
+        />
       )}
 
       {selected && (

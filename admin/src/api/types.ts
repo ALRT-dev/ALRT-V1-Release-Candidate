@@ -358,6 +358,14 @@ export interface AskAlrtEntry {
   updatedBy: string | null;
 }
 
+/** GET/PUT /api/admin/ask-alrt/config. forcedOffByEnv is true when the
+ * server's own environment config turns AI answers off; the stored
+ * `enabled` flag then has no effect until that is removed. */
+export interface AskAlrtConfig {
+  enabled: boolean;
+  forcedOffByEnv: boolean;
+}
+
 export interface EmergencyNumberRow {
   iso: string;
   name: string;

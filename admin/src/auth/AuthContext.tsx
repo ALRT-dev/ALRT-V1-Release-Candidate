@@ -1,8 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ApiError, registerSessionExpiredHandler } from "../api/client";
+import {
+  ApiError,
+  registerPasswordChangeRequiredHandler,
+  registerSessionExpiredHandler,
+} from "../api/client";
 import { clearTokens, loadTokens, saveTokens } from "../api/tokenStorage";
-import { getMyProfile, login as loginRequest, logout as logoutRequest } from "../api/resources";
+import {
+  changePassword as changePasswordRequest,
+  getMyProfile,
+  login as loginRequest,
+  logout as logoutRequest,
+} from "../api/resources";
 import type { AdminProfile } from "../api/types";
 
 interface AuthState {
@@ -13,6 +22,17 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** True while the backend requires this admin to pick a new password
+   * (first login with a temporary password). RequireAuth sends every
+   * screen to /change-password until it is false. */
+  mustChangePassword: boolean;
+  /** Calls POST /api/admin/auth/change-password, then reloads the profile
+   * so mustChangePassword clears. Throws the ApiError on failure. */
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) => Promise<void>;
   /** UX-only convenience for hiding controls a role can't use. The backend
    * is the actual authority - every screen must still handle a 403 from
    * the API gracefully, never assume this check was sufficient. */
@@ -27,6 +47,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     registerSessionExpiredHandler(() => {
       setState({ status: "unauthenticated", admin: null });
+    });
+    registerPasswordChangeRequiredHandler(() => {
+      setState((s) =>
+        s.admin && !s.admin.mustChangePassword
+          ? { ...s, admin: { ...s.admin, mustChangePassword: true } }
+          : s,
+      );
     });
   }, []);
 
@@ -49,7 +76,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     saveTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken });
     try {
       const admin = await getMyProfile();
-      setState({ status: "authenticated", admin });
+      setState({
+        status: "authenticated",
+        admin: {
+          ...admin,
+          mustChangePassword: admin.mustChangePassword || result.mustChangePassword === true,
+        },
+      });
     } catch (error) {
       clearTokens();
       setState({ status: "unauthenticated", admin: null });
@@ -73,6 +106,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setState({ status: "unauthenticated", admin: null });
   }, []);
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string, confirmPassword: string) => {
+      await changePasswordRequest(currentPassword, newPassword, confirmPassword);
+      const admin = await getMyProfile();
+      setState({ status: "authenticated", admin });
+    },
+    [],
+  );
+
   const hasRole = useCallback(
     (...roles: AdminProfile["role"][]) => {
       if (!state.admin) return false;
@@ -82,8 +124,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ ...state, login, logout, hasRole }),
-    [state, login, logout, hasRole],
+    () => ({
+      ...state,
+      mustChangePassword: state.admin?.mustChangePassword === true,
+      login,
+      logout,
+      changePassword,
+      hasRole,
+    }),
+    [state, login, logout, changePassword, hasRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

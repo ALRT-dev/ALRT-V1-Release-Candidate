@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
 import { listHazards } from "../api/resources";
 import { LoadingState, ErrorState, EmptyState } from "../components/AsyncState";
+import { AskAlrtAiSwitch } from "../components/AskAlrtAiSwitch";
 import {
   askAlrt,
   AskAlrtRateLimitedError,
@@ -84,6 +85,8 @@ export const AskAlrtPage = () => {
           </p>
         </div>
       </div>
+
+      <AskAlrtAiSwitch />
 
       {alerts.loading && <LoadingState label="Loading alert context..." />}
       {!alerts.loading && Boolean(alerts.error) && (

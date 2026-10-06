@@ -18,6 +18,7 @@ import { AskAlrtPage } from "./pages/AskAlrtPage";
 import { AskAlrtLibraryPage } from "./pages/AskAlrtLibraryPage";
 import { EmergencyNumbersPage } from "./pages/EmergencyNumbersPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
+import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 
 function App() {
   return (
@@ -25,6 +26,14 @@ function App() {
       <ToastProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/change-password"
+            element={
+              <RequireAuth>
+                <ChangePasswordPage />
+              </RequireAuth>
+            }
+          />
           <Route
             element={
               <RequireAuth>

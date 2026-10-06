@@ -14,6 +14,7 @@ import type {
   AdminStats,
   AIPrompt,
   AIPromptGroup,
+  AskAlrtConfig,
   AskAlrtEntry,
   AppUserListResponse,
   DashboardStats,
@@ -57,7 +58,10 @@ export const getDashboardStats = () => apiGet<DashboardStats>("/api/admin/stats/
 export interface ListHazardsParams {
   searchString?: string;
   reviewStatus?: HazardReviewStatus;
+  /** true = community reports only, false = official alerts only. */
   userReported?: boolean;
+  /** Include alerts whose expiresAt has passed (hidden by default). */
+  showExpired?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -118,9 +122,10 @@ export const createHazard = (data: {
 export const listHazardSources = (params: { page?: number; pageSize?: number; searchString?: string } = {}) =>
   apiGet<AdminHazardSource[]>(`/api/admin/hazard-sources${buildQuery(params)}`);
 
-// Used only by the TEST-only "Create Dummy Alert" button, to lazily
-// create the disposable "test-dummy" source it attaches every dummy
-// alert to. A plain POST, same as any real admin creating a real source.
+// Used only via lib/testSource.ts's ensureTestSource(), to lazily create
+// the disposable "test-dummy" source that TEST-only test alerts and the
+// n8n test workflow attach to. A plain POST, same as any real admin
+// creating a real source.
 export const createHazardSource = (data: { id: string; name: string; url: string }) =>
   apiPost<AdminHazardSource>("/api/admin/hazard-sources", data);
 
@@ -226,6 +231,13 @@ export const deleteAskAlrtEntry = (id: string) =>
   apiDelete<{ success: boolean; revertedToBuiltIn: boolean }>(
     `/api/admin/ask-alrt/entries/${encodeURIComponent(id)}`,
   );
+
+// --- Ask ALRT AI on/off switch -------------------------------------------
+
+export const getAskAlrtConfig = () => apiGet<AskAlrtConfig>("/api/admin/ask-alrt/config");
+
+export const setAskAlrtEnabled = (enabled: boolean) =>
+  apiPut<AskAlrtConfig>("/api/admin/ask-alrt/config", { enabled });
 
 // --- Emergency numbers ---------------------------------------------------
 

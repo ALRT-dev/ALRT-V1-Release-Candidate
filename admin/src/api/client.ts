@@ -24,6 +24,25 @@ export const registerSessionExpiredHandler = (handler: () => void): void => {
   onSessionExpired = handler;
 };
 
+/** Error code the backend sends (with a 403) on every admin route except
+ * change-password, GET /users/me and logout while the signed-in admin
+ * still has mustChangePassword set. */
+export const PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
+
+export const isPasswordChangeRequired = (status: number, body: unknown): boolean =>
+  status === 403 &&
+  Boolean(body) &&
+  typeof body === "object" &&
+  (body as { code?: unknown }).code === PASSWORD_CHANGE_REQUIRED;
+
+/** Set once by AuthProvider. Called when any request comes back with
+ * PASSWORD_CHANGE_REQUIRED, so the app routes to the Change Password
+ * screen instead of showing a permission error. */
+let onPasswordChangeRequired: (() => void) | null = null;
+export const registerPasswordChangeRequiredHandler = (handler: () => void): void => {
+  onPasswordChangeRequired = handler;
+};
+
 // Concurrent requests that all hit a 401 at once must not each fire their
 // own refresh call - dedupe into a single in-flight refresh.
 let refreshInFlight: Promise<string | null> | null = null;
@@ -112,6 +131,7 @@ export const apiRequest = async <T>(
   const body = await parseBody(res);
 
   if (!res.ok) {
+    if (isPasswordChangeRequired(res.status, body)) onPasswordChangeRequired?.();
     throw new ApiError(
       res.status,
       errorMessageFrom(body, `Request failed (${res.status})`),

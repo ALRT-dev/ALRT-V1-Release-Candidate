@@ -1,5 +1,8 @@
 import { useCallback, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { usePageForFilters } from "../hooks/usePageForFilters";
+import { Pagination } from "../components/Pagination";
 import { listAppUsers, requestAppUserDeletion, restoreAppUser } from "../api/resources";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastContext";
@@ -9,19 +12,23 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ApiError } from "../api/client";
 import type { AdminAppUser } from "../api/types";
 
+const PAGE_SIZE = 50;
+
 export const UsersPage = () => {
   const { hasRole } = useAuth();
   const { notifySuccess, notifyError } = useToast();
   const canWrite = hasRole("superAdmin", "admin");
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search.trim());
+  const [page, setPage] = usePageForFilters([debouncedSearch]);
   const [deleteTarget, setDeleteTarget] = useState<AdminAppUser | null>(null);
 
   const fetcher = useCallback(
-    () => listAppUsers({ search: search || undefined, pageSize: 50 }),
-    [search],
+    () => listAppUsers({ search: debouncedSearch || undefined, page, pageSize: PAGE_SIZE }),
+    [debouncedSearch, page],
   );
-  const { data, error, loading, refetch } = useApiQuery(fetcher, [search]);
+  const { data, error, loading, refetch } = useApiQuery(fetcher, [debouncedSearch, page]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -139,6 +146,15 @@ export const UsersPage = () => {
             Showing {data.users.length} of {data.total} users.
           </p>
         </>
+      )}
+      {!loading && !error && data && (
+        <Pagination
+          page={data.page}
+          pageSize={data.pageSize}
+          itemsOnPage={data.users.length}
+          total={data.total}
+          onPageChange={setPage}
+        />
       )}
 
       {deleteTarget && (

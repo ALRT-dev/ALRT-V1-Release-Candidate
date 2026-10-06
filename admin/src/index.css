@@ -295,6 +295,21 @@ pre {
   border: 1px solid var(--color-border);
 }
 
+.toolbar__check {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.pagination {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
 /* --- Badges ------------------------------------------------------- */
 
 .badge {

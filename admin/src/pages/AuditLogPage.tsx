@@ -1,22 +1,27 @@
 import { useCallback, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
+import { usePageForFilters } from "../hooks/usePageForFilters";
+import { Pagination } from "../components/Pagination";
 import { listAuditLog } from "../api/resources";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import type { AdminAuditLogEntry } from "../api/types";
 
 const TARGET_TYPES = ["", "HazardSource", "Hazard", "AIPrompt", "Configuration", "WebhookApiKey", "Admin"];
 
+const PAGE_SIZE = 50;
+
 const summarise = (value: Record<string, unknown> | null) =>
   value && Object.keys(value).length > 0 ? JSON.stringify(value) : "-";
 
 export const AuditLogPage = () => {
   const [targetType, setTargetType] = useState("");
+  const [page, setPage] = usePageForFilters([targetType]);
 
   const fetcher = useCallback(
-    () => listAuditLog({ targetType: targetType || undefined, pageSize: 100 }),
-    [targetType],
+    () => listAuditLog({ targetType: targetType || undefined, page, pageSize: PAGE_SIZE }),
+    [targetType, page],
   );
-  const { data, error, loading, refetch } = useApiQuery(fetcher, [targetType]);
+  const { data, error, loading, refetch } = useApiQuery(fetcher, [targetType, page]);
 
   return (
     <div>
@@ -78,6 +83,14 @@ export const AuditLogPage = () => {
             ))}
           </tbody>
         </table>
+      )}
+      {!loading && !error && data && (
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          itemsOnPage={data.length}
+          onPageChange={setPage}
+        />
       )}
     </div>
   );
