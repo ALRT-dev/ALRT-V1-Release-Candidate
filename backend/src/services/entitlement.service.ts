@@ -1397,10 +1397,9 @@ const applyTransfer = async (event: RevenueCatEvent): Promise<ApplyResult> => {
 };
 
 /**
- * Keeps the compatibility mirrors in step with the canonical personal
- * entitlement: User.plan (old app builds) and Firestore
- * entitlements/{uid} (Ask ALRT). Both are written only from here, with a
- * version so a stale write can be told apart.
+ * Keeps the compatibility mirror in step with the canonical personal
+ * entitlement: User.plan (old app builds). Ask ALRT reads the entitlement
+ * directly (getPersonalAccess), so there is no second copy to keep.
  */
 export const syncPersonalMirror = async (userId: string) => {
   const personal = await getPersonalAccess(userId);
@@ -1413,24 +1412,6 @@ export const syncPersonalMirror = async (userId: string) => {
       planUpdatedAt: new Date(),
     },
   });
-  try {
-    const { firebaseAdmin } = await import("../utils/firebase_admin_client.util.js");
-    await firebaseAdmin
-      .firestore()
-      .collection("entitlements")
-      .doc(userId)
-      .set({
-        individual: isIndividual,
-        individualExpiresAt: personal.expiresAt ? personal.expiresAt.getTime() : null,
-        askPerDay: isIndividual ? PERSONAL_LIMITS.individual.askPerDay : PERSONAL_LIMITS.free.askPerDay,
-        // Legacy field for Ask ALRT builds that still read `plan`.
-        plan: isIndividual ? "plus" : "free",
-        source: "backend",
-        version: Date.now(),
-      });
-  } catch (error) {
-    console.warn(`[entitlements] Firestore mirror not updated for ${userId}: ${(error as Error).message}`);
-  }
 };
 
 /** Whether a circle's sponsored grants are paused (sponsored + not live). */

@@ -19,7 +19,6 @@ import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/providers/user_socket_manager_provider.dart';
 import 'package:hazard_app/features/shared/services/media_service.dart';
 import 'package:hazard_app/features/shared/services/user_service.dart';
-import 'package:hazard_app/features/shared/services/firebase_session_service.dart';
 import 'package:image_picker/image_picker.dart';
 
 final providerOfProfile =
@@ -223,9 +222,6 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
 
     result.when(
       (_) {
-        // Drop the Firebase session too, or the next person to sign in on
-        // this phone inherits the previous user's Ask ALRT identity.
-        FirebaseSessionService.signOut();
         // Clear the Family widget too, or a signed-out phone keeps
         // showing the last signed-in person's circle state.
         FamilyWidgetSync.clear();
@@ -274,10 +270,9 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
         await _authService.logout();
         if (!mounted) return;
         // A deleted account leaves nothing behind on this phone: the
-        // Ask ALRT session, the Family widget (it kept showing the last
-        // circle state until the next sign-in), the store identity and
-        // the entitlement caches, exactly as on sign-out.
-        FirebaseSessionService.signOut();
+        // Family widget (it kept showing the last circle state until the
+        // next sign-in), the store identity and the entitlement caches,
+        // exactly as on sign-out.
         FamilyWidgetSync.clear();
         unawaited(_ref.read(providerOfRevenueCat).signOut());
         _ref.invalidate(providerOfAccess);

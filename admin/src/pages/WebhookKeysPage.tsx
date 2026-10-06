@@ -14,6 +14,11 @@ import { BooleanBadge } from "../components/StatusBadge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ApiError } from "../api/client";
 import type { WebhookApiKeyListItem } from "../api/types";
+import {
+  WEBHOOK_HEADER_NAME,
+  buildN8nTestWorkflow,
+  webhookUrl,
+} from "../lib/n8nWorkflow";
 
 export const WebhookKeysPage = () => {
   const { hasRole } = useAuth();
@@ -64,6 +69,20 @@ export const WebhookKeysPage = () => {
     }
   };
 
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
+
+  const downloadN8nWorkflow = () => {
+    const blob = new Blob([JSON.stringify(buildN8nTestWorkflow(apiBase), null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "alrt-n8n-test-workflow.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -95,6 +114,31 @@ export const WebhookKeysPage = () => {
           </button>
         )}
       </div>
+
+      <section className="state-block" aria-label="Connect n8n">
+        <strong>Connect n8n to this environment</strong>
+        <ol>
+          <li>
+            Create a key here with "New key" and copy it (it is shown once).
+          </li>
+          <li>
+            In n8n, add a "Header Auth" credential: name{" "}
+            <code>{WEBHOOK_HEADER_NAME}</code>, value = the key.
+          </li>
+          <li>
+            Import the test workflow below, choose that credential on the HTTP
+            Request node, then run it. It posts one test alert to{" "}
+            <code>{webhookUrl(apiBase)}</code>.
+          </li>
+          <li>
+            Check the Alerts page for "n8n test alert", and this table for the
+            key's request count.
+          </li>
+        </ol>
+        <button type="button" className="btn btn-sm" onClick={downloadN8nWorkflow}>
+          Download n8n test workflow
+        </button>
+      </section>
 
       {loading && <LoadingState label="Loading keys..." />}
       {!loading && Boolean(error) && <ErrorState error={error} onRetry={refetch} />}

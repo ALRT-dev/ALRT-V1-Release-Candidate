@@ -2,11 +2,9 @@
  * Starting list of emergency numbers shown in the Admin Portal.
  *
  * This mirrors the table in the mobile app
- * (frontend/lib/features/shared/services/emergency_number.dart) so an admin can
- * copy it into the editable list with one click. It is a SNAPSHOT: the Cloud
- * Function (askalrt/functions/src/lib/emergencyLogic.ts) ships only the first
- * eight countries, so the Ask ALRT assistant knows the rest only once they are
- * saved from the portal.
+ * (frontend/lib/features/shared/services/emergency_number.dart). It is also the
+ * starting table the Ask ALRT assistant uses; numbers saved from the portal
+ * replace these.
  *
  * Keep it conservative: list a country only where the number is unambiguous.
  */

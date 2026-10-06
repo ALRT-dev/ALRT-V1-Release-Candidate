@@ -10,12 +10,13 @@ import {
   importEmergencyDefaultsController,
   listAskAlrtEntriesController,
   listEmergencyNumbersController,
-  mintAdminFirebaseTokenController,
+  askAlrtAdminController,
   removeEmergencyNumberController,
   saveAskAlrtEntryController,
   saveEmergencyNumberController,
 } from "../../controllers/admin/ask_alrt.admin.controller.js";
 import {
+  askAlrtBodySchema,
   askAlrtEntryIdParamsSchema,
   emergencyNumberIsoParamsSchema,
   saveAskAlrtEntryBodySchema,
@@ -27,21 +28,20 @@ const adminAskAlrtRouter = Router();
 adminAskAlrtRouter.use(requireAdminAuth);
 
 /**
- * @route   POST /api/admin/ask-alrt/firebase-token
- * @desc    Mints a Firebase custom token (uid `admin:<adminId>`) so the
- *          Admin Portal can call the existing askAlrt Cloud Function.
- *          Any authenticated admin role may use Ask ALRT.
+ * @route   POST /api/admin/ask-alrt/ask
+ * @desc    Test page: asks the real Ask ALRT engine. Any admin role. Not counted
+ *          against anyone's daily allowance.
  */
 adminAskAlrtRouter.post(
-  "/firebase-token",
+  "/ask",
   requireAnyAdmin,
-  mintAdminFirebaseTokenController,
+  validate(askAlrtBodySchema),
+  askAlrtAdminController,
 );
 
 /**
- * Answer library (Firestore askAlrtEntries). Any admin role may read; writes
- * are admin or above, the same split as AI prompts. A change reaches the app's
- * assistant within about 5 minutes (the Cloud Function caches for 5).
+ * Answer library (database table AskAlrtEntry). Any admin role may read; writes
+ * are admin or above, the same split as AI prompts. A change is live straight away.
  *
  * @route   GET    /api/admin/ask-alrt/entries
  * @route   PUT    /api/admin/ask-alrt/entries/:id   upsert (also how a built-in answer is customised or hidden)
@@ -63,7 +63,7 @@ adminAskAlrtRouter.delete(
 );
 
 /**
- * Emergency numbers (Firestore askAlrtConfig/emergencyNumbers).
+ * Emergency numbers (database, AskAlrtConfig).
  *
  * @route   GET    /api/admin/ask-alrt/emergency-numbers
  * @route   POST   /api/admin/ask-alrt/emergency-numbers/import-defaults

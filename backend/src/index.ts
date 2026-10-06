@@ -25,6 +25,7 @@ import {
   guideRouter,
   publicRouter,
   accessRouter,
+  askAlrtRouter,
 } from "./routes/index.js";
 import { errorHandlerMiddleware } from "./middlewares/error_handler.middleware.js";
 import { unknownRouteMiddleware } from "./middlewares/unknown_route.middleware.js";
@@ -117,6 +118,7 @@ app.use("/api/maps", mapsRouter);
 app.use("/api/guides", guideRouter);
 app.use("/api/family", familyRouter);
 app.use("/api/access", accessRouter);
+app.use("/api/ask-alrt", askAlrtRouter);
 // Previously mounted twice under two casings of the same import
 // (revenuecatRouter/revenueCatRouter, both ./revenuecat.route.js) - the
 // earlier mount sat before apiGeneralRateLimiter (which applies as
@@ -127,13 +129,9 @@ app.use("/api/access", accessRouter);
 // this block. One mount now, positioned after the general limiter like
 // every other route here.
 app.use("/api/revenuecat", revenuecatRouter);
-// NOTE: the native Ask ALRT port that used to mount here (/api/ask) was
-// removed - confirmed orphaned (zero real callers) in the V1 reconciliation
-// audit. The canonical Ask ALRT implementation is the standalone
-// ALRT-dev/askalrt Firebase service; this backend still mints the Firebase
-// custom token it needs via POST /api/user/firebase-token (unchanged, see
-// firebase_token.controller.ts - that is required plumbing, not a
-// duplicate). See V1_RECONCILIATION_REPORT.md S13.
+// Ask ALRT runs inside this backend (POST /api/ask-alrt, mounted above). The
+// separate Firebase function, Firestore data and the Firebase custom token it
+// needed are retired.
 
 app.get("/api/test", (req, res) => {
   res.send("Test route is working!");

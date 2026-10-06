@@ -42,9 +42,9 @@ const kUrlUser = '$kUrlApi/user';
 
 const kUrlUserProfilePicture = '$kUrlUser/profile-picture';
 
-/// A Firebase custom token for the signed-in user, so the app can sign in
-/// to Firebase Auth and reach the Ask ALRT callable.
-const kUrlFirebaseToken = '$kUrlUser/firebase-token';
+// ---------------------------- ASK ALRT ----------------------------
+
+const kUrlAskAlrt = '$kUrlApi/ask-alrt';
 
 const kUrlSubscribeLocation = '$kUrlUser/subscribe-location';
 const kUrlUnsubscribeLocation = '$kUrlUser/unsubscribe-location';

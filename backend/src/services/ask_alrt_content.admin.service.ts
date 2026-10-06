@@ -1,4 +1,4 @@
-import { firebaseAdmin } from "../utils/firebase_admin_client.util.js";
+import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
 import { EMERGENCY_NUMBER_DEFAULTS } from "../constants/emergency_number_defaults.js";
 import {
@@ -11,25 +11,19 @@ import {
   validateEntryFields,
   type AskAlrtEntryRow,
   type EmergencyNumberRow,
-  type FirestoreEntryDoc,
+  type SavedEntryDoc,
 } from "../utils/ask_alrt_content.util.js";
+import { clearAskAlrtCache } from "./ask_alrt.service.js";
 
 /**
- * Admin Portal editing for the two things the Ask ALRT Cloud Function reads
- * from Firestore (ALRT-dev/askalrt, unchanged contract):
+ * Admin Portal editing for the two things Ask ALRT reads from the database:
  *
- *   askAlrtEntries/{id}                  the pre-written answer library
- *   askAlrtConfig/emergencyNumbers       { numbers: {ISO: "000"}, names: {ISO: "Name"} }
+ *   AskAlrtEntry                       the pre-written answer library
+ *   AskAlrtConfig key "emergencyNumbers"  { numbers: {ISO: "000"}, names: {ISO: "Name"} }
  *
- * Both are server-only for clients (askalrt/firestore.rules); this service
- * writes through the Admin SDK. The function caches each for 5 minutes, so an
- * edit is live within about 5 minutes with no release.
+ * An edit is live straight away (the assistant's cache is cleared on save).
  */
-const ENTRIES = "askAlrtEntries";
-const CONFIG = "askAlrtConfig";
-const EMERGENCY_DOC = "emergencyNumbers";
-
-const db = () => firebaseAdmin.firestore();
+const EMERGENCY_KEY = "emergencyNumbers";
 
 const assertEntryId = (id: string): void => {
   if (!ENTRY_ID_RE.test(id)) {
@@ -44,8 +38,18 @@ const fail = (errors: string[]): never => {
 // --- Answer library -----------------------------------------------------
 
 export const listAskAlrtEntries = async (): Promise<AskAlrtEntryRow[]> => {
-  const snap = await db().collection(ENTRIES).get();
-  const docs: FirestoreEntryDoc[] = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
+  const rows = await prisma.askAlrtEntry.findMany();
+  const docs: SavedEntryDoc[] = rows.map((r) => ({
+    id: r.id,
+    data: {
+      triggers: r.triggers,
+      keywords: r.keywords,
+      answer: r.answer,
+      enabled: r.enabled,
+      updatedAt: r.updatedAt.toISOString(),
+      updatedBy: r.updatedBy,
+    },
+  }));
   return mergeEntryRows(docs);
 };
 
@@ -64,24 +68,22 @@ export const saveAskAlrtEntry = async (
   if (!checked.ok || !checked.value) return fail(checked.errors);
 
   const before = await getAskAlrtEntry(id);
-  await db()
-    .collection(ENTRIES)
-    .doc(id)
-    .set({
-      triggers: checked.value.triggers,
-      keywords: checked.value.keywords,
-      answer: checked.value.answer,
-      enabled: checked.value.enabled,
-      updatedAt: new Date().toISOString(),
-      updatedBy: adminLabel,
-    });
+  const fields = {
+    triggers: checked.value.triggers,
+    keywords: checked.value.keywords,
+    answer: checked.value.answer,
+    enabled: checked.value.enabled,
+    updatedBy: adminLabel,
+  };
+  await prisma.askAlrtEntry.upsert({ where: { id }, create: { id, ...fields }, update: fields });
+  clearAskAlrtCache();
   const after = await getAskAlrtEntry(id);
   if (!after) throw new HttpError(500, "Could not read the saved answer back");
   return { before, after };
 };
 
 /**
- * Removes the Firestore doc. A custom answer disappears; a built-in answer
+ * Removes the saved row. A custom answer disappears; a built-in answer
  * returns to the app's bundled text. Use enabled=false (a save) to hide a
  * built-in answer instead.
  */
@@ -91,19 +93,31 @@ export const deleteAskAlrtEntry = async (id: string): Promise<{ before: AskAlrtE
   if (!before || before.origin === "built_in") {
     throw new HttpError(404, "Nothing saved for this answer, so there is nothing to remove");
   }
-  await db().collection(ENTRIES).doc(id).delete();
+  await prisma.askAlrtEntry.delete({ where: { id } });
+  clearAskAlrtCache();
   return { before, revertedToBuiltIn: BUILT_IN_IDS.has(id) };
 };
 
 // --- Emergency numbers --------------------------------------------------
 
-const emergencyRef = () => db().collection(CONFIG).doc(EMERGENCY_DOC);
+type EmergencyDoc = { numbers: Record<string, string>; names: Record<string, string> };
 
-export const listEmergencyNumbers = async (): Promise<EmergencyNumberRow[]> => {
-  const snap = await emergencyRef().get();
-  const saved = readEmergencyDoc(snap.exists ? snap.data() : undefined);
-  return buildEmergencyRows(EMERGENCY_NUMBER_DEFAULTS, saved);
+const readEmergency = async (): Promise<EmergencyDoc> => {
+  const row = await prisma.askAlrtConfig.findUnique({ where: { key: EMERGENCY_KEY } });
+  return readEmergencyDoc(row?.value);
 };
+
+const writeEmergency = async (doc: EmergencyDoc, adminLabel: string): Promise<void> => {
+  await prisma.askAlrtConfig.upsert({
+    where: { key: EMERGENCY_KEY },
+    create: { key: EMERGENCY_KEY, value: doc, updatedBy: adminLabel },
+    update: { value: doc, updatedBy: adminLabel },
+  });
+  clearAskAlrtCache();
+};
+
+export const listEmergencyNumbers = async (): Promise<EmergencyNumberRow[]> =>
+  buildEmergencyRows(EMERGENCY_NUMBER_DEFAULTS, await readEmergency());
 
 export const saveEmergencyNumber = async (
   input: { iso?: unknown; number?: unknown; name?: unknown },
@@ -113,18 +127,11 @@ export const saveEmergencyNumber = async (
   if (!checked.ok || !checked.value) return fail(checked.errors);
   const { iso, number, name } = checked.value;
 
-  const beforeRows = await listEmergencyNumbers();
-  const before = beforeRows.find((r) => r.iso === iso) ?? null;
-
-  await emergencyRef().set(
-    {
-      numbers: { [iso]: number },
-      names: { [iso]: name },
-      updatedAt: new Date().toISOString(),
-      updatedBy: adminLabel,
-    },
-    { merge: true },
-  );
+  const before = (await listEmergencyNumbers()).find((r) => r.iso === iso) ?? null;
+  const saved = await readEmergency();
+  saved.numbers[iso] = number;
+  saved.names[iso] = name;
+  await writeEmergency(saved, adminLabel);
   const after = (await listEmergencyNumbers()).find((r) => r.iso === iso);
   if (!after) throw new HttpError(500, "Could not read the saved number back");
   return { before, after };
@@ -141,39 +148,27 @@ export const removeEmergencyNumber = async (
   if (!before || before.isDefault) {
     throw new HttpError(404, "No saved edit for this country, so there is nothing to remove");
   }
-  const remove = firebaseAdmin.firestore.FieldValue.delete();
-  await emergencyRef().set(
-    {
-      numbers: { [iso]: remove },
-      names: { [iso]: remove },
-      updatedAt: new Date().toISOString(),
-      updatedBy: adminLabel,
-    },
-    { merge: true },
-  );
+  const saved = await readEmergency();
+  delete saved.numbers[iso];
+  delete saved.names[iso];
+  await writeEmergency(saved, adminLabel);
   return { before };
 };
 
 /**
- * Saves every starting-list country that has no saved edit yet, so the Ask
- * ALRT assistant (which ships only eight countries) knows all of them. Never
+ * Saves every starting-list country that has no saved edit yet. Never
  * overwrites a number an admin already saved.
  */
 export const importEmergencyDefaults = async (adminLabel: string): Promise<{ added: number }> => {
-  const snap = await emergencyRef().get();
-  const saved = readEmergencyDoc(snap.exists ? snap.data() : undefined);
-  const numbers: Record<string, string> = {};
-  const names: Record<string, string> = {};
+  const saved = await readEmergency();
+  let added = 0;
   for (const def of EMERGENCY_NUMBER_DEFAULTS) {
     if (saved.numbers[def.iso] !== undefined) continue;
-    numbers[def.iso] = def.number;
-    names[def.iso] = saved.names[def.iso] ?? def.name;
+    saved.numbers[def.iso] = def.number;
+    saved.names[def.iso] = saved.names[def.iso] ?? def.name;
+    added += 1;
   }
-  const added = Object.keys(numbers).length;
   if (added === 0) return { added: 0 };
-  await emergencyRef().set(
-    { numbers, names, updatedAt: new Date().toISOString(), updatedBy: adminLabel },
-    { merge: true },
-  );
+  await writeEmergency(saved, adminLabel);
   return { added };
 };

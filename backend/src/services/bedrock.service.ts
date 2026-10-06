@@ -187,3 +187,56 @@ export const validateModelId = (modelId: string): Promise<void> => {
     await bedrockClient.send(command);
   });
 };
+
+import { normaliseChatTurns, type ChatTurn } from "./ask_alrt/rules.js";
+
+export interface ChatResult {
+  text: string;
+  /** True when the model or a guardrail declined to answer. */
+  refused: boolean;
+}
+
+/**
+ * One multi-turn chat call (Ask ALRT's AI fallback). Plain text in, plain
+ * text out: unlike executePrompt it does not look for JSON.
+ */
+export const executeChat = ({
+  systemBlocks,
+  turns,
+  maxTokens = 1000,
+  model,
+}: {
+  systemBlocks: string[];
+  turns: readonly ChatTurn[];
+  maxTokens?: number;
+  model?: string;
+}): Promise<ChatResult> => {
+  const modelId = model || config.aws.bedrock.fallbackModelId;
+  const messages = normaliseChatTurns(turns).map((t) => ({
+    role: t.role,
+    content: [{ text: t.content }],
+  }));
+  if (messages.length === 0 || messages[0]?.role !== "user") {
+    return Promise.reject(new Error("A chat needs a user message first"));
+  }
+
+  return retryWithBackoff(async () => {
+    const response = await bedrockClient.send(
+      new ConverseCommand({
+        modelId,
+        system: systemBlocks.map((text) => ({ text })),
+        messages,
+        inferenceConfig: { maxTokens, temperature: 0.3 },
+      }),
+    );
+    const refused =
+      response.stopReason === "content_filtered" ||
+      response.stopReason === "guardrail_intervened";
+    const text = (response.output?.message?.content ?? [])
+      .map((block) => ("text" in block && typeof block.text === "string" ? block.text : ""))
+      .join("")
+      .trim();
+    if (!text && !refused) throw new Error("Bedrock returned an empty response");
+    return { text, refused };
+  });
+};

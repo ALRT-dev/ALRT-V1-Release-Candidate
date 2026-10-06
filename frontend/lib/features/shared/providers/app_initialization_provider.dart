@@ -7,7 +7,6 @@ import 'package:hazard_app/features/shared/providers/instance_providers.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
-import 'package:hazard_app/features/shared/services/firebase_session_service.dart';
 import 'package:hazard_app/features/shared/services/sim_country.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -51,9 +50,6 @@ class AppInitializationProvider extends Notifier<bool> {
       _getCurrentUserLocation(),
       _generateMarkerBitmaps(),
       _initializeMainCategories(),
-      // Ask ALRT's callable wants a Firebase uid. Best-effort: a failure
-      // leaves the assistant on its on-device answers, as before.
-      _signInToFirebase(),
     ]);
     if (!ref.mounted) return;
 
@@ -81,12 +77,6 @@ class AppInitializationProvider extends Notifier<bool> {
   /// Initializes the current logged in user.
   Future<void> _initializeLoggedInUser() {
     return ref.refresh(providerOfLoggedInUserFetcher.future);
-  }
-
-  /// Exchanges the ALRT session for a Firebase one so Ask ALRT can call
-  /// its backend. Never throws: the assistant degrades, the app does not.
-  Future<void> _signInToFirebase() async {
-    await ref.read(providerOfFirebaseSessionSignIn)();
   }
 
   /// Gets the location of the current user.

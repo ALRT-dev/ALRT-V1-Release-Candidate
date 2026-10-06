@@ -1,6 +1,5 @@
 import type { NextFunction, Response } from "express";
 import type { AdminRequest } from "../../middlewares/auth.admin.middleware.js";
-import { firebaseAdmin } from "../../utils/firebase_admin_client.util.js";
 import { HttpError } from "../../models/http_error.js";
 import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 import {
@@ -12,34 +11,22 @@ import {
   saveAskAlrtEntry,
   saveEmergencyNumber,
 } from "../../services/ask_alrt_content.admin.service.js";
+import { askAlrt, type AskRequest } from "../../services/ask_alrt.service.js";
 
 /**
- * POST /api/admin/ask-alrt/firebase-token
+ * POST /api/admin/ask-alrt/ask
  *
- * Mints a Firebase custom token for the signed-in admin, so the Admin
- * Portal can sign in to Firebase and call the existing `askAlrt` callable
- * (ALRT-dev/askalrt) - unchanged, never modified by this endpoint.
- *
- * Uses `admin:<adminId>` as the Firebase uid - a distinct namespace from
- * the mobile app's plain `User.id` uids (see
- * user.route.ts/firebase_token.controller.ts), so an admin session can
- * never collide with, or be mistaken for, a real app user's Firebase
- * identity. askAlrt itself only uses the uid for logging and a Firestore
- * quota/entitlement lookup - it never checks that the uid maps to a
- * User row, so this namespacing is safe without any change to that
- * function.
+ * The Admin Portal's Ask ALRT test page. Runs the same engine as the app,
+ * but is not counted against any person's daily allowance.
  */
-export const mintAdminFirebaseTokenController = async (
+export const askAlrtAdminController = async (
   req: AdminRequest,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const adminId = req.admin?.id;
-    if (!adminId) throw new HttpError(401, "Not authenticated");
-
-    const token = await firebaseAdmin.auth().createCustomToken(`admin:${adminId}`);
-    res.status(200).json({ token });
+    if (!req.admin) throw new HttpError(401, "Not authenticated");
+    res.status(200).json(await askAlrt(null, req.body as AskRequest));
   } catch (error) {
     next(error);
   }
@@ -48,7 +35,7 @@ export const mintAdminFirebaseTokenController = async (
 /**
  * Admin Portal editing for the Ask ALRT answer library and the emergency
  * number list. Thin handlers: rules live in utils/ask_alrt_content.util.ts,
- * Firestore access in services/ask_alrt_content.admin.service.ts. Every change
+ * Database access in services/ask_alrt_content.admin.service.ts. Every change
  * is written to the admin audit log (answer text and numbers are not secrets).
  */
 const adminLabel = (req: AdminRequest): string => {

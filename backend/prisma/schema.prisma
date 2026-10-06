@@ -68,6 +68,8 @@ model User {
   corroborationsGiven      HazardCorroboration[]
   sosLists                 FamilySosList[]
   passwordResetTokens      PasswordResetToken[]
+  askAlrtUsage             AskAlrtUsage[]
+  askAlrtZone              AskAlrtZone?
 
   // Activity streak (any qualifying action counts: report, check-in, guide)
   streakDays       Int       @default(0)
@@ -1579,4 +1581,48 @@ model TrialRecord {
   id           String   @id @default(uuid())
   emailHash    String   @unique
   firstTrialAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Ask ALRT (lives in this backend; no Firestore, no Firebase function).
+// ---------------------------------------------------------------------------
+
+/// Pre-written answer library edited in the Admin Portal. A row with the same
+/// id as a built-in answer replaces it; a new id adds one; enabled=false hides.
+model AskAlrtEntry {
+  id        String   @id
+  triggers  String[]
+  keywords  String[]
+  answer    String
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @default(now()) @updatedAt
+  updatedBy String?
+}
+
+/// Small key/value settings: "emergencyNumbers" { numbers, names },
+/// "systemPrompt" { text }, "agent" { enabled } (the AI kill switch).
+model AskAlrtConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt
+  updatedBy String?
+}
+
+/// Content-free daily question counter (never stores what was asked).
+model AskAlrtUsage {
+  userId    String
+  dayKey    String // YYYYMMDD in the person's own time zone
+  aiCount   Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, dayKey])
+}
+
+/// The zone a person's day is counted in; changes at most once per 24 hours.
+model AskAlrtZone {
+  userId    String   @id
+  timeZone  String
+  setAt     DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -1,8 +1,5 @@
-import 'dart:io' show Platform;
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:hazard_app/features/shared/services/firebase_session_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -120,15 +117,6 @@ class AppBootstrap {
               ? DefaultFirebaseOptionsDev.currentPlatform
               : DefaultFirebaseOptions.currentPlatform,
         );
-        // Ask ALRT's callable enforces App Check, so the attestation has
-        // to be registered before anything calls it.
-        // The iOS dev app has no Firebase identity of its own yet (see
-        // firebase_options_dev.dart), so App Check cannot attest it. Skip it
-        // there rather than risk a native failure at launch; Ask ALRT then
-        // uses its on-device answers, as it already does when App Check fails.
-        if (!(flavor == AppFlavor.dev && Platform.isIOS)) {
-          await FirebaseSessionService.initializeAppCheck();
-        }
       },
       onError: (_) {},
     );

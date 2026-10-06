@@ -7,7 +7,6 @@ import {
   AskAlrtRateLimitedError,
   type AskAlrtResponse,
 } from "../lib/askAlrt";
-import { isFirebaseConfigured } from "../lib/firebase";
 
 interface ChatTurn {
   role: "user" | "assistant";
@@ -48,8 +47,6 @@ export const AskAlrtPage = () => {
     [alerts.data],
   );
 
-  const configured = isFirebaseConfigured();
-
   const handleSend = async () => {
     const trimmed = question.trim();
     if (!trimmed || sending) return;
@@ -87,16 +84,6 @@ export const AskAlrtPage = () => {
           </p>
         </div>
       </div>
-
-      {!configured && (
-        <div className="state-block" role="status">
-          Ask ALRT needs a Firebase Web App configured for this environment
-          before it can answer questions (VITE_FIREBASE_* in .env.test /
-          .env.example are blank until that Firebase Console step is done).
-          The rest of this page still shows which TEST alerts would be used
-          as context.
-        </div>
-      )}
 
       {alerts.loading && <LoadingState label="Loading alert context..." />}
       {!alerts.loading && Boolean(alerts.error) && (

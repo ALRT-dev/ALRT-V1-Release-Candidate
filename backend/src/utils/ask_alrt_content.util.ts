@@ -1,11 +1,10 @@
 /**
  * Pure rules for the Ask ALRT content the Admin Portal edits: the pre-written
- * answer library and the emergency number list. No Firestore, no Express, so
+ * answer library and the emergency number list. No database, no Express, so
  * every rule here is unit-checked by src/scripts/verify_ask_alrt_admin_content.ts.
  *
- * The matching and merge behaviour these rows feed lives in the Cloud Function
- * (askalrt/functions/src/askalrt/entriesLoader.ts and emergencyOverrides.ts);
- * the field names and limits below match what its sanitizers accept.
+ * The matching and merge behaviour these rows feed lives in
+ * services/ask_alrt.service.ts (and services/ask_alrt/matching.ts).
  */
 import seedEntries from "../constants/ask_alrt_seed_entries.json" with { type: "json" };
 
@@ -113,7 +112,7 @@ export function validateEntryFields(input: {
   return { ok: true, errors: [], value: { triggers, keywords, answer, enabled: enabled as boolean } };
 }
 
-export interface FirestoreEntryDoc {
+export interface SavedEntryDoc {
   id: string;
   data: {
     triggers?: unknown;
@@ -130,11 +129,11 @@ const asStrings = (v: unknown): string[] =>
 
 /**
  * What the app currently shows for each id: built-in answers, with any
- * Firestore doc replacing the built-in of the same id, plus Firestore-only ids.
+ * saved row replacing the built-in of the same id, plus saved-only ids.
  * A built-in row with no doc has origin "built_in" (not yet editable data).
  */
-export function mergeEntryRows(docs: readonly FirestoreEntryDoc[]): AskAlrtEntryRow[] {
-  const byId = new Map<string, FirestoreEntryDoc>(docs.map((d) => [d.id, d]));
+export function mergeEntryRows(docs: readonly SavedEntryDoc[]): AskAlrtEntryRow[] {
+  const byId = new Map<string, SavedEntryDoc>(docs.map((d) => [d.id, d]));
   const rows: AskAlrtEntryRow[] = [];
 
   for (const seed of BUILT_IN_ENTRIES) {
@@ -160,7 +159,7 @@ export function mergeEntryRows(docs: readonly FirestoreEntryDoc[]): AskAlrtEntry
   return rows.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-function rowFromDoc(doc: FirestoreEntryDoc, origin: AskAlrtEntryOrigin, hasBuiltIn: boolean): AskAlrtEntryRow {
+function rowFromDoc(doc: SavedEntryDoc, origin: AskAlrtEntryOrigin, hasBuiltIn: boolean): AskAlrtEntryRow {
   const { data } = doc;
   return {
     id: doc.id,
@@ -178,7 +177,7 @@ function rowFromDoc(doc: FirestoreEntryDoc, origin: AskAlrtEntryOrigin, hasBuilt
 // --- Emergency numbers -------------------------------------------------
 
 export const ISO_RE = /^[A-Z]{2}$/;
-/** Digits only, 2 to 6 long: 000, 112, 911, 999, 1122. Matches the Cloud Function. */
+/** Digits only, 2 to 6 long: 000, 112, 911, 999, 1122. Same rule the assistant applies. */
 export const EMERGENCY_NUMBER_RE = /^[0-9]{2,6}$/;
 
 export interface EmergencyNumberInput {
@@ -215,7 +214,7 @@ export interface EmergencyNumberRow extends EmergencyNumberInput {
   defaultNumber: string | null;
 }
 
-/** Turn a raw Firestore doc into clean {ISO -> value} maps; bad rows are dropped. */
+/** Turn a raw saved value into clean {ISO -> value} maps; bad rows are dropped. */
 export function readEmergencyDoc(raw: unknown): { numbers: Record<string, string>; names: Record<string, string> } {
   const out = { numbers: {} as Record<string, string>, names: {} as Record<string, string> };
   if (typeof raw !== "object" || raw === null) return out;

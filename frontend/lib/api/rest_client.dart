@@ -262,12 +262,6 @@ abstract class RestClient {
     @Field() final String? userEmail,
   });
 
-  /// Mints a Firebase custom token for the signed-in user. Ask ALRT is a
-  /// Firebase callable that requires a uid, and the app authenticates
-  /// against our own backend, so this is the bridge between the two.
-  @POST(kUrlFirebaseToken)
-  Future<HttpResponse<dynamic>> getFirebaseCustomToken();
-
   // ---------------------------- FAMILY ----------------------------
 
   /// Returns the user's family circle, or a null body when they have none —

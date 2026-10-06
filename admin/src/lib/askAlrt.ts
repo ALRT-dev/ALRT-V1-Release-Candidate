@@ -1,13 +1,8 @@
-import { signInWithCustomToken } from "firebase/auth";
-import { getFunctions, httpsCallable, type FunctionsError } from "firebase/functions";
-import { apiPost } from "../api/client";
-import { getFirebaseApp, getFirebaseAuth, isFirebaseConfigured } from "./firebase";
+import { ApiError, apiPost } from "../api/client";
 
-// Matches ALRT-dev/askalrt's functions/src/askalrt/askAlrt.ts AskRequest -
-// that Cloud Function is reused unchanged, so this shape must match its
-// real contract exactly, not the (currently mismatched) `nearbyAlerts`
-// field the mobile app sends - the function only reads `context` (a
-// string), never `nearbyAlerts`.
+// Matches backend/src/validators/admin/ask_alrt_content.validator.ts
+// (askAlrtBodySchema). Ask ALRT runs inside the ALRT backend; this page asks
+// the same engine the app uses, without counting against anyone's allowance.
 export interface AskAlrtRequest {
   question: string;
   history?: { role: "user" | "assistant"; content: string }[];
@@ -30,37 +25,16 @@ export class AskAlrtRateLimitedError extends Error {
   }
 }
 
-let signedIn = false;
-
-const ensureSignedIn = async (): Promise<void> => {
-  if (signedIn) return;
-  const auth = getFirebaseAuth();
-  const { token } = await apiPost<{ token: string }>("/api/admin/ask-alrt/firebase-token");
-  await signInWithCustomToken(auth, token);
-  signedIn = true;
-};
-
 /**
- * Calls the existing askAlrt Cloud Function (ALRT-dev/askalrt, unchanged).
- * Throws AskAlrtRateLimitedError for the daily-quota case; any other
- * failure (App Check rejection, not configured, network loss) throws
- * normally for the caller to show as a generic failure state.
+ * Asks the backend's Ask ALRT engine. Throws AskAlrtRateLimitedError for the
+ * daily-quota case; any other failure throws normally for the caller to show
+ * as a generic failure state.
  */
 export const askAlrt = async (request: AskAlrtRequest): Promise<AskAlrtResponse> => {
-  if (!isFirebaseConfigured()) {
-    throw new Error(
-      "Ask ALRT needs a Firebase Web App to be configured for this environment first.",
-    );
-  }
-  await ensureSignedIn();
-  const functions = getFunctions(getFirebaseApp(), "us-central1");
-  const callable = httpsCallable<AskAlrtRequest, AskAlrtResponse>(functions, "askAlrt");
   try {
-    const result = await callable(request);
-    return result.data;
+    return await apiPost<AskAlrtResponse>("/api/admin/ask-alrt/ask", request);
   } catch (error) {
-    const code = (error as FunctionsError | undefined)?.code;
-    if (code === "functions/resource-exhausted") {
+    if (error instanceof ApiError && error.status === 429) {
       throw new AskAlrtRateLimitedError();
     }
     throw error;

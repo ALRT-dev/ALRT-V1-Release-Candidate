@@ -1,8 +1,10 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/ask_alrt/models/ask_alrt_message.dart';
 import 'package:hazard_app/features/ask_alrt/providers/states/ask_alrt_provider_state.dart';
+import 'package:hazard_app/api/endpoints.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/shared/providers/dio_instance_provider.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/ask_alrt/models/ask_alrt_local_answers.dart';
 import 'package:hazard_app/features/shared/services/emergency_number.dart';
@@ -13,10 +15,10 @@ final providerOfAskAlrt =
     );
 
 /// Drives the Ask ALRT chat: grounds each question in nearby active alerts,
-/// calls the `askAlrt` Firebase callable, and never surfaces a raw error.
+/// calls the backend's Ask ALRT endpoint, and never surfaces a raw error.
 class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
-  /// Calm fallback shown for ANY failure (App Check rejection, function not
-  /// deployed, network, malformed response). Never show a raw error.
+  /// Calm fallback shown for ANY failure (server error, network,
+  /// malformed response). Never show a raw error.
   /// Used only when nothing local matches and the backend is unreachable.
   /// The emergency number is resolved per user, never hard-coded.
   /// The offline fallback carries the app basics rather than a shrug, so
@@ -37,7 +39,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
   @override
   AskAlrtProviderState build() => const AskAlrtProviderState();
 
-  /// Sends [question] to the `askAlrt` callable, grounded in up to 5 nearby
+  /// Sends [question] to the backend, grounded in up to 5 nearby
   /// active alerts from the map state.
   Future<void> ask(final String question) async {
     final trimmed = question.trim();
@@ -78,30 +80,35 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
     var citedAlerts = const <Hazard>[];
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable(
-        'askAlrt',
-        options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+      final dio = ref.read(providerOfDioInstance(true));
+      final response = await dio.post<dynamic>(
+        kUrlAskAlrt,
+        data: {
+          'question': trimmed,
+          'emergencyNumber': emergencyNumber,
+          if (nearbyAlertsPayload.isNotEmpty)
+            'nearbyAlerts': nearbyAlertsPayload,
+          // The daily Ask ALRT allowance counts the person's LOCAL day
+          // (master spec §14); the server validates and rate-limits changes.
+          'utcOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes,
+        },
+        options: Options(
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 45),
+        ),
       );
-      final result = await callable.call<dynamic>({
-        'question': trimmed,
-        if (nearbyAlertsPayload.isNotEmpty) 'nearbyAlerts': nearbyAlertsPayload,
-        // The daily Ask ALRT allowance counts the person's LOCAL day
-        // (master spec §14); the server validates and rate-limits changes.
-        'utcOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes,
-      });
 
-      final parsedAnswer = _extractAnswer(result.data);
+      final parsedAnswer = _extractAnswer(response.data);
       if (parsedAnswer != null) {
         answer = parsedAnswer;
-        citedAlerts = _resolveCitedAlerts(result.data, groundingAlerts);
+        citedAlerts = _resolveCitedAlerts(response.data, groundingAlerts);
       }
-    } on FirebaseFunctionsException catch (exception) {
+    } on DioException catch (exception) {
       answer = _isLimitError(exception)
           ? limitAnswer
           : fallbackAnswerFor(emergencyNumber);
     } catch (_) {
-      // App Check rejection, not deployed, network loss, anything else:
-      // stay calm, keep the fallback copy.
+      // Network loss, anything else: stay calm, keep the fallback copy.
       answer = fallbackAnswerFor(emergencyNumber);
     }
 
@@ -198,11 +205,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
   }
 
   /// True when the backend rejected the call with a quota-style message.
-  bool _isLimitError(final FirebaseFunctionsException exception) {
-    final message = exception.message?.toLowerCase() ?? '';
-    final details = exception.details?.toString().toLowerCase() ?? '';
-    return exception.code == 'resource-exhausted' ||
-        message.contains('limit') ||
-        details.contains('limit');
+  bool _isLimitError(final DioException exception) {
+    return exception.response?.statusCode == 429;
   }
 }

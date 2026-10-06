@@ -15,9 +15,11 @@ import familyRouter from "./family.route.js";
 import guideRouter from "./guide.route.js";
 import publicRouter from "./public.route.js";
 import accessRouter from "./access.route.js";
+import askAlrtRouter from "./ask_alrt.route.js";
 
 export {
   accessRouter,
+  askAlrtRouter,
   authRouter,
   userRouter,
   hazardRouter,
