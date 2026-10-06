@@ -372,7 +372,9 @@ jobs:
         run: |
           # The app shows commit and billing mode on its Profile screen
           # (build label), so a phone can prove which build it runs.
-          DEFINES="--dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }}"
+          # TEST builds only: show the email sign-in button (the app hides it by default).
+          # The server still decides who may sign in with a password.
+          DEFINES="--dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }} --dart-define=ALRT_EMAIL_AUTH=true"
           if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
             flutter build apk --debug --flavor dev -t lib/main_dev.dart $DEFINES
             echo "apk_path=frontend/build/app/outputs/flutter-apk/app-dev-debug.apk" >> "$GITHUB_OUTPUT"
