@@ -20,6 +20,7 @@ import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:hazard_app/features/map/utils/maps_availability.dart';
 
 class FamilySosReceiverScreenArgs {
   const FamilySosReceiverScreenArgs({required this.sosEvent});
@@ -389,31 +390,36 @@ class _FamilySosReceiverScreenState
       borderRadius: BorderRadius.circular(20.spMin),
       child: SizedBox(
         height: 240.spMin,
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(target: position, zoom: 15.5),
-          onMapCreated: (controller) => _mapController = controller,
-          markers: {
-            Marker(markerId: const MarkerId('sos'), position: position),
-          },
-          polylines: {
-            if (isLive && _trail.length >= 2)
-              Polyline(
-                polylineId: const PolylineId('sosTrail'),
-                points: [
-                  for (final point in _trail)
-                    LatLng(point.latitude, point.longitude),
-                  position,
-                ],
-                color: FamilyColors.sosRed,
-                width: 4,
-              ),
-          },
-          zoomControlsEnabled: false,
-          myLocationButtonEnabled: false,
-          // Lite mode renders a static image: fine for a resolved SOS,
-          // useless for following someone, so live maps use the real thing.
-          liteModeEnabled: !isLive,
-        ),
+        child: MapsAvailability.available
+            ? GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: position,
+                  zoom: 15.5,
+                ),
+                onMapCreated: (controller) => _mapController = controller,
+                markers: {
+                  Marker(markerId: const MarkerId('sos'), position: position),
+                },
+                polylines: {
+                  if (isLive && _trail.length >= 2)
+                    Polyline(
+                      polylineId: const PolylineId('sosTrail'),
+                      points: [
+                        for (final point in _trail)
+                          LatLng(point.latitude, point.longitude),
+                        position,
+                      ],
+                      color: FamilyColors.sosRed,
+                      width: 4,
+                    ),
+                },
+                zoomControlsEnabled: false,
+                myLocationButtonEnabled: false,
+                // Lite mode renders a static image: fine for a resolved SOS,
+                // useless for following someone, so live maps use the real thing.
+                liteModeEnabled: !isLive,
+              )
+            : const MapUnavailable(),
       ),
     );
   }
@@ -674,7 +680,8 @@ class _FamilySosReceiverScreenState
     // A Once chosen with no fix available at send time has nothing
     // retained to withdraw or reduce - it behaves like "none" for these
     // controls (finding 5, review of 28bdec1).
-    final hasRetainedLocation = sos.latitude != null || sos.locationLabel != null;
+    final hasRetainedLocation =
+        sos.latitude != null || sos.locationLabel != null;
     final status = !live
         ? once && hasRetainedLocation
               ? suburb
@@ -737,42 +744,56 @@ class _FamilySosReceiverScreenState
         ),
         SizedBox(height: 8.spMin),
         if (live) ...[
-          button('sos-send-now', 'Send my location now', LucideIcons.mapPin,
-              () async {
-            final sent = await notifier.sendSosPointNow(sosEventId: sos.id);
-            if (!context.mounted) return;
-            sent
-                ? context.showSuccessToast(
-                    message: 'Sent to the people this SOS went to.',
-                  )
-                : context.showErrorToast(
-                    message:
-                        'Your phone can\'t find where you are right now. '
-                        'Nothing old was sent.',
-                  );
-          }),
+          button(
+            'sos-send-now',
+            'Send my location now',
+            LucideIcons.mapPin,
+            () async {
+              final sent = await notifier.sendSosPointNow(sosEventId: sos.id);
+              if (!context.mounted) return;
+              sent
+                  ? context.showSuccessToast(
+                      message: 'Sent to the people this SOS went to.',
+                    )
+                  : context.showErrorToast(
+                      message:
+                          'Your phone can\'t find where you are right now. '
+                          'Nothing old was sent.',
+                    );
+            },
+          ),
           SizedBox(height: 8.spMin),
           suburb
-              ? button('sos-consent-exact', 'Share exact location',
+              ? button(
+                  'sos-consent-exact',
+                  'Share exact location',
                   LucideIcons.locateFixed,
                   () => change(
                     precision: SosPrecisionChoice.exact,
                     done: 'This SOS now shares your exact location.',
-                  ))
-              : button('sos-consent-suburb', 'Suburb only',
+                  ),
+                )
+              : button(
+                  'sos-consent-suburb',
+                  'Suburb only',
                   LucideIcons.mapPinned,
                   () => change(
                     precision: SosPrecisionChoice.suburb,
                     done: 'This SOS now shares your suburb only.',
-                  )),
+                  ),
+                ),
           SizedBox(height: 8.spMin),
-          button('sos-consent-stop', 'Stop sharing my location',
-              LucideIcons.mapPinOff,
-              () => change(
-                mode: SosLocationChoice.none,
-                done: 'Your location is no longer shared. Your SOS is still '
-                    'active.',
-              )),
+          button(
+            'sos-consent-stop',
+            'Stop sharing my location',
+            LucideIcons.mapPinOff,
+            () => change(
+              mode: SosLocationChoice.none,
+              done:
+                  'Your location is no longer shared. Your SOS is still '
+                  'active.',
+            ),
+          ),
         ] else if (once && hasRetainedLocation) ...[
           // Finding 5, review of 28bdec1: a Once/Exact sender must be able
           // to remove or reduce the retained location while the SOS stays
@@ -781,29 +802,40 @@ class _FamilySosReceiverScreenState
           // reduce direction is offered (suburb only, if currently exact);
           // widening back to exact would show a promise nothing can fulfil.
           if (!suburb) ...[
-            button('sos-consent-suburb', 'Suburb only',
-                LucideIcons.mapPinned,
-                () => change(
-                  precision: SosPrecisionChoice.suburb,
-                  done: 'This SOS now shares your suburb only.',
-                )),
+            button(
+              'sos-consent-suburb',
+              'Suburb only',
+              LucideIcons.mapPinned,
+              () => change(
+                precision: SosPrecisionChoice.suburb,
+                done: 'This SOS now shares your suburb only.',
+              ),
+            ),
             SizedBox(height: 8.spMin),
           ],
-          button('sos-consent-stop', 'Stop sharing my location',
-              LucideIcons.mapPinOff,
-              () => change(
-                mode: SosLocationChoice.none,
-                done: 'Your location is no longer shared. Your SOS is still '
-                    'active.',
-              )),
+          button(
+            'sos-consent-stop',
+            'Stop sharing my location',
+            LucideIcons.mapPinOff,
+            () => change(
+              mode: SosLocationChoice.none,
+              done:
+                  'Your location is no longer shared. Your SOS is still '
+                  'active.',
+            ),
+          ),
         ] else
-          button('sos-consent-live', 'Share live location',
-              LucideIcons.radio,
-              () => change(
-                mode: SosLocationChoice.live,
-                done: 'Your live location is shared with the people this '
-                    'SOS went to.',
-              )),
+          button(
+            'sos-consent-live',
+            'Share live location',
+            LucideIcons.radio,
+            () => change(
+              mode: SosLocationChoice.live,
+              done:
+                  'Your live location is shared with the people this '
+                  'SOS went to.',
+            ),
+          ),
       ],
     );
   }

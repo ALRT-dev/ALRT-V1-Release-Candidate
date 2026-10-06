@@ -19,6 +19,7 @@ import 'package:hazard_app/features/map/views/widgets/route_source_and_destinati
 import 'package:hazard_app/features/map/views/widgets/selected_location_preview.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
+import 'package:hazard_app/features/map/utils/maps_availability.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -35,51 +36,54 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: ref.read(
-              providerOfMap.select(
-                (value) => value.cameraPosition,
-              ),
-            ),
-            markers: ref.watch(
-              providerOfMap.select(
-                (value) => value.markers,
-              ),
-            ),
-            polylines: ref.watch(
-              providerOfMap.select(
-                (value) => value.polylines,
-              ),
-            ),
-            mapType: ref.watch(providerOfMapType),
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            compassEnabled: false,
-            zoomControlsEnabled: false,
-            padding: EdgeInsets.only(bottom: 22.spMin, left: 8.spMin),
-            buildingsEnabled: ref.watch(
-              providerOfMap.select(
-                (value) => !(value.currentRoutePlan?.isNavigating ?? false),
-              ),
-            ),
-            onMapCreated: (controller) {
-              ref
-                  .read(providerOfMap.notifier)
-                  .init(googleMapController: controller);
-            },
-            onCameraMove: _handleMapMoved,
-            onTap: (_) {
-              context.unfocusInputs();
-              ref.read(providerOfMap.notifier).updateSelectedHazard(null);
-            },
-            onLongPress: kDebugMode
-                ? (final LatLng position) =>
-                      NavigationSimulationControls.handleMapLongPress(
-                        ref,
-                        position,
-                      )
-                : null,
-          ),
+          MapsAvailability.available
+              ? GoogleMap(
+                  initialCameraPosition: ref.read(
+                    providerOfMap.select(
+                      (value) => value.cameraPosition,
+                    ),
+                  ),
+                  markers: ref.watch(
+                    providerOfMap.select(
+                      (value) => value.markers,
+                    ),
+                  ),
+                  polylines: ref.watch(
+                    providerOfMap.select(
+                      (value) => value.polylines,
+                    ),
+                  ),
+                  mapType: ref.watch(providerOfMapType),
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  compassEnabled: false,
+                  zoomControlsEnabled: false,
+                  padding: EdgeInsets.only(bottom: 22.spMin, left: 8.spMin),
+                  buildingsEnabled: ref.watch(
+                    providerOfMap.select(
+                      (value) =>
+                          !(value.currentRoutePlan?.isNavigating ?? false),
+                    ),
+                  ),
+                  onMapCreated: (controller) {
+                    ref
+                        .read(providerOfMap.notifier)
+                        .init(googleMapController: controller);
+                  },
+                  onCameraMove: _handleMapMoved,
+                  onTap: (_) {
+                    context.unfocusInputs();
+                    ref.read(providerOfMap.notifier).updateSelectedHazard(null);
+                  },
+                  onLongPress: kDebugMode
+                      ? (final LatLng position) =>
+                            NavigationSimulationControls.handleMapLongPress(
+                              ref,
+                              position,
+                            )
+                      : null,
+                )
+              : const MapUnavailable(),
           Positioned.fill(
             child: _overlayedContentsBuilder(),
           ),
@@ -222,7 +226,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-
   /// Handles the map movement by updating the camera position in the provider.
   void _handleMapMoved(CameraPosition position) {
     ref
@@ -243,5 +246,4 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       },
     );
   }
-
 }

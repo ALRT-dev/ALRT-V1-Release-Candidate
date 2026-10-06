@@ -9,6 +9,7 @@ import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.da
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:hazard_app/features/map/utils/maps_availability.dart';
 
 class SharedJourneyScreenArgs {
   const SharedJourneyScreenArgs({required this.journeyId});
@@ -179,19 +180,27 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
       borderRadius: BorderRadius.circular(20.spMin),
       child: SizedBox(
         height: 220.spMin,
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(target: position, zoom: 14.5),
-          onMapCreated: (controller) => _mapController = controller,
-          markers: {
-            Marker(markerId: const MarkerId('journey'), position: position),
-          },
-          zoomControlsEnabled: false,
-          myLocationButtonEnabled: false,
-          // Lite mode is a static image: fine when position updates are
-          // occasional (snap points), not useful while following someone
-          // moving live.
-          liteModeEnabled: !isLive,
-        ),
+        child: MapsAvailability.available
+            ? GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: position,
+                  zoom: 14.5,
+                ),
+                onMapCreated: (controller) => _mapController = controller,
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('journey'),
+                    position: position,
+                  ),
+                },
+                zoomControlsEnabled: false,
+                myLocationButtonEnabled: false,
+                // Lite mode is a static image: fine when position updates are
+                // occasional (snap points), not useful while following someone
+                // moving live.
+                liteModeEnabled: !isLive,
+              )
+            : const MapUnavailable(),
       ),
     );
   }
@@ -208,9 +217,7 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
               Icon(
                 isActive ? LucideIcons.navigation : LucideIcons.checkCheck,
                 size: 18.spMin,
-                color: isActive
-                    ? FamilyColors.v31Indigo
-                    : AppColors.mediumGrey,
+                color: isActive ? FamilyColors.v31Indigo : AppColors.mediumGrey,
               ),
               8.wSizedBox,
               Expanded(
@@ -275,7 +282,10 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
     );
   }
 
-  Widget _cardBuilder({required final String label, required final Widget child}) {
+  Widget _cardBuilder({
+    required final String label,
+    required final Widget child,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -334,8 +344,8 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
   /// whatever message it sent (e.g. "You weren't shared this journey"),
   /// never a raw exception.
   Widget _errorBuilder(final dynamic error) {
-    final message = error?.message as String? ??
-        'This journey isn\'t available.';
+    final message =
+        error?.message as String? ?? 'This journey isn\'t available.';
     return Center(
       child: Padding(
         padding: EdgeInsets.all(24.spMin),

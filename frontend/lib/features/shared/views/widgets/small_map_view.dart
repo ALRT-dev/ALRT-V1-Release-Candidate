@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/map/providers/hazard_markers_bitmaps_provider.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/features/map/utils/maps_availability.dart';
 
 class SmallMapView extends ConsumerStatefulWidget {
   const SmallMapView({
@@ -104,47 +105,53 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
             onPointerDown: (_) {
               // This helps prevent parent scroll views from intercepting gestures
             },
-            child: GoogleMap(
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-              },
-              initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  widget.hazard.latitude!,
-                  widget.hazard.longitude!,
-                ),
-                zoom: 7.0,
-              ),
-              markers: _markers,
-              zoomControlsEnabled: false,
-              scrollGesturesEnabled: true,
-              zoomGesturesEnabled: true,
-              rotateGesturesEnabled: false,
-              tiltGesturesEnabled: false,
-              myLocationButtonEnabled: false,
-              mapToolbarEnabled: false,
-              compassEnabled: false,
-              buildingsEnabled: true,
-              trafficEnabled: false,
-              mapType: MapType.normal,
-              onTap: (_) {
-                // Call the optional tap callback
-                widget.onTap?.call();
-              },
-              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                Factory<PanGestureRecognizer>(() => PanGestureRecognizer()),
-                Factory<ScaleGestureRecognizer>(
-                  () => ScaleGestureRecognizer(),
-                ),
-                Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-                Factory<VerticalDragGestureRecognizer>(
-                  () => VerticalDragGestureRecognizer(),
-                ),
-                Factory<HorizontalDragGestureRecognizer>(
-                  () => HorizontalDragGestureRecognizer(),
-                ),
-              },
-            ),
+            child: MapsAvailability.available
+                ? GoogleMap(
+                    onMapCreated: (GoogleMapController controller) {
+                      _mapController = controller;
+                    },
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(
+                        widget.hazard.latitude!,
+                        widget.hazard.longitude!,
+                      ),
+                      zoom: 7.0,
+                    ),
+                    markers: _markers,
+                    zoomControlsEnabled: false,
+                    scrollGesturesEnabled: true,
+                    zoomGesturesEnabled: true,
+                    rotateGesturesEnabled: false,
+                    tiltGesturesEnabled: false,
+                    myLocationButtonEnabled: false,
+                    mapToolbarEnabled: false,
+                    compassEnabled: false,
+                    buildingsEnabled: true,
+                    trafficEnabled: false,
+                    mapType: MapType.normal,
+                    onTap: (_) {
+                      // Call the optional tap callback
+                      widget.onTap?.call();
+                    },
+                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                      Factory<PanGestureRecognizer>(
+                        () => PanGestureRecognizer(),
+                      ),
+                      Factory<ScaleGestureRecognizer>(
+                        () => ScaleGestureRecognizer(),
+                      ),
+                      Factory<TapGestureRecognizer>(
+                        () => TapGestureRecognizer(),
+                      ),
+                      Factory<VerticalDragGestureRecognizer>(
+                        () => VerticalDragGestureRecognizer(),
+                      ),
+                      Factory<HorizontalDragGestureRecognizer>(
+                        () => HorizontalDragGestureRecognizer(),
+                      ),
+                    },
+                  )
+                : const MapUnavailable(),
           ),
           // Add subtle overlay if onTap is provided
           if (widget.onTap != null)

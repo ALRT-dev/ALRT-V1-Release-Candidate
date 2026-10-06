@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
 import 'package:hazard_app/features/shared/providers/base_url_provider.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_service.dart';
+import 'package:hazard_app/features/map/utils/maps_availability.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/firebase_options.dart';
 import 'package:hazard_app/firebase_options_dev.dart';
@@ -31,6 +32,7 @@ class AppBootstrap {
       _loadEnvironmentVariables(),
       _initializeGoogleFonts(),
       _initializeHomeWidget(),
+      _initializeMapsAvailability(),
     ]);
 
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -87,9 +89,11 @@ class AppBootstrap {
     return runAsyncCall(
       name: 'initializeGoogleFonts',
       future: () async {
+        // Never hold the first frame on a slow network: the font falls
+        // back to the system face if it has not arrived in time.
         await GoogleFonts.pendingFonts([
           GoogleFonts.bebasNeue(),
-        ]);
+        ]).timeout(const Duration(seconds: 5));
       },
       onError: (_) {},
     );
@@ -101,6 +105,14 @@ class AppBootstrap {
       future: () async {
         await HomeWidgetService.initialize();
       },
+      onError: (_) {},
+    );
+  }
+
+  Future<void> _initializeMapsAvailability() async {
+    return runAsyncCall(
+      name: 'initializeMapsAvailability',
+      future: MapsAvailability.initialize,
       onError: (_) {},
     );
   }

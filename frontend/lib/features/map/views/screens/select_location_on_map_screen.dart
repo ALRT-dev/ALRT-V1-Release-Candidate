@@ -13,6 +13,7 @@ import 'package:hazard_app/features/shared/utils/location_helper.dart';
 import 'package:hazard_app/features/shared/views/widgets/round_button.dart';
 import 'package:hazard_app/features/shared/views/widgets/spinner.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/features/map/utils/maps_availability.dart';
 
 class SelectLocationOnMapScreenArgs {
   SelectLocationOnMapScreenArgs({
@@ -70,41 +71,43 @@ class _SelectLocationOnMapScreenState
           15.wSizedBox,
         ],
       ),
-      body: GoogleMap(
-        initialCameraPosition: ref.read(
-          providerOfMap.select(
-            (value) => value.cameraPosition,
-          ),
-        ),
-        markers: ref.watch(
-          providerOfMap.select(
-            (value) => value.markers,
-          ),
-        ),
-        circles: widget.args?.hasRadiusConstraint ?? false
-            ? {
-                Circle(
-                  circleId: const CircleId('radius-constraint'),
-                  center: LatLng(
-                    widget.args!.centerLocation!.latitude,
-                    widget.args!.centerLocation!.longitude,
-                  ),
-                  radius: widget.args!.radiusInMeters!,
-                  fillColor: AppColors.blue.withValues(alpha: 0.1),
-                  strokeColor: AppColors.blue.withValues(alpha: 0.5),
-                  strokeWidth: 2,
+      body: MapsAvailability.available
+          ? GoogleMap(
+              initialCameraPosition: ref.read(
+                providerOfMap.select(
+                  (value) => value.cameraPosition,
                 ),
-              }
-            : {},
-        myLocationEnabled: true,
-        onMapCreated: (controller) {
-          ref
-              .read(providerOfMap.notifier)
-              .init(googleMapController: controller);
-          _onInit();
-        },
-        onTap: _handleMapTapped,
-      ),
+              ),
+              markers: ref.watch(
+                providerOfMap.select(
+                  (value) => value.markers,
+                ),
+              ),
+              circles: widget.args?.hasRadiusConstraint ?? false
+                  ? {
+                      Circle(
+                        circleId: const CircleId('radius-constraint'),
+                        center: LatLng(
+                          widget.args!.centerLocation!.latitude,
+                          widget.args!.centerLocation!.longitude,
+                        ),
+                        radius: widget.args!.radiusInMeters!,
+                        fillColor: AppColors.blue.withValues(alpha: 0.1),
+                        strokeColor: AppColors.blue.withValues(alpha: 0.5),
+                        strokeWidth: 2,
+                      ),
+                    }
+                  : {},
+              myLocationEnabled: true,
+              onMapCreated: (controller) {
+                ref
+                    .read(providerOfMap.notifier)
+                    .init(googleMapController: controller);
+                _onInit();
+              },
+              onTap: _handleMapTapped,
+            )
+          : const MapUnavailable(),
     );
   }
 
