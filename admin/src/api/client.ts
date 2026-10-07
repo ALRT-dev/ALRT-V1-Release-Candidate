@@ -1,6 +1,18 @@
 import { clearTokens, loadTokens, saveTokens } from "./tokenStorage";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+/**
+ * On Cloudflare Pages (any *.pages.dev address, including branch previews)
+ * requests go to this site's own /api, which the Pages Function in
+ * functions/api relays to the TEST backend. The browser then never makes a
+ * cross-site call, so a preview address works without the backend having
+ * to list it in CORS_ALLOWED_ORIGINS. Anywhere else (local dev, a custom
+ * domain) the configured backend is called directly, as before.
+ */
+const BASE_URL =
+  typeof window !== "undefined" &&
+  window.location.hostname.endsWith(".pages.dev")
+    ? ""
+    : import.meta.env.VITE_API_BASE_URL;
 
 /** Thrown for any non-2xx response. Screens branch on `status` to show the
  * right state (permission denied, not found, validation message, etc). */
