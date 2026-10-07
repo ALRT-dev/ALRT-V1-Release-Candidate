@@ -41,6 +41,7 @@ On the TEST server's environment (`.env.test`), then restart it:
 | `GOOGLE_OAUTH_CLIENT_ID_IOS` | the TEST iOS client (same value as `TEST_GOOGLE_IOS_CLIENT_ID`) |
 | `GOOGLE_OAUTH_CLIENT_ID_ANDROID` | the Android client ID from step 2 |
 | `APPLE_OAUTH_AUDIENCE` | `com.safetyalrt.alrt.dev` |
+| `EMAIL_PASSWORD_AUTH_ENABLED` | `true` (the TEST builds show the email button; without this every email sign-up and login gets "Not found") |
 
 ## 4. Push notifications on the iPhone TEST app
 

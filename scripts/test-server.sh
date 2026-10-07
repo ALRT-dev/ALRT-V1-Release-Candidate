@@ -58,10 +58,11 @@ ssm "$ID" 1500 \
   'git -C "$ROOT" log --oneline -1' \
   'cp .env.test .env.test.bak-$(date +%Y%m%d%H%M%S)' \
   "grep -q '^RUN_SCHEDULED_JOBS_IN_TEST=' .env.test && sed -i 's/^RUN_SCHEDULED_JOBS_IN_TEST=.*/RUN_SCHEDULED_JOBS_IN_TEST=true/' .env.test || echo 'RUN_SCHEDULED_JOBS_IN_TEST=true' >> .env.test" \
+  "grep -q '^EMAIL_PASSWORD_AUTH_ENABLED=' .env.test && sed -i 's/^EMAIL_PASSWORD_AUTH_ENABLED=.*/EMAIL_PASSWORD_AUTH_ENABLED=true/' .env.test || echo 'EMAIL_PASSWORD_AUTH_ENABLED=true' >> .env.test" \
   'P=https://alrt-v1-release-candidate.pages.dev; C=$(grep "^CORS_ALLOWED_ORIGINS=" .env.test | cut -d= -f2-); case ",$C," in *",$P,"*) ;; *) sed -i "/^CORS_ALLOWED_ORIGINS=/d" .env.test; echo "CORS_ALLOWED_ORIGINS=${C:+$C,}$P" >> .env.test;; esac' \
   "docker compose -f docker-compose.test.yml up -d --build app" \
   "sleep 25" \
   "docker logs --tail 40 app-test 2>&1 | grep -viE 'secret|password|token|key=' || true" \
   'for p in /api/app/version-policy /api/hazard-categories; do printf "%s " $p; curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3010$p; done' \
-  'echo "Settings still blank in .env.test (names only):"; for k in GOOGLE_OAUTH_CLIENT_ID_WEB GOOGLE_OAUTH_CLIENT_ID_IOS GOOGLE_OAUTH_CLIENT_ID_ANDROID APPLE_OAUTH_AUDIENCE AWS_S3_BUCKET_NAME AWS_S3_REGION AWS_S3_ACCESS_KEY_ID AWS_BEDROCK_REGION GOOGLE_MAPS_API_KEY TRIAL_LEDGER_SECRET; do v=$(grep "^$k=" .env.test | cut -d= -f2-); [ -z "$v" ] && echo "  $k"; done; true'
+  'echo "Settings still blank in .env.test (names only):"; for k in EMAIL_PASSWORD_AUTH_ENABLED GOOGLE_OAUTH_CLIENT_ID_WEB GOOGLE_OAUTH_CLIENT_ID_IOS GOOGLE_OAUTH_CLIENT_ID_ANDROID APPLE_OAUTH_AUDIENCE AWS_S3_BUCKET_NAME AWS_S3_REGION AWS_S3_ACCESS_KEY_ID AWS_BEDROCK_REGION GOOGLE_MAPS_API_KEY TRIAL_LEDGER_SECRET; do v=$(grep "^$k=" .env.test | cut -d= -f2-); [ -z "$v" ] && echo "  $k"; done; true'
 echo; echo "Expect /api/app/version-policy 200 and /api/hazard-categories 401."
