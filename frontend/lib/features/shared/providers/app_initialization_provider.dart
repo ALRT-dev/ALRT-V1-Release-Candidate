@@ -10,6 +10,7 @@ import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dar
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/features/shared/services/sim_country.dart';
+import 'package:hazard_app/others/startup_trace.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final providerOfAppInitialization =
@@ -30,8 +31,10 @@ class AppInitializationProvider extends Notifier<bool> {
   /// Initializes the app by performing necessary setup tasks.
   Future<void> initialize() async {
     state = false;
+    StartupTrace.mark('init: start');
 
     await _initializeSharedPreferences();
+    StartupTrace.mark('init: settings storage ready');
     if (!ref.mounted) return;
 
     // The SIM's country decides which emergency number the app offers, so
@@ -41,20 +44,28 @@ class AppInitializationProvider extends Notifier<bool> {
     if (!ref.mounted) return;
 
     // initialize these things after shared preference is initialized but before logged in user is initialized
+    StartupTrace.mark('init: checking sign-in and Google set-up');
     await Future.wait([
       _initializeLoggedInUser(),
       _bounded('initializeGoogleSignIn', _initializeGoogleSignIn, 8),
     ]);
     if (!ref.mounted) return;
 
+    StartupTrace.mark(
+      'init: signed in = ${ref.read(providerOfLoggedInUser) != null}; loading location, markers, categories',
+    );
     // initialize these things after logged in user is initialized
     await Future.wait([
       _bounded('getCurrentUserLocation', _getCurrentUserLocation, 8),
       _bounded('generateMarkerBitmaps', _generateMarkerBitmaps, 10),
       _bounded('initializeMainCategories', _initializeMainCategories, 10),
     ]);
-    if (!ref.mounted) return;
+    if (!ref.mounted) {
+      StartupTrace.mark('init: stopped (provider disposed)');
+      return;
+    }
 
+    StartupTrace.mark('init: done');
     state = true;
   }
 
@@ -69,9 +80,12 @@ class AppInitializationProvider extends Notifier<bool> {
     final Future<void> Function() step,
     final int seconds,
   ) async {
+    StartupTrace.mark('  $name: start');
     try {
       await step().timeout(Duration(seconds: seconds));
+      StartupTrace.mark('  $name: done');
     } catch (error) {
+      StartupTrace.mark('  $name: SKIPPED ($error)');
       log('Start-up step $name skipped: $error', name: 'AppInitialization');
     }
   }
@@ -99,11 +113,16 @@ class AppInitializationProvider extends Notifier<bool> {
   /// Capped at 20 seconds so a poor connection can't hold the splash for the
   /// client's full request timeout; the wrapper then offers a retry.
   Future<void> _initializeLoggedInUser() async {
+    StartupTrace.mark('  user: start');
     try {
-      await ref
+      final result = await ref
           .refresh(providerOfLoggedInUserFetcher.future)
           .timeout(const Duration(seconds: 20));
-    } catch (_) {
+      StartupTrace.mark(
+        '  user: ${result.when((_) => 'signed in', (e) => 'none (${e.code ?? 'no answer'}: ${e.message})')}',
+      );
+    } catch (error) {
+      StartupTrace.mark('  user: FAILED ($error)');
       // Read by AppWrapper through providerOfLoggedInUserFetcher.
     }
   }

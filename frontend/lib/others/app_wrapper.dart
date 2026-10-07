@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/auth/views/screens/auth_screen.dart';
@@ -13,6 +14,7 @@ import 'package:hazard_app/features/shared/providers/app_initialization_provider
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/providers/repository_providers.dart';
 import 'package:hazard_app/features/shared/views/screens/splash_screen.dart';
+import 'package:hazard_app/others/startup_trace.dart';
 import 'package:hazard_app/features/app_update/providers/force_update_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 
@@ -70,10 +72,15 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
     _listenToTheAppInitializationProvider();
 
     if (_unreachable) return _UnreachableScreen(onRetry: _retry);
+    // TEST builds: if start-up stalls, show what it is waiting on.
+    if (appFlavor == 'dev') {
+      return Stack(children: const [SplashScreen(), StartupTraceOverlay()]);
+    }
     return SplashScreen();
   }
 
   void _onInit() {
+    StartupTrace.mark('wrapper: first frame, starting init');
     ref.read(providerOfAppInitialization.notifier).initialize();
   }
 
@@ -110,6 +117,7 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
       providerOfAppInitialization,
       (prev, next) {
         if (prev != next) {
+          StartupTrace.mark('wrapper: init state $prev -> $next');
           if (next) _checkAuthState();
         }
       },
@@ -137,17 +145,22 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
     if (loggedInUser != null) {
       // Check if account is scheduled for deletion
       if (loggedInUser.scheduledDeletionAt != null) {
+        StartupTrace.mark('wrapper: -> deleted-account screen');
         _gotoDeletedAccountInfoScreen();
       } else if (!loggedInUser.isOnboardingCompleted) {
+        StartupTrace.mark('wrapper: -> onboarding');
         _gotoOnboardingScreen();
       } else {
+        StartupTrace.mark('wrapper: -> home');
         _gotoHomeScreen();
       }
     } else if (_failedWithoutAnswer() && await _hasStoredSignIn()) {
       if (!mounted) return;
+      StartupTrace.mark('wrapper: -> cannot reach ALRT');
       setState(() => _unreachable = true);
     } else {
       if (!mounted) return;
+      StartupTrace.mark('wrapper: -> sign-in screen');
       _gotoAuthScreen();
     }
   }

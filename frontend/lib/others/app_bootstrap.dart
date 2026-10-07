@@ -14,6 +14,7 @@ import 'package:hazard_app/firebase_options.dart';
 import 'package:hazard_app/firebase_options_dev.dart';
 import 'package:hazard_app/others/app.dart';
 import 'package:hazard_app/others/app_flavor_types.dart';
+import 'package:hazard_app/others/startup_trace.dart';
 
 class AppBootstrap {
   /// Initializes the app with the given [flavor].
@@ -25,6 +26,8 @@ class AppBootstrap {
 
   void _onInit() async {
     WidgetsFlutterBinding.ensureInitialized();
+    StartupTrace.captureErrors();
+    StartupTrace.mark('bootstrap: start (${flavor.name})');
 
     await Future.wait([
       _initializeEasyLocalization(),
@@ -35,6 +38,7 @@ class AppBootstrap {
       _initializeMapsAvailability(),
     ]);
 
+    StartupTrace.mark('bootstrap: plugins ready, starting app');
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
     return runApp(
