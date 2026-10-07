@@ -5,6 +5,9 @@ S="$FAKE_STATE"; OLD="sha256:oldimage000"; NEW="sha256:newimage111"
 running() { cat "$S/running" 2>/dev/null || echo "$OLD"; }
 built()   { cat "$S/built" 2>/dev/null || echo "$OLD"; }
 migrated() { [ -f "$S/migrated" ]; }
+# FAKE_NEW_MIGRATIONS (space-separated): migrations newer than the September pair, shipped in the new image and pending
+# until the container start applies them (revision 15, --apply-listed-migrations).
+new_applied() { [ -f "$S/new-applied" ]; }
 if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
   case "$1" in
     ps) echo "NAME  IMAGE  STATUS"; echo "app-test  backend-app  Up";;
@@ -27,16 +30,21 @@ if [ "$1" = "compose" ]; then shift 2; shift  # drop -f file
       if [[ "$*" == *"ls prisma/migrations"* ]]; then
         if [ -n "${REAL_MIGRATIONS:-}" ]; then ls "$REAL_MIGRATIONS"; exit 0; fi
         echo "20260902000000_repair_hazard_geom_generated_columns"; echo "20260904000000_family_check_in_request_targets"
-        [ "${SCENARIO:-}" = "ledger-extra" ] || echo "20260905000000_family_host_transition"; echo "migration_lock.toml"; exit 0
+        [ "${SCENARIO:-}" = "ledger-extra" ] || echo "20260905000000_family_host_transition"
+        for m in ${FAKE_NEW_MIGRATIONS:-}; do echo "$m"; done; echo "migration_lock.toml"; exit 0
       fi
       if [ "${SCENARIO:-}" = "db-unreachable" ]; then echo "Error: P1001: Can't reach database server"; exit 1; fi
       if [ "${SCENARIO:-}" = "status-fail" ]; then echo "Error: something else went wrong"; exit 1; fi
       if [ "${SCENARIO:-}" = "migration-mismatch" ]; then printf 'Following migration have not yet been applied:\n20260905000000_family_host_transition\n\n'; exit 1; fi
+      if migrated && [ -n "${FAKE_NEW_MIGRATIONS:-}" ] && ! new_applied; then
+        printf 'Following migration have not yet been applied:\n'; for m in ${FAKE_NEW_MIGRATIONS}; do echo "$m"; done; printf '\n'; exit 1
+      fi
       if migrated && [ "${SCENARIO:-}" != "stale-status" ]; then echo "Database schema is up to date!"; exit 0; fi
       printf '2 migrations found in prisma/migrations\n\nFollowing migration have not yet been applied:\n20260904000000_family_check_in_request_targets\n20260905000000_family_host_transition\n\nTo apply migrations in development run prisma migrate dev.\n'; exit 1;;
     up) echo "$(built)" > "$S/running"; echo "up"; [ "${SCENARIO:-}" = "startup-fail" ] && exit 0
         # the container's `prisma migrate deploy` applies only what is pending: record whether this start applied anything
         if ! migrated || [ "${SCENARIO:-}" = "reapplied" ]; then touch "$S/applied-on-up"; fi
+        if migrated && [ -n "${FAKE_NEW_MIGRATIONS:-}" ] && ! new_applied && [ "${SCENARIO:-}" != "listed-not-applied" ]; then touch "$S/new-applied" "$S/applied-on-up"; fi
         if [ "${SCENARIO:-}" = "reapplied" ]; then echo "20260906000000_surprise" >> "$S/extra-ledger"; fi
         touch "$S/migrated";;
     logs) if [ "${SCENARIO:-}" = "startup-fail" ]; then echo "Error: something"; else echo "2 migrations found"; [ -f "$S/applied-on-up" ] && echo "Applying migration 20260904000000_family_check_in_request_targets"; echo "TEST server is running at PORT:9000"; echo "Scheduled jobs are OFF for TEST"; fi;;
@@ -84,10 +92,12 @@ case "$1" in
       *psql*) case "$input" in
           *pg_database*) echo "postgres"; echo "alrt_test"; cat "$S/dbs" 2>/dev/null || true;;
           *"count(*) from _prisma_migrations where"*) [ "${SCENARIO:-}" = "ledger-dirty" ] && echo 1 || echo 0;;
+          *"-- listed rows"*) if new_applied; then for m in ${FAKE_NEW_MIGRATIONS:-}; do echo "$m:t:t:1"; done; fi;;
           *"where migration_name in"*) if migrated; then echo "20260904000000_family_check_in_request_targets:t:t:1"; echo "20260905000000_family_host_transition:t:t:1"; fi;;
           *"-- ledger names"*) echo "20260902000000_repair_hazard_geom_generated_columns"
             if migrated; then echo "20260904000000_family_check_in_request_targets"; echo "20260905000000_family_host_transition"; fi
-            cat "$S/extra-ledger" 2>/dev/null || true;;
+            cat "$S/extra-ledger" 2>/dev/null || true
+            if new_applied; then for m in ${FAKE_NEW_MIGRATIONS:-}; do echo "$m"; done; fi;;
           *information_schema.columns*) if migrated; then [ "${SCENARIO:-}" = "schema-inconsistent" ] && echo 2 || echo 3; else echo 0; fi;;
           *FamilyCircle*) if [ "$TARGET_DB" != "alrt_test" ] && [ "${SCENARIO:-}" = "restore-mismatch" ]; then echo "2,5,5,40,10"; else echo "3,7,7,41,11"; fi;;
           *"from _prisma_migrations"*) echo "20260902000000_repair_hazard_geom_generated_columns|t|f|1";;

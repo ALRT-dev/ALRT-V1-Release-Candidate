@@ -1,0 +1,243 @@
+# Builds the LIVE ALRT iPhone app (prod flavour, com.safetyalrt.alrt), with the
+# Apple Watch companion (com.safetyalrt.alrt.watchkitapp) inside it, pointed at
+# the LIVE backend (https://api.safetyalrt.com, kUrlBase in lib/api/endpoints.dart),
+# and uploads it to the live app's TestFlight. It does NOT release anything to
+# the App Store: a TestFlight build reaches only the testers you add, and an
+# App Store release is a separate, manual step in App Store Connect.
+#
+# This is the runnable, repo-root version of frontend/.github/workflows/
+# ios-testflight.yml (GitHub never runs nested workflow files). It carries the
+# fixes the TEST pipeline (ios-test-testflight.yml) needed to build at all:
+# frontend/ working directory, Xcode 26, a fresh CocoaPods resolve, profiles
+# copied where Xcode 26 reads them, and the watch app's own profile.
+#
+# Two guards before anything is built:
+#   1. The `confirm` input must be exactly LIVE.
+#   2. The job runs in the GitHub Environment "production". Add required
+#      reviewers to it (Settings > Environments > production) so a second
+#      person must approve every run.
+#
+# Before the first run:
+#   - The live backend must already have the watch backend commit deployed
+#     (clientRequestId migration 20261007000000_wearable_client_request_id);
+#     older backends still work, but without duplicate-tap protection, and the
+#     watch's SOS screen needs GET /api/family/sos/preview.
+#   - Dispatch once with generate_certs=true: it registers the App ID
+#     com.safetyalrt.alrt.watchkitapp and creates its App Store profile in the
+#     match repo. Additive: the existing com.safetyalrt.alrt profile and the
+#     distribution certificate are reused, not revoked.
+#   - Production secrets used (unchanged names from the nested file):
+#     GOOGLE_OAUTH_SERVER_CLIENT_ID, GOOGLE_MAPS_API_KEY, REVENUECAT_API_KEY_APPLE,
+#     REVENUECAT_API_KEY_GOOGLE, APP_STORE_CONNECT_API_KEY_*, MATCH_*.
+name: iOS Live TestFlight (ALRT + Apple Watch)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type LIVE to build the live app against the live backend"
+        required: true
+        default: ""
+      generate_certs:
+        description: "First run with the watch app: register its App ID and create its profile"
+        type: boolean
+        default: false
+      build_number:
+        description: "Build number override (blank = automatic; must be higher than the last live build)"
+        required: false
+        default: ""
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: production
+    steps:
+      - name: Require the LIVE confirmation
+        working-directory: .
+        run: |
+          if [ "${{ inputs.confirm }}" != "LIVE" ]; then
+            echo "::error::Not started: type LIVE in the confirm box to build the live app against the live backend."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: frontend/ios
+
+      - name: Create .env from the production secrets
+        run: |
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=$GOOGLE_OAUTH_SERVER_CLIENT_ID"
+            echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE=$REVENUECAT_API_KEY_APPLE"
+            echo "REVENUECAT_API_KEY_GOOGLE=$REVENUECAT_API_KEY_GOOGLE"
+          } > .env
+          for NAME in GOOGLE_MAPS_API_KEY REVENUECAT_API_KEY_APPLE; do
+            if [ -z "${!NAME}" ]; then
+              echo "::error::Production secret $NAME is empty. The live app must not ship without it."
+              exit 1
+            fi
+          done
+        env:
+          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}
+          REVENUECAT_API_KEY_APPLE: ${{ secrets.REVENUECAT_API_KEY_APPLE }}
+          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
+
+      - name: Create ios/Flutter/Maps.xcconfig
+        run: echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY" > ios/Flutter/Maps.xcconfig
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}
+
+      - run: flutter pub get
+
+      - name: Install signing certificate and profiles (ALRT + ALRT Watch)
+        working-directory: frontend/ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane ci_certs generate:"${{ inputs.generate_certs }}"
+
+      - name: Configure Xcode to use the installed live profiles (iPhone app and Apple Watch app)
+        run: |
+          OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
+          NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$NEW"
+          RENAMES=()
+          for BUNDLE in com.safetyalrt.alrt com.safetyalrt.alrt.watchkitapp; do
+            PROFILE_NAME=""
+            for PROFILE in "$OLD"/*.mobileprovision; do
+              [ -f "$PROFILE" ] || continue
+              DECODED="$(mktemp)"
+              if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
+                APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
+                if [[ "$APP_ID" == *".$BUNDLE" ]]; then
+                  PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED")"
+                  cp -f "$PROFILE" "$NEW/"
+                  rm -f "$DECODED"
+                  break
+                fi
+              fi
+              rm -f "$DECODED"
+            done
+            if [ -z "$PROFILE_NAME" ]; then
+              echo "::error::No installed provisioning profile found for $BUNDLE. On the first run with the Apple Watch app, dispatch with generate_certs=true."
+              exit 1
+            fi
+            echo "$BUNDLE -> $PROFILE_NAME"
+            RENAMES+=("$BUNDLE" "$PROFILE_NAME")
+          done
+          python3 - ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI.plist -- "${RENAMES[@]}" <<'PY'
+          import pathlib
+          import sys
+
+          args = sys.argv[1:]
+          split = args.index("--")
+          paths, pairs = args[:split], args[split + 1:]
+          files = {pathlib.Path(p): pathlib.Path(p).read_text() for p in paths}
+          for bundle, profile_name in zip(pairs[0::2], pairs[1::2]):
+              expected = f"match AppStore {bundle}"
+              for path, contents in files.items():
+                  if expected not in contents:
+                      raise SystemExit(f"Expected signing profile {expected!r} was not found in {path}")
+                  # Whole quoted values only, so "...alrt" never rewrites the
+                  # prefix of "...alrt.watchkitapp".
+                  for quote in ('"', ">"):
+                      closing = '"' if quote == '"' else "<"
+                      contents = contents.replace(f"{quote}{expected}{closing}", f"{quote}{profile_name}{closing}")
+                  files[path] = contents
+          for path, contents in files.items():
+              path.write_text(contents)
+          PY
+
+      - name: Select Xcode 26 (App Store Connect requires the iOS 26 SDK)
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$XC" ]; then
+            echo "::error::No Xcode 26 on this runner. Installed:"; ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
+      - name: Refresh CocoaPods specs
+        working-directory: frontend/ios
+        run: |
+          # Same as the TEST build: the committed Podfile.lock pins an older
+          # Firebase than the current Flutter plugins need. CI-only; the
+          # committed lock file is not changed.
+          rm -f Podfile.lock
+          pod repo update
+
+      - name: Build the signed live iPhone app (prod flavour, live backend, with Apple Watch app)
+        run: |
+          BUILD_NUMBER="${{ inputs.build_number }}"
+          if [ -z "$BUILD_NUMBER" ]; then
+            BUILD_NUMBER=$((100 + ${{ github.run_number }}))
+          fi
+          echo "Building with build number $BUILD_NUMBER"
+          LOG="$RUNNER_TEMP/flutter-build-ios-prod.log"
+          if ! flutter build ipa --release --flavor prod -t lib/main_prod.dart \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=ios/ExportOptionsCI.plist \
+            -v > "$LOG" 2>&1; then
+            echo "::group::Xcode errors"
+            grep -nE "(error|fatal error): |\*\* (ARCHIVE|BUILD) FAILED" "$LOG" | head -80 || true
+            echo "::endgroup::"
+            tail -40 "$LOG"
+            exit 1
+          fi
+          tail -15 "$LOG"
+
+      - name: Check the archive is the live app with the watch app inside
+        run: |
+          IPA="$(ls "$GITHUB_WORKSPACE"/frontend/build/ios/ipa/*.ipa | head -1)"
+          DIR="$(mktemp -d)"
+          unzip -q "$IPA" -d "$DIR"
+          APP="$(ls -d "$DIR"/Payload/*.app | head -1)"
+          ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")"
+          WATCH_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Watch/AlrtWatch.app/Info.plist")"
+          echo "iPhone app: $ID   Watch app: $WATCH_ID"
+          [ "$ID" = "com.safetyalrt.alrt" ] || { echo "::error::Expected com.safetyalrt.alrt, got $ID"; exit 1; }
+          [ "$WATCH_ID" = "com.safetyalrt.alrt.watchkitapp" ] || { echo "::error::Expected the watch app com.safetyalrt.alrt.watchkitapp, got $WATCH_ID"; exit 1; }
+
+      - name: Upload to the live app's TestFlight (not an App Store release)
+        working-directory: frontend/ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          IPA_PATH="$(ls "$GITHUB_WORKSPACE"/frontend/build/ios/ipa/*.ipa | head -1)"
+          echo "Uploading $IPA_PATH"
+          export IPA_PATH
+          bundle exec fastlane ci_upload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ALRT-ios-live-ipa
+          path: frontend/build/ios/ipa/*.ipa
+          retention-days: 14

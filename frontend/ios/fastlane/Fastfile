@@ -69,12 +69,17 @@ platform :ios do
       key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
       is_key_content_base64: true
     )
+    # The Apple Watch companion (AlrtWatch target) ships inside the live app
+    # and needs its own App ID and profile, exactly as ci_certs_dev does for
+    # TEST. Registering the App ID is additive and only on a generate run.
+    ensure_bundle_id("com.safetyalrt.alrt.watchkitapp", "ALRT Watch") if options[:generate].to_s == "true"
     # readonly unless the run explicitly asks to (re)generate certificates,
     # so an ordinary build can never revoke or churn the team's signing assets.
     match(
       type: "appstore",
       readonly: options[:generate].to_s != "true",
-      api_key: api_key
+      api_key: api_key,
+      app_identifier: ["com.safetyalrt.alrt", "com.safetyalrt.alrt.watchkitapp"]
     )
     update_code_signing_settings(
       use_automatic_signing: false,
@@ -84,6 +89,15 @@ platform :ios do
       bundle_identifier: "com.safetyalrt.alrt",
       code_sign_identity: "Apple Distribution",
       profile_name: "match AppStore com.safetyalrt.alrt"
+    )
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Runner.xcodeproj",
+      targets: ["AlrtWatch"],
+      team_id: "JR89M7CYPR",
+      bundle_identifier: "com.safetyalrt.alrt.watchkitapp",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.safetyalrt.alrt.watchkitapp"
     )
   end
 

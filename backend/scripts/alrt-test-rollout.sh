@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# ALRT TEST rollout, revision 14 (13 + verify paces the regression scripts against the auth rate limiter's own cap and
+# ALRT TEST rollout, revision 15 (adds deploy --apply-listed-migrations "NAMES" for newly approved migrations).
+# Revision 14 (13 + verify paces the regression scripts against the auth rate limiter's own cap and
 # window (43 registrations per full suite against a default of 40 per 15 minutes), records the window it used, and
 # `verify --resume` carries forward the scripts that already passed in this run into a new, separate verify directory,
 # waiting for the limiter window before anything else runs; earlier verify logs are never overwritten).
@@ -16,7 +17,7 @@
 #                                                         scripts, health, ledger, schema, running image, scheduler
 #   bash alrt-test-rollout.sh inspect                     read-only state dump for failure reports
 #
-# MODE is exactly one of (deploy refuses without one, and refuses both):
+# MODE is exactly one of (deploy refuses without one, and refuses more than one):
 #   --apply-approved-migrations   FIRST rollout of the two approved migrations: the new image must report exactly those
 #                                 two pending, the ledger must be clean, none of the three columns may exist yet; the
 #                                 container start applies them and the post-start proof checks both finished.
@@ -26,6 +27,16 @@
 #                                 image's migration folders must equal the ledger; the start must apply nothing (the
 #                                 ledger after equals the ledger before, no "Applying migration" line). Anything else
 #                                 stops before the backup and before `up`.
+#   --apply-listed-migrations "NAME [NAME...]"
+#                                 an UPDATE that applies newly approved migrations, named one by one by the owner on the
+#                                 command line (revision 15). The two September migrations must already be finished
+#                                 with their 3 columns present, the ledger must be clean, the pending list must equal
+#                                 the named list exactly (not a subset, not a superset), each name must be a
+#                                 migration folder shaped 14 digits + _ + lower-case words, and the image's migration
+#                                 folders must equal the ledger plus the named list. The post-start proof requires
+#                                 every named migration finished and not rolled back, and the ledger to equal the
+#                                 image's folders. Example (Apple Watch backend):
+#                                   deploy --pin SHA --apply-listed-migrations "20261007000000_wearable_client_request_id"
 #
 # --pin is the full 40-hex commit the owner approved for this rollout. It is an argument, not a constant, because the
 # approved revision advances with approved UI commits; record writes it into the run directory and deploy/verify refuse
@@ -38,7 +49,8 @@
 # only the one this run created is dropped; every exit code is recorded before the script stops; verification stops
 # at the first failed script; nothing here rolls back, restores, or "fixes" anything. Neither mode ever resets,
 # re-applies or edits a migration; the only thing that can apply a migration is the container's own
-# `prisma migrate deploy` at start, and in --no-new-migrations mode the proof requires that it applied nothing.
+# `prisma migrate deploy` at start, and in --no-new-migrations mode the proof requires that it applied nothing; in
+# --apply-listed-migrations mode it may apply exactly the named migrations and nothing else.
 set -euo pipefail
 # errtrace: the ERR trap below must also fire inside functions and command substitutions, or a failing pipeline
 # inside `x=$(...)` ends the script with nothing said (revision 12 died that way on the build log's naming line).
@@ -70,6 +82,7 @@ RUN_DIR=""
 PIN=""
 APPLY_MIGRATIONS=0
 NO_NEW_MIGRATIONS=0
+LISTED_MIGRATIONS=""
 RESUME=0
 V=""
 # Pacing sleeps are real on the host. The stand-in harness sets this to 0 so its scenarios finish in seconds; the
@@ -110,6 +123,7 @@ parse_args() {
       --pin) [ -n "${2:-}" ] || stop "--pin needs a value"; PIN="$2"; shift 2 ;;
       --apply-approved-migrations) APPLY_MIGRATIONS=1; shift ;;
       --no-new-migrations) NO_NEW_MIGRATIONS=1; shift ;;
+      --apply-listed-migrations) [ -n "${2:-}" ] || stop "--apply-listed-migrations needs the migration names, quoted and space-separated"; LISTED_MIGRATIONS="$2"; shift 2 ;;
       --resume) RESUME=1; shift ;;
       *) stop "unknown argument: $1" ;;
     esac
@@ -117,6 +131,20 @@ parse_args() {
   if [ -n "$PIN" ]; then
     printf '%s' "$PIN" | grep -qE '^[0-9a-f]{40}$' || stop "--pin must be the full 40-hex commit SHA, got '$PIN'"
   fi
+}
+# The owner's named migrations, sorted, one space apart; every name must look like a migration folder, so it is also
+# safe to place inside SQL quotes below.
+listed_sorted() {
+  local n
+  for n in $LISTED_MIGRATIONS; do
+    printf '%s' "$n" | grep -qE '^[0-9]{14}_[a-z0-9_]+$' || stop "not a migration folder name: '$n'"
+  done
+  printf '%s\n' $LISTED_MIGRATIONS | sort -u | tr '\n' ' ' | sed 's/ $//'
+}
+# The named migrations as ledger rows: name:finished:not_rolled_back:steps (names already validated by listed_sorted).
+listed_rows() {
+  local names; names=$(listed_sorted | sed "s/[^ ][^ ]*/'&'/g; s/ /,/g")
+  printf -- "-- listed rows\nselect migration_name || ':' || case when finished_at is not null then 't' else 'f' end || ':' || case when rolled_back_at is null then 't' else 'f' end || ':' || applied_steps_count from _prisma_migrations where migration_name in (%s) order by migration_name;\n" "$names" | psql_db "$1"
 }
 require_pin() { [ -n "$PIN" ] || stop "this step requires --pin <full 40-hex approved commit SHA>"; }
 
@@ -315,12 +343,17 @@ record() {
 deploy() {
   require_pin
   local mode
-  if [ "$APPLY_MIGRATIONS" = 1 ] && [ "$NO_NEW_MIGRATIONS" = 1 ]; then
-    stop "deploy takes exactly one mode: --apply-approved-migrations (first rollout of $APPROVED_MIGRATIONS) or --no-new-migrations (update), not both"
+  local modes=0
+  [ "$APPLY_MIGRATIONS" = 1 ] && modes=$((modes + 1))
+  [ "$NO_NEW_MIGRATIONS" = 1 ] && modes=$((modes + 1))
+  [ -n "$LISTED_MIGRATIONS" ] && modes=$((modes + 1))
+  if [ "$modes" -gt 1 ]; then
+    stop "deploy takes exactly one mode: --apply-approved-migrations (first rollout of $APPROVED_MIGRATIONS), --no-new-migrations (update) or --apply-listed-migrations \"NAMES\" (update applying newly approved migrations), not more than one"
   elif [ "$APPLY_MIGRATIONS" = 1 ]; then mode=apply-approved
   elif [ "$NO_NEW_MIGRATIONS" = 1 ]; then mode=no-new
+  elif [ -n "$LISTED_MIGRATIONS" ]; then mode=apply-listed; listed_sorted > /dev/null
   else
-    stop "deploy requires a mode: --apply-approved-migrations (first rollout of $APPROVED_MIGRATIONS) or --no-new-migrations (update with no new migration)"
+    stop "deploy requires a mode: --apply-approved-migrations (first rollout of $APPROVED_MIGRATIONS), --no-new-migrations (update with no new migration) or --apply-listed-migrations \"NAMES\" (update applying newly approved migrations)"
   fi
   enforce_environment; current_run_dir; note "step=deploy pin=$PIN mode=$mode"
   [ "$(recorded_pin)" = "$PIN" ] || stop "--pin $PIN differs from the pin recorded in this run ($(recorded_pin)); run 'record' again for a new pin"
@@ -409,6 +442,27 @@ deploy() {
     ledger_must_be_clean
     [ "$(approved_columns_present "$appdb")" = "0" ] || stop "some approved columns already exist although the ledger says the migrations are pending; unexpected schema state"
     log "migration gate passed: exactly the approved migrations are pending"
+  elif [ "$mode" = apply-listed ]; then
+    # Update applying newly approved migrations: the September pair finished, exactly the named ones pending.
+    local listed rows cols in_ledger in_image expected_image
+    listed=$(listed_sorted)
+    printf 'listed=[%s]\n' "$listed" | tee -a "$RUN_DIR/pending-migrations.txt"
+    grep -qiE "database schema is up to date" "$RUN_DIR/migrate-status.txt" && stop "image reports no pending migrations but --apply-listed-migrations names [$listed]; if they are already applied, use --no-new-migrations"
+    [ -n "$pending" ] || stop "could not parse a pending-migration list from migrate status (exit $status_exit)"
+    [ "$pending" = "$listed" ] || stop "pending migrations [$pending] differ from the named list [$listed]; nothing applied, nothing deployed"
+    ledger_must_be_clean
+    rows=$(approved_rows "$appdb"); printf '%s\n' "$rows" | tee "$RUN_DIR/migrations-before.txt"
+    [ "$(printf '%s\n' "$rows" | grep -c .)" = "2" ] || stop "expected both September migrations finished before applying newer ones; found: $rows"
+    printf '%s\n' "$rows" | grep -qvE ':t:t:[0-9]+$' && stop "a September migration is unfinished or rolled back: $rows"
+    cols=$(approved_columns_present "$appdb"); printf 'approved columns present before: %s\n' "$cols" | tee -a "$RUN_DIR/migrations-before.txt"
+    [ "$cols" = "3" ] || stop "expected the 3 September columns present before an update, found $cols; schema and ledger disagree"
+    in_ledger=$(ledger_names "$appdb"); in_image=$(image_migration_names)
+    expected_image=$( { printf '%s\n' "$in_ledger"; printf '%s\n' $listed; } | grep . | sort)
+    printf -- '--- ledger\n%s\n--- listed\n%s\n--- image\n%s\n' "$in_ledger" "$listed" "$in_image" > "$RUN_DIR/migrations-ledger-vs-image.txt"
+    [ -n "$in_image" ] || stop "could not list migration folders in the new image"
+    [ "$in_image" = "$expected_image" ] || stop "the image's migration folders are not the ledger plus the named migrations (see migrations-ledger-vs-image.txt); nothing deployed"
+    ledger_names "$appdb" > "$RUN_DIR/ledger-names-before.txt"
+    log "migration gate passed: September migrations finished, exactly the named migrations pending: [$listed]"
   else
     # Update with no new migration: the status command itself must succeed and report nothing to do.
     [ -z "$pending" ] || stop "unexpected pending migrations found in --no-new-migrations mode: [$pending]; nothing applied, nothing deployed. If these are the two approved migrations on a database that has never had them, this is the first rollout: use --apply-approved-migrations"
@@ -501,6 +555,16 @@ SQL
   set -e
   note "migrate status after exit=$after_exit"
   grep -qi "database schema is up to date" "$RUN_DIR/migrate-status-after.txt" || stop "prisma does not report an up-to-date schema after deploy (see migrate-status-after.txt)"
+  if [ "$mode" = apply-listed ]; then
+    # Exactly the named migrations were applied: each finished, and the ledger now equals the image's folders.
+    local lrows listed_count
+    lrows=$(listed_rows "$appdb"); printf '%s\n' "$lrows" | tee "$RUN_DIR/listed-migrations-applied.txt"
+    listed_count=$(printf '%s\n' $(listed_sorted) | grep -c .)
+    [ "$(printf '%s\n' "$lrows" | grep -c .)" = "$listed_count" ] || stop "expected all $listed_count named migrations in the ledger after start; found: $lrows. Do not roll back automatically; run 'inspect' and report."
+    printf '%s\n' "$lrows" | grep -qvE ':t:t:[0-9]+$' && stop "a named migration is unfinished or rolled back: $lrows. Do not roll back automatically; run 'inspect' and report."
+    ledger_names "$appdb" > "$RUN_DIR/ledger-names-after.txt"
+    [ "$(cat "$RUN_DIR/ledger-names-after.txt")" = "$(image_migration_names)" ] || stop "after start the ledger does not equal the image's migration folders (see ledger-names-after.txt). Do not roll back automatically; run 'inspect' and report."
+  fi
   if [ "$mode" = no-new ]; then
     # Nothing may have been applied by the start: same ledger names as before, and no apply line in the log.
     ledger_names "$appdb" > "$RUN_DIR/ledger-names-after.txt"
@@ -739,5 +803,5 @@ inspect() {
 STEP="${1:-}"; shift || true
 case "$STEP" in
   preflight|record|deploy|verify|inspect) parse_args "$@"; "$STEP" ;;
-  *) echo "usage: bash $0 {preflight [--pin SHA]|record --pin SHA|deploy --pin SHA --apply-approved-migrations|verify [--resume]|inspect}"; exit 2 ;;
+  *) echo "usage: bash $0 {preflight [--pin SHA]|record --pin SHA|deploy --pin SHA {--apply-approved-migrations|--no-new-migrations|--apply-listed-migrations \"NAMES\"}|verify [--resume]|inspect}"; exit 2 ;;
 esac

@@ -57,6 +57,15 @@ uflow() { # name scenario expect [mode flags]  (database ALREADY migrated: recor
   [ -f "$FAKE_STATE/applied-on-up" ] && [ "$scen" != "reapplied" ] && { echo "     a migration was applied during an update: BAD"; FAILS=$((FAILS+1)); }
   LAST_BASE="$base"
 }
+lflow() { # name scenario expect mode-args...  (September pair applied; FAKE_NEW_MIGRATIONS pending in the new image)
+  local name=$1 scen=$2 expect=$3; shift 3
+  local base; base=$(mktemp -d); export FAKE_STATE="$base/state"; mkdir -p "$FAKE_STATE"; touch "$FAKE_STATE/migrated"
+  env $(envfor "$base") SCENARIO= bash "$SCRIPT" record --pin "$FAKE_PIN" >/dev/null 2>&1 || { echo "FAIL [$name] record"; FAILS=$((FAILS+1)); return; }
+  local out rc; out=$(env $(envfor "$base") SCENARIO="$scen" bash "$SCRIPT" deploy --pin "$FAKE_PIN" "$@" 2>&1); rc=$?
+  check "$name" "$out" "$rc" "$expect"
+  [ -s "$FAKE_STATE/dbs" ] && { echo "     scratch database LEFT BEHIND: $(cat "$FAKE_STATE/dbs")"; FAILS=$((FAILS+1)); }
+  LAST_BASE="$base"
+}
 vflow() { # name scenario expect  (record + deploy clean, then verify under scenario)
   local name=$1 scen=$2 expect=$3
   local base; base=$(mktemp -d); export FAKE_STATE="$base/state"; mkdir -p "$FAKE_STATE"
@@ -88,6 +97,7 @@ one "preflight with moved head warns" "head-moved" "WARNING: remote test head is
 base=$(mktemp -d); export FAKE_STATE="$base/state"; mkdir -p "$FAKE_STATE"
 env $(envfor "$base") SCENARIO= bash "$SCRIPT" record --pin "$FAKE_PIN" >/dev/null 2>&1; before=$(cat "$base/rollout/current-run")
 env $(envfor "$base") SCENARIO= bash "$SCRIPT" preflight --pin "$FAKE_PIN" >/dev/null 2>&1; after=$(cat "$base/rollout/current-run")
+
 [ "$before" = "$after" ] && echo "PASS [preflight after record leaves current-run untouched]" || { echo "FAIL [preflight overwrote current-run]"; FAILS=$((FAILS+1)); }
 
 echo "== record"
@@ -180,6 +190,20 @@ base=$(mktemp -d); export FAKE_STATE="$base/state"; mkdir -p "$FAKE_STATE"
 env $(envfor "$base") SCENARIO= bash "$SCRIPT" record --pin "$FAKE_PIN" >/dev/null 2>&1 && env $(envfor "$base") SCENARIO= bash "$SCRIPT" deploy --pin "$FAKE_PIN" --apply-approved-migrations >/dev/null 2>&1
 out=$(env $(envfor "$base") SCENARIO= ALRT_PACE_SLEEP_SCALE=0 bash "$SCRIPT" verify --resume 2>&1); check "verify --resume with no earlier verify runs everything" "$out" $? "verification passed: 40/40 consent checks"
 
+
+echo "== revision 15: --apply-listed-migrations"
+W=20261007000000_wearable_client_request_id
+FAKE_NEW_MIGRATIONS=$W lflow "listed: applies exactly the named migration" "" "deployed $FAKE_PIN (mode apply-listed)" --apply-listed-migrations "$W"
+[ -f "$FAKE_STATE/new-applied" ] || { echo "FAIL [listed: migration really applied on start]"; FAILS=$((FAILS+1)); }
+FAKE_NEW_MIGRATIONS=$W lflow "listed: a different name is refused before anything runs" "" "differ from the named list" --apply-listed-migrations "20261008000000_something_else"
+[ -f "$FAKE_STATE/running" ] && { echo "FAIL [listed: refused deploy must not start the new image]"; FAILS=$((FAILS+1)); }
+FAKE_NEW_MIGRATIONS="$W 20261009000000_unapproved_extra" lflow "listed: an unnamed extra pending migration is refused" "" "differ from the named list" --apply-listed-migrations "$W"
+FAKE_NEW_MIGRATIONS=$W lflow "listed: a malformed name is refused" "" "not a migration folder name" --apply-listed-migrations "$W; drop table x"
+FAKE_NEW_MIGRATIONS=$W lflow "listed: two modes at once are refused" "" "not more than one" --apply-listed-migrations "$W" --no-new-migrations
+lflow "listed: nothing pending means use --no-new-migrations" "" "image reports no pending migrations" --apply-listed-migrations "$W"
+FAKE_NEW_MIGRATIONS=$W lflow "listed: a dirty ledger is refused" "ledger-dirty" "migration ledger has 1 failed" --apply-listed-migrations "$W"
+FAKE_NEW_MIGRATIONS=$W lflow "listed: post-start proof catches a migration that did not apply" "listed-not-applied" "expected all 1 named migrations" --apply-listed-migrations "$W"
+FAKE_NEW_MIGRATIONS=$W lflow "listed: no-new mode still refuses a pending migration" "" "unexpected pending migrations found" --no-new-migrations
 
 echo "== inspect"
 out=$(env $(envfor "$LAST_BASE") SCENARIO= bash "$SCRIPT" inspect 2>&1); check "inspect" "$out" $? "approved columns present"
