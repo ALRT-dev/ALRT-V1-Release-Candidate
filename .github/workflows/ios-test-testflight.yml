@@ -198,6 +198,10 @@ jobs:
           echo "== TLS certificate"
           echo | timeout 15 openssl s_client -connect "$H:443" -servername "$H" 2>/dev/null \
             | openssl x509 -noout -subject -issuer -dates -ext subjectAltName 2>/dev/null || echo "no certificate / connection failed"
+          P=https://claude-compassionate-frankli.alrt-v1-release-candidate.pages.dev
+          echo "== Admin Portal preview relay ($P/api -> TEST backend)"
+          curl -sS -o /dev/null -m 20 -w "GET /api/hazard-categories via portal: HTTP %{http_code}\n" "$P/api/hazard-categories" || true
+          curl -sS -m 20 -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.invalid","password":"x"}' -w "\nPOST /api/admin/auth/login via portal: HTTP %{http_code}\n" "$P/api/admin/auth/login" | tail -c 300 || true
           for p in / /api/hazard-categories /api/users/me /api/app/version-policy /api/ask-alrt/allowance; do
             printf "%-32s " "$p"
             curl -sS -o /dev/null -m 20 -w "HTTP %{http_code} in %{time_total}s\n" "https://$H$p" || echo "request failed"
