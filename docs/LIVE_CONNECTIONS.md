@@ -18,7 +18,7 @@ server's `backend/.env.prod` (gitignored) or in AWS Secrets Manager.
 | Admin Portal (old) | `https://admin.safetyalrt.com` ("Safety ALRT - Admin Console") | Not built from this repository. Has a hazard map and forced password change that the new portal does not have yet. |
 | n8n | EC2 `i-0f84456f93b803036` in the same account | Posts alerts to `/api/webhook/hazards` with a webhook key. |
 | Monitoring | Datadog and Wiz (Lambda functions and secrets in the account) | Not used by the app itself. |
-| Firebase | Project `alrt-a6539` | Push, Ask ALRT and entitlements mirror. |
+| Firebase | Project `alrt-a6539` | Push. (The new code moves Ask ALRT and entitlements into the backend.) |
 | RevenueCat | Webhook currently targets `https://api.safetyalrt.com/api/revenuecat/webhook` (Production + Sandbox) | Last recorded delivery failed with 404 on 24 Sep 2026 - the live code predates this route. |
 
 Checked and empty of app settings: Systems Manager Parameter Store, App
@@ -74,9 +74,11 @@ account `082258816984`.
    Host `admin/dist` and point `admin.safetyalrt.com` at it once you are happy
    to replace the old console. Existing admin logins carry over (same backend
    login system) - test one first.
-7. **Firebase:** deploy the new `askalrt` functions; only then remove the old
-   Firebase RevenueCat webhook. Register a Firebase Web App if you want the
-   portal's Ask ALRT page, and fill the blank ids in `admin/.env.production`.
+7. **Ask ALRT:** now runs inside the backend (migration
+   `20261006000000_ask_alrt_in_backend`, applied in step 3); the live
+   server's role already allows Bedrock. Firebase is only used for push.
+   Keep the old Firebase Ask ALRT function running until every user has an
+   app build that calls `/api/ask-alrt`, then retire it.
 8. **n8n:** confirm its webhook key still works after the upgrade (Admin
    Portal -> Webhook keys).
 9. **App release:** ship the production flavour (`com.safetyalrt.alrt`),
