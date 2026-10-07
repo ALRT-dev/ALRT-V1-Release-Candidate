@@ -204,9 +204,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: const SafeArea(bottom: false, child: FamilySosStrip()),
           ),
         Expanded(
+          // Only the strip takes the status-bar inset; with no SOS the
+          // tabs keep it, or their headers sit under the notch.
           child: MediaQuery.removePadding(
             context: context,
-            removeTop: true,
+            removeTop: hasSos,
             child: tabs,
           ),
         ),
