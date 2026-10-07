@@ -21,6 +21,10 @@ dist-ssr
 .env.*
 !.env.example
 !.env.test
+# .env.production holds only public live build values (the live API URL and
+# Firebase web identifiers) so a plain `npm run build` targets the live
+# backend. Never add a secret to it.
+!.env.production
 
 coverage
 
