@@ -167,6 +167,10 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # contents: write only so the step below can update this workflow's own
+    # android-test-latest pre-release; nothing else is written.
+    permissions:
+      contents: write
     timeout-minutes: 45
     environment: test
     steps:
@@ -487,3 +491,23 @@ jobs:
           name: ALRT-android-test-apk-${{ inputs.billing_mode }}
           path: ${{ steps.build.outputs.apk_path }}
           retention-days: 14
+
+      # A fixed download link for testers' phones (a QR code can point at
+      # it): the TEST APK is published to this workflow's OWN pre-release,
+      # android-test-latest, replacing the previous file. It is separate
+      # from android-apk.yml's dev-latest release, which stays untouched.
+      - name: Publish to the android-test-latest pre-release (fixed QR link)
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "${{ steps.build.outputs.apk_path }}" ALRT-test.apk
+          NOTES="ALRT Dev TEST build (com.safetyalrt.alrt.dev, isolated TEST backend). Commit ${GITHUB_SHA::7}, run ${{ github.run_number }}, billing_mode ${{ inputs.billing_mode }}. Not the store app."
+          if gh release view android-test-latest >/dev/null 2>&1; then
+            gh release edit android-test-latest --notes "$NOTES" --prerelease
+            gh release upload android-test-latest ALRT-test.apk --clobber
+          else
+            gh release create android-test-latest ALRT-test.apk --prerelease \
+              --title "ALRT Dev TEST (Android)" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi
+          echo "Download: https://github.com/${{ github.repository }}/releases/download/android-test-latest/ALRT-test.apk" >> "$GITHUB_STEP_SUMMARY"
