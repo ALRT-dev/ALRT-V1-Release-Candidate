@@ -51,6 +51,14 @@ if not apps:
 app_id = apps[0]["id"]
 print(f"App {BUNDLE_ID} = {app_id}")
 
+builds_list = get("/v1/builds", {"filter[app]": app_id, "sort": "-uploadedDate", "limit": "8",
+                                 "fields[builds]": "version,uploadedDate,processingState,expired"})
+print("Newest builds in App Store Connect:")
+for b in builds_list.get("data", []):
+    a = b["attributes"]
+    print(f"  build {a.get('version')}  uploaded {a.get('uploadedDate')}  {a.get('processingState')}  expired={a.get('expired')}")
+print()
+
 subs = get(f"/v1/apps/{app_id}/betaFeedbackCrashSubmissions",
            {"sort": "-createdDate", "limit": "5", "include": "build"})
 items = subs.get("data", [])
