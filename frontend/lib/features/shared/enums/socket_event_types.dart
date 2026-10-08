@@ -3,7 +3,6 @@ enum SocketEvent {
   updateHazard,
   deleteHazard,
 
-  updateUser,
   updateUserXp,
   badgeEarned,
   updateUserUpvotesReceivedCount,

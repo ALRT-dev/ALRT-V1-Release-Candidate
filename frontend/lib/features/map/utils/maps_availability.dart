@@ -1,8 +1,10 @@
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// Whether Google Maps can be shown on this device.
 ///
@@ -22,6 +24,9 @@ class MapsAvailability {
 
   static bool get available => _available;
 
+  @visibleForTesting
+  static set availableForTesting(final bool value) => _available = value;
+
   static Future<void> initialize() async {
     if (kIsWeb || !Platform.isIOS) return;
     try {
@@ -32,6 +37,37 @@ class MapsAvailability {
       _available = false;
     }
   }
+}
+
+/// Radius of the area the Map tab lists alerts for when there is no map to
+/// read a visible region from.
+const kNoMapHazardRadiusKm = 50.0;
+
+/// A box reaching [radiusKm] from [center] in every direction: what the Map
+/// tab asks for when [MapsAvailability.available] is false, so its list
+/// sheet still shows the alerts around the person. Latitudes are clamped
+/// to the poles; longitudes are clamped rather than wrapped (the server's
+/// box query does not cross the antimeridian).
+LatLngBounds noMapHazardBounds(
+  final LatLng center, {
+  final double radiusKm = kNoMapHazardRadiusKm,
+}) {
+  const kmPerDegreeLat = 111.32;
+  final dLat = radiusKm / kmPerDegreeLat;
+  final cosLat = math.cos(center.latitude * math.pi / 180).abs();
+  final dLng = cosLat < 0.01 ? 180.0 : radiusKm / (kmPerDegreeLat * cosLat);
+  double clamp(final double v, final double limit) =>
+      v.clamp(-limit, limit).toDouble();
+  return LatLngBounds(
+    southwest: LatLng(
+      clamp(center.latitude - dLat, 90),
+      clamp(center.longitude - dLng, 180),
+    ),
+    northeast: LatLng(
+      clamp(center.latitude + dLat, 90),
+      clamp(center.longitude + dLng, 180),
+    ),
+  );
 }
 
 /// Shown in place of a map when [MapsAvailability.available] is false.

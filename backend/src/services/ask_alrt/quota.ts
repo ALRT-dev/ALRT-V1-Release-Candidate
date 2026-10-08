@@ -69,6 +69,13 @@ export function localDayKey(d: Date, timeZone: string): string {
   return `${get("year")}${get("month")}${get("day")}`;
 }
 
+/**
+ * `code` on the 429 when the daily allowance is used up. The general API
+ * rate limiter also answers 429 (no code), so the app shows the daily-limit
+ * message only for this code.
+ */
+export const ASK_LIMIT_CODE = "ask_limit" as const;
+
 /** Message shown when the allowance is used up. */
 export function limitMessage(plan: AskPlan): string {
   return plan === "individual"

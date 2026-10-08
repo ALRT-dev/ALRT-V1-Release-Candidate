@@ -50,7 +50,6 @@ import 'package:hazard_app/features/shared/providers/hazard_socket_manager_provi
 import 'package:hazard_app/features/shared/providers/user_socket_manager_provider.dart';
 import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
 import 'package:toastification/toastification.dart';
-import 'package:hazard_app/features/map/utils/maps_availability.dart';
 
 class HomeScreenArgs {
   /// The tab to open; null keeps whatever tab is already selected.
@@ -118,7 +117,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           .read(providerOfNotificationsFeed.notifier)
           .getNotificationsFeedHazards(silent: true);
     }
-    if (MapsAvailability.available && ref.exists(providerOfMap)) {
+    // With no map, getMapHazards lists the alerts around the person, so
+    // the Map tab's list sheet is reloaded too.
+    if (ref.exists(providerOfMap)) {
       ref.read(providerOfMap.notifier).getMapHazards();
     }
   }

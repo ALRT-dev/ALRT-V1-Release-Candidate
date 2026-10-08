@@ -17,6 +17,7 @@ import { extractUsedAlertIds } from "./ask_alrt/citations.js";
 import { ASK_ALRT_SYSTEM_PROMPT } from "./ask_alrt/system_prompt.js";
 import {
   AI_DAILY_LIMIT,
+  ASK_LIMIT_CODE,
   TZ_CHANGE_MIN_MS,
   isUsableZone,
   limitMessage,
@@ -184,7 +185,7 @@ const consumeQuota = async (userId: string, plan: AskPlan, timeZone: string): Pr
 
 const requireQuota = async (userId: string, plan: AskPlan, timeZone: string): Promise<number> => {
   const count = await consumeQuota(userId, plan, timeZone);
-  if (count === null) throw new HttpError(429, limitMessage(plan));
+  if (count === null) throw new HttpError(429, limitMessage(plan), ASK_LIMIT_CODE);
   return count;
 };
 

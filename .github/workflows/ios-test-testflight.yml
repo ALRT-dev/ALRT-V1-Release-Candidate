@@ -157,6 +157,10 @@ on:
         description: "Build for the iPhone Simulator, launch it on GitHub's Mac and print any crash (no signing, no upload)"
         type: boolean
         default: false
+      dummy_ai_reports:
+        description: "Community reports skip the AI review on the TEST backend (USE_DUMMY_AI_FOR_REPORTS=true; every report stays pending). Off by default so the real review runs."
+        type: boolean
+        default: false
 
 # The actual Flutter/iOS project lives in frontend/, not the repo root -
 # see the header comment above. Applies to every plain `run:` step below;
@@ -202,7 +206,7 @@ jobs:
           echo "== Admin Portal preview relay ($P/api -> TEST backend)"
           curl -sS -o /dev/null -m 20 -w "GET /api/hazard-categories via portal: HTTP %{http_code}\n" "$P/api/hazard-categories" || true
           curl -sS -m 20 -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.invalid","password":"x"}' -w "\nPOST /api/admin/auth/login via portal: HTTP %{http_code}\n" "$P/api/admin/auth/login" | tail -c 300 || true
-          for p in / /api/hazard-categories /api/users/me /api/app/version-policy /api/ask-alrt/allowance; do
+          for p in / /api/hazard-categories /api/user /api/app/version-policy /api/ask-alrt/allowance; do
             printf "%-32s " "$p"
             curl -sS -o /dev/null -m 20 -w "HTTP %{http_code} in %{time_total}s\n" "https://$H$p" || echo "request failed"
           done
@@ -266,9 +270,13 @@ jobs:
       # DEV_BASE_URL is the hardcoded isolated TEST backend URL - see the
       # comment at the top of this file for why this is a literal, not a
       # secret lookup. GOOGLE_MAPS_API_KEY (Dart layer) mirrors the native
-      # xcconfig below. USE_DUMMY_AI_FOR_REPORTS=true matches the Android
-      # TEST build: the backend honours it only when it is itself running as
-      # TEST. REVENUECAT_API_KEY_APPLE and ALRT_PLUS_TEST_UNLOCK depend on
+      # xcconfig below. GOOGLE_MAPS_IOS_BUNDLE_ID is this build's bundle id,
+      # sent as X-Ios-Bundle-Identifier so an iOS-restricted key accepts the
+      # Routes call. USE_DUMMY_AI_FOR_REPORTS follows the dummy_ai_reports
+      # input (default false), as on the Android TEST build: the backend
+      # honours it only when it is itself running as TEST, and even then
+      # skips only the AI calls (rate limits and the duplicate check still
+      # run). REVENUECAT_API_KEY_APPLE and ALRT_PLUS_TEST_UNLOCK depend on
       # billing_mode - see the billing_mode comment at the top of this file.
       - name: Create .env pointed at the isolated test backend
         run: |
@@ -282,13 +290,14 @@ jobs:
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=$GOOGLE_OAUTH_SERVER_CLIENT_ID"
             echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS"
+            echo "GOOGLE_MAPS_IOS_BUNDLE_ID=com.safetyalrt.alrt.dev"
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE=$REVENUECAT_APPLE_VALUE"
             echo "REVENUECAT_API_KEY_GOOGLE="
             echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
             echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
-            echo "USE_DUMMY_AI_FOR_REPORTS=true"
+            echo "USE_DUMMY_AI_FOR_REPORTS=${{ inputs.dummy_ai_reports && 'true' || 'false' }}"
           } > .env
         env:
           REVENUECAT_API_KEY_APPLE: ${{ secrets.TEST_REVENUECAT_API_KEY_APPLE }}

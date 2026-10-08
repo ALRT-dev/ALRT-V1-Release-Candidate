@@ -150,6 +150,11 @@ on:
         options:
           - bypass
           - test_store
+      dummy_ai_reports:
+        description: "Community reports skip the AI review on the TEST backend (USE_DUMMY_AI_FOR_REPORTS=true; every report stays pending). Off by default so the real review runs."
+        required: false
+        type: boolean
+        default: false
 
 # The actual Flutter project lives in frontend/, not the repo root, since
 # this repo consolidates backend/frontend/admin/askalrt as subdirectories.
@@ -321,15 +326,35 @@ jobs:
       # this file for why this is a literal, not a secret lookup.
       # REVENUECAT_API_KEY_GOOGLE and ALRT_PLUS_TEST_UNLOCK depend on
       # billing_mode - see the billing_mode comment at the top of this file.
-      # USE_DUMMY_AI_FOR_REPORTS=true makes a community "post an alert"
-      # report ask the backend to skip its AI review call (see
-      # hazard_repository.dart's useDummyAiForReports and
-      # reviewHazard's useDummy branch, backend/src/services/hazard.service.ts)
-      # - the backend re-checks NODE_ENV server-side regardless of what
-      # this flag says, so it has no effect unless the backend is
-      # genuinely running as the TEST environment.
+      # USE_DUMMY_AI_FOR_REPORTS follows the dummy_ai_reports input (default
+      # false). When true a community "post an alert" report asks the
+      # backend to skip its AI review call (see hazard_repository.dart's
+      # useDummyAiForReports and reviewHazard's useDummy branch,
+      # backend/src/services/hazard.service.ts) - the backend re-checks
+      # NODE_ENV server-side regardless of what this flag says, so it has
+      # no effect unless the backend is genuinely running as the TEST
+      # environment, and even then the rate limits and duplicate check
+      # still run.
+      # GOOGLE_MAPS_ANDROID_CERT_SHA1 (sent as X-Android-Cert on the Routes
+      # call) is read from the decoded TEST keystore, the same certificate
+      # the "Verify the built APK is signed" step checks, in the format
+      # Google expects: 40 uppercase hex digits, no colons. It is a public
+      # fingerprint, not a secret.
       - name: Create .env pointed at the isolated test backend
+        env:
+          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY }}
+          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID }}
+          TEST_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.TEST_ANDROID_KEYSTORE_PASSWORD }}
+          TEST_ANDROID_KEY_ALIAS: ${{ secrets.TEST_ANDROID_KEY_ALIAS }}
         run: |
+          KEYSTORE_SHA1=$(keytool -list -v -keystore android/test-keystore.jks -alias "$TEST_ANDROID_KEY_ALIAS" -storepass:env TEST_ANDROID_KEYSTORE_PASSWORD | grep "SHA1:" | head -1 | sed 's/.*SHA1: *//')
+          CERT_SHA1=$(echo "$KEYSTORE_SHA1" | tr -d ': ' | tr 'a-f' 'A-F')
+          if ! echo "$CERT_SHA1" | grep -Eq '^[0-9A-F]{40}$'; then
+            echo "::error::Could not read the TEST keystore's certificate SHA-1 for GOOGLE_MAPS_ANDROID_CERT_SHA1 - check TEST_ANDROID_KEY_ALIAS and TEST_ANDROID_KEYSTORE_PASSWORD."
+            exit 1
+          fi
+          echo "GOOGLE_MAPS_ANDROID_CERT_SHA1 from the TEST keystore: $CERT_SHA1"
           if [ "${{ inputs.billing_mode }}" = "test_store" ]; then
             REVENUECAT_GOOGLE_VALUE="$REVENUECAT_API_KEY_GOOGLE"
             TEST_UNLOCK_VALUE="false"
@@ -341,19 +366,15 @@ jobs:
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=$GOOGLE_OAUTH_SERVER_CLIENT_ID"
             echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
             echo "GOOGLE_MAPS_ANDROID_PACKAGE_NAME=com.safetyalrt.alrt.dev"
-            echo "GOOGLE_MAPS_ANDROID_CERT_SHA1=185E439BFC7A99420CADF0EBA9E14F0AEE662DDB"
+            echo "GOOGLE_MAPS_ANDROID_CERT_SHA1=$CERT_SHA1"
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE="
             echo "REVENUECAT_API_KEY_GOOGLE=$REVENUECAT_GOOGLE_VALUE"
             echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
             echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
-            echo "USE_DUMMY_AI_FOR_REPORTS=true"
+            echo "USE_DUMMY_AI_FOR_REPORTS=${{ inputs.dummy_ai_reports && 'true' || 'false' }}"
           } > .env
-        env:
-          REVENUECAT_API_KEY_GOOGLE: ${{ secrets.TEST_REVENUECAT_API_KEY_GOOGLE }}
-          GOOGLE_MAPS_API_KEY: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY }}
-          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID }}
 
       # Runs only after .env exists (above): pubspec.yaml declares .env as
       # a Flutter asset (flutter_dotenv), so running this any earlier
