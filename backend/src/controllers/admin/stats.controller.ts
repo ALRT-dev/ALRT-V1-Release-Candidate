@@ -1,19 +1,11 @@
 import type { NextFunction, Response } from "express";
 import type { AdminRequest } from "../../middlewares/auth.admin.middleware.js";
 import prisma from "../../utils/prisma_client.util.js";
-import { getDashboardStats } from "../../services/stats.admin.service.js";
+import {
+  getDashboardStats,
+  startOfBrisbaneDay,
+} from "../../services/stats.admin.service.js";
 import { HttpError } from "../../models/http_error.js";
-
-// Queensland does not observe daylight saving, so Australia/Brisbane is a
-// fixed UTC+10 offset year-round and the day boundary can be computed
-// without a timezone library.
-const BRISBANE_UTC_OFFSET_MS = 10 * 60 * 60 * 1000;
-
-const startOfBrisbaneDay = (now: Date): Date => {
-  const shifted = new Date(now.getTime() + BRISBANE_UTC_OFFSET_MS);
-  shifted.setUTCHours(0, 0, 0, 0);
-  return new Date(shifted.getTime() - BRISBANE_UTC_OFFSET_MS);
-};
 
 export const getAdminStatsController = async (
   _req: AdminRequest,

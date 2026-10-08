@@ -15,6 +15,13 @@ interface ChatTurn {
   meta?: AskAlrtResponse;
 }
 
+// Limits from backend/src/validators/admin/ask_alrt_content.validator.ts
+// (askAlrtBodySchema). Going over any of them gets the whole request
+// rejected, so trim on the way out instead.
+const MAX_CONTEXT_CHARS = 2000;
+const MAX_HISTORY_TURNS = 10;
+const MAX_HISTORY_CONTENT_CHARS = 4000;
+
 // Builds the plain-text `context` the Cloud Function reads (see
 // lib/askAlrt.ts's AskAlrtRequest) from whatever accepted alerts the
 // TEST backend currently has - fetched through listHazards(), which
@@ -29,7 +36,8 @@ const buildContext = (
       (h) =>
         `${h.title} (${h.severityBand}${h.locationName ? `, near ${h.locationName}` : ""})`,
     )
-    .join("; ");
+    .join("; ")
+    .slice(0, MAX_CONTEXT_CHARS);
 
 export const AskAlrtPage = () => {
   const fetchRecentAlerts = useCallback(
@@ -57,7 +65,10 @@ export const AskAlrtPage = () => {
     setTurns(nextTurns);
     setQuestion("");
     try {
-      const history = turns.map((t) => ({ role: t.role, content: t.text }));
+      const history = turns.slice(-MAX_HISTORY_TURNS).map((t) => ({
+        role: t.role,
+        content: t.text.slice(0, MAX_HISTORY_CONTENT_CHARS),
+      }));
       const response = await askAlrt({ question: trimmed, history, context });
       setTurns([...nextTurns, { role: "assistant", text: response.answer, meta: response }]);
     } catch (error) {
