@@ -6,11 +6,11 @@
  * Which backend, in order:
  * 1. The Pages environment variable API_ORIGIN, when set. Set it to
  *    https://api.safetyalrt.com on the production Pages project.
- * 2. Otherwise the backend the portal was built for: the client sends its
- *    build's VITE_API_BASE_URL in the X-ALRT-API-Origin header, and it is
- *    used only when it is exactly one of ALLOWED_ORIGINS. Anything else is
- *    ignored, so the header can never point the relay at another host.
- * 3. Otherwise the TEST backend.
+ * 2. Otherwise the TEST backend. The live backend is reached ONLY through
+ *    API_ORIGIN on the Pages project: the X-ALRT-API-Origin header the
+ *    client sends (its build's VITE_API_BASE_URL) is never allowed to pick
+ *    live, so a TEST portal built with the default build command can never
+ *    end up on live data. The header is stripped before forwarding.
  *
  * GET /api/__alrt-relay-origin is answered here (never forwarded) with the
  * origin the relay would use, so the portal can show or embed the real
@@ -21,10 +21,6 @@ interface Env {
 }
 
 const DEFAULT_ORIGIN = "https://api-test.safetyalrt.com";
-const ALLOWED_ORIGINS = new Set([
-  "https://api.safetyalrt.com",
-  "https://api-test.safetyalrt.com",
-]);
 const API_ORIGIN_HEADER = "X-ALRT-API-Origin";
 const RELAY_ORIGIN_PATH = "/api/__alrt-relay-origin";
 
@@ -34,9 +30,7 @@ const resolveRelayOrigin = (
 ): string => {
   const configured = env.API_ORIGIN?.trim();
   if (configured) return configured.replace(/\/+$/, "");
-  if (requestedOrigin && ALLOWED_ORIGINS.has(requestedOrigin)) {
-    return requestedOrigin;
-  }
+  void requestedOrigin; // never selects a backend, see the header comment
   return DEFAULT_ORIGIN;
 };
 

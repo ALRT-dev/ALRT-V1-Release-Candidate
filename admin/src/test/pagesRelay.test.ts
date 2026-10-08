@@ -43,9 +43,9 @@ describe("Pages relay backend selection", () => {
     expect(url).toBe(`${LIVE}/api/admin/hazards?page=2`);
   });
 
-  it("uses the build origin header when it is exactly the live backend", async () => {
+  it("never reaches live from the build origin header alone", async () => {
     const { url, headers } = await relay({}, { "X-ALRT-API-Origin": LIVE });
-    expect(url).toBe(`${LIVE}/api/admin/hazards?page=2`);
+    expect(url).toBe(`${TEST}/api/admin/hazards?page=2`);
     // The selector header is not forwarded to the backend.
     expect(headers.get("X-ALRT-API-Origin")).toBeNull();
   });
@@ -68,7 +68,7 @@ describe("Pages relay backend selection", () => {
 
   it("reports the resolved origin without calling the backend", async () => {
     expect(await resolvedOrigin({})).toBe(TEST);
-    expect(await resolvedOrigin({}, { "X-ALRT-API-Origin": LIVE })).toBe(LIVE);
+    expect(await resolvedOrigin({}, { "X-ALRT-API-Origin": LIVE })).toBe(TEST);
     expect(await resolvedOrigin({ API_ORIGIN: LIVE }, { "X-ALRT-API-Origin": TEST })).toBe(LIVE);
   });
 });

@@ -112,11 +112,9 @@ The relay picks the backend in this order:
    Environment variables, Production). **For production set
    `API_ORIGIN=https://api.safetyalrt.com`.** For the TEST project set
    `API_ORIGIN=https://api-test.safetyalrt.com` (or leave it unset).
-2. If `API_ORIGIN` is unset: the build's `VITE_API_BASE_URL`, which the
-   client sends in the `X-ALRT-API-Origin` header. The relay accepts it only
-   when it is exactly `https://api.safetyalrt.com` or
-   `https://api-test.safetyalrt.com`; anything else is ignored.
-3. Otherwise the TEST backend, `https://api-test.safetyalrt.com`.
+2. Otherwise the TEST backend, `https://api-test.safetyalrt.com`. The live
+   backend is only ever reached through `API_ORIGIN`; nothing the browser
+   sends can choose it, so a TEST portal can never end up on live data.
 
 Set both `API_ORIGIN` (runtime) and `VITE_API_BASE_URL` (build time) to the
 same backend so they cannot disagree. The Webhook API Keys page asks the
