@@ -15,6 +15,9 @@ export type HttpErrorCode =
   | "PAYER_ONLY"
   | "NO_SOS_RECIPIENTS"
   | "SOS_PRESET_OTHER_GROUP"
+  // Ask ALRT: today's question allowance is used up (429). Distinguishes it
+  // from the general rate limiter's 429.
+  | "ask_limit"
   // Admin Portal: an admin with a temporary password must change it first.
   | "PASSWORD_CHANGE_REQUIRED";
 
