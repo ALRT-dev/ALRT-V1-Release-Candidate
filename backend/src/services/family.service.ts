@@ -500,10 +500,11 @@ export const listCirclesForUser = async (userId: string) => {
   const circleIds = memberships.map((m) => m.circleId);
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const myMemberIds = memberships.map((m) => m.id);
-  const [allMembers, openAsks, activeSos] = await Promise.all([
+  const [allMembers, openAsks, latestAsks, activeSos] = await Promise.all([
     prisma.familyMember.findMany({
       where: { circleId: { in: circleIds } },
       select: {
+        id: true,
         circleId: true,
         nickname: true,
         lastCheckInAt: true,
@@ -526,6 +527,27 @@ export const listCirclesForUser = async (userId: string) => {
       },
       select: { circleId: true, createdAt: true, targetMemberIds: true },
     }),
+    // The asks that concern me per group (everyone, me, or sent by me),
+    // newest first: the newest is what the open hub's CheckInRoll reads
+    // as latestCheckInRequest, so the tile measures against the same ask.
+    prisma.familyCheckInRequest.findMany({
+      where: {
+        circleId: { in: circleIds },
+        createdAt: { gt: new Date(Date.now() - CHECK_IN_ASK_FRESH_MS) },
+        OR: [
+          { targetMemberIds: { isEmpty: true } },
+          { targetMemberIds: { hasSome: myMemberIds } },
+          { requestedById: { in: myMemberIds } },
+        ],
+      },
+      select: {
+        circleId: true,
+        createdAt: true,
+        targetMemberIds: true,
+        requestedById: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.familySosEvent.findMany({
       where: {
         circleId: { in: circleIds },
@@ -545,17 +567,38 @@ export const listCirclesForUser = async (userId: string) => {
       orderBy: { createdAt: "desc" },
     }),
   ]);
+  // Same reading as the app's CheckInRoll. With a fresh ask: the person
+  // who asked counts as answered and is never waited on; someone asked
+  // (everyone, or named in targetMemberIds) has answered only by checking
+  // in after the ask; someone the ask did not name is never waited on.
+  // Without an ask: checked in within the last day.
+  const latestAskByCircle = new Map<string, (typeof latestAsks)[number]>();
+  for (const ask of latestAsks) {
+    if (!latestAskByCircle.has(ask.circleId)) latestAskByCircle.set(ask.circleId, ask);
+  }
   const checkedInByCircle = new Map<string, number>();
   const waitingOnByCircle = new Map<string, string[]>();
   for (const m of allMembers) {
     const name = m.nickname || m.user.name || "Family member";
-    const checkedIn = !!m.lastCheckInAt && m.lastCheckInAt > dayAgo;
-    if (checkedIn) {
+    const ask = latestAskByCircle.get(m.circleId);
+    const checkedInToday = !!m.lastCheckInAt && m.lastCheckInAt > dayAgo;
+    const asked =
+      !!ask &&
+      m.id !== ask.requestedById &&
+      (ask.targetMemberIds.length === 0 || ask.targetMemberIds.includes(m.id));
+    const answered = !ask
+      ? checkedInToday
+      : m.id === ask.requestedById
+        ? true
+        : asked
+          ? !!m.lastCheckInAt && m.lastCheckInAt > ask.createdAt
+          : checkedInToday;
+    if (answered) {
       checkedInByCircle.set(
         m.circleId,
         (checkedInByCircle.get(m.circleId) ?? 0) + 1,
       );
-    } else {
+    } else if (!ask || asked) {
       waitingOnByCircle.set(m.circleId, [
         ...(waitingOnByCircle.get(m.circleId) ?? []),
         name,
