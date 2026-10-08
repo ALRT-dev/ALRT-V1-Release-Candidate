@@ -15,6 +15,8 @@ export type HttpErrorCode =
   | "PAYER_ONLY"
   | "NO_SOS_RECIPIENTS"
   | "SOS_PRESET_OTHER_GROUP"
+  // The group allows periodic journey updates only (journeysSnapPointsOnly).
+  | "LIVE_JOURNEY_NOT_ALLOWED"
   // Admin Portal: an admin with a temporary password must change it first.
   | "PASSWORD_CHANGE_REQUIRED";
 

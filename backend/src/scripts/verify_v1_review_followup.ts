@@ -535,6 +535,13 @@ const main = async () => {
 
   await check("an approximate traveller's journey never stores or delivers coordinates", async () => {
     await setLevel(H, g, "approximate");
+    // Live journeys need the host to turn off "periodic updates only".
+    const allow = await api(`/api/family/circle?circleId=${g}`, {
+      method: "PUT",
+      token: H.token,
+      body: { journeysSnapPointsOnly: false },
+    });
+    assert.equal(allow.status, 200, JSON.stringify(allow.body));
     const start = await api(`/api/family/journeys?circleId=${g}`, {
       method: "POST",
       token: H.token,
