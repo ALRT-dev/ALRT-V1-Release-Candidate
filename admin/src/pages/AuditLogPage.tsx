@@ -6,7 +6,20 @@ import { listAuditLog } from "../api/resources";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import type { AdminAuditLogEntry } from "../api/types";
 
-const TARGET_TYPES = ["", "HazardSource", "Hazard", "AIPrompt", "Configuration", "WebhookApiKey", "Admin"];
+const TARGET_TYPES = [
+  "",
+  "HazardSource",
+  "Hazard",
+  "HazardCategory",
+  "User",
+  "AIPrompt",
+  "Configuration",
+  "WebhookApiKey",
+  "Admin",
+  "AskAlrtConfig",
+  "AskAlrtEntry",
+  "EmergencyNumber",
+];
 
 const PAGE_SIZE = 50;
 

@@ -16,6 +16,8 @@ import {
   CATEGORY_IMAGE_FIELD_NAMES,
 } from "../../constants/category_image.constants.js";
 import type { CategoryImageType } from "@prisma/client";
+import type { AdminRequest } from "../../middlewares/auth.admin.middleware.js";
+import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 
 export const getCategoriesForAdmin = async (
   req: Request,
@@ -195,7 +197,7 @@ export const createHazardCategoryForAdmin = async (
 };
 
 export const updateHazardCategoryForAdmin = async (
-  req: Request,
+  req: AdminRequest,
   res: Response,
   next: NextFunction,
 ) => {
@@ -299,6 +301,28 @@ export const updateHazardCategoryForAdmin = async (
 
     const files = req.files as Record<string, Express.Multer.File[]> | undefined;
     const folder = `category-images/${categoryId}`;
+
+    const auditFields = (c: typeof existingCategory) => ({
+      name: c.name,
+      description: c.description,
+      color: c.color,
+      parentId: c.parentId,
+      keywords: c.keywords,
+      isFireRelated: c.isFireRelated,
+    });
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "hazardCategory.update",
+      targetType: "HazardCategory",
+      targetId: categoryId,
+      before: auditFields(existingCategory),
+      after: {
+        ...auditFields(updatedCategory),
+        imagesReplaced: files
+          ? CATEGORY_IMAGE_FIELD_NAMES.filter((f) => files[f]?.[0])
+          : [],
+      },
+    });
 
     if (files) {
       for (const fieldName of CATEGORY_IMAGE_FIELD_NAMES) {
