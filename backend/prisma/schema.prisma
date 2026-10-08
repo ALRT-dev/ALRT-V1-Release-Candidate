@@ -1043,7 +1043,7 @@ model FamilyInvite {
 
   createdById String // FamilyMember id of the inviter
 
-  maxUses   Int       @default(10)
+  maxUses   Int       @default(20) // the group cap
   useCount  Int       @default(0)
   isRevoked Boolean   @default(false)
   expiresAt DateTime?
@@ -1238,7 +1238,13 @@ model FamilySosList {
 model FamilySosEvent {
   id       String          @id @default(uuid())
   circleId String
-  memberId String // The member who triggered the SOS
+  // The member who triggered the SOS. Null once that member has left or
+  // been removed: the record (who/when, never where) stays in "Past SOS",
+  // named by senderName.
+  memberId String?
+  // The sender's display name when the SOS started, so history can still
+  // name them after they leave. Null on events from before this field.
+  senderName String?
   status   FamilySosStatus @default(active)
   // Whether the sender chose continuous live-location sharing for this SOS.
   // Defaults true so every SOS from before this field existed reads as the
@@ -1281,7 +1287,7 @@ model FamilySosEvent {
   endingSoonNotifiedFor DateTime?
 
   circle    FamilyCircle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  member    FamilyMember        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  member    FamilyMember?       @relation(fields: [memberId], references: [id], onDelete: SetNull)
   responses FamilySosResponse[]
 
   createdAt DateTime @default(now())

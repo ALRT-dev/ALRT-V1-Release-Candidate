@@ -843,6 +843,7 @@ export const pruneFamilyLocationPings = async () => {
   // one), but keep the earliest start if data ever disagrees.
   const sosStartByMember = new Map<string, Date>();
   for (const sos of activeSos) {
+    if (!sos.memberId) continue; // sender gone: their pings went with them
     const existing = sosStartByMember.get(sos.memberId);
     if (!existing || sos.createdAt < existing) {
       sosStartByMember.set(sos.memberId, sos.createdAt);

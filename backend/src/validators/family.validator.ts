@@ -31,7 +31,8 @@ export const updateFamilyCircleSchema = z.object({
     .optional(),
   themeColor: hexColor.nullable().optional(),
   anyoneCanRequestSnapshot: z.boolean().optional(),
-  sosToWholeGroup: z.boolean().optional(),
+  // sosToWholeGroup is retired (product owner): an older app may still
+  // send it; it is dropped unread, never stored.
   journeysSnapPointsOnly: z.boolean().optional(),
 });
 
@@ -190,13 +191,17 @@ export const triggerFamilySosSchema = z.object({
   // When the phone actually fixed the point (a last-known point is sent
   // with its real, older time; never presented as "now").
   locationCapturedAt: z.string().datetime().optional(),
-  locationAccuracyM: z.number().min(0).max(100000).optional(),
+  // A phone's -1 "unknown" accuracy is treated as missing, as for pings.
+  locationAccuracyM: z.preprocess(
+    negativeToUndefined,
+    z.number().max(100000).optional(),
+  ),
 });
 
 export const sosLocationPointSchema = z.object({
   latitude: latitudeSchema,
   longitude: longitudeSchema,
-  accuracy: z.number().min(0).max(100000).optional(),
+  accuracy: z.preprocess(negativeToUndefined, z.number().max(100000).optional()),
   capturedAt: z.string().datetime().optional(),
 });
 

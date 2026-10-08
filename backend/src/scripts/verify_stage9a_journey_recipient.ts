@@ -232,6 +232,24 @@ async function main() {
   console.log();
   console.log("§26 live position updates reach the recipient, and stop when the journey stops");
 
+  // A group on "periodic updates only" (journeysSnapPointsOnly, the
+  // default) refuses a live journey; the host turns live on first.
+  await check("a live journey is refused (409) while the group is periodic only", async () => {
+    const res = await api("/api/family/journeys", {
+      method: "POST",
+      token: a.token,
+      body: { durationMinutes: 30, recipientMemberIds: [bMemberId], isLive: true },
+    });
+    assert.equal(res.status, 409, JSON.stringify(res.body));
+    assert.equal((res.body as any).code, "LIVE_JOURNEY_NOT_ALLOWED");
+  });
+  const allowLive = await api("/api/family/circle", {
+    method: "PUT",
+    token: a.token,
+    body: { journeysSnapPointsOnly: false },
+  });
+  assert.equal(allowLive.status, 200, JSON.stringify(allowLive.body));
+
   const liveStart = await api("/api/family/journeys", {
     method: "POST",
     token: a.token,
