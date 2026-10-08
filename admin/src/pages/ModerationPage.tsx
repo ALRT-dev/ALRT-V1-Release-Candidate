@@ -126,7 +126,7 @@ export const ModerationPage = () => {
             {data.map((hazard) => (
               <tr key={hazard.id}>
                 <td>{hazard.title}</td>
-                <td>{hazard.reportedBy?.name ?? "Unknown"}</td>
+                <td>{hazard.reportedBy?.name ?? hazard.reportedBy?.email ?? "Unknown"}</td>
                 <td>{hazard.corroborationCount}</td>
                 <td>{new Date(hazard.createdAt).toLocaleString()}</td>
                 {tab !== "pending" && <td>{hazard.reviewFeedback ?? "-"}</td>}

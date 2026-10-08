@@ -128,6 +128,7 @@ export interface AdminHazardSourceRef {
 export interface AdminHazardReporterRef {
   id: string;
   name: string | null;
+  email?: string | null;
   xpPoints: number;
   reliabilityScore: number;
   reportsStatus: string;
@@ -155,6 +156,9 @@ export interface AdminHazard {
   reviewFeedback: string | null;
   reviewedAt: string | null;
   reviewedById: string | null;
+  // Reviewing admin, joined on the admin list route. Null for AI reviews
+  // ("ai") or a deleted admin.
+  reviewedBy?: { email: string | null; name: string | null } | null;
   confidenceScore: number;
   corroborationCount: number;
   medias: HazardMedia[];

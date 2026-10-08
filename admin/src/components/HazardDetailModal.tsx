@@ -1,6 +1,18 @@
 import type { AdminHazard } from "../api/types";
 import { ReviewStatusBadge, SeverityBadge, BooleanBadge } from "./StatusBadge";
 
+/** Human label for who reviewed a hazard: the reviewing admin's name and
+ * email (joined on the admin list route), "AI" for automatic reviews, never
+ * the raw id. */
+const reviewerLabel = (hazard: AdminHazard): string | null => {
+  if (!hazard.reviewedById) return null;
+  if (hazard.reviewedById === "ai") return "AI";
+  const reviewer = hazard.reviewedBy;
+  if (reviewer?.name && reviewer.email) return `${reviewer.name} (${reviewer.email})`;
+  if (reviewer?.email || reviewer?.name) return reviewer.email ?? reviewer.name;
+  return "a removed admin";
+};
+
 /** Read-only detail view. Renders alert/community-report text as plain
  * text nodes only (React escapes text children by default) - never via
  * dangerouslySetInnerHTML - since hazard titles/descriptions/AI summaries
@@ -68,7 +80,12 @@ export const HazardDetailModal = ({
             </tr>
             <tr>
               <th>Reported by</th>
-              <td>{hazard.reportedBy?.name ?? "-"}</td>
+              <td>
+                {hazard.reportedBy?.name ?? hazard.reportedBy?.email ?? "-"}
+                {hazard.reportedBy?.name && hazard.reportedBy?.email
+                  ? ` (${hazard.reportedBy.email})`
+                  : ""}
+              </td>
             </tr>
             <tr>
               <th>Location</th>
@@ -101,7 +118,7 @@ export const HazardDetailModal = ({
                 {hazard.reviewedAt && (
                   <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
                     Reviewed {new Date(hazard.reviewedAt).toLocaleString()}
-                    {hazard.reviewedById ? ` by ${hazard.reviewedById}` : ""}
+                    {reviewerLabel(hazard) ? ` by ${reviewerLabel(hazard)}` : ""}
                   </div>
                 )}
               </td>
