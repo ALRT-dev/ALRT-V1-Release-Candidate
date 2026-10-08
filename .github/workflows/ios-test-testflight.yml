@@ -280,6 +280,9 @@ jobs:
       # billing_mode - see the billing_mode comment at the top of this file.
       - name: Create .env pointed at the isolated test backend
         run: |
+          # A Secret set from Windows can carry a trailing CR/LF; Google keys
+          # never contain whitespace, so strip it before it reaches the app.
+          GOOGLE_MAPS_API_KEY_IOS="$(printf '%s' "$GOOGLE_MAPS_API_KEY_IOS" | tr -d '[:space:]')"
           if [ "${{ inputs.billing_mode }}" = "platform_sandbox" ]; then
             REVENUECAT_APPLE_VALUE="$REVENUECAT_API_KEY_APPLE"
             TEST_UNLOCK_VALUE="false"
@@ -362,6 +365,7 @@ jobs:
       # production key. Non-fatal on purpose; reported by length only.
       - name: Create ios/Flutter/Maps.xcconfig from the TEST-only iOS Maps key (blank = Maps disabled)
         run: |
+          GOOGLE_MAPS_API_KEY_IOS="$(printf '%s' "$GOOGLE_MAPS_API_KEY_IOS" | tr -d '[:space:]')"
           echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS" > ios/Flutter/Maps.xcconfig
           if [ -z "$GOOGLE_MAPS_API_KEY_IOS" ]; then
             echo "::warning::TEST_GOOGLE_MAPS_API_KEY_IOS is not set - Google Maps is disabled on this TEST build (no production key is ever used here)."
