@@ -610,6 +610,10 @@ abstract class FamilySosEvent with _$FamilySosEvent {
     // did not say (a socket copy), so nothing is claimed about it.
     @Default(<String>[]) final List<String> recipientUserIds,
     final bool? audienceRestricted,
+    // The name the SOS was sent under, kept on the row so the record still
+    // names the sender after they leave the group (member.user is then
+    // null).
+    final String? senderName,
   }) = _FamilySosEvent;
 
   factory FamilySosEvent.fromJson(Map<String, dynamic> json) =>

@@ -39,14 +39,12 @@ class FamilyService {
     final String? name,
     final String? themeColor,
     final bool? anyoneCanRequestSnapshot,
-    final bool? sosToWholeGroup,
     final bool? journeysSnapPointsOnly,
   }) {
     return _familyRepository.updateFamilyCircle(
       name: name,
       themeColor: themeColor,
       anyoneCanRequestSnapshot: anyoneCanRequestSnapshot,
-      sosToWholeGroup: sosToWholeGroup,
       journeysSnapPointsOnly: journeysSnapPointsOnly,
     );
   }

@@ -39,7 +39,6 @@ abstract class FamilyRepository {
     final String? name,
     final String? themeColor,
     final bool? anyoneCanRequestSnapshot,
-    final bool? sosToWholeGroup,
     final bool? journeysSnapPointsOnly,
   });
 
@@ -364,7 +363,6 @@ class FamilyRepositoryImpl implements FamilyRepository {
     String? name,
     String? themeColor,
     bool? anyoneCanRequestSnapshot,
-    bool? sosToWholeGroup,
     bool? journeysSnapPointsOnly,
   }) {
     return runAsyncCall(
@@ -374,7 +372,6 @@ class FamilyRepositoryImpl implements FamilyRepository {
           name: name,
           themeColor: themeColor,
           anyoneCanRequestSnapshot: anyoneCanRequestSnapshot,
-          sosToWholeGroup: sosToWholeGroup,
           journeysSnapPointsOnly: journeysSnapPointsOnly,
           circleId: _circleId,
         );

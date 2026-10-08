@@ -5448,7 +5448,10 @@ mixin _$FamilySosEvent {
 // was sent to. audienceRestricted false = an event from before the
 // stored audience, which went to the whole group; null = the payload
 // did not say (a socket copy), so nothing is claimed about it.
- List<String> get recipientUserIds; bool? get audienceRestricted;
+ List<String> get recipientUserIds; bool? get audienceRestricted;// The name the SOS was sent under, kept on the row so the record still
+// names the sender after they leave the group (member.user is then
+// null).
+ String? get senderName;
 /// Create a copy of FamilySosEvent
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -5461,16 +5464,16 @@ $FamilySosEventCopyWith<FamilySosEvent> get copyWith => _$FamilySosEventCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilySosEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.isLive, isLive) || other.isLive == isLive)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.locationLabel, locationLabel) || other.locationLabel == locationLabel)&&(identical(other.locationMode, locationMode) || other.locationMode == locationMode)&&(identical(other.locationPrecision, locationPrecision) || other.locationPrecision == locationPrecision)&&(identical(other.locationCapturedAt, locationCapturedAt) || other.locationCapturedAt == locationCapturedAt)&&(identical(other.locationAccuracyM, locationAccuracyM) || other.locationAccuracyM == locationAccuracyM)&&(identical(other.member, member) || other.member == member)&&const DeepCollectionEquality().equals(other.responses, responses)&&(identical(other.resolvedAt, resolvedAt) || other.resolvedAt == resolvedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.liveUntil, liveUntil) || other.liveUntil == liveUntil)&&(identical(other.endedByMemberId, endedByMemberId) || other.endedByMemberId == endedByMemberId)&&const DeepCollectionEquality().equals(other.recipientUserIds, recipientUserIds)&&(identical(other.audienceRestricted, audienceRestricted) || other.audienceRestricted == audienceRestricted));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FamilySosEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.isLive, isLive) || other.isLive == isLive)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.locationLabel, locationLabel) || other.locationLabel == locationLabel)&&(identical(other.locationMode, locationMode) || other.locationMode == locationMode)&&(identical(other.locationPrecision, locationPrecision) || other.locationPrecision == locationPrecision)&&(identical(other.locationCapturedAt, locationCapturedAt) || other.locationCapturedAt == locationCapturedAt)&&(identical(other.locationAccuracyM, locationAccuracyM) || other.locationAccuracyM == locationAccuracyM)&&(identical(other.member, member) || other.member == member)&&const DeepCollectionEquality().equals(other.responses, responses)&&(identical(other.resolvedAt, resolvedAt) || other.resolvedAt == resolvedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.liveUntil, liveUntil) || other.liveUntil == liveUntil)&&(identical(other.endedByMemberId, endedByMemberId) || other.endedByMemberId == endedByMemberId)&&const DeepCollectionEquality().equals(other.recipientUserIds, recipientUserIds)&&(identical(other.audienceRestricted, audienceRestricted) || other.audienceRestricted == audienceRestricted)&&(identical(other.senderName, senderName) || other.senderName == senderName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,circleId,memberId,status,isLive,latitude,longitude,locationLabel,locationMode,locationPrecision,locationCapturedAt,locationAccuracyM,member,const DeepCollectionEquality().hash(responses),resolvedAt,createdAt,liveUntil,endedByMemberId,const DeepCollectionEquality().hash(recipientUserIds),audienceRestricted]);
+int get hashCode => Object.hashAll([runtimeType,id,circleId,memberId,status,isLive,latitude,longitude,locationLabel,locationMode,locationPrecision,locationCapturedAt,locationAccuracyM,member,const DeepCollectionEquality().hash(responses),resolvedAt,createdAt,liveUntil,endedByMemberId,const DeepCollectionEquality().hash(recipientUserIds),audienceRestricted,senderName]);
 
 @override
 String toString() {
-  return 'FamilySosEvent(id: $id, circleId: $circleId, memberId: $memberId, status: $status, isLive: $isLive, latitude: $latitude, longitude: $longitude, locationLabel: $locationLabel, locationMode: $locationMode, locationPrecision: $locationPrecision, locationCapturedAt: $locationCapturedAt, locationAccuracyM: $locationAccuracyM, member: $member, responses: $responses, resolvedAt: $resolvedAt, createdAt: $createdAt, liveUntil: $liveUntil, endedByMemberId: $endedByMemberId, recipientUserIds: $recipientUserIds, audienceRestricted: $audienceRestricted)';
+  return 'FamilySosEvent(id: $id, circleId: $circleId, memberId: $memberId, status: $status, isLive: $isLive, latitude: $latitude, longitude: $longitude, locationLabel: $locationLabel, locationMode: $locationMode, locationPrecision: $locationPrecision, locationCapturedAt: $locationCapturedAt, locationAccuracyM: $locationAccuracyM, member: $member, responses: $responses, resolvedAt: $resolvedAt, createdAt: $createdAt, liveUntil: $liveUntil, endedByMemberId: $endedByMemberId, recipientUserIds: $recipientUserIds, audienceRestricted: $audienceRestricted, senderName: $senderName)';
 }
 
 
@@ -5481,7 +5484,7 @@ abstract mixin class $FamilySosEventCopyWith<$Res>  {
   factory $FamilySosEventCopyWith(FamilySosEvent value, $Res Function(FamilySosEvent) _then) = _$FamilySosEventCopyWithImpl;
 @useResult
 $Res call({
- String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus status, bool isLive, double? latitude, double? longitude, String? locationLabel, String? locationMode, String? locationPrecision, DateTime? locationCapturedAt, double? locationAccuracyM, FamilyMemberSnippet? member, List<FamilySosResponse> responses, DateTime? resolvedAt, DateTime? createdAt, DateTime? liveUntil, String? endedByMemberId, List<String> recipientUserIds, bool? audienceRestricted
+ String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus status, bool isLive, double? latitude, double? longitude, String? locationLabel, String? locationMode, String? locationPrecision, DateTime? locationCapturedAt, double? locationAccuracyM, FamilyMemberSnippet? member, List<FamilySosResponse> responses, DateTime? resolvedAt, DateTime? createdAt, DateTime? liveUntil, String? endedByMemberId, List<String> recipientUserIds, bool? audienceRestricted, String? senderName
 });
 
 
@@ -5498,7 +5501,7 @@ class _$FamilySosEventCopyWithImpl<$Res>
 
 /// Create a copy of FamilySosEvent
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? isLive = null,Object? latitude = freezed,Object? longitude = freezed,Object? locationLabel = freezed,Object? locationMode = freezed,Object? locationPrecision = freezed,Object? locationCapturedAt = freezed,Object? locationAccuracyM = freezed,Object? member = freezed,Object? responses = null,Object? resolvedAt = freezed,Object? createdAt = freezed,Object? liveUntil = freezed,Object? endedByMemberId = freezed,Object? recipientUserIds = null,Object? audienceRestricted = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? isLive = null,Object? latitude = freezed,Object? longitude = freezed,Object? locationLabel = freezed,Object? locationMode = freezed,Object? locationPrecision = freezed,Object? locationCapturedAt = freezed,Object? locationAccuracyM = freezed,Object? member = freezed,Object? responses = null,Object? resolvedAt = freezed,Object? createdAt = freezed,Object? liveUntil = freezed,Object? endedByMemberId = freezed,Object? recipientUserIds = null,Object? audienceRestricted = freezed,Object? senderName = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,circleId: null == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
@@ -5520,7 +5523,8 @@ as DateTime?,liveUntil: freezed == liveUntil ? _self.liveUntil : liveUntil // ig
 as DateTime?,endedByMemberId: freezed == endedByMemberId ? _self.endedByMemberId : endedByMemberId // ignore: cast_nullable_to_non_nullable
 as String?,recipientUserIds: null == recipientUserIds ? _self.recipientUserIds : recipientUserIds // ignore: cast_nullable_to_non_nullable
 as List<String>,audienceRestricted: freezed == audienceRestricted ? _self.audienceRestricted : audienceRestricted // ignore: cast_nullable_to_non_nullable
-as bool?,
+as bool?,senderName: freezed == senderName ? _self.senderName : senderName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 /// Create a copy of FamilySosEvent
@@ -5617,10 +5621,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  String? locationMode,  String? locationPrecision,  DateTime? locationCapturedAt,  double? locationAccuracyM,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt,  DateTime? liveUntil,  String? endedByMemberId,  List<String> recipientUserIds,  bool? audienceRestricted)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  String? locationMode,  String? locationPrecision,  DateTime? locationCapturedAt,  double? locationAccuracyM,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt,  DateTime? liveUntil,  String? endedByMemberId,  List<String> recipientUserIds,  bool? audienceRestricted,  String? senderName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FamilySosEvent() when $default != null:
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.locationMode,_that.locationPrecision,_that.locationCapturedAt,_that.locationAccuracyM,_that.member,_that.responses,_that.resolvedAt,_that.createdAt,_that.liveUntil,_that.endedByMemberId,_that.recipientUserIds,_that.audienceRestricted);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.locationMode,_that.locationPrecision,_that.locationCapturedAt,_that.locationAccuracyM,_that.member,_that.responses,_that.resolvedAt,_that.createdAt,_that.liveUntil,_that.endedByMemberId,_that.recipientUserIds,_that.audienceRestricted,_that.senderName);case _:
   return orElse();
 
 }
@@ -5638,10 +5642,10 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  String? locationMode,  String? locationPrecision,  DateTime? locationCapturedAt,  double? locationAccuracyM,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt,  DateTime? liveUntil,  String? endedByMemberId,  List<String> recipientUserIds,  bool? audienceRestricted)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  String? locationMode,  String? locationPrecision,  DateTime? locationCapturedAt,  double? locationAccuracyM,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt,  DateTime? liveUntil,  String? endedByMemberId,  List<String> recipientUserIds,  bool? audienceRestricted,  String? senderName)  $default,) {final _that = this;
 switch (_that) {
 case _FamilySosEvent():
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.locationMode,_that.locationPrecision,_that.locationCapturedAt,_that.locationAccuracyM,_that.member,_that.responses,_that.resolvedAt,_that.createdAt,_that.liveUntil,_that.endedByMemberId,_that.recipientUserIds,_that.audienceRestricted);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.locationMode,_that.locationPrecision,_that.locationCapturedAt,_that.locationAccuracyM,_that.member,_that.responses,_that.resolvedAt,_that.createdAt,_that.liveUntil,_that.endedByMemberId,_that.recipientUserIds,_that.audienceRestricted,_that.senderName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -5658,10 +5662,10 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  String? locationMode,  String? locationPrecision,  DateTime? locationCapturedAt,  double? locationAccuracyM,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt,  DateTime? liveUntil,  String? endedByMemberId,  List<String> recipientUserIds,  bool? audienceRestricted)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String circleId,  String memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active)  FamilySosStatus status,  bool isLive,  double? latitude,  double? longitude,  String? locationLabel,  String? locationMode,  String? locationPrecision,  DateTime? locationCapturedAt,  double? locationAccuracyM,  FamilyMemberSnippet? member,  List<FamilySosResponse> responses,  DateTime? resolvedAt,  DateTime? createdAt,  DateTime? liveUntil,  String? endedByMemberId,  List<String> recipientUserIds,  bool? audienceRestricted,  String? senderName)?  $default,) {final _that = this;
 switch (_that) {
 case _FamilySosEvent() when $default != null:
-return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.locationMode,_that.locationPrecision,_that.locationCapturedAt,_that.locationAccuracyM,_that.member,_that.responses,_that.resolvedAt,_that.createdAt,_that.liveUntil,_that.endedByMemberId,_that.recipientUserIds,_that.audienceRestricted);case _:
+return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive,_that.latitude,_that.longitude,_that.locationLabel,_that.locationMode,_that.locationPrecision,_that.locationCapturedAt,_that.locationAccuracyM,_that.member,_that.responses,_that.resolvedAt,_that.createdAt,_that.liveUntil,_that.endedByMemberId,_that.recipientUserIds,_that.audienceRestricted,_that.senderName);case _:
   return null;
 
 }
@@ -5673,7 +5677,7 @@ return $default(_that.id,_that.circleId,_that.memberId,_that.status,_that.isLive
 @JsonSerializable()
 
 class _FamilySosEvent implements FamilySosEvent {
-  const _FamilySosEvent({required this.id, required this.circleId, required this.memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active) this.status = FamilySosStatus.active, this.isLive = true, this.latitude, this.longitude, this.locationLabel, this.locationMode, this.locationPrecision, this.locationCapturedAt, this.locationAccuracyM, this.member, final  List<FamilySosResponse> responses = const <FamilySosResponse>[], this.resolvedAt, this.createdAt, this.liveUntil, this.endedByMemberId, final  List<String> recipientUserIds = const <String>[], this.audienceRestricted}): _responses = responses,_recipientUserIds = recipientUserIds;
+  const _FamilySosEvent({required this.id, required this.circleId, required this.memberId, @JsonKey(unknownEnumValue: FamilySosStatus.active) this.status = FamilySosStatus.active, this.isLive = true, this.latitude, this.longitude, this.locationLabel, this.locationMode, this.locationPrecision, this.locationCapturedAt, this.locationAccuracyM, this.member, final  List<FamilySosResponse> responses = const <FamilySosResponse>[], this.resolvedAt, this.createdAt, this.liveUntil, this.endedByMemberId, final  List<String> recipientUserIds = const <String>[], this.audienceRestricted, this.senderName}): _responses = responses,_recipientUserIds = recipientUserIds;
   factory _FamilySosEvent.fromJson(Map<String, dynamic> json) => _$FamilySosEventFromJson(json);
 
 @override final  String id;
@@ -5728,6 +5732,10 @@ class _FamilySosEvent implements FamilySosEvent {
 }
 
 @override final  bool? audienceRestricted;
+// The name the SOS was sent under, kept on the row so the record still
+// names the sender after they leave the group (member.user is then
+// null).
+@override final  String? senderName;
 
 /// Create a copy of FamilySosEvent
 /// with the given fields replaced by the non-null parameter values.
@@ -5742,16 +5750,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilySosEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.isLive, isLive) || other.isLive == isLive)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.locationLabel, locationLabel) || other.locationLabel == locationLabel)&&(identical(other.locationMode, locationMode) || other.locationMode == locationMode)&&(identical(other.locationPrecision, locationPrecision) || other.locationPrecision == locationPrecision)&&(identical(other.locationCapturedAt, locationCapturedAt) || other.locationCapturedAt == locationCapturedAt)&&(identical(other.locationAccuracyM, locationAccuracyM) || other.locationAccuracyM == locationAccuracyM)&&(identical(other.member, member) || other.member == member)&&const DeepCollectionEquality().equals(other._responses, _responses)&&(identical(other.resolvedAt, resolvedAt) || other.resolvedAt == resolvedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.liveUntil, liveUntil) || other.liveUntil == liveUntil)&&(identical(other.endedByMemberId, endedByMemberId) || other.endedByMemberId == endedByMemberId)&&const DeepCollectionEquality().equals(other._recipientUserIds, _recipientUserIds)&&(identical(other.audienceRestricted, audienceRestricted) || other.audienceRestricted == audienceRestricted));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FamilySosEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.circleId, circleId) || other.circleId == circleId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.status, status) || other.status == status)&&(identical(other.isLive, isLive) || other.isLive == isLive)&&(identical(other.latitude, latitude) || other.latitude == latitude)&&(identical(other.longitude, longitude) || other.longitude == longitude)&&(identical(other.locationLabel, locationLabel) || other.locationLabel == locationLabel)&&(identical(other.locationMode, locationMode) || other.locationMode == locationMode)&&(identical(other.locationPrecision, locationPrecision) || other.locationPrecision == locationPrecision)&&(identical(other.locationCapturedAt, locationCapturedAt) || other.locationCapturedAt == locationCapturedAt)&&(identical(other.locationAccuracyM, locationAccuracyM) || other.locationAccuracyM == locationAccuracyM)&&(identical(other.member, member) || other.member == member)&&const DeepCollectionEquality().equals(other._responses, _responses)&&(identical(other.resolvedAt, resolvedAt) || other.resolvedAt == resolvedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.liveUntil, liveUntil) || other.liveUntil == liveUntil)&&(identical(other.endedByMemberId, endedByMemberId) || other.endedByMemberId == endedByMemberId)&&const DeepCollectionEquality().equals(other._recipientUserIds, _recipientUserIds)&&(identical(other.audienceRestricted, audienceRestricted) || other.audienceRestricted == audienceRestricted)&&(identical(other.senderName, senderName) || other.senderName == senderName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,circleId,memberId,status,isLive,latitude,longitude,locationLabel,locationMode,locationPrecision,locationCapturedAt,locationAccuracyM,member,const DeepCollectionEquality().hash(_responses),resolvedAt,createdAt,liveUntil,endedByMemberId,const DeepCollectionEquality().hash(_recipientUserIds),audienceRestricted]);
+int get hashCode => Object.hashAll([runtimeType,id,circleId,memberId,status,isLive,latitude,longitude,locationLabel,locationMode,locationPrecision,locationCapturedAt,locationAccuracyM,member,const DeepCollectionEquality().hash(_responses),resolvedAt,createdAt,liveUntil,endedByMemberId,const DeepCollectionEquality().hash(_recipientUserIds),audienceRestricted,senderName]);
 
 @override
 String toString() {
-  return 'FamilySosEvent(id: $id, circleId: $circleId, memberId: $memberId, status: $status, isLive: $isLive, latitude: $latitude, longitude: $longitude, locationLabel: $locationLabel, locationMode: $locationMode, locationPrecision: $locationPrecision, locationCapturedAt: $locationCapturedAt, locationAccuracyM: $locationAccuracyM, member: $member, responses: $responses, resolvedAt: $resolvedAt, createdAt: $createdAt, liveUntil: $liveUntil, endedByMemberId: $endedByMemberId, recipientUserIds: $recipientUserIds, audienceRestricted: $audienceRestricted)';
+  return 'FamilySosEvent(id: $id, circleId: $circleId, memberId: $memberId, status: $status, isLive: $isLive, latitude: $latitude, longitude: $longitude, locationLabel: $locationLabel, locationMode: $locationMode, locationPrecision: $locationPrecision, locationCapturedAt: $locationCapturedAt, locationAccuracyM: $locationAccuracyM, member: $member, responses: $responses, resolvedAt: $resolvedAt, createdAt: $createdAt, liveUntil: $liveUntil, endedByMemberId: $endedByMemberId, recipientUserIds: $recipientUserIds, audienceRestricted: $audienceRestricted, senderName: $senderName)';
 }
 
 
@@ -5762,7 +5770,7 @@ abstract mixin class _$FamilySosEventCopyWith<$Res> implements $FamilySosEventCo
   factory _$FamilySosEventCopyWith(_FamilySosEvent value, $Res Function(_FamilySosEvent) _then) = __$FamilySosEventCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus status, bool isLive, double? latitude, double? longitude, String? locationLabel, String? locationMode, String? locationPrecision, DateTime? locationCapturedAt, double? locationAccuracyM, FamilyMemberSnippet? member, List<FamilySosResponse> responses, DateTime? resolvedAt, DateTime? createdAt, DateTime? liveUntil, String? endedByMemberId, List<String> recipientUserIds, bool? audienceRestricted
+ String id, String circleId, String memberId,@JsonKey(unknownEnumValue: FamilySosStatus.active) FamilySosStatus status, bool isLive, double? latitude, double? longitude, String? locationLabel, String? locationMode, String? locationPrecision, DateTime? locationCapturedAt, double? locationAccuracyM, FamilyMemberSnippet? member, List<FamilySosResponse> responses, DateTime? resolvedAt, DateTime? createdAt, DateTime? liveUntil, String? endedByMemberId, List<String> recipientUserIds, bool? audienceRestricted, String? senderName
 });
 
 
@@ -5779,7 +5787,7 @@ class __$FamilySosEventCopyWithImpl<$Res>
 
 /// Create a copy of FamilySosEvent
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? isLive = null,Object? latitude = freezed,Object? longitude = freezed,Object? locationLabel = freezed,Object? locationMode = freezed,Object? locationPrecision = freezed,Object? locationCapturedAt = freezed,Object? locationAccuracyM = freezed,Object? member = freezed,Object? responses = null,Object? resolvedAt = freezed,Object? createdAt = freezed,Object? liveUntil = freezed,Object? endedByMemberId = freezed,Object? recipientUserIds = null,Object? audienceRestricted = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? circleId = null,Object? memberId = null,Object? status = null,Object? isLive = null,Object? latitude = freezed,Object? longitude = freezed,Object? locationLabel = freezed,Object? locationMode = freezed,Object? locationPrecision = freezed,Object? locationCapturedAt = freezed,Object? locationAccuracyM = freezed,Object? member = freezed,Object? responses = null,Object? resolvedAt = freezed,Object? createdAt = freezed,Object? liveUntil = freezed,Object? endedByMemberId = freezed,Object? recipientUserIds = null,Object? audienceRestricted = freezed,Object? senderName = freezed,}) {
   return _then(_FamilySosEvent(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,circleId: null == circleId ? _self.circleId : circleId // ignore: cast_nullable_to_non_nullable
@@ -5801,7 +5809,8 @@ as DateTime?,liveUntil: freezed == liveUntil ? _self.liveUntil : liveUntil // ig
 as DateTime?,endedByMemberId: freezed == endedByMemberId ? _self.endedByMemberId : endedByMemberId // ignore: cast_nullable_to_non_nullable
 as String?,recipientUserIds: null == recipientUserIds ? _self._recipientUserIds : recipientUserIds // ignore: cast_nullable_to_non_nullable
 as List<String>,audienceRestricted: freezed == audienceRestricted ? _self.audienceRestricted : audienceRestricted // ignore: cast_nullable_to_non_nullable
-as bool?,
+as bool?,senderName: freezed == senderName ? _self.senderName : senderName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

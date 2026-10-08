@@ -149,6 +149,29 @@ void main() {
       expect(sosRecordEndedLine(_sos()), 'SOS ended by Sam at 2:25 pm.');
     });
 
+    test('a sender who has left is named by the name it was sent under', () {
+      const gone = FamilySosEvent(
+        id: 's2',
+        circleId: 'c1',
+        memberId: 'm-gone',
+        status: FamilySosStatus.resolved,
+        senderName: 'Jo',
+        member: FamilyMemberSnippet(id: 'm-gone'),
+      );
+      expect(sosSenderName(gone), 'Jo');
+      expect(
+        FamilySosEvent.fromJson(const {
+          'id': 's3',
+          'circleId': 'c1',
+          'memberId': 'm-gone',
+          'status': 'resolved',
+          'senderName': 'Jo',
+          'member': {'id': 'm-gone', 'nickname': 'Jo', 'user': null},
+        }).member?.user,
+        isNull,
+      );
+    });
+
     test('expired', () {
       final expired = _sos(
         endedBy: null,

@@ -931,7 +931,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             sos.member?.user?.id == ref.read(providerOfLoggedInUser)?.id);
     final who = isMine
         ? 'Your SOS'
-        : "${sos.member?.displayName ?? 'A family member'}'s SOS";
+        : "${sosSenderName(sos)}'s SOS";
     final endedAt = sos.resolvedAt ?? sos.createdAt;
     final seen = sos.responses
         .where((r) => r.type == FamilySosResponseType.seen)

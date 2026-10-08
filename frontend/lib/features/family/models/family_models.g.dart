@@ -687,6 +687,7 @@ _FamilySosEvent _$FamilySosEventFromJson(
           .toList() ??
       const <String>[],
   audienceRestricted: json['audienceRestricted'] as bool?,
+  senderName: json['senderName'] as String?,
 );
 
 Map<String, dynamic> _$FamilySosEventToJson(_FamilySosEvent instance) =>
@@ -711,6 +712,7 @@ Map<String, dynamic> _$FamilySosEventToJson(_FamilySosEvent instance) =>
       'endedByMemberId': ?instance.endedByMemberId,
       'recipientUserIds': instance.recipientUserIds,
       'audienceRestricted': ?instance.audienceRestricted,
+      'senderName': ?instance.senderName,
     };
 
 const _$FamilySosStatusEnumMap = {

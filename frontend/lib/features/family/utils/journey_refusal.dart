@@ -11,4 +11,5 @@ const kPeriodicOnlyRefusalMessage =
 /// "this group is periodic updates only" refusal (409). An access refusal
 /// (it carries a known code) is not: that one has its own sheet.
 bool isPeriodicOnlyRefusal(final AppError error) =>
-    error.code == '409' && AccessRefusal.fromError(error) == null;
+    error.extraData['code'] == 'LIVE_JOURNEY_NOT_ALLOWED' ||
+    (error.code == '409' && AccessRefusal.fromError(error) == null);

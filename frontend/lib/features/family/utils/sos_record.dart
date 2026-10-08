@@ -10,13 +10,23 @@ import 'package:hazard_app/features/family/utils/sos_timing.dart';
 String sosRecordLocationMode(final FamilySosEvent sos) =>
     sos.locationMode ?? (sos.isLive ? 'live' : 'none');
 
+/// Who sent [sos]: their name in the group, or, once they have left it,
+/// the name the SOS was sent under.
+String sosSenderName(final FamilySosEvent sos) {
+  final member = sos.member;
+  return member?.nickname ??
+      member?.user?.name ??
+      sos.senderName ??
+      'A family member';
+}
+
 /// "SOS ended by Sam at 3:45 pm." or "This SOS expired at 3:45 pm."
 /// (locked wording). Only the sender can end an SOS, so the name is the
 /// sender's.
 String sosRecordEndedLine(final FamilySosEvent sos) {
   final expired = sosExpiredLine(sos);
   if (expired != null) return expired;
-  final who = sos.member?.displayName ?? 'A family member';
+  final who = sosSenderName(sos);
   final at = sos.resolvedAt;
   return at == null
       ? 'SOS ended by $who.'
