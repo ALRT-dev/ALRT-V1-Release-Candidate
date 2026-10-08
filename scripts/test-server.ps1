@@ -11,7 +11,7 @@
      and the code version it runs.
 
   2) Update the TEST server to the new code (only after step 1 shows it):
-       .\scripts\test-server.ps1 -Update -Profile <profile> -InstanceId <i-...> -Path <folder from step 1>
+       .\scripts\test-server.ps1 -Update -AwsProfile <profile> -InstanceId <i-...> -Path <folder from step 1>
      On that one server: fetches branch claude/compassionate-franklin-512so7,
      turns on scheduled jobs (real alerts) and email sign-in and allows the TEST Admin Portal
      in CORS in .env.test (a backup copy is kept), rebuilds and restarts the
@@ -21,14 +21,16 @@
 #>
 param(
   [switch]$Update,
-  [string]$Profile,
+  [string]$AwsProfile,
   [string]$InstanceId,
   [string]$Path,
   [string]$Region = "ap-southeast-2",
   [string]$Branch = "claude/compassionate-franklin-512so7"
 )
 
-$ErrorActionPreference = "Stop"
+# Native AWS CLI calls write warnings to stderr; "Stop" would turn those into
+# terminating errors on Windows PowerShell, so failures are checked explicitly.
+$ErrorActionPreference = "Continue"
 $env:AWS_PAGER = ""
 $LiveId = "i-0c7a10c5b1d74310d"
 
@@ -72,14 +74,14 @@ if (-not $Update) {
     }
   }
   Write-Host "`nIf a server shows TEST_COMPOSE_AT <folder>, run:" -ForegroundColor Yellow
-  Write-Host "  .\scripts\test-server.ps1 -Update -Profile <profile> -InstanceId <id> -Path <folder>"
+  Write-Host "  .\scripts\test-server.ps1 -Update -AwsProfile <profile> -InstanceId <id> -Path <folder>"
   exit 0
 }
 
 # ---------------- Update ----------------
-if (-not ($Profile -and $InstanceId -and $Path)) { throw "Give -Profile, -InstanceId and -Path (from the find step)." }
+if (-not ($AwsProfile -and $InstanceId -and $Path)) { throw "Give -AwsProfile, -InstanceId and -Path (from the find step)." }
 if ($InstanceId -eq $LiveId) { throw "Refusing: that is the LIVE server." }
-$name = aws ec2 describe-instances --profile $Profile --region $Region --instance-ids $InstanceId --query "Reservations[0].Instances[0].Tags[?Key=='Name']|[0].Value" --output text
+$name = aws ec2 describe-instances --profile $AwsProfile --region $Region --instance-ids $InstanceId --query "Reservations[0].Instances[0].Tags[?Key=='Name']|[0].Value" --output text
 if ($name -match "prod") { throw "Refusing: instance '$name' looks like production." }
 Write-Host "Updating TEST server $InstanceId ($name), folder $Path, to $Branch" -ForegroundColor Cyan
 
@@ -102,5 +104,5 @@ $commands = @(
   "echo 'Settings still blank in .env.test (names only):'",
   "for k in EMAIL_PASSWORD_AUTH_ENABLED GOOGLE_OAUTH_CLIENT_ID_WEB GOOGLE_OAUTH_CLIENT_ID_IOS GOOGLE_OAUTH_CLIENT_ID_ANDROID APPLE_OAUTH_AUDIENCE AWS_S3_BUCKET_NAME AWS_S3_REGION AWS_S3_ACCESS_KEY_ID AWS_BEDROCK_REGION GOOGLE_MAPS_API_KEY TRIAL_LEDGER_SECRET; do v=`$(grep `"^`$k=`" .env.test | cut -d= -f2-); [ -z `"`$v`" ] && echo `"  `$k`"; done; true"
 )
-Invoke-Ssm $Profile $InstanceId $commands 1500 | Write-Host
+Invoke-Ssm $AwsProfile $InstanceId $commands 1500 | Write-Host
 Write-Host "`nDone. Expect /api/app/version-policy 200 (new code) and /api/hazard-categories 401 (signed-out request)." -ForegroundColor Green

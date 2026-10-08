@@ -8,6 +8,8 @@ the live server (`api.safetyalrt.com`, AWS account 082258816984) or real users.
 Each item says where to click and what to paste. Secret VALUES are never put
 in the repo; only their names appear here.
 
+**Where TEST runs:** EC2 `alrt-test-api` (`i-0045a41694e315d45`, ap-southeast-2) in a SEPARATE AWS account from live (082258816984). The `sarah-cli` profile only reaches the live account, so it cannot see TEST. Updates go through `backend/scripts/alrt-test-rollout.sh` in that instance's SSM shell (it checks it is on that instance, takes a restore-tested backup and gates migrations).
+
 ## 1. Google Maps on iPhone (fixes the blank map; the crash itself is fixed in code)
 
 1. Google Cloud Console, the project that holds the TEST Android Maps key
