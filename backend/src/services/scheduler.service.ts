@@ -51,9 +51,7 @@ export const initializeScheduledTasks = () => {
       // A journey past its stop time ends itself and drops its location,
       // so nothing keeps sharing because a phone went quiet.
       await endLapsedJourneys();
-      // Same guarantee for SOS: live share stops after 1 hour unless the sender extends even if
-      // nobody stands it down by hand.
-      await endLapsedSosEvents();
+      // (SOS ends on its own in the per-minute job below.)
       // Stored location points follow the same rules: gone an hour after
       // they were shared, with only a running SOS trail excepted, and
       // nothing at all past the 1-hour SOS limit. This ran daily,
@@ -82,9 +80,18 @@ export const initializeScheduledTasks = () => {
     }
   });
 
-  // "Your SOS ends in 10 minutes": one reminder to the sender per SOS per
-  // liveUntil value, so they can extend it by an hour or end it.
+  // Every minute: an SOS past its liveUntil ends itself (live share stops
+  // after 1 hour unless the sender extends, even if nobody stands it down
+  // by hand), then "Your SOS ends in 10 minutes": one reminder to the
+  // sender per SOS per liveUntil value, so they can extend it or end it.
+  // The end ran every 5 minutes, so an SOS could outlive liveUntil by up
+  // to 5 minutes.
   cron.schedule("* * * * *", async () => {
+    try {
+      await endLapsedSosEvents();
+    } catch (error) {
+      console.error("SOS lapse sweep failed:", error);
+    }
     try {
       await remindSosEndingSoon();
     } catch (error) {
