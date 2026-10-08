@@ -30,6 +30,8 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/map/utils/hazard_cluster_util.dart';
 import 'package:hazard_app/features/map/utils/hazard_visibility_util.dart';
+import 'package:hazard_app/features/map/utils/maps_availability.dart';
+import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/map/utils/bypass_waypoint_planner.dart';
 import 'package:hazard_app/features/map/utils/hazard_corridor_detector.dart';
 import 'package:hazard_app/features/map/utils/navigation_polyline_simulation.dart';
@@ -166,19 +168,42 @@ class MapProvider extends StateNotifier<MapProviderState> {
         .toList();
   }
 
+  /// Where the no-map fallback looks: the device location when the app has
+  /// one, else the last location saved on the account, else the app's
+  /// default location.
+  LatLng _noMapCenter() {
+    final locationState = _ref.read(providerOfLocation);
+    if (!locationState.isUsingDeviceLocation) {
+      final user = _ref.read(providerOfLoggedInUser);
+      final lat = user?.latitude;
+      final lng = user?.longitude;
+      if (lat != null && lng != null) return LatLng(lat, lng);
+    }
+    return LatLng(
+      locationState.location.latitude,
+      locationState.location.longitude,
+    );
+  }
+
   /// Fetches hazards for the map and updates the state accordingly.
   ///
   /// 1. Immediately renders cached hazards (filtered) within the visible bounds.
   /// 2. Calls the API in the background (no loading indicator).
   /// 3. On response, reconciles the cache for the requested bounds
   ///    and refreshes visible markers.
+  ///
+  /// With no map on this build ([MapsAvailability.available] false) there is
+  /// no visible region to read, so the area is [kNoMapHazardRadiusKm] around
+  /// the person instead and the list sheet still shows nearby alerts.
   Future<void> getMapHazards() async {
-    final visibleBoundsResult = await _mapService.getVisibleRegion();
-    if (!mounted) return;
-
-    final visibleBounds = visibleBoundsResult.whenSuccess(
-      (success) => success,
-    );
+    final LatLngBounds? visibleBounds;
+    if (MapsAvailability.available) {
+      final visibleBoundsResult = await _mapService.getVisibleRegion();
+      if (!mounted) return;
+      visibleBounds = visibleBoundsResult.whenSuccess((success) => success);
+    } else {
+      visibleBounds = noMapHazardBounds(_noMapCenter());
+    }
     if (visibleBounds == null) {
       state = state.copyWith(
         getMapHazardsState: GetMapHazardsState.error(
@@ -1761,6 +1786,8 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// the group — previously every hazard rendered as its own marker (up to
   /// the full 5000-item page) which made wide zooms unreadable and slow.
   void generateMarkers() async {
+    // No map on this build: nothing would draw the pins.
+    if (!MapsAvailability.available) return;
     // Which alerts show is decided once, by the shared ALRT Filters (applied
     // when hazards are loaded and on every filter change).
     // A blocked account is blocked everywhere. The feed already excludes
