@@ -16,7 +16,7 @@ tokens = ''':root{--pg-bg:#E4E6EB;--pg-ink:#1C1C1E;--pg-card:#fff;--pg-line:#B9B
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--pg-bg:#16181D;--pg-ink:#E8EAEE;--pg-card:#23252B;--pg-line:#3A3E47;color-scheme:dark}}
 :root[data-theme="dark"]{--pg-bg:#16181D;--pg-ink:#E8EAEE;--pg-card:#23252B;--pg-line:#3A3E47;color-scheme:dark}
 '''
-app = rd('public/app.js').replace('localStorage', '__ls')
+app = (rd('public/app.js') + '\n' + rd('public/app2.js')).replace('localStorage', '__ls')
 body = re.search(r'<body>(.*?)<script src', rd('public/index.html'), re.S).group(1)
 shim = '''const __mem={};const __ls={getItem:k=>{try{return window.localStorage.getItem(k)}catch(e){return __mem[k]??null}},setItem:(k,v)=>{try{window.localStorage.setItem(k,v)}catch(e){__mem[k]=v}},removeItem:k=>{try{window.localStorage.removeItem(k)}catch(e){delete __mem[k]}},clear:()=>{try{window.localStorage.clear()}catch(e){}}};
 const RR = ''' + rules + ''';

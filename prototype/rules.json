@@ -98,7 +98,8 @@
       "savedPlaces": 1,
       "askPerDay": 3,
       "priceAud": 0,
-      "trialDays": 0
+      "trialDays": 0,
+      "extraSavedPlaces": 1
     },
     "individual": {
       "label": "ALRT +",
@@ -157,13 +158,14 @@
     "savedPlaceLimitCode": "SAVED_PLACE_LIMIT",
     "individualRequiredCode": "INDIVIDUAL_REQUIRED",
     "groupFullCode": "GROUP_FULL",
-    "askLimitCode": "ASK_LIMIT",
+    "askLimitCode": "ask_limit",
     "paywallMoments": [
       "second saved place",
       "fourth Ask ALRT question",
       "first Check in, Check on, SOS or Journey in an uncovered group",
       "Create a group then choose to cover it"
-    ]
+    ],
+    "askLimitStatus": 429
   },
   "timings": {
     "sosHoldMs": 3000,
@@ -180,7 +182,9 @@
     "journeyMaxMinutes": 240,
     "journeySnapPointMinutes": 10,
     "offlineShowAsOf": true,
-    "sourceSyncMinutes": 15
+    "sourceSyncMinutes": 15,
+    "sosTotalCapMs": null,
+    "sosCanOnlyBeEndedBySender": true
   },
   "sos": {
     "locationChoices": [
@@ -259,7 +263,7 @@
       }
     ],
     "pushTitleRule": "AWS level word only; non-AWS officials never carry a band word; community pushes say Community report and are Unverified",
-    "communityPushOnlyAfterConfirmation": true,
+    "communityPushOnlyAfterConfirmation": false,
     "emergencyWarningsAlwaysDeliver": true
   },
   "points": {
@@ -268,7 +272,7 @@
     "matchesOfficial": 15,
     "guideComplete": 10,
     "firstSetup": 20,
-    "streaks": false,
+    "streaks": true,
     "confirmationsEarn": 0,
     "levels": [
       [
@@ -283,7 +287,16 @@
         "Guardian",
         1500
       ]
-    ]
+    ],
+    "reportRejected": -15,
+    "firstReportPosted": 10,
+    "profileCompleted": 10,
+    "familyJoined": 10,
+    "savedPlaceAdded": 5,
+    "reportWidelyCorroborated": 10,
+    "questCompleted": 20,
+    "shareInstall": 25,
+    "streakNote": "code has streakDays and a 1.2x multiplier from 3 days; frontend/CLAUDE.md says no streaks. CONFLICT"
   },
   "safetyProfile": {
     "onDeviceOnly": true,
@@ -357,7 +370,8 @@
     ],
     "anonymous": true,
     "locationPrecision": "suburb",
-    "publicationPushSeparate": true
+    "publicationPushSeparate": false,
+    "pushTiming": "as soon as AI review accepts the report (code today); afterConfirmation pushPolicy is stored on the source but not enforced"
   },
   "onboarding": {
     "order": [
@@ -377,5 +391,34 @@
     "choose": "Choose the ALRT + that fits you",
     "indHead": "More for you. Wherever you go.",
     "grpHead": "Your people. One shared plan."
+  },
+  "family": {
+    "inviteCodeMaxUses": 20,
+    "inviteExpiryDays": 7,
+    "maxSosLists": 4,
+    "maxScheduledCheckIns": 3,
+    "hostTransitionDays": 7,
+    "individualFundedCap": 20,
+    "placeRadiusDefaultM": 300,
+    "checkInStatuses": [
+      "safe",
+      "needsHelp"
+    ],
+    "checkInStatusNote": "API enum value is safe; UI label must be Checked in",
+    "sharingLevels": [
+      "precise",
+      "approximate",
+      "alertsOnly",
+      "off"
+    ],
+    "sosResponses": [
+      "seen",
+      "onMyWay",
+      "called"
+    ],
+    "proximityKm": {
+      "member": 5,
+      "place": 10
+    }
   }
 }

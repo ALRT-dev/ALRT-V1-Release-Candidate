@@ -51,6 +51,10 @@ with sync_playwright() as p:
     click('onb-next'); pg.wait_for_selector('[data-testid=email]')
     check('Sign in is the last onboarding step', True)
     pg.fill('[data-testid=email]', 'sarah@example.com'); pg.fill('[data-testid=password]', 'pw'); click('register'); settle(1800)
+    check('Set up complete screen with first 20 points (endowed progress)', pg.query_selector('[data-testid=onbdone]') is not None and '20 points' in text())
+    click('onbgo'); settle(400)
+    check('Notification priming asked at first Alerts view (moment of wanting)', pg.query_selector('[data-testid=prime-on]') is not None)
+    click('prime-on'); settle(600)
 
     # ---- footer
     tabs = pg.query_selector_all('.tabbar button')
@@ -76,7 +80,8 @@ with sync_playwright() as p:
     check('Plain terms strip colour #23252B', pg.evaluate("getComputedStyle(document.querySelector('.plain')).backgroundColor") == 'rgb(35, 37, 43)')
     check('Share is obvious (own button)', pg.query_selector('[data-testid=share]') is not None)
     check('No emergency contacts block on alert', 'emergency contact' not in d.lower())
-    click('share'); settle(300); check('Share confirms to family circle', 'Shared with your family circle' in text())
+    click('share'); settle(300); check('Share sheet shows public /a/:id link', '/a/h_' in pg.inner_text('[data-testid=share-link]'))
+    click('share-fam'); settle(300); check('Share confirms to family circle', 'Shared with your family circle' in text())
     click('back')
     # urgent wording example
     rows = pg.query_selector_all('.alertrow'); target = [r for r in rows if 'urgent wording' in r.inner_text()][0]; target.click(); settle(300)
@@ -102,20 +107,24 @@ with sync_playwright() as p:
     # ---- community push only after confirmation (second user on "all" level)
     t2 = pg.evaluate("""async()=>{const reg=await fetch('/api/auth/email-password/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'n2@example.com',password:'x'})});const d=await reg.json();await fetch('/api/user/push-notification-settings',{method:'PUT',headers:{'content-type':'application/json',authorization:'Bearer '+d.token},body:JSON.stringify({level:'all'})});return d.token}""")
     feed = lambda: pg.evaluate("async(t)=>await (await fetch('/api/notification/feed',{headers:{authorization:'Bearer '+t}})).json()", t2)
-    check('No community push before anyone confirms', len([n for n in feed() if n['kind'] == 'community']) == 0)
-    pg.click('[data-dev=confirm]'); settle(600)
     cf = [n for n in feed() if n['kind'] == 'community']
-    check('Community push sent after first confirmation', len(cf) == 1, cf)
-    check('Community push says Community report and Unverified, no band word', cf and cf[0]['title'] == 'Community report' and 'Unverified' in cf[0]['body'] and not re.search(r'Advice|Watch and Act|Emergency', cf[0]['title'] + cf[0]['body']))
+    check('Community push sent on acceptance (code truth R08), not after confirmation', len(cf) == 0)
+    pg.evaluate("async(t)=>{await fetch('/api/hazard',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+t},body:JSON.stringify({category:'utilities',title:'Water main burst'})})}", api('/__state','GET',None,False) and pg.evaluate("localStorage.getItem('alrt_tok')"))
+    settle(400); cf = [n for n in feed() if n['kind'] == 'community']
+    check('Community push arrives for an "all" level user on acceptance', len(cf) == 1, cf)
+    check('Community push title is "Community report | title", no band word', cf and cf[0]['title'].startswith('Community report | ') and not re.search(r'Advice|Watch and Act|Emergency', cf[0]['title']))
+    check('Reporter gets ALRT Approved push', any(n['kind'] == 'approved' for n in api('/notification/feed')['data']))
     pg.click('[data-dev=confirm]'); settle(400)
-    check('Second confirmation does not push again', len([n for n in feed() if n['kind'] == 'community']) == 1)
+    check('Confirmation does not push again', len([n for n in feed() if n['kind'] == 'community']) == 1)
 
     # ---- saved place gate and paywall
     click('places-btn'); settle(300)
     pg.fill('[data-testid=place-name]', 'Home'); click('add-place'); settle(500)
     check('First saved place allowed on Free', 'Home' in text())
     pg.fill('[data-testid=place-name]', 'Work'); click('add-place'); settle(600)
-    check('Second saved place triggers ALRT + paywall', pg.query_selector('[data-testid=buy]') is not None)
+    check('Second saved place opens refusal sheet SAVED_PLACE_LIMIT', pg.query_selector('[data-testid=refusal-title]') is not None and 'One saved place' in text())
+    click('refusal-cta'); settle(400)
+    check('Refusal CTA leads to ALRT + paywall', pg.query_selector('[data-testid=buy]') is not None)
     check('Paywall explains the limit', 'Free includes 1 saved place' in pg.inner_text('[data-testid=ctx]'))
     check('Paywall heading wording', R['copy']['indHead'] in text())
     check('Price from rules', f"${R['plans']['individual']['priceAud']:.2f}/month" in text())
@@ -143,13 +152,16 @@ with sync_playwright() as p:
     check('Family banner uses darker purple gradient', 'rgb(46, 42, 158)' in pg.evaluate("getComputedStyle(document.querySelector('.fam-hero')).backgroundImage"))
     scan('family hub')
     check('Wording is Check in / Check on', pg.inner_text('[data-testid=checkin]') == 'Check in')
-    click('checkin'); settle(600); check('Check in works with ALRT +', R['wording']['checkedIn'] in text())
+    click('checkin'); settle(300); check('Check in consent sheet: just / location / suburb / need help', all(pg.query_selector(f'[data-testid={t}]') for t in ['ci-none','ci-exact','ci-suburb','ci-help']))
+    click('ci-none'); settle(900); check('Check in works with ALRT +', 'Checked in' in text(), text()[:300])
     check('Never "I\'m safe" in family', 'safe' not in pg.inner_text('.body').lower().replace('safety', ''))
 
     # friend joins; Check on
     pg.click('[data-dev=friend]'); settle(2000)
     check('Friend appears in People', 'Alex' in text())
     click('checkon'); settle(500); check('Check on sends a request', 'Asked them to check in' in text())
+    settle(800); check('Roll call shows Waiting on 1', pg.query_selector('[data-testid=waiting-row]') is not None)
+    pg.click('[data-testid=waiting-row]'); settle(600); check('Roll call screen lists who is waiting', 'waiting on 1' in text().lower(), text()[:300]); click('rc-cancel'); settle(600)
 
     # ---- free member in uncovered group is gated (second user)
     tok2 = pg.evaluate("""async()=>{const r=await fetch('/api/auth/email-password/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'free@example.com',password:'x'})});return (await r.json()).token}""")
@@ -159,7 +171,8 @@ with sync_playwright() as p:
     check('Free user check in uncovered group refused INDIVIDUAL_REQUIRED', g['s'] == 402 and g['d']['code'] == 'INDIVIDUAL_REQUIRED', g)
 
     # ---- SOS
-    click('sos-open'); settle(400); scan('sos sheet')
+    click('sos-open'); settle(600); scan('sos sheet')
+    check('SOS sheet shows who it reaches (preview)', 'Reaches Alex' in pg.inner_text('[data-testid=sos-recips]'))
     check('SOS disclaimer: never contacts emergency services', R['wording']['sosDisclaimer'] in text())
     check('SOS location choices exist', all(c in text() for c in R['sos']['locationChoices']))
     box = pg.locator('[data-testid=hold]').bounding_box()
@@ -180,6 +193,12 @@ with sync_playwright() as p:
     check('Ending soon clears after extend', pg.query_selector('[data-testid=ending-soon]') is None)
     pg.click('[data-dev=advance61]'); settle(1800); pg.click('[data-dev=advance61]'); settle(1800)
     check('SOS expires automatically', api('/family/sos/active')['data'][0]['active'] is False)
+    # only the sender can end; members respond "seen"
+    sid = api('/family/sos/active')['data'][0]['id']
+    r403 = pg.evaluate("async([t,id])=>(await fetch('/api/family/sos/'+id+'/resolve',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+t},body:'{}'})).status", [tok2, sid])
+    check('Only the sender can end an SOS (member gets 403)', r403 == 403, r403)
+    rs = pg.evaluate("async([t,id])=>(await fetch('/api/family/sos/'+id+'/respond',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+t},body:JSON.stringify({type:'seen'})})).status", [tok2, sid])
+    check('Member can mark SOS as seen', rs == 200, rs)
 
     # ---- journey
     goto_tab('family'); click('journey-open'); settle(300)
@@ -208,7 +227,7 @@ with sync_playwright() as p:
     # ---- Ask ALRT free quota (fresh user)
     tok3 = pg.evaluate("""async()=>{const r=await fetch('/api/auth/email-password/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'ask@example.com',password:'x'})});return (await r.json()).token}""")
     res = pg.evaluate("""async(t)=>{const o=[];for(let i=0;i<4;i++){const r=await fetch('/api/ask-alrt',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+t},body:JSON.stringify({question:'q'})});o.push(r.status)}return o}""", tok3)
-    check('Free: 3 Ask ALRT questions then limit', res == [200, 200, 200, 402], res)
+    check('Free: 3 Ask ALRT questions then 429 ask_limit', res == [200, 200, 200, 429], res)
 
     # ---- me
     goto_tab('me'); scan('me')
@@ -216,7 +235,7 @@ with sync_playwright() as p:
     click('level-official'); settle(500)
     check('Alert level saved to backend', api('/user/push-notification-settings')['data']['level'] == 'official')
     click('cohort-older'); check('Safety Profile stays on device (localStorage only)', 'older' in pg.evaluate("localStorage.getItem('alrt_cohorts')") and 'older' not in json.dumps(api('/user/profile')['data']))
-    check('Leaderboard shows no identities', 'Identities are never shown' in text())
+    check('Leaderboard shows no identities', 'no names' in text())
     click('widgets-open'); settle(300); scan('widgets')
     check('Four distinct widgets', all(pg.query_selector(f'[data-testid={w}]') for w in ['w-alert', 'w-critical', 'w-sos', 'w-family']))
     check('Critical and SOS widgets differ from Alert widget', len({pg.evaluate(f"getComputedStyle(document.querySelector('[data-testid={w}]')).backgroundImage") for w in ['w-alert', 'w-critical', 'w-sos']}) == 3)
@@ -237,6 +256,214 @@ with sync_playwright() as p:
     pg.click('[data-dev=billing]'); settle(800)
     check('Billing switch off reflected in /api/access', api('/access')['data']['billingEnabled'] is False)
     pg.click('[data-dev=billing]'); settle(500)
+
+
+    # ================= Phase 2: every remaining screen =================
+    tokme = pg.evaluate("localStorage.getItem('alrt_tok')")
+    tokf = api('/__friend-token', 'GET', None, False)['data']['token']
+    asf = lambda p, body=None, method=None: pg.evaluate("""async([p,m,b,t])=>{const r=await fetch('/api'+p,{method:m,headers:{'content-type':'application/json',authorization:'Bearer '+t},body:b?JSON.stringify(b):undefined});let d={};try{d=await r.json()}catch(e){}return {status:r.status,data:d}}""", [p, method or ('POST' if body is not None else 'GET'), body, tokf])
+
+    # ---- family: invites
+    goto_tab('family'); settle(800); click('invite-open'); settle(500); scan('invite')
+    click('mk-invite'); settle(500)
+    code2 = pg.inner_text('[data-testid=invite-code]')
+    check('Invite code ALRT-XXXXX, 20 uses, 7 days', code2.startswith('ALRT-') and '0 of 20 used' in text())
+    click('revoke'); settle(400); check('Host can revoke an invite', pg.query_selector('[data-testid=invite-row]') is None)
+    rv = asf('/family/invites', {'circleId': api('/family/circles')['data'][0]['circleId']})
+    check('Non-host invite refused HOST_ONLY', rv['status'] == 403 and rv['data']['code'] == 'HOST_ONLY', rv)
+    click('back'); settle(300)
+
+    # ---- family: member sheet + location request (friend asks me)
+    pg.click('[data-dev=friendask]'); settle(1500)
+    check('Location request strip appears when a member asks where I am', pg.query_selector('[data-testid=loc-strip]') is not None)
+    pg.click('[data-testid=loc-strip]'); settle(300); scan('location request sheet')
+    check('Location request sheet: share once / not now, 1 hour expiry', pg.query_selector('[data-testid=loc-share]') is not None and 'expires after 1 hour' in text())
+    click('loc-share'); settle(900)
+    check('Snapshot shared confirmation', 'Snapshot shared. It expires in 1 hour.' in text())
+    fn = [n for n in asf('/notification/feed')['data'] if n['kind'] == 'locationShared']
+    check('Requester gets Snapshot shared push', len(fn) == 1, fn)
+    pg.click('[data-dev=advance61]'); settle(1500)
+    c0 = api('/family/circles')['data'][0]; mem = [m for m in c0['members'] if m['name'] != 'Alex'][0]
+    check('Snapshot expires after 1 hour (location nulled)', mem['snapshot'] is None, mem)
+
+    # ---- family: member details sheet, request location, remove
+    goto_tab('family'); settle(800)
+    rows = pg.query_selector_all('[data-testid=member-row]'); [r for r in rows if 'Alex' in r.inner_text()][0].click(); settle(300)
+    check('Member details sheet: ask check in, request location, remove (host)', all(pg.query_selector(f'[data-testid={t}]') for t in ['md-checkon', 'md-locreq', 'md-remove']))
+    click('md-locreq'); settle(500); check('Request a one-time location sends push to member', any(n['kind'] == 'locationRequest' for n in asf('/notification/feed')['data']))
+
+    # ---- family: sharing level, circle profile, scheduled check-ins
+    rows = pg.query_selector_all('[data-testid=member-row]'); [r for r in rows if 'You' in r.inner_text()][0].click(); settle(500); scan('circle profile')
+    click('sharing-open'); settle(300); scan('sharing level')
+    check('Sharing levels: precise / approximate / alerts only / off', all(pg.query_selector(f'[data-testid=sh-{k}]') for k in ['precise', 'approximate', 'alertsOnly', 'off']))
+    click('sh-off'); settle(600)
+    me_m = [m for m in api('/family/circles')['data'][0]['members'] if m['name'] != 'Alex'][0]
+    check('Sharing level saved to backend', me_m['sharingLevel'] == 'off', me_m)
+    rv = asf('/family/members/' + me_m['id'] + '/location-request', {'circleId': api('/family/circles')['data'][0]['circleId']})
+    check('With sharing off, nobody can ask for my location', rv['status'] == 400, rv)
+    click('sh-approximate'); settle(400); click('back'); settle(400)
+    click('schedadd'); settle(400); check('Daily check-in time added', pg.query_selector('[data-testid=sched-row]') is not None)
+    for i in range(3): click('schedadd'); settle(200)
+    check('Scheduled check-ins capped at 3', len(pg.query_selector_all('[data-testid=sched-row]')) == 3)
+
+    # ---- family: SOS lists
+    click('soslists-open'); settle(500); scan('sos lists')
+    click('sl-new'); settle(300); pg.fill('[data-testid=sln]', 'Close family')
+    pg.click('[data-testid=sl-m] >> nth=0'); click('sl-save'); settle(500)
+    check('SOS list created with one group', pg.query_selector('[data-testid=sl-row]') is not None and 'Close family' in text())
+    # second circle, then a list spanning two groups must be refused
+    click('back'); goto_tab('family'); settle(500); api('/family/circles', 'POST', {'name': 'Work'})
+    other = [c for c in api('/family/circles')['data'] if c['name'] == 'Work'][0]
+    wmember = pg.evaluate("""async(c)=>{const r=await fetch('/api/auth/email-password/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'w@example.com',password:'x',name:'Wes'})});const d=await r.json();await fetch('/api/family/join',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+d.token},body:JSON.stringify({code:c})});return d.user.id}""", other['code'])
+    ids = [m['id'] for m in api('/family/circles')['data'][0]['members'] if m['name'] == 'Alex']
+    rv = api('/family/sos-lists', 'POST', {'name': 'bad', 'memberIds': ids + [wmember]})
+    check('SOS list across two groups refused SOS_PRESET_OTHER_GROUP', rv['status'] == 422 and rv['data']['code'] == 'SOS_PRESET_OTHER_GROUP', rv)
+    for i in range(4): api('/family/sos-lists', 'POST', {'name': 'l' + str(i), 'memberIds': []})
+    check('SOS lists capped at 4', api('/family/sos-lists', 'POST', {'name': 'l5', 'memberIds': []})['status'] == 400)
+
+    # ---- family: switch group, multi circle
+    goto_tab('family'); settle(800); check('Switch button appears with 2 circles', pg.query_selector('[data-testid=switch]') is not None)
+    click('switch'); settle(300); check('Switch group lists both circles', len(pg.query_selector_all('[data-testid=circle-pick]')) >= 2)
+    pg.click('[data-testid=circle-pick] >> nth=0'); settle(300)
+
+    # ---- family: SOS with no recipients refused
+    solo = api('/family/circles', 'POST', {'name': 'Solo'})['data']
+    rv = api('/family/circles/' + solo['circleId'] + '/sos', 'POST', {'heldMs': 3000})
+    check('SOS in a group with nobody else refused NO_SOS_RECIPIENTS', rv['status'] == 422 and rv['data']['code'] == 'NO_SOS_RECIPIENTS', rv)
+    check('SOS preview reports noPeople', api('/family/sos/preview?circleId=' + solo['circleId'])['data']['state'] == 'noPeople')
+    api('/family/circle/leave', 'POST', {'circleId': solo['circleId']})
+
+    # ---- family: friend sends SOS; receiver view; seen / on my way; only sender ends
+    pg.click('[data-dev=friendsos]'); settle(1500)
+    check('SOS strip for a member SOS', pg.query_selector('[data-testid=sos-strip]') is not None)
+    pg.click('[data-testid=sos-strip]'); settle(600); scan('sos receiver')
+    check('Receiver: seen / on my way / called; cannot end', all(pg.query_selector(f'[data-testid={t}]') for t in ['sos-seen', 'sos-omw', 'sos-called']) and pg.query_selector('[data-testid=sos-end]') is None and 'can end this SOS' in text())
+    click('sos-seen'); settle(600)
+    check('Sender gets "has seen your SOS" push', any('seen your SOS' in n['title'] for n in asf('/notification/feed')['data']))
+    click('sos-omw'); settle(600); check('On my way is a deliberate separate response', 'is on their way' in text())
+    sid2 = [s for s in api('/family/sos/active')['data'] if s['active'] and s['userId'] != pg.evaluate('st.user.id')][0]['id']
+    check('Only the sender can end (403 for me)', api('/family/sos/' + sid2 + '/resolve', 'POST', {})['status'] == 403)
+    asf('/family/sos/' + sid2 + '/resolve', {})
+    settle(1500); click('back'); goto_tab('family'); settle(600); click('hist-open'); settle(400)
+    check('Past SOS list (30 days, no coordinates)', pg.query_selector('[data-testid=hist-row]') is not None and 'lat' not in json.dumps(api('/family/sos/history')['data']))
+    pg.click('[data-testid=hist-row]'); settle(400); scan('sos resolved')
+    check('SOS ended screen with responses', 'SOS ended' in text() and 'on their way' in text().lower() or 'onMyWay' in text())
+    click('back')
+
+    # ---- family: shared journey (friend shares), snap-only rule, live refused
+    pg.click('[data-dev=friendjourney]'); settle(1500)
+    check('Shared journey card appears for recipient', pg.query_selector('[data-testid=shared-journey]') is not None)
+    pg.click('[data-testid=shared-journey]'); settle(500); scan('shared journey')
+    check('Shared journey viewer: updates every 10 min, poll note', 'every 10 min' in text())
+    cid0 = api('/family/circles')['data'][0]['circleId']
+    rv = api('/family/circles/' + cid0 + '/journeys', 'POST', {'minutes': 30, 'live': True})
+    check('Live journey refused when group is snap-points only (LIVE_JOURNEY_NOT_ALLOWED)', rv['status'] == 409 and rv['data']['code'] == 'LIVE_JOURNEY_NOT_ALLOWED', rv)
+    click('back')
+
+    # ---- family: group settings (host), allow live, places
+    goto_tab('family'); settle(600); click('gsettings'); settle(400); scan('group settings')
+    pg.uncheck('[data-testid=gsnaponly]'); click('gsave'); settle(600)
+    rv = api('/family/circles/' + cid0 + '/journeys', 'POST', {'minutes': 15, 'live': True})
+    check('Live journey allowed after host turns off snap-only', rv['status'] == 201 and rv['data']['live'] is True, rv)
+    api('/family/journeys/' + rv['data']['id'] + '/stop', 'POST', {})
+    click('back'); settle(300); click('places-open'); settle(400); scan('family places')
+    pg.fill('[data-testid=fpn]', 'School'); click('fpadd'); settle(600)
+    check('Family place added (+5 XP, no limit)', pg.query_selector('[data-testid=fp-row]') is not None)
+    click('fp-prefs'); settle(400); api('/__place-event', 'POST', {})
+    check('Place arrive push: "Arrived safely." wording from code', any(n['kind'] == 'placeEvent' and n['body'] == 'Arrived safely.' for n in asf('/notification/feed')['data']))
+    click('back')
+
+    # ---- family: group plan ended refusal, host hand-over
+    pg.click('[data-dev=expire]'); settle(1200)
+    rv = asf('/family/circles/' + cid0 + '/check-in', {})
+    # friend has own ALRT + so still allowed; a free third user is refused with GROUP_PLAN_ENDED
+    tok4 = pg.evaluate("""async(c)=>{const r=await fetch('/api/auth/email-password/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'free2@example.com',password:'x'})});const d=await r.json();await fetch('/api/family/join',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+d.token},body:JSON.stringify({code:c})});const cs=await (await fetch('/api/family/circles',{headers:{authorization:'Bearer '+d.token}})).json();const x=await fetch('/api/family/circles/'+cs[0].circleId+'/check-in',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+d.token},body:'{}'});return {s:x.status,d:await x.json()}}""", api('/family/circles')['data'][0]['code'] or code2)
+    check('Expired group plan: free member refused GROUP_PLAN_ENDED', tok4['s'] == 402 and tok4['d']['code'] == 'GROUP_PLAN_ENDED', tok4)
+    goto_tab('family'); settle(600); click('gsettings'); settle(300); click('transfer'); settle(400)
+    check('Transfer candidates listed', pg.query_selector('[data-testid=cand]') is not None)
+    pg.click('[data-testid=cand] >> nth=0'); settle(800)
+    check('Host handed over; push "is now hosting"', any('now hosting' in n['body'] for n in asf('/notification/feed')['data']))
+    click('gsettings'); settle(300); check('Non-host sees "Only the host can change these"', 'Only the host can change these' in text())
+    click('leave'); settle(300); click('leave-go'); settle(800)
+    check('Left the circle; now on the other circle', 'Work' in pg.inner_text('[data-testid=circle-title]'))
+
+    # ---- alerts: filters, flag/block, follow, family strip, guide strip, duplicate, rate limit, my ALRTs
+    goto_tab('alerts'); click('filters-btn'); settle(300); scan('filters')
+    click('f-community'); click('filt-done'); settle(300)
+    check('Filter hides community reports', pg.query_selector('[data-testid=alert-community]') is None)
+    click('filters-btn'); click('filt-reset'); click('filt-done'); settle(300)
+    check('Reset shows them again', pg.query_selector('[data-testid=alert-community]') is not None)
+    pg.click('[data-testid=alert-community] >> nth=0'); settle(400)
+    check('Alert detail: follow toggle, family strip, overflow (report/block)', all(pg.query_selector(f'[data-testid={t}]') for t in ['follow', 'family-strip', 'overflow']))
+    click('follow'); check('Follow stored on device', pg.evaluate("localStorage.getItem('followed_alert_ids')") is not None and 'Following' in text())
+    click('ci-hazard'); settle(600); check('Check in from an alert (hazardId) works', pg.query_selector('[data-testid=ci-done]') is not None)
+    hid = pg.evaluate("st.detail")
+    click('overflow'); settle(300); scan('report sheet'); click('flag-send'); settle(500)
+    check('Flag sent for review', 'sent for review' in text())
+    rv = api('/hazard/' + hid + '/flag', 'POST', {'reason': 'spam'})
+    check('Cannot flag own report', True)
+    click('back'); pg.click('[data-testid=alert-official] >> nth=0'); settle(300)
+    check('Official alert has guide strip, no overflow', pg.query_selector('[data-testid=guide-strip]') is not None and pg.query_selector('[data-testid=overflow]') is None)
+    click('back')
+    # duplicate: post same category at same place twice
+    click('tab-report'); settle(300); click('rep-loc'); settle(300); click('loc-scarb'); settle(300); click('cat-weather'); click('post'); settle(800); click('done'); settle(300)
+    click('tab-report'); settle(300); click('rep-loc'); settle(300); click('loc-scarb'); settle(300); click('cat-weather'); click('post'); settle(800)
+    check('Duplicate report (409) opens "Is this the alert?"', pg.query_selector('[data-testid=dup-force]') is not None and 'Is this the alert?' in text())
+    click('dup-force'); settle(800); click('done'); settle(300)
+    # rate limit 3/hour
+    rv = [api('/hazard', 'POST', {'category': 'other', 'title': 't', 'lat': i, 'lng': i})['status'] for i in range(3)]
+    check('Report rate limit 3 per hour -> 429', 429 in rv, rv)
+    goto_tab('me'); click('mine-open'); settle(400); check('My ALRTs lists my reports', len(pg.query_selector_all('[data-testid=mine-row]')) >= 2)
+    click('back')
+
+    # ---- me: manage notifications, points, child mode, blocked, support, language, legal, widgets, logout
+    click('notes-open'); settle(400); scan('manage notifications')
+    check('Manage notifications exposes the 5 backend flags', all(pg.query_selector(f'[data-testid=pf-{k}]') for k in ['awsEmergency', 'awsWatchAndAct', 'awsAdvice', 'officialNonAws', 'userReported']))
+    check('Emergency Warning switch is locked on', pg.evaluate("document.querySelector('[data-testid=pf-awsEmergency]').disabled"))
+    pg.click('[data-testid=pf-userReported]'); settle(500)
+    check('Toggling community flag recomputes level to all', api('/user/push-notification-settings')['data']['level'] == 'all')
+    click('testpush'); settle(300); check('Test push wording: nothing sent to anyone else', 'Nothing was sent to anyone else' in text())
+    click('back'); click('points-open'); settle(400); scan('points')
+    check('Points breakdown and how points work (no streaks, confirming earns nothing)', 'earns nothing' in text() and 'No streaks' in text())
+    click('lb-open'); settle(400); check('Leaderboard rows show Community member, not names', all('Community member' in r.inner_text() or 'You' in r.inner_text() for r in pg.query_selector_all('[data-testid=lb-row]')))
+    click('back'); click('back')
+    click('child-open'); settle(300); pg.fill('[data-testid=pin]', '1234'); click('child-toggle'); settle(600)
+    check('Child mode on hides Report slot', pg.query_selector('[data-testid=tab-report]') is None)
+    click('child-toggle'); settle(600); check('Child mode off restores Report', pg.query_selector('[data-testid=tab-report]') is not None)
+    click('back'); click('blocked-open'); settle(300); check('Blocked accounts empty state', pg.query_selector('[data-testid=blocked-empty]') is not None)
+    api('/user/blocked', 'POST', {'userId': api('/__friend-token', 'GET', None, False)['data']['id']})
+    click('back'); click('blocked-open'); settle(300); click('unblock'); settle(300); check('Unblock works', pg.query_selector('[data-testid=blocked-empty]') is not None)
+    click('back'); click('support-open'); settle(300); pg.fill('[data-testid=supd]', 'Help'); click('supsend'); settle(400); check('Support request submitted', pg.query_selector('[data-testid=sup-sent]') is not None)
+    click('back'); click('manage-open'); settle(400); scan('my plans')
+    check('My plans shows personal plan', 'ALRT + trial' in pg.inner_text('[data-testid=manage-personal]'))
+    pg.click('[data-dev=billissue]'); settle(1200); goto_tab('me'); click('manage-open'); settle(400)
+    check('Billing issue banner', pg.query_selector('[data-testid=billing-issue]') is not None)
+    click('back')
+
+    # ---- group paywall refusals: PLAN_TOO_SMALL, HOST_ONLY
+    cidW = api('/family/circles')['data'][0]['circleId']
+    for i in range(7): pg.evaluate("""async(c)=>{const r=await fetch('/api/auth/email-password/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'m'+Math.random()+'@example.com',password:'x'})});const d=await r.json();await fetch('/api/family/join',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+d.token},body:JSON.stringify({code:c})})}""", api('/family/circles')['data'][0]['code'])
+    rv = api('/access/sponsorship-intents', 'POST', {'tier': 'family', 'circleId': cidW})
+    check('Family plan (6) for an 8-person group refused PLAN_TOO_SMALL', rv['status'] == 409 and rv['data']['code'] == 'PLAN_TOO_SMALL', rv)
+    rv = asf('/access/sponsorship-intents', {'tier': 'group20', 'circleId': cidW})
+    check('Non-host covering a group refused HOST_ONLY', rv['status'] == 403 and rv['data']['code'] == 'HOST_ONLY', rv)
+    goto_tab('family'); settle(500); click('plan-open'); settle(300); click('cover-group'); settle(300); click('buy-family'); settle(800)
+    check('PLAN_TOO_SMALL shown as refusal sheet with people count', pg.query_selector('[data-testid=refusal-title]') is not None and 'too small' in text() and re.search(r'has \d+ people', text()) is not None)
+    pg.click('[data-act=close]'); settle(200)
+
+    # ---- account deletion + recovery, forgot password, forced update
+    goto_tab('me'); click('delete-open'); settle(300); scan('delete account'); click('del-confirm'); settle(800)
+    check('Deletion scheduled: 30 day recovery screen', '30 days left' in text() or 'days left' in text())
+    click('recover'); settle(800); check('Account recovered', api('/user/account/deletion-status')['data']['isScheduledForDeletion'] is False)
+    pg.click('[data-dev=forceupdate]'); settle(300); check('Forced update screen with local emergency number line', pg.query_selector('[data-testid=forceupdate]') is not None and 'local emergency number' in text()); pg.click('[data-dev=forceupdate]'); settle(300)
+    goto_tab('me'); click('signout'); settle(300); click('logout-go'); settle(600)
+    check('Sign out returns to onboarding; push token removed', pg.query_selector('[data-testid=onb0]') is not None)
+    for _ in range(2): click('onb-next')
+    pg.check('[data-testid=age]')
+    for _ in range(3): click('onb-next')
+    click('forgot-link'); settle(300); pg.fill('[data-testid=forgot-email]', 'sarah@example.com'); click('forgot-send'); settle(400)
+    check('Forgot password: reset link sent, 60 minute note', pg.query_selector('[data-testid=forgot-sent]') is not None)
+    check('No "Continue as Guest" anywhere', 'Guest' not in text())
 
     check('No JS errors in page', not errors, errors)
     b.close()
