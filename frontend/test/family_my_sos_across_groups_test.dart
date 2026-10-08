@@ -7,6 +7,7 @@ import 'package:hazard_app/features/family/providers/states/family_provider_stat
 import 'package:hazard_app/features/family/services/family_location_service.dart';
 import 'package:hazard_app/features/family/services/family_service.dart';
 import 'package:hazard_app/features/family/services/location_fix.dart';
+import 'package:hazard_app/features/family/services/owned_live_shares.dart';
 import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
@@ -17,7 +18,9 @@ import 'package:hazard_app/features/shared/utils/either.dart';
 // per group, so switching group (or an app restart, which never started
 // the loop at all) ended it. My SOS is found by my user id now, and the
 // loop is (re)started from what the server holds. The same for journeys:
-// mine are loaded across every group so their points keep going.
+// mine are loaded across every group so their points keep going. Both
+// resume only on the phone that started them (kept on the device): a
+// second phone on the same account sees them but never sends location.
 
 /// Group A: where I sent the SOS from (my member id there: m-a).
 /// Group B: the group in scope (my member id there: m-b).
@@ -112,8 +115,34 @@ class _NoLocation implements DeviceLocationSource {
       throw StateError('no fix');
 }
 
-({ProviderContainer container, _FakeService service}) _setUp() {
+/// This phone's record of what it started, in memory.
+class _MemoryOwned extends OwnedLiveShares {
+  final sos = <String>{};
+  final journeys = <String>{};
+
+  @override
+  Future<Set<String>> sosIds() async => {...sos};
+  @override
+  Future<void> addSos(final String id) async => sos.add(id);
+  @override
+  Future<void> removeSos(final String id) async => sos.remove(id);
+  @override
+  Future<Set<String>> journeyIds() async => {...journeys};
+  @override
+  Future<void> addJourney(final String id) async => journeys.add(id);
+  @override
+  Future<void> removeJourney(final String id) async => journeys.remove(id);
+}
+
+({ProviderContainer container, _FakeService service, _MemoryOwned owned})
+_setUp({
+  final Set<String> ownedSos = const {},
+  final Set<String> ownedJourneys = const {},
+}) {
   late _FakeService service;
+  final owned = _MemoryOwned()
+    ..sos.addAll(ownedSos)
+    ..journeys.addAll(ownedJourneys);
   final container = ProviderContainer(
     overrides: [
       providerOfFamilyService.overrideWith((ref) {
@@ -121,6 +150,7 @@ class _NoLocation implements DeviceLocationSource {
         return service;
       }),
       providerOfDeviceLocationSource.overrideWithValue(_NoLocation()),
+      providerOfOwnedLiveShares.overrideWithValue(owned),
       providerOfLoggedInUser.overrideWith(
         (ref) => const AppUser(id: 'me', name: 'Me'),
       ),
@@ -140,13 +170,13 @@ class _NoLocation implements DeviceLocationSource {
   );
   container.read(providerOfFamilyService);
   container.read(providerOfFamily);
-  return (container: container, service: service);
+  return (container: container, service: service, owned: owned);
 }
 
 void main() {
   test('my live SOS from another group starts its loop on refresh '
       '(app restart, group switch)', () async {
-    final setup = _setUp();
+    final setup = _setUp(ownedSos: {'sos-a'});
     addTearDown(setup.container.dispose);
     setup.service.active = [_sos()];
 
@@ -160,8 +190,29 @@ void main() {
     );
   });
 
-  test('someone else\'s live SOS never starts my loop', () async {
+  test('my live SOS started on ANOTHER phone is mine but sends nothing '
+      'from this one', () async {
     final setup = _setUp();
+    addTearDown(setup.container.dispose);
+    setup.service.active = [_sos()];
+
+    final notifier = setup.container.read(providerOfFamily.notifier);
+    await notifier.refreshActiveSos();
+    expect(notifier.sosLiveShareEventId, isNull);
+  });
+
+  test('an SOS this phone started is forgotten once the server no longer '
+      'lists it', () async {
+    final setup = _setUp(ownedSos: {'sos-old'});
+    addTearDown(setup.container.dispose);
+    setup.service.active = const [];
+
+    await setup.container.read(providerOfFamily.notifier).refreshActiveSos();
+    expect(setup.owned.sos, isEmpty);
+  });
+
+  test('someone else\'s live SOS never starts my loop', () async {
+    final setup = _setUp(ownedSos: {'sos-a'});
     addTearDown(setup.container.dispose);
     setup.service.active = [_sos(memberId: 'm-tom', userId: 'tom')];
 
@@ -171,7 +222,7 @@ void main() {
   });
 
   test('my SOS sent with no location or once starts no loop', () async {
-    final setup = _setUp();
+    final setup = _setUp(ownedSos: {'sos-a', 'sos-b'});
     addTearDown(setup.container.dispose);
     final notifier = setup.container.read(providerOfFamily.notifier);
 
@@ -186,7 +237,7 @@ void main() {
 
   test('load restarts the loop and keeps my journey in another group '
       'posting', () async {
-    final setup = _setUp();
+    final setup = _setUp(ownedSos: {'sos-a'}, ownedJourneys: {'j-a'});
     addTearDown(setup.container.dispose);
     setup.service.active = [_sos()];
     setup.service.journeysByCircle = {
@@ -207,4 +258,25 @@ void main() {
     // The journey screen of group B has nothing running.
     expect(setup.container.read(providerOfFamily).activeJourney, isNull);
   });
+
+  test(
+    'a journey started on another phone is never posted from this one',
+    () async {
+      final setup = _setUp();
+      addTearDown(setup.container.dispose);
+      setup.service.journeysByCircle = {
+        'a': FamilyJourney(
+          id: 'j-a',
+          circleId: 'a',
+          memberId: 'm-a',
+          endsAt: DateTime.now().add(const Duration(minutes: 30)),
+        ),
+        'b': null,
+      };
+
+      final notifier = setup.container.read(providerOfFamily.notifier);
+      await notifier.load(silent: true);
+      expect(notifier.runningJourneyIds, isEmpty);
+    },
+  );
 }
