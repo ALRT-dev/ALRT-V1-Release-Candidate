@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/shared/enums/socket_event_types.dart';
-import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/socket_service.dart';
-import 'package:hazard_app/features/shared/services/user_service.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 
 final providerOfUserSocketManager = Provider<UserSocketManager>(
@@ -21,8 +19,6 @@ class UserSocketManager {
 
   final Ref _ref;
 
-  final StreamController<AppUser> _userUpdateStreamController =
-      StreamController<AppUser>.broadcast();
   final StreamController<int> _userXpUpdateStreamController =
       StreamController<int>.broadcast();
   final StreamController<double> _userReliabilityUpdateStreamController =
@@ -36,10 +32,6 @@ class UserSocketManager {
       StreamController<({String name, String description})>.broadcast();
 
   SocketService get _socketService => _ref.read(providerOfSocketService);
-  UserService get _userService => _ref.read(providerOfUserService);
-
-  /// Stream that broadcasts user updates to all listeners
-  Stream<AppUser> get userUpdateStream => _userUpdateStreamController.stream;
 
   /// Stream that broadcasts user XP updates to all listeners
   Stream<int> get userXpUpdateStream => _userXpUpdateStreamController.stream;
@@ -61,25 +53,6 @@ class UserSocketManager {
   /// This is the single point where we listen to all user socket events.
   void _setupSocketListeners() {
     _socketService.listenToEvent(
-      SocketEvent.updateUser,
-      (data) async {
-        if (data is Map<String, dynamic>) {
-          return runAsyncCall(
-            name: 'Listen to updateUser socket event',
-            future: () async {
-              final updatedUser = AppUser.fromJson(data);
-              final result = await _userService.populateUserWithRequiredData(
-                updatedUser,
-              );
-              _userUpdateStreamController.add(result);
-            },
-            onError: (_) {},
-          );
-        }
-      },
-    );
-
-    _socketService.listenToEvent(
       SocketEvent.updateUserXp,
       (data) async {
         if (data is Map<String, dynamic>) {
@@ -87,7 +60,8 @@ class UserSocketManager {
             name: 'Listen to updateUserXp socket event',
             future: () async {
               final xpPoints = data['xpPoints'] as int?;
-              final reliabilityScore = (data['reliabilityScore'] as num?)?.toDouble();
+              final reliabilityScore = (data['reliabilityScore'] as num?)
+                  ?.toDouble();
 
               if (xpPoints != null) {
                 _userXpUpdateStreamController.add(xpPoints);
@@ -146,7 +120,6 @@ class UserSocketManager {
 
   /// Disposes of all stream controllers when no longer needed
   void dispose() {
-    _userUpdateStreamController.close();
     _userXpUpdateStreamController.close();
     _userUpvotesReceivedCountUpdateStreamController.close();
     _badgeEarnedStreamController.close();

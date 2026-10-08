@@ -57,11 +57,6 @@ abstract class RestClient {
     @Field() required final String password,
   });
 
-  @POST(kUrlRefreshToken)
-  Future<AuthSuccess> refreshToken({
-    @Field() required final String accessToken,
-  });
-
   @POST(kUrlPasswordResetRequest)
   Future<void> requestPasswordReset({
     @Field() required final String email,
