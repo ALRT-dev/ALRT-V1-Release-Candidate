@@ -3,16 +3,57 @@ import { clearTokens, loadTokens, saveTokens } from "./tokenStorage";
 /**
  * On Cloudflare Pages (any *.pages.dev address, including branch previews)
  * requests go to this site's own /api, which the Pages Function in
- * functions/api relays to the TEST backend. The browser then never makes a
+ * functions/api relays to the backend. The browser then never makes a
  * cross-site call, so a preview address works without the backend having
  * to list it in CORS_ALLOWED_ORIGINS. Anywhere else (local dev, a custom
  * domain) the configured backend is called directly, as before.
+ *
+ * Through the relay, every request carries this build's VITE_API_BASE_URL
+ * in X-ALRT-API-Origin. The relay uses it when the Pages project has no
+ * API_ORIGIN set and it is exactly the live or TEST backend, so a
+ * production build never silently talks to TEST.
  */
-const BASE_URL =
+const USES_RELAY =
   typeof window !== "undefined" &&
-  window.location.hostname.endsWith(".pages.dev")
-    ? ""
-    : import.meta.env.VITE_API_BASE_URL;
+  (window.location.hostname.endsWith(".pages.dev") ||
+    // A custom domain on Pages (such as admin-new.safetyalrt.com) also goes
+    // through the relay when the build says so, so the live backend does not
+    // have to list that domain in CORS_ALLOWED_ORIGINS.
+    import.meta.env.VITE_USE_RELAY === "true");
+
+const BUILD_API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+
+const BASE_URL = USES_RELAY ? "" : BUILD_API_BASE;
+
+const RELAY_HEADERS: Record<string, string> =
+  USES_RELAY && BUILD_API_BASE ? { "X-ALRT-API-Origin": BUILD_API_BASE } : {};
+
+let resolvedOrigin: Promise<string> | null = null;
+
+/**
+ * The backend origin this portal actually talks to, for anything that must
+ * name it outside the portal (such as the n8n test workflow). Off Pages it
+ * is the build's VITE_API_BASE_URL; through the relay it is whatever the
+ * relay resolved (API_ORIGIN, the allowed build origin, or TEST).
+ */
+export const getBackendOrigin = (): Promise<string> => {
+  if (!USES_RELAY) return Promise.resolve(BUILD_API_BASE);
+  if (!resolvedOrigin) {
+    resolvedOrigin = (async () => {
+      try {
+        const res = await fetch("/api/__alrt-relay-origin", { headers: RELAY_HEADERS });
+        if (!res.ok) throw new Error(`relay origin ${res.status}`);
+        const data = (await res.json()) as { origin?: unknown };
+        if (typeof data.origin !== "string" || !data.origin) throw new Error("no origin");
+        return data.origin;
+      } catch (error) {
+        resolvedOrigin = null;
+        throw error;
+      }
+    })();
+  }
+  return resolvedOrigin;
+};
 
 /** Thrown for any non-2xx response. Screens branch on `status` to show the
  * right state (permission denied, not found, validation message, etc). */
@@ -68,7 +109,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
       try {
         const res = await fetch(`${BASE_URL}/api/admin/auth/refresh-token`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...RELAY_HEADERS },
           body: JSON.stringify({ refreshToken: tokens.refreshToken }),
         });
         if (!res.ok) return null;
@@ -102,6 +143,25 @@ const parseBody = async (res: Response): Promise<unknown> => {
   }
 };
 
+/** Shown instead of the raw "route does not exist" error when this portal
+ * is newer than the server it talks to (for example the new portal on the
+ * live server before the live server is updated). */
+export const FEATURE_NEEDS_SERVER_UPDATE =
+  "This part of the portal needs the server update. It will work once the server it connects to is updated.";
+
+/** True for the backend's unknown-route 404 (and a bare HTML/text 404),
+ * which means the server has no such feature yet, not that a record is
+ * missing. A record-level 404 always carries its own JSON error. */
+export const isMissingRoute = (status: number, body: unknown): boolean => {
+  if (status !== 404) return false;
+  if (body === null || typeof body === "string") return true;
+  if (typeof body === "object" && "error" in body) {
+    const err = (body as { error?: unknown }).error;
+    return typeof err === "string" && /does not exist!?$/.test(err) && err.startsWith("The route [");
+  }
+  return false;
+};
+
 const errorMessageFrom = (body: unknown, fallback: string): string => {
   if (body && typeof body === "object" && "error" in body) {
     const err = (body as { error?: unknown }).error;
@@ -121,6 +181,7 @@ export const apiRequest = async <T>(
     method: options.method ?? "GET",
     headers: {
       "Content-Type": "application/json",
+      ...RELAY_HEADERS,
       ...(tokens && !isAuthRoute
         ? { Authorization: `Bearer ${tokens.accessToken}` }
         : {}),
@@ -146,7 +207,9 @@ export const apiRequest = async <T>(
     if (isPasswordChangeRequired(res.status, body)) onPasswordChangeRequired?.();
     throw new ApiError(
       res.status,
-      errorMessageFrom(body, `Request failed (${res.status})`),
+      isMissingRoute(res.status, body)
+        ? FEATURE_NEEDS_SERVER_UPDATE
+        : errorMessageFrom(body, `Request failed (${res.status})`),
       body,
     );
   }

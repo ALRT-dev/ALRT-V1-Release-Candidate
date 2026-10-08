@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/api/endpoints.dart';
+import 'package:hazard_app/features/family/services/location_fix.dart';
 import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/providers/dio_instance_provider.dart';
@@ -201,7 +202,7 @@ class SosApi {
           'latitude': latitude,
           'longitude': longitude,
           'capturedAt': capturedAt.toUtc().toIso8601String(),
-          'accuracy': ?accuracy,
+          'accuracy': ?sendableAccuracyM(accuracy),
         },
       );
       return const Success(null);

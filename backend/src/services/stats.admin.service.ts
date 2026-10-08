@@ -1,11 +1,15 @@
 import { HazardReviewStatus } from "@prisma/client";
 import prisma from "../utils/prisma_client.util.js";
 
-const startOfTodayUtc = (): Date => {
-  const now = new Date();
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+// Queensland does not observe daylight saving, so Australia/Brisbane is a
+// fixed UTC+10 offset year-round and the day boundary can be computed
+// without a timezone library.
+const BRISBANE_UTC_OFFSET_MS = 10 * 60 * 60 * 1000;
+
+export const startOfBrisbaneDay = (now: Date): Date => {
+  const shifted = new Date(now.getTime() + BRISBANE_UTC_OFFSET_MS);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return new Date(shifted.getTime() - BRISBANE_UTC_OFFSET_MS);
 };
 
 const daysAgo = (days: number): Date =>
@@ -37,7 +41,8 @@ const toNamedCounts = (
     .filter((row) => row.count > 0);
 
 export const getDashboardStats = async () => {
-  const todayStart = startOfTodayUtc();
+  // "Today" matches the dashboard footer (Australia/Brisbane), not UTC.
+  const todayStart = startOfBrisbaneDay(new Date());
 
   const [
     totalUsers,
@@ -57,7 +62,9 @@ export const getDashboardStats = async () => {
     platformRows,
     sourceRows,
   ] = await Promise.all([
-    prisma.user.count(),
+    // Users who requested deletion are excluded, matching /api/admin/stats;
+    // they are counted separately as pendingDeletion.
+    prisma.user.count({ where: { deletionRequestedAt: null } }),
     prisma.user.count({ where: { createdAt: { gte: todayStart } } }),
     prisma.user.count({ where: { createdAt: { gte: daysAgo(7) } } }),
     prisma.user.count({ where: { lastActivityDate: { gte: todayStart } } }),
@@ -132,6 +139,10 @@ export const getDashboardStats = async () => {
 
   return {
     generatedAt: new Date().toISOString(),
+    dayBoundary: {
+      timezone: "Australia/Brisbane",
+      dayStartedAt: todayStart.toISOString(),
+    },
     users: {
       total: totalUsers,
       newToday: newUsersToday,

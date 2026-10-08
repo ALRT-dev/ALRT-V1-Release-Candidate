@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/utils/check_in_roll.dart';
+import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
@@ -38,27 +40,20 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
     if (circle == null) return const SizedBox.shrink();
 
     final request = circle.latestCheckInRequest;
-    final askedAt = request?.createdAt;
-
-    // Answered means: checked in since the ask. With no ask on record, the
-    // usual 24-hour "recently" window stands in.
-    bool hasAnswered(final FamilyMember member) {
-      // The asker is never waiting on themself.
-      if (request != null && member.id == request.requestedById) return true;
-      final last = member.lastCheckInAt;
-      if (last == null) return false;
-      if (askedAt == null) return member.isCheckedInRecently;
-      return last.isAfter(askedAt);
-    }
+    // One answer everywhere: the same CheckInRoll as the hub header,
+    // chips, member list and group tiles.
+    final roll = CheckInRoll.of(circle);
+    bool hasAnswered(final FamilyMember member) => roll.hasAnswered(member);
 
     // A targeted ask is a roll of the people it named (plus the asker);
     // an untargeted one is the whole circle.
+    final targets = roll.targetMemberIds;
     final members = [
       ...circle.members.where(
         (m) =>
-            request == null ||
-            request.isAimedAt(m.id) ||
-            m.id == request.requestedById,
+            targets.isEmpty ||
+            targets.contains(m.id) ||
+            m.id == roll.requesterId,
       ),
     ]..sort((a, b) {
         final answeredA = hasAnswered(a);
@@ -159,9 +154,12 @@ class FamilyCheckInRollCallScreen extends ConsumerWidget {
               [
                 request.targetMemberIds.isEmpty
                     ? '$who asked everyone for a check-in'
-                    : '$who asked ${request.targetMemberIds.length} '
-                          '${request.targetMemberIds.length == 1 ? 'person' : 'people'} '
-                          'for a check-in',
+                    // Names, never a bare count, of who was asked.
+                    : '$who asked ${namesLabel([
+                        for (final m in circle.members)
+                          if (request.targetMemberIds.contains(m.id))
+                            m.id == circle.myMemberId ? 'you' : m.name,
+                      ])} for a check-in',
                 if (when != null) timeago.format(when),
               ].join(' · '),
               style: TextStyle(

@@ -8,6 +8,8 @@ the live server (`api.safetyalrt.com`, AWS account 082258816984) or real users.
 Each item says where to click and what to paste. Secret VALUES are never put
 in the repo; only their names appear here.
 
+**Where TEST runs:** EC2 `alrt-test-api` (`i-0045a41694e315d45`, ap-southeast-2) in a SEPARATE AWS account from live (082258816984). The `sarah-cli` profile only reaches the live account, so it cannot see TEST. Updates go through `backend/scripts/alrt-test-rollout.sh` in that instance's SSM shell (it checks it is on that instance, takes a restore-tested backup and gates migrations).
+
 ## 1. Google Maps on iPhone (fixes the blank map; the crash itself is fixed in code)
 
 1. Google Cloud Console, the project that holds the TEST Android Maps key
@@ -41,6 +43,7 @@ On the TEST server's environment (`.env.test`), then restart it:
 | `GOOGLE_OAUTH_CLIENT_ID_IOS` | the TEST iOS client (same value as `TEST_GOOGLE_IOS_CLIENT_ID`) |
 | `GOOGLE_OAUTH_CLIENT_ID_ANDROID` | the Android client ID from step 2 |
 | `APPLE_OAUTH_AUDIENCE` | `com.safetyalrt.alrt.dev` |
+| `EMAIL_PASSWORD_AUTH_ENABLED` | `true` (the TEST builds show the email button; without this every email sign-up and login gets "Not found") |
 
 ## 4. Push notifications on the iPhone TEST app
 

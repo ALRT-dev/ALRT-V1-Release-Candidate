@@ -21,7 +21,7 @@ void main() {
       status: FamilySosStatus.resolved,
     ),
     circleName: 'The Nixons',
-    recipientCount: 2,
+    audienceNames: const ['Amy', 'Tom'],
   );
 
   Widget wrap({

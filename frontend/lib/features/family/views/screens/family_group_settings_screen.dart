@@ -64,7 +64,6 @@ class _FamilyGroupSettingsScreenState
   // tap saves everything and Back discards everything.
   late final TextEditingController _nameController;
   bool? _anyoneCanRequest;
-  bool? _sosWholeCircle;
   bool? _snapPointsOnly;
   String? _seededForCircleId;
 
@@ -85,7 +84,6 @@ class _FamilyGroupSettingsScreenState
     _seededForCircleId = circle.id;
     _nameController.text = circle.name;
     _anyoneCanRequest = circle.anyoneCanRequestSnapshot;
-    _sosWholeCircle = circle.sosToWholeGroup;
     _snapPointsOnly = circle.journeysSnapPointsOnly;
   }
 
@@ -181,13 +179,8 @@ class _FamilyGroupSettingsScreenState
             isOwner: isOwner,
             onChanged: (value) => setState(() => _anyoneCanRequest = value),
           ),
-          _ruleBuilder(
-            title: 'SOS goes to the whole circle',
-            subtitle: 'Off: members are nudged to pick an SOS list',
-            value: _sosWholeCircle ?? circle.sosToWholeGroup,
-            isOwner: isOwner,
-            onChanged: (value) => setState(() => _sosWholeCircle = value),
-          ),
+          // No "SOS to whole group" rule (product owner, 8 Oct 2026): who
+          // an SOS reaches is the sender's choice on the SOS screen.
           _ruleBuilder(
             title: 'Journeys use periodic updates only',
             subtitle:
@@ -650,9 +643,6 @@ class _FamilyGroupSettingsScreenState
     final anyone = _anyoneCanRequest == circle.anyoneCanRequestSnapshot
         ? null
         : _anyoneCanRequest;
-    final sosWhole = _sosWholeCircle == circle.sosToWholeGroup
-        ? null
-        : _sosWholeCircle;
     final snap = _snapPointsOnly == circle.journeysSnapPointsOnly
         ? null
         : _snapPointsOnly;
@@ -660,7 +650,6 @@ class _FamilyGroupSettingsScreenState
     if (name == null &&
         themeColor == null &&
         anyone == null &&
-        sosWhole == null &&
         snap == null) {
       Navigator.of(context).maybePop();
       return;
@@ -673,7 +662,6 @@ class _FamilyGroupSettingsScreenState
           name: name,
           themeColor: themeColor,
           anyoneCanRequestSnapshot: anyone,
-          sosToWholeGroup: sosWhole,
           journeysSnapPointsOnly: snap,
         );
     if (!mounted) return;

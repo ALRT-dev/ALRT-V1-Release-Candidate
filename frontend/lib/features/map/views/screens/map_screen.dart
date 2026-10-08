@@ -32,6 +32,19 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   @override
+  void initState() {
+    super.initState();
+    // With a map, the first camera move loads the alerts. Without one
+    // nothing moves, so load the alerts around the person once here.
+    if (!MapsAvailability.available) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(providerOfMap.notifier).getMapHazards();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(

@@ -199,6 +199,7 @@ export const getHazardsApplyingFiltersRaw = async (
     userLng,
     userId,
     sortSettings,
+    isAdminRequest,
     page = 1,
     pageSize = 20,
   } = params;
@@ -261,6 +262,15 @@ export const getHazardsApplyingFiltersRaw = async (
         u."xpPoints" as "reportedByXpPoints",
         u."reliabilityScore" as "reportedByReliabilityScore"`;
 
+  // Admin moderation only: reporter email and the reviewing admin's
+  // identity. Never selected for app/public requests.
+  if (isAdminRequest) {
+    query += `,
+        u.email as "reportedByEmail",
+        ra.email as "reviewedByEmail",
+        ra.name as "reviewedByName"`;
+  }
+
   if (userId) {
     query += `, v."voteType" as "userVoteType"`;
   }
@@ -272,6 +282,10 @@ export const getHazardsApplyingFiltersRaw = async (
       LEFT JOIN "HazardSource" hs ON h."sourceId" = hs.id
       LEFT JOIN "HazardSourceLicense" hsl ON hs."licenseId" = hsl.id
       LEFT JOIN "User" u ON h."reportedById" = u.id`;
+
+  if (isAdminRequest) {
+    query += ` LEFT JOIN "Admin" ra ON h."reviewedById" = ra.id`;
+  }
 
   if (userId && userVoteParamIndex) {
     query += ` LEFT JOIN "HazardVote" v ON h.id = v."hazardId" AND v."userId" = $${userVoteParamIndex}`;
@@ -396,6 +410,7 @@ export const getHazardsApplyingFiltersRaw = async (
           name: hazard.reportedByName,
           xpPoints: hazard.reportedByXpPoints,
           reliabilityScore: hazard.reportedByReliabilityScore,
+          ...(isAdminRequest ? { email: hazard.reportedByEmail ?? null } : {}),
           reportsStatus:
             reportersStatusMap.get(hazard.reportedByUserId) ??
             UserReportsStatus.unverified,
@@ -430,13 +445,29 @@ export const getHazardsApplyingFiltersRaw = async (
       licenseBackgroundColor,
       userVoteType,
       medias,
+      reportedByEmail,
+      reviewedByEmail,
+      reviewedByName,
       ...cleanHazard
     } = hazard;
 
+    // Community privacy (rounded coords, anonymous reporter) applies to every
+    // app/public response. Admin moderation routes (behind admin auth) set
+    // isAdminRequest and see the exact pin and who reported it.
     return {
-      ...withPublicCoords(cleanHazard, userId),
+      ...(isAdminRequest ? cleanHazard : withPublicCoords(cleanHazard, userId)),
       userVoteType: userVoteType || undefined,
-      reportedBy: toPublicReporter(enhancedReportedBy, userId),
+      reportedBy: isAdminRequest
+        ? enhancedReportedBy
+        : toPublicReporter(enhancedReportedBy, userId),
+      ...(isAdminRequest
+        ? {
+            reviewedBy:
+              reviewedByEmail || reviewedByName
+                ? { email: reviewedByEmail ?? null, name: reviewedByName ?? null }
+                : null,
+          }
+        : {}),
       category: hazard.categoryId
         ? {
             id: hazard.categoryId,

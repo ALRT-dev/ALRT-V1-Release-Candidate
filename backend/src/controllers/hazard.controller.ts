@@ -400,7 +400,9 @@ export const createHazard = async (
       throw new HttpError(400, "Invalid or missing hazard category");
     }
 
-    if (userId && !useDummy) {
+    // Rate limits and the duplicate check run for dummy-AI reports too:
+    // only the AI calls are skipped, never the abuse guards.
+    if (userId) {
       await assertCanPostCommunityReport({
         userId,
         categoryId: category.id,

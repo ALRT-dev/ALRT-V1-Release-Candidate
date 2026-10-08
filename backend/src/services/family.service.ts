@@ -500,10 +500,11 @@ export const listCirclesForUser = async (userId: string) => {
   const circleIds = memberships.map((m) => m.circleId);
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const myMemberIds = memberships.map((m) => m.id);
-  const [allMembers, openAsks, activeSos] = await Promise.all([
+  const [allMembers, openAsks, latestAsks, activeSos] = await Promise.all([
     prisma.familyMember.findMany({
       where: { circleId: { in: circleIds } },
       select: {
+        id: true,
         circleId: true,
         nickname: true,
         lastCheckInAt: true,
@@ -526,8 +527,33 @@ export const listCirclesForUser = async (userId: string) => {
       },
       select: { circleId: true, createdAt: true, targetMemberIds: true },
     }),
+    // The asks that concern me per group (everyone, me, or sent by me),
+    // newest first: the newest is what the open hub's CheckInRoll reads
+    // as latestCheckInRequest, so the tile measures against the same ask.
+    prisma.familyCheckInRequest.findMany({
+      where: {
+        circleId: { in: circleIds },
+        createdAt: { gt: new Date(Date.now() - CHECK_IN_ASK_FRESH_MS) },
+        OR: [
+          { targetMemberIds: { isEmpty: true } },
+          { targetMemberIds: { hasSome: myMemberIds } },
+          { requestedById: { in: myMemberIds } },
+        ],
+      },
+      select: {
+        circleId: true,
+        createdAt: true,
+        targetMemberIds: true,
+        requestedById: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.familySosEvent.findMany({
-      where: { circleId: { in: circleIds }, status: "active", ...sosVisibleTo(userId) },
+      where: {
+        circleId: { in: circleIds },
+        status: "active",
+        AND: [sosVisibleTo(userId), sosNotLapsed()],
+      },
       select: {
         id: true,
         circleId: true,
@@ -541,17 +567,38 @@ export const listCirclesForUser = async (userId: string) => {
       orderBy: { createdAt: "desc" },
     }),
   ]);
+  // Same reading as the app's CheckInRoll. With a fresh ask: the person
+  // who asked counts as answered and is never waited on; someone asked
+  // (everyone, or named in targetMemberIds) has answered only by checking
+  // in after the ask; someone the ask did not name is never waited on.
+  // Without an ask: checked in within the last day.
+  const latestAskByCircle = new Map<string, (typeof latestAsks)[number]>();
+  for (const ask of latestAsks) {
+    if (!latestAskByCircle.has(ask.circleId)) latestAskByCircle.set(ask.circleId, ask);
+  }
   const checkedInByCircle = new Map<string, number>();
   const waitingOnByCircle = new Map<string, string[]>();
   for (const m of allMembers) {
     const name = m.nickname || m.user.name || "Family member";
-    const checkedIn = !!m.lastCheckInAt && m.lastCheckInAt > dayAgo;
-    if (checkedIn) {
+    const ask = latestAskByCircle.get(m.circleId);
+    const checkedInToday = !!m.lastCheckInAt && m.lastCheckInAt > dayAgo;
+    const asked =
+      !!ask &&
+      m.id !== ask.requestedById &&
+      (ask.targetMemberIds.length === 0 || ask.targetMemberIds.includes(m.id));
+    const answered = !ask
+      ? checkedInToday
+      : m.id === ask.requestedById
+        ? true
+        : asked
+          ? !!m.lastCheckInAt && m.lastCheckInAt > ask.createdAt
+          : checkedInToday;
+    if (answered) {
       checkedInByCircle.set(
         m.circleId,
         (checkedInByCircle.get(m.circleId) ?? 0) + 1,
       );
-    } else {
+    } else if (!ask || asked) {
       waitingOnByCircle.set(m.circleId, [
         ...(waitingOnByCircle.get(m.circleId) ?? []),
         name,
@@ -575,8 +622,9 @@ export const listCirclesForUser = async (userId: string) => {
     { id: string; memberId: string; memberName: string; createdAt: Date; liveUntil: Date }
   >();
   for (const sos of activeSos) {
-    // Newest first, so the first one seen per circle is the latest.
-    if (sosByCircle.has(sos.circleId)) continue;
+    // Newest first, so the first one seen per circle is the latest. A
+    // running SOS always has its sender (leaving ends it first).
+    if (sosByCircle.has(sos.circleId) || !sos.memberId || !sos.member) continue;
     sosByCircle.set(sos.circleId, {
       id: sos.id,
       memberId: sos.memberId,
@@ -631,7 +679,7 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
         orderBy: { createdAt: "asc" },
       },
       sosEvents: {
-        where: { status: "active", ...sosVisibleTo(userId) },
+        where: { status: "active", AND: [sosVisibleTo(userId), sosNotLapsed()] },
         include: {
           member: { select: memberIdentitySelect },
           responses: { include: { member: { select: memberIdentitySelect } } },
@@ -689,7 +737,6 @@ export const getCircleForUser = async (userId: string, circleId?: string) => {
     hostTransitionLocked: hostTransition.locked,
     maxMembers: circle.maxMembers,
     anyoneCanRequestSnapshot: circle.anyoneCanRequestSnapshot,
-    sosToWholeGroup: circle.sosToWholeGroup,
     journeysSnapPointsOnly: circle.journeysSnapPointsOnly,
     myMemberId: membership.id,
     members: circle.members.map((m) =>
@@ -709,7 +756,6 @@ export const updateCircle = async (
     name?: string | undefined;
     themeColor?: string | null | undefined;
     anyoneCanRequestSnapshot?: boolean | undefined;
-    sosToWholeGroup?: boolean | undefined;
     journeysSnapPointsOnly?: boolean | undefined;
   },
   circleId?: string,
@@ -727,9 +773,6 @@ export const updateCircle = async (
       ...(input.anyoneCanRequestSnapshot !== undefined && {
         anyoneCanRequestSnapshot: input.anyoneCanRequestSnapshot,
       }),
-      ...(input.sosToWholeGroup !== undefined && {
-        sosToWholeGroup: input.sosToWholeGroup,
-      }),
       ...(input.journeysSnapPointsOnly !== undefined && {
         journeysSnapPointsOnly: input.journeysSnapPointsOnly,
       }),
@@ -740,7 +783,9 @@ export const updateCircle = async (
     socketEvent: SocketEvent.familyCircleUpdate,
     socketData: { circleId: circle.id },
   });
-  return circle;
+  // sosToWholeGroup is retired (product owner): the column stays, unused.
+  const { sosToWholeGroup: _retired, ...rest } = circle;
+  return rest;
 };
 
 export const deleteCircle = async (userId: string, circleId?: string) => {
@@ -772,6 +817,36 @@ export const deleteCircle = async (userId: string, circleId?: string) => {
  * gone), "hostTransition" (the host left; the 7-day window started).
  */
 export type LeaveCircleOutcome = "left" | "deleted" | "hostTransition";
+
+/**
+ * A member is about to leave (or be removed): their own running SOS ends
+ * first (its audience is told, its trail wiped; the record stays in
+ * "Past SOS"), and they come off the stored audience of every SOS still
+ * running in this group, so no live point or "ended" notice reaches them.
+ */
+const detachFromCircleSos = async (member: {
+  id: string;
+  userId: string;
+  circleId: string;
+}) => {
+  await endSosEventsOf(member.id, "resolved", member.id);
+  const running = await prisma.familySosEvent.findMany({
+    where: {
+      circleId: member.circleId,
+      status: "active",
+      recipientUserIds: { has: member.userId },
+    },
+    select: { id: true, recipientUserIds: true },
+  });
+  for (const sos of running) {
+    await prisma.familySosEvent.update({
+      where: { id: sos.id },
+      data: {
+        recipientUserIds: sos.recipientUserIds.filter((id) => id !== member.userId),
+      },
+    });
+  }
+};
 
 export const leaveCircle = async (
   userId: string,
@@ -810,6 +885,7 @@ export const leaveCircle = async (
       select: { name: true },
     });
     const hostName = membership.nickname || user?.name || null;
+    await detachFromCircleSos(membership);
     await prisma.familyMember.delete({ where: { id: membership.id } });
     await ensureHostTransitionStarted(membership.circleId, hostName);
 
@@ -818,18 +894,17 @@ export const leaveCircle = async (
       membership.nickname ?? undefined,
     ).catch((error) => console.error("SOS list prune failed on leave:", error));
 
+    // Leaving never announces, the host included: socket only, so the
+    // member list (and the host-transition banner) refresh in the app.
     await notifyCircle({
       circleId: membership.circleId,
-      title: "Family circle update",
-      body: `${hostName || "Your host"} left as host. Choose a new host ` +
-        `within ${HOST_TRANSITION_GRACE_DAYS} days.`,
-      type: PushNotificationType.familyCircleUpdate,
       socketEvent: SocketEvent.familyCircleUpdate,
       socketData: { circleId: membership.circleId },
     });
     return { outcome: "hostTransition", circleId: membership.circleId };
   }
 
+  await detachFromCircleSos(membership);
   await prisma.familyMember.delete({ where: { id: membership.id } });
 
   // §28: the leaver comes off every SOS list, owners get told.
@@ -1105,6 +1180,7 @@ export const removeMember = async (userId: string, memberId: string) => {
   // when the caller belongs to several circles.
   const target = await prisma.familyMember.findUnique({
     where: { id: memberId },
+    include: { user: { select: { name: true } } },
   });
   if (!target) {
     throw new HttpError(404, "Member not found in your circle");
@@ -1118,6 +1194,7 @@ export const removeMember = async (userId: string, memberId: string) => {
     throw new HttpError(400, "Use leave/delete instead of removing yourself");
   }
 
+  await detachFromCircleSos(target);
   await prisma.familyMember.delete({ where: { id: target.id } });
 
   // §28: departed members leave every SOS list, owners get told.
@@ -1130,7 +1207,7 @@ export const removeMember = async (userId: string, memberId: string) => {
     event: SocketEvent.familyCircleUpdate,
     data: { circleId: membership.circleId, removed: true },
   });
-  const removedName = target.nickname || "A family member";
+  const removedName = target.nickname || target.user.name || "A family member";
   await notifyCircle({
     circleId: membership.circleId,
     title: "Family circle update",
@@ -1319,6 +1396,8 @@ export const createInvite = async (
           code: generateInviteCode(),
           createdById: membership.id,
           isGuestInvite,
+          // One code can fill the group: the cap, not a smaller default.
+          maxUses: DEFAULT_MAX_MEMBERS,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         },
       });
@@ -1350,6 +1429,14 @@ export const revokeInvite = async (userId: string, inviteId: string) => {
   const membership = await requireMembership(userId, invite.circleId);
   if (membership.role === "child") {
     throw new HttpError(403, "Children cannot revoke invites");
+  }
+  // Only the host, or whoever made the code, can revoke it.
+  if (membership.role !== "owner" && invite.createdById !== membership.id) {
+    throw new HttpError(
+      403,
+      "Only the group owner can revoke this invite",
+      "HOST_ONLY",
+    );
   }
   return prisma.familyInvite.update({
     where: { id: invite.id },
@@ -2411,6 +2498,63 @@ const suburbLabelFor = async (latitude: number, longitude: number) => {
   }
 };
 
+/**
+ * Ends every running SOS sent by [memberId] the way a stand-down does:
+ * coordinates cleared, the live trail deleted, and that SOS's current
+ * audience told over the socket (familySosResolved) so no phone keeps a
+ * live strip or map dot. Used when a new SOS replaces the old one and
+ * when the sender leaves or is removed. No push: the caller decides.
+ */
+const endSosEventsOf = async (
+  memberId: string,
+  status: "resolved" | "cancelled",
+  endedByMemberId: string | null,
+) => {
+  const running = await prisma.familySosEvent.findMany({
+    where: { memberId, status: "active" },
+    include: {
+      member: { select: memberIdentitySelect },
+      responses: { include: { member: { select: memberIdentitySelect } } },
+    },
+  });
+  if (running.length === 0) return;
+  const now = new Date();
+  await prisma.familySosEvent.updateMany({
+    where: { id: { in: running.map((sos) => sos.id) } },
+    data: {
+      status,
+      resolvedAt: now,
+      endedByMemberId,
+      latitude: null,
+      longitude: null,
+      locationLabel: null,
+    },
+  });
+  for (const sos of running) {
+    await prisma.familyLocationPing.deleteMany({
+      where: {
+        OR: [
+          { sosEventId: sos.id },
+          { memberId, createdAt: { gte: sos.createdAt } },
+        ],
+      },
+    });
+    sendSocketEventToUsers({
+      userIds: await sosAudienceUserIds(sos),
+      event: SocketEvent.familySosResolved,
+      data: {
+        ...sos,
+        status,
+        resolvedAt: now,
+        endedByMemberId,
+        latitude: null,
+        longitude: null,
+        locationLabel: null,
+      },
+    });
+  }
+};
+
 export const triggerSos = async (
   userId: string,
   input: {
@@ -2485,16 +2629,13 @@ export const triggerSos = async (
   // --- validated: side effects start here ---------------------------------
 
   // A member has at most one active SOS: the previous one is replaced.
-  await prisma.familySosEvent.updateMany({
-    where: { memberId: membership.id, status: "active" },
-    data: {
-      status: "cancelled",
-      resolvedAt: new Date(),
-      endedByMemberId: membership.id,
-      latitude: null,
-      longitude: null,
-      locationLabel: null,
-    },
+  // It ends exactly as a stand-down does: its trail is wiped and its own
+  // audience is told it ended (socket only; the new SOS brings the push).
+  await endSosEventsOf(membership.id, "cancelled", membership.id);
+
+  const senderUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true },
   });
 
   // Location comes only from this SOS itself, at the precision allowed,
@@ -2515,6 +2656,8 @@ export const triggerSos = async (
       isLive: input.isLive,
       recipientUserIds,
       audienceRestricted: true,
+      // Kept so "Past SOS" can still name the sender after they leave.
+      senderName: membership.nickname || senderUser?.name || null,
       locationMode: mode,
       locationPrecision: precision,
       // Stored from the start so every read can show "Live until".
@@ -2544,7 +2687,7 @@ export const triggerSos = async (
   }
 
   const memberName =
-    sos.member.nickname || sos.member.user.name || "A family member";
+    sos.member?.nickname || sos.member?.user.name || "A family member";
   const title = `🆘 ${memberName} triggered SOS`;
   // No suburb on the lock screen: where they are is inside the app, for
   // the audience only, after a tap.
@@ -2598,7 +2741,7 @@ export const setSosLocationConsent = async (
     where: { id: sosEventId },
     include: { member: { select: { userId: true, sharingLevel: true } } },
   });
-  if (!sos || (opts.actingUserId && sos.member.userId !== opts.actingUserId)) {
+  if (!sos || !sos.member || (opts.actingUserId && sos.member.userId !== opts.actingUserId)) {
     throw new HttpError(404, "SOS event not found");
   }
   if (sos.status !== "active") throw new HttpError(409, "This SOS has ended");
@@ -2706,7 +2849,9 @@ export const recordSosLocation = async (
     where: { id: sosEventId },
     include: { member: { select: { userId: true, sharingLevel: true } } },
   });
-  if (!sos || sos.member.userId !== userId) throw new HttpError(404, "SOS event not found");
+  if (!sos || !sos.member || sos.member.userId !== userId) {
+    throw new HttpError(404, "SOS event not found");
+  }
   if (sos.status !== "active" || sosExpiresAt(sos).getTime() <= Date.now()) {
     throw new HttpError(409, "This SOS has ended, so live sharing has stopped");
   }
@@ -2736,7 +2881,7 @@ export const recordSosLocation = async (
   const applyPoint = async (row: typeof sos) => {
     const precision =
       (row.locationPrecision as SosLocationPrecision | null) ??
-      sosPrecisionFor(row.member.sharingLevel);
+      sosPrecisionFor(row.member?.sharingLevel ?? "precise");
     return prisma.$transaction(async (tx) => {
       const guarded = await tx.familySosEvent.updateMany({
         where: { id: sosEventId, updatedAt: row.updatedAt, status: "active" },
@@ -2752,7 +2897,7 @@ export const recordSosLocation = async (
       if (precision === "precise") {
         await tx.familyLocationPing.create({
           data: {
-            memberId: row.memberId,
+            memberId: row.memberId!,
             sosEventId: row.id,
             latitude: input.latitude,
             longitude: input.longitude,
@@ -2819,6 +2964,21 @@ const sosVisibleTo = (userId: string) => ({
   ],
 });
 
+/**
+ * Prisma filter: an "active" SOS that is still within its liveUntil (or,
+ * for older rows with none stored, within 1 hour of the start). The lapse
+ * sweep runs every minute; reads never show one past its end meanwhile.
+ */
+const sosNotLapsed = () => {
+  const now = Date.now();
+  return {
+    OR: [
+      { liveUntil: { gt: new Date(now) } },
+      { liveUntil: null, createdAt: { gt: new Date(now - SOS_MAX_DURATION_MS) } },
+    ],
+  };
+};
+
 /** Throws 404 unless [userId] is the sender or in the stored audience. */
 const assertSosAudience = (
   sos: { audienceRestricted: boolean; recipientUserIds: string[] },
@@ -2830,16 +2990,57 @@ const assertSosAudience = (
   throw new HttpError(404, "SOS event not found");
 };
 
-/** Who is told about changes to this SOS (never the whole group by default). */
+/**
+ * Who is told about changes to this SOS (never the whole group by
+ * default): the stored audience, narrowed to people still in the group.
+ * Someone who left or was removed gets no further live points, responses
+ * or "ended" notice, even if the stored list still names them.
+ */
 const sosAudienceUserIds = async (sos: {
   circleId: string;
   audienceRestricted: boolean;
   recipientUserIds: string[];
-  member: { user: { id: string } } | { userId: string };
+  member: { user: { id: string } } | { userId: string } | null;
 }) => {
-  const senderId = "userId" in sos.member ? sos.member.userId : sos.member.user.id;
-  if (sos.audienceRestricted) return [senderId, ...sos.recipientUserIds];
-  return getCircleUserIds(sos.circleId);
+  const current = await getCircleUserIds(sos.circleId);
+  if (!sos.audienceRestricted) return current;
+  const senderId = !sos.member
+    ? null
+    : "userId" in sos.member
+      ? sos.member.userId
+      : sos.member.user.id;
+  const stillHere = new Set(current);
+  return [...(senderId ? [senderId] : []), ...sos.recipientUserIds].filter((id) =>
+    stillHere.has(id),
+  );
+};
+
+/**
+ * What the sender is told their audience can see, from this SOS's own
+ * stored choice (locationMode none | once | live, precise | approximate).
+ */
+export const sosSharingNote = (sos: {
+  locationMode: string | null;
+  locationPrecision: string | null;
+  isLive: boolean;
+  latitude: number | null;
+  locationLabel: string | null;
+}): string => {
+  const mode =
+    sos.locationMode ??
+    (sos.isLive ? "live" : sos.latitude != null || sos.locationLabel ? "once" : "none");
+  const suburb = sos.locationPrecision === "approximate";
+  if (mode === "live") {
+    return suburb
+      ? "They can see your live suburb, not your exact location."
+      : "They can see your live location.";
+  }
+  if (mode === "once") {
+    return suburb
+      ? "They can see the suburb you shared."
+      : "They can see the location you shared.";
+  }
+  return "Your location is not being shared.";
 };
 
 export const respondToSos = async (
@@ -2855,10 +3056,11 @@ export const respondToSos = async (
       },
     },
   });
-  if (!sos) throw new HttpError(404, "SOS event not found");
+  if (!sos || !sos.member) throw new HttpError(404, "SOS event not found");
+  const sender = sos.member;
 
   const membership = await requireMembership(userId, sos.circleId);
-  assertSosAudience(sos, userId, sos.member.user.id);
+  assertSosAudience(sos, userId, sender.user.id);
   // Late acknowledgments are blocked: once an SOS has ended its response
   // list is a closed record, so history shows exactly who saw it while
   // it ran and nobody can add to it afterwards.
@@ -2885,36 +3087,30 @@ export const respondToSos = async (
     include: { member: { select: memberIdentitySelect } },
   });
 
+  // Only "I've seen this" is ever told to anyone. "onMyWay" and "called"
+  // stay accepted for older apps and history, but they produce no
+  // user-facing push or wording (frontend/CLAUDE.md: "On my way" is
+  // removed from the flow entirely).
+  if (type !== "seen") return response;
+
   const responderName =
     response.member.nickname ||
     response.member.user.name ||
     "A family member";
-  const actionText =
-    type === "onMyWay"
-      ? `${responderName} is on their way`
-      : type === "called"
-        ? `${responderName} is calling for help`
-        : `${responderName} has seen the SOS`;
 
-  // The person IN SOS gets their own directed message — knowing who has
-  // seen it and who is coming is the whole point of responding (product
-  // owner 2026-08-07). Socket first so the open app updates instantly,
-  // then the push for a pocketed phone.
-  const ownerCopy =
-    type === "onMyWay"
-      ? `${responderName} is on their way to you`
-      : type === "called"
-        ? `${responderName} is calling for help for you`
-        : `${responderName} has seen your SOS`;
+  // The person IN SOS gets their own directed message: knowing who has
+  // seen it is the whole point of responding (product owner 2026-08-07).
+  // Socket first so the open app updates instantly, then the push for a
+  // pocketed phone. The body says only what this SOS actually shares.
   sendSocketEventToUsers({
-    userIds: [sos.member.user.id],
+    userIds: [sender.user.id],
     event: SocketEvent.familySosResponse,
     data: response,
   });
   await sendPushNotificationToUser({
-    userId: sos.member.user.id,
-    title: ownerCopy,
-    body: "They can see your live location.",
+    userId: sender.user.id,
+    title: `${responderName} has seen your SOS`,
+    body: sosSharingNote(sos),
     data: { circleId: membership.circleId, sosEventId: sos.id },
     type: PushNotificationType.familySosResponse,
   });
@@ -2923,9 +3119,9 @@ export const respondToSos = async (
   // third-person update.
   const audience = await sosAudienceUserIds(sos);
   await notifyUsers({
-    userIds: audience.filter((id) => id !== userId && id !== sos.member.user.id),
+    userIds: audience.filter((id) => id !== userId && id !== sender.user.id),
     title: "SOS update",
-    body: actionText,
+    body: `${responderName} has seen the SOS`,
     data: { circleId: membership.circleId, sosEventId: sos.id },
     type: PushNotificationType.familySosResponse,
     socketEvent: SocketEvent.familySosResponse,
@@ -2956,7 +3152,7 @@ export const getSosTrail = async (userId: string, sosEventId: string) => {
       member: { select: { userId: true } },
     },
   });
-  if (!sos) throw new HttpError(404, "SOS event not found");
+  if (!sos || !sos.memberId || !sos.member) throw new HttpError(404, "SOS event not found");
 
   const membership = await prisma.familyMember.findFirst({
     where: { userId, circleId: sos.circleId },
@@ -3000,10 +3196,11 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
       member: { include: { user: { select: { id: true, name: true } } } },
     },
   });
-  if (!sos) throw new HttpError(404, "SOS event not found");
+  if (!sos || !sos.member) throw new HttpError(404, "SOS event not found");
+  const sender = sos.member;
 
   const membership = await requireMembership(userId, sos.circleId);
-  assertSosAudience(sos, userId, sos.member.user.id);
+  assertSosAudience(sos, userId, sender.user.id);
   if (sos.status !== "active") return sos;
 
   // Decided rule: only the person who sent the SOS can end it. The group
@@ -3038,11 +3235,11 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
   // this event is deleted now, not archived, not left to the 24h prune.
   // History keeps only the time and duration.
   await prisma.familyLocationPing.deleteMany({
-    where: { memberId: sos.memberId, createdAt: { gte: sos.createdAt } },
+    where: { memberId: sender.id, createdAt: { gte: sos.createdAt } },
   });
 
   const memberName =
-    sos.member.nickname || sos.member.user.name || "A family member";
+    sender.nickname || sender.user.name || "A family member";
 
   // Factual ending wording (master spec §12): never "safe" or "resolved".
   const audience = await sosAudienceUserIds(sos);
@@ -3093,16 +3290,28 @@ export const extendSos = async (userId: string, sosEventId: string) => {
     where: { id: sosEventId },
     include: { member: { select: { userId: true } } },
   });
-  if (!sos || sos.member.userId !== userId) {
+  if (!sos || !sos.member || sos.member.userId !== userId) {
     throw new HttpError(404, "SOS event not found");
   }
   if (sos.status !== "active" || sosExpiresAt(sos).getTime() <= Date.now()) {
     throw new HttpError(409, "This SOS has ended");
   }
-  return prisma.familySosEvent.update({
+  const updated = await prisma.familySosEvent.update({
     where: { id: sos.id },
     data: { liveUntil: new Date(Date.now() + SOS_MAX_DURATION_MS) },
+    include: {
+      member: { select: memberIdentitySelect },
+      responses: { include: { member: { select: memberIdentitySelect } } },
+    },
   });
+  // Every open screen (the sender's other devices and the audience) moves
+  // its "Live until" and keeps the SOS running past the old end.
+  sendSocketEventToUsers({
+    userIds: await sosAudienceUserIds(updated),
+    event: SocketEvent.familySos,
+    data: withLiveUntil(updated),
+  });
+  return updated;
 };
 
 /** A running SOS as the app reads it: liveUntil always filled in (older
@@ -3166,7 +3375,7 @@ export const remindSosEndingSoon = async (): Promise<number> => {
         ...(sos.liveUntil === null && { liveUntil: until }),
       },
     });
-    if (claimed.count === 0) continue;
+    if (claimed.count === 0 || !sos.member) continue;
     await sendPushNotificationToUser({
       userId: sos.member.userId,
       title: "Your SOS ends in 10 minutes",
@@ -3216,7 +3425,9 @@ export const endLapsedSosEvents = async (): Promise<number> => {
   await Promise.all(
     lapsed.map((sos) =>
       prisma.familyLocationPing.deleteMany({
-        where: { memberId: sos.memberId, createdAt: { gte: sos.createdAt } },
+        where: sos.memberId
+          ? { memberId: sos.memberId, createdAt: { gte: sos.createdAt } }
+          : { sosEventId: sos.id },
       }),
     ),
   );
@@ -3230,7 +3441,7 @@ export const endLapsedSosEvents = async (): Promise<number> => {
         title: "SOS ended",
         // The app formats "This SOS expired at [time]" in local time from
         // resolvedAt; the push can't know the reader's time zone.
-        body: "This SOS expired after 1 hour. Live sharing has stopped.",
+        body: "This SOS has expired.",
         data: { circleId: sos.circleId, sosEventId: sos.id, expired: true },
         type: PushNotificationType.familySosResolved,
         socketEvent: SocketEvent.familySosResolved,
@@ -3287,6 +3498,16 @@ export const getSosHistory = async (userId: string, circleId?: string) => {
   });
   return events.map((event) => ({
     ...event,
+    // The sender has left or been removed: the record stays, named by the
+    // name it was sent under. Same shape the app already reads.
+    ...(!event.member && {
+      memberId: event.memberId ?? event.endedByMemberId ?? "",
+      member: {
+        id: event.memberId ?? event.endedByMemberId ?? "",
+        nickname: event.senderName ?? null,
+        user: null,
+      },
+    }),
     latitude: null,
     longitude: null,
     locationLabel: null,
@@ -3315,7 +3536,13 @@ export const getActiveSos = async (userId: string, circleId?: string) => {
     circleIds = memberships.map((m) => m.circleId);
   }
   const events = await prisma.familySosEvent.findMany({
-    where: { circleId: { in: circleIds }, status: "active", ...sosVisibleTo(userId) },
+    // Past its liveUntil it is over, even in the minute before the lapse
+    // sweep marks it ended.
+    where: {
+      circleId: { in: circleIds },
+      status: "active",
+      AND: [sosVisibleTo(userId), sosNotLapsed()],
+    },
     include: {
       member: { select: memberIdentitySelect },
       responses: {

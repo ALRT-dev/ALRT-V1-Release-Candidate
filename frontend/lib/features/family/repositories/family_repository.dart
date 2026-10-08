@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/api/rest_client.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
+import 'package:hazard_app/features/family/services/location_fix.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
 import 'package:hazard_app/features/shared/providers/rest_client_provider.dart';
@@ -21,6 +22,12 @@ abstract class FamilyRepository {
   /// Returns the user's family circle, or `null` when they have none.
   Future<Either<FamilyCircle?, AppError>> getFamilyCircle();
 
+  /// One named circle in full, whichever circle is in scope. Group tiles
+  /// for circles that are not open read their check-in roll from this.
+  Future<Either<FamilyCircle?, AppError>> getFamilyCircleById(
+    final String circleId,
+  );
+
   /// All circles the user belongs to (for the switcher and seat ledger).
   Future<Either<List<FamilyCircleSummary>, AppError>> getFamilyCircles();
 
@@ -32,7 +39,6 @@ abstract class FamilyRepository {
     final String? name,
     final String? themeColor,
     final bool? anyoneCanRequestSnapshot,
-    final bool? sosToWholeGroup,
     final bool? journeysSnapPointsOnly,
   });
 
@@ -210,6 +216,12 @@ abstract class FamilyRepository {
   /// The caller's own running journey, or null.
   Future<Either<FamilyJourney?, AppError>> getMyFamilyJourney();
 
+  /// The caller's own running journey in [circleId], whichever circle is
+  /// in scope (journeys keep posting after a group switch or restart).
+  Future<Either<FamilyJourney?, AppError>> getMyFamilyJourneyIn(
+    final String circleId,
+  );
+
   /// Running journeys the caller was picked to see.
   Future<Either<List<FamilyJourney>, AppError>> getFamilyJourneysSharedWithMe();
 
@@ -295,11 +307,21 @@ class FamilyRepositoryImpl implements FamilyRepository {
   String? get _circleId => _selectedCircleId();
 
   @override
-  Future<Either<FamilyCircle?, AppError>> getFamilyCircle() {
+  Future<Either<FamilyCircle?, AppError>> getFamilyCircle() =>
+      _getFamilyCircle(_circleId);
+
+  @override
+  Future<Either<FamilyCircle?, AppError>> getFamilyCircleById(
+    final String circleId,
+  ) => _getFamilyCircle(circleId);
+
+  Future<Either<FamilyCircle?, AppError>> _getFamilyCircle(
+    final String? circleId,
+  ) {
     return runAsyncCall(
       name: 'getFamilyCircle',
       future: () async {
-        final response = await _restClient.getFamilyCircle(circleId: _circleId);
+        final response = await _restClient.getFamilyCircle(circleId: circleId);
         final data = response.data;
         if (data == null) return const Success(null);
         return Success(
@@ -341,7 +363,6 @@ class FamilyRepositoryImpl implements FamilyRepository {
     String? name,
     String? themeColor,
     bool? anyoneCanRequestSnapshot,
-    bool? sosToWholeGroup,
     bool? journeysSnapPointsOnly,
   }) {
     return runAsyncCall(
@@ -351,7 +372,6 @@ class FamilyRepositoryImpl implements FamilyRepository {
           name: name,
           themeColor: themeColor,
           anyoneCanRequestSnapshot: anyoneCanRequestSnapshot,
-          sosToWholeGroup: sosToWholeGroup,
           journeysSnapPointsOnly: journeysSnapPointsOnly,
           circleId: _circleId,
         );
@@ -936,7 +956,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
           locationMode: locationMode,
           locationPrecision: locationPrecision,
           locationCapturedAt: locationCapturedAt?.toUtc().toIso8601String(),
-          locationAccuracyM: locationAccuracyM,
+          locationAccuracyM: sendableAccuracyM(locationAccuracyM),
           circleId: _circleId,
         );
         return Success(result);
@@ -991,12 +1011,22 @@ class FamilyRepositoryImpl implements FamilyRepository {
   }
 
   @override
-  Future<Either<FamilyJourney?, AppError>> getMyFamilyJourney() {
+  Future<Either<FamilyJourney?, AppError>> getMyFamilyJourney() =>
+      _getMyFamilyJourney(_circleId);
+
+  @override
+  Future<Either<FamilyJourney?, AppError>> getMyFamilyJourneyIn(
+    final String circleId,
+  ) => _getMyFamilyJourney(circleId);
+
+  Future<Either<FamilyJourney?, AppError>> _getMyFamilyJourney(
+    final String? circleId,
+  ) {
     return runAsyncCall(
       name: 'getMyFamilyJourney',
       future: () async {
         final result = await _restClient.getMyFamilyJourney(
-          circleId: _circleId,
+          circleId: circleId,
         );
         return Success(result);
       },

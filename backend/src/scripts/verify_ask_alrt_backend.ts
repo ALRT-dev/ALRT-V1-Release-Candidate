@@ -8,6 +8,7 @@ import { bestMatch, detectEmergencyLookup, localAnswer } from "../services/ask_a
 import { extractUsedAlertIds } from "../services/ask_alrt/citations.js";
 import {
   AI_DAILY_LIMIT,
+  ASK_LIMIT_CODE,
   isUsableZone,
   isValidTimeZone,
   limitMessage,
@@ -25,6 +26,8 @@ import {
 } from "../services/ask_alrt/rules.js";
 import { ASK_ALRT_SYSTEM_PROMPT } from "../services/ask_alrt/system_prompt.js";
 import { BUILT_IN_ENTRIES } from "../utils/ask_alrt_content.util.js";
+import { errorHandlerMiddleware } from "../middlewares/error_handler.middleware.js";
+import { HttpError } from "../models/http_error.js";
 
 const row = (id: string, over: Partial<{ triggers: string[]; keywords: string[]; answer: string; enabled: boolean }> = {}) => ({
   id,
@@ -40,6 +43,25 @@ const cases: [string, () => void][] = [
     assert.deepEqual(AI_DAILY_LIMIT, { free: 3, individual: 10 });
     assert.match(limitMessage("free"), /3 Ask ALRT questions.*10 a day/);
     assert.match(limitMessage("individual"), /10 Ask ALRT questions/);
+  }],
+  ["the daily-limit 429 carries code ask_limit through the error handler", () => {
+    assert.equal(ASK_LIMIT_CODE, "ask_limit");
+    let status = 0;
+    let sent: any = null;
+    const res: any = {
+      status: (s: number) => { status = s; return res; },
+      send: (b: unknown) => { sent = b; return res; },
+    };
+    const quiet = console.error;
+    console.error = () => {};
+    try {
+      errorHandlerMiddleware(new HttpError(429, limitMessage("free"), ASK_LIMIT_CODE), { originalUrl: "/api/ask-alrt" } as any, res, () => {});
+    } finally {
+      console.error = quiet;
+    }
+    assert.equal(status, 429);
+    assert.equal(sent.code, "ask_limit");
+    assert.match(sent.error, /3 Ask ALRT questions/);
   }],
   ["the day is counted in the person's own zone, with DST", () => {
     const at = new Date(Date.UTC(2026, 8, 28, 20, 30));

@@ -199,3 +199,12 @@ Future<LocationFix> resolveLocationFix(
   }
   return const LocationFix.unavailable(LocationUnavailableReason.noFix);
 }
+
+/// The accuracy to send with a point, in metres: null when the phone did
+/// not report a usable one. Platforms report a negative (or NaN) accuracy
+/// to mean "unknown"; sending it would read as a real (and impossible)
+/// measurement, so it is left out instead.
+double? sendableAccuracyM(final double? accuracy) {
+  if (accuracy == null || accuracy.isNaN || accuracy.isInfinite) return null;
+  return accuracy < 0 ? null : accuracy;
+}

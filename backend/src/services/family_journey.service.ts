@@ -104,6 +104,20 @@ export const startJourney = async (
   if (input.recipientMemberIds.length === 0) {
     throw new HttpError(400, "Pick at least one person to share with");
   }
+  // The host's group rule: periodic updates only means no live journeys.
+  if (input.isLive === true) {
+    const circle = await prisma.familyCircle.findUnique({
+      where: { id: membership.circleId },
+      select: { journeysSnapPointsOnly: true },
+    });
+    if (circle?.journeysSnapPointsOnly) {
+      throw new HttpError(
+        409,
+        "This group uses periodic updates for journeys. Live location is turned off by the group owner.",
+        "LIVE_JOURNEY_NOT_ALLOWED",
+      );
+    }
+  }
 
   // Recipients must be current members of this circle, and never yourself.
   const recipients = await prisma.familyMember.findMany({

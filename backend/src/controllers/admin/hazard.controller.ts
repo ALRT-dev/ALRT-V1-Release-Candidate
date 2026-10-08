@@ -465,7 +465,7 @@ export const reviewHazardForAdmin = async (
 };
 
 export const deleteHazardForAdmin = async (
-  req: Request,
+  req: AdminRequest,
   res: Response,
   next: NextFunction,
 ) => {
@@ -486,6 +486,21 @@ export const deleteHazardForAdmin = async (
       where: { id: hazardId },
     });
 
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "hazard.delete",
+      targetType: "Hazard",
+      targetId: hazardId,
+      before: {
+        title: existingHazard.title,
+        sourceId: existingHazard.sourceId,
+        reportedById: existingHazard.reportedById,
+        severity: existingHazard.severity,
+        reviewStatus: existingHazard.reviewStatus,
+        createdAt: existingHazard.createdAt,
+      },
+    });
+
     await invalidateHazardCaches(hazardId);
 
     res.status(200).json({ message: "Hazard deleted successfully" });
@@ -495,7 +510,7 @@ export const deleteHazardForAdmin = async (
 };
 
 export const syncHazardsFromExternalSourceForAdmin = async (
-  req: Request,
+  req: AdminRequest,
   res: Response,
   next: NextFunction,
 ) => {
@@ -511,6 +526,18 @@ export const syncHazardsFromExternalSourceForAdmin = async (
     if (createdHazards.length > 0) {
       await invalidateHazardListCaches();
     }
+
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "hazard.sync",
+      targetType: "HazardSource",
+      targetId: null,
+      after: {
+        sourceIds: sourceIds ?? null,
+        syncOption: syncOption ?? null,
+        createdCount: createdHazards.length,
+      },
+    });
 
     res.status(200).json(createdHazards);
   } catch (error) {

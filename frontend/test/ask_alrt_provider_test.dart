@@ -78,6 +78,7 @@ void main() {
             requestOptions: options,
             response: _json(options, 429, {
               'error': 'You have used your 3 questions today.',
+              'code': 'ask_limit',
             }),
             type: DioExceptionType.badResponse,
           ),
@@ -120,5 +121,171 @@ void main() {
     expect(state.messages.last.text, isNotEmpty);
     expect(state.messages.last.text, isNot(contains('—')));
     expect(state.limitReached, isFalse);
+  });
+
+  test(
+    'a 502/503 says Ask ALRT is unavailable and does not use up the question',
+    () async {
+      for (final status in [502, 503]) {
+        var allowanceReads = 0;
+        final dio = _fakeDio((options, handler) {
+          if (options.path.endsWith('/allowance')) {
+            allowanceReads += 1;
+            return handler.resolve(
+              _json(options, 200, {'limit': 3, 'used': 1, 'remaining': 2}),
+            );
+          }
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              response: _json(options, status, {'error': 'Bad gateway'}),
+              type: DioExceptionType.badResponse,
+            ),
+          );
+        });
+        final container = _container(dio);
+        addTearDown(container.dispose);
+        final sub = container.listen(providerOfAskAlrt, (_, _) {});
+        addTearDown(sub.close);
+        final notifier = container.read(providerOfAskAlrt.notifier);
+        await notifier.refreshAllowance();
+        final readsBefore = allowanceReads;
+
+        await notifier.ask('How do I send an SOS?');
+        await Future<void>.delayed(Duration.zero);
+
+        final state = container.read(providerOfAskAlrt);
+        expect(
+          state.messages.last.text,
+          'Ask ALRT is temporarily unavailable. Try again soon.',
+          reason: 'status $status',
+        );
+        expect(state.messages.last.text, isNot(contains('–')));
+        expect(state.remainingToday, 2, reason: 'status $status');
+        expect(state.limitReached, isFalse);
+        expect(allowanceReads, greaterThan(readsBefore));
+      }
+    },
+  );
+
+  test('a 400 is not answered with the offline text either', () async {
+    final dio = _fakeDio((options, handler) {
+      if (options.path.endsWith('/allowance')) {
+        return handler.resolve(
+          _json(options, 200, {'limit': 3, 'used': 0, 'remaining': 3}),
+        );
+      }
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          response: _json(options, 400, {'error': 'Invalid input'}),
+          type: DioExceptionType.badResponse,
+        ),
+      );
+    });
+    final container = _container(dio);
+    addTearDown(container.dispose);
+    final sub = container.listen(providerOfAskAlrt, (_, _) {});
+    addTearDown(sub.close);
+
+    await container.read(providerOfAskAlrt.notifier).ask('Anything near me?');
+
+    final state = container.read(providerOfAskAlrt);
+    expect(state.messages.last.text, AskAlrtProvider.unavailableAnswer);
+    expect(state.limitReached, isFalse);
+  });
+
+  test(
+    'a 429 without the ask_limit code is the rate limiter, not the daily limit',
+    () async {
+      final dio = _fakeDio((options, handler) {
+        if (options.path.endsWith('/allowance')) {
+          return handler.resolve(
+            _json(options, 200, {'limit': 3, 'used': 1, 'remaining': 2}),
+          );
+        }
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            response: _json(options, 429, {
+              'error': 'Too many requests',
+              'message': 'Slow down',
+            }),
+            type: DioExceptionType.badResponse,
+          ),
+        );
+      });
+      final container = _container(dio);
+      addTearDown(container.dispose);
+      final sub = container.listen(providerOfAskAlrt, (_, _) {});
+      addTearDown(sub.close);
+      final notifier = container.read(providerOfAskAlrt.notifier);
+      await notifier.refreshAllowance();
+
+      await notifier.ask('Anything near me?');
+
+      final state = container.read(providerOfAskAlrt);
+      expect(
+        state.messages.last.text,
+        'Too many requests. Try again in a minute.',
+      );
+      expect(state.limitReached, isFalse);
+      expect(state.remainingToday, 2);
+    },
+  );
+
+  test('a timeout still answers from the phone', () async {
+    final dio = _fakeDio((options, handler) {
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          type: DioExceptionType.receiveTimeout,
+        ),
+      );
+    });
+    final container = _container(dio);
+    addTearDown(container.dispose);
+    final sub = container.listen(providerOfAskAlrt, (_, _) {});
+    addTearDown(sub.close);
+
+    await container.read(providerOfAskAlrt.notifier).ask('What is ALRT?');
+
+    final state = container.read(providerOfAskAlrt);
+    expect(state.messages.last.text, isNot(AskAlrtProvider.unavailableAnswer));
+    expect(state.messages.last.text, isNotEmpty);
+  });
+
+  test('the question is trimmed to the server limit before sending', () async {
+    Object? sent;
+    final dio = _fakeDio((options, handler) {
+      if (options.path.endsWith('/allowance')) {
+        return handler.resolve(
+          _json(options, 200, {'limit': 3, 'used': 0, 'remaining': 3}),
+        );
+      }
+      sent = options.data;
+      handler.resolve(_json(options, 200, {'answer': 'ok'}));
+    });
+    final container = _container(dio);
+    addTearDown(container.dispose);
+    final sub = container.listen(providerOfAskAlrt, (_, _) {});
+    addTearDown(sub.close);
+
+    await container.read(providerOfAskAlrt.notifier).ask('a' * 2500);
+
+    expect(sent, isA<Map>());
+    expect(
+      ((sent! as Map)['question'] as String).length,
+      AskAlrtProvider.maxQuestionLength,
+    );
+  });
+
+  test('clip keeps text within a limit without splitting a character', () {
+    expect(AskAlrtProvider.clip('short', 300), 'short');
+    expect(AskAlrtProvider.clip('x' * 400, 300).length, 300);
+    final emoji = '${'x' * 299}\u{1F525}';
+    final clipped = AskAlrtProvider.clip(emoji, 300);
+    expect(clipped.length, lessThanOrEqualTo(300));
+    expect(clipped, 'x' * 299);
   });
 }

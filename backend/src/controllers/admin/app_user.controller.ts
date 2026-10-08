@@ -89,7 +89,20 @@ export const deleteAppUserController = async (
   next: NextFunction,
 ) => {
   try {
-    const user = await requestAppUserDeletion(req.params.userId as string);
+    const userId = req.params.userId as string;
+    const user = await requestAppUserDeletion(userId);
+
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "appUser.scheduleDeletion",
+      targetType: "User",
+      targetId: userId,
+      after: {
+        deletionRequestedAt: user.deletionRequestedAt,
+        scheduledDeletionAt: user.scheduledDeletionAt,
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: "User scheduled for deletion",
@@ -106,7 +119,17 @@ export const restoreAppUserController = async (
   next: NextFunction,
 ) => {
   try {
-    const user = await cancelAppUserDeletion(req.params.userId as string);
+    const userId = req.params.userId as string;
+    const user = await cancelAppUserDeletion(userId);
+
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "appUser.cancelDeletion",
+      targetType: "User",
+      targetId: userId,
+      after: { deletionRequestedAt: null, scheduledDeletionAt: null },
+    });
+
     res.status(200).json({
       success: true,
       message: "Scheduled deletion cancelled",

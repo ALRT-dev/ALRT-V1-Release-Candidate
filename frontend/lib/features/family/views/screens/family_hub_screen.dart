@@ -8,6 +8,7 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/check_in_roll.dart';
 import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
 import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
+import 'package:hazard_app/features/family/utils/sos_record.dart';
 import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
@@ -861,14 +862,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   /// banner: knowing WHO has seen it is the reassurance (product owner
   /// 2026-08-07), so it is never reduced to a bare count.
   String _sosResponseSummary(final FamilySosEvent sos) {
-    final responding = sos.responses
-        .where(
-          (r) =>
-              r.type == FamilySosResponseType.onMyWay ||
-              r.type == FamilySosResponseType.called,
-        )
-        .map((r) => r.member?.displayName ?? 'A family member')
-        .toList();
+    // Only "I've seen this" is shown: "On my way" and "Called" are out of
+    // the flow (their old rows stay in the data, never on screen).
     final seen =
         sos.responses
             .where((r) => r.type == FamilySosResponseType.seen)
@@ -885,7 +880,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     final latestSeenAt = seen.isEmpty ? null : seen.last.createdAt;
 
     final parts = <String>[
-      if (responding.isNotEmpty) '${responding.join(', ')} responding',
       if (seen.isNotEmpty)
         'Seen by ${seenNames.join(', ')}'
             '${latestSeenAt != null ? ' · ${timeago.format(latestSeenAt)}' : ''}',
@@ -937,7 +931,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             sos.member?.user?.id == ref.read(providerOfLoggedInUser)?.id);
     final who = isMine
         ? 'Your SOS'
-        : "${sos.member?.displayName ?? 'A family member'}'s SOS";
+        : "${sosSenderName(sos)}'s SOS";
     final endedAt = sos.resolvedAt ?? sos.createdAt;
     final seen = sos.responses
         .where((r) => r.type == FamilySosResponseType.seen)
@@ -948,14 +942,23 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         : 'Seen by ${seen.join(', ')}';
 
     return ListTile(
-      onTap: () => context.push(
-        FamilySosResolvedScreen.route,
-        extra: FamilySosResolvedScreenArgs(
-          event: sos,
-          circleName: circle.name,
-          recipientCount: circle.members.length - 1,
-        ),
-      ),
+      onTap: () {
+        // Its stored audience, by name - never the group's size today.
+        final audience = sosAudienceNames(
+          sos,
+          members: circle.members,
+          myUserId: ref.read(providerOfLoggedInUser)?.id,
+        );
+        context.push(
+          FamilySosResolvedScreen.route,
+          extra: FamilySosResolvedScreenArgs(
+            event: sos,
+            circleName: circle.name,
+            audienceNames: audience.names,
+            unnamedAudienceCount: audience.unnamed,
+          ),
+        );
+      },
       contentPadding: EdgeInsets.symmetric(horizontal: 14.spMin),
       leading: Container(
         width: 32.spMin,
@@ -1780,8 +1783,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     Widget rowFor(final FamilyMember member) {
       final isMe = member.id == circle.myMemberId;
       final isNearAlert = memberIdsNearAlert.contains(member.id);
-      final hasAnswered = roll.hasAnswered(member);
-      final canAsk = !isMe && !hasAnswered;
+      // Null for someone a targeted ask left out: they are not "waiting".
+      final hasAnswered = roll.answerFor(member);
+      final canAsk = !isMe && hasAnswered != true;
       final canRequest = !iAmGuest && !isMe;
       return FamilyMemberListItem(
         member: member,
@@ -1840,7 +1844,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
 
     // Waiting members first, then everyone who has checked in: one list,
     // the chips say who is which (approved design), no second heading.
-    final ordered = [...roll.notYet, ...roll.checkedIn];
+    final ordered = [...roll.notYet, ...roll.notAsked, ...roll.checkedIn];
     final long = ordered.length > 6;
     final visible = long ? ordered.take(5).toList() : ordered;
 

@@ -93,4 +93,34 @@ void main() {
     );
     expect(state.label, '2 of 3 · waiting on Amy');
   });
+
+  test('a tile for a group that is not open reads its CheckInRoll, so a '
+      'targeted ask waits on its targets only', () {
+    final now = DateTime(2026, 9, 4, 9, 0);
+    final loaded = FamilyCircle(
+      id: 'c1',
+      name: 'Nixon Family',
+      myMemberId: 'me',
+      members: const [
+        FamilyMember(id: 'me', userId: 'u-me', name: 'Me'),
+        FamilyMember(id: 'tom', userId: 'u-tom', name: 'Tom'),
+        FamilyMember(id: 'amy', userId: 'u-amy', name: 'Amy'),
+      ],
+      latestCheckInRequest: FamilyCheckInRequest(
+        id: 'r1',
+        circleId: 'c1',
+        requestedById: 'me',
+        targetMemberIds: const ['amy'],
+        createdAt: now.subtract(const Duration(minutes: 5)),
+      ),
+    );
+    // The list's own waitingOn ignores who was asked: it would say Tom.
+    final state = groupStateOf(
+      summary(checkedIn: 0, waiting: const ['Tom', 'Amy']),
+      loadedCircles: {'c1': loaded},
+      now: now,
+    );
+    expect(state.kind, GroupStateKind.waiting);
+    expect(state.label, '1 of 3 · waiting on Amy');
+  });
 }

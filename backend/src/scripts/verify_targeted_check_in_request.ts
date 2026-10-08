@@ -277,6 +277,68 @@ async function main() {
     assert.equal(c.latestCheckInRequest, null);
   });
 
+  console.log();
+  console.log("§9 - the circle tile's waitingOn reads the ask like CheckInRoll");
+  const hana = await registerUser("Hana");
+  const ian = await registerUser("Ian");
+  const jo = await registerUser("Jo");
+  const kim = await registerUser("Kim");
+  const g = await api("/api/family/circle", { method: "POST", token: hana.token, body: { name: "Tile circle" } });
+  assert.equal(g.status, 201, JSON.stringify(g.body));
+  const gId = (g.body as any).id as string;
+  for (const member of [ian, jo, kim]) {
+    const invite = await api(`/api/family/invites?circleId=${gId}`, { method: "POST", token: hana.token });
+    const join = await api("/api/family/join", { method: "POST", token: member.token, body: { code: (invite.body as any).code } });
+    assert.equal(join.status, 200, JSON.stringify(join.body));
+  }
+  const tileOf = async (token: string) => {
+    const tile = (await circlesAs(token)).find((c) => c.circleId === gId);
+    assert.ok(tile, "tile present");
+    return tile;
+  };
+  const checkIn = async (token: string) => {
+    const res = await api(`/api/family/check-in?circleId=${gId}`, { method: "POST", token, body: { status: "safe" } });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+  };
+  const memberIdIn = async (token: string) =>
+    ((await api(`/api/family/circle?circleId=${gId}`, { token })).body as any).myMemberId as string;
+  const ianId = await memberIdIn(ian.token);
+  await checkIn(kim.token); // checked in today, before any ask
+
+  const askIan = await api(`/api/family/check-in/request?circleId=${gId}`, {
+    method: "POST",
+    token: hana.token,
+    body: { memberIds: [ianId] },
+  });
+  assert.equal(askIan.status, 201, JSON.stringify(askIan.body));
+  await check("a targeted ask waits only on its unanswered target, never the requester or the unasked", async () => {
+    const tile = await tileOf(hana.token);
+    assert.deepEqual(tile.waitingOn, ["Ian"], JSON.stringify(tile));
+    assert.deepEqual((await tileOf(ian.token)).waitingOn, ["Ian"]);
+  });
+  await checkIn(ian.token);
+  await check("once the target answers, nobody is waited on", async () => {
+    assert.deepEqual((await tileOf(hana.token)).waitingOn, []);
+  });
+
+  const askAllHere = await api(`/api/family/check-in/request?circleId=${gId}`, {
+    method: "POST",
+    token: hana.token,
+    body: {},
+  });
+  assert.equal(askAllHere.status, 201, JSON.stringify(askAllHere.body));
+  await check("an everyone ask waits on everyone but the requester; earlier check-ins do not count", async () => {
+    const tile = await tileOf(hana.token);
+    assert.deepEqual([...tile.waitingOn].sort(), ["Ian", "Jo", "Kim"], JSON.stringify(tile));
+    assert.equal(tile.checkedInCount, 1, "only the requester counts as answered");
+  });
+  await checkIn(jo.token);
+  await check("an answer after the ask takes that person off the list", async () => {
+    const tile = await tileOf(kim.token);
+    assert.deepEqual([...tile.waitingOn].sort(), ["Ian", "Kim"], JSON.stringify(tile));
+    assert.equal(tile.checkedInCount, 2);
+  });
+
   console.log(`\n${passed} checks passed.`);
 }
 

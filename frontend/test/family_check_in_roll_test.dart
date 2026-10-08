@@ -89,6 +89,55 @@ void main() {
     expect(roll.targetMemberIds, ['Amy']);
   });
 
+  test('a targeted ask is never "waiting on" someone it did not ask', () {
+    final askedAt = now.subtract(const Duration(minutes: 10));
+    final roll = CheckInRoll.of(
+      circle(
+        [
+          member('me'),
+          // Not asked, and no check-in for two days: still not owed.
+          member('Tom', last: now.subtract(const Duration(days: 2))),
+          member('Ben'),
+          member('Amy', last: now.subtract(const Duration(minutes: 2))),
+          member('Kim'),
+        ],
+        ask: FamilyCheckInRequest(
+          id: 'r1',
+          circleId: 'c1',
+          requestedById: 'me',
+          targetMemberIds: const ['Amy', 'Kim'],
+          createdAt: askedAt,
+        ),
+      ),
+      now: now,
+    );
+    expect(roll.notYet.map((m) => m.id), ['Kim']);
+    expect(roll.checkedIn.map((m) => m.id), ['me', 'Amy']);
+    expect(roll.notAsked.map((m) => m.id), ['Tom', 'Ben']);
+    expect(roll.answerFor(roll.notAsked.first), isNull);
+    expect(roll.answerFor(roll.notYet.single), isFalse);
+    expect(roll.answerFor(roll.checkedIn.last), isTrue);
+    expect(waitingOnLabel(roll.notYet.map((m) => m.name).toList()),
+        'Waiting on Kim');
+  });
+
+  test('with an ask to everyone, nobody is "not asked"', () {
+    final roll = CheckInRoll.of(
+      circle(
+        [member('me'), member('Tom')],
+        ask: FamilyCheckInRequest(
+          id: 'r1',
+          circleId: 'c1',
+          requestedById: 'me',
+          createdAt: now.subtract(const Duration(minutes: 1)),
+        ),
+      ),
+      now: now,
+    );
+    expect(roll.notAsked, isEmpty);
+    expect(roll.notYet.map((m) => m.id), ['Tom']);
+  });
+
   test('an ask older than a day falls back to the plain reading', () {
     final roll = CheckInRoll.of(
       circle(
