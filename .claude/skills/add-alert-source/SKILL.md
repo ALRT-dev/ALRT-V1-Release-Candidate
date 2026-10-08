@@ -62,9 +62,10 @@ by the webhook (400) and make the in-code adapter return nothing.
    (`src/services/hazard.service.ts`): `id`, `name`, `url` (landing page),
    `copyrightText`, optional `copyrightLink`/`advisoryText`, and `license.connect.badgeText`.
    The list is upserted on every server start.
-3. For an n8n-only source with no deploy planned, you can create the row through the
-   Admin API (`createHazardSource` in `hazard_source.service.ts`). Still add it to
-   the seed list so environments stay consistent.
+3. For an n8n-only source with no deploy planned, create the row on live through the
+   Admin API (`/api/admin/hazard-sources`, backed by `createHazardSource` in
+   `hazard_source.service.ts`). Still add it to the seed list so the next deploy
+   keeps it consistent.
 4. Add the id to the "Source ID Values" list in `WEBHOOK_CLIENT_DOCUMENTATION.md`.
 
 ## Step 3a: Path A, in-code adapter
@@ -125,6 +126,10 @@ directly. If it isn't available, produce the workflow spec/JSON for the user to 
 1. **API key** (one per workflow/client):
    `yarn webhook-key create "n8n <source>" --description "…" --expire-days 365`
    and set limits with `yarn webhook-key update <id> --max-per-minute … --max-per-hour … --max-per-day …`.
+   That script loads `.env.dev`, so the key lands in whatever database that file
+   points at. For the live AWS backend, run it against the **live** `DATABASE_URL`
+   (e.g. `npx dotenv -e <live env file> -- tsx src/scripts/webhook-api-key.ts create …`),
+   or the key will 403 on live. Set `WEBHOOK_KEY_OUTPUT_FILE` so the raw key isn't printed.
    Store it as an n8n **credential** (Header Auth, header `X-Webhook-Api-Key`).
    Never put it inline in a node.
 2. **Workflow shape:** Schedule Trigger → HTTP Request (source) → Code node (map to
@@ -156,18 +161,56 @@ directly. If it isn't available, produce the workflow spec/JSON for the user to 
 - With `severityBandFilter`/`allowedSeverityBands`, an existing hazard that drops
   below the minimum gets expired immediately.
 
-## Step 5: Verify before claiming done
+## Step 5: Verify, then go live
 
-1. Run the parser against the saved fixture (a quick `tsx` script) and check the
-   output: ids stable and prefixed, coords in range (lat/lng not swapped), category
-   is not just `other`, severity/band are sensible, no invented calls to action.
-2. `yarn build` (tsc) must pass.
-3. On a dev/test environment only (never prod):
+New sources go **straight to the live backend on AWS**. There is no test stage for
+ingestion. The first real run creates live hazards and sends **real push
+notifications** to every subscribed user nearby, and nothing reviews them first.
+So prove the output offline before anything reaches the live API, and get the
+user's explicit go-ahead before the first live run.
+
+**Offline (no DB writes, no notifications):**
+1. Dry-run the mapping against the saved fixture and against a fresh fetch:
+   - Path A: a throwaway `tsx` script that calls the new parse function and prints
+     the hazards. Don't call `summarizeAndPostHazards`.
+   - Path B: run the n8n workflow manually with the final webhook node **disabled**
+     and inspect the Code node's output.
+2. Check every item:
+   - ids are stable and prefixed. Fetch twice and diff the id sets.
+   - coords are in range and lat/lng aren't swapped.
+   - category isn't just `other`, and severity/band match the source's own level.
+   - nothing has expired, and there are no invented calls to action.
+3. Path A: `yarn build` (tsc) must pass.
+4. Show the user the item count and the severity-band breakdown, and say how many
+   would notify (anything not filtered out by the severity filter). Get a yes.
+
+**First live run:**
+5. Start conservative. Set the severity filter (`severityBandFilter` /
+   `allowedSeverityBands`) to `action` + `critical`, and only widen it after a
+   clean run.
+6. Make sure the `HazardSource` row exists on live **before** the first run. Path A
+   seeds it on deploy. For Path B, create it through the Admin API, or the webhook
+   400s every item.
+7. Trigger one run:
    - Path A: `POST /api/admin/hazards/sync-external` with
-     `{ "sourceIds": ["newSource"], "syncOption": "ignoreExisting" }` (admin auth).
-   - Path B: run the n8n workflow manually against the TEST API.
-   - Run it **twice** and confirm the second run creates nothing new and sends no notifications.
-4. Check the hazard renders with the right source attribution and licence badge.
+     `{ "sourceIds": ["newSource"], "syncOption": "ignoreExisting" }`.
+     Always pass `ignoreExisting` explicitly.
+   - Path B: re-enable the webhook node and run the workflow once.
+8. Check the result:
+   - the created count matches the dry run, and the hazards show the right source
+     attribution and licence badge;
+   - run it a **second** time and confirm nothing new is created and no
+     notifications are sent;
+   - watch the backend logs for the `[<sourceId>]` lines.
+9. Only then enable the schedule (Path B), or leave it to the 15-minute cron (Path A).
+
+**Rollback:** remove the entry from `externalSources[]` and redeploy, or deactivate
+the n8n workflow. Disable its webhook key with `yarn webhook-key disable <id>`. Bad
+hazards can be expired or deleted from the Admin Portal. Notifications already sent
+can't be recalled. That's why the offline checks above are mandatory.
+
+Cloudflare Pages checks on this repo's PRs are not part of the backend deploy and
+say nothing about ingestion.
 
 ## Step 6: Record it
 
