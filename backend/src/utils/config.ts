@@ -149,8 +149,12 @@ export const config = {
   aws: {
     s3: {
       region: getRequiredEnv("AWS_S3_REGION"),
-      accessKeyId: getRequiredEnv("AWS_S3_ACCESS_KEY_ID"),
-      secretAccessKey: getRequiredEnv("AWS_S3_SECRET_ACCESS_KEY"),
+      // Optional, like the Bedrock pair below: left blank, s3_client.util.ts
+      // falls back to the machine's own role, so a deployment on an instance
+      // role needs no stored access key. Production sets both and is
+      // unaffected. The bucket name is still required either way.
+      accessKeyId: getOptionalEnv("AWS_S3_ACCESS_KEY_ID", ""),
+      secretAccessKey: getOptionalEnv("AWS_S3_SECRET_ACCESS_KEY", ""),
       bucketName: getRequiredEnv("AWS_S3_BUCKET_NAME"),
       cloudfrontDomain: getOptionalEnv("AWS_CLOUDFRONT_DOMAIN", ""),
     },

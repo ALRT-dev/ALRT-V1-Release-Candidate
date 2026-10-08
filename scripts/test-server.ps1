@@ -85,24 +85,83 @@ $name = aws ec2 describe-instances --profile $AwsProfile --region $Region --inst
 if ($name -match "prod") { throw "Refusing: instance '$name' looks like production." }
 Write-Host "Updating TEST server $InstanceId ($name), folder $Path, to $Branch" -ForegroundColor Cyan
 
-$commands = @(
-  "set -e",
-  "cd '$Path'",
-  "[ -f docker-compose.test.yml ] || { echo 'No docker-compose.test.yml here, stopping'; exit 1; }",
-  "ROOT=`$(git rev-parse --show-toplevel)",
-  "git -C `"`$ROOT`" fetch origin '$Branch'",
-  "git -C `"`$ROOT`" checkout -B '$Branch' 'origin/$Branch'",
-  "git -C `"`$ROOT`" log --oneline -1",
-  "cp .env.test .env.test.bak-`$(date +%Y%m%d%H%M%S)",
-  "grep -q '^RUN_SCHEDULED_JOBS_IN_TEST=' .env.test && sed -i 's/^RUN_SCHEDULED_JOBS_IN_TEST=.*/RUN_SCHEDULED_JOBS_IN_TEST=true/' .env.test || echo 'RUN_SCHEDULED_JOBS_IN_TEST=true' >> .env.test",
-  "grep -q '^EMAIL_PASSWORD_AUTH_ENABLED=' .env.test && sed -i 's/^EMAIL_PASSWORD_AUTH_ENABLED=.*/EMAIL_PASSWORD_AUTH_ENABLED=true/' .env.test || echo 'EMAIL_PASSWORD_AUTH_ENABLED=true' >> .env.test",
-  "P=https://alrt-v1-release-candidate.pages.dev; C=`$(grep '^CORS_ALLOWED_ORIGINS=' .env.test | cut -d= -f2-); case `",`$C,`" in *`",`$P,`"*) ;; *) sed -i '/^CORS_ALLOWED_ORIGINS=/d' .env.test; echo `"CORS_ALLOWED_ORIGINS=`${C:+`$C,}`$P`" >> .env.test;; esac",
-  "docker compose -f docker-compose.test.yml up -d --build app",
-  "sleep 25",
-  "docker logs --tail 40 app-test 2>&1 | grep -viE 'secret|password|token|key=' || true",
-  "for p in /api/app/version-policy /api/hazard-categories; do printf '%s ' `$p; curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3010`$p; done",
-  "echo 'Settings still blank in .env.test (names only):'",
-  "for k in EMAIL_PASSWORD_AUTH_ENABLED GOOGLE_OAUTH_CLIENT_ID_WEB GOOGLE_OAUTH_CLIENT_ID_IOS GOOGLE_OAUTH_CLIENT_ID_ANDROID APPLE_OAUTH_AUDIENCE AWS_S3_BUCKET_NAME AWS_S3_REGION AWS_S3_ACCESS_KEY_ID AWS_BEDROCK_REGION GOOGLE_MAPS_API_KEY TRIAL_LEDGER_SECRET; do v=`$(grep `"^`$k=`" .env.test | cut -d= -f2-); [ -z `"`$v`" ] && echo `"  `$k`"; done; true"
-)
-Invoke-Ssm $AwsProfile $InstanceId $commands 1500 | Write-Host
-Write-Host "`nDone. Expect /api/app/version-policy 200 (new code) and /api/hazard-categories 401 (signed-out request)." -ForegroundColor Green
+# The remote steps, as one shell script. Single-quoted here-string, so only
+# the two placeholders below are substituted: everything else reaches the
+# server exactly as written.
+#
+# Two things the first version got wrong on the real TEST server, both fixed
+# here: the checkout is owned by a normal user while SSM runs commands as
+# root (git then refuses the repository as "dubious ownership", and root has
+# no HOME to record an exception in), and the remote is SSH, reachable only
+# with the deploy key kept beside the checkout. So every git command runs as
+# the directory's owner with that key.
+$remote = @'
+set -e
+cd "__PATH__"
+[ -f docker-compose.test.yml ] || { echo "No docker-compose.test.yml here, stopping"; exit 1; }
+
+OWNER=$(stat -c %U .)
+ROOT=$(sudo -u "$OWNER" -H git rev-parse --show-toplevel)
+echo "repository $ROOT, owned by $OWNER"
+
+DEPLOY_KEY=""
+for candidate in "$ROOT/../deploy_key" "$ROOT/deploy_key"; do
+  if [ -f "$candidate" ]; then DEPLOY_KEY=$(readlink -f "$candidate"); break; fi
+done
+if [ -n "$DEPLOY_KEY" ]; then
+  echo "using the deploy key beside the checkout"
+  GIT_SSH="ssh -i $DEPLOY_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+else
+  GIT_SSH="ssh -o StrictHostKeyChecking=accept-new"
+fi
+rungit() { sudo -u "$OWNER" -H env GIT_SSH_COMMAND="$GIT_SSH" git -C "$ROOT" "$@"; }
+
+rungit fetch origin "__BRANCH__"
+rungit checkout -B "__BRANCH__" "origin/__BRANCH__"
+rungit log --oneline -1
+
+cp .env.test ".env.test.bak-$(date +%Y%m%d%H%M%S)"
+set_env() {
+  if grep -q "^$1=" .env.test; then
+    sed -i "s|^$1=.*|$1=$2|" .env.test
+  else
+    echo "$1=$2" >> .env.test
+  fi
+}
+set_env RUN_SCHEDULED_JOBS_IN_TEST true
+set_env EMAIL_PASSWORD_AUTH_ENABLED true
+PORTAL=https://alrt-v1-release-candidate.pages.dev
+CURRENT=$(grep "^CORS_ALLOWED_ORIGINS=" .env.test | cut -d= -f2-)
+case ",$CURRENT," in
+  *",$PORTAL,"*) ;;
+  *) if [ -n "$CURRENT" ]; then set_env CORS_ALLOWED_ORIGINS "$CURRENT,$PORTAL"; else set_env CORS_ALLOWED_ORIGINS "$PORTAL"; fi ;;
+esac
+
+docker compose -f docker-compose.test.yml up -d --build app
+sleep 25
+docker logs --tail 40 app-test 2>&1 | grep -viE "secret|password|token|key=" || true
+
+for p in /api/app/version-policy /api/hazard-categories /api/ask-alrt/allowance; do
+  printf "%s " "$p"
+  curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3010$p"
+done
+
+echo "Settings still to fill in .env.test (names only):"
+for k in EMAIL_PASSWORD_AUTH_ENABLED GOOGLE_OAUTH_CLIENT_ID_WEB GOOGLE_OAUTH_CLIENT_ID_IOS \
+         GOOGLE_OAUTH_CLIENT_ID_ANDROID APPLE_OAUTH_AUDIENCE AWS_S3_BUCKET_NAME AWS_S3_REGION \
+         AWS_S3_ACCESS_KEY_ID AWS_BEDROCK_REGION GOOGLE_MAPS_API_KEY TRIAL_LEDGER_SECRET \
+         BILLING_ENABLED REVENUECAT_WEBHOOK_AUTH RC_PRODUCT_TIERS REVENUECAT_SECRET_API_KEY; do
+  v=$(grep "^$k=" .env.test | cut -d= -f2-)
+  # A placeholder counts as unset: this server ships several reading
+  # "not-configured-...", which would otherwise look filled in.
+  case "$v" in
+    "") echo "  $k (blank)" ;;
+    not-configured*|changeme*|REPLACE*|TODO*) echo "  $k (placeholder)" ;;
+  esac
+done
+true
+'@
+$remote = $remote.Replace("__PATH__", $Path).Replace("__BRANCH__", $Branch)
+
+Invoke-Ssm $AwsProfile $InstanceId @($remote -split "`r?`n") 1500 | Write-Host
+Write-Host "`nDone. Expect /api/app/version-policy 200 (new code), /api/hazard-categories 401 and /api/ask-alrt/allowance 401 (signed-out requests)." -ForegroundColor Green
