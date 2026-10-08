@@ -1,0 +1,526 @@
+{
+  "passed": 104,
+  "total": 104,
+  "results": [
+    {
+      "check": "Splash is white",
+      "pass": true,
+      "detail": "rgb(255, 255, 255)"
+    },
+    {
+      "check": "Wording scan clean: onboarding 1",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Welcome to ALRT shown first",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: onboarding 2",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Cannot continue without age confirmation",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: onboarding 4",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Onboarding shows no location permission request",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Onboarding shows no hard-coded prices",
+      "pass": true,
+      "detail": "ALRT is free to use\n1 saved place and 3 Ask ALRT questions a day.\nALRT + removes"
+    },
+    {
+      "check": "Onboarding states free limits from rules",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Sign in is the last onboarding step",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Footer has exactly 5 slots",
+      "pass": true,
+      "detail": "5"
+    },
+    {
+      "check": "Footer is icon only (Instagram style, no text labels)",
+      "pass": true,
+      "detail": "['', '', '', '', 'S']"
+    },
+    {
+      "check": "Footer last slot is the profile avatar",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Footer is a flat bar, not a floating capsule",
+      "pass": true,
+      "detail": "0px"
+    },
+    {
+      "check": "Wording scan clean: alerts tab",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Map shows pins",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Unconfirmed community report is not listed for others",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "AWS alert carries the level word",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Official (non-AWS) rows carry no band word",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Shapes: triangle, diamond, circle/square/shield exist",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: official detail",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Official detail order: plain terms, what we know, what to do, for you",
+      "pass": true,
+      "detail": "[78, 130, 175, 221]"
+    },
+    {
+      "check": "Plain terms strip colour #23252B",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Share is obvious (own button)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "No emergency contacts block on alert",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Share confirms to family circle",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Urgent-wording official alert is not shown as Critical",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: report sheet",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Category is mandatory",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Posted screen with points",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Points awarded for a report",
+      "pass": true,
+      "detail": "{'points': 30, 'level': 'Watcher', 'streak': None}"
+    },
+    {
+      "check": "No streaks in points",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Community alerts always tagged Unverified",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: community detail",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Community disclaimer present",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Community shows I see it / I don't see it",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "No community push before anyone confirms",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Community push sent after first confirmation",
+      "pass": true,
+      "detail": "[{'id': 'n_qp3v78t', 'userId': 'u_q0z9fgj', 'title': 'Community report', 'body': 'Traffic & Transport near you. Unverified.', 'kind': 'community', 'createdAt': 1791453302162, 'hazardId': 'h_r72goaw'}]"
+    },
+    {
+      "check": "Community push says Community report and Unverified, no band word",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Second confirmation does not push again",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "First saved place allowed on Free",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Second saved place triggers ALRT + paywall",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Paywall explains the limit",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Paywall heading wording",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Price from rules",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Trial is 2 weeks",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: individual paywall",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Purchase reaches backend through RevenueCat webhook",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Access reflects ALRT + trial",
+      "pass": true,
+      "detail": "{'plan': 'individual', 'reason': 'trial', 'isTrial': True, 'expiresAt': 1792662904959, 'willRenew': True, 'extraSavedPlaces': 0, 'askPerDay': 10}"
+    },
+    {
+      "check": "Second place allowed after upgrade",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "ALRT + allows 10 Ask a day",
+      "pass": true,
+      "detail": "{'used': 0, 'limit': 10, 'remaining': 10}"
+    },
+    {
+      "check": "Wording scan clean: family empty",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Creating a group is free and offered",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Group created",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Family banner uses darker purple gradient",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: family hub",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording is Check in / Check on",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Check in works with ALRT +",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Never \"I'm safe\" in family",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Friend appears in People",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Check on sends a request",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Joining a group is free for a Free user",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Free user check in uncovered group refused INDIVIDUAL_REQUIRED",
+      "pass": true,
+      "detail": "{'s': 402, 'd': {'error': {'code': 'INDIVIDUAL_REQUIRED', 'message': 'Check in, Check on, SOS and Journey in this group need ALRT + for each person, or a plan covering the group.'}, 'code': 'INDIVIDUA"
+    },
+    {
+      "check": "Wording scan clean: sos sheet",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "SOS disclaimer: never contacts emergency services",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "SOS location choices exist",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Short press does NOT send SOS",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "3 second hold sends SOS",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "SOS lasts 1 hour",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "SOS push reaches group members as critical (no mute path)",
+      "pass": true,
+      "detail": "[{'id': 'n_s16qarb', 'userId': 'u_6y7g5tq', 'title': 'SOS from sarah', 'body': 'Needs help now. Check on them. Call your local emergency number if needed.', 'kind': 'sos', 'createdAt': 1791453318703, "
+    },
+    {
+      "check": "SOS push wording: needs help, check on them, local emergency number",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Ending soon shown inside last 10 minutes",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Extend adds 1 hour",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Ending soon clears after extend",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "SOS expires automatically",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Journey offers 15 / 30 / 60 minutes",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Journey starts",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Live sharing is opt-in (off by default)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Journey capped at 4 hours",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Group paywall heading",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Group tiers from rules",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Group paywall states plan covers one group, no personal benefits",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: group paywall",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Group covered, capacity from plan",
+      "pass": true,
+      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794055654032, 'coveredBy': 'you', 'youPay': True}"
+    },
+    {
+      "check": "Family hub shows coverage",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Free member can Check in once the group is covered",
+      "pass": true,
+      "detail": "201"
+    },
+    {
+      "check": "Free: 3 Ask ALRT questions then limit",
+      "pass": true,
+      "detail": "[200, 200, 200, 402]"
+    },
+    {
+      "check": "Wording scan clean: me",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Plan card shows ALRT + trial",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Alert level saved to backend",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Safety Profile stays on device (localStorage only)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Leaderboard shows no identities",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: widgets",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Four distinct widgets",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Critical and SOS widgets differ from Alert widget",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "SOS widget never fires SOS",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: ready",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Guide completion awards points",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Offline banner shows \"as of\" time",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Lock screen push preview renders",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: notifications",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Notification feed shows items",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Billing switch off reflected in /api/access",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "No JS errors in page",
+      "pass": true,
+      "detail": "[]"
+    }
+  ]
+}

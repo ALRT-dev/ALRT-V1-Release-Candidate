@@ -1,0 +1,381 @@
+{
+  "_source": "Reconciled master spec 28 Sep 2026 (docs/V1_ACCESS_MODEL_IMPLEMENTATION.md), rules commit 3 Oct 2026, frontend/CLAUDE.md, backend/CLAUDE.md, alert surfaces audit 27 Sep 2026. Every number and phrase in the prototype is read from this file.",
+  "brand": {
+    "name": "ALRT",
+    "plusName": "ALRT +",
+    "tagline": "ALERT \u00b7 LOCATION \u00b7 REAL-TIME \u00b7 TRAVEL",
+    "gradient": [
+      "#FF6B00",
+      "#FF0004"
+    ],
+    "orange": "#E8622A",
+    "ink": "#1C1C1E",
+    "muted": "#5C5C66",
+    "page": "#F5F5F7",
+    "line": "#E3E6EA",
+    "darkSurface": "#23252B",
+    "sectionLabel": "#B84500",
+    "familyIndigo": "#3D3DDF",
+    "familyGradient": [
+      "#2E2A9E",
+      "#1E1780",
+      "#120D4F"
+    ],
+    "sosGradient": [
+      "#C8102E",
+      "#7A0012"
+    ],
+    "success": "#16A34A"
+  },
+  "bands": {
+    "info": "#8A93A0",
+    "monitor": "#F5C518",
+    "action": "#F07E1B",
+    "critical": "#DA1F2D"
+  },
+  "shapes": {
+    "aws": {
+      "shape": "triangle",
+      "writesLevel": true,
+      "levels": [
+        "Advice",
+        "Watch and Act",
+        "Emergency Warning"
+      ]
+    },
+    "official": {
+      "shape": "diamond",
+      "writesLevel": false
+    },
+    "community": {
+      "shape": "circle",
+      "severity": "never",
+      "tag": "Unverified"
+    },
+    "global": {
+      "shape": "square",
+      "verbatim": true
+    },
+    "intel": {
+      "shape": "shield",
+      "label": "ALRT Assessment",
+      "writesLevel": false
+    }
+  },
+  "categories": {
+    "weather": {
+      "name": "Weather & Environment",
+      "color": "#2FA6FF"
+    },
+    "health": {
+      "name": "Health & Air",
+      "color": "#FF7E29"
+    },
+    "security": {
+      "name": "Security & Crime",
+      "color": "#D9304F"
+    },
+    "traffic": {
+      "name": "Traffic & Transport",
+      "color": "#00CC96"
+    },
+    "utilities": {
+      "name": "Utilities & Infrastructure",
+      "color": "#FFB300"
+    },
+    "community": {
+      "name": "Community/Info",
+      "color": "#C233DB"
+    },
+    "other": {
+      "name": "Other",
+      "color": "#A67C52"
+    }
+  },
+  "plans": {
+    "free": {
+      "label": "ALRT Free",
+      "savedPlaces": 1,
+      "askPerDay": 3,
+      "priceAud": 0,
+      "trialDays": 0
+    },
+    "individual": {
+      "label": "ALRT +",
+      "savedPlaces": null,
+      "askPerDay": 10,
+      "priceAud": 5.99,
+      "trialDays": 14,
+      "color": "#7B359A",
+      "gradient": [
+        "#4A1766",
+        "#8E3FB3"
+      ]
+    },
+    "family": {
+      "label": "ALRT + Family",
+      "capacity": 6,
+      "priceAud": 15.99,
+      "trialDays": 0,
+      "color": "#0A7F4F",
+      "gradient": [
+        "#05603B",
+        "#17A96A"
+      ]
+    },
+    "group20": {
+      "label": "ALRT + Group 20",
+      "capacity": 20,
+      "priceAud": 24.99,
+      "trialDays": 0,
+      "color": "#1F5CAD",
+      "gradient": [
+        "#123A73",
+        "#2468C4"
+      ]
+    },
+    "group50": {
+      "label": "ALRT + Group 50",
+      "capacity": 50,
+      "priceAud": 49.99,
+      "trialDays": 0,
+      "color": "#1F5CAD",
+      "gradient": [
+        "#123A73",
+        "#2468C4"
+      ]
+    },
+    "notes": [
+      "No annual plan. Prices come from the store, never hardcoded in the real app.",
+      "A Family/Group plan covers ONE nominated group. Members join free. It gives nobody personal benefits, including the payer.",
+      "Creating and joining a group is free. Check in, Check on, SOS and Journey in an uncovered group need each participant's own ALRT +.",
+      "Individually funded groups are capped at 20 people (3 Oct 2026).",
+      "Guests are retired for V1."
+    ]
+  },
+  "gates": {
+    "savedPlaceLimitCode": "SAVED_PLACE_LIMIT",
+    "individualRequiredCode": "INDIVIDUAL_REQUIRED",
+    "groupFullCode": "GROUP_FULL",
+    "askLimitCode": "ASK_LIMIT",
+    "paywallMoments": [
+      "second saved place",
+      "fourth Ask ALRT question",
+      "first Check in, Check on, SOS or Journey in an uncovered group",
+      "Create a group then choose to cover it"
+    ]
+  },
+  "timings": {
+    "sosHoldMs": 3000,
+    "sosDurationMs": 3600000,
+    "sosExtendMs": 3600000,
+    "sosEndingSoonLeadMs": 600000,
+    "snapshotExpiryMs": 3600000,
+    "journeyInitialMinutes": [
+      15,
+      30,
+      60
+    ],
+    "journeyExtendMinutes": 60,
+    "journeyMaxMinutes": 240,
+    "journeySnapPointMinutes": 10,
+    "offlineShowAsOf": true,
+    "sourceSyncMinutes": 15
+  },
+  "sos": {
+    "locationChoices": [
+      "No location",
+      "Share location once",
+      "Share live location"
+    ],
+    "precisionChoices": [
+      "Exact",
+      "Suburb only"
+    ],
+    "oneGroupPerList": true,
+    "neverFiredFromWidget": true,
+    "neverContactsEmergencyServices": true
+  },
+  "wording": {
+    "checkIn": "Check in",
+    "checkOn": "Check on",
+    "checkedIn": "Checked in",
+    "bannedPhrases": [
+      "I'm safe",
+      "I'm Safe",
+      "is safe",
+      "Are you safe",
+      "Safe \u2014",
+      "000",
+      "Triple Zero",
+      "all clear",
+      "All clear"
+    ],
+    "emergencyNumber": "your local emergency number",
+    "sosDisclaimer": "SOS notifies the people you chose. ALRT never contacts emergency services. In danger? Call your local emergency number.",
+    "communityDisclaimer": "Community reports are not verified by authorities and can be wrong. Always follow official advice.",
+    "plainTermsLabel": "In plain terms",
+    "forYouTag": "stays on your phone",
+    "notAnEmergencyService": "ALRT is not an emergency service. Alerts can be late or wrong. In a life-threatening situation, call your local emergency number first. Do not wait.",
+    "locationPromise": "Your location leaves your phone only when you send it. No tracking in the background. A sent location expires after an hour.",
+    "noDashes": "no em dashes or en dashes in any user-facing copy",
+    "ageGate": "I am 16 or older, or local law allows me to use this app"
+  },
+  "notifications": {
+    "levels": [
+      {
+        "id": "official",
+        "label": "Official warnings only",
+        "fields": {
+          "awsEmergency": true,
+          "awsWatchAndAct": true,
+          "awsAdvice": true,
+          "officialNonAws": true,
+          "userReported": false
+        }
+      },
+      {
+        "id": "all",
+        "label": "Official and community",
+        "fields": {
+          "awsEmergency": true,
+          "awsWatchAndAct": true,
+          "awsAdvice": true,
+          "officialNonAws": true,
+          "userReported": true
+        }
+      },
+      {
+        "id": "quiet",
+        "label": "Keep it quiet",
+        "fields": {
+          "awsEmergency": true,
+          "awsWatchAndAct": false,
+          "awsAdvice": false,
+          "officialNonAws": false,
+          "userReported": false
+        },
+        "note": "Non-AWS critical needs a minimum-band field that does not exist yet"
+      }
+    ],
+    "pushTitleRule": "AWS level word only; non-AWS officials never carry a band word; community pushes say Community report and are Unverified",
+    "communityPushOnlyAfterConfirmation": true,
+    "emergencyWarningsAlwaysDeliver": true
+  },
+  "points": {
+    "reportApproved": 10,
+    "confirmedByNeighbour": 5,
+    "matchesOfficial": 15,
+    "guideComplete": 10,
+    "firstSetup": 20,
+    "streaks": false,
+    "confirmationsEarn": 0,
+    "levels": [
+      [
+        "Watcher",
+        0
+      ],
+      [
+        "Scout",
+        750
+      ],
+      [
+        "Guardian",
+        1500
+      ]
+    ]
+  },
+  "safetyProfile": {
+    "onDeviceOnly": true,
+    "cohorts": [
+      [
+        "older",
+        "Older adult",
+        "#EAF1E4",
+        "#4A6B35"
+      ],
+      [
+        "kids",
+        "Children in my care",
+        "#FFF0E0",
+        "#B05A10"
+      ],
+      [
+        "mobility",
+        "Mobility or disability needs",
+        "#E4EEF5",
+        "#2E5E80"
+      ],
+      [
+        "medical",
+        "Medical condition",
+        "#F3ECFB",
+        "#6B3FA0"
+      ],
+      [
+        "deaf",
+        "Deaf or hard of hearing",
+        "#FDF2DC",
+        "#9A6B15"
+      ],
+      [
+        "vision",
+        "Vision impairment",
+        "#E2F2EF",
+        "#1F6E60"
+      ],
+      [
+        "visitor",
+        "Away from home",
+        "#FFE9F1",
+        "#A83A66"
+      ],
+      [
+        "worker",
+        "Essential worker",
+        "#E9EDF6",
+        "#3D5382"
+      ],
+      [
+        "pets",
+        "Pets or livestock",
+        "#EFE7DE",
+        "#7A5A3A"
+      ]
+    ]
+  },
+  "community": {
+    "categoryMandatoryOnly": true,
+    "severityWording": {
+      "minor": "Worth knowing",
+      "significant": "Consider avoiding",
+      "dangerous": "Risk to people"
+    },
+    "votes": [
+      "I see it",
+      "I don't see it"
+    ],
+    "anonymous": true,
+    "locationPrecision": "suburb",
+    "publicationPushSeparate": true
+  },
+  "onboarding": {
+    "order": [
+      "splash",
+      "welcome",
+      "promises",
+      "alertLevel",
+      "freePlan",
+      "signIn"
+    ],
+    "noLocationPrompt": true,
+    "noPrices": "only the optional ALRT is free to use step mentions plans, with store prices",
+    "signInLast": true,
+    "guestMode": "not built; button exists in code but every alerts call needs an account"
+  },
+  "copy": {
+    "choose": "Choose the ALRT + that fits you",
+    "indHead": "More for you. Wherever you go.",
+    "grpHead": "Your people. One shared plan."
+  }
+}

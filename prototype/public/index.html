@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ALRT prototype</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="stage">
+  <div id="phone" class="phone"><div id="app"></div></div>
+  <aside class="dev" id="dev">
+    <h3>Prototype controls</h3>
+    <p>Branch <b>claude/ui-prototype-8oct</b>. Mock backend, same routes as the real API. Nothing here touches your test app or prod.</p>
+    <button data-dev="reset">Reset all data</button>
+    <button data-dev="advance10">Advance clock 10 min</button>
+    <button data-dev="advance50">Advance clock 50 min</button>
+    <button data-dev="advance61">Advance clock 61 min</button>
+    <button data-dev="billing">Billing: <span id="bill">on</span></button>
+    <button data-dev="offline">Offline: <span id="off">off</span></button>
+    <button data-dev="friend">Add a friend to my group</button>
+    <button data-dev="confirm">Neighbour confirms a community report</button>
+    <button data-dev="push">Show latest push on lock screen</button>
+    <div id="clock"></div>
+  </aside>
+</div>
+<script src="app.js"></script></body></html>
