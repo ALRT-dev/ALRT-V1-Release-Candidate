@@ -45,6 +45,9 @@ class _ChooseCircleSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final circles = ref.watch(providerOfFamily.select((s) => s.circles));
     final open = ref.watch(providerOfFamily.select((s) => s.circle));
+    final loadedCircles = ref.watch(
+      providerOfFamily.select((s) => s.loadedCircles),
+    );
     final activeSos = ref.watch(
       providerOfFamily.select((s) => s.activeSosEvents),
     );
@@ -103,6 +106,7 @@ class _ChooseCircleSheet extends ConsumerWidget {
                       state: groupStateOf(
                         summary,
                         openCircle: open,
+                        loadedCircles: loadedCircles,
                         activeSosEvents: activeSos,
                       ),
                     ),

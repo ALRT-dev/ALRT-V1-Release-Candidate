@@ -164,4 +164,12 @@ void main() {
     source.currentFails = false;
     expect(await service.getCurrentPositionOrNull(), isNotNull);
   });
+
+  test('a negative (unknown) accuracy is never sent as a measurement', () {
+    expect(sendableAccuracyM(-1), isNull);
+    expect(sendableAccuracyM(double.nan), isNull);
+    expect(sendableAccuracyM(null), isNull);
+    expect(sendableAccuracyM(0), 0);
+    expect(sendableAccuracyM(12.5), 12.5);
+  });
 }

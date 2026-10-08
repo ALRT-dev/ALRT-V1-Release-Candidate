@@ -15,12 +15,16 @@ class GroupState {
 }
 
 /// [openCircle] is the fully loaded circle, if this summary is the one on
-/// screen: its live roll beats the list's counts, which are only as fresh
-/// as the last list fetch. [activeSosEvents] are the app-wide live SOS
-/// events, which arrive over the socket for every group you are in.
+/// screen, and [loadedCircles] the other circles in full: either way the
+/// tile reads the same CheckInRoll as the hub (one answer everywhere; a
+/// targeted ask is owed by its targets only). The list's own counts are a
+/// fallback for the moment before a circle has loaded. [activeSosEvents]
+/// are the app-wide live SOS events, which arrive over the socket for
+/// every group you are in.
 GroupState groupStateOf(
   final FamilyCircleSummary summary, {
   final FamilyCircle? openCircle,
+  final Map<String, FamilyCircle> loadedCircles = const {},
   final List<FamilySosEvent> activeSosEvents = const [],
   final DateTime? now,
 }) {
@@ -35,9 +39,12 @@ GroupState groupStateOf(
   final int total;
   final int checkedIn;
   final List<String> waiting;
-  if (openCircle != null && openCircle.id == summary.circleId) {
-    final roll = CheckInRoll.of(openCircle, now: now);
-    total = openCircle.members.length;
+  final full = openCircle != null && openCircle.id == summary.circleId
+      ? openCircle
+      : loadedCircles[summary.circleId];
+  if (full != null) {
+    final roll = CheckInRoll.of(full, now: now);
+    total = full.members.length;
     checkedIn = roll.checkedIn.length;
     waiting = roll.notYet.map((m) => m.name).toList();
   } else {

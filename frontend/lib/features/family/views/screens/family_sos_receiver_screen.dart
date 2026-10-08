@@ -949,13 +949,14 @@ class _FamilySosReceiverScreenState
     final String? myMemberId,
     final String? myUserId,
   ) {
-    // "On my way" is removed from the flow entirely, so past responses of
-    // that type are hidden here too, not just relabeled. The switch
-    // expressions below still cover it - required for exhaustiveness over
-    // FamilySosResponseType - but that branch is unreachable.
+    // "On my way" and "Called" are removed from the flow entirely, so past
+    // responses of those types are hidden here too, not just relabeled.
+    // The switch expressions below still cover them - required for
+    // exhaustiveness over FamilySosResponseType - but those branches are
+    // unreachable. Only "I've seen this" is shown.
     final visibleResponses =
         sos.responses
-            .where((response) => response.type != FamilySosResponseType.onMyWay)
+            .where((response) => response.type == FamilySosResponseType.seen)
             .toList()
           ..sort((a, b) {
             final at = a.createdAt;

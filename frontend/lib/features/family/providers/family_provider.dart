@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
+import 'package:hazard_app/features/shared/utils/either.dart';
 import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
+import 'package:hazard_app/features/family/utils/journey_refusal.dart';
 import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'package:hazard_app/features/family/providers/family_socket_manager_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
@@ -16,6 +18,7 @@ import 'package:hazard_app/features/family/providers/selected_circle_provider.da
 import 'package:hazard_app/features/family/providers/states/family_provider_state.dart';
 import 'package:hazard_app/features/family/services/family_location_service.dart';
 import 'package:hazard_app/features/family/services/family_service.dart';
+import 'package:hazard_app/features/family/services/owned_live_shares.dart';
 import 'package:hazard_app/features/home_screen_widget/family_widget_sync.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
@@ -72,10 +75,10 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   void dispose() {
     _sosLiveTimer?.cancel();
     _sosLiveTimer = null;
+    _sosLiveEventId = null;
     _stalePollTimer?.cancel();
     _stalePollTimer = null;
-    _journeyTimer?.cancel();
-    _journeyTimer = null;
+    _stopAllJourneyPoints();
     super.dispose();
   }
 
@@ -86,20 +89,80 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   static const _sosLiveInterval = Duration(seconds: 20);
   Timer? _sosLiveTimer;
 
-  void _startSosLiveShare(final String sosEventId) {
+  /// The SOS the live loop is sharing to, while it runs.
+  String? _sosLiveEventId;
+
+  /// Whether [event] is MY SOS. Member ids differ per group, so this goes
+  /// by my user id (and my member id in every group I am in), never only
+  /// by the member id of the group in scope: switching group must not
+  /// make my own running SOS look like someone else's.
+  bool _isMySos(final FamilySosEvent event) => isSosMine(
+    event,
+    myMemberId: state.circle?.myMemberId,
+    myUserId: _ref.read(providerOfLoggedInUser)?.id,
+    myMemberIds: {for (final c in state.circles) c.myMemberId},
+  );
+
+  /// Whether the sender chose live location for [event]. Events from
+  /// before locationMode existed say it with isLive.
+  static bool _sharesLive(final FamilySosEvent event) =>
+      event.locationMode == null
+      ? event.isLive
+      : event.locationMode == SosLocationChoice.live.name;
+
+  OwnedLiveShares get _owned => _ref.read(providerOfOwnedLiveShares);
+
+  /// Keeps the live loop in step with what the server holds: one of MY
+  /// active SOS events with live location chosen has a loop running, in
+  /// whichever group it was sent from. This is what restarts it after an
+  /// app restart, a group switch or a reconnect. Only for an SOS THIS
+  /// phone started sharing live (kept on the device): another phone on
+  /// the same account sees the SOS as mine but sends nothing unless the
+  /// person chooses "Share live location" on it. [activeIds] is the
+  /// server's live list; owned ids it no longer holds are forgotten.
+  Future<void> _syncSosLiveShare(final Set<String> activeIds) async {
+    final owned = await _owned.sosIds();
+    if (!mounted) return;
+    final now = DateTime.now();
+    for (final id in owned) {
+      final at = _recentSosIds[id];
+      final isRecent = at != null && now.difference(at) < _recentSosGrace;
+      if (!activeIds.contains(id) && !isRecent) unawaited(_owned.removeSos(id));
+    }
+    final mineLive = state.activeSosEvents
+        .where(
+          (e) =>
+              owned.contains(e.id) &&
+              e.status == FamilySosStatus.active &&
+              _sharesLive(e) &&
+              _isMySos(e),
+        )
+        .firstOrNull;
+    if (mineLive == null) return;
+    final running = _sosLiveTimer?.isActive ?? false;
+    if (running && _sosLiveEventId == mineLive.id) return;
+    _startSosLiveShare(mineLive.id, remember: false);
+  }
+
+  /// Starts the live loop for [sosEventId]. [remember] records that this
+  /// phone chose it, so a restart resumes it here (and only here).
+  void _startSosLiveShare(final String sosEventId, {final bool remember = true}) {
+    if (remember) unawaited(_owned.addSos(sosEventId));
     _sosLiveTimer?.cancel();
+    _sosLiveEventId = sosEventId;
     _sosLiveTimer = Timer.periodic(_sosLiveInterval, (_) async {
-      // Stop the loop the moment my SOS is no longer active, whichever
-      // side ended it (my stand-down, or the server's expiry at the end
-      // of its hour).
-      final myMemberId = state.circle?.myMemberId;
+      // Stop the loop the moment this SOS is no longer active or no
+      // longer live, whichever side ended it (my stand-down, or the
+      // server's expiry at the end of its hour). Matched by the SOS's own
+      // id, so the group in scope does not matter.
       final mineActive = state.activeSosEvents.any(
         (event) =>
-            event.memberId == myMemberId &&
-            event.status == FamilySosStatus.active,
+            event.id == sosEventId &&
+            event.status == FamilySosStatus.active &&
+            _sharesLive(event),
       );
       if (!mineActive) {
-        _stopSosLiveShare();
+        _stopSosLiveShare(forget: true);
         return;
       }
       // Only a CURRENT fix is ever sent as a live point, and only to this
@@ -115,13 +178,25 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         accuracy: fix.position!.accuracy,
       );
       // 409: the SOS ended (or live was not chosen): stop at once.
-      if (sent.isFailure && sent.failure.code == '409') _stopSosLiveShare();
+      if (sent.isFailure && sent.failure.code == '409') {
+        _stopSosLiveShare(forget: true);
+      }
     });
   }
 
-  void _stopSosLiveShare() {
+  /// The SOS this phone is sharing live points to right now, if any.
+  @visibleForTesting
+  String? get sosLiveShareEventId =>
+      (_sosLiveTimer?.isActive ?? false) ? _sosLiveEventId : null;
+
+  /// Stops the live loop. [forget] also drops the SOS from this phone's
+  /// record (it ended, or the person stopped sharing), so nothing resumes.
+  void _stopSosLiveShare({final bool forget = false}) {
+    final id = _sosLiveEventId;
+    if (forget && id != null) unawaited(_owned.removeSos(id));
     _sosLiveTimer?.cancel();
     _sosLiveTimer = null;
+    _sosLiveEventId = null;
   }
 
   // ---------------------------- SOCKET EVENTS ----------------------------
@@ -158,7 +233,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
     _ref.onDispose(() {
       _stopSosLiveShare();
-      _stopJourneyPoints();
+      _stopAllJourneyPoints();
       _stopStalePolling();
       liveSubscription.cancel();
       for (final subscription in subscriptions) {
@@ -401,11 +476,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     // circle, so a cross-group SOS (or a not-yet-loaded circle) made the
     // member-id check pass on the sender's own phone and showed them the
     // "needs help" banner for their own SOS (two-phone QA 2026-08-07).
-    final myUserId = _ref.read(providerOfLoggedInUser)?.id;
-    final senderUserId = sosEvent.member?.user?.id;
-    final isMine =
-        sosEvent.memberId == state.circle?.myMemberId ||
-        (senderUserId != null && senderUserId == myUserId);
+    final isMine = _isMySos(sosEvent);
 
     if (!isMine &&
         sosEvent.status == FamilySosStatus.active &&
@@ -519,6 +590,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// refreshed so the entry matches what every other member sees.
   void _onSosResolved(final FamilySosEvent sosEvent) {
     _endedSosIds.add(sosEvent.id);
+    unawaited(_owned.removeSos(sosEvent.id));
+    if (_sosLiveEventId == sosEvent.id) _stopSosLiveShare();
     final ended = state.activeSosEvents
         .where((event) => event.id == sosEvent.id)
         .firstOrNull;
@@ -606,12 +679,18 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         );
 
         if (circle != null) {
+          // My own journeys are fetched across every group at start (and
+          // on a deliberate reload), so one that survived an app restart
+          // keeps posting even if no journey screen is ever opened.
+          final loadJourneys = !_myJourneysLoaded || !silent;
           await Future.wait([
             _refreshRecentCheckIns(),
             _refreshActiveSosEvents(),
             _refreshSosHistory(),
             _checkPendingLocationRequests(),
             _refreshSharedJourneys(),
+            _refreshOtherCircles(),
+            if (loadJourneys) _refreshMyJourneys(),
           ]);
         }
       },
@@ -666,6 +745,48 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// True while [load] runs, so a refresh inside it never starts another.
   bool _loading = false;
 
+  /// The groups that are not in scope, in full, so their tiles read the
+  /// same CheckInRoll as the open one. Throttled: a burst of socket
+  /// reloads fetches them once. A failure keeps what was there.
+  static const _otherCirclesMinGap = Duration(seconds: 20);
+  DateTime? _otherCirclesFetchedAt;
+
+  Future<void> _refreshOtherCircles() async {
+    final open = state.circle;
+    final others = state.circles
+        .where((c) => c.circleId != open?.id)
+        .map((c) => c.circleId)
+        .toList();
+    if (others.isEmpty) {
+      if (state.loadedCircles.isNotEmpty) {
+        state = state.copyWith(loadedCircles: const {});
+      }
+      return;
+    }
+    final last = _otherCirclesFetchedAt;
+    if (last != null && DateTime.now().difference(last) < _otherCirclesMinGap) {
+      return;
+    }
+    _otherCirclesFetchedAt = DateTime.now();
+    final List<Either<FamilyCircle?, AppError>> results;
+    try {
+      results = await Future.wait(
+        others.map(_familyService.getFamilyCircleById),
+      );
+    } catch (_) {
+      // A background extra, like the other refreshes in [load]: silent.
+      return;
+    }
+    if (!mounted) return;
+    final loaded = <String, FamilyCircle>{};
+    for (final (index, result) in results.indexed) {
+      final kept = state.loadedCircles[others[index]];
+      final circle = result.when((c) => c, (_) => kept);
+      if (circle != null) loaded[others[index]] = circle;
+    }
+    state = state.copyWith(loadedCircles: loaded);
+  }
+
   /// Switches the family tab to [circleId] (null = first circle) and
   /// reloads everything under the new scope.
   Future<void> selectCircle(final String? circleId) async {
@@ -679,14 +800,12 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     final String? name,
     final String? themeColor,
     final bool? anyoneCanRequestSnapshot,
-    final bool? sosToWholeGroup,
     final bool? journeysSnapPointsOnly,
   }) async {
     final result = await _familyService.updateFamilyCircle(
       name: name,
       themeColor: themeColor,
       anyoneCanRequestSnapshot: anyoneCanRequestSnapshot,
-      sosToWholeGroup: sosToWholeGroup,
       journeysSnapPointsOnly: journeysSnapPointsOnly,
     );
     if (!mounted) return false;
@@ -1551,53 +1670,153 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// often so the map moves, still ending with the journey.
   static const _journeyLiveInterval = Duration(seconds: 45);
 
-  Timer? _journeyTimer;
+  /// My running journeys in every group, by journey id, each with its own
+  /// point loop. A journey belongs to its group, not to the group in
+  /// scope: switching group or restarting the app must not stop it.
+  final _myJourneys = <String, FamilyJourney>{};
+  final _journeyTimers = <String, Timer>{};
+  bool _myJourneysLoaded = false;
 
-  /// Loads the caller's running journey, if any.
+  /// Journeys THIS phone started (kept on the device): only these resume
+  /// their point loop after a restart or a group switch.
+  Set<String> _ownedJourneyIds = {};
+
+  /// Loads the caller's running journey in the group in scope, if any.
   Future<void> loadMyJourney() async {
+    final circleId = state.circle?.id;
     final result = await _familyService.getMyFamilyJourney();
+    _ownedJourneyIds = await _owned.journeyIds();
     if (!mounted) return;
     result.when(
       (journey) {
         state = state.copyWith(activeJourney: journey);
-        // A journey that survived an app restart keeps sending points.
-        journey != null && journey.isActive
-            ? _startJourneyPoints(journey)
-            : _stopJourneyPoints();
+        _trackMyJourney(circleId ?? journey?.circleId, journey);
       },
       (error) => null,
     );
   }
 
+  /// My running journeys across every group I am in: each one that is
+  /// still active keeps (or restarts) its point loop.
+  Future<void> _refreshMyJourneys() async {
+    final circleIds = {
+      for (final c in state.circles) c.circleId,
+      if (state.circle != null) state.circle!.id,
+    }.toList();
+    if (circleIds.isEmpty) return;
+    final List<Either<FamilyJourney?, AppError>> results;
+    try {
+      results = await Future.wait(
+        circleIds.map(_familyService.getMyFamilyJourneyIn),
+      );
+    } catch (_) {
+      // Silent, like the other background refreshes in [load]; the next
+      // deliberate load tries again.
+      return;
+    }
+    _ownedJourneyIds = await _owned.journeyIds();
+    if (!mounted) return;
+    _myJourneysLoaded = true;
+    for (final (index, result) in results.indexed) {
+      final circleId = circleIds[index];
+      result.whenSuccess((journey) {
+        _trackMyJourney(circleId, journey);
+        if (circleId == state.circle?.id) {
+          state = state.copyWith(activeJourney: journey);
+        }
+        return null;
+      });
+    }
+  }
+
+  /// Records what the server says my journey in [circleId] is: an active
+  /// one keeps its loop (started now if it was not running, e.g. after a
+  /// restart); none, or an ended one, stops that group's loop.
+  void _trackMyJourney(final String? circleId, final FamilyJourney? journey) {
+    if (journey != null && journey.isActive) {
+      // Started on another phone on this account: shown, never posted
+      // from here.
+      if (!_ownedJourneyIds.contains(journey.id)) return;
+      _myJourneys[journey.id] = journey;
+      final running = _journeyTimers[journey.id]?.isActive ?? false;
+      if (!running) _startJourneyPoints(journey, remember: false);
+      return;
+    }
+    final ended = {
+      ..._myJourneys.values
+          .where((j) => j.circleId == circleId || j.id == journey?.id)
+          .map((j) => j.id),
+      if (journey != null) journey.id,
+    };
+    ended.forEach(_stopJourneyPoints);
+  }
+
   /// Starts the journey's point loop and posts the departure point now.
-  void _startJourneyPoints(final FamilyJourney journey) {
-    _journeyTimer?.cancel();
-    unawaited(_postJourneyPoint());
-    _journeyTimer = Timer.periodic(
+  void _startJourneyPoints(
+    final FamilyJourney journey, {
+    final bool remember = true,
+  }) {
+    if (remember) {
+      _ownedJourneyIds = {..._ownedJourneyIds, journey.id};
+      unawaited(_owned.addJourney(journey.id));
+    }
+    _journeyTimers[journey.id]?.cancel();
+    _myJourneys[journey.id] = journey;
+    unawaited(_postJourneyPoint(journey.id));
+    _journeyTimers[journey.id] = Timer.periodic(
       journey.isLive ? _journeyLiveInterval : _journeySnapInterval,
       (_) async {
-        final current = state.activeJourney;
+        final current = _myJourneys[journey.id];
         // The journey's own stop time ends the loop: no journey outlives
         // the window the traveller chose.
         if (current == null || !current.isActive) {
-          _stopJourneyPoints();
+          _stopJourneyPoints(journey.id);
           return;
         }
-        await _postJourneyPoint();
+        await _postJourneyPoint(journey.id);
       },
     );
   }
 
-  void _stopJourneyPoints() {
-    _journeyTimer?.cancel();
-    _journeyTimer = null;
+  /// Stops a journey's loop and forgets that this phone started it.
+  void _stopJourneyPoints(final String journeyId) {
+    _journeyTimers.remove(journeyId)?.cancel();
+    _myJourneys.remove(journeyId);
+    if (_ownedJourneyIds.contains(journeyId)) {
+      _ownedJourneyIds = {..._ownedJourneyIds}..remove(journeyId);
+      unawaited(_owned.removeJourney(journeyId));
+    }
+  }
+
+  /// My journeys whose point loop is running right now.
+  @visibleForTesting
+  Set<String> get runningJourneyIds => {
+    for (final entry in _journeyTimers.entries)
+      if (entry.value.isActive) entry.key,
+  };
+
+  void _stopAllJourneyPoints() {
+    for (final timer in _journeyTimers.values) {
+      timer.cancel();
+    }
+    _journeyTimers.clear();
+    _myJourneys.clear();
+  }
+
+  /// Keeps the loop's copy and the screen's copy of a journey in step.
+  void _noteJourney(final FamilyJourney journey) {
+    if (_myJourneys.containsKey(journey.id)) _myJourneys[journey.id] = journey;
+    if (state.activeJourney?.id == journey.id) {
+      state = state.copyWith(activeJourney: journey);
+    }
   }
 
   /// Sends one point for the running journey. Failures are silent: a
   /// missed point is not worth a banner mid-trip, and the next one is due
-  /// shortly.
-  Future<void> _postJourneyPoint() async {
-    final journey = state.activeJourney;
+  /// shortly. Only a CURRENT position is ever sent.
+  Future<void> _postJourneyPoint(final String journeyId) async {
+    final journey = _myJourneys[journeyId] ??
+        (state.activeJourney?.id == journeyId ? state.activeJourney : null);
     if (journey == null || !journey.isActive) return;
 
     final position = await _familyLocationService
@@ -1611,7 +1830,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     );
     if (!mounted) return;
     result.whenSuccess((updated) {
-      state = state.copyWith(activeJourney: updated);
+      _noteJourney(updated);
       return null;
     });
   }
@@ -1645,10 +1864,29 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         return true;
       },
       (error) {
-        state = state.copyWith(journeyState: FamilyActionState.error(error));
+        state = state.copyWith(
+          journeyState: FamilyActionState.error(
+            isLive && isPeriodicOnlyRefusal(error)
+                ? _periodicOnlyRefused(error)
+                : error,
+          ),
+        );
         return false;
       },
     );
+  }
+
+  /// The group's host chose periodic updates only, and this phone had not
+  /// heard yet: say so plainly, and stop offering Live in this group (the
+  /// journey screens read journeysSnapPointsOnly).
+  AppError _periodicOnlyRefused(final AppError error) {
+    final circle = state.circle;
+    if (circle != null) {
+      state = state.copyWith(
+        circle: circle.copyWith(journeysSnapPointsOnly: true),
+      );
+    }
+    return error.copyWith(message: kPeriodicOnlyRefusalMessage);
   }
 
   /// Adds one more block to the running journey.
@@ -1668,6 +1906,9 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
     return result.when(
       (updated) {
+        if (_myJourneys.containsKey(updated.id)) {
+          _myJourneys[updated.id] = updated;
+        }
         state = state.copyWith(
           activeJourney: updated,
           journeyState: const FamilyActionState.success(),
@@ -1692,8 +1933,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
     // The arrival point, then the loop stops. Arrival is the last thing
     // the recipients see before the journey's location data is cleared.
-    await _postJourneyPoint();
-    _stopJourneyPoints();
+    await _postJourneyPoint(journey.id);
+    _stopJourneyPoints(journey.id);
 
     final result = await _familyService.stopFamilyJourney(
       journeyId: journey.id,
@@ -2017,7 +2258,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     final SosLocationChoice? mode,
     final SosPrecisionChoice? precision,
   }) async {
-    if (mode == SosLocationChoice.none) _stopSosLiveShare();
+    if (mode == SosLocationChoice.none) _stopSosLiveShare(forget: true);
     final result = await _sosApi.setLocationConsent(
       sosEventId: sosEventId,
       mode: mode?.name,
@@ -2090,7 +2331,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   /// Stands an SOS down. Returns true when the server confirmed it.
   Future<bool> resolveSos({required final String sosEventId}) async {
-    _stopSosLiveShare();
+    _stopSosLiveShare(forget: true);
     final result = await _familyService.resolveFamilySos(
       sosEventId: sosEventId,
     );
@@ -2190,8 +2431,10 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     final result = await _familyService.getAllActiveFamilySosEvents();
     if (!mounted) return;
 
+    Set<String>? serverIds;
     result.whenSuccess((events) {
       final ids = events.map((e) => e.id).toSet();
+      serverIds = ids;
       final now = DateTime.now();
       // The server is the record: anything it no longer lists has ended,
       // unless it is so new the request may have overtaken it.
@@ -2213,6 +2456,11 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       );
       return null;
     });
+    // One of MY SOS events with live location (in any group) that this
+    // phone started keeps its loop running; this is what restarts it after
+    // an app restart.
+    final active = serverIds;
+    if (active != null) await _syncSosLiveShare(active);
   }
 
   /// Public refresh for screens that arrived with a payload that may be

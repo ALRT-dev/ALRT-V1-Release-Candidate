@@ -383,6 +383,9 @@ class FamilySwitchGroupScreen extends ConsumerWidget {
     final state = groupStateOf(
       summary,
       openCircle: loaded,
+      loadedCircles: ref.watch(
+        providerOfFamily.select((s) => s.loadedCircles),
+      ),
       activeSosEvents: activeSos,
     );
     final isSos = state.kind == GroupStateKind.sos;

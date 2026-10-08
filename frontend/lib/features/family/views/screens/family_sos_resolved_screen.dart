@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
-import 'package:hazard_app/features/family/utils/sos_timing.dart';
+import 'package:hazard_app/features/family/utils/sos_record.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
@@ -13,7 +13,8 @@ class FamilySosResolvedScreenArgs {
   const FamilySosResolvedScreenArgs({
     required this.event,
     this.circleName,
-    this.recipientCount,
+    this.audienceNames,
+    this.unnamedAudienceCount = 0,
   });
 
   /// The stood-down SOS this record describes.
@@ -22,8 +23,12 @@ class FamilySosResolvedScreenArgs {
   /// The circle it ran in, for the kicker.
   final String? circleName;
 
-  /// How many people could see it while it ran.
-  final int? recipientCount;
+  /// Who it was sent to, by name: its stored audience (fixed when it
+  /// started), never the group as it is now. Null = not known.
+  final List<String>? audienceNames;
+
+  /// Stored recipients who can no longer be named (left the group).
+  final int unnamedAudienceCount;
 }
 
 /// The after-event record for a stood-down SOS.
@@ -40,8 +45,6 @@ class FamilySosResolvedScreen extends ConsumerWidget {
 
   static const _ink = Color(0xFF3A3A42);
   static const _inkStrong = Color(0xFF1D1D21);
-  static const _respondedBackground = Color(0xFFE4F7EE);
-  static const _respondedInk = Color(0xFF0A8A58);
   static const _neutralPill = Color(0xFFF1EEF4);
   static const _noteBackground = Color(0xFFEEF0FF);
   static const _noteBorder = Color(0xFFD5D9FB);
@@ -68,8 +71,6 @@ class FamilySosResolvedScreen extends ConsumerWidget {
   }
 
   Widget _headerBuilder(final BuildContext context, final FamilySosEvent e) {
-    final stoppedAt = e.resolvedAt;
-    final who = e.member?.displayName ?? 'A family member';
 
     return Container(
       width: double.infinity,
@@ -108,13 +109,9 @@ class FamilySosResolvedScreen extends ConsumerWidget {
             ),
             5.hSizedBox,
             Text(
-              // Nobody ended an SOS that ran out its hour: say it expired
-              // (locked wording) rather than that someone stopped it.
-              sosExpiredLine(e) ??
-              (stoppedAt == null
-                  ? '$who stopped sharing'
-                  : '$who stopped sharing at '
-                        '${TimeOfDay.fromDateTime(stoppedAt).format(context)}'),
+              // Locked wording: "SOS ended by [Name] at [time]." and, when
+              // nobody ended it, "This SOS expired at [time]."
+              sosRecordEndedLine(e),
               style: TextStyle(
                 fontSize: 13.spMin,
                 color: Colors.white.withValues(alpha: 0.85),
@@ -127,44 +124,19 @@ class FamilySosResolvedScreen extends ConsumerWidget {
   }
 
   Widget _whatWasSharedBuilder(final FamilySosEvent e) {
-    final started = e.createdAt;
-    final ended = e.resolvedAt;
-    final ranFor = started == null || ended == null
-        ? null
-        : ended.difference(started);
-    final seenBy = args.recipientCount ?? e.responses.length;
-
+    // Said from what was stored: the sender's location choice (none, once
+    // or live) and the audience fixed at the start, by name.
     return _cardBuilder(
       label: 'What was shared',
       labelColor: const Color(0xFFB84500),
       topMargin: 13,
-      child: Text.rich(
-        TextSpan(
-          children: [
-            const TextSpan(text: 'Live location ran for '),
-            TextSpan(
-              text: ranFor == null
-                  ? 'the length of the SOS'
-                  : _durationLabel(ranFor),
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _inkStrong,
-              ),
-            ),
-            TextSpan(
-              text: seenBy > 0
-                  ? ' and was visible to $seenBy '
-                        '${seenBy == 1 ? 'family member' : 'family members'} '
-                        'only.'
-                  : ' and was visible to your circle only.',
-            ),
-            const TextSpan(
-              text: ' It has now ended and no further location is available. '
-                  'Snapshots from this session expire and are deleted '
-                  'within 1 hour.',
-            ),
-          ],
+      child: Text(
+        sosRecordSharedText(
+          e,
+          audienceNames: args.audienceNames,
+          unnamedCount: args.unnamedAudienceCount,
         ),
+        key: const Key('sos-record-shared'),
         style: TextStyle(
           fontSize: 13.5.spMin,
           height: 1.7,
@@ -178,19 +150,20 @@ class FamilySosResolvedScreen extends ConsumerWidget {
     final BuildContext context,
     final FamilySosEvent e,
   ) {
-    // "On my way" is removed from the flow entirely, so past responses of
-    // that type are hidden here too, not just relabeled. The switches in
-    // _responseRowBuilder/_responseDetail still cover it - required for
-    // exhaustiveness over FamilySosResponseType - but unreachable.
+    // "On my way" and "Called" are removed from the flow entirely, so past
+    // responses of those types are hidden here too, not just relabeled.
+    // The switches in _responseRowBuilder/_responseDetail still cover them
+    // - required for exhaustiveness over FamilySosResponseType - but
+    // unreachable. Only "I've seen this" is shown.
     final visibleResponses = e.responses
-        .where((response) => response.type != FamilySosResponseType.onMyWay)
+        .where((response) => response.type == FamilySosResponseType.seen)
         .toList();
     if (visibleResponses.isEmpty) {
       return _cardBuilder(
         label: 'Circle responses',
         labelColor: FamilyColors.v31Indigo,
         child: Text(
-          'Nobody responded before it was stood down.',
+          'Nobody acknowledged it before it ended.',
           style: TextStyle(
             fontSize: 13.spMin,
             color: FamilyColors.v31Ink,
@@ -226,11 +199,10 @@ class FamilySosResolvedScreen extends ConsumerWidget {
     final FamilySosResponse response,
   ) {
     final name = response.member?.displayName ?? 'Family member';
-    final isResponded = response.type == FamilySosResponseType.onMyWay ||
-        response.type == FamilySosResponseType.called;
+    // Only "seen" rows reach here (see _responsesBuilder).
     final label = switch (response.type) {
-      FamilySosResponseType.onMyWay => 'Responded',
-      FamilySosResponseType.called => 'Responded',
+      FamilySosResponseType.onMyWay ||
+      FamilySosResponseType.called ||
       FamilySosResponseType.seen => "I've seen this",
     };
 
@@ -284,7 +256,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
             vertical: 5.spMin,
           ),
           decoration: BoxDecoration(
-            color: isResponded ? _respondedBackground : _neutralPill,
+            color: _neutralPill,
             borderRadius: BorderRadius.circular(13.spMin),
           ),
           child: Text(
@@ -292,7 +264,7 @@ class FamilySosResolvedScreen extends ConsumerWidget {
             style: TextStyle(
               fontSize: 10.5.spMin,
               fontWeight: FontWeight.w800,
-              color: isResponded ? _respondedInk : FamilyColors.v31Ink,
+              color: FamilyColors.v31Ink,
             ),
           ),
         ),
@@ -410,20 +382,12 @@ class FamilySosResolvedScreen extends ConsumerWidget {
     final time = at == null
         ? ''
         : ' ${TimeOfDay.fromDateTime(at).format(context)}';
+    // Only "seen" rows reach here (see _responsesBuilder).
     return switch (response.type) {
-      FamilySosResponseType.onMyWay => 'On my way$time',
-      FamilySosResponseType.called => 'Called$time',
+      FamilySosResponseType.onMyWay ||
+      FamilySosResponseType.called ||
       FamilySosResponseType.seen => "I've seen this$time",
     };
-  }
-
-  static String _durationLabel(final Duration d) {
-    if (d.inMinutes < 1) return 'under a minute';
-    if (d.inMinutes < 60) return '${d.inMinutes} minutes';
-    final hours = d.inHours;
-    final minutes = d.inMinutes % 60;
-    if (minutes == 0) return '$hours ${hours == 1 ? 'hour' : 'hours'}';
-    return '$hours ${hours == 1 ? 'hour' : 'hours'} $minutes min';
   }
 
   static String _initialsOf(final String name) {
