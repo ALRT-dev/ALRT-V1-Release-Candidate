@@ -22,6 +22,13 @@ class FamilyService {
     return _familyRepository.getFamilyCircle();
   }
 
+  /// One named circle in full, whichever circle is in scope.
+  Future<Either<FamilyCircle?, AppError>> getFamilyCircleById(
+    final String circleId,
+  ) {
+    return _familyRepository.getFamilyCircleById(circleId);
+  }
+
   Future<Either<FamilyCircle, AppError>> createFamilyCircle({
     required final String name,
   }) {
@@ -355,6 +362,13 @@ class FamilyService {
 
   Future<Either<FamilyJourney?, AppError>> getMyFamilyJourney() {
     return _familyRepository.getMyFamilyJourney();
+  }
+
+  /// My running journey in [circleId], whichever circle is in scope.
+  Future<Either<FamilyJourney?, AppError>> getMyFamilyJourneyIn(
+    final String circleId,
+  ) {
+    return _familyRepository.getMyFamilyJourneyIn(circleId);
   }
 
   /// Running journeys the caller was picked to see.

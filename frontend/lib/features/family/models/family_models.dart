@@ -604,6 +604,12 @@ abstract class FamilySosEvent with _$FamilySosEvent {
     // Who ended it by hand (the sender only). Null on an SOS that expired
     // on its own, and on events from before this field existed.
     final String? endedByMemberId,
+    // The audience stored when it started (master spec §12): the users it
+    // was sent to. audienceRestricted false = an event from before the
+    // stored audience, which went to the whole group; null = the payload
+    // did not say (a socket copy), so nothing is claimed about it.
+    @Default(<String>[]) final List<String> recipientUserIds,
+    final bool? audienceRestricted,
   }) = _FamilySosEvent;
 
   factory FamilySosEvent.fromJson(Map<String, dynamic> json) =>

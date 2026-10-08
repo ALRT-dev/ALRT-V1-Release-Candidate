@@ -6,7 +6,9 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 /// "Answered" means: checked in since the latest ask, when there is an
 /// ask younger than a day; otherwise simply checked in within the last
 /// day. The person who ASKED is never in the waiting list - they are not
-/// waiting on themself (two-phone QA 2026-08-06).
+/// waiting on themself (two-phone QA 2026-08-06). A targeted ask is owed
+/// only by the people it named: nobody else is ever "waiting", they are
+/// [notAsked] unless they checked in today anyway.
 class CheckInRoll {
   const CheckInRoll({
     required this.checkedIn,
@@ -14,13 +16,19 @@ class CheckInRoll {
     required this.askedAt,
     required this.requesterId,
     this.targetMemberIds = const [],
+    this.notAsked = const [],
   });
 
   /// Members who have answered (or asked), in circle order.
   final List<FamilyMember> checkedIn;
 
-  /// Members still owed, in circle order.
+  /// Members still owed, in circle order. With a targeted ask this is
+  /// only ever its targets.
   final List<FamilyMember> notYet;
+
+  /// Members a targeted ask left out who have not checked in today
+  /// either: not owed anything, so neither answered nor waiting.
+  final List<FamilyMember> notAsked;
 
   /// The ask this roll is measured against, or null when it is the plain
   /// "checked in today" reading.
@@ -39,6 +47,15 @@ class CheckInRoll {
   bool hasAnswered(final FamilyMember member) =>
       checkedIn.any((m) => m.id == member.id);
 
+  /// The member's state on this roll for chips and rows: true answered,
+  /// false still owed, null not asked by the current ask (the plain
+  /// "recent check-in" reading applies).
+  bool? answerFor(final FamilyMember member) {
+    if (hasAnswered(member)) return true;
+    if (notYet.any((m) => m.id == member.id)) return false;
+    return null;
+  }
+
   static const _askFreshFor = Duration(hours: 24);
 
   static CheckInRoll of(final FamilyCircle circle, {final DateTime? now}) {
@@ -52,20 +69,25 @@ class CheckInRoll {
 
     final checkedIn = <FamilyMember>[];
     final notYet = <FamilyMember>[];
+    final notAsked = <FamilyMember>[];
     for (final member in circle.members) {
       final last = member.lastCheckInAt;
-      final bool answered;
+      final checkedInToday = last != null && at.difference(last) < _askFreshFor;
       if (member.id == requesterId) {
-        answered = true;
+        checkedIn.add(member);
       } else if (askedAt != null && request!.isAimedAt(member.id)) {
         // Asked (everyone, or this person by name): only a check-in
         // AFTER the ask counts.
-        answered = last != null && last.isAfter(askedAt);
+        (last != null && last.isAfter(askedAt) ? checkedIn : notYet).add(
+          member,
+        );
+      } else if (askedAt != null) {
+        // Left out of a targeted ask: never owed, whatever their day.
+        (checkedInToday ? checkedIn : notAsked).add(member);
       } else {
-        // Not asked by this request: the plain "checked in today" reading.
-        answered = last != null && at.difference(last) < _askFreshFor;
+        // No ask: the plain "checked in today" reading.
+        (checkedInToday ? checkedIn : notYet).add(member);
       }
-      (answered ? checkedIn : notYet).add(member);
     }
     return CheckInRoll(
       checkedIn: checkedIn,
@@ -73,6 +95,7 @@ class CheckInRoll {
       askedAt: askedAt,
       requesterId: requesterId,
       targetMemberIds: askedAt == null ? const [] : request!.targetMemberIds,
+      notAsked: notAsked,
     );
   }
 }
