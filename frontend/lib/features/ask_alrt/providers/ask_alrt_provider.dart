@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/ask_alrt/models/ask_alrt_message.dart';
@@ -35,6 +37,31 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
   /// Shown at the daily limit when the server gives no message of its own.
   static const limitAnswer =
       "You've reached today's Ask ALRT limit. It resets tomorrow.";
+
+  /// Shown when the server answered but could not help right now (502,
+  /// 503, any other refusal that is not the daily limit). The question is
+  /// not counted, so the person can simply ask again.
+  static const unavailableAnswer =
+      'Ask ALRT is temporarily unavailable. Try again soon.';
+
+  /// Shown for a 429 from the general API rate limiter (no `ask_limit`
+  /// code): too many requests in a short time, not the daily allowance.
+  static const tooManyRequestsAnswer =
+      'Too many requests. Try again in a minute.';
+
+  /// The `code` the server puts on the daily-allowance 429.
+  static const askLimitCode = 'ask_limit';
+
+  /// Field limits of the server's Ask ALRT body schema
+  /// (backend ask_alrt_content.validator.ts). Anything longer is trimmed
+  /// here so a long alert title never turns the whole question into a 400.
+  static const maxQuestionLength = 2000;
+  static const maxAlertIdLength = 100;
+  static const maxAlertTitleLength = 300;
+  static const maxAlertCategoryLength = 100;
+  static const maxAlertSeverityLength = 100;
+  static const maxAlertSourceLength = 200;
+  static const maxEmergencyNumberLength = 8;
 
   /// Questions allowed per day on ALRT Free (the server is the authority;
   /// this only decides whether the sheet offers ALRT +).
@@ -81,6 +108,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
   Future<void> ask(final String question) async {
     final trimmed = question.trim();
     if (trimmed.isEmpty || state.isSending) return;
+    final sentQuestion = clip(trimmed, maxQuestionLength);
 
     final groundingAlerts = _gatherNearbyAlerts();
     final nearbyAlertsPayload = _composeNearbyAlerts(groundingAlerts);
@@ -110,14 +138,16 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
     var citedAlerts = const <Hazard>[];
     int? remainingToday;
     var limitReached = false;
+    var notCounted = false;
 
     try {
       final dio = ref.read(providerOfDioInstance(true));
       final response = await dio.post<dynamic>(
         kUrlAskAlrt,
         data: {
-          'question': trimmed,
-          'emergencyNumber': emergencyNumber,
+          'question': sentQuestion,
+          if (emergencyNumber.length <= maxEmergencyNumberLength)
+            'emergencyNumber': emergencyNumber,
           if (nearbyAlertsPayload.isNotEmpty)
             'nearbyAlerts': nearbyAlertsPayload,
           // The daily Ask ALRT allowance counts the person's LOCAL day
@@ -142,17 +172,27 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
         remainingToday = (data['remainingToday'] as num).toInt();
       }
     } on DioException catch (exception) {
-      if (_isLimitError(exception)) {
+      if (_isConnectionError(exception)) {
+        // Truly unreachable (no network, timeout): answer from the phone.
+        answer = offlineAnswer();
+      } else if (_isLimitError(exception)) {
         // The server's own message names the plan and its daily number.
         answer = _serverMessage(exception) ?? limitAnswer;
         remainingToday = 0;
         limitReached = true;
+      } else if (exception.response?.statusCode == 429) {
+        answer = tooManyRequestsAnswer;
+        notCounted = true;
       } else {
-        answer = offlineAnswer();
+        // The server answered but could not help (502/503 and the like).
+        // The canned offline text would claim it can't be reached, so say
+        // what happened instead; the server does not count the question.
+        answer = unavailableAnswer;
+        notCounted = true;
       }
     } catch (_) {
-      // Network loss, anything else: stay calm, answer from the phone.
-      answer = offlineAnswer();
+      answer = unavailableAnswer;
+      notCounted = true;
     }
 
     // The sheet may have been closed mid-flight (autoDispose).
@@ -172,6 +212,23 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
       limitReached:
           limitReached || (remainingToday != null && remainingToday <= 0),
     );
+
+    // A refused question is not counted: re-read the allowance so the
+    // line shows the server's number, not a guess.
+    if (notCounted) unawaited(refreshAllowance());
+  }
+
+  /// [text] cut to at most [max] UTF-16 units, never splitting a
+  /// character made of a surrogate pair.
+  static String clip(final String text, final int max) {
+    if (text.length <= max) return text;
+    final buffer = StringBuffer();
+    for (final rune in text.runes) {
+      final char = String.fromCharCode(rune);
+      if (buffer.length + char.length > max) break;
+      buffer.write(char);
+    }
+    return buffer.toString().trimRight();
   }
 
   /// Up to 5 nearby active hazards, read (not watched) from the map state.
@@ -202,17 +259,26 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
     for (final alert in alerts) {
       final id = alert.id?.trim();
       final title = alert.title?.trim() ?? '';
-      if (id == null || id.isEmpty || title.isEmpty) continue;
+      // An id can't be shortened and still be cited back, so an over-long
+      // one is left out like a missing one.
+      if (id == null ||
+          id.isEmpty ||
+          id.length > maxAlertIdLength ||
+          title.isEmpty) {
+        continue;
+      }
 
       final sourceName = alert.source?.name?.trim();
+      final categoryName = alert.category?.name?.trim() ?? '';
       payload.add({
         'id': id,
-        'title': title,
-        if (alert.category?.name?.trim().isNotEmpty ?? false)
-          'category': alert.category!.name!.trim(),
-        if (alert.isAwsCompliant == true) 'severity': alert.severityTitle,
+        'title': clip(title, maxAlertTitleLength),
+        if (categoryName.isNotEmpty)
+          'category': clip(categoryName, maxAlertCategoryLength),
+        if (alert.isAwsCompliant == true)
+          'severity': clip(alert.severityTitle, maxAlertSeverityLength),
         'source': (sourceName != null && sourceName.isNotEmpty)
-            ? sourceName
+            ? clip(sourceName, maxAlertSourceLength)
             : 'community report, unverified',
       });
     }
@@ -252,9 +318,32 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
     return sentAlerts.where((alert) => citedIds.contains(alert.id)).toList();
   }
 
-  /// True when the backend rejected the call with a quota-style message.
+  /// True only for the daily-allowance refusal: a 429 carrying the
+  /// `ask_limit` code. The general rate limiter's 429 has no code.
   bool _isLimitError(final DioException exception) {
-    return exception.response?.statusCode == 429;
+    final response = exception.response;
+    if (response?.statusCode != 429) return false;
+    final data = response?.data;
+    return data is Map && data['code'] == askLimitCode;
+  }
+
+  /// True when the server was never reached (no network, timeouts), the
+  /// only case where the on-phone offline answer is honest.
+  bool _isConnectionError(final DioException exception) {
+    switch (exception.type) {
+      case DioExceptionType.connectionError:
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return true;
+      case DioExceptionType.unknown:
+        // A socket failure surfaces as unknown with no response.
+        return exception.response == null;
+      case DioExceptionType.badCertificate:
+      case DioExceptionType.badResponse:
+      case DioExceptionType.cancel:
+        return false;
+    }
   }
 
   /// The server's error text (`{"error": "..."}`), when it sent one.
