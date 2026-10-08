@@ -159,3 +159,23 @@ Summary:
 - ALRT+/subscription entitlement and family-circle membership are not
   shown on the Users screen because the Admin API doesn't currently expose
   either for app users.
+
+### Putting the new portal on live data next to the old console
+
+The old console stays at `admin.safetyalrt.com`, untouched. The new portal
+goes on its own address first:
+
+1. Cloudflare, Workers & Pages, Create, Pages, Connect to Git: repository
+   `ALRT-dev/ALRT-V1-Release-Candidate`, production branch
+   `claude/compassionate-franklin-512so7`.
+2. Build settings: root directory `admin`, build command `npm run build`,
+   output directory `dist`.
+3. Settings, Environment variables, Production:
+   `API_ORIGIN=https://api.safetyalrt.com`.
+4. Custom domains: add `admin-new.safetyalrt.com`.
+
+`npm run build` reads `.env.production` (live API, `VITE_USE_RELAY=true`),
+so every call goes through the Pages relay and the live backend needs no
+CORS change. Pages the live server does not support yet show "This part of
+the portal needs the server update" instead of an error. Move
+`admin.safetyalrt.com` across only after the live backend is updated.

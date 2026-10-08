@@ -15,7 +15,11 @@ import { clearTokens, loadTokens, saveTokens } from "./tokenStorage";
  */
 const USES_RELAY =
   typeof window !== "undefined" &&
-  window.location.hostname.endsWith(".pages.dev");
+  (window.location.hostname.endsWith(".pages.dev") ||
+    // A custom domain on Pages (such as admin-new.safetyalrt.com) also goes
+    // through the relay when the build says so, so the live backend does not
+    // have to list that domain in CORS_ALLOWED_ORIGINS.
+    import.meta.env.VITE_USE_RELAY === "true");
 
 const BUILD_API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
@@ -139,6 +143,25 @@ const parseBody = async (res: Response): Promise<unknown> => {
   }
 };
 
+/** Shown instead of the raw "route does not exist" error when this portal
+ * is newer than the server it talks to (for example the new portal on the
+ * live server before the live server is updated). */
+export const FEATURE_NEEDS_SERVER_UPDATE =
+  "This part of the portal needs the server update. It will work once the server it connects to is updated.";
+
+/** True for the backend's unknown-route 404 (and a bare HTML/text 404),
+ * which means the server has no such feature yet, not that a record is
+ * missing. A record-level 404 always carries its own JSON error. */
+export const isMissingRoute = (status: number, body: unknown): boolean => {
+  if (status !== 404) return false;
+  if (body === null || typeof body === "string") return true;
+  if (typeof body === "object" && "error" in body) {
+    const err = (body as { error?: unknown }).error;
+    return typeof err === "string" && /does not exist!?$/.test(err) && err.startsWith("The route [");
+  }
+  return false;
+};
+
 const errorMessageFrom = (body: unknown, fallback: string): string => {
   if (body && typeof body === "object" && "error" in body) {
     const err = (body as { error?: unknown }).error;
@@ -184,7 +207,9 @@ export const apiRequest = async <T>(
     if (isPasswordChangeRequired(res.status, body)) onPasswordChangeRequired?.();
     throw new ApiError(
       res.status,
-      errorMessageFrom(body, `Request failed (${res.status})`),
+      isMissingRoute(res.status, body)
+        ? FEATURE_NEEDS_SERVER_UPDATE
+        : errorMessageFrom(body, `Request failed (${res.status})`),
       body,
     );
   }
