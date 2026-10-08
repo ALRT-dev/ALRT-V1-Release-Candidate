@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
 import {
@@ -12,10 +12,11 @@ import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import { BooleanBadge } from "../components/StatusBadge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { ApiError } from "../api/client";
+import { ApiError, getBackendOrigin } from "../api/client";
 import type { WebhookApiKeyListItem } from "../api/types";
 import {
   WEBHOOK_HEADER_NAME,
+  WEBHOOK_PATH,
   buildN8nTestWorkflow,
   webhookUrl,
 } from "../lib/n8nWorkflow";
@@ -70,7 +71,22 @@ export const WebhookKeysPage = () => {
     }
   };
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL;
+  // The backend this portal really talks to (through the Pages relay when
+  // on *.pages.dev), not just the build's VITE_API_BASE_URL.
+  const [apiBase, setApiBase] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getBackendOrigin()
+      .then((origin) => {
+        if (!cancelled) setApiBase(origin);
+      })
+      .catch(() => {
+        if (!cancelled) setApiBase(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const downloadN8nWorkflow = async () => {
     // The webhook only accepts a sourceId that exists, so make sure the
@@ -85,7 +101,14 @@ export const WebhookKeysPage = () => {
         return;
       }
     }
-    const blob = new Blob([JSON.stringify(buildN8nTestWorkflow(apiBase), null, 2)], {
+    let origin: string;
+    try {
+      origin = await getBackendOrigin();
+    } catch {
+      notifyError("Could not work out which backend this portal uses.");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(buildN8nTestWorkflow(origin), null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
@@ -141,7 +164,7 @@ export const WebhookKeysPage = () => {
           <li>
             Import the test workflow below, choose that credential on the HTTP
             Request node, then run it. It posts one test alert to{" "}
-            <code>{webhookUrl(apiBase)}</code> on the test source{" "}
+            <code>{apiBase ? webhookUrl(apiBase) : WEBHOOK_PATH}</code> on the test source{" "}
             <code>{TEST_SOURCE_ID}</code>, never a real agency's source.
             {canWrite
               ? " Downloading the workflow creates that source if it does not exist yet."

@@ -102,6 +102,27 @@ npm run preview      # preview a production build locally
 - No new backend environment variables are required - this app only calls
   the existing Admin API.
 
+### Cloudflare Pages (`*.pages.dev`) and which backend it talks to
+
+On any `*.pages.dev` address the browser calls the portal's own `/api`, and
+the Pages Function in `functions/api/[[path]].ts` relays it to the backend.
+The relay picks the backend in this order:
+
+1. The Pages environment variable `API_ORIGIN` (Pages project, Settings,
+   Environment variables, Production). **For production set
+   `API_ORIGIN=https://api.safetyalrt.com`.** For the TEST project set
+   `API_ORIGIN=https://api-test.safetyalrt.com` (or leave it unset).
+2. If `API_ORIGIN` is unset: the build's `VITE_API_BASE_URL`, which the
+   client sends in the `X-ALRT-API-Origin` header. The relay accepts it only
+   when it is exactly `https://api.safetyalrt.com` or
+   `https://api-test.safetyalrt.com`; anything else is ignored.
+3. Otherwise the TEST backend, `https://api-test.safetyalrt.com`.
+
+Set both `API_ORIGIN` (runtime) and `VITE_API_BASE_URL` (build time) to the
+same backend so they cannot disagree. The Webhook API Keys page asks the
+relay (`GET /api/__alrt-relay-origin`) which backend it resolved, so the n8n
+test workflow download always names the backend the portal really uses.
+
 ## Known V1 limitations
 
 See `V1_RECONCILIATION_REPORT.md` §24 for the full list with reasoning.
