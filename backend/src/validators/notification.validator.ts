@@ -3,9 +3,15 @@ import z from "zod";
 export const getNotificationsFeedSchema = z.object({
   searchString: z.string().optional(),
 
-  categoryIds: z.string().optional(), // Comma-separated list of UUIDs
+  // Same shapes as getHazardsQuerySchema: one comma-joined string
+  // (?categoryIds=a,b) or an array from repeated keys
+  // (?categoryIds=a&categoryIds=b, what the app's Dio client sends for a
+  // list of two or more). A string-only schema rejected the array shape
+  // with "expected string, received array", so the Alerts feed failed
+  // whenever 2+ categories (the default) or 2+ saved places were selected.
+  categoryIds: z.union([z.string(), z.array(z.string())]).optional(),
 
-  locationIds: z.string().optional(), // Comma-separated list of location subscription UUIDs
+  locationIds: z.union([z.string(), z.array(z.string())]).optional(), // location subscription UUIDs
 
   awsEmergency: z
     .string()

@@ -19,6 +19,19 @@ import {
   cacheHazardList,
 } from "../services/hazard_cache.service.js";
 
+/// A multi-value query param arrives as one comma-joined string or as an
+/// array (repeated keys); either way return a trimmed, non-empty id list.
+const toIdList = (
+  value: string | string[] | undefined,
+): string[] | undefined => {
+  if (value === undefined) return undefined;
+  const ids = (Array.isArray(value) ? value : [value])
+    .flatMap((v) => v.split(","))
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+  return ids.length > 0 ? ids : undefined;
+};
+
 export const getNotificationsFeed = async (
   req: Request,
   res: Response,
@@ -28,8 +41,8 @@ export const getNotificationsFeed = async (
     const { userId } = res;
     const {
       searchString,
-      categoryIds,
-      locationIds,
+      categoryIds: rawCategoryIds,
+      locationIds: rawLocationIds,
       awsEmergency,
       awsWatchAndAct,
       awsAdvice,
@@ -41,15 +54,15 @@ export const getNotificationsFeed = async (
       page = "1",
       pageSize = "20",
     }: GetNotificationsFeedQuery = req.query;
+    const categoryIds = toIdList(rawCategoryIds);
+    const locationIds = toIdList(rawLocationIds);
 
     const allSubscriptions = await getUserLocationSubscriptions({
       userId: userId!,
     });
 
     const subscriptions = locationIds
-      ? allSubscriptions.filter((sub) =>
-          locationIds.split(",").includes(sub.id),
-        )
+      ? allSubscriptions.filter((sub) => locationIds.includes(sub.id))
       : allSubscriptions;
 
     if (subscriptions.length === 0) {

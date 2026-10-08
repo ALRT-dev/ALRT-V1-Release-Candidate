@@ -23,7 +23,8 @@ export const getAlertsGeoQuerySchema = z.object({
     ])
     .optional(),
 
-  categoryIds: z.string().optional(),
+  // Comma-joined string or repeated keys (array), as on /api/hazards.
+  categoryIds: z.union([z.string(), z.array(z.string())]).optional(),
 
   northeastLat: z
     .string()
