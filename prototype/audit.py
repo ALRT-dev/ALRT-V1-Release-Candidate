@@ -35,6 +35,7 @@ with sync_playwright() as p:
     bg = pg.evaluate("getComputedStyle(document.querySelector('#screen > div')).backgroundColor")
     check('Splash is white with the icon', bg == 'rgb(255, 255, 255)', bg)
     check('Splash: Get started and I already have an account', has('onb-next') and has('have-account'))
+    check('Sign-in screen: white, writing and logos only, no blurred coloured circles (9 Oct)', pg.evaluate("[...document.querySelectorAll('#screen *')].every(e=>!(e.getAttribute('style')||'').includes('radial-gradient') && !(e.getAttribute('style')||'').includes('blur('))"))
     click('onb-next'); settle(300); check('Onb1 opens with Welcome to ALRT', 'Welcome to ALRT' in text()); scan('Onb1')
     click('onb-next'); settle(300); check('Onb2: three things to know plus age gate', has('age')); scan('Onb2')
     click('onb-next'); settle(300); check('Cannot continue until all four are ticked', has('onb1'))
@@ -181,6 +182,7 @@ with sync_playwright() as p:
     check('Family header uses the darker purple gradient', 'rgb(46, 42, 158)' in pg.evaluate("getComputedStyle(document.querySelector('#screen header')).backgroundImage"))
     check('SOS block is red gradient', 'rgb(200, 16, 46)' in pg.evaluate("getComputedStyle(document.querySelector('[data-testid=sos-open]')).backgroundImage"))
     scan('Family'); check('Wording is Check in / Check on, never safe', 'Check in' in text() and 'safe' not in text().lower().replace('safety', ''))
+    check('No Waiting pill on your own row until someone asks (9 Oct)', pg.query_selector('[data-testid=member-me] [data-testid=member-pill]') is None and 'No check-in asked' in pg.inner_text('[data-testid=member-me]') and 'Waiting' not in pg.inner_text('[data-testid=member-me]'))
     click('checkin'); settle(300); check('Check in consent: just / location / suburb / I need help', all(has(t) for t in ['ci-none', 'ci-exact', 'ci-suburb', 'ci-help']))
     click('ci-none'); settle(900); check('Check in works with ALRT +', 'Checked in' in text())
     pg.click('[data-dev=friend]'); settle(2500); check('Friend joins free and appears in Members', 'Alex' in text())
@@ -188,6 +190,7 @@ with sync_playwright() as p:
     check('Waiting on 1 card appears', has('waiting-row')); pg.click('[data-testid=waiting-row]'); settle(500); check('Roll call lists who is waiting', 'waiting on 1' in text().lower()); click('rc-cancel'); settle(600)
     ftk = api('/__friend-token', 'GET', None, False)['data']['token']; asu(ftk, '/family/circles/' + api('/family/circles')['data'][0]['circleId'] + '/check-in/request', {'memberIds': [pg.evaluate('st.user.id')]}); settle(1900)
     check('Family circle goes teal (not orange) when a check-in is asked of you', pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').dataset.state") == 'ask' and pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').style.color") == 'rgb(13, 148, 136)')
+    check('Waiting pill and teal ring appear on your row only while asked', 'Waiting' in pg.inner_text('[data-testid=member-me]') and 'Asked to check in' in pg.inner_text('[data-testid=member-me]') and 'rgb(13, 148, 136)' in pg.evaluate("document.querySelector('[data-testid=member-me]').firstElementChild.style.boxShadow"))
     goto_tab('family'); click('ci-from-req'); settle(300); click('ci-none'); settle(1200); check('Family circle back to indigo after checking in', pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').dataset.state") == 'idle')
     code = api('/family/circles')['data'][0]['code']
     u4 = reg('free@example.com', 'Fay'); asu(u4['token'], '/family/join', {'code': code}); cid = asu(u4['token'], '/family/circles')['data'][0]['circleId']

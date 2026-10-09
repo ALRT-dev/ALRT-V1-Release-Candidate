@@ -650,6 +650,10 @@
     "familyCircleStates": {
       "value": "the Family circle in the footer is red with a dot while an SOS is live, teal with a dot while a check-in is asked of you, indigo at rest. Not orange",
       "source": "9 Oct 2026 instruction (teal chosen over green, confirm)"
+    },
+    "memberWaiting": {
+      "value": "a member row shows Waiting only while a check-in has been asked of that person and not answered. Until someone asks, nothing is waiting on anyone: no pill, 'No check-in asked'. After answering: Checked in and the time",
+      "source": "9 Oct 2026 instruction: 'I dont need the waiting... nor is anyone waiting on you until you have a group, and they request'"
     }
   },
   "bandWords": {

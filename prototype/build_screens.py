@@ -24,6 +24,9 @@ for name in PHONE:
     # inner scroll regions were clipped on the static board; let them grow
     body = body.replace('style="flex: 1; overflow: hidden;', 'style="flex: 1;')
     body = body.replace('style="flex: 1; padding:', 'style="flex: 1; padding:')
+    # Sarah 9 Oct: the sign-in screen is white with the writing and logos only, no blurred coloured circles in the corners
+    if name == 'Splash':
+        body = re.sub(r'\s*<span style="position: absolute;[^"]*radial-gradient[^"]*"></span>', '', body)
     boards[name] = body
 nav = re.sub(r'href="([A-Za-z0-9]+)\.dc\.html"', r'href="#" data-nav="\1"', nav)
 # widget tiles from the Widgets board (the "Improved" set)

@@ -1,6 +1,6 @@
 {
-  "passed": 243,
-  "total": 243,
+  "passed": 245,
+  "total": 245,
   "results": [
     {
       "check": "Splash is white with the icon",
@@ -395,12 +395,12 @@
     {
       "check": "Push after first confirmation: \"Community report | title\", Unverified",
       "pass": true,
-      "detail": "[{'id': 'n_mmx45sf', 'userId': 'u_eba1e0r', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
+      "detail": "[{'id': 'n_ma035ms', 'userId': 'u_ihwya18', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
     },
     {
       "check": "Dangerous report pushes at once, within 2 km (decided)",
       "pass": true,
-      "detail": "[{'id': 'n_8nb8ilm', 'userId': 'u_eba1e0r', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1791525709"
+      "detail": "[{'id': 'n_8bteica', 'userId': 'u_ihwya18', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1791533525"
     },
     {
       "check": "Reporter gets ALRT Approved push",
@@ -538,6 +538,11 @@
       "detail": ""
     },
     {
+      "check": "No Waiting pill on your own row until someone asks (9 Oct)",
+      "pass": true,
+      "detail": ""
+    },
+    {
       "check": "Check in consent: just / location / suburb / I need help",
       "pass": true,
       "detail": ""
@@ -569,6 +574,11 @@
     },
     {
       "check": "Family circle goes teal (not orange) when a check-in is asked of you",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Waiting pill and teal ring appear on your row only while asked",
       "pass": true,
       "detail": ""
     },
@@ -685,7 +695,7 @@
     {
       "check": "Group covered, capacity from plan",
       "pass": true,
-      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794120756912, 'coveredBy': 'you', 'youPay': True}"
+      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794128573737, 'coveredBy': 'you', 'youPay': True}"
     },
     {
       "check": "Family header shows coverage",
@@ -880,7 +890,7 @@
     {
       "check": "Live journey allowed after host allows it",
       "pass": true,
-      "detail": "{'status': 201, 'data': {'id': 'j_bphkcg6', 'circleId': 'c_vstdiox', 'userId': 'u_33ip256', 'createdAt': 1791532445626, 'endsAt': 1791533345626, 'live': True, 'points': [], 'status': 'active', 'dest':"
+      "detail": "{'status': 201, 'data': {'id': 'j_vrn59qc', 'circleId': 'c_vnr7tzp', 'userId': 'u_lp82ri8', 'createdAt': 1791540263819, 'endsAt': 1791541163819, 'live': True, 'points': [], 'status': 'active', 'dest':"
     },
     {
       "check": "Wording scan clean: Family places",
