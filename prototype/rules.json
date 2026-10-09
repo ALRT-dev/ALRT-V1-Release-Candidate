@@ -1,5 +1,5 @@
 {
-  "_source": "Reconciled master spec 28 Sep 2026 (docs/V1_ACCESS_MODEL_IMPLEMENTATION.md), rules commit 3 Oct 2026, frontend/CLAUDE.md, backend/CLAUDE.md, alert surfaces audit 27 Sep 2026. Every number and phrase in the prototype is read from this file.",
+  "_source": "Sarah's rulings: MASTER_DECISIONS_REGISTER, 28 Sep 2026 reconciled spec, 3 Oct 2026 rulings, V1_RELEASE_PLAN.md, docs/V1_ACCESS_MODEL_IMPLEMENTATION.md R01-R08, frontend/CLAUDE.md, POINTS_BADGE_LOGIC v1.1, QUICK_REPORT_TAXONOMY_BACKEND_SPEC. Where backend code disagrees, the ruling wins and the code is a fix item.",
   "brand": {
     "name": "ALRT",
     "plusName": "ALRT +",
@@ -151,7 +151,8 @@
       "A Family/Group plan covers ONE nominated group. Members join free. It gives nobody personal benefits, including the payer.",
       "Creating and joining a group is free. Check in, Check on, SOS and Journey in an uncovered group need each participant's own ALRT +.",
       "Individually funded groups are capped at 20 people (3 Oct 2026).",
-      "Guests are retired for V1."
+      "Guests are retired for V1.",
+      "Tier names follow git: ALRT +, ALRT + Family (6), ALRT + Group 20, ALRT + Group 50."
     ]
   },
   "gates": {
@@ -183,8 +184,8 @@
     "journeySnapPointMinutes": 10,
     "offlineShowAsOf": true,
     "sourceSyncMinutes": 15,
-    "sosTotalCapMs": null,
-    "sosCanOnlyBeEndedBySender": true
+    "sosTotalCapMs": 14400000,
+    "sosCanOnlyBeEndedBySender": false
   },
   "sos": {
     "locationChoices": [
@@ -198,7 +199,9 @@
     ],
     "oneGroupPerList": true,
     "neverFiredFromWidget": true,
-    "neverContactsEmergencyServices": true
+    "neverContactsEmergencyServices": true,
+    "whoCanEnd": "sender or host (R06)",
+    "totalCapHours": 4
   },
   "wording": {
     "checkIn": "Check in",
@@ -263,7 +266,7 @@
       }
     ],
     "pushTitleRule": "AWS level word only; non-AWS officials never carry a band word; community pushes say Community report and are Unverified",
-    "communityPushOnlyAfterConfirmation": false,
+    "communityPushOnlyAfterConfirmation": true,
     "emergencyWarningsAlwaysDeliver": true
   },
   "points": {
@@ -272,7 +275,7 @@
     "matchesOfficial": 15,
     "guideComplete": 10,
     "firstSetup": 20,
-    "streaks": true,
+    "streaks": false,
     "confirmationsEarn": 0,
     "levels": [
       [
@@ -296,7 +299,9 @@
     "reportWidelyCorroborated": 10,
     "questCompleted": 20,
     "shareInstall": 25,
-    "streakNote": "code has streakDays and a 1.2x multiplier from 3 days; frontend/CLAUDE.md says no streaks. CONFLICT"
+    "weeklyQuest": false,
+    "note": "Points v1.1: confirmations earn 0, streaks retired, rewards follow reporter accuracy (+15 when corroborated by 3, +10 at x9)",
+    "streakNote": "Streaks retired (v1.1). Backend still carries streakDays and a 1.2x multiplier: remove."
   },
   "safetyProfile": {
     "onDeviceOnly": true,
@@ -370,8 +375,9 @@
     ],
     "anonymous": true,
     "locationPrecision": "suburb",
-    "publicationPushSeparate": false,
-    "pushTiming": "as soon as AI review accepts the report (code today); afterConfirmation pushPolicy is stored on the source but not enforced"
+    "publicationPushSeparate": true,
+    "pushTiming": "push at once on AI acceptance to opted-in people nearby; radius gated by severity x corroboration",
+    "uncorroboratedDangerousRadiusKm": 2
   },
   "onboarding": {
     "order": [
@@ -419,6 +425,177 @@
     "proximityKm": {
       "member": 5,
       "place": 10
+    }
+  },
+  "ask": {
+    "countsAgainstQuota": "AI answers only; library and emergency-number answers never count (R03)",
+    "refundOnModelFailure": true
+  },
+  "navigation": {
+    "free": true,
+    "serverProxiedRoutes": true,
+    "journeySharingNeedsPlus": true,
+    "entry": "Map tab, Check a route"
+  },
+  "footer": {
+    "canvas": "frosted light bar, 18px radius, six slots Map Alerts Report Ready Family Me, ALRT logo as Report",
+    "alternative": "Instagram style icon-only bar, same elements and colours (dev toggle)"
+  },
+  "decisionsApplied": [
+    [
+      "SOS total length",
+      "4 hours",
+      "V1_RELEASE_PLAN.md, backend/CLAUDE.md, R04/R05",
+      "code: add cap in family.service.ts extend"
+    ],
+    [
+      "Who can end an SOS",
+      "sender or host",
+      "R06",
+      "code: allow host in resolve"
+    ],
+    [
+      "Ask ALRT counting",
+      "library and emergency answers free",
+      "R03",
+      "code: quota.ts count AI answers only"
+    ],
+    [
+      "Community push",
+      "after first confirmation; Dangerous at once within 2 km",
+      "QUICK_REPORT_TAXONOMY_BACKEND_SPEC, 28 Sep spec",
+      "code: enforce pushPolicy in notification.service.ts"
+    ],
+    [
+      "Streaks",
+      "retired",
+      "POINTS_BADGE_LOGIC v1.1",
+      "code: drop streak multiplier and weekly quest from xp_ledger"
+    ],
+    [
+      "Group size, individually funded",
+      "20",
+      "3 Oct 2026",
+      "schema default and R01 to 20"
+    ],
+    [
+      "Tier names",
+      "Family, Group 20, Group 50",
+      "git",
+      "none"
+    ],
+    [
+      "Safety Profile",
+      "in Ready and Me, not in onboarding",
+      "approved boards",
+      "none"
+    ],
+    [
+      "Navigation",
+      "kept, free, server-proxied",
+      "NAVIGATION_BACKEND_SPEC",
+      "code: proxy Routes through /api/maps"
+    ],
+    [
+      "Multi-circle, family places, language",
+      "kept",
+      "ALRT + specs",
+      "none"
+    ],
+    [
+      "Voice input",
+      "not on approved boards",
+      "canvas",
+      "frontend: remove or keep hidden"
+    ],
+    [
+      "Keep it quiet",
+      "three levels stay",
+      "UI rulings Oct 2026",
+      "backend: minSeverityBand field"
+    ]
+  ],
+  "decisions": {
+    "_note": "Decisions already made by the product owner. Sources are the authority; nothing here is open.",
+    "sosTotalCap": {
+      "value": "4 hours",
+      "source": "backend/CLAUDE.md locked rules; V1_RELEASE_PLAN.md:90,97. Code has no cap on extend: backend defect to fix, not a decision."
+    },
+    "whoEndsSos": {
+      "value": "sender or host, actor recorded",
+      "source": "R06 (docs/V1_ACCESS_MODEL_IMPLEMENTATION.md:393), rules.json decisionsApplied. Backend resolveSos refuses the host: code change."
+    },
+    "askAlrtCounting": {
+      "value": "AI answers only count; library and emergency-number answers never count; model failure refunds",
+      "source": "R03 (docs/V1_ACCESS_MODEL_IMPLEMENTATION.md:406), rules.json decisionsApplied. quota.ts counts library answers today: code change."
+    },
+    "communityPush": {
+      "value": "push after the first neighbour confirms; a Dangerous report pushes at once to people within 2 km; publication (map and list) is immediate on AI acceptance",
+      "source": "QUICK_REPORT_TAXONOMY_BACKEND_SPEC push eligibility, 28 Sep spec, rules.json decisionsApplied. notification.service.ts pushes every accepted report at once: code change (enforce pushPolicy)."
+    },
+    "streaks": {
+      "value": "retired; confirmations earn 0 XP; accuracy rewards instead",
+      "source": "POINTS_BADGE_LOGIC v1.1 reconciliation, streak retirement confirmed. Backend streakDays multiplier and 'Weekly quest' copy must be removed: defect."
+    },
+    "safetyProfilePlacement": {
+      "value": "Me and Ready, not onboarding",
+      "source": "approved onboarding boards Onb1 to Onb5 (8 Oct 2026); Profile and Ready boards"
+    },
+    "navigation": {
+      "value": "kept; free; Map tab 'Check a route'; Routes proxied through /api/maps like Geocoding and Places; sharing the journey is ALRT +",
+      "source": "NAVIGATION_BACKEND_SPEC, rules.json decisionsApplied. Supersedes the Stage 5 split (Routes direct from the app)."
+    },
+    "mapsKeys": {
+      "value": "no Google key ships in the app: Geocoding, Places and Routes all via /api/maps",
+      "source": "rules.json decisionsApplied (navigation server-proxied)"
+    },
+    "voiceInput": {
+      "value": "not on the approved boards: hidden in V1 (speech_to_text stays in code, no mic in the design)",
+      "source": "rules.json decisionsApplied"
+    },
+    "language": {
+      "value": "English and Spanish picker kept; official warnings always in their issued wording",
+      "source": "profile_screen.dart language sheet; no ruling to remove"
+    },
+    "familyPlaces": {
+      "value": "kept (arrive and leave notices, +5 XP, no limit)",
+      "source": "backend family places routes; no ruling to remove"
+    },
+    "multiCircle": {
+      "value": "kept; Switch circle; a person can be in several circles",
+      "source": "V1_RECONCILIATION_REPORT.md:2747 'Switch circle'; backend circle list"
+    },
+    "keepItQuiet": {
+      "value": "three alert levels including Keep it quiet (most serious official warnings only)",
+      "source": "approved Onb3 board; backend needs a minimum-band field: work item, not a decision"
+    },
+    "tierNames": {
+      "value": "ALRT Free, ALRT +, ALRT + Family (6), ALRT + Group 20, ALRT + Group 50",
+      "source": "3 Oct 2026 rules commit on the RC repo; approved GroupPaywall board"
+    },
+    "freeLimits": {
+      "value": "1 saved place besides own location; 3 Ask ALRT a day; ALRT + unlimited places and 10 a day; 2 week trial on ALRT + only",
+      "source": "backend/CLAUDE.md commercial rules (28 Sep 2026)"
+    },
+    "guestMode": {
+      "value": "retired",
+      "source": "backend/CLAUDE.md; approved Onb5 board drops the guest button"
+    },
+    "footer": {
+      "value": "canvas frosted light bar is the design; an Instagram-style icon-only bar with the same elements and colours exists as a dev toggle for comparison",
+      "source": "approved Footer board; rules.json footer.alternative"
+    },
+    "alertDetailOrder": {
+      "value": "source strip, In plain terms, title, map, location, What we know, What to do (verbatim), For You (on device), Tell your people (send, check in, share link), attribution; no emergency contacts block, no Ask ALRT contacts block",
+      "source": "8 Oct 2026 ruling; approved Detail board"
+    },
+    "checkInWording": {
+      "value": "Check in / Check on / Checked in; never I'm safe; needs help status kept",
+      "source": "frontend/CLAUDE.md; 8 Oct 2026 instruction"
+    },
+    "emergencyNumber": {
+      "value": "region neutral: your local emergency number, never 000 or Triple Zero",
+      "source": "ALRT + surfaces ruling; backend prompt rule"
     }
   }
 }

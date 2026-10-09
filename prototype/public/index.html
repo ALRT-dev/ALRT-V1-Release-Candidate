@@ -1,12 +1,26 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ALRT prototype</title><link rel="stylesheet" href="style.css"></head>
+<title>ALRT prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--pg-bg:#E4E6EB;--pg-ink:#1C1C1E;--pg-card:#fff;--pg-line:#B9BEC8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--pg-bg:#16181D;--pg-ink:#E8EAEE;--pg-card:#23252B;--pg-line:#3A3E47;color-scheme:dark}}
+:root[data-theme="dark"]{--pg-bg:#16181D;--pg-ink:#E8EAEE;--pg-card:#23252B;--pg-line:#3A3E47;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;font-family:Figtree,system-ui,sans-serif;color:var(--pg-ink);background:var(--pg-bg)}
+.stage{display:flex;flex-wrap:wrap;gap:24px;justify-content:center;align-items:flex-start;padding-block:16px;padding-inline:16px}
+.phone{flex:none;width:406px;height:860px;background:#fff;border-radius:44px;box-shadow:0 20px 60px #0004;overflow:hidden;position:relative;border:8px solid #111}
+#screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}#screen::-webkit-scrollbar{display:none}
+
+#navwrap{position:absolute;left:0;right:0;bottom:0;pointer-events:none}
+#overlay{position:absolute;inset:0;pointer-events:none;z-index:30}#overlay>*{pointer-events:auto}
+.dev{width:min(260px,100%);font-size:12px;color:var(--pg-ink)}.dev button{display:block;width:100%;margin:4px 0;padding:8px;border:1px solid var(--pg-line);background:var(--pg-card);color:var(--pg-ink);border-radius:8px;cursor:pointer;font:inherit}.dev h3{margin:0 0 6px}
+</style></head>
 <body>
 <div class="stage">
-  <div id="phone" class="phone"><div id="app"></div></div>
+  <div id="phone" class="phone"><div id="screen"></div><div id="navwrap"></div><div id="overlay"></div></div>
   <aside class="dev" id="dev">
     <h3>Prototype controls</h3>
-    <p>Branch <b>claude/ui-prototype-8oct</b>. Mock backend, same routes as the real API. Nothing here touches your test app or prod.</p>
+    <p>Every screen is the approved canvas board, wired to a mock of the real API. Nothing here touches your test app or prod.</p>
     <button data-dev="reset">Reset all data</button>
     <button data-dev="advance10">Advance clock 10 min</button>
     <button data-dev="advance50">Advance clock 50 min</button>
@@ -14,7 +28,7 @@
     <button data-dev="billing">Billing: <span id="bill">on</span></button>
     <button data-dev="offline">Offline: <span id="off">off</span></button>
     <button data-dev="friend">Add a friend to my group</button>
-    <button data-dev="confirm">Neighbour confirms a community report</button>
+    <button data-dev="confirm">Neighbour confirms my report</button>
     <button data-dev="push">Show latest push on lock screen</button>
     <button data-dev="expire">Expire the group plan</button>
     <button data-dev="billissue">Simulate a billing issue</button>
@@ -22,7 +36,8 @@
     <button data-dev="friendask">Friend asks where I am</button>
     <button data-dev="friendjourney">Friend shares a journey</button>
     <button data-dev="forceupdate">Toggle forced update</button>
-    <div id="clock"></div>
+    <button data-dev="igfooter">Footer: canvas / Instagram style</button>
   </aside>
 </div>
-<script src="app.js"></script><script src="app2.js"></script></body></html>
+<script src="boards.js"></script><script src="ui.js"></script><script src="screens.js"></script><script src="actions.js"></script>
+</body></html>

@@ -1,189 +1,214 @@
 {
-  "passed": 204,
-  "total": 204,
+  "passed": 205,
+  "total": 205,
   "results": [
     {
-      "check": "Splash is white",
+      "check": "Splash is white with the icon",
       "pass": true,
       "detail": "rgb(255, 255, 255)"
     },
     {
-      "check": "Wording scan clean: onboarding 1",
+      "check": "Splash: Get started and I already have an account",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Welcome to ALRT shown first",
+      "check": "Onb1 opens with Welcome to ALRT",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: onboarding 2",
+      "check": "Wording scan clean: Onb1",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Cannot continue without age confirmation",
+      "check": "Onb2: three things to know plus age gate",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: onboarding 4",
+      "check": "Wording scan clean: Onb2",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Onboarding shows no location permission request",
+      "check": "Cannot continue until all four are ticked",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Onboarding shows no hard-coded prices",
-      "pass": true,
-      "detail": "ALRT is free to use\n1 saved place and 3 Ask ALRT questions a day.\nALRT + removes"
-    },
-    {
-      "check": "Onboarding states free limits from rules",
+      "check": "Onb3: alert level picker, three levels incl. Keep it quiet",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Sign in is the last onboarding step",
+      "check": "Onb3 stays ambiguous about emergency language",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Set up complete screen with first 20 points (endowed progress)",
+      "check": "Onb4: ALRT is free to use, no prices, store prices only",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Notification priming asked at first Alerts view (moment of wanting)",
+      "check": "Onb4 states free limits from rules",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Footer has exactly 5 slots",
-      "pass": true,
-      "detail": "5"
-    },
-    {
-      "check": "Footer is icon only (Instagram style, no text labels)",
-      "pass": true,
-      "detail": "['', '', '', '', 'S']"
-    },
-    {
-      "check": "Footer last slot is the profile avatar",
+      "check": "Onboarding never asks for location",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Footer is a flat bar, not a floating capsule",
-      "pass": true,
-      "detail": "0px"
-    },
-    {
-      "check": "Wording scan clean: alerts tab",
+      "check": "Onb5 is sign in, last step; no Continue as Guest",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Map shows pins",
+      "check": "Set up complete screen with first 20 points",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Unconfirmed community report is not listed for others",
+      "check": "Notification priming at the moment of wanting (not during onboarding)",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "AWS alert carries the level word",
+      "check": "Footer present on main tabs",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Official (non-AWS) rows carry no band word",
+      "check": "Footer: six slots Map, Alerts, Report, Ready, Family, Me avatar",
+      "pass": true,
+      "detail": "['Map', 'Alerts', 'Report', 'Ready', 'Family', 'S']"
+    },
+    {
+      "check": "Footer is the frosted bar, 18px radius",
+      "pass": true,
+      "detail": "18px"
+    },
+    {
+      "check": "No raised round Report button",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Shapes: triangle, diamond, circle/square/shield exist",
+      "check": "Family slot is indigo",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: official detail",
+      "check": "Map board with pins bound to live alerts",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Official detail order: plain terms, what we know, what to do, for you",
-      "pass": true,
-      "detail": "[82, 134, 179, 225]"
-    },
-    {
-      "check": "Plain terms strip colour #23252B",
+      "check": "Map banner counts warnings from live data",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Share is obvious (own button)",
+      "check": "Wording scan clean: Map",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "No emergency contacts block on alert",
+      "check": "Alerts list from backend, in the Feed card style",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Share sheet shows public /a/:id link",
+      "check": "AWS card carries the level word",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Share confirms to family circle",
+      "check": "Official card carries no band word",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Urgent-wording official alert is not shown as Critical",
+      "check": "Community card says Community \u00b7 Unverified",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: report sheet",
+      "check": "Shield row says ALRT Assessment, no level word",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Category is mandatory",
+      "check": "Wording scan clean: Alerts",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Posted screen with points",
+      "check": "Urgent-wording official alert stays Info grey",
+      "pass": true,
+      "detail": "height: 5px; background: #8A93A0"
+    },
+    {
+      "check": "Wording scan clean: Detail",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Points awarded for a report",
+      "check": "Detail order: plain terms, what we know, what to do, For You, Tell your people",
       "pass": true,
-      "detail": "{'points': 30, 'level': 'Watcher', 'streak': None}"
+      "detail": "[43, 262, 408, 615, 951]"
     },
     {
-      "check": "No streaks in points",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Community alerts always tagged Unverified",
+      "check": "No emergency contacts or Ask ALRT contacts block on the alert",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: community detail",
+      "check": "What to do is the agency word for word",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "For You says stays on your phone",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Share is obvious: Send to my group, Check in, Share a link",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Share sheet shows the public /a/:id link",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Follow stored on device",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Official (non-AWS) detail shows Official, never a band word",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Official attribution: colour for the level, never writes a band word",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Community",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Community detail: Unverified, I see it / I don't see it",
       "pass": true,
       "detail": ""
     },
@@ -193,24 +218,79 @@
       "detail": ""
     },
     {
-      "check": "Community shows I see it / I don't see it",
+      "check": "Report (flag) and Follow on a community report",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Community push sent on acceptance (code truth R08), not after confirmation",
+      "check": "Confirmation recorded (\u00d7N)",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Community push arrives for an \"all\" level user on acceptance",
-      "pass": true,
-      "detail": "[{'id': 'n_f0y3e1p', 'userId': 'u_tthoqhf', 'title': 'Community report | Water main burst', 'body': 'New hazard reported.', 'kind': 'community', 'createdAt': 1791456762500, 'hazardId': 'h_csgqunn'}]"
-    },
-    {
-      "check": "Community push title is \"Community report | title\", no band word",
+      "check": "Wording scan clean: Report sheet",
       "pass": true,
       "detail": ""
+    },
+    {
+      "check": "Flag sent for review",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Report board: category, what can you see, severity, details, headline preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Report",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Category is mandatory",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Category chips take the category colour",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Headline preview updates: Crash reported in Scarborough",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Posted board: thanks, points you can earn",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Posted",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Points awarded for a report, no streaks",
+      "pass": true,
+      "detail": "{'points': 30, 'level': 'Watcher', 'streak': None}"
+    },
+    {
+      "check": "Community push waits for the first neighbour confirmation (decided)",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "Push after first confirmation: \"Community report | title\", Unverified",
+      "pass": true,
+      "detail": "[{'id': 'n_edlrk2b', 'userId': 'u_zymeq1m', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
+    },
+    {
+      "check": "Dangerous report pushes at once, within 2 km (decided)",
+      "pass": true,
+      "detail": "[{'id': 'n_nozlkpe', 'userId': 'u_zymeq1m', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1791507202"
     },
     {
       "check": "Reporter gets ALRT Approved push",
@@ -218,7 +298,17 @@
       "detail": ""
     },
     {
-      "check": "Confirmation does not push again",
+      "check": "Duplicate report (409) opens \"Is this the alert?\"",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Report rate limit 3 per hour -> 429",
+      "pass": true,
+      "detail": "[429, 429, 429]"
+    },
+    {
+      "check": "Wording scan clean: Places",
       "pass": true,
       "detail": ""
     },
@@ -228,22 +318,17 @@
       "detail": ""
     },
     {
-      "check": "Second saved place opens refusal sheet SAVED_PLACE_LIMIT",
+      "check": "Second saved place refused SAVED_PLACE_LIMIT with the board copy",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Refusal CTA leads to ALRT + paywall",
+      "check": "Refusal leads to the ALRT + paywall board",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Paywall explains the limit",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Paywall heading wording",
+      "check": "Paywall context line",
       "pass": true,
       "detail": ""
     },
@@ -253,24 +338,24 @@
       "detail": ""
     },
     {
-      "check": "Trial is 2 weeks",
+      "check": "Trial is 2 weeks, ALRT + only",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: individual paywall",
+      "check": "Wording scan clean: Paywall",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Purchase reaches backend through RevenueCat webhook",
+      "check": "Purchase reaches the backend through the RevenueCat webhook",
       "pass": true,
       "detail": ""
     },
     {
       "check": "Access reflects ALRT + trial",
       "pass": true,
-      "detail": "{'plan': 'individual', 'reason': 'trial', 'isTrial': True, 'expiresAt': 1792666365480, 'willRenew': True, 'extraSavedPlaces': 0, 'askPerDay': 10}"
+      "detail": ""
     },
     {
       "check": "Second place allowed after upgrade",
@@ -278,102 +363,112 @@
       "detail": ""
     },
     {
+      "check": "Upsell block hidden once on ALRT +",
+      "pass": true,
+      "detail": ""
+    },
+    {
       "check": "ALRT + allows 10 Ask a day",
       "pass": true,
-      "detail": "{'used': 0, 'limit': 10, 'remaining': 10}"
+      "detail": ""
     },
     {
-      "check": "Wording scan clean: family empty",
+      "check": "Free: 3 AI questions then 429 ask_limit",
+      "pass": true,
+      "detail": "[200, 200, 200, 429]"
+    },
+    {
+      "check": "Library and emergency-number answers never count, even at the cap (R03)",
+      "pass": true,
+      "detail": "(200, 200)"
+    },
+    {
+      "check": "Wording scan clean: Ask",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Creating a group is free and offered",
+      "check": "Ask ALRT answers and shows remaining",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Group created",
+      "check": "FamilyEmpty board: create and join free",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Family banner uses darker purple gradient",
+      "check": "Wording scan clean: FamilyEmpty",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: family hub",
+      "check": "Family board with live circle",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording is Check in / Check on",
+      "check": "Family header uses the darker purple gradient",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Check in consent sheet: just / location / suburb / need help",
+      "check": "SOS block is red gradient",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Family",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording is Check in / Check on, never safe",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Check in consent: just / location / suburb / I need help",
       "pass": true,
       "detail": ""
     },
     {
       "check": "Check in works with ALRT +",
       "pass": true,
-      "detail": "Using your own ALRT +\nHome\n1 people \u00b7 you host\n\u2699\nCheck in\nSOS\nCheck on\nJourney\nPEOPLE\nsarah\nChecked in 06:52 PM \u00b7 host\nYou\nAdd a member\nMORE\nWho my SOS reaches\nSet up your SOS lists\n\u203a\nFamily places\nAr"
+      "detail": ""
     },
     {
-      "check": "Never \"I'm safe\" in family",
+      "check": "Friend joins free and appears in Members",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Friend appears in People",
+      "check": "Check on sends a targeted ask",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Check on sends a request",
+      "check": "Waiting on 1 card appears",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Roll call shows Waiting on 1",
+      "check": "Roll call lists who is waiting",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Roll call screen lists who is waiting",
+      "check": "Free member refused in an uncovered group (INDIVIDUAL_REQUIRED)",
       "pass": true,
-      "detail": "Check-in\n\u2039\nsarah asked 1 people to check in\n06:52 PM\nWAITING ON 1\nAlex\nRequest location\nCancel this check-in ask\nS\nAsked them to check in"
+      "detail": "{'status': 402, 'data': {'error': {'code': 'INDIVIDUAL_REQUIRED', 'message': 'Check in, Check on, SOS and Journey in this group need ALRT + for each person, or a plan covering the group.'}, 'code': 'I"
     },
     {
-      "check": "Joining a group is free for a Free user",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Free user check in uncovered group refused INDIVIDUAL_REQUIRED",
-      "pass": true,
-      "detail": "{'s': 402, 'd': {'error': {'code': 'INDIVIDUAL_REQUIRED', 'message': 'Check in, Check on, SOS and Journey in this group need ALRT + for each person, or a plan covering the group.'}, 'code': 'INDIVIDUA"
-    },
-    {
-      "check": "Wording scan clean: sos sheet",
+      "check": "Wording scan clean: SOS sheet",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "SOS sheet shows who it reaches (preview)",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "SOS disclaimer: never contacts emergency services",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "SOS location choices exist",
+      "check": "SOS sheet: disclaimer, who it reaches, location choices",
       "pass": true,
       "detail": ""
     },
@@ -383,7 +478,7 @@
       "detail": ""
     },
     {
-      "check": "3 second hold sends SOS",
+      "check": "3 second hold sends SOS; banner shows",
       "pass": true,
       "detail": ""
     },
@@ -393,17 +488,12 @@
       "detail": ""
     },
     {
-      "check": "SOS push reaches group members as critical (no mute path)",
-      "pass": true,
-      "detail": "[{'id': 'n_q8otjt8', 'userId': 'u_mp4wiq1', 'title': 'SOS from sarah', 'body': 'Needs help now. Check on them. Call your local emergency number if needed.', 'kind': 'sos', 'createdAt': 1791456782118, "
-    },
-    {
-      "check": "SOS push wording: needs help, check on them, local emergency number",
+      "check": "SOS push to members is critical with local emergency number wording",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Ending soon shown inside last 10 minutes",
+      "check": "Ending soon inside last 10 min",
       "pass": true,
       "detail": ""
     },
@@ -413,37 +503,37 @@
       "detail": ""
     },
     {
-      "check": "Ending soon clears after extend",
+      "check": "SOS capped at 4 hours total (decided)",
+      "pass": true,
+      "detail": "{'status': 400, 'data': {'error': {'code': 'MAX_DURATION', 'message': 'An SOS can run 4 hours at most'}, 'code': 'MAX_DURATION', 'message': 'An SOS can run 4 hours at most'}}"
+    },
+    {
+      "check": "A plain member cannot end an SOS (403); sender or host can (R06)",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "SOS expires automatically",
+      "check": "Member can respond seen",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Only the sender can end an SOS (member gets 403)",
-      "pass": true,
-      "detail": "403"
-    },
-    {
-      "check": "Member can mark SOS as seen",
-      "pass": true,
-      "detail": "200"
-    },
-    {
-      "check": "Journey offers 15 / 30 / 60 minutes",
+      "check": "Sender ends SOS; wording factual",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Journey starts",
+      "check": "Wording scan clean: Journey",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Live sharing is opt-in (off by default)",
+      "check": "Journey offers 15 / 30 / 60 minutes and recipients",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Journey starts, periodic by default",
       "pass": true,
       "detail": ""
     },
@@ -453,127 +543,42 @@
       "detail": ""
     },
     {
-      "check": "Group paywall heading",
+      "check": "Live journey refused while group is snap-points only (LIVE_JOURNEY_NOT_ALLOWED)",
+      "pass": true,
+      "detail": "{'status': 409, 'data': {'error': {'code': 'LIVE_JOURNEY_NOT_ALLOWED', 'message': 'This group allows periodic updates only'}, 'code': 'LIVE_JOURNEY_NOT_ALLOWED', 'message': 'This group allows periodic"
+    },
+    {
+      "check": "Wording scan clean: GroupPaywall",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Group tiers from rules",
+      "check": "GroupPaywall board: Family 6 / Group 20 / Group 50 with store prices",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Group paywall states plan covers one group, no personal benefits",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Wording scan clean: group paywall",
+      "check": "Plan covers one group, no personal extras",
       "pass": true,
       "detail": ""
     },
     {
       "check": "Group covered, capacity from plan",
       "pass": true,
-      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794059117424, 'coveredBy': 'you', 'youPay': True}"
+      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794102245828, 'coveredBy': 'you', 'youPay': True}"
     },
     {
-      "check": "Family hub shows coverage",
+      "check": "Family header shows coverage",
       "pass": true,
       "detail": ""
     },
     {
       "check": "Free member can Check in once the group is covered",
       "pass": true,
-      "detail": "201"
-    },
-    {
-      "check": "Free: 3 Ask ALRT questions then 429 ask_limit",
-      "pass": true,
-      "detail": "[200, 200, 200, 429]"
-    },
-    {
-      "check": "Wording scan clean: me",
-      "pass": true,
       "detail": ""
     },
     {
-      "check": "Plan card shows ALRT + trial",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Alert level saved to backend",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Safety Profile stays on device (localStorage only)",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Leaderboard shows no identities",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Wording scan clean: widgets",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Four distinct widgets",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Critical and SOS widgets differ from Alert widget",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "SOS widget never fires SOS",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Wording scan clean: ready",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Guide completion awards points",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Offline banner shows \"as of\" time",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Lock screen push preview renders",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Wording scan clean: notifications",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Notification feed shows items",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Billing switch off reflected in /api/access",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Wording scan clean: invite",
+      "check": "Wording scan clean: Invite",
       "pass": true,
       "detail": ""
     },
@@ -583,27 +588,27 @@
       "detail": ""
     },
     {
+      "check": "Non-host invite refused HOST_ONLY",
+      "pass": true,
+      "detail": ""
+    },
+    {
       "check": "Host can revoke an invite",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Non-host invite refused HOST_ONLY",
-      "pass": true,
-      "detail": "{'status': 403, 'data': {'error': {'code': 'HOST_ONLY', 'message': 'Only the host can invite'}, 'code': 'HOST_ONLY', 'message': 'Only the host can invite'}}"
-    },
-    {
-      "check": "Location request strip appears when a member asks where I am",
+      "check": "Location request strip when a member asks where I am",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: location request sheet",
+      "check": "Wording scan clean: Location request",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Location request sheet: share once / not now, 1 hour expiry",
+      "check": "Share once / Not now, 1 hour expiry",
       "pass": true,
       "detail": ""
     },
@@ -613,32 +618,27 @@
       "detail": ""
     },
     {
-      "check": "Requester gets Snapshot shared push",
-      "pass": true,
-      "detail": "[{'id': 'n_ixycs9v', 'userId': 'u_qcxvzln', 'title': 'Snapshot shared', 'body': 'sarah shared a one-time location snapshot with the circle.', 'kind': 'locationShared', 'createdAt': 1791467131496, 'cir"
-    },
-    {
-      "check": "Snapshot expires after 1 hour (location nulled)",
-      "pass": true,
-      "detail": "{'id': 'u_38paadh', 'name': 'sarah', 'role': 'owner', 'sharingLevel': 'approximate', 'nickname': None, 'colorHex': '#E8622A', 'lastCheckInAt': 1791456770946, 'snapshot': None}"
-    },
-    {
-      "check": "Member details sheet: ask check in, request location, remove (host)",
+      "check": "Snapshot expires after 1 hour",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Request a one-time location sends push to member",
+      "check": "Member sheet: ask check in, request location, remove (host)",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: circle profile",
+      "check": "Request a one-time location pushes the member",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: sharing level",
+      "check": "Wording scan clean: Circle profile",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Sharing",
       "pass": true,
       "detail": ""
     },
@@ -648,39 +648,29 @@
       "detail": ""
     },
     {
-      "check": "Sharing level saved to backend",
-      "pass": true,
-      "detail": "{'id': 'u_38paadh', 'name': 'sarah', 'role': 'owner', 'sharingLevel': 'off', 'nickname': None, 'colorHex': '#E8622A', 'lastCheckInAt': 1791456770946, 'snapshot': None}"
-    },
-    {
-      "check": "With sharing off, nobody can ask for my location",
-      "pass": true,
-      "detail": "{'status': 400, 'data': {'error': {'code': 'SHARING_OFF', 'message': 'They have location sharing off'}, 'code': 'SHARING_OFF', 'message': 'They have location sharing off'}}"
-    },
-    {
-      "check": "Daily check-in time added",
+      "check": "Sharing level saved; with it off nobody can ask",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Scheduled check-ins capped at 3",
+      "check": "Daily check-in times capped at 3; reminders only",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: sos lists",
+      "check": "Wording scan clean: SOS lists",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "SOS list created with one group",
+      "check": "SOS list created, one group",
       "pass": true,
       "detail": ""
     },
     {
       "check": "SOS list across two groups refused SOS_PRESET_OTHER_GROUP",
       "pass": true,
-      "detail": "{'status': 422, 'data': {'error': {'code': 'SOS_PRESET_OTHER_GROUP', 'message': 'Pick people from one group only'}, 'code': 'SOS_PRESET_OTHER_GROUP', 'message': 'Pick people from one group only'}}"
+      "detail": ""
     },
     {
       "check": "SOS lists capped at 4",
@@ -688,22 +678,17 @@
       "detail": ""
     },
     {
-      "check": "Switch button appears with 2 circles",
+      "check": "SOS with nobody to reach refused NO_SOS_RECIPIENTS",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Switch group lists both circles",
+      "check": "Switch circle in the header with several circles",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "SOS in a group with nobody else refused NO_SOS_RECIPIENTS",
-      "pass": true,
-      "detail": "{'status': 422, 'data': {'error': {'code': 'NO_SOS_RECIPIENTS', 'message': 'Your SOS has nobody to reach yet'}, 'code': 'NO_SOS_RECIPIENTS', 'message': 'Your SOS has nobody to reach yet', 'hasCandidat"
-    },
-    {
-      "check": "SOS preview reports noPeople",
+      "check": "Switch group lists circles",
       "pass": true,
       "detail": ""
     },
@@ -713,17 +698,17 @@
       "detail": ""
     },
     {
-      "check": "Wording scan clean: sos receiver",
+      "check": "Wording scan clean: SOS receiver",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Receiver: seen / on my way / called; cannot end",
+      "check": "Receiver: seen / on my way / called; host may end, others not",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Sender gets \"has seen your SOS\" push",
+      "check": "Sender told by name who has seen it",
       "pass": true,
       "detail": ""
     },
@@ -733,17 +718,12 @@
       "detail": ""
     },
     {
-      "check": "Only the sender can end (403 for me)",
+      "check": "Past SOS: time and duration, no coordinates",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Past SOS list (30 days, no coordinates)",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Wording scan clean: sos resolved",
+      "check": "Wording scan clean: SOS ended",
       "pass": true,
       "detail": ""
     },
@@ -753,59 +733,44 @@
       "detail": ""
     },
     {
-      "check": "Shared journey card appears for recipient",
+      "check": "Shared journey card for the recipient",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: shared journey",
+      "check": "Shared journey viewer: periodic updates",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Shared journey viewer: updates every 10 min, poll note",
+      "check": "Wording scan clean: Group settings",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Live journey refused when group is snap-points only (LIVE_JOURNEY_NOT_ALLOWED)",
+      "check": "Live journey allowed after host allows it",
       "pass": true,
-      "detail": "{'status': 409, 'data': {'error': {'code': 'LIVE_JOURNEY_NOT_ALLOWED', 'message': 'This group allows periodic updates only'}, 'code': 'LIVE_JOURNEY_NOT_ALLOWED', 'message': 'This group allows periodic"
+      "detail": "{'status': 201, 'data': {'id': 'j_wwkhpir', 'circleId': 'c_scsmgku', 'userId': 'u_86d5mvg', 'createdAt': 1791513935723, 'endsAt': 1791514835723, 'live': True, 'points': [], 'status': 'active', 'dest':"
     },
     {
-      "check": "Wording scan clean: group settings",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "Live journey allowed after host turns off snap-only",
-      "pass": true,
-      "detail": "{'status': 201, 'data': {'id': 'j_vdxc5qx', 'circleId': 'c_bhzvhc2', 'userId': 'u_38paadh', 'createdAt': 1791470819374, 'endsAt': 1791471719374, 'live': True, 'points': [], 'status': 'active', 'dest':"
-    },
-    {
-      "check": "Wording scan clean: family places",
+      "check": "Wording scan clean: Family places",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Family place added (+5 XP, no limit)",
+      "check": "Family place added",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Place arrive push: \"Arrived safely.\" wording from code",
+      "check": "Place arrive push: \"Arrived safely.\" from code",
       "pass": true,
       "detail": ""
     },
     {
       "check": "Expired group plan: free member refused GROUP_PLAN_ENDED",
       "pass": true,
-      "detail": "{'s': 402, 'd': {'error': {'code': 'GROUP_PLAN_ENDED', 'message': \"This group's plan has ended. Renew it, or use your own ALRT +.\"}, 'code': 'GROUP_PLAN_ENDED', 'message': \"This group's plan has ended"
-    },
-    {
-      "check": "Transfer candidates listed",
-      "pass": true,
-      "detail": ""
+      "detail": "{'status': 402, 'data': {'error': {'code': 'GROUP_PLAN_ENDED', 'message': \"This group's plan has ended. Renew it, or use your own ALRT +.\"}, 'code': 'GROUP_PLAN_ENDED', 'message': \"This group's plan h"
     },
     {
       "check": "Host handed over; push \"is now hosting\"",
@@ -818,117 +783,112 @@
       "detail": ""
     },
     {
-      "check": "Left the circle; now on the other circle",
+      "check": "Left the circle; lands on another circle",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: filters",
+      "check": "Wording scan clean: Ready",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Filter hides community reports",
+      "check": "Ready board: closing-the-circle progress and 5 steps",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Reset shows them again",
+      "check": "Wording scan clean: Plan",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Alert detail: follow toggle, family strip, overflow (report/block)",
+      "check": "Plan saved on device; Ready step ticks",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Follow stored on device",
+      "check": "Wording scan clean: Drill",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Check in from an alert (hazardId) works",
+      "check": "Drill: practice alert, no alarm",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: report sheet",
+      "check": "Wording scan clean: Learn",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Flag sent for review",
+      "check": "Guide completion awards points",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Cannot flag own report",
+      "check": "Wording scan clean: Safety",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Official alert has guide strip, no overflow",
+      "check": "Safety Profile cohort colours and stays on device",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Duplicate report (409) opens \"Is this the alert?\"",
+      "check": "Wording scan clean: Me",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Report rate limit 3 per hour -> 429",
-      "pass": true,
-      "detail": "[201, 429, 429]"
-    },
-    {
-      "check": "My ALRTs lists my reports",
+      "check": "Profile board: name, plan, points, circle progress",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: manage notifications",
+      "check": "Wording scan clean: Notifications",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Manage notifications exposes the 5 backend flags",
+      "check": "Three levels plus the 5 backend flags",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Emergency Warning switch is locked on",
+      "check": "Keep it quiet level saved",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Toggling community flag recomputes level to all",
+      "check": "Emergency Warning switch locked on",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Test push wording: nothing sent to anyone else",
+      "check": "Test push wording",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: points",
+      "check": "Wording scan clean: Points",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Points breakdown and how points work (no streaks, confirming earns nothing)",
+      "check": "Points: no streaks, confirming earns nothing",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Leaderboard rows show Community member, not names",
+      "check": "Leaderboard never names anyone",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Child mode on hides Report slot",
+      "check": "Child mode hides Report in the footer",
       "pass": true,
       "detail": ""
     },
@@ -953,12 +913,12 @@
       "detail": ""
     },
     {
-      "check": "Wording scan clean: my plans",
+      "check": "Wording scan clean: My plans",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "My plans shows personal plan",
+      "check": "My plans shows the personal plan",
       "pass": true,
       "detail": ""
     },
@@ -968,22 +928,72 @@
       "detail": ""
     },
     {
-      "check": "Family plan (6) for an 8-person group refused PLAN_TOO_SMALL",
-      "pass": true,
-      "detail": "{'status': 409, 'data': {'error': {'code': 'PLAN_TOO_SMALL', 'message': 'That plan is smaller than this group'}, 'code': 'PLAN_TOO_SMALL', 'message': 'That plan is smaller than this group', 'peopleCou"
-    },
-    {
-      "check": "Non-host covering a group refused HOST_ONLY",
-      "pass": true,
-      "detail": "{'status': 403, 'data': {'error': {'code': 'HOST_ONLY', 'message': 'Only the host can cover this group'}, 'code': 'HOST_ONLY', 'message': 'Only the host can cover this group'}}"
-    },
-    {
-      "check": "PLAN_TOO_SMALL shown as refusal sheet with people count",
+      "check": "Add widget sheet: Nearby Alerts and Family, never names or places",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Wording scan clean: delete account",
+      "check": "Language: English and Spanish kept",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Family plan for a 9-person group refused PLAN_TOO_SMALL",
+      "pass": true,
+      "detail": "{'status': 409, 'data': {'error': {'code': 'PLAN_TOO_SMALL', 'message': 'That plan is smaller than this group'}, 'code': 'PLAN_TOO_SMALL', 'message': 'That plan is smaller than this group', 'peopleCou"
+    },
+    {
+      "check": "Non-host covering refused HOST_ONLY",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "PLAN_TOO_SMALL as a refusal sheet with the people count",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Route",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Check a route: free, alerts on the way, sharing is ALRT +, routes via backend",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Instagram-style footer toggle: icon only, same six slots",
+      "pass": true,
+      "detail": "['', '', '', '', '', 'S']"
+    },
+    {
+      "check": "Offline banner shows \"as of\" time",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Lock screen push preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Notification feed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Push inbox lists items",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Billing off reflected in /api/access",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Delete account",
       "pass": true,
       "detail": ""
     },
@@ -998,22 +1008,17 @@
       "detail": ""
     },
     {
-      "check": "Forced update screen with local emergency number line",
+      "check": "Forced update screen, local emergency number wording",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Sign out returns to onboarding; push token removed",
+      "check": "Sign out returns to Splash",
       "pass": true,
       "detail": ""
     },
     {
       "check": "Forgot password: reset link sent, 60 minute note",
-      "pass": true,
-      "detail": ""
-    },
-    {
-      "check": "No \"Continue as Guest\" anywhere",
       "pass": true,
       "detail": ""
     },

@@ -1,0 +1,4409 @@
+[
+ {
+  "screen": "Splash",
+  "board": "Splash",
+  "note": "",
+  "file": "map/Splash.png",
+  "links": [
+   {
+    "to": "Onb1",
+    "via": "Get started"
+   },
+   {
+    "to": "Onb5",
+    "via": "I already have an account"
+   }
+  ],
+  "jpg": "mapjpg/Splash.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "Onb1",
+  "board": "Onb1",
+  "note": "",
+  "file": "map/Onb1.png",
+  "links": [
+   {
+    "to": "Onb2",
+    "via": "Get started"
+   }
+  ],
+  "jpg": "mapjpg/Onb1.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "Onb2",
+  "board": "Onb2",
+  "note": "",
+  "file": "map/Onb2.png",
+  "links": [
+   {
+    "to": "Onb3",
+    "via": "Agree and continue"
+   }
+  ],
+  "jpg": "mapjpg/Onb2.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "Onb3",
+  "board": "Onb3",
+  "note": "",
+  "file": "map/Onb3.png",
+  "links": [
+   {
+    "to": "Onb4",
+    "via": "Turn on alerts"
+   },
+   {
+    "to": "Onb4",
+    "via": "Not now"
+   }
+  ],
+  "jpg": "mapjpg/Onb3.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "Onb4",
+  "board": "Onb4",
+  "note": "",
+  "file": "map/Onb4.png",
+  "links": [
+   {
+    "to": "Onb5",
+    "via": "Continue with ALRT Free"
+   },
+   {
+    "to": "Choose",
+    "via": "See ALRT + plans"
+   }
+  ],
+  "jpg": "mapjpg/Onb4.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "Onb5",
+  "board": "Onb5",
+  "note": "",
+  "file": "map/Onb5.png",
+  "links": [
+   {
+    "to": "onbdone",
+    "via": "Continue with Apple"
+   },
+   {
+    "to": "onbdone",
+    "via": "Continue with Google"
+   },
+   {
+    "to": "onbdone",
+    "via": "Continue with Microsoft"
+   },
+   {
+    "to": "Email sign-in sheet",
+    "via": "Continue with Email"
+   }
+  ],
+  "jpg": "mapjpg/Onb5.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "Onb5-email",
+  "board": "sheet",
+  "note": "Email sign-in sheet",
+  "file": "map/Onb5-email.png",
+  "links": [
+   {
+    "to": "onbdone",
+    "via": "Continue with Apple"
+   },
+   {
+    "to": "onbdone",
+    "via": "Continue with Google"
+   },
+   {
+    "to": "onbdone",
+    "via": "Continue with Microsoft"
+   },
+   {
+    "to": "Email sign-in sheet",
+    "via": "Continue with Email"
+   }
+  ],
+  "jpg": "mapjpg/Onb5-email.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "SetUpComplete",
+  "board": "new",
+  "note": "Endowed progress: first 20 points",
+  "file": "map/SetUpComplete.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Start using ALRT"
+   }
+  ],
+  "jpg": "mapjpg/SetUpComplete.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "Priming",
+  "board": "sheet",
+  "note": "Notification ask at the moment of wanting",
+  "file": "map/Priming.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "Places",
+    "via": ""
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Priming.jpg",
+  "area": "Onboarding"
+ },
+ {
+  "screen": "Main",
+  "board": "Main",
+  "note": "",
+  "file": "map/Main.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "Places",
+    "via": ""
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Main.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Filters",
+  "board": "sheet",
+  "note": "",
+  "file": "map/Filters.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "Places",
+    "via": ""
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Filters.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "AskALRT",
+  "board": "sheet",
+  "note": "",
+  "file": "map/AskALRT.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "Places",
+    "via": ""
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/AskALRT.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "MapKey",
+  "board": "sheet",
+  "note": "",
+  "file": "map/MapKey.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "Places",
+    "via": ""
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/MapKey.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Places",
+  "board": "Places",
+  "note": "",
+  "file": "map/Places.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": ""
+   },
+   {
+    "to": "Paywall",
+    "via": "See ALRT +"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Places.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Refusal-SavedPlace",
+  "board": "sheet",
+  "note": "AccessRefusalSheet SAVED_PLACE_LIMIT",
+  "file": "map/Refusal-SavedPlace.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": ""
+   },
+   {
+    "to": "Paywall",
+    "via": "See ALRT +"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Refusal-SavedPlace.jpg",
+  "area": "ALRT +"
+ },
+ {
+  "screen": "Paywall",
+  "board": "Paywall",
+  "note": "",
+  "file": "map/Paywall.png",
+  "links": [
+   {
+    "to": "Choose",
+    "via": "Back"
+   },
+   {
+    "to": "store then Main",
+    "via": "Start 2 weeks free"
+   }
+  ],
+  "jpg": "mapjpg/Paywall.jpg",
+  "area": "ALRT +"
+ },
+ {
+  "screen": "Choose",
+  "board": "Choose",
+  "note": "",
+  "file": "map/Choose.png",
+  "links": [
+   {
+    "to": "back",
+    "via": "Back"
+   },
+   {
+    "to": "Paywall",
+    "via": "ALRT +"
+   },
+   {
+    "to": "GroupPaywall",
+    "via": "ALRT + Family \u00b7 Group"
+   },
+   {
+    "to": "back",
+    "via": "Continue with ALRT Free"
+   }
+  ],
+  "jpg": "mapjpg/Choose.jpg",
+  "area": "ALRT +"
+ },
+ {
+  "screen": "GroupPaywall",
+  "board": "GroupPaywall",
+  "note": "",
+  "file": "map/GroupPaywall.png",
+  "links": [
+   {
+    "to": "Choose",
+    "via": "Back"
+   },
+   {
+    "to": "store then Family",
+    "via": "Subscribe for A$15.99/month"
+   }
+  ],
+  "jpg": "mapjpg/GroupPaywall.jpg",
+  "area": "ALRT +"
+ },
+ {
+  "screen": "Route",
+  "board": "new",
+  "note": "Check a route (navigation, free)",
+  "file": "map/Route.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Route.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Feed",
+  "board": "Feed",
+  "note": "",
+  "file": "map/Feed.png",
+  "links": [
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "notes",
+    "via": "Notifications"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Filters"
+   },
+   {
+    "to": "Alert detail",
+    "via": "EMERGENCY WARNING"
+   },
+   {
+    "to": "Alert detail",
+    "via": "WATCH AND ACT"
+   },
+   {
+    "to": "Alert detail",
+    "via": "OFFICIAL"
+   },
+   {
+    "to": "Alert detail",
+    "via": "COMMUNITY \u00b7 UNVERIFIED"
+   },
+   {
+    "to": "Alert detail",
+    "via": "ALRT ASSESSMENT"
+   },
+   {
+    "to": "Alert detail",
+    "via": "GLOBAL"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Feed.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Detail",
+  "board": "Detail",
+  "note": "",
+  "file": "map/Detail.png",
+  "links": [
+   {
+    "to": "Feed",
+    "via": "Back"
+   },
+   {
+    "to": "tab",
+    "via": "Show on map"
+   },
+   {
+    "to": "sheet",
+    "via": "Share a link"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Detail.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "ShareLink",
+  "board": "sheet",
+  "note": "",
+  "file": "map/ShareLink.png",
+  "links": [
+   {
+    "to": "Feed",
+    "via": "Back"
+   },
+   {
+    "to": "tab",
+    "via": "Show on map"
+   },
+   {
+    "to": "sheet",
+    "via": "Share a link"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/ShareLink.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Ex1",
+  "board": "Ex1",
+  "note": "",
+  "file": "map/Ex1.png",
+  "links": [
+   {
+    "to": "Feed",
+    "via": "Back"
+   },
+   {
+    "to": "tab",
+    "via": "Show on map"
+   },
+   {
+    "to": "sheet",
+    "via": "Share a link"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Ex1.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Ex2",
+  "board": "Ex2",
+  "note": "",
+  "file": "map/Ex2.png",
+  "links": [
+   {
+    "to": "Feed",
+    "via": "Back"
+   },
+   {
+    "to": "tab",
+    "via": "Show on map"
+   },
+   {
+    "to": "sheet",
+    "via": "Share a link"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Ex2.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Ex3",
+  "board": "Ex3",
+  "note": "",
+  "file": "map/Ex3.png",
+  "links": [
+   {
+    "to": "Feed",
+    "via": "Back"
+   },
+   {
+    "to": "tab",
+    "via": "Show on map"
+   },
+   {
+    "to": "sheet",
+    "via": "Share a link"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Ex3.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Community",
+  "board": "Community",
+  "note": "",
+  "file": "map/Community.png",
+  "links": [
+   {
+    "to": "Feed",
+    "via": "Back"
+   },
+   {
+    "to": "Report alert sheet",
+    "via": "Report"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Community.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "ReportAlert",
+  "board": "sheet",
+  "note": "Flag or block",
+  "file": "map/ReportAlert.png",
+  "links": [
+   {
+    "to": "Feed",
+    "via": "Back"
+   },
+   {
+    "to": "Report alert sheet",
+    "via": "Report"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/ReportAlert.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Offline",
+  "board": "Offline",
+  "note": "",
+  "file": "map/Offline.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Offline.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Notifications",
+  "board": "new",
+  "note": "Push inbox",
+  "file": "map/Notifications.png",
+  "links": [
+   {
+    "to": "Feed",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Notifications.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Report",
+  "board": "Report",
+  "note": "",
+  "file": "map/Report.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Close"
+   },
+   {
+    "to": "tab",
+    "via": "Adjust"
+   },
+   {
+    "to": "Posted",
+    "via": "Submit report"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Report.jpg",
+  "area": "Report"
+ },
+ {
+  "screen": "Posted",
+  "board": "Posted",
+  "note": "",
+  "file": "map/Posted.png",
+  "links": [
+   {
+    "to": "points",
+    "via": "How points work"
+   },
+   {
+    "to": "Main",
+    "via": "Back to the map"
+   },
+   {
+    "to": "myalrts",
+    "via": "See my reports"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Posted.jpg",
+  "area": "Report"
+ },
+ {
+  "screen": "SelectLocation",
+  "board": "new",
+  "note": "",
+  "file": "map/SelectLocation.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SelectLocation.jpg",
+  "area": "Report"
+ },
+ {
+  "screen": "Ready",
+  "board": "Ready",
+  "note": "",
+  "file": "map/Ready.png",
+  "links": [
+   {
+    "to": "Plan",
+    "via": "Set it now"
+   },
+   {
+    "to": "sheet",
+    "via": "Turn on alerts"
+   },
+   {
+    "to": "Places",
+    "via": "Save home"
+   },
+   {
+    "to": "Family",
+    "via": "Add one family member"
+   },
+   {
+    "to": "Plan",
+    "via": "Pick a meeting point"
+   },
+   {
+    "to": "Drill",
+    "via": "Run a family drill"
+   },
+   {
+    "to": "Learn",
+    "via": "All guides"
+   },
+   {
+    "to": "Plan",
+    "via": "My plan"
+   },
+   {
+    "to": "Drill",
+    "via": "Family drill"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "Learn",
+    "via": "Bushfire: being prepared"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Ready.jpg",
+  "area": "Ready"
+ },
+ {
+  "screen": "Plan",
+  "board": "Plan",
+  "note": "",
+  "file": "map/Plan.png",
+  "links": [
+   {
+    "to": "Ready",
+    "via": "Back"
+   },
+   {
+    "to": "Ready",
+    "via": "Do this later"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Plan.jpg",
+  "area": "Ready"
+ },
+ {
+  "screen": "Drill",
+  "board": "Drill",
+  "note": "",
+  "file": "map/Drill.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Drill.jpg",
+  "area": "Ready"
+ },
+ {
+  "screen": "Learn",
+  "board": "Learn",
+  "note": "",
+  "file": "map/Learn.png",
+  "links": [
+   {
+    "to": "Ready",
+    "via": "Learn"
+   },
+   {
+    "to": "guide",
+    "via": "START HERE \u00b7 3 MIN \u00b7 +10 XP"
+   },
+   {
+    "to": "guide",
+    "via": "Flood: being prepared"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Learn.jpg",
+  "area": "Ready"
+ },
+ {
+  "screen": "Guide",
+  "board": "new",
+  "note": "Guide detail",
+  "file": "map/Guide.png",
+  "links": [
+   {
+    "to": "Learn",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Guide.jpg",
+  "area": "Ready"
+ },
+ {
+  "screen": "Safety",
+  "board": "Safety",
+  "note": "",
+  "file": "map/Safety.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "Ready",
+    "via": "Save my profile"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Safety.jpg",
+  "area": "Ready"
+ },
+ {
+  "screen": "FamilyEmpty",
+  "board": "FamilyEmpty",
+  "note": "",
+  "file": "map/FamilyEmpty.png",
+  "links": [
+   {
+    "to": "sheet",
+    "via": "Create a group"
+   },
+   {
+    "to": "sheet",
+    "via": "I have an invite code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/FamilyEmpty.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "CreateGroup",
+  "board": "sheet",
+  "note": "",
+  "file": "map/CreateGroup.png",
+  "links": [
+   {
+    "to": "sheet",
+    "via": "Create a group"
+   },
+   {
+    "to": "sheet",
+    "via": "I have an invite code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/CreateGroup.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "Family",
+  "board": "Family",
+  "note": "",
+  "file": "map/Family.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Family.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "CheckIn",
+  "board": "sheet",
+  "note": "Consent sheet",
+  "file": "map/CheckIn.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/CheckIn.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "Refusal-IndividualRequired",
+  "board": "sheet",
+  "note": "AccessRefusalSheet INDIVIDUAL_REQUIRED (free user in an uncovered group)",
+  "file": "map/Refusal-IndividualRequired.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Refusal-IndividualRequired.jpg",
+  "area": "ALRT +"
+ },
+ {
+  "screen": "AskCheckIn",
+  "board": "sheet",
+  "note": "",
+  "file": "map/AskCheckIn.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/AskCheckIn.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "RollCall",
+  "board": "new",
+  "note": "",
+  "file": "map/RollCall.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/RollCall.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "SOS",
+  "board": "sheet",
+  "note": "Hold 3 seconds",
+  "file": "map/SOS.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SOS.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "SOSReceiver",
+  "board": "new",
+  "note": "",
+  "file": "map/SOSReceiver.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SOSReceiver.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "SOSEnded",
+  "board": "new",
+  "note": "",
+  "file": "map/SOSEnded.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "tab",
+    "via": "Back to Family"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SOSEnded.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "PastSOS",
+  "board": "new",
+  "note": "",
+  "file": "map/PastSOS.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "sosreceiver",
+    "via": "Alex"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/PastSOS.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "Journey",
+  "board": "new",
+  "note": "",
+  "file": "map/Journey.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "jstart",
+    "via": "Start sharing"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Journey.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "JourneyActive",
+  "board": "new",
+  "note": "",
+  "file": "map/JourneyActive.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/JourneyActive.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "SharedJourney",
+  "board": "new",
+  "note": "",
+  "file": "map/SharedJourney.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SharedJourney.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "LocationRequest",
+  "board": "sheet",
+  "note": "",
+  "file": "map/LocationRequest.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "sharedjourney",
+    "via": "Alex is sharing a journey"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/LocationRequest.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "MemberSheet",
+  "board": "sheet",
+  "note": "",
+  "file": "map/MemberSheet.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "sharedjourney",
+    "via": "Alex is sharing a journey"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/MemberSheet.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "CircleProfile",
+  "board": "new",
+  "note": "",
+  "file": "map/CircleProfile.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "tab",
+    "via": "Approximate"
+   },
+   {
+    "to": "soslists",
+    "via": "Who your SOS reaches"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/CircleProfile.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "SharingLevel",
+  "board": "new",
+  "note": "",
+  "file": "map/SharingLevel.png",
+  "links": [
+   {
+    "to": "circleprofile",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SharingLevel.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "SOSLists",
+  "board": "new",
+  "note": "",
+  "file": "map/SOSLists.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "soslistedit",
+    "via": "New list"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SOSLists.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "SOSListEdit",
+  "board": "new",
+  "note": "",
+  "file": "map/SOSListEdit.png",
+  "links": [
+   {
+    "to": "soslists",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SOSListEdit.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "Invite",
+  "board": "new",
+  "note": "",
+  "file": "map/Invite.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Invite.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "GroupSettings",
+  "board": "new",
+  "note": "",
+  "file": "map/GroupSettings.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "Hand over sheet",
+    "via": "Hand the circle to someone"
+   },
+   {
+    "to": "Leave sheet",
+    "via": "Leave Nixon group"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/GroupSettings.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "LeaveSheet",
+  "board": "sheet",
+  "note": "",
+  "file": "map/LeaveSheet.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "Hand over sheet",
+    "via": "Hand the circle to someone"
+   },
+   {
+    "to": "Leave sheet",
+    "via": "Leave Nixon group"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/LeaveSheet.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "FamilyPlaces",
+  "board": "new",
+  "note": "",
+  "file": "map/FamilyPlaces.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "tab",
+    "via": "Pick location"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/FamilyPlaces.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "PlanAndCover",
+  "board": "new",
+  "note": "",
+  "file": "map/PlanAndCover.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "go",
+    "via": "Cover this group"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/PlanAndCover.jpg",
+  "area": "ALRT +"
+ },
+ {
+  "screen": "SwitchCircle",
+  "board": "new",
+  "note": "",
+  "file": "map/SwitchCircle.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SwitchCircle.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "GroupPaused",
+  "board": "new",
+  "note": "Host hand-over",
+  "file": "map/GroupPaused.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Nixon group"
+   },
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "sharedjourney",
+    "via": "Alex is sharing a journey"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/GroupPaused.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "Profile",
+  "board": "Profile",
+  "note": "",
+  "file": "map/Profile.png",
+  "links": [
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "sheet",
+    "via": "Add a widget"
+   },
+   {
+    "to": "points",
+    "via": "How points work"
+   },
+   {
+    "to": "manage",
+    "via": "ALRT +"
+   },
+   {
+    "to": "managenotes",
+    "via": "Notifications"
+   },
+   {
+    "to": "Places",
+    "via": "Saved places"
+   },
+   {
+    "to": "sheet",
+    "via": "Home screen widget"
+   },
+   {
+    "to": "Family",
+    "via": "Family and check-ins"
+   },
+   {
+    "to": "journey",
+    "via": "Journey sharing"
+   },
+   {
+    "to": "points",
+    "via": "Your points"
+   },
+   {
+    "to": "sheet",
+    "via": "Share ALRT"
+   },
+   {
+    "to": "support",
+    "via": "Help and feedback"
+   },
+   {
+    "to": "manage",
+    "via": "My plans"
+   },
+   {
+    "to": "myalrts",
+    "via": "My ALRTs"
+   },
+   {
+    "to": "accessible",
+    "via": "Accessible alerts"
+   },
+   {
+    "to": "sheet",
+    "via": "Language"
+   },
+   {
+    "to": "childmode",
+    "via": "Child mode"
+   },
+   {
+    "to": "blocked",
+    "via": "Blocked accounts"
+   },
+   {
+    "to": "sheet",
+    "via": "Terms and privacy"
+   },
+   {
+    "to": "Log out sheet",
+    "via": "Log out"
+   },
+   {
+    "to": "tab",
+    "via": "Delete account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Profile.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "ManageNotifications",
+  "board": "new",
+  "note": "",
+  "file": "map/ManageNotifications.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/ManageNotifications.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "Points",
+  "board": "new",
+  "note": "",
+  "file": "map/Points.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "leaderboard",
+    "via": "Leaderboard"
+   },
+   {
+    "to": "tab",
+    "via": "Badges"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Points.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "Leaderboard",
+  "board": "new",
+  "note": "",
+  "file": "map/Leaderboard.png",
+  "links": [
+   {
+    "to": "points",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Leaderboard.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "MyPlans",
+  "board": "new",
+  "note": "",
+  "file": "map/MyPlans.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "go",
+    "via": "Cover"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/MyPlans.jpg",
+  "area": "ALRT +"
+ },
+ {
+  "screen": "MyALRTs",
+  "board": "new",
+  "note": "",
+  "file": "map/MyALRTs.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "Alert detail",
+    "via": "Crash reported in Scarborough"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/MyALRTs.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "ChildMode",
+  "board": "new",
+  "note": "",
+  "file": "map/ChildMode.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/ChildMode.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "BlockedAccounts",
+  "board": "new",
+  "note": "",
+  "file": "map/BlockedAccounts.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/BlockedAccounts.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "Support",
+  "board": "new",
+  "note": "",
+  "file": "map/Support.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Support.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "AccessibleAlerts",
+  "board": "new",
+  "note": "",
+  "file": "map/AccessibleAlerts.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/AccessibleAlerts.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "AddWidget",
+  "board": "sheet",
+  "note": "",
+  "file": "map/AddWidget.png",
+  "links": [
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "sheet",
+    "via": "Add a widget"
+   },
+   {
+    "to": "points",
+    "via": "How points work"
+   },
+   {
+    "to": "manage",
+    "via": "ALRT +"
+   },
+   {
+    "to": "managenotes",
+    "via": "Notifications"
+   },
+   {
+    "to": "Places",
+    "via": "Saved places"
+   },
+   {
+    "to": "sheet",
+    "via": "Home screen widget"
+   },
+   {
+    "to": "Family",
+    "via": "Family and check-ins"
+   },
+   {
+    "to": "journey",
+    "via": "Journey sharing"
+   },
+   {
+    "to": "points",
+    "via": "Your points"
+   },
+   {
+    "to": "sheet",
+    "via": "Share ALRT"
+   },
+   {
+    "to": "support",
+    "via": "Help and feedback"
+   },
+   {
+    "to": "manage",
+    "via": "My plans"
+   },
+   {
+    "to": "myalrts",
+    "via": "My ALRTs"
+   },
+   {
+    "to": "accessible",
+    "via": "Accessible alerts"
+   },
+   {
+    "to": "sheet",
+    "via": "Language"
+   },
+   {
+    "to": "childmode",
+    "via": "Child mode"
+   },
+   {
+    "to": "blocked",
+    "via": "Blocked accounts"
+   },
+   {
+    "to": "sheet",
+    "via": "Terms and privacy"
+   },
+   {
+    "to": "Log out sheet",
+    "via": "Log out"
+   },
+   {
+    "to": "tab",
+    "via": "Delete account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/AddWidget.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "ShareALRT",
+  "board": "sheet",
+  "note": "",
+  "file": "map/ShareALRT.png",
+  "links": [
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "sheet",
+    "via": "Add a widget"
+   },
+   {
+    "to": "points",
+    "via": "How points work"
+   },
+   {
+    "to": "manage",
+    "via": "ALRT +"
+   },
+   {
+    "to": "managenotes",
+    "via": "Notifications"
+   },
+   {
+    "to": "Places",
+    "via": "Saved places"
+   },
+   {
+    "to": "sheet",
+    "via": "Home screen widget"
+   },
+   {
+    "to": "Family",
+    "via": "Family and check-ins"
+   },
+   {
+    "to": "journey",
+    "via": "Journey sharing"
+   },
+   {
+    "to": "points",
+    "via": "Your points"
+   },
+   {
+    "to": "sheet",
+    "via": "Share ALRT"
+   },
+   {
+    "to": "support",
+    "via": "Help and feedback"
+   },
+   {
+    "to": "manage",
+    "via": "My plans"
+   },
+   {
+    "to": "myalrts",
+    "via": "My ALRTs"
+   },
+   {
+    "to": "accessible",
+    "via": "Accessible alerts"
+   },
+   {
+    "to": "sheet",
+    "via": "Language"
+   },
+   {
+    "to": "childmode",
+    "via": "Child mode"
+   },
+   {
+    "to": "blocked",
+    "via": "Blocked accounts"
+   },
+   {
+    "to": "sheet",
+    "via": "Terms and privacy"
+   },
+   {
+    "to": "Log out sheet",
+    "via": "Log out"
+   },
+   {
+    "to": "tab",
+    "via": "Delete account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/ShareALRT.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "Language",
+  "board": "sheet",
+  "note": "",
+  "file": "map/Language.png",
+  "links": [
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "sheet",
+    "via": "Add a widget"
+   },
+   {
+    "to": "points",
+    "via": "How points work"
+   },
+   {
+    "to": "manage",
+    "via": "ALRT +"
+   },
+   {
+    "to": "managenotes",
+    "via": "Notifications"
+   },
+   {
+    "to": "Places",
+    "via": "Saved places"
+   },
+   {
+    "to": "sheet",
+    "via": "Home screen widget"
+   },
+   {
+    "to": "Family",
+    "via": "Family and check-ins"
+   },
+   {
+    "to": "journey",
+    "via": "Journey sharing"
+   },
+   {
+    "to": "points",
+    "via": "Your points"
+   },
+   {
+    "to": "sheet",
+    "via": "Share ALRT"
+   },
+   {
+    "to": "support",
+    "via": "Help and feedback"
+   },
+   {
+    "to": "manage",
+    "via": "My plans"
+   },
+   {
+    "to": "myalrts",
+    "via": "My ALRTs"
+   },
+   {
+    "to": "accessible",
+    "via": "Accessible alerts"
+   },
+   {
+    "to": "sheet",
+    "via": "Language"
+   },
+   {
+    "to": "childmode",
+    "via": "Child mode"
+   },
+   {
+    "to": "blocked",
+    "via": "Blocked accounts"
+   },
+   {
+    "to": "sheet",
+    "via": "Terms and privacy"
+   },
+   {
+    "to": "Log out sheet",
+    "via": "Log out"
+   },
+   {
+    "to": "tab",
+    "via": "Delete account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Language.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "Legal",
+  "board": "sheet",
+  "note": "",
+  "file": "map/Legal.png",
+  "links": [
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "sheet",
+    "via": "Add a widget"
+   },
+   {
+    "to": "points",
+    "via": "How points work"
+   },
+   {
+    "to": "manage",
+    "via": "ALRT +"
+   },
+   {
+    "to": "managenotes",
+    "via": "Notifications"
+   },
+   {
+    "to": "Places",
+    "via": "Saved places"
+   },
+   {
+    "to": "sheet",
+    "via": "Home screen widget"
+   },
+   {
+    "to": "Family",
+    "via": "Family and check-ins"
+   },
+   {
+    "to": "journey",
+    "via": "Journey sharing"
+   },
+   {
+    "to": "points",
+    "via": "Your points"
+   },
+   {
+    "to": "sheet",
+    "via": "Share ALRT"
+   },
+   {
+    "to": "support",
+    "via": "Help and feedback"
+   },
+   {
+    "to": "manage",
+    "via": "My plans"
+   },
+   {
+    "to": "myalrts",
+    "via": "My ALRTs"
+   },
+   {
+    "to": "accessible",
+    "via": "Accessible alerts"
+   },
+   {
+    "to": "sheet",
+    "via": "Language"
+   },
+   {
+    "to": "childmode",
+    "via": "Child mode"
+   },
+   {
+    "to": "blocked",
+    "via": "Blocked accounts"
+   },
+   {
+    "to": "sheet",
+    "via": "Terms and privacy"
+   },
+   {
+    "to": "Log out sheet",
+    "via": "Log out"
+   },
+   {
+    "to": "tab",
+    "via": "Delete account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Legal.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "DeleteAccount",
+  "board": "new",
+  "note": "",
+  "file": "map/DeleteAccount.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "deleted",
+    "via": "Delete my account"
+   },
+   {
+    "to": "tab",
+    "via": "Keep my account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/DeleteAccount.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "AccountDeleted",
+  "board": "new",
+  "note": "",
+  "file": "map/AccountDeleted.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Recover my account"
+   },
+   {
+    "to": "Splash",
+    "via": "Sign out"
+   }
+  ],
+  "jpg": "mapjpg/AccountDeleted.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "LockScreenPush",
+  "board": "new",
+  "note": "",
+  "file": "map/LockScreenPush.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "Places",
+    "via": ""
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   }
+  ],
+  "jpg": "mapjpg/LockScreenPush.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "ForceUpdate",
+  "board": "new",
+  "note": "",
+  "file": "map/ForceUpdate.png",
+  "links": [],
+  "jpg": "mapjpg/ForceUpdate.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "Main-InstagramFooter",
+  "board": "alt",
+  "note": "Dev toggle: icon-only footer",
+  "file": "map/Main-InstagramFooter.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "Places",
+    "via": ""
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": ""
+   },
+   {
+    "to": "Feed",
+    "via": ""
+   },
+   {
+    "to": "Report",
+    "via": ""
+   },
+   {
+    "to": "Ready",
+    "via": ""
+   },
+   {
+    "to": "Family",
+    "via": ""
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Main-InstagramFooter.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "LogOut",
+  "board": "sheet",
+  "note": "",
+  "file": "map/LogOut.png",
+  "links": [
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "sheet",
+    "via": "Add a widget"
+   },
+   {
+    "to": "points",
+    "via": "How points work"
+   },
+   {
+    "to": "manage",
+    "via": "ALRT +"
+   },
+   {
+    "to": "managenotes",
+    "via": "Notifications"
+   },
+   {
+    "to": "Places",
+    "via": "Saved places"
+   },
+   {
+    "to": "sheet",
+    "via": "Home screen widget"
+   },
+   {
+    "to": "Family",
+    "via": "Family and check-ins"
+   },
+   {
+    "to": "journey",
+    "via": "Journey sharing"
+   },
+   {
+    "to": "points",
+    "via": "Your points"
+   },
+   {
+    "to": "sheet",
+    "via": "Share ALRT"
+   },
+   {
+    "to": "support",
+    "via": "Help and feedback"
+   },
+   {
+    "to": "manage",
+    "via": "My plans"
+   },
+   {
+    "to": "myalrts",
+    "via": "My ALRTs"
+   },
+   {
+    "to": "accessible",
+    "via": "Accessible alerts"
+   },
+   {
+    "to": "sheet",
+    "via": "Language"
+   },
+   {
+    "to": "childmode",
+    "via": "Child mode"
+   },
+   {
+    "to": "blocked",
+    "via": "Blocked accounts"
+   },
+   {
+    "to": "sheet",
+    "via": "Terms and privacy"
+   },
+   {
+    "to": "Log out sheet",
+    "via": "Log out"
+   },
+   {
+    "to": "tab",
+    "via": "Delete account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/LogOut.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "ForgotPassword",
+  "board": "new",
+  "note": "",
+  "file": "map/ForgotPassword.png",
+  "links": [
+   {
+    "to": "Onb5",
+    "via": "Back"
+   }
+  ],
+  "jpg": "mapjpg/ForgotPassword.jpg",
+  "area": "Onboarding"
+ }
+]

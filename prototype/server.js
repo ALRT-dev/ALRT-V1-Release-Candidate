@@ -28,13 +28,15 @@ function seed() {
     status: 'live', confirmations: 0, ...extra,
   });
   S.hazards.push(
-    h('Bushfire: Watch and Act', 'aws', 'action', 'weather', 12, 8, 18, { level: 'Watch and Act', agency: 'AWS feed', body: 'A fire is burning near the highway. Conditions are changing.', plain: 'A fire is close and could reach homes. Be ready to leave.', know: 'Fire front moving north east. Embers likely.', todo: 'Get ready to leave. Check on neighbours. Listen to local radio.' }),
-    h('Road closed after crash', 'official', 'action', 'traffic', 25, 20, 40, { agency: 'State traffic authority', body: 'Both lanes closed.', plain: 'The road is shut. Use another route.', know: 'Crash cleared in about 2 hours.', todo: 'Take the detour. Allow extra time.' }),
-    h('Power outage reported', 'community', 'info', 'utilities', 40, 55, 30, { confirmations: 2, body: 'Whole street without power.' }),
-    h('Air quality poor: smoke', 'official', 'monitor', 'health', 60, 70, 55, { agency: 'Environment agency', body: 'Smoke haze across the region.', plain: 'The air is unhealthy for sensitive people.', know: 'Haze likely to ease by evening.', todo: 'Keep windows closed. Reduce outdoor exercise.' }),
-    h('Official alert with urgent wording', 'official', 'info', 'community', 90, 30, 70, { agency: 'City council', body: 'Urgent: road works, avoid the area.', plain: 'Sounds urgent but this is road works only. No danger to people.', know: 'Lane closures until Friday.', todo: 'Plan another route.' }),
-    h('Global: flooding in a distant region', 'global', 'info', 'weather', 180, 85, 10, { agency: 'Humanitarian feed', body: 'Verbatim from source.' }),
-    h('ALRT Assessment: avoid river road tonight', 'intel', 'monitor', 'security', 30, 45, 80, { body: 'Plain-terms read of the situation.' }),
+    h('Bushfire near Wanneroo Rd, Neerabup', 'aws', 'critical', 'weather', 12, 8, 18, { board: 'Detail', level: 'Emergency Warning', agency: 'DFES', distance: '8.4 km away', locationName: 'Neerabup', plain: 'A fire is moving toward homes in these suburbs. This is the highest level. If you are in the area, act now.', know: 'Burning in bushland east of Wanneroo Rd, heading south-west. Ember attack likely in nearby suburbs.', todo: 'You are in danger and need to act immediately to survive. If you are not prepared to defend your property, leave now if the way is clear.' }),
+    h('Bushfire Watch and Act, Toodyay', 'aws', 'action', 'weather', 50, 30, 70, { board: 'Ex1', level: 'Watch and Act', agency: 'DFES', distance: '68 km away', locationName: 'Toodyay', plain: 'A bushfire near Toodyay is getting worse. DFES says start acting now, before it becomes an emergency.', know: 'DFES has issued a Watch and Act for parts of Toodyay, east of the townsite.', todo: 'There is a possible threat to lives and homes. Leave now if the way is clear, or get ready to actively defend.' }),
+    h('Lane closure on Mitchell Fwy northbound', 'official', 'monitor', 'traffic', 60, 20, 40, { agency: 'Main Roads WA', distance: '3.1 km away', locationName: 'Stirling', plain: 'One lane is closed. Expect delays on the freeway heading north.', know: 'Roadworks between Hutton St and Karrinyup Rd until 6 pm.', todo: 'Allow extra time or use Marmion Ave.' }),
+    h('M1 closed both directions, Wyong', 'official', 'action', 'traffic', 35, 55, 30, { board: 'Ex2', agency: 'Transport for NSW', distance: '35 km away', locationName: 'Wyong NSW', plain: 'A serious crash has closed the motorway. Plan around it.', know: 'Transport for NSW reports the M1 is closed in both directions at Wyong after a multi-vehicle crash.', todo: 'Avoid the area and use the Pacific Highway instead.' }),
+    h('Air quality: Very Poor, Perth Hills', 'official', 'monitor', 'health', 180, 70, 55, { board: 'Ex3', agency: 'WA air quality network', distance: '18 km away', locationName: 'Perth Hills', plain: 'The air outside is bad enough to affect anyone, not just people with health conditions.', know: 'The air in the Perth Hills is heavily affected by smoke this morning.', todo: 'Stay indoors and skip outdoor exercise while the smoke is this heavy.' }),
+    h('Water over the road on Scarborough Beach Rd', 'community', 'info', 'weather', 25, 45, 80, { confirmations: 2, distance: '940 m', locationName: 'Scarborough', body: 'Water across both lanes near the roundabout.' }),
+    h('Smoke may affect the northern suburbs tonight', 'intel', 'action', 'health', 120, 85, 10, { agency: 'ALRT Assessment · based on DFES and BoM', distance: 'sources inside', plain: 'Wind change this evening is likely to push smoke from the Neerabup fire over the northern suburbs.', know: 'DFES fire ground reports and BoM wind forecast for 7 pm.', todo: 'Close windows before evening. People with asthma may wish to keep medication close.' }),
+    h('Official alert with urgent wording', 'official', 'info', 'community', 90, 30, 90, { agency: 'City of Stirling', distance: '2 km away', locationName: 'Scarborough', body: 'Urgent: road works, avoid the area.', plain: 'Sounds urgent but this is road works only. No danger to people.', know: 'Lane closures until Friday.', todo: 'Plan another route.' }),
+    h('Flooding in a distant region', 'global', 'info', 'weather', 240, 85, 60, { agency: 'GDACS · verbatim', distance: 'international', body: 'Orange alert: river flooding affecting 40,000 people.' }),
   );
 }
 seed();
@@ -220,8 +222,8 @@ async function api(req, res, url) {
       times.push(now());
       const h = { id: uid('h_'), title: b.title || b.category, source: 'community', band: 'info', category: b.category, createdAt: now(), lat: b.lat || 0, lng: b.lng || 0, status: 'live', confirmations: 0, authorId: u.id, body: b.body || '', severity: b.severity || 'minor', anonymous: true };
       S.hazards.push(h); award(u, R.points.reportApproved, 'report');
-      // Code truth (R08): push goes out as soon as AI review accepts. No corroboration gate, no quiet hours.
-      Object.values(S.users).forEach((x) => { if (x.settings.level === 'all' && x.id !== u.id) push(x, 'Community report | ' + h.title, h.body || 'New hazard reported.', 'community', { hazardId: h.id }); });
+      // Sarah's ruling: push after the first neighbour confirms; a Dangerous report pushes at once to people within 2 km.
+      if (h.severity === 'dangerous') Object.values(S.users).forEach((x) => { if (x.settings.level === 'all' && x.id !== u.id) push(x, 'Community report | ' + h.title, (h.body || 'Risk to people reported nearby.') + ' Unverified.', 'community', { hazardId: h.id, within2km: true }); });
       push(u, 'ALRT Approved! \u{1F389}', 'Your alert is now live - community notified', 'approved', { hazardId: h.id });
       return json(res, 201, hazardView(h));
     }
@@ -258,6 +260,7 @@ async function api(req, res, url) {
       h.confirmations += 1;
       if (h.authorId) award({ id: h.authorId }, R.points.confirmedByNeighbour, 'confirmed');
       // confirmations earn the confirmer nothing
+      if (h.source === 'community' && h.confirmations === 1 && h.severity !== 'dangerous') Object.values(S.users).forEach((x) => { if (x.settings.level === 'all' && x.id !== h.authorId) push(x, 'Community report | ' + h.title, (h.body || 'Reported nearby.') + ' Confirmed by a neighbour. Unverified.', 'community', { hazardId: h.id }); });
     } else h.confirmations = Math.max(0, h.confirmations - 1);
     return json(res, 200, hazardView(h));
   }
@@ -268,9 +271,12 @@ async function api(req, res, url) {
   }
   if (p === '/ask-alrt' && m === 'POST') {
     const used = S.asks[u.id] || 0; const lim = plan(u).askPerDay;
+    const q = (b.question || '').toLowerCase();
+    if (/emergency number|call .*police|ambulance|fire brigade|000|triple zero/.test(q)) return json(res, 200, { answer: 'In danger? Call your local emergency number. ALRT never contacts emergency services for you.', source: 'emergency_lookup', usedAI: false, remainingToday: Math.max(0, lim - used) });
+    if (/what is (an? )?(emergency warning|watch and act|advice)|what does unverified mean|how do points work/.test(q)) return json(res, 200, { answer: 'Emergency Warning is the highest AWS level: you are in danger and need to act immediately. Watch and Act: conditions are changing, start taking action. Advice: an incident has started, stay informed. Community reports are always Unverified.', source: 'library', usedAI: false, remainingToday: Math.max(0, lim - used) });
     if (S.billingEnabled && used >= lim) return err(res, 429, 'ask_limit', `Free includes ${R.plans.free.askPerDay} questions a day. ALRT + includes ${R.plans.individual.askPerDay}.`, { used, limit: lim });
     S.asks[u.id] = used + 1;
-    return json(res, 200, { answer: `Plain terms: ${(b.question || '').slice(0, 60)}. Based on official sources near you. ALRT is not an emergency service. In danger? Call your local emergency number.`, remaining: Math.max(0, lim - used - 1) });
+    return json(res, 200, { answer: `Plain terms: ${(b.question || '').slice(0, 60)}. Based on official sources near you. ALRT is not an emergency service. In danger? Call your local emergency number.`, source: 'ai', usedAI: true, remaining: Math.max(0, lim - used - 1), remainingToday: Math.max(0, lim - used - 1) });
   }
 
   const gc = p.match(/^\/guide\/([^/]+)\/complete$/);
@@ -397,8 +403,8 @@ async function api(req, res, url) {
   if (sosAct) {
     const s = S.sos.find((x) => x.id === sosAct[1]); if (!s) return err(res, 404, 'NOT_FOUND', 'Not found');
     if (sosAct[2] === 'respond') { if (s.userId === u.id) return err(res, 400, 'BAD_REQUEST', 'Own SOS'); (s.responses ||= []).push({ userId: u.id, type: b.type || 'seen' }); if ((b.type || 'seen') === 'seen') push(S.users[s.userId], u.name + ' has seen your SOS', 'They can see what you shared.', 'sosResponse', { sosId: s.id }); return json(res, 200, { ok: true }); }
-    if (sosAct[2] === 'extend') { s.extendedMs += T.sosExtendMs; return json(res, 200, sosView(s)); }
-    if (sosAct[2] === 'resolve') { if (s.userId !== u.id) return err(res, 403, 'FORBIDDEN', 'Only the sender can end an SOS'); s.status = 'resolved'; s.resolvedAt = now(); c0 = S.circles.find((x) => x.id === s.circleId); c0.members.filter((id) => id !== u.id).forEach((id) => push(S.users[id], 'SOS ended', u.name + ' ended their SOS.', 'sosResolved', { sosId: s.id })); return json(res, 200, sosView(s)); }
+    if (sosAct[2] === 'extend') { if (T.sosDurationMs + s.extendedMs + T.sosExtendMs > T.sosTotalCapMs) return err(res, 400, 'MAX_DURATION', 'An SOS can run 4 hours at most'); s.extendedMs += T.sosExtendMs; return json(res, 200, sosView(s)); }
+    if (sosAct[2] === 'resolve') { const cc = S.circles.find((x) => x.id === s.circleId); if (s.userId !== u.id && !(cc && cc.ownerId === u.id)) return err(res, 403, 'FORBIDDEN', 'Only the sender or the host can end an SOS'); s.status = 'resolved'; s.resolvedAt = now(); c0 = S.circles.find((x) => x.id === s.circleId); c0.members.filter((id) => id !== u.id).forEach((id) => push(S.users[id], 'SOS ended', (s.userId === u.id ? u.name + ' ended their SOS.' : u.name + ' (host) ended ' + S.users[s.userId].name + "'s SOS."), 'sosResolved', { sosId: s.id })); return json(res, 200, sosView(s)); }
     if (sosAct[2] === 'trail') { if (b.capturedAt && b.capturedAt < now() - 120000) return err(res, 400, 'STALE_POINT', 'Point too old'); s.trail.push(b); return json(res, 200, { ok: true }); }
     return json(res, 200, sosView(s));
   }
