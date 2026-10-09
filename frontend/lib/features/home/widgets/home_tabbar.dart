@@ -14,12 +14,12 @@ import 'package:hazard_app/others/app_colors.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hazard_app/features/profile/providers/child_mode_provider.dart';
 
-/// The frosted light floating navigation bar.
+/// The frosted light floating navigation bar with icon + label for each
+/// destination.
 ///
-/// Icons-only so six destinations fit comfortably: Map, Search, ALRT,
-/// Alerts (with unread dot), Family (indigo) and the user's avatar as
-/// Profile. Active slot highlighted in brand orange. The map shows
-/// through around it.
+/// Six slots: Map, Alerts, Report (ALRT logo), Ready, Family, Me.
+/// Active slot highlighted in brand orange. The map shows through around
+/// it. Labels sit beneath each icon.
 class HomeTabbar extends ConsumerStatefulWidget {
   const HomeTabbar({
     super.key,
@@ -30,7 +30,7 @@ class HomeTabbar extends ConsumerStatefulWidget {
   final TabController tabController;
 
   /// Total vertical space the floating pill occupies (pill + bottom gap).
-  static const double height = 76.0;
+  static const double height = 86.0;
 
   /// Indigo accent for the Family destination.
   static const familyIndigo = Color(0xFF3D3DDF);
@@ -75,7 +75,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           child: BackdropFilter(
             filter: _frostedFilter,
             child: Container(
-              height: 62.spMin,
+              height: 68.spMin,
               decoration: BoxDecoration(
                 color: _pillColor,
                 borderRadius: BorderRadius.circular(18.spMin),
@@ -97,7 +97,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
                   ),
                 ],
               ),
-              padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+              padding: EdgeInsets.symmetric(horizontal: 4.spMin),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: tabs
@@ -120,19 +120,47 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
         behavior: HitTestBehavior.opaque,
         onTap: () => _onTabChanged(tab),
         child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 46.spMin,
-            height: 46.spMin,
-            decoration: BoxDecoration(
-              color: isActive ? _activeCircleColor : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Center(child: _tabIconBuilder(tab, isActive: isActive)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 36.spMin,
+                height: 36.spMin,
+                decoration: BoxDecoration(
+                  color: isActive ? _activeCircleColor : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                    child: _tabIconBuilder(tab, isActive: isActive)),
+              ),
+              SizedBox(height: 2.spMin),
+              Text(
+                tab.title,
+                style: TextStyle(
+                  fontSize: 10.spMin,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: _labelColor(tab, isActive: isActive),
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  /// Label colour: Family is always indigo, active tabs are orange, rest
+  /// are medium grey.
+  Color _labelColor(final HomeTab tab, {required final bool isActive}) {
+    if (tab == HomeTab.family) {
+      return HomeTabbar.familyIndigo;
+    }
+    return isActive ? _activeCircleColor : AppColors.mediumGrey;
   }
 
   Widget _tabIconBuilder(final HomeTab tab, {required final bool isActive}) {
@@ -142,11 +170,11 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
         // substituted for a glyph. Contain rather than a bare height, so
         // the box is the spec and the artwork fits itself to it.
         return SizedBox(
-          width: 32.spMin,
-          height: 26.spMin,
+          width: 26.spMin,
+          height: 22.spMin,
           child: SvgPicture.asset(
             // The six-path mark, never redrawn and never substituted for
-            // a glyph. Vector so it stays crisp in its locked 32x26 box.
+            // a glyph. Vector so it stays crisp in its locked box.
             'assets/logos/alrt_logo.svg',
             fit: BoxFit.contain,
           ),
@@ -156,7 +184,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
       case HomeTab.family:
         return Icon(
           tab.iconData,
-          size: 23.spMin,
+          size: 20.spMin,
           color: isActive
               ? HomeTabbar.familyIndigo
               : HomeTabbar.familyIndigo.withValues(alpha: 0.75),
@@ -166,7 +194,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
       default:
         return Icon(
           tab.iconData,
-          size: 23.spMin,
+          size: 20.spMin,
           color: isActive ? AppColors.white : AppColors.mediumGrey,
         );
     }
@@ -191,7 +219,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           children: [
             Icon(
               HomeTab.notifications.iconData,
-              size: 23.spMin,
+              size: 20.spMin,
               color: isActive ? AppColors.white : AppColors.mediumGrey,
             ),
             if (hasFreshAlerts)
@@ -199,8 +227,8 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
                 top: -1,
                 right: -1,
                 child: Container(
-                  width: 8.spMin,
-                  height: 8.spMin,
+                  width: 7.spMin,
+                  height: 7.spMin,
                   decoration: const BoxDecoration(
                     color: AppColors.emergency,
                     shape: BoxShape.circle,
@@ -213,7 +241,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
     );
   }
 
-  /// The user's avatar as the Profile destination.
+  /// The user's avatar as the Me destination.
   Widget _profileAvatarBuilder({required final bool isActive}) {
     return Consumer(
       builder: (context, ref, child) {
@@ -222,17 +250,17 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
 
         final avatar = profilePictureUrl != null && profilePictureUrl.isNotEmpty
             ? CircleAvatar(
-                radius: 14.spMin,
+                radius: 12.spMin,
                 backgroundImage: CachedNetworkImageProvider(profilePictureUrl),
               )
             : CircleAvatar(
-                radius: 14.spMin,
+                radius: 12.spMin,
                 backgroundColor: AppColors.orange,
                 child: Text(
                   user?.initials ?? '?',
                   style: TextStyle(
                     color: AppColors.white,
-                    fontSize: 11.spMin,
+                    fontSize: 9.spMin,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

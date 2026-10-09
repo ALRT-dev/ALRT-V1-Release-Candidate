@@ -34,12 +34,14 @@ explicit instruction from the product owner in the current session.
   is #EBEBF7 (FamilyColors.v31Page). Take Family colours from
   family_colors.dart, never a one-off hex (the old Family purple
   #7B3FA0 and #9C27B0 are both retired).
-- Footer (frosted light bar, 18 px radius): active slot gets brand orange
-  #E8622A, the ALRT slot uses the full six-path ALRT logo SVG (32x26, never
+- Footer (frosted light bar with labels, 18 px radius): six slots in order
+  Map, Alerts, Report, Ready, Family, Me. Active slot gets brand orange
+  #E8622A, the ALRT slot uses the full six-path ALRT logo SVG (never
   redrawn or substituted) and opens Report, the Alerts bell always carries
   the red unread dot when anything is unread, the avatar shows a ring while
   any live share or SOS runs, and the footer is absent on exactly one
-  screen: full-screen SOS.
+  screen: full-screen SOS. Search tab removed (search lives in the Map
+  search bar). Ready is new.
 
 ## Safety and privacy (non-negotiable)
 

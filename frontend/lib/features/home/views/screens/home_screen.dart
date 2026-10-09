@@ -36,8 +36,8 @@ import 'package:hazard_app/features/report/providers/create_update_report_provid
 import 'package:hazard_app/features/report/providers/states/create_update_report_provider_state.dart';
 import 'package:hazard_app/features/report/views/screens/create_update_report_screen.dart';
 import 'package:hazard_app/features/report/views/widgets/alrt_approved_toast.dart';
+import 'package:hazard_app/features/ready/views/screens/ready_screen.dart';
 import 'package:hazard_app/features/search/providers/main_search_provider.dart';
-import 'package:hazard_app/features/search/views/screens/hazard_search_screen.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
@@ -164,9 +164,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   const MapScreen(),
-                  const HazardSearchScreen(),
-                  const CreateUpdateReportScreen(),
                   const NotificationsScreen(),
+                  const CreateUpdateReportScreen(),
+                  const ReadyScreen(),
                   const FamilyTabView(),
                   const ProfileScreen(),
                 ],

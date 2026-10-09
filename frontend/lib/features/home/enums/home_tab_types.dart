@@ -1,29 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// The six footer destinations in visual order: Map, Alerts, Report (ALRT
+/// logo), Ready, Family, Me.
+///
+/// Search was removed in the V3.1 footer redesign (search lives in the Map
+/// search bar). Ready is new.
 enum HomeTab {
   map,
-  search,
-  list,
   notifications,
+  list,
+  ready,
   family,
   profile;
 
-  /// The title of the tab.
+  /// The label shown beneath the icon in the footer bar.
   String get title {
     switch (this) {
       case HomeTab.map:
         return 'Map';
-      case HomeTab.search:
-        return 'Search';
-      case HomeTab.list:
-        return 'ALRT';
       case HomeTab.notifications:
         return 'Alerts';
+      case HomeTab.list:
+        return 'Report';
+      case HomeTab.ready:
+        return 'Ready';
       case HomeTab.family:
         return 'Family';
       case HomeTab.profile:
-        return 'Profile';
+        return 'Me';
     }
   }
 
@@ -32,12 +37,12 @@ enum HomeTab {
     switch (this) {
       case HomeTab.map:
         return LucideIcons.mapPin;
-      case HomeTab.search:
-        return LucideIcons.search;
-      case HomeTab.list:
-        return LucideIcons.list;
       case HomeTab.notifications:
         return LucideIcons.bell;
+      case HomeTab.list:
+        return LucideIcons.list;
+      case HomeTab.ready:
+        return LucideIcons.shieldCheck;
       case HomeTab.family:
         return LucideIcons.users;
       case HomeTab.profile:
