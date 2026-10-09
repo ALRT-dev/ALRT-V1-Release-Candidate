@@ -165,7 +165,7 @@ goes on its own address first:
 
 1. Cloudflare, Workers & Pages, Create, Pages, Connect to Git: repository
    `ALRT-dev/ALRT-V1-Release-Candidate`, production branch
-   `claude/compassionate-franklin-512so7`.
+   `release-candidate`.
 2. Build settings: root directory `admin`, build command `npm run build`,
    output directory `dist`.
 3. Settings, Environment variables, Production:
