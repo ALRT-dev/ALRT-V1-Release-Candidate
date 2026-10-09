@@ -3,7 +3,7 @@
   "brand": {
     "name": "ALRT",
     "plusName": "ALRT +",
-    "tagline": "ALERT \u00b7 LOCATION \u00b7 REAL-TIME \u00b7 TRAVEL",
+    "tagline": "ALERT · LOCATION · REAL-TIME · TRAVEL",
     "gradient": [
       "#FF6B00",
       "#FF0004"
@@ -16,6 +16,7 @@
     "darkSurface": "#23252B",
     "sectionLabel": "#B84500",
     "familyIndigo": "#3D3DDF",
+    "teal": "#0D9488",
     "familyGradient": [
       "#2E2A9E",
       "#1E1780",
@@ -217,7 +218,7 @@
       "I'm Safe",
       "is safe",
       "Are you safe",
-      "Safe \u2014",
+      "Safe —",
       "000",
       "Triple Zero",
       "all clear",
@@ -607,8 +608,8 @@
       "source": "9 Oct 2026 instruction"
     },
     "mapKey": {
-      "value": "outline shapes only in dark grey, then the AWS colours explained, then the colour to severity words",
-      "source": "9 Oct 2026 instruction"
+      "value": "outline shapes only in dark grey, then the AWS colours explained, then a horizontal colour band that says colour shows how serious. No level words on the band: the level is assumed from the colour",
+      "source": "9 Oct 2026 instruction, second round (replaces the earlier 'colour to severity words')"
     },
     "route": {
       "value": "show hazards on each route option and let the person choose, like Google Maps",
@@ -637,6 +638,18 @@
     "widgets": {
       "value": "included: Emergency Warning (dark red), Near you small states, Family, Family SOS (its own look), from the Widgets board",
       "source": "Widgets board; 9 Oct 2026 instruction"
+    },
+    "filters": {
+      "value": "Filters has no International feeds row. Who is speaking lists AWS, Official, Community and ALRT Assessment; severity keeps its words; categories as chips",
+      "source": "9 Oct 2026 instruction"
+    },
+    "enRoute": {
+      "value": "while travelling a chosen route, an alert that touches the road ahead pops up in the app (Ahead on your route, distance, Avoid it / View the alert / Keep going) and lands as a push for the lock screen when the app is in the background. Emergency Warnings always pop; other levels follow the notification level. Trips run through the backend (/maps/trips) so the server decides what is ahead",
+      "source": "9 Oct 2026 instruction: 'I also want the alert to pop up en route when they are travelling'"
+    },
+    "familyCircleStates": {
+      "value": "the Family circle in the footer is red with a dot while an SOS is live, teal with a dot while a check-in is asked of you, indigo at rest. Not orange",
+      "source": "9 Oct 2026 instruction (teal chosen over green, confirm)"
     }
   },
   "bandWords": {

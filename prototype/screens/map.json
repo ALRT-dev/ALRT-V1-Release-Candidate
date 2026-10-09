@@ -816,6 +816,10 @@
     "via": "38 min"
    },
    {
+    "to": "routestart",
+    "via": "Go this way"
+   },
+   {
     "to": "tab",
     "via": "Share journey"
    },
@@ -870,6 +874,10 @@
     "via": "38 min"
    },
    {
+    "to": "routestart",
+    "via": "Go this way"
+   },
+   {
     "to": "tab",
     "via": "Share journey"
    },
@@ -899,6 +907,122 @@
    }
   ],
   "jpg": "mapjpg/RouteChosen.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "Travelling",
+  "board": "new",
+  "note": "Navigation view on the chosen route; the backend watches the road ahead",
+  "file": "map/Travelling.png",
+  "links": [
+   {
+    "to": "route",
+    "via": "Back"
+   },
+   {
+    "to": "tripend",
+    "via": "End"
+   },
+   {
+    "to": "Alert detail",
+    "via": "Bushfire near Wanneroo Rd, Neerabup"
+   },
+   {
+    "to": "Alert detail",
+    "via": "Bushfire Watch and Act, Toodyay"
+   },
+   {
+    "to": "tab",
+    "via": "Share journey"
+   },
+   {
+    "to": "devahead",
+    "via": "Hazard ahead (demo)"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Travelling.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "EnRouteAlert",
+  "board": "sheet",
+  "note": "An alert on the route ahead pops up while travelling: Avoid it, View, Keep going",
+  "file": "map/EnRouteAlert.png",
+  "links": [
+   {
+    "to": "route",
+    "via": "Back"
+   },
+   {
+    "to": "tripend",
+    "via": "End"
+   },
+   {
+    "to": "Alert detail",
+    "via": "Bushfire near Wanneroo Rd, Neerabup"
+   },
+   {
+    "to": "Alert detail",
+    "via": "Bushfire Watch and Act, Toodyay"
+   },
+   {
+    "to": "tab",
+    "via": "Share journey"
+   },
+   {
+    "to": "devahead",
+    "via": "Hazard ahead (demo)"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/EnRouteAlert.jpg",
   "area": "Map and alerts"
  },
  {

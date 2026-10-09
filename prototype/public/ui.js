@@ -69,11 +69,11 @@ function act(el, action, data = {}, testid) { if (!el) return; const t = el.clos
 function navTo(el, name, testid) { if (!el) return; const t = el.closest('a,button') || el; t.dataset.nav = name; delete t.dataset.act; if (testid) t.dataset.testid = testid; t.style.cursor = 'pointer'; return t; }
 const html = (s) => { const d = document.createElement('div'); d.innerHTML = s; return d.firstElementChild; };
 
-// Family circle state: red while an SOS is live, amber when a check-in is asked of you, indigo at rest.
+// Family circle state: red while an SOS is live, teal when a check-in is asked of you, indigo at rest (Sarah 9 Oct: not orange).
 function famState() { if (st.sos.some((s) => s.active && (s.userId === me() || st.circles.some((c) => c.circleId === s.circleId)))) return 'sos'; if ((st.ciReqs || []).some((x) => x.waitingOn.some((w) => w.id === me())) || (st.circles || []).some((c) => c.waitingOnMe)) return 'ask'; return 'idle'; }
 
 // ---------- footer (from the Main board)
-const TAB_OF = { Main: 'Main', Places: 'Main', selectloc: 'Main', route: 'Main', Feed: 'Feed', Offline: 'Feed', notes: 'Feed', Detail: 'Feed', Ex1: 'Feed', Ex2: 'Feed', Ex3: 'Feed', Community: 'Feed', Report: 'Report', Posted: 'Report', Ready: 'Ready', Learn: 'Ready', guide: 'Ready', Plan: 'Ready', Drill: 'Ready', Safety: 'Ready', Family: 'Family', FamilyEmpty: 'Family', journey: 'Family', invite: 'Family', groupsettings: 'Family', switchgroup: 'Family', circleprofile: 'Family', sharing: 'Family', famplaces: 'Family', soslists: 'Family', soslistedit: 'Family', sosreceiver: 'Family', sosresolved: 'Family', soshistory: 'Family', sharedjourney: 'Family', grouppaused: 'Family', plan_cover: 'Family', rollcall: 'Family', Profile: 'Profile', managenotes: 'Profile', accessible: 'Profile', points: 'Profile', leaderboard: 'Profile', badges: 'Profile', childmode: 'Profile', blocked: 'Profile', support: 'Profile', deleteacct: 'Profile', manage: 'Profile', myalrts: 'Profile' };
+const TAB_OF = { Main: 'Main', Places: 'Main', selectloc: 'Main', route: 'Main', travelling: 'Main', Feed: 'Feed', Offline: 'Feed', notes: 'Feed', Detail: 'Feed', Ex1: 'Feed', Ex2: 'Feed', Ex3: 'Feed', Community: 'Feed', Report: 'Report', Posted: 'Report', Ready: 'Ready', Learn: 'Ready', guide: 'Ready', Plan: 'Ready', Drill: 'Ready', Safety: 'Ready', Family: 'Family', FamilyEmpty: 'Family', journey: 'Family', invite: 'Family', groupsettings: 'Family', switchgroup: 'Family', circleprofile: 'Family', sharing: 'Family', famplaces: 'Family', soslists: 'Family', soslistedit: 'Family', sosreceiver: 'Family', sosresolved: 'Family', soshistory: 'Family', sharedjourney: 'Family', grouppaused: 'Family', plan_cover: 'Family', rollcall: 'Family', Profile: 'Profile', managenotes: 'Profile', accessible: 'Profile', points: 'Profile', leaderboard: 'Profile', badges: 'Profile', childmode: 'Profile', blocked: 'Profile', support: 'Profile', deleteacct: 'Profile', manage: 'Profile', myalrts: 'Profile' };
 function footer(active) {
   if (st.igFooter) return igFooter(active);
   const el = html(window.NAV); el.style.position = 'absolute'; el.style.pointerEvents = 'auto';
@@ -85,9 +85,9 @@ function footer(active) {
     if (a.getAttribute('aria-label') === 'Me') { const av = a.firstElementChild; av.textContent = (st.user?.name || 'S')[0].toUpperCase(); av.style.boxShadow = on ? '0 0 0 2px #FFFFFF, 0 0 0 4px #E8622A' : ''; a.dataset.testid = 'tab-me'; return; }
     if (target === 'Report') { a.dataset.testid = 'tab-report'; if (st.user?.childMode) a.style.display = 'none'; return; }
     const fs = famState();
-    a.style.background = on ? (isFam ? (fs === 'sos' ? 'rgba(218,31,45,0.12)' : fs === 'ask' ? 'rgba(232,98,42,0.12)' : 'rgba(61,61,223,0.10)') : ON) : '';
-    a.style.color = isFam ? (fs === 'sos' ? '#DA1F2D' : fs === 'ask' ? '#E8622A' : '#3D3DDF') : on ? '#E8622A' : '#5C5C66';
-    if (isFam) { a.dataset.state = fs; let dot = a.querySelector('span'); if (fs !== 'idle') { if (!dot) { dot = document.createElement('span'); a.appendChild(dot); } dot.style.cssText = `position: absolute; top: 7px; right: 14px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #FFFFFF; background: ${fs === 'sos' ? '#DA1F2D' : '#E8622A'}`; } else if (dot) dot.remove(); }
+    a.style.background = on ? (isFam ? (fs === 'sos' ? 'rgba(218,31,45,0.12)' : fs === 'ask' ? 'rgba(13,148,136,0.12)' : 'rgba(61,61,223,0.10)') : ON) : '';
+    a.style.color = isFam ? (fs === 'sos' ? '#DA1F2D' : fs === 'ask' ? R.brand.teal : '#3D3DDF') : on ? '#E8622A' : '#5C5C66';
+    if (isFam) { a.dataset.state = fs; let dot = a.querySelector('span'); if (fs !== 'idle') { if (!dot) { dot = document.createElement('span'); a.appendChild(dot); } dot.style.cssText = `position: absolute; top: 7px; right: 14px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #FFFFFF; background: ${fs === 'sos' ? '#DA1F2D' : R.brand.teal}`; } else if (dot) dot.remove(); }
     a.dataset.testid = 'tab-' + { Main: 'alerts', Feed: 'feed', Ready: 'ready', Family: 'family' }[target];
     if (target === 'Feed') { const dot = $('span', a); if (dot) dot.style.display = st.notes.length > st.seenNotes ? '' : 'none'; }
   });
@@ -105,7 +105,7 @@ function igFooter(active) {
     const svg = a.querySelector('svg'); if (svg && target !== 'Report') { svg.setAttribute('width', '27'); svg.setAttribute('height', '27'); if (on) svg.setAttribute('fill', 'currentColor'); }
     if (a.getAttribute('aria-label') === 'Me') { const av = a.firstElementChild; av.textContent = (st.user?.name || 'S')[0].toUpperCase(); av.style.width = av.style.height = '28px'; av.style.boxShadow = on ? '0 0 0 2px #FFFFFF, 0 0 0 3.5px #E8622A' : ''; a.dataset.testid = 'tab-me'; return; }
     if (target === 'Report') { a.dataset.testid = 'tab-report'; if (st.user?.childMode) a.style.display = 'none'; return; }
-    const fs2 = famState(); a.style.color = isFam ? (fs2 === 'sos' ? '#DA1F2D' : fs2 === 'ask' ? '#E8622A' : '#3D3DDF') : on ? '#E8622A' : '#2B2B30'; if (isFam) a.dataset.state = fs2;
+    const fs2 = famState(); a.style.color = isFam ? (fs2 === 'sos' ? '#DA1F2D' : fs2 === 'ask' ? R.brand.teal : '#3D3DDF') : on ? '#E8622A' : '#2B2B30'; if (isFam) a.dataset.state = fs2;
     a.dataset.testid = 'tab-' + { Main: 'alerts', Feed: 'feed', Ready: 'ready', Family: 'family' }[target];
     if (target === 'Feed') { const dot = $('span', a); if (dot) { dot.style.display = st.notes.length > st.seenNotes ? '' : 'none'; dot.style.top = '10px'; } }
   });
@@ -353,7 +353,7 @@ BIND.FamilyEmpty = (r) => { r.dataset.testid = 'family-empty'; act(byText(r, 'Cr
 BIND.Family = (r) => {
   const c = circ(); if (!c) return;
   const host = c.ownerId === me(); const al = c.connectionAccess;
-  const fs = famState(); const hd = r.querySelector('header'); if (hd && fs !== 'idle') { hd.style.background = fs === 'sos' ? 'linear-gradient(165deg, #C8102E, #7A0012)' : 'linear-gradient(165deg, #E8622A, #B84500)'; hd.dataset.state = fs; }
+  const fs = famState(); const hd = r.querySelector('header'); if (hd && fs !== 'idle') { hd.style.background = fs === 'sos' ? 'linear-gradient(165deg, #C8102E, #7A0012)' : 'linear-gradient(165deg, #0D9488, #0F766E)'; hd.dataset.state = fs; }
   const gp = c.photoUrl ? `<span style="width: 36px; height: 36px; border-radius: 12px; background: url(${c.photoUrl}) center/cover; flex: none" data-testid="group-photo"></span>` : '';
   const title = r.querySelector('header button'); if (title) { if (gp) title.insertAdjacentHTML('afterbegin', gp); title.firstChild.textContent = c.name; act(title, st.circles.length > 1 ? 'tab' : 'toast', st.circles.length > 1 ? { tab: 'switchgroup' } : { m: 'Join or create another circle from Add a person' }, st.circles.length > 1 ? 'switch' : 'circle-title'); if (st.circles.length > 1) { const h = html(`<span data-testid="circle-title" hidden>${esc(c.name)}</span>`); title.appendChild(h); } }
   act(r.querySelector('button[aria-label="Group settings"]'), 'tab', { tab: 'groupsettings' }, 'gsettings');
@@ -377,7 +377,7 @@ BIND.Family = (r) => {
   byText(r, 'Add a person').parentElement.insertAdjacentElement('beforebegin', more);
 };
 function detailBind(r, h) {
-  navTo(r.querySelector('a[data-nav="Feed"]'), 'Feed', 'back');
+  navTo(r.querySelector('a[data-nav="Feed"]'), st.backTo || 'Feed', 'back');
   const f = byText(r, 'Follow'); if (f) { const on = st.followed.includes(h.id); act(f, 'follow', {}, 'follow'); f.textContent = on ? 'Following' : 'Follow'; }
   act(byText(r, 'Show on map'), 'tab', { tab: 'Main' });
   const c = circ(); setText(r, 'Nixon group · 3 people', c ? `${c.name} · ${c.peopleCount} people` : 'No group yet');

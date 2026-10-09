@@ -1,6 +1,6 @@
 {
-  "passed": 233,
-  "total": 233,
+  "passed": 243,
+  "total": 243,
   "results": [
     {
       "check": "Splash is white with the icon",
@@ -138,7 +138,12 @@
       "detail": ""
     },
     {
-      "check": "Map key order: shapes, AWS colours explained, then colour to severity words",
+      "check": "Map key order: shapes, AWS colours explained, then a colour band",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Map key colour band says colour shows how serious, no level words (9 Oct)",
       "pass": true,
       "detail": ""
     },
@@ -159,6 +164,51 @@
     },
     {
       "check": "Navigation free, journey sharing ALRT +, routes via backend",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Wording scan clean: Travelling",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Go this way starts a trip on the chosen route (backend /maps/trips)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "An alert on the route ahead pops up while travelling",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "En-route alert also lands as a push for the lock screen",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Avoid it reroutes to a clear way",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "View the alert opens the detail, back returns to the trip",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Back lands on Travelling",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Keep going dismisses it and it does not pop again",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "End trip returns to the map",
       "pass": true,
       "detail": ""
     },
@@ -345,12 +395,12 @@
     {
       "check": "Push after first confirmation: \"Community report | title\", Unverified",
       "pass": true,
-      "detail": "[{'id': 'n_c62akfa', 'userId': 'u_xnbvsq3', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
+      "detail": "[{'id': 'n_mmx45sf', 'userId': 'u_eba1e0r', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
     },
     {
       "check": "Dangerous report pushes at once, within 2 km (decided)",
       "pass": true,
-      "detail": "[{'id': 'n_ahfmma7', 'userId': 'u_xnbvsq3', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1791517338"
+      "detail": "[{'id': 'n_8nb8ilm', 'userId': 'u_eba1e0r', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1791525709"
     },
     {
       "check": "Reporter gets ALRT Approved push",
@@ -518,7 +568,7 @@
       "detail": ""
     },
     {
-      "check": "Family circle goes amber when a check-in is asked of you",
+      "check": "Family circle goes teal (not orange) when a check-in is asked of you",
       "pass": true,
       "detail": ""
     },
@@ -635,7 +685,7 @@
     {
       "check": "Group covered, capacity from plan",
       "pass": true,
-      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794112386000, 'coveredBy': 'you', 'youPay': True}"
+      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794120756912, 'coveredBy': 'you', 'youPay': True}"
     },
     {
       "check": "Family header shows coverage",
@@ -830,7 +880,7 @@
     {
       "check": "Live journey allowed after host allows it",
       "pass": true,
-      "detail": "{'status': 201, 'data': {'id': 'j_am1vxq4', 'circleId': 'c_s6hthv5', 'userId': 'u_fnrbpg1', 'createdAt': 1791524075963, 'endsAt': 1791524975963, 'live': True, 'points': [], 'status': 'active', 'dest':"
+      "detail": "{'status': 201, 'data': {'id': 'j_bphkcg6', 'circleId': 'c_vstdiox', 'userId': 'u_33ip256', 'createdAt': 1791532445626, 'endsAt': 1791533345626, 'live': True, 'points': [], 'status': 'active', 'dest':"
     },
     {
       "check": "Wording scan clean: Family places",
@@ -1098,7 +1148,7 @@
       "detail": ""
     },
     {
-      "check": "Filters: who is speaking as outlines, severity with words, categories",
+      "check": "Filters: who is speaking as outlines, severity with words, categories, no International feeds row (9 Oct)",
       "pass": true,
       "detail": ""
     },

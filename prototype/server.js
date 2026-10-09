@@ -20,7 +20,7 @@ function seed() {
   S = {
     users: {}, tokens: {}, hazards: [], circles: [], sos: [], journeys: [], checkins: [],
     notifications: [], pushTokens: [], billingEnabled: true, webhookLog: [], sponsorships: [],
-    asks: {}, places: {}, xp: {}, invites: [], locReqs: [], sosLists: [], famPlaces: [], sched: [], blocked: {}, flags: {}, support: [], reportTimes: {}, guides: ['Bushfire','Flood','Storm','Heatwave','Power outage'], checkinReqs: [],
+    asks: {}, places: {}, xp: {}, invites: [], locReqs: [], sosLists: [], famPlaces: [], sched: [], blocked: {}, flags: {}, support: [], reportTimes: {}, guides: ['Bushfire','Flood','Storm','Heatwave','Power outage'], checkinReqs: [], trips: [],
   };
   const t = now();
   const h = (title, source, band, cat, mins, lat, lng, extra = {}) => ({
@@ -285,6 +285,48 @@ async function api(req, res, url) {
 
   const gc = p.match(/^\/guide\/([^/]+)\/complete$/);
   if (gc && m === 'POST') { u.guides = u.guides || {}; if (!u.guides[gc[1]]) { u.guides[gc[1]] = 1; award(u, R.points.guideComplete, 'guide'); } return json(res, 200, { ok: true });}
+  // ---- maps: routes and trips (Sarah 9 Oct: alerts pop up en route while travelling). Real app proxies Google Routes through /api/maps; the mock scores each option by the hazards it crosses.
+  if (p === '/maps/routes' && m === 'POST') {
+    const hz = S.hazards.filter((h) => h.status === 'live');
+    const sev = hz.filter((h) => ['critical', 'action'].includes(h.band) && h.source !== 'community'); const com = hz.filter((h) => h.source === 'community');
+    const options = [
+      { id: 'r1', mins: 24, km: 18.2, via: 'Mitchell Fwy', hazardIds: sev.slice(0, 2).map((h) => h.id), path: 'M30 160 C 90 150, 140 110, 200 90 S 300 40, 330 30' },
+      { id: 'r2', mins: 31, km: 21.5, via: 'Marmion Ave', hazardIds: com.slice(0, 1).map((h) => h.id), path: 'M30 160 C 60 120, 90 70, 170 60 S 300 60, 330 30' },
+      { id: 'r3', mins: 38, km: 24.9, via: 'Wanneroo Rd', hazardIds: [], path: 'M30 160 C 100 170, 200 170, 260 120 S 320 60, 330 30' },
+    ].map((o) => ({ ...o, hazards: o.hazardIds.map((id) => hazardView(hz.find((h) => h.id === id))) }));
+    return json(res, 200, { from: b.from || 'Your location', to: b.to || 'Perth CBD', mode: b.mode || 'Drive', options });
+  }
+  if (p === '/maps/trips' && m === 'POST') {
+    S.trips.filter((t) => t.userId === u.id && t.status === 'active').forEach((t) => { t.status = 'ended'; });
+    const t = { id: uid('trip_'), userId: u.id, to: b.to || 'Perth CBD', mode: b.mode || 'Drive', option: b.option || { id: 'r1', via: 'Mitchell Fwy', mins: 24, km: 18.2, hazardIds: [] }, startedAt: now(), status: 'active', shown: [], dismissed: [] };
+    S.trips.push(t); return json(res, 200, t);
+  }
+  const tp = p.match(/^\/maps\/trips\/([^/]+)(?:\/(ahead|avoid|dismiss))?$/);
+  if (tp) {
+    const t = S.trips.find((x) => x.id === tp[1] && x.userId === u.id); if (!t) return err(res, 404, 'NOT_FOUND', 'No trip');
+    if (m === 'DELETE') { t.status = 'ended'; t.endedAt = now(); return json(res, 200, t); }
+    if (tp[2] === 'ahead') {
+      // the next alert the route crosses that the traveller has not dealt with; Emergency Warnings always pop, other bands follow the notification level
+      if (t.status !== 'active') return json(res, 200, { hazard: null });
+      const age = now() - t.startedAt; if (age < 2000 && !t.forced) return json(res, 200, { hazard: null, trip: t });
+      const ids = (t.option.hazardIds || []).filter((id) => !t.dismissed.includes(id));
+      const h = ids.map((id) => S.hazards.find((x) => x.id === id)).filter(Boolean)[0];
+      if (!h) return json(res, 200, { hazard: null, trip: t });
+      const km = +(Math.max(0.4, 6.2 - age / 10000)).toFixed(1);
+      if (!t.shown.includes(h.id)) { t.shown.push(h.id); push(u, 'Ahead on your route: ' + h.title, `${km} km ahead on ${t.option.via}. Tap to see it and choose another way.`, 'enroute', { hazardId: h.id, tripId: t.id }); }
+      return json(res, 200, { hazard: hazardView(h), distanceKm: km, trip: t });
+    }
+    if (tp[2] === 'dismiss' && m === 'POST') { if (b.hazardId && !t.dismissed.includes(b.hazardId)) t.dismissed.push(b.hazardId); return json(res, 200, t); }
+    if (tp[2] === 'avoid' && m === 'POST') {
+      // reroute: the option that avoids this alert; the mock swaps to the clearest alternative
+      if (b.hazardId && !t.dismissed.includes(b.hazardId)) t.dismissed.push(b.hazardId);
+      const alts = [{ id: 'r3', via: 'Wanneroo Rd', mins: 38, km: 24.9, hazardIds: [] }, { id: 'r2', via: 'Marmion Ave', mins: 31, km: 21.5, hazardIds: [] }];
+      t.option = alts.find((o) => o.id !== t.option.id) || alts[0]; t.rerouted = (t.rerouted || 0) + 1; t.startedAt = now();
+      return json(res, 200, t);
+    }
+    return json(res, 200, t);
+  }
+  if (p === '/__hazard-ahead' && m === 'POST') { const t = S.trips.find((x) => x.userId === u.id && x.status === 'active'); if (!t) return json(res, 200, { ok: false }); const h = S.hazards.find((x) => x.source === 'aws' && x.band === 'critical') || S.hazards[0]; if (!t.option.hazardIds.includes(h.id)) t.option.hazardIds.unshift(h.id); t.dismissed = t.dismissed.filter((id) => id !== h.id); t.shown = t.shown.filter((id) => id !== h.id); t.forced = true; return json(res, 200, { ok: true, hazardId: h.id }); }
   // ---- notifications / points
   if (p === '/notification/feed') return json(res, 200, S.notifications.filter((n) => n.userId === u.id).sort((a, b2) => b2.createdAt - a.createdAt));
   if (p === '/notification/test' && m === 'POST') return json(res, 200, push(u, 'Test', 'Test notification', 'test'));

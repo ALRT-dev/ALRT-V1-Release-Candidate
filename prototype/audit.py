@@ -67,13 +67,23 @@ with sync_playwright() as p:
     pg.evaluate("A.mapkey(); draw()"); settle(300); scan('Map key')
     outl = pg.evaluate("[...document.querySelectorAll('[data-testid=sheet] svg[data-outline] *')].every(e=>e.getAttribute('fill')==='none' && e.getAttribute('stroke')==='#3A3A42')")
     check('Map key shapes are outlines only, dark grey, no colour', outl and pg.evaluate("document.querySelectorAll('[data-testid=sheet] svg[data-outline]').length") == 5)
-    kt = text(); i1, i2, i3 = kt.find('WHO IS SPEAKING'), kt.find('AWS LEVELS'), kt.find('COLOUR MEANS SEVERITY')
-    check('Map key order: shapes, AWS colours explained, then colour to severity words', -1 not in (i1, i2, i3) and i1 < i2 < i3 and all(w in kt for w in ['Advice', 'Watch and Act', 'Emergency Warning']) and all(R['bandWords'][k][0] in kt for k in R['bandWords']))
+    kt = text(); i1, i2, i3 = kt.find('WHO IS SPEAKING'), kt.find('AWS LEVELS'), kt.find('COLOUR\n')
+    check('Map key order: shapes, AWS colours explained, then a colour band', -1 not in (i1, i2, i3) and i1 < i2 < i3 and all(w in kt for w in ['Advice', 'Watch and Act', 'Emergency Warning']) and has('severity-band'))
+    check('Map key colour band says colour shows how serious, no level words (9 Oct)', 'Colour shows how serious' in kt and not any(R['bandWords'][k][0] in kt[i3:] for k in R['bandWords']) and 'International feeds' in kt)
     pg.evaluate("A.close(); draw()")
     click('route-btn'); settle(400); scan('Route'); pg.fill('[data-testid=route-to]', 'Perth CBD'); click('route-go'); settle(400)
     check('Route: options with hazards on each, choose like Google Maps', len(pg.query_selector_all('[data-testid=route-opt]')) == 3 and has('route-map') and 'Fastest' in text() and 'No alerts' in text())
     pg.click('[data-testid=route-opt] >> nth=2'); settle(300); check('Choosing a route highlights it', pg.evaluate("document.querySelectorAll('[data-testid=route-opt]')[2].style.borderColor") in ('rgb(37, 99, 235)', '#2563EB'))
-    check('Navigation free, journey sharing ALRT +, routes via backend', 'Navigation is free' in text() and 'no map key ships' in text()); click('back'); settle(300)
+    check('Navigation free, journey sharing ALRT +, routes via backend', 'Navigation is free' in text() and 'no map key ships' in text() and pg.evaluate("st.route.options.every(o=>o.id)"))
+    # Sarah 9 Oct: alerts pop up en route while travelling
+    pg.click('[data-testid=route-opt] >> nth=0'); settle(200); click('route-start'); settle(700); scan('Travelling')
+    check('Go this way starts a trip on the chosen route (backend /maps/trips)', pg.evaluate("st.tab") == 'travelling' and has('trip-map') and 'Continue on Mitchell Fwy' in text() and api('/maps/trips/' + pg.evaluate('st.trip.id'))['data']['status'] == 'active')
+    settle(3600); check('An alert on the route ahead pops up while travelling', has('enroute') and 'ahead on your route' in text().lower() and 'km' in pg.inner_text('[data-testid=enroute]').lower())
+    check('En-route alert also lands as a push for the lock screen', any(n['kind'] == 'enroute' for n in api('/notification/feed')['data']))
+    click('enroute-avoid'); settle(600); check('Avoid it reroutes to a clear way', pg.evaluate("st.trip.option.via") != 'Mitchell Fwy' and pg.evaluate("st.trip.rerouted") == 1 and not has('enroute'))
+    click('dev-ahead'); settle(700); click('enroute-view'); settle(400); check('View the alert opens the detail, back returns to the trip', has('detail')); click('back'); settle(400); check('Back lands on Travelling', pg.evaluate("st.tab") == 'travelling')
+    click('dev-ahead'); settle(700); click('enroute-keep'); settle(500); settle(1700); check('Keep going dismisses it and it does not pop again', not has('enroute') and pg.evaluate("st.sheet") is None)
+    click('trip-end'); settle(500); check('End trip returns to the map', pg.evaluate("st.tab") == 'Main' and pg.evaluate("st.trip") is None)
     scan('Map'); goto_tab('alerts'); click('view-toggle'); settle(500)
 
     # ================= Alerts (Feed board) =================
@@ -177,7 +187,7 @@ with sync_playwright() as p:
     click('checkon'); settle(600); check('Check on sends a targeted ask', 'Asked them to check in' in text()); settle(900)
     check('Waiting on 1 card appears', has('waiting-row')); pg.click('[data-testid=waiting-row]'); settle(500); check('Roll call lists who is waiting', 'waiting on 1' in text().lower()); click('rc-cancel'); settle(600)
     ftk = api('/__friend-token', 'GET', None, False)['data']['token']; asu(ftk, '/family/circles/' + api('/family/circles')['data'][0]['circleId'] + '/check-in/request', {'memberIds': [pg.evaluate('st.user.id')]}); settle(1900)
-    check('Family circle goes amber when a check-in is asked of you', pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').dataset.state") == 'ask')
+    check('Family circle goes teal (not orange) when a check-in is asked of you', pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').dataset.state") == 'ask' and pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').style.color") == 'rgb(13, 148, 136)')
     goto_tab('family'); click('ci-from-req'); settle(300); click('ci-none'); settle(1200); check('Family circle back to indigo after checking in', pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').dataset.state") == 'idle')
     code = api('/family/circles')['data'][0]['code']
     u4 = reg('free@example.com', 'Fay'); asu(u4['token'], '/family/join', {'code': code}); cid = asu(u4['token'], '/family/circles')['data'][0]['circleId']
@@ -335,7 +345,7 @@ with sync_playwright() as p:
 
     # ================= Offline, push, lock screen, billing flag =================
     goto_tab('alerts'); click('filters-btn'); settle(300); scan('Filters')
-    check('Filters: who is speaking as outlines, severity with words, categories', pg.evaluate("document.querySelectorAll('[data-testid=sheet] svg[data-outline]').length") == 5 and all(R['bandWords'][k][1] in text() for k in R['bandWords']) and 'Always on' in text())
+    check('Filters: who is speaking as outlines, severity with words, categories, no International feeds row (9 Oct)', pg.evaluate("document.querySelectorAll('[data-testid=sheet] svg[data-outline]').length") == 4 and all(R['bandWords'][k][1] in text() for k in R['bandWords']) and 'Always on' in text() and 'International' not in text() and not has('f-global'))
     click('f-community'); settle(300); click('filt-done'); settle(300); check('Filter hides community reports', not has('alert-community')); click('filters-btn'); settle(200); click('filt-reset'); click('filt-done'); settle(300)
     goto_tab('alerts'); pg.click('[data-dev=offline]'); settle(500); check('Offline banner shows "as of" time', re.search(r'Offline\. Showing alerts as of \d\d:\d\d', text()) is not None); pg.click('[data-dev=offline]'); settle(300)
     pg.click('[data-dev=push]'); settle(300); check('Lock screen push preview', has('lock')); pg.click('[data-testid=lock]'); settle(200)

@@ -36,7 +36,8 @@ async function poll() {
   if (!st.token || st.offline || st.sheet === 'sos' || st.lock) return;
   const before = st.notes.length; await refresh();
   if (st.screen === 'main' && ['Family', 'rollcall'].includes(st.tab)) { const c = circ(); if (c) { st.ciReqs = (await api('/family/check-in/requests?circleId=' + c.circleId)).data; st.sharedJ = (await api('/family/journeys/shared')).data; } }
-  if (st.notes.length > before && st.screen === 'main' && st.notes[0].kind !== 'test') toast(st.notes[0].title);
+  if (st.screen === 'main' && st.tab === 'travelling' && st.trip && !st.sheet) await A.tripahead();
+  if (st.notes.length > before && st.screen === 'main' && !['test', 'enroute'].includes(st.notes[0].kind)) toast(st.notes[0].title);
   draw(true);
 }
 function cohortsSet(a) { try { localStorage.setItem('alrt_cohorts', JSON.stringify(a)); } catch {} }
@@ -87,7 +88,15 @@ const A = {
   async unsub(e) { await api('/user/unsubscribe', { body: { id: e.dataset.id } }); await refresh(); },
   locpick(e) { st.loc = e.dataset.n === 'Scarborough WA' ? 'Scarborough' : e.dataset.n; st.screen = 'main'; st.tab = st.locBack || 'Main'; },
   routemode(e) { (st.route ||= {}).mode = e.dataset.m; },
-  routego() { const hz = visibleHazards(); const sev = hz.filter((h) => ['critical', 'action'].includes(h.band) && h.source !== 'community'); const com = hz.filter((h) => h.source === 'community'); st.route = { ...(st.route || {}), from: $('#rfrom')?.value || 'Your location', to: $('#rto')?.value || 'Perth CBD', pick: 0, options: [{ mins: 24, km: 18.2, via: 'Mitchell Fwy', hazards: sev.slice(0, 2), path: 'M30 160 C 90 150, 140 110, 200 90 S 300 40, 330 30' }, { mins: 31, km: 21.5, via: 'Marmion Ave', hazards: com.slice(0, 1), path: 'M30 160 C 60 120, 90 70, 170 60 S 300 60, 330 30' }, { mins: 38, km: 24.1, via: 'Wanneroo Rd', hazards: [], path: 'M30 160 C 120 170, 220 150, 270 110 S 320 60, 330 30' }] }; },
+  async routego() { const from = $('#rfrom')?.value || 'Your location', to = $('#rto')?.value || 'Perth CBD'; const r = await api('/maps/routes', { body: { from, to, mode: st.route?.mode || 'Drive' } }); if (!r.ok) return refusal(r.data); st.route = { ...(st.route || {}), from, to, pick: 0, options: r.data.options }; },
+  // Sarah 9 Oct: alerts pop up en route while travelling. Start a trip on the chosen option; the Travelling screen polls what is ahead.
+  async routestart() { const rt = st.route || {}; const o = (rt.options || [])[rt.pick || 0]; if (!o) return toast('Check the route first'); const r = await api('/maps/trips', { body: { to: rt.to, mode: rt.mode || 'Drive', option: { id: o.id, via: o.via, mins: o.mins, km: o.km, hazardIds: o.hazardIds || (o.hazards || []).map((h) => h.id) } } }); if (!r.ok) return refusal(r.data); st.trip = r.data; st.ahead = null; st.tab = 'travelling'; },
+  async tripahead() { if (!st.trip || st.trip.status !== 'active') return; const r = await api(`/maps/trips/${st.trip.id}/ahead`); if (!r.ok) return; if (r.data.trip) st.trip = r.data.trip; if (r.data.hazard && !st.sheet) { st.ahead = { hazard: r.data.hazard, km: r.data.distanceKm }; st.sheet = 'enroute'; draw(); } },
+  async tripkeep() { if (st.ahead) await api(`/maps/trips/${st.trip.id}/dismiss`, { body: { hazardId: st.ahead.hazard.id } }); st.sheet = null; st.ahead = null; },
+  async tripavoid() { const r = await api(`/maps/trips/${st.trip.id}/avoid`, { body: { hazardId: st.ahead?.hazard.id } }); if (r.ok) st.trip = r.data; st.sheet = null; st.ahead = null; toast('New route via ' + (st.trip.option?.via || 'another way')); },
+  tripview() { const h = st.ahead?.hazard; st.sheet = null; if (h) { st.detail = h; st.tab = 'Detail'; st.backTo = 'travelling'; } },
+  async tripend() { if (st.trip) await api(`/maps/trips/${st.trip.id}`, { method: 'DELETE' }); st.trip = null; st.ahead = null; st.tab = 'Main'; toast('Trip ended'); },
+  async devahead() { await api('/__hazard-ahead', { body: {} }); await A.tripahead(); },
   // report
   repcat(e) { st.rep = st.rep || {}; st.rep.cat = e.dataset.k; st.rep.obs = null; st.rep.text = $('#rb')?.value || st.rep.text; },
   repobs(e) { st.rep.obs = e.dataset.o; st.rep.text = $('#rb')?.value || st.rep.text; if (e.dataset.o === 'Something else') setTimeout(() => $('#rb')?.focus(), 50); },
