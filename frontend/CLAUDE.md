@@ -226,7 +226,7 @@ docs/V1_ACCESS_MODEL_IMPLEMENTATION.md.
 - Codegen: `dart run build_runner build --delete-conflicting-outputs` only.
   NEVER use --build-filter (it corrupts other generated files).
 - `flutter analyze` must pass before every push; ~5 pre-existing infos
-  (deprecations + the .env asset warning) are the accepted baseline.
+  (deprecations) are the accepted baseline.
 - CI: android-apk.yml publishes the dev APK to a fixed release URL
   (tag dev-latest) — the QR code never changes.
 - Work happens on branch `claude/safety-alert-repo-audit-8exgvn`.

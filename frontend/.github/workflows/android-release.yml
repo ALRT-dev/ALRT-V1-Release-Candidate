@@ -101,7 +101,7 @@ jobs:
           bundler-cache: true
           working-directory: android
 
-      - name: Create .env from repo secrets
+      - name: Write build-time defines (compiled in, not bundled as an asset)
         run: |
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}"
@@ -132,7 +132,7 @@ jobs:
 
       - name: Build the production-signed App Bundle
         run: |
-          flutter build appbundle --release --flavor prod -t lib/main_prod.dart
+          flutter build appbundle --release --flavor prod -t lib/main_prod.dart --dart-define-from-file=.env
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}
 

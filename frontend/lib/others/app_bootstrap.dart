@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
@@ -32,7 +31,6 @@ class AppBootstrap {
     await Future.wait([
       _initializeEasyLocalization(),
       _initializeFirebase(),
-      _loadEnvironmentVariables(),
       _initializeGoogleFonts(),
       _initializeHomeWidget(),
       _initializeMapsAvailability(),
@@ -74,16 +72,6 @@ class AppBootstrap {
       name: 'initializeEasyLocalization',
       future: () async {
         await EasyLocalization.ensureInitialized();
-      },
-      onError: (_) {},
-    );
-  }
-
-  Future<void> _loadEnvironmentVariables() async {
-    return runAsyncCall(
-      name: 'loadEnvironmentVariables',
-      future: () async {
-        await dotenv.load(fileName: '.env');
       },
       onError: (_) {},
     );
