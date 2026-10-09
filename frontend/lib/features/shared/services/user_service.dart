@@ -10,8 +10,8 @@ import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/models/location_subscription_model.dart';
 import 'package:hazard_app/features/shared/providers/dio_instance_provider.dart';
-import 'package:hazard_app/features/shared/providers/repository_providers.dart';
-import 'package:hazard_app/features/shared/repositories/shared_prefs_repository.dart';
+import 'package:hazard_app/features/shared/providers/instance_providers.dart';
+import 'package:hazard_app/features/shared/repositories/secure_token_storage.dart';
 import 'package:hazard_app/features/shared/repositories/user_repository.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 import 'package:uuid/uuid.dart';
@@ -22,14 +22,14 @@ class UserService {
   final Ref _ref;
   UserRepository get _userRepository => _ref.read(providerOfUserRepository);
   Dio get _dio => _ref.read(providerOfDioInstance(false));
-  SharedPreferencesRepository get _sharedPrefRepository =>
-      _ref.read(providerOfSharedPreferencesRepository);
+  SecureTokenStorage get _secureTokenStorage =>
+      _ref.read(providerOfSecureTokenStorage);
 
   /// Fetches the current logged-in user.
   Future<Either<AppUser, AppError>> getCurrentUser() async {
     final accessToken = await AuthInterceptor(
       dio: _dio,
-      sharedPreferencesRepository: _sharedPrefRepository,
+      secureTokenStorage: _secureTokenStorage,
     ).getAccessToken();
 
     if (accessToken == null) {
