@@ -84,6 +84,7 @@ class AppBootstrap {
         // Never hold the first frame on a slow network: the font falls
         // back to the system face if it has not arrived in time.
         await GoogleFonts.pendingFonts([
+          GoogleFonts.figtree(),
           GoogleFonts.bebasNeue(),
         ]).timeout(const Duration(seconds: 5));
       },

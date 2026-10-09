@@ -1183,7 +1183,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         children: [
           Text(
             NumberFormat.compact().format(value),
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.figtree(
               fontSize: 30.spMin,
               fontWeight: FontWeight.bold,
               color: valueColor,

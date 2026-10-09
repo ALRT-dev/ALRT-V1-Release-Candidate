@@ -18,24 +18,24 @@ explicit instruction from the product owner in the current session.
   shield palette.
 - Category colours (brightened 2026-08-04; Security changed to magenta
   2026-08-20, both on product-owner instruction): Weather #2FA6FF,
-  Health #FF7E29, Security #D946EF (magenta, never red — red is reserved
+  Health #FF7E29, Security #D9304F (magenta-red, never pure red — red is reserved
   for highest-danger severity), Traffic #00CC96, Utilities #FFB300,
   Community #C233DB, Other #A67C52.
 - Plain-terms summary sits on the dark surface #23252B with white text.
 - V3 section labels: #B84500, uppercase, letter-spaced. Exception: the
   Report an ALRT screen takes the V3.1 prototype's brighter #FF6B01, which
   is what that prototype specifies for its own section labels.
-- Family palette is the approved purple (product owner, 8 Sep 2026,
-  commit ed05fcc; it superseded the V3.1 indigo #3D3DDF): accent
-  #7B3FA0 (FamilyColors.v31Indigo, which FamilyColors.indigo points
-  to) for buttons, selected chips and links; the family header gradient
-  is #4A1C7A -> #42186C (45%) -> #2A0E45 with a soft radial highlight
+- Family palette is the approved indigo (reinstated from the 28 approved
+  prototype boards, superseding the 8 Sep purple): accent #3D3DDF
+  (FamilyColors.v31Indigo, which FamilyColors.indigo points to) for
+  buttons, selected chips and links; the family header gradient is
+  #2E2A9E -> #1E1780 (45%) -> #120D4F with a soft radial highlight
   top-right (FamilyColors.headerGradient); the page behind family cards
-  is #ECE8F2 (FamilyColors.v31Page). Take Family colours from
+  is #EBEBF7 (FamilyColors.v31Page). Take Family colours from
   family_colors.dart, never a one-off hex (the old Family purple
-  #9C27B0 is retired).
-- Footer (when rebuilt as the floating capsule): active slot gets a lit grey
-  pill, the ALRT slot uses the full six-path ALRT logo SVG (32x26, never
+  #7B3FA0 and #9C27B0 are both retired).
+- Footer (frosted light bar, 18 px radius): active slot gets brand orange
+  #E8622A, the ALRT slot uses the full six-path ALRT logo SVG (32x26, never
   redrawn or substituted) and opens Report, the Alerts bell always carries
   the red unread dot when anything is unread, the avatar shows a ring while
   any live share or SOS runs, and the footer is absent on exactly one

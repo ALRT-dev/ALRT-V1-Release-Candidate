@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,11 +14,12 @@ import 'package:hazard_app/others/app_colors.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hazard_app/features/profile/providers/child_mode_provider.dart';
 
-/// The dark floating pill navigation bar.
+/// The frosted light floating navigation bar.
 ///
 /// Icons-only so six destinations fit comfortably: Map, Search, ALRT,
 /// Alerts (with unread dot), Family (indigo) and the user's avatar as
-/// Profile. The map shows through around it.
+/// Profile. Active slot highlighted in brand orange. The map shows
+/// through around it.
 class HomeTabbar extends ConsumerStatefulWidget {
   const HomeTabbar({
     super.key,
@@ -30,7 +33,7 @@ class HomeTabbar extends ConsumerStatefulWidget {
   static const double height = 76.0;
 
   /// Indigo accent for the Family destination.
-  static const familyIndigo = Color(0xFF7C7CE0);
+  static const familyIndigo = Color(0xFF3D3DDF);
 
   /// The ring the avatar wears while an SOS is running.
   static const _sosRing = Color(0xFFE4002B);
@@ -40,11 +43,12 @@ class HomeTabbar extends ConsumerStatefulWidget {
 }
 
 class _HomeTabbarState extends ConsumerState<HomeTabbar> {
-  static const _pillColor = Color(0xFF23252B);
-  static const _activeCircleColor = Color(0xFF3A3D45);
+  /// Frosted light background: translucent white so the map bleeds
+  /// through, with a backdrop blur applied in the build method.
+  static const _pillColor = Color(0xE6F5F5F7);
+  static const _activeCircleColor = AppColors.orange;
 
-  /// The capsule sits on a soft purply-blue halo, matched by the search
-  /// bar's orange one, so the floating controls read as one set.
+  /// The capsule sits on a soft shadow so it lifts off the map.
   static const _glowColor = AppColors.footerGlow;
 
   @override
@@ -66,37 +70,49 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           right: 20.spMin,
           bottom: 10.spMin,
         ),
-        child: Container(
-          height: 62.spMin,
-          decoration: BoxDecoration(
-            color: _pillColor,
-            borderRadius: BorderRadius.circular(40.spMin),
-            boxShadow: [
-              // Wide, low-opacity halo first, then the grounding shadow.
-              BoxShadow(
-                color: _glowColor.withValues(alpha: 0.38),
-                blurRadius: 26.0,
-                spreadRadius: 1.0,
-                offset: const Offset(0, 6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18.spMin),
+          child: BackdropFilter(
+            filter: _frostedFilter,
+            child: Container(
+              height: 62.spMin,
+              decoration: BoxDecoration(
+                color: _pillColor,
+                borderRadius: BorderRadius.circular(18.spMin),
+                border: Border.all(
+                  color: AppColors.white.withValues(alpha: 0.5),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.black.withValues(alpha: 0.08),
+                    blurRadius: 20.0,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: AppColors.black.withValues(alpha: 0.04),
+                    blurRadius: 8.0,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              BoxShadow(
-                color: AppColors.black.withValues(alpha: 0.25),
-                blurRadius: 16.0,
-                offset: const Offset(0, 6),
+              padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: tabs
+                    .map((tab) =>
+                        _tabItemBuilder(tab, isActive: tab == currentTab))
+                    .toList(),
               ),
-            ],
-          ),
-          padding: EdgeInsets.symmetric(horizontal: 8.spMin),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: tabs
-                .map((tab) => _tabItemBuilder(tab, isActive: tab == currentTab))
-                .toList(),
+            ),
           ),
         ),
       ),
     );
   }
+
+  static final _frostedFilter = ImageFilter.blur(sigmaX: 20, sigmaY: 20);
 
   Widget _tabItemBuilder(final HomeTab tab, {required final bool isActive}) {
     return Expanded(
@@ -151,7 +167,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
         return Icon(
           tab.iconData,
           size: 23.spMin,
-          color: isActive ? AppColors.white : AppColors.grey,
+          color: isActive ? AppColors.white : AppColors.mediumGrey,
         );
     }
   }
@@ -176,7 +192,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
             Icon(
               HomeTab.notifications.iconData,
               size: 23.spMin,
-              color: isActive ? AppColors.white : AppColors.grey,
+              color: isActive ? AppColors.white : AppColors.mediumGrey,
             ),
             if (hasFreshAlerts)
               Positioned(
