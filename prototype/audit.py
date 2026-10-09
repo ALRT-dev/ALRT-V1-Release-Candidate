@@ -45,7 +45,8 @@ with sync_playwright() as p:
     check('Onb4 states free limits from rules', 'one saved place and 3 Ask ALRT' in text())
     t = text(); check('Onboarding never asks for location', 'Allow location' not in t and 'Use my location' not in t)
     click('onb-next'); settle(300); check('Onb5 is sign in, last step; no Continue as Guest', has('onb4') and 'guest' not in text().lower())
-    click('email-open'); settle(300); pg.fill('[data-testid=email]', 'sarah@example.com'); pg.fill('[data-testid=password]', 'pw'); click('register'); settle(1800)
+    check('No passwords: Apple, Google, Microsoft only, no email or password field', pg.query_selector('input[type=password]') is None and 'Email' not in text() and 'never creates or stores a password' in text())
+    click('oauth-google'); settle(1800)
     check('Set up complete screen with first 20 points', has('onbdone') and f"{R['points']['firstSetup']} points" in text())
     click('onbgo'); settle(500); check('Notification priming at the moment of wanting (not during onboarding)', has('prime-on')); click('prime-on'); settle(600)
 
@@ -61,7 +62,19 @@ with sync_playwright() as p:
     # ================= Map (Main board) =================
     check('Map board with pins bound to live alerts', has('map') and len(pg.query_selector_all('[data-testid^=pin-]')) >= 3)
     check('Map banner counts warnings from live data', re.search(r'\d warnings? near you', text()) is not None)
-    scan('Map'); click('view-toggle'); settle(500)
+    check('Mic (voice to text) and Ask ALRT are separate buttons', has('mic-btn') and has('ask-btn'))
+    click('mic-btn'); settle(1300); check('Voice to text fills the search, not Ask ALRT', 'Scarborough Beach Road' in pg.inner_text('[data-testid=voice-text]') and 'Ask ALRT is a different button' in text()); pg.evaluate("A.close(); draw()")
+    pg.evaluate("A.mapkey(); draw()"); settle(300); scan('Map key')
+    outl = pg.evaluate("[...document.querySelectorAll('[data-testid=sheet] svg[data-outline] *')].every(e=>e.getAttribute('fill')==='none' && e.getAttribute('stroke')==='#3A3A42')")
+    check('Map key shapes are outlines only, dark grey, no colour', outl and pg.evaluate("document.querySelectorAll('[data-testid=sheet] svg[data-outline]').length") == 5)
+    kt = text(); i1, i2, i3 = kt.find('WHO IS SPEAKING'), kt.find('AWS LEVELS'), kt.find('COLOUR MEANS SEVERITY')
+    check('Map key order: shapes, AWS colours explained, then colour to severity words', -1 not in (i1, i2, i3) and i1 < i2 < i3 and all(w in kt for w in ['Advice', 'Watch and Act', 'Emergency Warning']) and all(R['bandWords'][k][0] in kt for k in R['bandWords']))
+    pg.evaluate("A.close(); draw()")
+    click('route-btn'); settle(400); scan('Route'); pg.fill('[data-testid=route-to]', 'Perth CBD'); click('route-go'); settle(400)
+    check('Route: options with hazards on each, choose like Google Maps', len(pg.query_selector_all('[data-testid=route-opt]')) == 3 and has('route-map') and 'Fastest' in text() and 'No alerts' in text())
+    pg.click('[data-testid=route-opt] >> nth=2'); settle(300); check('Choosing a route highlights it', pg.evaluate("document.querySelectorAll('[data-testid=route-opt]')[2].style.borderColor") in ('rgb(37, 99, 235)', '#2563EB'))
+    check('Navigation free, journey sharing ALRT +, routes via backend', 'Navigation is free' in text() and 'no map key ships' in text()); click('back'); settle(300)
+    scan('Map'); goto_tab('alerts'); click('view-toggle'); settle(500)
 
     # ================= Alerts (Feed board) =================
     check('Alerts list from backend, in the Feed card style', len(pg.query_selector_all('[data-testid^=alert-]')) >= 6)
@@ -83,6 +96,7 @@ with sync_playwright() as p:
     check('What to do is the agency word for word', 'word for word' in dl)
     check('For You says stays on your phone', 'stays on your phone' in dl)
     check('Share is obvious: Send to my group, Check in, Share a link', has('share-fam') and has('ci-hazard') and has('share'))
+    check('Official alerts cannot be reported (no Report control)', not has('overflow') and 'Report this alert' not in text())
     click('share'); settle(300); check('Share sheet shows the public /a/:id link', '/a/h_' in pg.inner_text('[data-testid=share-link]')); click('share-fam-sheet'); settle(300)
     click('follow'); settle(200); check('Follow stored on device', 'Following' in text())
     click('back'); settle(400)
@@ -103,6 +117,7 @@ with sync_playwright() as p:
 
     # ================= Report (Report board) =================
     goto_tab('report'); check('Report board: category, what can you see, severity, details, headline preview', has('report') and 'headline preview' in text().lower()); scan('Report')
+    check('Report is posted from your actual location only (no Adjust)', 'Adjust' not in text() and 'posted from your actual location' in text())
     click('post'); settle(300); check('Category is mandatory', 'Choose a category first' in text())
     click('cat-traffic'); settle(200); check('Category chips take the category colour', 'rgb(0, 204, 150)' in (pg.query_selector('[data-testid=cat-traffic]').get_attribute('style') or ''))
     pg.click('[data-act=repobs] >> nth=0'); settle(200); check('Headline preview updates: Crash reported in Scarborough', 'Crash reported in Scarborough' in text())
@@ -161,6 +176,9 @@ with sync_playwright() as p:
     pg.click('[data-dev=friend]'); settle(2500); check('Friend joins free and appears in Members', 'Alex' in text())
     click('checkon'); settle(600); check('Check on sends a targeted ask', 'Asked them to check in' in text()); settle(900)
     check('Waiting on 1 card appears', has('waiting-row')); pg.click('[data-testid=waiting-row]'); settle(500); check('Roll call lists who is waiting', 'waiting on 1' in text().lower()); click('rc-cancel'); settle(600)
+    ftk = api('/__friend-token', 'GET', None, False)['data']['token']; asu(ftk, '/family/circles/' + api('/family/circles')['data'][0]['circleId'] + '/check-in/request', {'memberIds': [pg.evaluate('st.user.id')]}); settle(1900)
+    check('Family circle goes amber when a check-in is asked of you', pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').dataset.state") == 'ask')
+    goto_tab('family'); click('ci-from-req'); settle(300); click('ci-none'); settle(1200); check('Family circle back to indigo after checking in', pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').dataset.state") == 'idle')
     code = api('/family/circles')['data'][0]['code']
     u4 = reg('free@example.com', 'Fay'); asu(u4['token'], '/family/join', {'code': code}); cid = asu(u4['token'], '/family/circles')['data'][0]['circleId']
     g = asu(u4['token'], '/family/circles/' + cid + '/check-in', {})
@@ -169,7 +187,7 @@ with sync_playwright() as p:
     # ================= SOS (decided: 3 s hold, 1 h, extend to 4 h max, sender only ends) =================
     goto_tab('family'); click('sos-open'); settle(700); scan('SOS sheet')
     check('SOS sheet: disclaimer, who it reaches, location choices', R['wording']['sosDisclaimer'] in text() and 'Reaches Alex' in text() and all(c in text() for c in R['sos']['locationChoices']))
-    box = pg.locator('[data-testid=hold]').bounding_box()
+    pg.wait_for_selector('[data-testid=hold]'); box = pg.locator('[data-testid=hold]').bounding_box()
     pg.mouse.move(box['x'] + 100, box['y'] + 40); pg.mouse.down(); pg.wait_for_timeout(1200); pg.mouse.up(); settle(500)
     check('Short press does NOT send SOS', not has('sos-banner') and not [s for s in api('/family/sos/active')['data'] if s['active']])
     pg.mouse.move(box['x'] + 100, box['y'] + 40); pg.mouse.down(); pg.wait_for_timeout(R['timings']['sosHoldMs'] + 500); pg.mouse.up(); settle(1800)
@@ -242,8 +260,11 @@ with sync_playwright() as p:
     # friend SOS: receiver view
     pg.click('[data-dev=friendsos]'); settle(1500); check('SOS strip for a member SOS', has('sos-strip')); pg.click('[data-testid=sos-strip]'); settle(600); scan('SOS receiver')
     check('Receiver: seen / on my way / called; host may end, others not', all(has(t) for t in ['sos-seen', 'sos-omw', 'sos-called']) and not has('sos-end') and 'can end' in text())
-    click('sos-seen'); settle(600); check('Sender told by name who has seen it', any('seen your SOS' in n['title'] for n in asu(api('/__friend-token', 'GET', None, False)['data']['token'], '/notification/feed')['data']))
-    click('sos-omw'); settle(500); check('On my way is a deliberate separate response', 'is on their way' in text())
+    click('sos-seen'); settle(600); ft0 = api('/__friend-token', 'GET', None, False)['data']['token']; check('Sender told by name who has seen it', any('seen your SOS' in n['title'] for n in asu(ft0, '/notification/feed')['data']))
+    click('sos-omw'); settle(500); check('On my way shows to the group, not the sender', 'is on their way' in text() and not any('on their way' in n['body'] for n in asu(ft0, '/notification/feed')['data']) and any('on their way' in n['body'] for n in asu(u4['token'], '/notification/feed')['data']))
+    sender_view = asu(ft0, '/family/sos/' + [s for s in api('/family/sos/active')['data'] if s['active'] and s['userId'] != pg.evaluate('st.user.id')][0]['id'])['data']
+    check('Sender sees only Seen responses', all(r0['type'] == 'seen' for r0 in sender_view['responses']) and len(sender_view['responses']) >= 1, sender_view['responses'])
+    check('Family circle goes red while an SOS is live', pg.evaluate("document.querySelector('#navwrap a[data-nav=Family]').dataset.state") == 'sos' and pg.evaluate("getComputedStyle(document.querySelector('#navwrap a[data-nav=Family]')).color") == 'rgb(218, 31, 45)')
     sid2 = [s for s in api('/family/sos/active')['data'] if s['active'] and s['userId'] != pg.evaluate('st.user.id')][0]['id']
     asu(api('/__friend-token', 'GET', None, False)['data']['token'], '/family/sos/' + sid2 + '/resolve', {}); settle(1500)
     goto_tab('family'); click('hist-open'); settle(500); check('Past SOS: time and duration, no coordinates', has('hist-row') and 'lat' not in json.dumps(api('/family/sos/history')['data']))
@@ -267,6 +288,7 @@ with sync_playwright() as p:
     click('learn-open'); settle(400); scan('Learn'); click('guide-open'); settle(400); click('guide-done'); settle(800)
     check('Guide completion awards points', api('/xpPoints/summary')['data']['points'] >= R['points']['firstSetup'] + R['points']['reportApproved'] + R['points']['guideComplete'])
     goto_tab('me'); click('safety-open'); settle(400); scan('Safety'); click('cohort-older'); settle(200)
+    check('Safety Profile says Older person and Visitor', 'Older person' in text() and 'Visitor' in text() and 'Older adult' not in text() and 'Away from home' not in text())
     check('Safety Profile cohort colours and stays on device', 'rgb(74, 107, 53)' in (pg.query_selector('[data-testid=cohort-older]').get_attribute('style') or '') and 'older' in pg.evaluate("localStorage.getItem('alrt_cohorts')") and 'older' not in json.dumps(api('/user/profile')['data']))
     click('safety-save'); settle(400)
 
@@ -277,13 +299,24 @@ with sync_playwright() as p:
     check('Emergency Warning switch locked on', pg.query_selector('[data-testid=pf-awsEmergency]').get_attribute('data-locked') == '1')
     click('testpush'); settle(300); check('Test push wording', 'Nothing was sent to anyone else' in text()); click('back'); settle(300)
     click('points-open'); settle(400); scan('Points'); check('Points: no streaks, confirming earns nothing', 'No streaks' in text() and 'earns nothing' in text())
-    click('lb-open'); settle(400); check('Leaderboard never names anyone', all('Community member' in r.inner_text() or 'You' in r.inner_text() for r in pg.query_selector_all('[data-testid=lb-row]'))); click('back'); click('back'); settle(300)
+    click('lb-open'); settle(400); check('Leaderboard completely de-identified: ranks and points only', all(re.fullmatch(r'#\d+\s*\d+ pts', r.inner_text().replace('\n', ' ').strip()) for r in pg.query_selector_all('[data-testid=lb-row]')) and 'Community member' not in text() and 'Your position' in text()); click('back'); click('back'); settle(300)
     click('child-open'); settle(300); pg.fill('[data-testid=pin]', '1234'); click('child-toggle'); settle(700); check('Child mode hides Report in the footer', not pg.is_visible('[data-testid=tab-report]')); click('child-toggle'); settle(600); check('Child mode off restores Report', pg.is_visible('[data-testid=tab-report]')); click('back'); settle(300)
     click('blocked-open'); settle(300); check('Blocked accounts empty state', has('blocked-empty')); api('/user/blocked', 'POST', {'userId': u4['id']}); click('back'); settle(200); click('blocked-open'); settle(300); click('unblock'); settle(300); check('Unblock works', has('blocked-empty')); click('back'); settle(300)
     click('support-open'); settle(300); pg.fill('[data-testid=supd]', 'Help'); click('supsend'); settle(400); check('Support request submitted', has('sup-sent')); click('back'); settle(300)
     click('manage-open'); settle(400); scan('My plans'); check('My plans shows the personal plan', 'ALRT + trial' in pg.inner_text('[data-testid=manage-personal]'))
     pg.click('[data-dev=billissue]'); settle(1200); goto_tab('me'); click('manage-open'); settle(400); check('Billing issue banner', has('billing-issue')); click('back'); settle(300)
-    click('widgets-open'); settle(300); check('Add widget sheet: Nearby Alerts and Family, never names or places', 'Never names or places' in text()); pg.evaluate("A.close(); draw()"); settle(200)
+    click('widgets-open'); settle(400); scan('Widgets')
+    check('Widgets screen: Emergency (dark red), Near you small states, Family, Family SOS (own look)', all(has(w) for w in ['w-critical', 'w-small', 'w-family', 'w-sos']))
+    g1 = pg.evaluate("getComputedStyle(document.querySelector('[data-testid=w-critical] > div > div')).backgroundImage"); g2 = pg.evaluate("getComputedStyle(document.querySelector('[data-testid=w-sos] > div > div')).backgroundImage")
+    check('Emergency and SOS widgets use different dark red gradients', 'gradient' in g1 and 'gradient' in g2 and g1 != g2)
+    check('Widget rules: nothing near you (never all clear), initials only, nothing sent from a widget', 'Nothing near you' in text() and 'Initials only' in text() and 'Nothing is ever sent from a widget' in text()); click('back'); settle(300)
+    click('edit-profile'); settle(300); check('Profile photo: group members only, never on the map', 'Never on the map' in text() and has('photo-file'))
+    pg.evaluate("st.pendingPhoto='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='"); click('photo-save'); settle(800)
+    check('Photo saved and shown on Me', has('profile-photo'))
+    goto_tab('family'); settle(400); check('Photo shown to group members in the Family list', has('member-photo'))
+    goto_tab('feed'); settle(400); check('No photo or name on any alert card', 'url(' not in pg.evaluate("[...document.querySelectorAll('[data-testid^=alert-]')].map(a=>a.getAttribute('style')||'').join('')") and not has('member-photo'))
+    pg.click('[data-testid=alert-community] >> nth=0'); settle(400); check('Community report detail carries no author photo or name', not has('member-photo') and 'Nia' not in text() and 'sarah' not in text().lower()); click('back'); settle(300)
+    goto_tab('me')
     click('language-open'); settle(300); check('Language: English and Spanish kept', 'Español' in text()); pg.evaluate("A.close(); draw()"); settle(200)
 
     # ================= Group paywall refusals =================
@@ -301,6 +334,9 @@ with sync_playwright() as p:
     check('Instagram-style footer toggle: icon only, same six slots', len(labels2) == 6 and all(l == '' or len(l) == 1 for l in labels2), labels2); pg.click('[data-dev=igfooter]'); settle(300)
 
     # ================= Offline, push, lock screen, billing flag =================
+    goto_tab('alerts'); click('filters-btn'); settle(300); scan('Filters')
+    check('Filters: who is speaking as outlines, severity with words, categories', pg.evaluate("document.querySelectorAll('[data-testid=sheet] svg[data-outline]').length") == 5 and all(R['bandWords'][k][1] in text() for k in R['bandWords']) and 'Always on' in text())
+    click('f-community'); settle(300); click('filt-done'); settle(300); check('Filter hides community reports', not has('alert-community')); click('filters-btn'); settle(200); click('filt-reset'); click('filt-done'); settle(300)
     goto_tab('alerts'); pg.click('[data-dev=offline]'); settle(500); check('Offline banner shows "as of" time', re.search(r'Offline\. Showing alerts as of \d\d:\d\d', text()) is not None); pg.click('[data-dev=offline]'); settle(300)
     pg.click('[data-dev=push]'); settle(300); check('Lock screen push preview', has('lock')); pg.click('[data-testid=lock]'); settle(200)
     goto_tab('feed'); click('bell'); settle(400); scan('Notification feed'); check('Push inbox lists items', pg.query_selector('[data-testid^=note-]') is not None)
@@ -311,7 +347,7 @@ with sync_playwright() as p:
     check('Account recovered', api('/user/account/deletion-status')['data']['isScheduledForDeletion'] is False)
     pg.click('[data-dev=forceupdate]'); settle(300); check('Forced update screen, local emergency number wording', has('forceupdate') and 'local emergency number' in text()); pg.click('[data-dev=forceupdate]'); settle(300)
     goto_tab('me'); click('signout'); settle(300); click('logout-go'); settle(700); check('Sign out returns to Splash', has('have-account'))
-    click('have-account'); settle(300); click('email-open'); settle(200); click('login-mode'); settle(200); click('forgot-link'); settle(300); pg.fill('[data-testid=forgot-email]', 'sarah@example.com'); click('forgot-send'); settle(400); check('Forgot password: reset link sent, 60 minute note', has('forgot-sent'))
+    click('have-account'); settle(300); check('Returning user: sign in with Apple/Google/Microsoft, nothing else', has('oauth-apple') and pg.query_selector('input[type=password]') is None)
 
     check('No JS errors in page', not errors, errors)
     b.close()

@@ -98,39 +98,9 @@
    {
     "to": "onbdone",
     "via": "Continue with Microsoft"
-   },
-   {
-    "to": "Email sign-in sheet",
-    "via": "Continue with Email"
    }
   ],
   "jpg": "mapjpg/Onb5.jpg",
-  "area": "Onboarding"
- },
- {
-  "screen": "Onb5-email",
-  "board": "sheet",
-  "note": "Email sign-in sheet",
-  "file": "map/Onb5-email.png",
-  "links": [
-   {
-    "to": "onbdone",
-    "via": "Continue with Apple"
-   },
-   {
-    "to": "onbdone",
-    "via": "Continue with Google"
-   },
-   {
-    "to": "onbdone",
-    "via": "Continue with Microsoft"
-   },
-   {
-    "to": "Email sign-in sheet",
-    "via": "Continue with Email"
-   }
-  ],
-  "jpg": "mapjpg/Onb5-email.jpg",
   "area": "Onboarding"
  },
  {
@@ -158,8 +128,12 @@
     "via": ""
    },
    {
-    "to": "Places",
+    "to": "tab",
     "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
    },
    {
     "to": "Ask ALRT sheet",
@@ -180,6 +154,10 @@
    {
     "to": "Map key sheet",
     "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
    },
    {
     "to": "Places",
@@ -232,8 +210,12 @@
     "via": ""
    },
    {
-    "to": "Places",
+    "to": "tab",
     "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
    },
    {
     "to": "Ask ALRT sheet",
@@ -254,6 +236,10 @@
    {
     "to": "Map key sheet",
     "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
    },
    {
     "to": "Places",
@@ -298,7 +284,7 @@
  {
   "screen": "Filters",
   "board": "sheet",
-  "note": "",
+  "note": "Outline shapes, severity words, categories",
   "file": "map/Filters.png",
   "links": [
    {
@@ -306,8 +292,12 @@
     "via": ""
    },
    {
-    "to": "Places",
+    "to": "tab",
     "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
    },
    {
     "to": "Ask ALRT sheet",
@@ -328,6 +318,10 @@
    {
     "to": "Map key sheet",
     "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
    },
    {
     "to": "Places",
@@ -380,8 +374,12 @@
     "via": ""
    },
    {
-    "to": "Places",
+    "to": "tab",
     "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
    },
    {
     "to": "Ask ALRT sheet",
@@ -402,6 +400,10 @@
    {
     "to": "Map key sheet",
     "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
    },
    {
     "to": "Places",
@@ -444,18 +446,22 @@
   "area": "Map and alerts"
  },
  {
-  "screen": "MapKey",
+  "screen": "VoiceSearch",
   "board": "sheet",
-  "note": "",
-  "file": "map/MapKey.png",
+  "note": "Voice to text for search, separate from Ask ALRT",
+  "file": "map/VoiceSearch.png",
   "links": [
    {
     "to": "Alert detail",
     "via": ""
    },
    {
-    "to": "Places",
+    "to": "tab",
     "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
    },
    {
     "to": "Ask ALRT sheet",
@@ -476,6 +482,92 @@
    {
     "to": "Map key sheet",
     "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/VoiceSearch.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "MapKey",
+  "board": "sheet",
+  "note": "Outlines only; AWS colours; colour to severity words",
+  "file": "map/MapKey.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "tab",
+    "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
    },
    {
     "to": "Places",
@@ -699,6 +791,114 @@
    }
   ],
   "jpg": "mapjpg/Route.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "RouteOptions",
+  "board": "new",
+  "note": "Hazards on each route, choose like Google Maps",
+  "file": "map/RouteOptions.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Back"
+   },
+   {
+    "to": "routepick",
+    "via": "24 min"
+   },
+   {
+    "to": "routepick",
+    "via": "31 min"
+   },
+   {
+    "to": "routepick",
+    "via": "38 min"
+   },
+   {
+    "to": "tab",
+    "via": "Share journey"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/RouteOptions.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "RouteChosen",
+  "board": "new",
+  "note": "Chosen route highlighted",
+  "file": "map/RouteChosen.png",
+  "links": [
+   {
+    "to": "Main",
+    "via": "Back"
+   },
+   {
+    "to": "routepick",
+    "via": "24 min"
+   },
+   {
+    "to": "routepick",
+    "via": "31 min"
+   },
+   {
+    "to": "routepick",
+    "via": "38 min"
+   },
+   {
+    "to": "tab",
+    "via": "Share journey"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/RouteChosen.jpg",
   "area": "Map and alerts"
  },
  {
@@ -1168,10 +1368,6 @@
     "via": "Close"
    },
    {
-    "to": "tab",
-    "via": "Adjust"
-   },
-   {
     "to": "Posted",
     "via": "Submit report"
    },
@@ -1252,11 +1448,11 @@
  {
   "screen": "SelectLocation",
   "board": "new",
-  "note": "",
+  "note": "For saved places and viewing alerts anywhere; reports always post from where you are",
   "file": "map/SelectLocation.png",
   "links": [
    {
-    "to": "Main",
+    "to": "Places",
     "via": "Back"
    },
    {
@@ -2140,9 +2336,103 @@
   "area": "Family"
  },
  {
+  "screen": "Family-SOSLive",
+  "board": "Family",
+  "note": "Family circle red while an SOS is live",
+  "file": "map/Family-SOSLive.png",
+  "links": [
+   {
+    "to": "viewsosbanner",
+    "via": "SOS from Alex is live. Tap to respond."
+   },
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Family-SOSLive.jpg",
+  "area": "Family"
+ },
+ {
   "screen": "SOSReceiver",
   "board": "new",
-  "note": "",
+  "note": "On my way goes to the group, Seen to the sender",
   "file": "map/SOSReceiver.png",
   "links": [
    {
@@ -2217,6 +2507,100 @@
    }
   ],
   "jpg": "mapjpg/SOSEnded.jpg",
+  "area": "Family"
+ },
+ {
+  "screen": "Family-CheckInAsked",
+  "board": "Family",
+  "note": "Family circle amber when a check-in is asked of you",
+  "file": "map/Family-CheckInAsked.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": "Group settings"
+   },
+   {
+    "to": "Check in sheet",
+    "via": "Check in"
+   },
+   {
+    "to": "rollcall",
+    "via": "See who has"
+   },
+   {
+    "to": "Ask for a check-in sheet",
+    "via": "Ask"
+   },
+   {
+    "to": "tab",
+    "via": "Journey"
+   },
+   {
+    "to": "circleprofile",
+    "via": "Daily"
+   },
+   {
+    "to": "SOS sheet",
+    "via": "SOS"
+   },
+   {
+    "to": "circleprofile",
+    "via": "S"
+   },
+   {
+    "to": "Member sheet",
+    "via": "A"
+   },
+   {
+    "to": "soslists",
+    "via": "Who my SOS reaches"
+   },
+   {
+    "to": "famplaces",
+    "via": "Family places"
+   },
+   {
+    "to": "tab",
+    "via": "Plan and cover"
+   },
+   {
+    "to": "soshistory",
+    "via": "Past SOS"
+   },
+   {
+    "to": "invite",
+    "via": "Add a person"
+   },
+   {
+    "to": "sheet",
+    "via": "Join with code"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Family-CheckInAsked.jpg",
   "area": "Family"
  },
  {
@@ -2578,6 +2962,10 @@
     "via": "Back"
    },
    {
+    "to": "sheet",
+    "via": "Your photo"
+   },
+   {
     "to": "tab",
     "via": "Approximate"
    },
@@ -2772,12 +3160,16 @@
  {
   "screen": "GroupSettings",
   "board": "new",
-  "note": "",
+  "note": "Host: group photo (members only), rules, hand over, close",
   "file": "map/GroupSettings.png",
   "links": [
    {
     "to": "Family",
     "via": "Back"
+   },
+   {
+    "to": "sheet",
+    "via": "Group photo"
    },
    {
     "to": "Hand over sheet",
@@ -2816,6 +3208,56 @@
   "area": "Family"
  },
  {
+  "screen": "GroupPhoto",
+  "board": "sheet",
+  "note": "",
+  "file": "map/GroupPhoto.png",
+  "links": [
+   {
+    "to": "Family",
+    "via": "Back"
+   },
+   {
+    "to": "sheet",
+    "via": "Group photo"
+   },
+   {
+    "to": "Hand over sheet",
+    "via": "Hand the circle to someone"
+   },
+   {
+    "to": "Leave sheet",
+    "via": "Leave Nixon group"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/GroupPhoto.jpg",
+  "area": "Family"
+ },
+ {
   "screen": "LeaveSheet",
   "board": "sheet",
   "note": "",
@@ -2824,6 +3266,10 @@
    {
     "to": "Family",
     "via": "Back"
+   },
+   {
+    "to": "sheet",
+    "via": "Group photo"
    },
    {
     "to": "Hand over sheet",
@@ -3088,6 +3534,10 @@
   "file": "map/Profile.png",
   "links": [
    {
+    "to": "sheet",
+    "via": "Edit"
+   },
+   {
     "to": "Places",
     "via": "Save a place"
    },
@@ -3100,7 +3550,7 @@
     "via": "Sound and vibration"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Add a widget"
    },
    {
@@ -3120,7 +3570,7 @@
     "via": "Saved places"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Home screen widget"
    },
    {
@@ -3205,6 +3655,150 @@
    }
   ],
   "jpg": "mapjpg/Profile.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "ProfilePhoto",
+  "board": "sheet",
+  "note": "Photo for your groups only, never the map",
+  "file": "map/ProfilePhoto.png",
+  "links": [
+   {
+    "to": "sheet",
+    "via": "Edit"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "widgets",
+    "via": "Add a widget"
+   },
+   {
+    "to": "points",
+    "via": "How points work"
+   },
+   {
+    "to": "manage",
+    "via": "ALRT +"
+   },
+   {
+    "to": "managenotes",
+    "via": "Notifications"
+   },
+   {
+    "to": "Places",
+    "via": "Saved places"
+   },
+   {
+    "to": "widgets",
+    "via": "Home screen widget"
+   },
+   {
+    "to": "Family",
+    "via": "Family and check-ins"
+   },
+   {
+    "to": "journey",
+    "via": "Journey sharing"
+   },
+   {
+    "to": "points",
+    "via": "Your points"
+   },
+   {
+    "to": "sheet",
+    "via": "Share ALRT"
+   },
+   {
+    "to": "support",
+    "via": "Help and feedback"
+   },
+   {
+    "to": "manage",
+    "via": "My plans"
+   },
+   {
+    "to": "myalrts",
+    "via": "My ALRTs"
+   },
+   {
+    "to": "accessible",
+    "via": "Accessible alerts"
+   },
+   {
+    "to": "sheet",
+    "via": "Language"
+   },
+   {
+    "to": "childmode",
+    "via": "Child mode"
+   },
+   {
+    "to": "blocked",
+    "via": "Blocked accounts"
+   },
+   {
+    "to": "sheet",
+    "via": "Terms and privacy"
+   },
+   {
+    "to": "Log out sheet",
+    "via": "Log out"
+   },
+   {
+    "to": "tab",
+    "via": "Delete account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/ProfilePhoto.jpg",
+  "area": "Me"
+ },
+ {
+  "screen": "Widgets",
+  "board": "Widgets",
+  "note": "Tiles from the Widgets board",
+  "file": "map/Widgets.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   }
+  ],
+  "jpg": "mapjpg/Widgets.jpg",
   "area": "Me"
  },
  {
@@ -3566,138 +4160,16 @@
   "area": "Me"
  },
  {
-  "screen": "AddWidget",
-  "board": "sheet",
-  "note": "",
-  "file": "map/AddWidget.png",
-  "links": [
-   {
-    "to": "Places",
-    "via": "Save a place"
-   },
-   {
-    "to": "Safety",
-    "via": "Safety profile"
-   },
-   {
-    "to": "accessible",
-    "via": "Sound and vibration"
-   },
-   {
-    "to": "sheet",
-    "via": "Add a widget"
-   },
-   {
-    "to": "points",
-    "via": "How points work"
-   },
-   {
-    "to": "manage",
-    "via": "ALRT +"
-   },
-   {
-    "to": "managenotes",
-    "via": "Notifications"
-   },
-   {
-    "to": "Places",
-    "via": "Saved places"
-   },
-   {
-    "to": "sheet",
-    "via": "Home screen widget"
-   },
-   {
-    "to": "Family",
-    "via": "Family and check-ins"
-   },
-   {
-    "to": "journey",
-    "via": "Journey sharing"
-   },
-   {
-    "to": "points",
-    "via": "Your points"
-   },
-   {
-    "to": "sheet",
-    "via": "Share ALRT"
-   },
-   {
-    "to": "support",
-    "via": "Help and feedback"
-   },
-   {
-    "to": "manage",
-    "via": "My plans"
-   },
-   {
-    "to": "myalrts",
-    "via": "My ALRTs"
-   },
-   {
-    "to": "accessible",
-    "via": "Accessible alerts"
-   },
-   {
-    "to": "sheet",
-    "via": "Language"
-   },
-   {
-    "to": "childmode",
-    "via": "Child mode"
-   },
-   {
-    "to": "blocked",
-    "via": "Blocked accounts"
-   },
-   {
-    "to": "sheet",
-    "via": "Terms and privacy"
-   },
-   {
-    "to": "Log out sheet",
-    "via": "Log out"
-   },
-   {
-    "to": "tab",
-    "via": "Delete account"
-   },
-   {
-    "to": "Main",
-    "via": "Map"
-   },
-   {
-    "to": "Feed",
-    "via": "Alerts"
-   },
-   {
-    "to": "Report",
-    "via": "Report"
-   },
-   {
-    "to": "Ready",
-    "via": "Ready"
-   },
-   {
-    "to": "Family",
-    "via": "Family"
-   },
-   {
-    "to": "Profile",
-    "via": "S"
-   }
-  ],
-  "jpg": "mapjpg/AddWidget.jpg",
-  "area": "Me"
- },
- {
   "screen": "ShareALRT",
   "board": "sheet",
   "note": "",
   "file": "map/ShareALRT.png",
   "links": [
    {
+    "to": "sheet",
+    "via": "Edit"
+   },
+   {
     "to": "Places",
     "via": "Save a place"
    },
@@ -3710,7 +4182,7 @@
     "via": "Sound and vibration"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Add a widget"
    },
    {
@@ -3730,7 +4202,7 @@
     "via": "Saved places"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Home screen widget"
    },
    {
@@ -3824,6 +4296,10 @@
   "file": "map/Language.png",
   "links": [
    {
+    "to": "sheet",
+    "via": "Edit"
+   },
+   {
     "to": "Places",
     "via": "Save a place"
    },
@@ -3836,7 +4312,7 @@
     "via": "Sound and vibration"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Add a widget"
    },
    {
@@ -3856,7 +4332,7 @@
     "via": "Saved places"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Home screen widget"
    },
    {
@@ -3950,6 +4426,10 @@
   "file": "map/Legal.png",
   "links": [
    {
+    "to": "sheet",
+    "via": "Edit"
+   },
+   {
     "to": "Places",
     "via": "Save a place"
    },
@@ -3962,7 +4442,7 @@
     "via": "Sound and vibration"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Add a widget"
    },
    {
@@ -3982,7 +4462,7 @@
     "via": "Saved places"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Home screen widget"
    },
    {
@@ -4144,8 +4624,12 @@
     "via": ""
    },
    {
-    "to": "Places",
+    "to": "tab",
     "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
    },
    {
     "to": "Ask ALRT sheet",
@@ -4166,6 +4650,10 @@
    {
     "to": "Map key sheet",
     "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
    },
    {
     "to": "Places",
@@ -4203,8 +4691,12 @@
     "via": ""
    },
    {
-    "to": "Places",
+    "to": "tab",
     "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
    },
    {
     "to": "Ask ALRT sheet",
@@ -4225,6 +4717,10 @@
    {
     "to": "Map key sheet",
     "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
    },
    {
     "to": "Places",
@@ -4273,6 +4769,10 @@
   "file": "map/LogOut.png",
   "links": [
    {
+    "to": "sheet",
+    "via": "Edit"
+   },
+   {
     "to": "Places",
     "via": "Save a place"
    },
@@ -4285,7 +4785,7 @@
     "via": "Sound and vibration"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Add a widget"
    },
    {
@@ -4305,7 +4805,7 @@
     "via": "Saved places"
    },
    {
-    "to": "sheet",
+    "to": "widgets",
     "via": "Home screen widget"
    },
    {
@@ -4393,17 +4893,25 @@
   "area": "Me"
  },
  {
-  "screen": "ForgotPassword",
-  "board": "new",
-  "note": "",
-  "file": "map/ForgotPassword.png",
+  "screen": "SignInReturning",
+  "board": "Onb5",
+  "note": "Returning: Apple, Google or Microsoft. No passwords.",
+  "file": "map/SignInReturning.png",
   "links": [
    {
-    "to": "Onb5",
-    "via": "Back"
+    "to": "onbdone",
+    "via": "Continue with Apple"
+   },
+   {
+    "to": "onbdone",
+    "via": "Continue with Google"
+   },
+   {
+    "to": "onbdone",
+    "via": "Continue with Microsoft"
    }
   ],
-  "jpg": "mapjpg/ForgotPassword.jpg",
+  "jpg": "mapjpg/SignInReturning.jpg",
   "area": "Onboarding"
  }
 ]

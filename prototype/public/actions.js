@@ -1,7 +1,8 @@
 // Actions: every tap in the prototype ends here and talks to the mock backend (same routes as the real API).
-const PRE = ['Splash', 'Onb1', 'Onb2', 'Onb3', 'Onb4', 'Onb5', 'forgot', 'onbdone'];
+const PRE = ['Splash', 'Onb1', 'Onb2', 'Onb3', 'Onb4', 'Onb5', 'onbdone'];
 const OVERLAY = ['Choose', 'Paywall', 'GroupPaywall'];
 function go(name) {
+  if (name === 'Onb5' && st.screen === 'Splash') st.returning = true;
   if (OVERLAY.includes(name)) { st.screen = name; return; }
   if (PRE.includes(name)) { st.screen = name; return; }
   if (!st.user) { st.screen = 'Onb5'; return; }
@@ -21,7 +22,7 @@ async function refresh() {
   if (jr.ok) st.journeys = jr.data;
   if (pl.ok) st.places = pl.data;
   const xp = await api('/xpPoints/summary'); if (xp.ok) st.pts = xp.data;
-  if (st.user) st.locReqs = (await api('/family/location-requests/pending')).data;
+  if (st.user) { st.locReqs = (await api('/family/location-requests/pending')).data; const c0 = circ(); if (c0) st.ciReqs = (await api('/family/check-in/requests?circleId=' + c0.circleId)).data; }
 }
 async function boot() {
   R = await (await fetch('/rules.json')).json();
@@ -47,13 +48,7 @@ const A = {
   onbagreego() { if (st.onb.agreed.length < 4) return toast('Tap all four to continue'); go('Onb3'); },
   lvl(e) { st.onb.level = e.dataset.id; },
   onbprime() { st.primed = true; try { localStorage.setItem('alrt_primed', '1'); } catch {} go('Onb4'); },
-  emailsheet() { st.authMode = 'register'; st.sheet = 'emailauth'; },
-  authmode(e) { st.authMode = e.dataset.m; },
-  forgotopen() { st.sheet = null; go('forgot'); },
-  async register() { st.wasOnboarding = true; await auth('/auth/email-password/register'); },
-  async login() { st.wasOnboarding = false; await auth('/auth/email-password/login'); },
-  async oauth(e) { st.wasOnboarding = true; await auth('/auth/oauth/' + e.dataset.p, true); },
-  async forgot() { await api('/auth/password-reset/request', { body: { email: $('#fe')?.value } }); st.forgotSent = true; },
+  async oauth(e) { st.wasOnboarding = !st.returning; await auth('/auth/oauth/' + e.dataset.p, true); },
   onbgo() { st.screen = 'main'; st.tab = 'Main'; if (!st.primed) st.sheet = 'priming'; },
   primeon() { st.primed = true; try { localStorage.setItem('alrt_primed', '1'); } catch {} st.sheet = null; toast('Alerts are on'); api('/notification/push-notification-token', { body: { token: 'demo-token' } }); },
   primelater() { st.sheet = null; },
@@ -71,6 +66,10 @@ const A = {
   // alerts
   async open(e) { const h = st.hazards.find((x) => x.id === e.dataset.id); if (!h) return; st.detail = h.id; st.screen = 'main'; st.tab = h.source === 'community' ? 'Community' : (h.board && window.BOARDS[h.board]) ? h.board : 'Detail'; await api('/hazard/' + h.id + '/view', { method: 'POST', body: {} }); },
   openfilters() { st.sheet = 'filters'; }, mapkey() { st.sheet = 'mapkey'; },
+  voice() { st.voiceHeard = ''; st.sheet = 'voice'; setTimeout(() => { if (st.sheet === 'voice') { st.voiceHeard = 'Scarborough Beach Road'; draw(); } }, 900); },
+  voicedone() { st.voiceHeard = st.voiceHeard || 'Scarborough Beach Road'; },
+  voiceuse() { st.voiceText = st.voiceHeard; st.sheet = null; st.screen = 'main'; st.tab = 'Places'; toast('Searching for ' + st.voiceHeard); },
+  routepick(e) { st.route.pick = +e.dataset.i; },
   filt(e) { const arr = st.filters[e.dataset.k]; const i = arr.indexOf(e.dataset.v); i >= 0 ? arr.splice(i, 1) : arr.push(e.dataset.v); try { localStorage.setItem('alrt_filters', JSON.stringify(st.filters)); } catch {} },
   filtreset() { st.filters = { sources: ['aws', 'official', 'community', 'global', 'intel'], bands: Object.keys(R.bands), cats: Object.keys(R.categories) }; try { localStorage.setItem('alrt_filters', JSON.stringify(st.filters)); } catch {} },
   opennotes() { st.seenNotes = st.notes.length; st.screen = 'main'; st.tab = 'notes'; },
@@ -88,7 +87,7 @@ const A = {
   async unsub(e) { await api('/user/unsubscribe', { body: { id: e.dataset.id } }); await refresh(); },
   locpick(e) { st.loc = e.dataset.n === 'Scarborough WA' ? 'Scarborough' : e.dataset.n; st.screen = 'main'; st.tab = st.locBack || 'Main'; },
   routemode(e) { (st.route ||= {}).mode = e.dataset.m; },
-  routego() { st.route = { ...(st.route || {}), from: $('#rfrom')?.value, to: $('#rto')?.value || 'Perth CBD' }; const n = visibleHazards().filter((h) => ['critical', 'action'].includes(h.band)).length; st.route.result = { crosses: Math.min(n, 1) }; },
+  routego() { const hz = visibleHazards(); const sev = hz.filter((h) => ['critical', 'action'].includes(h.band) && h.source !== 'community'); const com = hz.filter((h) => h.source === 'community'); st.route = { ...(st.route || {}), from: $('#rfrom')?.value || 'Your location', to: $('#rto')?.value || 'Perth CBD', pick: 0, options: [{ mins: 24, km: 18.2, via: 'Mitchell Fwy', hazards: sev.slice(0, 2), path: 'M30 160 C 90 150, 140 110, 200 90 S 300 40, 330 30' }, { mins: 31, km: 21.5, via: 'Marmion Ave', hazards: com.slice(0, 1), path: 'M30 160 C 60 120, 90 70, 170 60 S 300 60, 330 30' }, { mins: 38, km: 24.1, via: 'Wanneroo Rd', hazards: [], path: 'M30 160 C 120 170, 220 150, 270 110 S 320 60, 330 30' }] }; },
   // report
   repcat(e) { st.rep = st.rep || {}; st.rep.cat = e.dataset.k; st.rep.obs = null; st.rep.text = $('#rb')?.value || st.rep.text; },
   repobs(e) { st.rep.obs = e.dataset.o; st.rep.text = $('#rb')?.value || st.rep.text; if (e.dataset.o === 'Something else') setTimeout(() => $('#rb')?.focus(), 50); },
@@ -213,12 +212,14 @@ const A = {
   async delacct() { await api('/user/account', { method: 'DELETE', body: {} }); await refresh(); st.tab = 'deleted'; },
   async setlang(e) { await api('/user/profile', { method: 'PUT', body: { language: e.dataset.k } }); await refresh(); st.sheet = null; },
   logoutsheet() { st.sheet = 'logout'; },
+  async photosave() { let dataUrl = st.pendingPhoto || st.user?.photo || null; st.pendingPhoto = null; const r = await api('/user/profile-picture', { method: 'PUT', body: { dataUrl, name: $('#pname')?.value } }); if (!r.ok) return toast(r.data.message); st.sheet = null; await refresh(); toast('Saved. Your group members can see it; the map never does.'); },
+  async photoremove() { await api('/user/profile-picture', { method: 'DELETE', body: {} }); st.sheet = null; await refresh(); },
+  async gphotosave() { let dataUrl = st.pendingPhoto || circ()?.photoUrl || null; st.pendingPhoto = null; const r = await api('/family/circle/photo', { method: 'PUT', body: { circleId: circ().circleId, dataUrl } }); if (!r.ok) return refusal(r.data); st.sheet = null; await loadFamily(); toast('Group photo saved. Members only.'); },
   widgetadd() { st.widgetAdded = true; st.sheet = null; toast('Widget added to your home screen'); },
   async signout() { await api('/notification/push-notification-token', { method: 'DELETE', body: {} }); st.token = ''; try { localStorage.removeItem('alrt_tok'); } catch {} Object.assign(st, { user: null, sheet: null, circles: [], sos: [], notes: [], circleId: null, access: null, places: [], tab: 'Main', screen: 'Splash', onb: { level: 'official', who: 'family', agreed: [] } }); },
 };
 async function auth(p, oauth) {
-  const em = $('#em')?.value, pw = $('#pw')?.value;
-  const r = await api(p, { body: oauth ? {} : { email: em, password: pw, name: em?.split('@')[0] } });
+  const r = await api(p, { body: { name: st.onb.name || undefined } });
   if (!r.ok) return toast(r.data.message || 'Could not sign in');
   st.token = r.data.token; try { localStorage.setItem('alrt_tok', st.token); } catch {}
   st.sheet = null; await refresh();
@@ -226,6 +227,7 @@ async function auth(p, oauth) {
   await api('/onboarding/accept-disclaimer', { body: { ok: true } }); await api('/onboarding/accept-tos', { body: { ok: true } });
   if (st.primed) await api('/notification/push-notification-token', { body: { token: 'demo-token' } });
   if (st.wasOnboarding === false) { st.screen = 'main'; st.tab = 'Main'; } else { st.screen = 'onbdone'; }
+  st.returning = false;
 }
 
 // ---------- events
@@ -250,6 +252,13 @@ document.addEventListener('pointerdown', (e) => {
 });
 const cancelHold = () => { clearTimeout(holdT); const f = $('#holdfill'); if (f) { f.style.transition = 'none'; f.style.width = '0'; } };
 document.addEventListener('pointerup', cancelHold); document.addEventListener('pointercancel', cancelHold);
+
+document.addEventListener('change', async (ev) => {
+  const t = ev.target; if (!(t instanceof HTMLInputElement) || t.type !== 'file' || !t.files[0]) return;
+  const dataUrl = await new Promise((ok) => { const rd = new FileReader(); rd.onload = () => ok(rd.result); rd.readAsDataURL(t.files[0]); });
+  const pv = $(t.id === 'gphotofile' ? '[data-testid=gphoto-preview]' : '[data-testid=photo-preview]'); if (pv) { pv.style.background = `url(${dataUrl}) center/cover`; pv.textContent = ''; }
+  st.pendingPhoto = dataUrl;
+});
 
 // ---------- dev panel beside the phone
 async function dev(k) {

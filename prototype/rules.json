@@ -201,7 +201,12 @@
     "neverFiredFromWidget": true,
     "neverContactsEmergencyServices": true,
     "whoCanEnd": "sender or host (R06)",
-    "totalCapHours": 4
+    "totalCapHours": 4,
+    "responseRouting": {
+      "seen": "sender, by name",
+      "onMyWay": "other recipients only, never the sender",
+      "called": "other recipients only"
+    }
   },
   "wording": {
     "checkIn": "Check in",
@@ -308,7 +313,7 @@
     "cohorts": [
       [
         "older",
-        "Older adult",
+        "Older person",
         "#EAF1E4",
         "#4A6B35"
       ],
@@ -344,7 +349,7 @@
       ],
       [
         "visitor",
-        "Away from home",
+        "Visitor",
         "#FFE9F1",
         "#A83A66"
       ],
@@ -550,8 +555,8 @@
       "source": "rules.json decisionsApplied (navigation server-proxied)"
     },
     "voiceInput": {
-      "value": "not on the approved boards: hidden in V1 (speech_to_text stays in code, no mic in the design)",
-      "source": "rules.json decisionsApplied"
+      "value": "voice to text stays, as a mic in the search bar; Ask ALRT is a separate function with its own button",
+      "source": "9 Oct 2026 instruction (supersedes 'hidden')"
     },
     "language": {
       "value": "English and Spanish picker kept; official warnings always in their issued wording",
@@ -596,6 +601,100 @@
     "emergencyNumber": {
       "value": "region neutral: your local emergency number, never 000 or Triple Zero",
       "source": "ALRT + surfaces ruling; backend prompt rule"
+    },
+    "auth": {
+      "value": "no passwords: Apple, Google or Microsoft sign-in only",
+      "source": "9 Oct 2026 instruction"
+    },
+    "mapKey": {
+      "value": "outline shapes only in dark grey, then the AWS colours explained, then the colour to severity words",
+      "source": "9 Oct 2026 instruction"
+    },
+    "route": {
+      "value": "show hazards on each route option and let the person choose, like Google Maps",
+      "source": "9 Oct 2026 instruction"
+    },
+    "reportLocation": {
+      "value": "alerts can be viewed anywhere; a report is posted from the actual physical location only",
+      "source": "9 Oct 2026 instruction"
+    },
+    "flagging": {
+      "value": "only community reports can be reported; official alerts never",
+      "source": "9 Oct 2026 instruction"
+    },
+    "sosOnMyWay": {
+      "value": "On my way goes to the other recipients, never the SOS sender; Seen goes to the sender by name",
+      "source": "9 Oct 2026 instruction"
+    },
+    "leaderboard": {
+      "value": "completely de-identified: rank and points only",
+      "source": "9 Oct 2026 instruction"
+    },
+    "cohortLabels": {
+      "value": "Older person; Visitor",
+      "source": "9 Oct 2026 instruction"
+    },
+    "widgets": {
+      "value": "included: Emergency Warning (dark red), Near you small states, Family, Family SOS (its own look), from the Widgets board",
+      "source": "Widgets board; 9 Oct 2026 instruction"
     }
+  },
+  "bandWords": {
+    "info": [
+      "Info",
+      "For your information"
+    ],
+    "monitor": [
+      "Monitor",
+      "Keep an eye on it"
+    ],
+    "action": [
+      "Action",
+      "Take action now"
+    ],
+    "critical": [
+      "Critical",
+      "Danger, act immediately"
+    ]
+  },
+  "awsLevels": [
+    [
+      "Advice",
+      "#F5C518",
+      "An incident has started. Stay informed."
+    ],
+    [
+      "Watch and Act",
+      "#F07E1B",
+      "Conditions are changing. Start taking action."
+    ],
+    [
+      "Emergency Warning",
+      "#DA1F2D",
+      "You are in danger. Act immediately."
+    ]
+  ],
+  "auth": {
+    "passwordsStored": false,
+    "methods": [
+      "apple",
+      "google",
+      "microsoft"
+    ],
+    "note": "ALRT never creates or stores a password. Email sign-in exists only for app-store reviewers behind a flag."
+  },
+  "voice": {
+    "voiceToText": "mic in the map search bar, recognised on the phone, fills the search field",
+    "askAlrt": "its own button, separate function"
+  },
+  "reporting": {
+    "fromPhysicalLocationOnly": true,
+    "viewAnywhere": true,
+    "officialAlertsReportable": false,
+    "communityReportsReportable": true
+  },
+  "leaderboard": {
+    "deIdentified": true,
+    "shows": "rank and points only; your own position shown to you alone"
   }
 }

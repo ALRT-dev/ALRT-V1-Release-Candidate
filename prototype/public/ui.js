@@ -69,6 +69,9 @@ function act(el, action, data = {}, testid) { if (!el) return; const t = el.clos
 function navTo(el, name, testid) { if (!el) return; const t = el.closest('a,button') || el; t.dataset.nav = name; delete t.dataset.act; if (testid) t.dataset.testid = testid; t.style.cursor = 'pointer'; return t; }
 const html = (s) => { const d = document.createElement('div'); d.innerHTML = s; return d.firstElementChild; };
 
+// Family circle state: red while an SOS is live, amber when a check-in is asked of you, indigo at rest.
+function famState() { if (st.sos.some((s) => s.active && (s.userId === me() || st.circles.some((c) => c.circleId === s.circleId)))) return 'sos'; if ((st.ciReqs || []).some((x) => x.waitingOn.some((w) => w.id === me())) || (st.circles || []).some((c) => c.waitingOnMe)) return 'ask'; return 'idle'; }
+
 // ---------- footer (from the Main board)
 const TAB_OF = { Main: 'Main', Places: 'Main', selectloc: 'Main', route: 'Main', Feed: 'Feed', Offline: 'Feed', notes: 'Feed', Detail: 'Feed', Ex1: 'Feed', Ex2: 'Feed', Ex3: 'Feed', Community: 'Feed', Report: 'Report', Posted: 'Report', Ready: 'Ready', Learn: 'Ready', guide: 'Ready', Plan: 'Ready', Drill: 'Ready', Safety: 'Ready', Family: 'Family', FamilyEmpty: 'Family', journey: 'Family', invite: 'Family', groupsettings: 'Family', switchgroup: 'Family', circleprofile: 'Family', sharing: 'Family', famplaces: 'Family', soslists: 'Family', soslistedit: 'Family', sosreceiver: 'Family', sosresolved: 'Family', soshistory: 'Family', sharedjourney: 'Family', grouppaused: 'Family', plan_cover: 'Family', rollcall: 'Family', Profile: 'Profile', managenotes: 'Profile', accessible: 'Profile', points: 'Profile', leaderboard: 'Profile', badges: 'Profile', childmode: 'Profile', blocked: 'Profile', support: 'Profile', deleteacct: 'Profile', manage: 'Profile', myalrts: 'Profile' };
 function footer(active) {
@@ -81,8 +84,10 @@ function footer(active) {
     const on = (target === active) || (isFam && active === 'Family');
     if (a.getAttribute('aria-label') === 'Me') { const av = a.firstElementChild; av.textContent = (st.user?.name || 'S')[0].toUpperCase(); av.style.boxShadow = on ? '0 0 0 2px #FFFFFF, 0 0 0 4px #E8622A' : ''; a.dataset.testid = 'tab-me'; return; }
     if (target === 'Report') { a.dataset.testid = 'tab-report'; if (st.user?.childMode) a.style.display = 'none'; return; }
-    a.style.background = on ? (isFam ? 'rgba(61,61,223,0.10)' : ON) : '';
-    a.style.color = isFam ? '#3D3DDF' : on ? '#E8622A' : '#5C5C66';
+    const fs = famState();
+    a.style.background = on ? (isFam ? (fs === 'sos' ? 'rgba(218,31,45,0.12)' : fs === 'ask' ? 'rgba(232,98,42,0.12)' : 'rgba(61,61,223,0.10)') : ON) : '';
+    a.style.color = isFam ? (fs === 'sos' ? '#DA1F2D' : fs === 'ask' ? '#E8622A' : '#3D3DDF') : on ? '#E8622A' : '#5C5C66';
+    if (isFam) { a.dataset.state = fs; let dot = a.querySelector('span'); if (fs !== 'idle') { if (!dot) { dot = document.createElement('span'); a.appendChild(dot); } dot.style.cssText = `position: absolute; top: 7px; right: 14px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #FFFFFF; background: ${fs === 'sos' ? '#DA1F2D' : '#E8622A'}`; } else if (dot) dot.remove(); }
     a.dataset.testid = 'tab-' + { Main: 'alerts', Feed: 'feed', Ready: 'ready', Family: 'family' }[target];
     if (target === 'Feed') { const dot = $('span', a); if (dot) dot.style.display = st.notes.length > st.seenNotes ? '' : 'none'; }
   });
@@ -100,7 +105,7 @@ function igFooter(active) {
     const svg = a.querySelector('svg'); if (svg && target !== 'Report') { svg.setAttribute('width', '27'); svg.setAttribute('height', '27'); if (on) svg.setAttribute('fill', 'currentColor'); }
     if (a.getAttribute('aria-label') === 'Me') { const av = a.firstElementChild; av.textContent = (st.user?.name || 'S')[0].toUpperCase(); av.style.width = av.style.height = '28px'; av.style.boxShadow = on ? '0 0 0 2px #FFFFFF, 0 0 0 3.5px #E8622A' : ''; a.dataset.testid = 'tab-me'; return; }
     if (target === 'Report') { a.dataset.testid = 'tab-report'; if (st.user?.childMode) a.style.display = 'none'; return; }
-    a.style.color = isFam ? '#3D3DDF' : on ? '#E8622A' : '#2B2B30';
+    const fs2 = famState(); a.style.color = isFam ? (fs2 === 'sos' ? '#DA1F2D' : fs2 === 'ask' ? '#E8622A' : '#3D3DDF') : on ? '#E8622A' : '#2B2B30'; if (isFam) a.dataset.state = fs2;
     a.dataset.testid = 'tab-' + { Main: 'alerts', Feed: 'feed', Ready: 'ready', Family: 'family' }[target];
     if (target === 'Feed') { const dot = $('span', a); if (dot) { dot.style.display = st.notes.length > st.seenNotes ? '' : 'none'; dot.style.top = '10px'; } }
   });
@@ -163,8 +168,10 @@ BIND.Onb4 = (r) => { r.dataset.testid = 'onb3'; navTo(byText(r, 'Continue with A
 BIND.Onb5 = (r) => {
   r.dataset.testid = 'onb4';
   act(byText(r, 'Continue with Apple'), 'oauth', { p: 'apple' }); act(byText(r, 'Continue with Google'), 'oauth', { p: 'google' }); act(byText(r, 'Continue with Microsoft'), 'oauth', { p: 'microsoft' });
-  act(byText(r, 'Continue with Email'), 'emailsheet', {}, 'email-open');
+  const em = byText(r, 'Continue with Email'); if (em) em.remove();
+  const sub0 = byText(r, 'An account keeps your places, settings and points across phones. You can also just look around.'); if (sub0) sub0.textContent = 'An account keeps your places, settings and points across phones. ALRT never creates or stores a password: you sign in with Apple, Google or Microsoft.';
   const g = byTextStart(r, 'Look around first'); if (g) g.remove(); const gn = byTextStart(r, 'Guest mode is not built'); if (gn) gn.remove();
+  const ap = byText(r, 'Continue with Apple'); if (ap) ap.dataset.testid = 'oauth-apple'; const go0 = byText(r, 'Continue with Google'); if (go0) go0.dataset.testid = 'oauth-google';
   const sub = byText(r, 'Alerts on · you choose your places on the map next'); if (sub && !st.primed) sub.textContent = 'You can turn alerts on later in Notifications';
 };
 BIND.Choose = (r) => {
@@ -226,9 +233,12 @@ BIND.Main = (r) => {
   r.dataset.testid = 'map';
   const hz = visibleHazards(); const warn = hz.filter((h) => ['critical', 'action'].includes(h.band) && h.source !== 'community').length;
   const ban = byTextStart(r, '1 warning near you'); if (ban) { ban.textContent = warn ? `${warn} warning${warn > 1 ? 's' : ''} near you. See what to do` : 'No warnings near you right now'; ban.dataset.nav = 'Feed'; ban.dataset.testid = 'map-banner'; const dot = ban.previousElementSibling; if (dot) dot.style.background = warn ? '#DA1F2D' : '#16A34A'; }
-  const lab = r.querySelector('label[for="map-search"]'); if (lab) { navTo(lab, 'Places', 'places-btn'); const inp = lab.querySelector('input'); if (inp) inp.setAttribute('readonly', ''); }
-  act(r.querySelector('button[aria-label="Ask ALRT"]'), 'ask', {}, 'ask-btn');
+  const lab = r.querySelector('label[for="map-search"]'); if (lab) { const inp = lab.querySelector('input'); if (inp) { inp.setAttribute('readonly', ''); act(inp, 'tab', { tab: 'Places' }, 'places-btn'); } }
+  const askB = r.querySelector('button[aria-label="Ask ALRT"]'); act(askB, 'ask', {}, 'ask-btn');
+  const mic = askB.cloneNode(true); mic.setAttribute('aria-label', 'Speak to search'); mic.style.background = '#F5F5F7'; mic.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3A3A42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>'; act(mic, 'voice', {}, 'mic-btn'); askB.insertAdjacentElement('beforebegin', mic);
+  const inp0 = lab && lab.querySelector('input'); if (inp0 && st.voiceText) inp0.value = st.voiceText;
   act(r.querySelector('button[aria-label="Map layers"]'), 'openfilters', {}, 'filters-btn'); navTo(r.querySelector('button[aria-label="List view"]'), 'Feed', 'view-toggle'); act(r.querySelector('button[aria-label="Map key"]'), 'mapkey'); act(r.querySelector('button[aria-label="My location"]'), 'toast', { m: 'Centred on you. Location is only used on your phone.' });
+  const myLoc = r.querySelector('button[aria-label="My location"]'); const rt = myLoc.cloneNode(true); rt.setAttribute('aria-label', 'Check a route'); rt.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></svg>'; act(rt, 'tab', { tab: 'route' }, 'route-btn'); myLoc.insertAdjacentElement('afterend', rt);
   // pins: bind the designed markers to live hazards by shape
   const pins = $$('div[style*="position: absolute"][style*="top: 300px"], div[style*="top: 360px"], div[style*="top: 470px"], div[style*="top: 520px"]', r);
   const bySrc = (s) => hz.find((h) => h.source === s);
@@ -260,7 +270,7 @@ BIND.Report = (r) => {
   const OBS = { traffic: ['Crash', 'Road blocked', 'Heavy traffic', 'Broken down vehicle', 'Something else'], weather: ['Water over the road', 'Fallen tree', 'Hail', 'Flooding', 'Something else'], health: ['Smoke', 'Bad air', 'Chemical smell', 'Something else'], security: ['Suspicious activity', 'Break-in', 'Fight', 'Something else'], utilities: ['Power outage', 'Burst water main', 'Gas smell', 'Something else'], community: ['Lost pet', 'Event', 'Road works', 'Something else'], other: ['Something else'] };
   const obsWrap = byText(r, 'Crash').parentElement; obsWrap.innerHTML = (OBS[rep.cat] || OBS.traffic).map((o) => `<span data-act="repobs" data-o="${esc(o)}" style="height: 40px; padding: 0 16px; border-radius: 20px; display: flex; align-items: center; font-size: 14px; font-weight: 600; cursor: pointer; ${rep.obs === o ? 'border: 2px solid #1C1C1E; background: #1C1C1E; color: #FFFFFF' : 'border: 1.5px solid #E3E6EA'}">${esc(o)}</span>`).join('');
   [['Minor', 'minor'], ['Significant', 'significant'], ['Dangerous', 'dangerous']].forEach(([t, k]) => { const el = byText(r, t); if (!el) return; const cardEl = el.parentElement; act(cardEl, 'repsev', { k }); const on = (rep.sev || 'significant') === k; cardEl.style.border = on ? '2px solid #1C1C1E' : '1.5px solid #E3E6EA'; cardEl.style.background = on ? '#FAF9F7' : ''; });
-  const loc = st.loc || 'Scarborough'; setText(r, 'Scarborough', loc); act(byText(r, 'Adjust'), 'tab', { tab: 'selectloc', back: 'Report' }, 'rep-loc');
+  const loc = 'Scarborough'; st.loc = loc; const adj = byText(r, 'Adjust'); if (adj) adj.remove(); setText(r, 'Your current location · suburb only', 'Where you are now · suburb only · reports are posted from your actual location'); const locRow = byText(r, 'Scarborough'); if (locRow) locRow.closest('div[style*="border-radius: 18px"]').dataset.testid = 'rep-loc';
   const head = byTextStart(r, 'Crash reported in'); if (head) head.textContent = `${rep.obs || (rep.cat ? R.categories[rep.cat].name : 'Something')} reported in ${loc}`;
   const ta = r.querySelector('textarea'); if (ta) { ta.id = 'rb'; ta.value = rep.text || ''; }
   act(byText(r, 'Submit report'), 'post', {}, 'post');
@@ -268,22 +278,23 @@ BIND.Report = (r) => {
 BIND.Posted = (r) => { r.dataset.testid = 'posted'; navTo(byText(r, 'Back to the map'), 'Main', 'done'); act(byText(r, 'See my reports'), 'loadmine', {}, 'mine-open'); act(byText(r, 'How points work'), 'loadpoints'); setText(r, '+10', `+${R.points.reportApproved}`); setText(r, '+5', `+${R.points.confirmedByNeighbour}`); setText(r, '+15', `+${R.points.matchesOfficial}`); const pts = st.pts?.points || 0; setText(r, '20 of 50 points', `${pts} points`); };
 BIND.Profile = (r) => {
   const u = st.user || {}; const pl = st.access?.personal; const pts = st.pts?.points || 0; const lvl = [...R.points.levels].reverse().find((l) => pts >= l[1]); const next = R.points.levels.find((l) => l[1] > pts);
-  setText(r, 'S', (u.name || 'S')[0].toUpperCase()); setText(r, 'Sarah Nixon', u.name || ''); const ready = readiness();
+  const avEl = byText(r, 'S'); if (avEl) { if (u.photo) { avEl.textContent = ''; avEl.style.background = `url(${u.photo}) center/cover`; avEl.dataset.testid = 'profile-photo'; } else avEl.textContent = (u.name || 'S')[0].toUpperCase(); }
+  setText(r, 'Sarah Nixon', u.name || ''); const ready = readiness();
   setText(r, 'ALRT Free · 62% ready', `${pl?.plan === 'individual' ? R.plans.individual.label + (pl.isTrial ? ' trial' : '') : R.plans.free.label} · ${ready.pct}% ready`);
-  act(byText(r, 'Edit'), 'toast', { m: 'Name and photo are edited here' });
+  act(byText(r, 'Edit'), 'sheet', { sheet: 'photo' }, 'edit-profile');
   const xp = byTextStart(r, '340'); if (xp) { xp.firstChild.textContent = pts + ' '; xp.dataset.testid = 'points'; }
   const bar = r.querySelector('div[style*="width: 34%"]'); if (bar) bar.style.width = Math.min(100, Math.round((pts / 1500) * 100)) + '%';
   setText(r, 'Watcher', lvl[0]); const toNext = byTextStart(r, '410 XP to'); if (toNext) toNext.textContent = next ? `${next[1] - pts} XP to ${next[0]}` : 'Top level reached';
   act(byText(r, 'How points work'), 'loadpoints', {}, 'points-open');
   const plus = byText(r, 'Unlimited saved places. Try 2 weeks free.'); const plusCard = plus && plus.closest('a');
   if (plusCard) { if (pl?.plan === 'individual') { plus.textContent = 'You have ALRT +. Manage plans and group coverage.'; byText(plusCard, 'Explore').textContent = 'My plans'; act(plusCard, 'loadmanage', {}, 'manage-open'); } else { act(plusCard, 'paywall', { ctx: 'me' }, 'see-plus'); } }
-  const left = 4 - ready.done; setText(r, '3 left', `${left} left`); const prog = byText(r, 'Finish setting up'); if (prog) { const tiles = prog.parentElement.nextElementSibling.children; const acts = [['Places', 'Save a place'], ['Safety', 'Safety profile'], ['accessible', 'Sound and vibration'], ['addwidget', 'Add a widget']]; const doneList = [st.places.length > 0, myCohorts().length > 0, !!st.acc?.vib, !!st.widgetAdded]; [...tiles].forEach((tile, i) => { tile.style.background = doneList[i] ? '#E6F6EC' : '#FFFFFF'; tile.style.cursor = 'pointer'; if (acts[i][0] === 'addwidget') act(tile, 'sheet', { sheet: 'addwidget' }); else navTo(tile, acts[i][0]); }); }
+  const left = 4 - ready.done; setText(r, '3 left', `${left} left`); const prog = byText(r, 'Finish setting up'); if (prog) { const tiles = prog.parentElement.nextElementSibling.children; const acts = [['Places', 'Save a place'], ['Safety', 'Safety profile'], ['accessible', 'Sound and vibration'], ['widgets', 'Add a widget']]; const doneList = [st.places.length > 0, myCohorts().length > 0, !!st.acc?.vib, !!st.widgetAdded]; [...tiles].forEach((tile, i) => { tile.style.background = doneList[i] ? '#E6F6EC' : '#FFFFFF'; tile.style.cursor = 'pointer'; navTo(tile, acts[i][0]); }); }
   const R2 = (t, action, data, testid, sub) => { const el = byTextIn(r, t, 'a'); if (!el) return; const a = el.closest('a'); if (action.startsWith('nav:')) navTo(a, action.slice(4), testid); else act(a, action, data || {}, testid); if (sub !== undefined) { const s = el.nextElementSibling; if (s) s.textContent = sub; } return a; };
   const lvlLabel = R.notifications.levels.find((l) => l.id === (u.settings?.level || 'official'))?.label || '';
   R2('Notifications', 'loadnotes', {}, 'notes-open', lvlLabel + ' · sound and vibration inside');
   R2('Saved places', 'nav:Places', {}, 'places-open', pl?.plan === 'individual' ? `${st.places.length} saved · no limit` : `${st.places.length} of 1 free used`);
   R2('Safety profile', 'nav:Safety', {}, 'safety-open', myCohorts().length ? `${myCohorts().length} selected · stored on your phone` : 'Not set up · stored on your phone');
-  R2('Home screen widget', 'sheet', { sheet: 'addwidget' }, 'widgets-open');
+  R2('Home screen widget', 'nav:widgets', {}, 'widgets-open');
   const c = circ(); R2('Family and check-ins', 'nav:Family', {}, 'family-open', c ? `${c.name} · ${c.peopleCount} people` : 'No group yet. Creating one is free.');
   R2('Journey sharing', 'nav:journey', {}, 'journey-open', st.journeys.length ? 'A journey is running' : 'Shared journeys and live trips');
   R2('Your points', 'loadpoints', {}, 'points-open2', `${pts} XP · see where they came from`);
@@ -331,6 +342,7 @@ BIND.Drill = (r) => {
 };
 BIND.Safety = (r) => {
   navTo(r.querySelector('a[data-nav="Profile"]'), 'Profile', 'back');
+  setText(r, 'Older adult', 'Older person'); setText(r, 'Away from home', 'Visitor');
   const sel = myCohorts();
   R.safetyProfile.cohorts.forEach(([k, t, tint, col]) => { const el = byText(r, t); if (!el) return; act(el, 'cohort', { k }, 'cohort-' + k); const on = sel.includes(k); el.style.border = on ? `2px solid ${col}` : '1.5px solid #E3E6EA'; el.style.background = on ? tint : '#FFFFFF'; el.style.color = on ? col : '#1C1C1E'; const dot = el.querySelector('span'); if (dot) dot.style.background = col; });
   navTo(byText(r, 'Save my profile'), 'Ready', 'safety-save'); act(byText(r, 'Skip, show all advice equally'), 'cohortclear', {}, 'safety-skip');
@@ -341,14 +353,16 @@ BIND.FamilyEmpty = (r) => { r.dataset.testid = 'family-empty'; act(byText(r, 'Cr
 BIND.Family = (r) => {
   const c = circ(); if (!c) return;
   const host = c.ownerId === me(); const al = c.connectionAccess;
-  const title = r.querySelector('header button'); if (title) { title.firstChild.textContent = c.name; act(title, st.circles.length > 1 ? 'tab' : 'toast', st.circles.length > 1 ? { tab: 'switchgroup' } : { m: 'Join or create another circle from Add a person' }, st.circles.length > 1 ? 'switch' : 'circle-title'); if (st.circles.length > 1) { const h = html(`<span data-testid="circle-title" hidden>${esc(c.name)}</span>`); title.appendChild(h); } }
+  const fs = famState(); const hd = r.querySelector('header'); if (hd && fs !== 'idle') { hd.style.background = fs === 'sos' ? 'linear-gradient(165deg, #C8102E, #7A0012)' : 'linear-gradient(165deg, #E8622A, #B84500)'; hd.dataset.state = fs; }
+  const gp = c.photoUrl ? `<span style="width: 36px; height: 36px; border-radius: 12px; background: url(${c.photoUrl}) center/cover; flex: none" data-testid="group-photo"></span>` : '';
+  const title = r.querySelector('header button'); if (title) { if (gp) title.insertAdjacentHTML('afterbegin', gp); title.firstChild.textContent = c.name; act(title, st.circles.length > 1 ? 'tab' : 'toast', st.circles.length > 1 ? { tab: 'switchgroup' } : { m: 'Join or create another circle from Add a person' }, st.circles.length > 1 ? 'switch' : 'circle-title'); if (st.circles.length > 1) { const h = html(`<span data-testid="circle-title" hidden>${esc(c.name)}</span>`); title.appendChild(h); } }
   act(r.querySelector('button[aria-label="Group settings"]'), 'tab', { tab: 'groupsettings' }, 'gsettings');
   const cover = c.sponsorship.live ? `Covered by ${R.plans[c.sponsorship.tier].label}` : al.allowed ? (st.access?.billingEnabled ? 'Using your own ALRT +' : 'Billing off') : al.reason === 'GROUP_PLAN_ENDED' ? 'Group plan ended' : 'Not covered yet';
   setText(r, '1 person · you host', `${c.peopleCount} ${c.peopleCount === 1 ? 'person' : 'people'} · ${host ? 'you host' : 'hosted by ' + nm(c.ownerId)} · ${cover}`);
   act(byText(r, 'Check in'), 'cisheet', {}, 'checkin'); act(byText(r, 'Ask'), 'askcisheet', {}, 'askall'); act(byText(r, 'Journey'), 'tab', { tab: 'journey' }, 'journey-open'); act(byText(r, 'Daily'), 'loadprofile', {}, 'daily-open');
   const sosEl = byText(r, 'SOS'); if (sosEl) act(sosEl.closest('section'), 'sosopen', {}, 'sos-open');
   const list = byText(r, 'Members').parentElement; const tpl = list.children[1]; [...list.children].slice(1).forEach((x) => x.remove());
-  c.members.forEach((m) => { const x = tpl.cloneNode(true); x.dataset.testid = 'member-row'; setText(x, 'S', (m.nickname || m.name)[0].toUpperCase()); x.firstElementChild.style.background = m.colorHex || '#E8622A'; setText(x, 'Sarah (you)', (m.nickname || m.name) + (m.id === me() ? ' (you)' : '') + (c.ownerId === m.id ? ' · host' : '')); setText(x, 'Not checked in today', m.lastCheckInAt ? `Checked in ${when(m.lastCheckInAt)}${m.snapshot ? ' · ' + m.snapshot.label + ' until ' + when(m.snapshot.expiresAt) : ''}` : 'Not checked in today'); const p = x.lastElementChild; if (m.lastCheckInAt) { p.textContent = 'Checked in'; p.style.background = '#E6F6EC'; p.style.color = '#15803D'; } else if (m.id !== me()) { p.textContent = 'Check on'; p.style.background = '#EEEEFB'; p.style.color = '#3D3DDF'; act(p, 'checkon', { uid: m.id, id: c.circleId }, 'checkon'); } act(x, m.id === me() ? 'loadprofile' : 'membersheet', { id: m.id }); if (m.id === me()) x.dataset.testid = 'member-me'; list.appendChild(x); });
+  c.members.forEach((m) => { const x = tpl.cloneNode(true); x.dataset.testid = 'member-row'; const av = x.firstElementChild; if (m.photo) { av.textContent = ''; av.style.background = `url(${m.photo}) center/cover`; av.dataset.testid = 'member-photo'; } else { setText(x, 'S', (m.nickname || m.name)[0].toUpperCase()); av.style.background = m.colorHex || '#E8622A'; } const sosLive = st.sos.some((s) => s.active && s.userId === m.id); const asked = (st.ciReqs || []).some((q) => q.waitingOn.some((w) => w.id === m.id)); av.style.boxShadow = sosLive ? '0 0 0 3px #FFFFFF, 0 0 0 6px #DA1F2D' : asked ? '0 0 0 3px #FFFFFF, 0 0 0 6px #E8622A' : ''; av.dataset.state = sosLive ? 'sos' : asked ? 'ask' : 'idle'; setText(x, 'Sarah (you)', (m.nickname || m.name) + (m.id === me() ? ' (you)' : '') + (c.ownerId === m.id ? ' · host' : '')); setText(x, 'Not checked in today', m.lastCheckInAt ? `Checked in ${when(m.lastCheckInAt)}${m.snapshot ? ' · ' + m.snapshot.label + ' until ' + when(m.snapshot.expiresAt) : ''}` : 'Not checked in today'); const p = x.lastElementChild; if (m.lastCheckInAt) { p.textContent = 'Checked in'; p.style.background = '#E6F6EC'; p.style.color = '#15803D'; } else if (m.id !== me()) { p.textContent = 'Check on'; p.style.background = '#EEEEFB'; p.style.color = '#3D3DDF'; act(p, 'checkon', { uid: m.id, id: c.circleId }, 'checkon'); } act(x, m.id === me() ? 'loadprofile' : 'membersheet', { id: m.id }); if (m.id === me()) x.dataset.testid = 'member-me'; list.appendChild(x); });
   // dynamic cards the board could not show: waiting on, shared journeys, uncovered
   const waiting = (st.ciReqs || []).filter((x) => x.waitingOn.length); const myReq = waiting.find((x) => x.waitingOn.some((w) => w.id === me()));
   const extras = [];

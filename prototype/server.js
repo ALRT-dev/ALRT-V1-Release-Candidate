@@ -63,7 +63,8 @@ function circleView(c, u) {
   return {
     circleId: c.id, name: c.name, role: c.ownerId === u.id ? 'owner' : 'member', fundingMode: sp ? sp.funding : 'none',
     peopleCount: c.members.length, capacity: cap, code: c.code, ownerId: c.ownerId, settings: c.settings || { anyoneCanRequestSnapshot: true, journeysSnapPointsOnly: true, themeColor: '#3D3DDF' }, hostTransition: c.hostTransition || null,
-    members: c.members.map((id) => ({ id, name: S.users[id]?.name, role: c.ownerId === id ? 'owner' : 'adult', ...member(c, id), snapshot: member(c, id).snapshot && member(c, id).snapshot.expiresAt > now() ? member(c, id).snapshot : null })),
+    photoUrl: c.photoUrl || null,
+    members: c.members.map((id) => ({ id, name: S.users[id]?.name, photo: S.users[id]?.photo || null, role: c.ownerId === id ? 'owner' : 'adult', ...member(c, id), snapshot: member(c, id).snapshot && member(c, id).snapshot.expiresAt > now() ? member(c, id).snapshot : null })),
     sponsorship: sp ? { tier: sp.tier, live: true, status: 'active', expiresAt: sp.expiresAt, coveredBy: sp.sponsorUserId === u.id ? 'you' : 'sponsor', youPay: sp.sponsorUserId === u.id } : { tier: null, live: false, status: 'none', expiresAt: null, coveredBy: null, youPay: false },
     connectionAccess: { allowed, reason: reasonCode },
   };
@@ -84,7 +85,7 @@ function push(u, title, bodyText, kind, extra = {}) {
 }
 const member = (c, uid) => (c.memberMeta ||= {})[uid] ||= { sharingLevel: 'approximate', nickname: null, colorHex: '#E8622A', lastCheckInAt: null, snapshot: null };
 const award = (u, pts, why) => { S.xp[u.id] = (S.xp[u.id] || 0) + pts; (S.xpLog ||= []).push({ userId: u.id, pts, why }); };
-const hazardView = (h) => ({ ...h, minutesAgo: Math.round((now() - h.createdAt) / 60000) });
+const hazardView = (h) => { const { authorId, ...rest } = h; return { ...rest, authorId, minutesAgo: Math.round((now() - h.createdAt) / 60000), authorPhoto: null, authorName: null }; };
 
 function sosView(s) {
   const ends = s.createdAt + T.sosDurationMs + s.extendedMs;
@@ -118,7 +119,7 @@ async function api(req, res, url) {
   if (p.startsWith('/auth/oauth/')) {
     const email = `${p.split('/').pop()}.demo@example.com`;
     let x = Object.values(S.users).find((z) => z.email === email);
-    if (!x) { x = { id: uid('u_'), email, name: 'Demo user', plan: 'free', onboarding: {}, settings: { level: 'official' } }; S.users[x.id] = x; award(x, R.points.firstSetup, 'first setup'); }
+    if (!x) { x = { id: uid('u_'), email, name: p.endsWith('apple') ? 'Sarah' : 'Sarah', plan: 'free', onboarding: {}, settings: { level: 'official' } }; S.users[x.id] = x; award(x, R.points.firstSetup, 'first setup'); }
     const t = uid('tok_'); S.tokens[t] = x.id; return json(res, 200, { token: t, user: x });
   }
 
@@ -248,6 +249,9 @@ async function api(req, res, url) {
   if (p === '/user/account' && m === 'DELETE') { u.scheduledDeletionAt = now() + 30 * 86400000; return json(res, 200, { message: 'scheduled', scheduledDeletionAt: u.scheduledDeletionAt }); }
   if (p === '/user/account/cancel-deletion' && m === 'POST') { if (!u.scheduledDeletionAt) return err(res, 400, 'BAD_REQUEST', 'Nothing scheduled'); u.scheduledDeletionAt = null; return json(res, 200, { message: 'Your account has been recovered' }); }
   if (p === '/user/account/deletion-status') return json(res, 200, { isScheduledForDeletion: !!u.scheduledDeletionAt, scheduledDeletionAt: u.scheduledDeletionAt || null, daysRemaining: u.scheduledDeletionAt ? Math.ceil((u.scheduledDeletionAt - now()) / 86400000) : null });
+  if (p === '/user/profile-picture' && m === 'PUT') { if (b.dataUrl && !/^data:image\//.test(b.dataUrl)) return err(res, 400, 'BAD_REQUEST', 'Not an image'); u.photo = b.dataUrl || u.photo || null; if (b.name) u.name = b.name; return json(res, 200, { ...u, photoVisibility: 'group members only' }); }
+  if (p === '/user/profile-picture' && m === 'DELETE') { u.photo = null; return json(res, 200, { ok: true }); }
+  if (p === '/family/circle/photo' && (m === 'PUT' || m === 'DELETE')) { const c = S.circles.find((x) => (b.circleId ? x.id === b.circleId : true) && x.members.includes(u.id)); if (!c) return err(res, 404, 'NOT_FOUND', 'No group'); if (c.ownerId !== u.id) return err(res, 403, 'HOST_ONLY', 'Only the host can change the group photo'); c.photoUrl = m === 'DELETE' ? null : (b.dataUrl || null); return json(res, 200, circleView(c, u)); }
   if (p === '/user/profile' && (m === 'PUT' || m === 'PATCH')) { if (b.name) u.name = b.name; if (b.language) u.language = b.language; if (b.childMode !== undefined) u.childMode = !!b.childMode; return json(res, 200, u); }
   if (p === '/xpPoints/breakdown' || p === '/xp/breakdown') { const log = (S.xpLog || []).filter((x) => x.userId === u.id); const by = {}; log.forEach((x) => (by[x.why] = (by[x.why] || 0) + x.pts)); return json(res, 200, { currentXpPoints: S.xp[u.id] || 0, byType: Object.entries(by).map(([type, points]) => ({ type, points })), rank: 1, totalUsers: Object.keys(S.users).length }); }
   if (p === '/xpPoints/badges' || p === '/xp/badges') return json(res, 200, { badges: [{ id: 'accurate_5', name: 'Reliable reporter', earned: false, threshold: 5 }, { id: 'corroborated_25', name: 'Neighbourhood eyes', earned: false, threshold: 25 }] });
@@ -349,7 +353,7 @@ async function api(req, res, url) {
   if (p === '/family/sos/preview') { const lid = url.searchParams.get('sosListId'); const l = lid && S.sosLists.find((x) => x.id === lid); const c = l ? myCircles().find((x) => x.members.includes(l.memberIds[0])) : myCircle(cidQ); if (!c) return json(res, 200, { state: 'noPeople', recipients: [] }); const recips = (l ? l.memberIds : c.members.filter((id) => id !== u.id)).filter((id) => c.members.includes(id)); const sv = circleView(c, u); return json(res, 200, { circleId: c.id, state: !sv.connectionAccess.allowed ? 'senderNoAccess' : !recips.length ? (c.members.length > 1 ? 'noneEligible' : 'noPeople') : 'ok', senderAccess: sv.connectionAccess, preset: l ? { id: l.id, name: l.name, state: l.memberIds.every((id) => c.members.includes(id)) ? 'ok' : 'repair', removedCount: l.memberIds.filter((id) => !c.members.includes(id)).length } : null, recipients: recips.map((id) => ({ memberId: id, name: S.users[id].name })) }); }
   if (p === '/family/sos/history') return json(res, 200, S.sos.filter((x) => myCircles().some((c) => c.id === x.circleId) && x.createdAt > now() - 30 * 86400000 && x.status !== 'active').slice(-20).reverse().map((x) => ({ id: x.id, senderName: S.users[x.userId]?.name, createdAt: x.createdAt, resolvedAt: x.resolvedAt, status: x.status, location: x.location, precision: x.precision, responses: (x.responses || []).map((r0) => ({ name: S.users[r0.userId]?.name, type: r0.type })) })));
   const sget = p.match(/^\/family\/sos\/([^/]+)$/);
-  if (sget && m === 'GET' && !['active', 'history', 'preview'].includes(sget[1])) { const x = S.sos.find((z) => z.id === sget[1]); if (!x) return err(res, 404, 'NOT_FOUND', 'Not found'); return json(res, 200, { ...sosView(x), senderName: S.users[x.userId]?.name, responses: (x.responses || []).map((r0) => ({ name: S.users[r0.userId]?.name, type: r0.type })) }); }
+  if (sget && m === 'GET' && !['active', 'history', 'preview'].includes(sget[1])) { const x = S.sos.find((z) => z.id === sget[1]); if (!x) return err(res, 404, 'NOT_FOUND', 'Not found'); const mineS = x.userId === u.id; return json(res, 200, { ...sosView(x), senderName: S.users[x.userId]?.name, responses: (x.responses || []).filter((r0) => !mineS || r0.type === 'seen').map((r0) => ({ name: S.users[r0.userId]?.name, type: r0.type })) }); }
   if (p === '/family/journeys/shared') return json(res, 200, S.journeys.filter((j) => j.status === 'active' && (j.recipients || []).includes(u.id)).map((j) => ({ ...j, memberName: S.users[j.userId].name })));
   const jget = p.match(/^\/family\/journeys\/([^/]+)$/);
   if (jget && m === 'GET' && jget[1] !== 'me') { const j = S.journeys.find((x) => x.id === jget[1]); if (!j) return err(res, 404, 'NOT_FOUND', 'Not found'); if (j.userId !== u.id && !(j.recipients || []).includes(u.id)) return err(res, 403, 'FORBIDDEN', 'Not shared with you'); return json(res, 200, { ...j, memberName: S.users[j.userId].name, serverNow: now() }); }
@@ -402,7 +406,7 @@ async function api(req, res, url) {
   const sosAct = p.match(/^\/family\/sos\/([^/]+)\/(extend|resolve|trail|location|location-consent|respond)$/);
   if (sosAct) {
     const s = S.sos.find((x) => x.id === sosAct[1]); if (!s) return err(res, 404, 'NOT_FOUND', 'Not found');
-    if (sosAct[2] === 'respond') { if (s.userId === u.id) return err(res, 400, 'BAD_REQUEST', 'Own SOS'); (s.responses ||= []).push({ userId: u.id, type: b.type || 'seen' }); if ((b.type || 'seen') === 'seen') push(S.users[s.userId], u.name + ' has seen your SOS', 'They can see what you shared.', 'sosResponse', { sosId: s.id }); return json(res, 200, { ok: true }); }
+    if (sosAct[2] === 'respond') { if (s.userId === u.id) return err(res, 400, 'BAD_REQUEST', 'Own SOS'); if (s.status !== 'active' || !sosView(s).active) return err(res, 400, 'BAD_REQUEST', 'This SOS has ended'); const type = b.type || 'seen'; (s.responses ||= []).push({ userId: u.id, type }); if (type === 'seen') push(S.users[s.userId], u.name + ' has seen your SOS', 'They can see what you shared.', 'sosResponse', { sosId: s.id }); else (s.recipients || []).filter((id) => id !== u.id && id !== s.userId).forEach((id) => push(S.users[id], 'SOS update', u.name + (type === 'onMyWay' ? ' is on their way' : ' has called ' + S.users[s.userId].name), 'sosResponse', { sosId: s.id })); return json(res, 200, { ok: true }); }
     if (sosAct[2] === 'extend') { if (T.sosDurationMs + s.extendedMs + T.sosExtendMs > T.sosTotalCapMs) return err(res, 400, 'MAX_DURATION', 'An SOS can run 4 hours at most'); s.extendedMs += T.sosExtendMs; return json(res, 200, sosView(s)); }
     if (sosAct[2] === 'resolve') { const cc = S.circles.find((x) => x.id === s.circleId); if (s.userId !== u.id && !(cc && cc.ownerId === u.id)) return err(res, 403, 'FORBIDDEN', 'Only the sender or the host can end an SOS'); s.status = 'resolved'; s.resolvedAt = now(); c0 = S.circles.find((x) => x.id === s.circleId); c0.members.filter((id) => id !== u.id).forEach((id) => push(S.users[id], 'SOS ended', (s.userId === u.id ? u.name + ' ended their SOS.' : u.name + ' (host) ended ' + S.users[s.userId].name + "'s SOS."), 'sosResolved', { sosId: s.id })); return json(res, 200, sosView(s)); }
     if (sosAct[2] === 'trail') { if (b.capturedAt && b.capturedAt < now() - 120000) return err(res, 400, 'STALE_POINT', 'Point too old'); s.trail.push(b); return json(res, 200, { ok: true }); }
