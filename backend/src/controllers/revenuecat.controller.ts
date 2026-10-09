@@ -1,9 +1,26 @@
 import type { NextFunction, Request, Response } from "express";
+import crypto from "crypto";
 import { config } from "../utils/config.js";
 import {
   applyRevenueCatEvent,
   type RevenueCatEvent,
 } from "../services/entitlement.service.js";
+
+/**
+ * Constant-time comparison for webhook auth tokens.
+ * Prevents timing attacks that could leak the token character by character.
+ */
+export const timingSafeAuthEqual = (a: string, b: string): boolean => {
+  const aBuf = Buffer.from(a, "utf8");
+  const bBuf = Buffer.from(b, "utf8");
+  if (aBuf.length !== bBuf.length) {
+    // Still run the comparison against a same-length buffer so the total
+    // time does not leak the expected length.
+    crypto.timingSafeEqual(aBuf, Buffer.alloc(aBuf.length));
+    return false;
+  }
+  return crypto.timingSafeEqual(aBuf, bBuf);
+};
 
 /**
  * POST /api/revenuecat/webhook
@@ -31,7 +48,7 @@ export const handleRevenueCatWebhook = async (
         .json({ message: "REVENUECAT_WEBHOOK_AUTH is not configured" });
       return;
     }
-    if ((req.headers.authorization ?? "") !== expected) {
+    if (!timingSafeAuthEqual(req.headers.authorization ?? "", expected)) {
       res.status(401).json({ message: "Invalid webhook authorization" });
       return;
     }
