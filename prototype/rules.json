@@ -654,6 +654,10 @@
     "memberWaiting": {
       "value": "a member row shows Waiting only while a check-in has been asked of that person and not answered. Until someone asks, nothing is waiting on anyone: no pill, 'No check-in asked'. After answering: Checked in and the time",
       "source": "9 Oct 2026 instruction: 'I dont need the waiting... nor is anyone waiting on you until you have a group, and they request'"
+    },
+    "signInScreen": {
+      "value": "front page is white with the logo and the writing only: no blurred coloured circles in the corners, no tile or coloured glow behind the logo",
+      "source": "9 Oct 2026 instruction"
     }
   },
   "bandWords": {
