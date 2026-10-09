@@ -723,17 +723,37 @@ export const summarizeAndPostHazards = async ({
             ? await wasContentNotified(notifiedHash)
             : false;
 
-          // Summarize the hazard first
-          const summarized = await summarizeHazard({
-            useDummy: false,
-            title: hazardData.title,
-            description: hazardData.description,
-            locationName: hazardData.locationName,
-            category: hazardData.category!,
-            source: hazardData.source!,
-            isAwsCompliant: hazardData.isAwsCompliant ?? false,
-            severityBand: hazardData.severityBand || HazardSeverityBand.info,
-          });
+          // Summarize the hazard with AI.  If the AI call fails (service
+          // down, model error, malformed response) fall back to the raw source
+          // data so the hazard is still created and users are still alerted.
+          // R-03: previously a summarisation failure threw, the outer catch
+          // returned null, and the hazard was silently dropped.
+          let summarized: Awaited<ReturnType<typeof summarizeHazard>>;
+          try {
+            summarized = await summarizeHazard({
+              useDummy: false,
+              title: hazardData.title,
+              description: hazardData.description,
+              locationName: hazardData.locationName,
+              category: hazardData.category!,
+              source: hazardData.source!,
+              isAwsCompliant: hazardData.isAwsCompliant ?? false,
+              severityBand: hazardData.severityBand || HazardSeverityBand.info,
+            });
+          } catch (aiError) {
+            console.error(
+              `AI summarisation failed for "${hazardData.title}", using raw source data:`,
+              aiError,
+            );
+            // Mirror what summarizeHazard returns for useDummy: true —
+            // pass the original text through without AI enrichment.
+            summarized = {
+              title: hazardData.title,
+              summary: hazardData.description,
+              callsToAction: [],
+              confidence: "low" as const,
+            };
+          }
 
           // Calculate confidence score for ingested hazard (official source)
           let confidenceScore = 75; // Default high score for official sources
@@ -893,7 +913,10 @@ export const summarizeAndPostHazards = async ({
 
           return createdHazard;
         } catch (error) {
-          console.log("Error during summarization and posting:", error);
+          console.error(
+            `Error processing hazard "${hazardData.title}":`,
+            error,
+          );
           return null;
         }
       },
