@@ -208,6 +208,20 @@ export const verifyAppleOAuth = async (
       throw new HttpError(400, "Invalid identity token");
     }
 
+    // Apple's email_verified claim is a string ("true" / "false"), not a
+    // boolean.  An unverified Apple email must never sign in to (or create)
+    // an ALRT account — it could belong to someone else.
+    if (
+      applePayload.email_verified !== undefined &&
+      applePayload.email_verified !== "true" &&
+      applePayload.email_verified !== true
+    ) {
+      throw new HttpError(
+        401,
+        "Your Apple account's email address is not verified. Verify it with Apple, then try again.",
+      );
+    }
+
     const email = applePayload.email;
     let name: string | null = null;
 
@@ -273,6 +287,17 @@ export const verifyMicrosoftOAuth = async (
       null;
     if (!email) {
       throw new HttpError(400, "Microsoft token did not include an email");
+    }
+
+    // Accounts are matched by email, so an unverified Microsoft email must
+    // never sign in to (or create) an ALRT account: it could belong to
+    // someone else.  Microsoft personal-account tokens carry email_verified
+    // as a boolean; work/school tokens may omit it (directory-verified).
+    if (payload.email_verified === false) {
+      throw new HttpError(
+        401,
+        "Your Microsoft account's email address is not verified. Verify it with Microsoft, then try again.",
+      );
     }
 
     const name = typeof payload.name === "string" ? payload.name : null;
