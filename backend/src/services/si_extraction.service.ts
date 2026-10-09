@@ -24,7 +24,7 @@ import {
  * the LLM, and the model call can be cached on a text hash by the caller.
  */
 
-const DEFAULT_MODEL = "gpt-5-nano";
+const DEFAULT_MODEL = "";
 
 export interface SIExtractionInput {
   title: string;
