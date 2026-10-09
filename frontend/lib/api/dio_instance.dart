@@ -3,16 +3,17 @@ import 'package:dio/dio.dart';
 import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hazard_app/api/interceptors/auth_interceptor.dart';
-import 'package:hazard_app/features/shared/repositories/shared_prefs_repository.dart';
+import 'package:hazard_app/features/shared/repositories/secure_token_storage.dart';
 
 /// Creates a new instance of [Dio] with the given [baseUrl].
 ///
 /// The [baseUrl] parameter is the base URL for the API.
 ///
-/// The [sharedPreferencesRepository] parameter is used to get the current user token.
+/// The [secureTokenStorage] parameter provides encrypted read/write access
+/// to the user's auth tokens (Android Keystore / iOS Keychain).
 Dio dioInstance({
   required final String baseUrl,
-  required final SharedPreferencesRepository sharedPreferencesRepository,
+  required final SecureTokenStorage secureTokenStorage,
 }) {
   return Dio()
     ..options.baseUrl = baseUrl
@@ -26,7 +27,7 @@ Dio dioInstance({
     ..interceptors.add(
       AuthInterceptor(
         dio: Dio()..options.baseUrl = baseUrl,
-        sharedPreferencesRepository: sharedPreferencesRepository,
+        secureTokenStorage: secureTokenStorage,
       ),
     )
     ..interceptors.add(
