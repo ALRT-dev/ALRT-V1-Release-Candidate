@@ -11,6 +11,7 @@ import 'package:hazard_app/features/map/views/widgets/custom_compass_button.dart
 import 'package:hazard_app/features/map/views/widgets/map_hazard_info_window.dart';
 import 'package:hazard_app/features/map/views/widgets/map_rail.dart';
 import 'package:hazard_app/features/map/views/widgets/map_searchbar.dart';
+import 'package:hazard_app/features/map/views/widgets/map_setup_chips.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/navigation_mode_overlay.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/navigation_route_info_cards_list.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/navigation_simulation_controls.dart';
@@ -145,11 +146,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       // still sat under the clock on tall screens and read
                       // as part of the system bar rather than as something
                       // floating over the map.
-                      return Row(
+                      return Column(
                         children: [
-                          Expanded(child: MapSearchbar()),
+                          Row(
+                            children: [
+                              Expanded(child: MapSearchbar()),
+                            ],
+                          ).pX(20.0).pT(34.0),
+                          SizedBox(height: 10.spMin),
+                          const MapSetupChips(),
                         ],
-                      ).pX(20.0).pT(34.0);
+                      );
                     },
                   ),
                 ],

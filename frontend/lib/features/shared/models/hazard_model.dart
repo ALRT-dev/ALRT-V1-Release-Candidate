@@ -184,6 +184,20 @@ abstract class Hazard with _$Hazard {
   /// warning; like every other shape it takes the band hexes.
   bool get isAlrtIntel => source?.shape == HazardSourceShape.shield;
 
+  /// The shape this hazard renders as on the map. Uses the backend's source
+  /// shape when available, otherwise falls back to the documented defaults:
+  /// shield for ALRT Intel, square for global humanitarian, triangle for
+  /// AWS, circle for user reports, diamond for everything else (official).
+  HazardSourceShape get effectiveMapShape {
+    final explicit = source?.shape;
+    if (explicit != null) return explicit;
+    if (isAlrtIntel) return HazardSourceShape.shield;
+    if (isGlobalHumanitarian) return HazardSourceShape.square;
+    if (isUserReported) return HazardSourceShape.circle;
+    if (isAwsCompliant == true) return HazardSourceShape.triangle;
+    return HazardSourceShape.diamond;
+  }
+
   /// Indicates whether the hazard has expired based on the current date and time.
   bool get isExpired {
     if (expiresAt == null) {
@@ -193,13 +207,14 @@ abstract class Hazard with _$Hazard {
   }
 
   /// Gets the appropriate BitmapDescriptor for the hazard marker.
+  ///
+  /// V3: pins are drawn by shape (source system) × band colour. The old
+  /// category-image keys are kept as fallback for the fire-status overlays
+  /// which still need category-specific images.
   BitmapDescriptor? getMarkerBitmapDescriptor(
     Map<String, BitmapDescriptor> bitmapMap,
   ) {
-    if (isUserReported) {
-      return bitmapMap['${categoryId}_user'];
-    }
-
+    // Fire-status pins keep the category-specific treatment.
     if (fireStatus != null && isAwsCompliant == false) {
       final fireKey = '${categoryId}_fireStatus_${fireStatus!.name}';
       final fireBitmap = bitmapMap[fireKey];
@@ -208,10 +223,19 @@ abstract class Hazard with _$Hazard {
       }
     }
 
-    final severityBandName = severityBand?.name ?? HazardSeverityBand.info.name;
-    var severityKey =
-        '${categoryId}_$severityBandName${isAwsCompliant == true ? '_aws' : '_non_aws'}';
+    // V3 shaped pin: shape × band.
+    final band = severityBand ?? HazardSeverityBand.info;
+    final shapeKey = 'shape_${effectiveMapShape.name}_${band.name}';
+    final shapeBitmap = bitmapMap[shapeKey];
+    if (shapeBitmap != null) return shapeBitmap;
 
+    // Fallback to the old category-image system.
+    if (isUserReported) {
+      return bitmapMap['${categoryId}_user'];
+    }
+    final severityBandName = band.name;
+    final severityKey =
+        '${categoryId}_$severityBandName${isAwsCompliant == true ? '_aws' : '_non_aws'}';
     return bitmapMap[severityKey];
   }
 

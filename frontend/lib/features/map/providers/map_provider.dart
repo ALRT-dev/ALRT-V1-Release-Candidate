@@ -19,6 +19,7 @@ import 'package:hazard_app/features/map/models/hazard_corridor_model.dart';
 import 'package:hazard_app/features/map/models/route_plan_model.dart';
 import 'package:hazard_app/features/map/models/route_step_model.dart';
 import 'package:hazard_app/features/map/models/safest_fastest_routes_model.dart';
+import 'package:hazard_app/features/notification/providers/last_feed_fetch_provider.dart';
 import 'package:hazard_app/features/map/providers/hazard_markers_bitmaps_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/service_providers.dart';
@@ -318,6 +319,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
           getMapHazardsState: GetMapHazardsState.success(hazards),
           hazards: visibleHazards,
         );
+        _ref.read(providerOfLastFeedFetchAt.notifier).state = DateTime.now();
 
         // Keep the home-screen widget in step with the freshly fetched hazards.
         // Fire-and-forget; failures are swallowed inside HomeWidgetSync.

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hazard_app/features/onboarding/enums/onboarding_step_types.dart';
+import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/profile/models/safety_cohort.dart';
 import 'package:hazard_app/features/profile/providers/safety_profile_provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -327,6 +327,6 @@ class SafetyProfileScreen extends ConsumerWidget {
   /// The profile is already saved on every tap, so both buttons simply
   /// move on. Skipping is a real choice, not a penalty.
   void _finishOnboardingStep(final BuildContext context) {
-    context.go(OnboardingStep.safetyProfile.nextStep.route);
+    context.go(HomeScreen.route);
   }
 }

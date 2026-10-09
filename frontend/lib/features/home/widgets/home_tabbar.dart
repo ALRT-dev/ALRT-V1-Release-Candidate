@@ -7,6 +7,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/utils/check_in_roll.dart';
+import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
@@ -14,12 +16,12 @@ import 'package:hazard_app/others/app_colors.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hazard_app/features/profile/providers/child_mode_provider.dart';
 
-/// The frosted light floating navigation bar.
+/// The frosted light floating navigation bar with icon + label for each
+/// destination.
 ///
-/// Icons-only so six destinations fit comfortably: Map, Search, ALRT,
-/// Alerts (with unread dot), Family (indigo) and the user's avatar as
-/// Profile. Active slot highlighted in brand orange. The map shows
-/// through around it.
+/// Six slots: Map, Alerts, Report (ALRT logo), Ready, Family, Me.
+/// Active slot highlighted in brand orange. The map shows through around
+/// it. Labels sit beneath each icon.
 class HomeTabbar extends ConsumerStatefulWidget {
   const HomeTabbar({
     super.key,
@@ -30,7 +32,7 @@ class HomeTabbar extends ConsumerStatefulWidget {
   final TabController tabController;
 
   /// Total vertical space the floating pill occupies (pill + bottom gap).
-  static const double height = 76.0;
+  static const double height = 86.0;
 
   /// Indigo accent for the Family destination.
   static const familyIndigo = Color(0xFF3D3DDF);
@@ -75,7 +77,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           child: BackdropFilter(
             filter: _frostedFilter,
             child: Container(
-              height: 62.spMin,
+              height: 68.spMin,
               decoration: BoxDecoration(
                 color: _pillColor,
                 borderRadius: BorderRadius.circular(18.spMin),
@@ -97,7 +99,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
                   ),
                 ],
               ),
-              padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+              padding: EdgeInsets.symmetric(horizontal: 4.spMin),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: tabs
@@ -115,24 +117,159 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
   static final _frostedFilter = ImageFilter.blur(sigmaX: 20, sigmaY: 20);
 
   Widget _tabItemBuilder(final HomeTab tab, {required final bool isActive}) {
+    // The family slot has its own builder: its colour and dot change with
+    // the family state (idle / asked / SOS).
+    if (tab == HomeTab.family) {
+      return _familyTabItemBuilder(isActive: isActive);
+    }
+
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _onTabChanged(tab),
         child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 46.spMin,
-            height: 46.spMin,
-            decoration: BoxDecoration(
-              color: isActive ? _activeCircleColor : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Center(child: _tabIconBuilder(tab, isActive: isActive)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 36.spMin,
+                height: 36.spMin,
+                decoration: BoxDecoration(
+                  color: isActive ? _activeCircleColor : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                    child: _tabIconBuilder(tab, isActive: isActive)),
+              ),
+              SizedBox(height: 2.spMin),
+              Text(
+                tab.title,
+                style: TextStyle(
+                  fontSize: 10.spMin,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: _labelColor(tab, isActive: isActive),
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  /// The full family tab slot, state-aware: indigo when idle, teal with a
+  /// dot when a check-in is asked of the user, red with a dot during SOS.
+  Widget _familyTabItemBuilder({required final bool isActive}) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _onTabChanged(HomeTab.family),
+        child: Center(
+          child: Consumer(
+            builder: (context, ref, child) {
+              final isSosActive = ref.watch(
+                providerOfFamily.select(
+                  (s) => s.activeSosEvents.isNotEmpty,
+                ),
+              );
+              final isAskedOfMe = ref.watch(
+                providerOfFamily.select((s) {
+                  final circle = s.circle;
+                  if (circle == null) return false;
+                  final roll = CheckInRoll.of(circle);
+                  return roll.notYet
+                      .any((m) => m.id == circle.myMemberId);
+                }),
+              );
+
+              // SOS trumps asked; both trump idle.
+              final Color accent;
+              final bool showDot;
+              if (isSosActive) {
+                accent = FamilyColors.sosRed;
+                showDot = true;
+              } else if (isAskedOfMe) {
+                accent = FamilyColors.teal;
+                showDot = true;
+              } else {
+                accent = HomeTabbar.familyIndigo;
+                showDot = false;
+              }
+
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 36.spMin,
+                    height: 36.spMin,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? _activeCircleColor
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(
+                            HomeTab.family.iconData,
+                            size: 20.spMin,
+                            color: isActive
+                                ? accent
+                                : accent.withValues(alpha: 0.75),
+                          ),
+                          if (showDot)
+                            Positioned(
+                              top: -1,
+                              right: -1,
+                              child: Container(
+                                width: 7.spMin,
+                                height: 7.spMin,
+                                decoration: BoxDecoration(
+                                  color: accent,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 2.spMin),
+                  Text(
+                    HomeTab.family.title,
+                    style: TextStyle(
+                      fontSize: 10.spMin,
+                      fontWeight: isActive
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: accent,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Label colour: active tabs are orange, rest are medium grey. The
+  /// family tab has its own builder and never reaches here.
+  Color _labelColor(final HomeTab tab, {required final bool isActive}) {
+    return isActive ? _activeCircleColor : AppColors.mediumGrey;
   }
 
   Widget _tabIconBuilder(final HomeTab tab, {required final bool isActive}) {
@@ -142,11 +279,11 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
         // substituted for a glyph. Contain rather than a bare height, so
         // the box is the spec and the artwork fits itself to it.
         return SizedBox(
-          width: 32.spMin,
-          height: 26.spMin,
+          width: 26.spMin,
+          height: 22.spMin,
           child: SvgPicture.asset(
             // The six-path mark, never redrawn and never substituted for
-            // a glyph. Vector so it stays crisp in its locked 32x26 box.
+            // a glyph. Vector so it stays crisp in its locked box.
             'assets/logos/alrt_logo.svg',
             fit: BoxFit.contain,
           ),
@@ -154,19 +291,14 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
       case HomeTab.notifications:
         return _alertsIconBuilder(isActive: isActive);
       case HomeTab.family:
-        return Icon(
-          tab.iconData,
-          size: 23.spMin,
-          color: isActive
-              ? HomeTabbar.familyIndigo
-              : HomeTabbar.familyIndigo.withValues(alpha: 0.75),
-        );
+        // Handled by _familyTabItemBuilder; this case is unreachable.
+        return const SizedBox.shrink();
       case HomeTab.profile:
         return _profileAvatarBuilder(isActive: isActive);
       default:
         return Icon(
           tab.iconData,
-          size: 23.spMin,
+          size: 20.spMin,
           color: isActive ? AppColors.white : AppColors.mediumGrey,
         );
     }
@@ -191,7 +323,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           children: [
             Icon(
               HomeTab.notifications.iconData,
-              size: 23.spMin,
+              size: 20.spMin,
               color: isActive ? AppColors.white : AppColors.mediumGrey,
             ),
             if (hasFreshAlerts)
@@ -199,8 +331,8 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
                 top: -1,
                 right: -1,
                 child: Container(
-                  width: 8.spMin,
-                  height: 8.spMin,
+                  width: 7.spMin,
+                  height: 7.spMin,
                   decoration: const BoxDecoration(
                     color: AppColors.emergency,
                     shape: BoxShape.circle,
@@ -213,7 +345,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
     );
   }
 
-  /// The user's avatar as the Profile destination.
+  /// The user's avatar as the Me destination.
   Widget _profileAvatarBuilder({required final bool isActive}) {
     return Consumer(
       builder: (context, ref, child) {
@@ -222,17 +354,17 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
 
         final avatar = profilePictureUrl != null && profilePictureUrl.isNotEmpty
             ? CircleAvatar(
-                radius: 14.spMin,
+                radius: 12.spMin,
                 backgroundImage: CachedNetworkImageProvider(profilePictureUrl),
               )
             : CircleAvatar(
-                radius: 14.spMin,
+                radius: 12.spMin,
                 backgroundColor: AppColors.orange,
                 child: Text(
                   user?.initials ?? '?',
                   style: TextStyle(
                     color: AppColors.white,
-                    fontSize: 11.spMin,
+                    fontSize: 9.spMin,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

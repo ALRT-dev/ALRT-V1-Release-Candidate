@@ -6,12 +6,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/report/providers/duplicate_report_provider.dart';
+import 'package:hazard_app/features/report/providers/report_rate_limit_provider.dart';
 import 'package:hazard_app/features/report/views/widgets/duplicate_report_sheet.dart';
+import 'package:hazard_app/features/report/views/widgets/report_rate_limit_sheet.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/models/alrt_location_model.dart';
-import 'package:hazard_app/features/map/providers/location_provider.dart';
-import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
-import 'package:hazard_app/features/profile/providers/xp_summary_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/how_points_work_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/my_hazards_screen.dart';
 import 'package:hazard_app/features/report/providers/create_update_report_provider.dart';
@@ -121,6 +120,13 @@ class _CreateUpdateReportScreenState
       if (duplicate == null) return;
       ref.read(providerOfDuplicateReport.notifier).state = null;
       showDuplicateReportSheet(context: context, duplicate: duplicate);
+    });
+
+    // Rate limit (3/hour, 10/day): show the refusal sheet.
+    ref.listen<String?>(providerOfReportRateLimit, (_, message) {
+      if (message == null) return;
+      ref.read(providerOfReportRateLimit.notifier).state = null;
+      showReportRateLimitSheet(context: context, message: message);
     });
 
     return Scaffold(
@@ -958,10 +964,6 @@ class _CreateUpdateReportScreenState
   /// the card says "if", never "you earned". Claiming points that a
   /// moderator has not granted would be the one dishonest screen in the app.
   Widget _whatThisEarnsBuilder() {
-    final summary = ref.watch(providerOfXpSummary).value;
-    final streakDays = summary?.streakDays ?? 0;
-    final multiplierActive = summary?.streakMultiplierActive ?? false;
-
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
@@ -995,34 +997,6 @@ class _CreateUpdateReportScreenState
             points: '+15',
             text: 'if it matches an official warning',
           ),
-          if (streakDays > 0) ...[
-            8.hSizedBox,
-            Row(
-              children: [
-                Icon(
-                  LucideIcons.flame,
-                  size: 14.spMin,
-                  color: const Color(0xFFE05A00),
-                ),
-                8.wSizedBox,
-                Expanded(
-                  child: Text(
-                    multiplierActive
-                        ? '$streakDays-day streak: approvals count 1.2x '
-                              'while it lasts.'
-                        : '$streakDays-day streak. Reach 3 days and '
-                              'approvals count 1.2x.',
-                    style: TextStyle(
-                      fontSize: 13.spMin,
-                      height: 1.45,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF8A5A2B),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
           10.hSizedBox,
           GestureDetector(
             onTap: () => context.push(HowPointsWorkScreen.route),
@@ -1244,102 +1218,77 @@ class _CreateUpdateReportScreenState
                 (value) => value.hazardToCreateOrUpdate.locationName,
               ),
             );
-            // Location is the first thing asked for, so it wears the glow
-            // until it is answered. Everything below it stays quiet until
-            // then: one lit box at a time is the whole point.
+            // Location is auto-filled from GPS and posted from the actual
+            // location — no adjust pin. The card is read-only.
             final hasLocation = (locationName ?? '').trim().isNotEmpty;
-            return GestureDetector(
-              onTap: _gotoSelectLocationScreen,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(14.spMin),
-                  border: Border.all(
-                    color: hasLocation ? const Color(0xFF17A05E) : _labelColor,
-                    width: (hasLocation ? 1.6 : 2.0).spMin,
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(14.spMin),
+                border: Border.all(
+                  color: hasLocation ? const Color(0xFF17A05E) : _labelColor,
+                  width: (hasLocation ? 1.6 : 2.0).spMin,
+                ),
+                boxShadow: [
+                  if (!hasLocation)
+                    BoxShadow(
+                      color: _labelColor.withValues(alpha: 0.28),
+                      blurRadius: 22.0,
+                      spreadRadius: 1.5,
+                    )
+                  else
+                    const BoxShadow(
+                      color: _cardShadow,
+                      blurRadius: 10.0,
+                      offset: Offset(0, 2),
+                    ),
+                ],
+              ),
+              padding: EdgeInsets.symmetric(
+                horizontal: 13.spMin,
+                vertical: 11.spMin,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32.spMin,
+                    height: 32.spMin,
+                    decoration: BoxDecoration(
+                      color: _iconTint,
+                      borderRadius: BorderRadius.circular(10.spMin),
+                    ),
+                    child: Icon(
+                      LucideIcons.mapPin,
+                      size: 16.spMin,
+                      color: _labelColor,
+                    ),
                   ),
-                  boxShadow: [
-                    if (!hasLocation)
-                      BoxShadow(
-                        color: _labelColor.withValues(alpha: 0.28),
-                        blurRadius: 22.0,
-                        spreadRadius: 1.5,
-                      )
-                    else
-                      const BoxShadow(
-                        color: _cardShadow,
-                        blurRadius: 10.0,
-                        offset: Offset(0, 2),
-                      ),
-                  ],
-                ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: 13.spMin,
-                  vertical: 11.spMin,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32.spMin,
-                      height: 32.spMin,
-                      decoration: BoxDecoration(
-                        color: _iconTint,
-                        borderRadius: BorderRadius.circular(10.spMin),
-                      ),
-                      child: Icon(
-                        LucideIcons.mapPin,
-                        size: 16.spMin,
-                        color: _labelColor,
-                      ),
-                    ),
-                    SizedBox(width: 10.spMin),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            locationName ?? 'Finding your location…',
-                            style: TextStyle(
-                              fontSize: 14.5.spMin,
-                              fontWeight: FontWeight.w800,
-                            ),
+                  SizedBox(width: 10.spMin),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          locationName ?? 'Finding your location...',
+                          style: TextStyle(
+                            fontSize: 14.5.spMin,
+                            fontWeight: FontWeight.w800,
                           ),
-                          2.hSizedBox,
-                          Text(
-                            locationName == null
-                                ? 'Tap to set it manually'
-                                : 'Your current location · auto-filled',
-                            style: TextStyle(
-                              fontSize: 12.spMin,
-                              color: AppColors.mediumGrey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: 8.spMin),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12.spMin,
-                        vertical: 7.spMin,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _chipFill,
-                        borderRadius: BorderRadius.circular(10.spMin),
-                      ),
-                      child: Text(
-                        'Adjust',
-                        style: TextStyle(
-                          fontSize: 12.5.spMin,
-                          fontWeight: FontWeight.w800,
-                          color: _labelColor,
                         ),
-                      ),
+                        2.hSizedBox,
+                        Text(
+                          'Your current location',
+                          style: TextStyle(
+                            fontSize: 12.spMin,
+                            color: AppColors.mediumGrey,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },
@@ -1784,46 +1733,6 @@ class _CreateUpdateReportScreenState
         widget.args?.hazardToUpdate?.category == null,
       )
       ..prefillLocationFromCurrentPosition();
-  }
-
-  /// Navigates to the Select Location screen.
-  void _gotoSelectLocationScreen() async {
-    context.unfocusInputs();
-
-    final selectedLocation = ref.read(
-      providerOfCreateReport.select(
-        (value) =>
-            value.hazardToCreateOrUpdate.latitude == null ||
-                value.hazardToCreateOrUpdate.longitude == null
-            ? null
-            : AlrtLocation(
-                latitude: value.hazardToCreateOrUpdate.latitude!,
-                longitude: value.hazardToCreateOrUpdate.longitude!,
-                name: value.hazardToCreateOrUpdate.locationName,
-              ),
-      ),
-    );
-    final userLocation = ref.read(
-      providerOfLocation.select(
-        (value) => value.location,
-      ),
-    );
-
-    final location = await context.push(
-      SelectLocationScreen.route,
-      extra: SelectLocationScreenArgs(
-        initialLocation: selectedLocation,
-        getSubUrbOnly: true,
-        centerLocation: userLocation,
-        radiusInMeters: 5000,
-        showTestScarboroughOption: testScarboroughLocationFallbackEnabled,
-      ),
-    );
-    if (!mounted) return;
-
-    if (location != null && location is AlrtLocation) {
-      _updateLocation(location);
-    }
   }
 
   /// Updates the title in the state.

@@ -22,10 +22,10 @@ import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/learn/views/screens/guide_detail_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_circle_profile_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/how_points_work_screen.dart';
+import 'package:hazard_app/features/notification/views/screens/accessible_alerts_screen.dart';
+import 'package:hazard_app/features/profile/views/screens/add_widget_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/leaderboard_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/points_breakdown_screen.dart';
-import 'package:hazard_app/features/auth/views/screens/email_auth_screen.dart';
-import 'package:hazard_app/features/auth/views/screens/forgot_password_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
@@ -37,10 +37,11 @@ import 'package:hazard_app/features/map/providers/states/map_provider_state.dart
 import 'package:hazard_app/features/map/views/screens/select_location_on_map_screen.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:hazard_app/features/notification/views/screens/manage_notifications_screen.dart';
+import 'package:hazard_app/features/notification/views/screens/push_inbox_screen.dart';
+import 'package:hazard_app/features/onboarding/views/onboarding_alert_level_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_alrt_plus_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_complete_screen.dart';
-import 'package:hazard_app/features/onboarding/views/onboarding_disclaimer_screen.dart';
-import 'package:hazard_app/features/onboarding/views/onboarding_legal_screen.dart';
+import 'package:hazard_app/features/onboarding/views/onboarding_things_to_know_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_welcome_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/my_hazards_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/delete_account_screen.dart';
@@ -90,15 +91,15 @@ class AppRouter {
           },
         ),
         GoRoute(
-          path: OnboardingDisclaimerScreen.route,
+          path: OnboardingThingsToKnowScreen.route,
           builder: (context, state) {
-            return const OnboardingDisclaimerScreen();
+            return const OnboardingThingsToKnowScreen();
           },
         ),
         GoRoute(
-          path: OnboardingLegalScreen.route,
+          path: OnboardingAlertLevelScreen.route,
           builder: (context, state) {
-            return const OnboardingLegalScreen();
+            return const OnboardingAlertLevelScreen();
           },
         ),
         GoRoute(
@@ -262,6 +263,14 @@ class AppRouter {
           builder: (context, state) => const LeaderboardScreen(),
         ),
         GoRoute(
+          path: AccessibleAlertsScreen.route,
+          builder: (context, state) => const AccessibleAlertsScreen(),
+        ),
+        GoRoute(
+          path: AddWidgetScreen.route,
+          builder: (context, state) => const AddWidgetScreen(),
+        ),
+        GoRoute(
           path: PointsBreakdownScreen.route,
           builder: (context, state) => const PointsBreakdownScreen(),
         ),
@@ -286,21 +295,8 @@ class AppRouter {
           builder: (context, state) => const AlrtPlusManageScreen(),
         ),
         GoRoute(
-          path: SafetyProfileScreen.onboardingRoute,
-          builder: (context, state) =>
-              const SafetyProfileScreen(isOnboarding: true),
-        ),
-        GoRoute(
           path: SafetyProfileScreen.route,
           builder: (context, state) => const SafetyProfileScreen(),
-        ),
-        GoRoute(
-          path: EmailAuthScreen.route,
-          builder: (context, state) => const EmailAuthScreen(),
-        ),
-        GoRoute(
-          path: ForgotPasswordScreen.route,
-          builder: (context, state) => const ForgotPasswordScreen(),
         ),
         GoRoute(
           path: ViewHazardScreen.route,
@@ -309,6 +305,10 @@ class AppRouter {
               args: state.extra as ViewHazardScreenArgs,
             );
           },
+        ),
+        GoRoute(
+          path: PushInboxScreen.route,
+          builder: (context, state) => const PushInboxScreen(),
         ),
         GoRoute(
           path: MyHazardsScreen.route,
