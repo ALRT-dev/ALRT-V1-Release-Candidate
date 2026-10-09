@@ -9,10 +9,13 @@ import 'package:widget_to_marker/widget_to_marker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/search/models/hazard_search_params.dart';
+import 'package:hazard_app/features/map/views/widgets/map_pin_shape_painter.dart';
 import 'package:hazard_app/features/shared/enums/category_image_type.dart';
 import 'package:hazard_app/features/shared/enums/fire_status_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_vote_types.dart';
+import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
+import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/models/alrt_media_model.dart';
 import 'package:hazard_app/features/shared/models/category_image_model.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
@@ -667,6 +670,42 @@ class HazardService {
         bitmapMap[key] = bitmap;
       }
     }
+
+    // ── Phase 4: Generate shaped pins (shape × band) ──
+    // 5 shapes × 4 bands = 20 bitmaps, keyed as `shape_{shapeName}_{bandName}`.
+    // These are the V3 pins that replace category-image markers with a simple
+    // coloured shape denoting the source system.
+    final shapePinFutures = <Future<void>>[];
+    for (final shape in HazardSourceShape.values) {
+      for (final band in severityBands) {
+        final shapeKey = 'shape_${shape.name}_${band.name}';
+        if (bitmapMap.containsKey(shapeKey)) continue;
+        shapePinFutures.add(() async {
+          try {
+            final pinWidget = MapPinShape(
+              shape: shape,
+              color: AlertCardStyle.bandShapeColor(band),
+            );
+            final logicalSize = Size(
+              pinWidget.size,
+              pinWidget.totalHeight,
+            );
+            final imageSize = Size(
+              (logicalSize.width * dpr).ceilToDouble(),
+              (logicalSize.height * dpr).ceilToDouble(),
+            );
+            final descriptor = await pinWidget.toBitmapDescriptor(
+              logicalSize: logicalSize,
+              imageSize: imageSize,
+            );
+            bitmapMap[shapeKey] = descriptor;
+          } catch (_) {
+            // Shaped pin failed; hazard_model falls back to category images.
+          }
+        }());
+      }
+    }
+    await Future.wait(shapePinFutures);
 
     _urlBytesCache.clear();
     _bitmapByS3KeyCache.clear();
