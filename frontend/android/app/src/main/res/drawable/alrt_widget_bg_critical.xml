@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CRITICAL only: the locked solid-red gradient (#FF5247 -> #B80000), white
+     type. Never used for needs-attention states (rule 6, "the two reds"). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="#FF5247"
+        android:endColor="#B80000" />
+    <corners android:radius="18dp" />
+</shape>

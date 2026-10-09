@@ -1,0 +1,83 @@
+# Isolated internal-test backend + its own database - Stage A of the
+# internal-test-environment project (V1_RECONCILIATION_REPORT.md).
+#
+# Deliberately mirrors docker-compose.dev.yml's shape, with every name, port
+# and volume changed so this can run ALONGSIDE the existing dev stack without
+# collision, and so it is obviously a separate database by construction, not
+# a schema/tenant sharing an instance with anything else.
+#
+# Usage: copy .env.test.example to .env.test, fill in real values (DATABASE_URL
+# should match the postgres service below when running this locally), then:
+#
+#   FIRST TIME ONLY, against a brand-new empty database - baseline it first
+#   (see scripts/provision-test-db.sh for why: prisma/migrations has a
+#   known, unfixable-by-renaming ordering defect, V1_RECONCILIATION_REPORT.md
+#   §33.1 - a plain `prisma migrate deploy` replay fails on an empty database):
+#     docker compose -f docker-compose.test.yml up -d postgres
+#     docker compose -f docker-compose.test.yml --profile baseline run --rm migrate-baseline
+#
+#   THEN, and on every subsequent start (including the very first one, right
+#   after baselining above), normal startup is safe - the database is already
+#   baselined, so `prisma migrate deploy` only ever needs to apply genuinely
+#   new migrations, exactly like the production compose file:
+#     docker compose -f docker-compose.test.yml up
+services:
+  app:
+    container_name: app-test
+    build: .
+    env_file:
+      - .env.test
+    ports:
+      - "3010:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # NOT "yarn start" - package.json's start script hardcodes
+    # NODE_ENV=prod unconditionally, which would override .env.test's
+    # NODE_ENV=test and arm the in-process scheduled jobs (hazard
+    # ingestion, expiry sweeps, check-ins) that .env.test.example
+    # documents as prod-only. Invoking node directly keeps NODE_ENV=test
+    # for this TEST-only compose file without touching the production
+    # start script or any other compose file.
+    command: sh -c "npx prisma migrate deploy && NODE_ENV=test node dist/index.js"
+
+  # First-time-only provisioning for a brand-new, empty database. Gated
+  # behind the "baseline" profile so plain `docker compose up` NEVER starts
+  # this - it must be invoked explicitly (see the usage comment above).
+  # Not safe to re-run against a database that already has data - see
+  # scripts/provision-test-db.sh's own header for the full explanation and
+  # the safety checks it performs before doing anything.
+  migrate-baseline:
+    container_name: app-test-migrate-baseline
+    profiles: ["baseline"]
+    build: .
+    env_file:
+      - .env.test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["bash", "scripts/provision-test-db.sh", "--yes"]
+
+  postgres:
+    container_name: postgres-test
+    image: postgis/postgis:15-3.4
+    env_file:
+      - .env.test
+    ports:
+      # Loopback-only - the app container reaches postgres over the internal
+      # compose network by service name (see DATABASE_URL in .env.test), not
+      # through this published port. This binding is only for a human
+      # operator to psql in from the host itself; 0.0.0.0 would put the
+      # database on the public interface as soon as any security-group rule
+      # ever opened this port, regardless of the app's own DB password.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata_test:

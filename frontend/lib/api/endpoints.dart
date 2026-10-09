@@ -1,0 +1,191 @@
+const kUrlBase = 'https://api.safetyalrt.com';
+// const kUrlBase = 'http://192.168.1.67:9000';
+const kUrlBaseDev = 'http://192.168.1.67:9000';
+
+const kUrlApi = '/api';
+
+// ---------------------------- AUTH ----------------------------
+
+const kUrlAuth = '$kUrlApi/auth';
+
+const kUrlOAuthGoogle = '$kUrlAuth/oauth/google';
+const kUrlOAuthApple = '$kUrlAuth/oauth/apple';
+const kUrlOAuthMicrosoft = '$kUrlAuth/oauth/microsoft';
+const kUrlRefreshToken = '$kUrlAuth/refresh-token';
+const kUrlEmailLogin = '$kUrlAuth/email-password/login';
+const kUrlEmailRegister = '$kUrlAuth/email-password/register';
+const kUrlPasswordResetRequest = '$kUrlAuth/password-reset/request';
+
+// ---------------------------- MAPS ----------------------------
+// Backend proxy for Google Geocoding/Places so the web-service key never
+// ships in the mobile binary (see backend/src/services/maps_proxy.service.ts).
+
+const kUrlMaps = '$kUrlApi/maps';
+
+const kUrlMapsGeocode = '$kUrlMaps/geocode';
+const kUrlMapsPlacesAutocomplete = '$kUrlMaps/places/autocomplete';
+const kUrlMapsPlaceDetails = '$kUrlMaps/places/details';
+
+// ---------------------------- ONBOARDING ----------------------------
+
+const kUrlOnboarding = '$kUrlApi/onboarding';
+
+const kUrlOnboardingAcceptDisclaimer = '$kUrlOnboarding/accept-disclaimer';
+const kUrlOnboardingAcceptTos = '$kUrlOnboarding/accept-tos';
+const kUrlOnboardingLocation = '$kUrlOnboarding/location';
+const kUrlOnboardingRadius = '$kUrlOnboarding/radius';
+const kUrlOnboardingNotifications = '$kUrlOnboarding/notifications';
+
+// ---------------------------- USER ----------------------------
+
+const kUrlUser = '$kUrlApi/user';
+
+const kUrlUserProfilePicture = '$kUrlUser/profile-picture';
+
+// ---------------------------- ASK ALRT ----------------------------
+
+const kUrlAskAlrt = '$kUrlApi/ask-alrt';
+const kUrlAskAlrtAllowance = '$kUrlApi/ask-alrt/allowance';
+
+const kUrlSubscribeLocation = '$kUrlUser/subscribe-location';
+const kUrlUnsubscribeLocation = '$kUrlUser/unsubscribe-location';
+const kUrlUserLocationSubscriptions = '$kUrlUser/location-subscriptions';
+const kUrlOwnLocationSubscription = '$kUrlUser/own-location-subscription';
+const kUrlOwnLocationSubscriptionRadius =
+    '$kUrlUser/own-location-subscription-radius';
+
+const kUrlPushNotificationSettings = '$kUrlUser/push-notification-settings';
+
+const kUrlUserAccount = '$kUrlUser/account';
+const kUrlUserAccountCancelDeletion = '$kUrlUserAccount/cancel-deletion';
+
+// ---------------------------- HAZARD ----------------------------
+
+const kUrlHazards = '$kUrlApi/hazards';
+const kUrlHazardCategories = '$kUrlApi/hazard-categories';
+
+// Community safety: flagging a report, and blocking an account.
+const kUrlHazardFlag = '$kUrlHazards/{hazardId}/flag';
+const kUrlUserBlocked = '$kUrlUser/blocked';
+const kUrlUserUnblock = '$kUrlUserBlocked/{userId}';
+
+const kUrlHazardsWithSubscriptionId =
+    '$kUrlHazards/hazards-with-subscription-id';
+const kUrlHazardCategoriesParent = '$kUrlHazardCategories/parent';
+const kUrlHazardCategoriesSub = '$kUrlHazardCategories/sub';
+const kUrlHazardVote = '$kUrlHazards/{hazardId}/vote';
+const kUrlHazardView = '$kUrlHazards/{hazardId}/view';
+
+// ---------------------------- NOTIFICATION ----------------------------
+
+const kUrlNotifications = '$kUrlApi/notifications';
+
+const kUrlNotificationsFeed = '$kUrlNotifications/feed';
+const kUrlNotificationsPushNotificationToken =
+    '$kUrlNotifications/push-notification-token';
+const kUrlNotificationsTest = '$kUrlNotifications/test';
+
+// ---------------------------- SUPPORT ----------------------------
+
+const kUrlSupport = '$kUrlApi/support';
+
+// ---------------------------- ACCESS (V1) ----------------------------
+
+/// Personal plan and per-group coverage, computed by the backend.
+const kUrlAccess = '$kUrlApi/access';
+const kUrlAccessSponsorshipIntents = '$kUrlAccess/sponsorship-intents';
+const kUrlAccessReconcile = '$kUrlAccess/reconcile';
+String kUrlAccessBindSponsorship(final String subscriptionId) =>
+    '$kUrlAccess/sponsorships/$subscriptionId/bind';
+/// Host only: returns a group whose plan has ended to individual funding,
+/// so everyone with their own ALRT + can carry on there.
+String kUrlAccessIndividualFunding(final String circleId) =>
+    '$kUrlAccess/groups/$circleId/individual-funding';
+
+// ---------------------------- APP ----------------------------
+
+/// Public: the lowest app version each platform still supports.
+const kUrlAppVersionPolicy = '$kUrlApi/app/version-policy';
+
+// ---------------------------- FAMILY ----------------------------
+
+const kUrlFamily = '$kUrlApi/family';
+
+const kUrlFamilyCircle = '$kUrlFamily/circle';
+const kUrlFamilyCircles = '$kUrlFamily/circles';
+const kUrlFamilyCircleLeave = '$kUrlFamilyCircle/leave';
+const kUrlFamilyCirclePhoto = '$kUrlFamilyCircle/photo';
+const kUrlFamilyTransferCandidates = '$kUrlFamilyCircle/transfer-candidates';
+const kUrlFamilyTransferOwnership = '$kUrlFamilyCircle/transfer-ownership';
+const kUrlFamilyTakeOver = '$kUrlFamilyCircle/take-over';
+const kUrlFamilyMembers = '$kUrlFamily/members';
+const kUrlFamilyMemberMe = '$kUrlFamilyMembers/me';
+const kUrlFamilyMemberMePhoto = '$kUrlFamilyMemberMe/photo';
+const kUrlFamilyInvites = '$kUrlFamily/invites';
+const kUrlFamilyInviteRevoke = '$kUrlFamilyInvites/{inviteId}/revoke';
+const kUrlFamilyJoin = '$kUrlFamily/join';
+const kUrlFamilyLocation = '$kUrlFamily/location';
+const kUrlFamilyLocationRequest =
+    '$kUrlFamilyMembers/{memberId}/location-request';
+const kUrlFamilyLocationRequests = '$kUrlFamily/location-requests';
+const kUrlFamilyLocationRequestsPending =
+    '$kUrlFamily/location-requests/pending';
+const kUrlFamilyLocationRequestRespond =
+    '$kUrlFamily/location-requests/{requestId}/respond';
+const kUrlFamilyLocationRequestCancel =
+    '$kUrlFamily/location-requests/{requestId}';
+const kUrlFamilyCheckIn = '$kUrlFamily/check-in';
+const kUrlFamilyCheckInRequest = '$kUrlFamilyCheckIn/request';
+const kUrlFamilyCheckInRequestCancel = '$kUrlFamilyCheckInRequest/{requestId}';
+const kUrlFamilyCheckIns = '$kUrlFamily/check-ins';
+const kUrlFamilyScheduledCheckIns = '$kUrlFamily/scheduled-check-ins';
+const kUrlFamilyScheduledCheckIn =
+    '$kUrlFamilyScheduledCheckIns/{scheduledCheckInId}';
+const kUrlFamilyPlaces = '$kUrlFamily/places';
+const kUrlFamilyPlacePrefs = '$kUrlFamilyPlaces/{placeId}/prefs';
+const kUrlFamilySosLists = '$kUrlFamily/sos-lists';
+const kUrlFamilySosRecipients = '$kUrlFamily/sos-recipients';
+const kUrlFamilySosList = '$kUrlFamilySosLists/{sosListId}';
+const kUrlFamilyJourneys = '$kUrlFamily/journeys';
+const kUrlFamilyJourneyMine = '$kUrlFamilyJourneys/me';
+const kUrlFamilyJourneysShared = '$kUrlFamilyJourneys/shared';
+const kUrlFamilyJourneyDetail = '$kUrlFamilyJourneys/{journeyId}';
+const kUrlFamilyJourneyExtend = '$kUrlFamilyJourneys/{journeyId}/extend';
+const kUrlFamilyJourneyStop = '$kUrlFamilyJourneys/{journeyId}/stop';
+const kUrlFamilyJourneyPoint = '$kUrlFamilyJourneys/{journeyId}/point';
+const kUrlFamilySos = '$kUrlFamily/sos';
+const kUrlFamilySosActive = '$kUrlFamilySos/active';
+const kUrlFamilySosHistory = '$kUrlFamilySos/history';
+const kUrlFamilySosRespond = '$kUrlFamilySos/{sosEventId}/respond';
+const kUrlFamilySosResolve = '$kUrlFamilySos/{sosEventId}/resolve';
+const kUrlFamilySosTrail = '$kUrlFamilySos/{sosEventId}/trail';
+const kUrlFamilySosPreview = '$kUrlFamilySos/preview';
+String kUrlFamilySosLocationConsent(final String sosEventId) =>
+    '$kUrlFamilySos/$sosEventId/location-consent';
+String kUrlFamilySosLocation(final String sosEventId) =>
+    '$kUrlFamilySos/$sosEventId/location';
+/// The sender keeps their SOS going: liveUntil becomes now + 1 hour.
+String kUrlFamilySosExtend(final String sosEventId) =>
+    '$kUrlFamilySos/$sosEventId/extend';
+
+// ---------------------------- XP / SCORING ----------------------------
+
+const kUrlXp = '$kUrlApi/xp';
+
+const kUrlXpSummary = '$kUrlXp/summary';
+const kUrlXpBreakdown = '$kUrlXp/breakdown';
+const kUrlXpLeaderboard = '$kUrlXp/leaderboard';
+
+// ---------------------------- LEARN / GUIDES ----------------------------
+
+const kUrlGuides = '$kUrlApi/guides';
+
+const kUrlGuideTopics = '$kUrlGuides/topics';
+const kUrlGuideForCategory = '$kUrlGuides/for-category/{categoryId}';
+const kUrlGuideDetail = '$kUrlGuides/{slugOrId}';
+const kUrlGuideComplete = '$kUrlGuides/{slugOrId}/complete';
+
+// ---------------------------- PUBLIC SHARE ----------------------------
+
+/// Public share page for an alert — used when sharing an alert externally.
+const kUrlShareAlert = '$kUrlBase/share/alert';

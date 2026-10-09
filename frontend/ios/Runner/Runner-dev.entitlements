@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <!-- TEST (dev flavour, com.safetyalrt.alrt.dev) entitlements. Identical to
+       Runner.entitlements except the App Group, which is the separate
+       group.com.safetyalrt.alrt.dev so a TEST install can never read or
+       write the live app's shared widget data. Selected per build
+       configuration via CODE_SIGN_ENTITLEMENTS in project.pbxproj
+       (Debug-dev / Release-dev / Profile-dev). Keep the two files in step
+       apart from that one value. -->
+  <dict>
+    <key>aps-environment</key>
+    <string>production</string>
+    <key>com.apple.security.application-groups</key>
+    <array>
+      <string>group.com.safetyalrt.alrt.dev</string>
+    </array>
+    <key>com.apple.developer.applesignin</key>
+    <array>
+      <string>Default</string>
+    </array>
+    <key>keychain-access-groups</key>
+    <array>
+      <string>$(AppIdentifierPrefix)com.microsoft.adalcache</string>
+    </array>
+  </dict>
+</plist>

@@ -1,0 +1,17 @@
+node_modules
+.DS_Store
+dist
+*.log
+.env.dev
+.env.prod
+.env.test
+# Backups/working copies of real env files (fill-env-prod-from-aws.sh makes
+# .env.prod.bak.*; the switch-on steps use .env.prod.new/.old). Templates stay.
+.env.dev.*
+.env.prod.*
+.env.test.*
+!.env.prod.example
+!.env.test.example
+rest.http
+/src/generated/prisma
+serviceAccountKey.json

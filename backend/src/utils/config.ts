@@ -1,0 +1,307 @@
+import dotenv from "dotenv";
+import path from "path";
+import { loadSecretsFromAgent } from "./secrets.js";
+
+// Load environment file dynamically
+const envFile = `.env.${process.env.NODE_ENV || "dev"}`;
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+
+// In deployed environments (Lambda/ECS/EKS/EC2) secrets such as GOOGLE_MAPS_API_KEY are
+// sourced from the AWS Secrets Manager Agent. Locally this is a no-op and .env is used.
+loadSecretsFromAgent();
+
+// Helper function to get required environment variable
+const getRequiredEnv = (key: string): string => {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Required environment variable ${key} is not set`);
+  }
+  return value;
+};
+
+// Helper function to get optional environment variable with default
+const getOptionalEnv = (key: string, defaultValue: string): string => {
+  return process.env[key] || defaultValue;
+};
+
+/**
+ * A Google API key is 39 characters starting with "AIza". TEST once ran for
+ * days on a 21-character placeholder that passed the non-empty check and
+ * only surfaced when a strict verification expected a suburb label, so the
+ * shape is checked at startup and reported loudly (never the value).
+ */
+export const googleMapsKeyLooksValid = (key: string): boolean =>
+  /^AIza[0-9A-Za-z_-]{35}$/.test(key);
+
+export const config = {
+  // General
+  env: getOptionalEnv("NODE_ENV", "dev"),
+  port: parseInt(getOptionalEnv("PORT", "3000"), 10),
+
+  // TEST-only switch for the in-process scheduled jobs (hazard ingestion,
+  // expiry sweeps, scheduled check-ins, SOS 4-hour auto-end, location
+  // purge). Off by default. Honoured ONLY when NODE_ENV=test - see
+  // shouldRunScheduledJobs() in index.ts - so it can never turn jobs on in
+  // dev by accident, and production ignores it entirely (prod always runs
+  // them, as before). Lets a tester exercise automated check-ins and SOS
+  // auto-end intentionally on the isolated TEST backend.
+  runScheduledJobsInTest:
+    getOptionalEnv("RUN_SCHEDULED_JOBS_IN_TEST", "false") === "true",
+
+  // Photo/video on community reports. OFF for the V1 release: images and
+  // video of strangers, minors and private property are the highest-risk
+  // part of posting an alert. When false, create/update report requests
+  // that carry media files are rejected (see blockCommunityReportMedia).
+  // Email and password sign-in is off: people sign in with Google or Apple.
+  // Turn on only for a test environment or an app-store review login.
+  emailPasswordAuthEnabled:
+    getOptionalEnv("EMAIL_PASSWORD_AUTH_ENABLED", "false") === "true",
+  // Comma-separated emails allowed to sign in with a password even while
+  // email sign-in is off: the App Store / Google Play reviewer account.
+  reviewLoginEmails: getOptionalEnv("REVIEW_LOGIN_EMAILS", "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+  // Secret used to scramble emails in the free-trial record. Falls back to
+  // the access-token secret so it works before it is set explicitly.
+  trialLedgerSecret: getOptionalEnv("TRIAL_LEDGER_SECRET", ""),
+  // Bump when the legal text changes; stored against each user on acceptance.
+  termsVersion: getOptionalEnv("TERMS_VERSION", "2026-08-01"),
+  privacyVersion: getOptionalEnv("PRIVACY_VERSION", "2026-08-01"),
+  guidelinesVersion: getOptionalEnv("COMMUNITY_GUIDELINES_VERSION", "2026-08-01"),
+  communityReportsPerHour: parseInt(getOptionalEnv("COMMUNITY_REPORTS_PER_HOUR", "3"), 10),
+  communityReportsPerDay: parseInt(getOptionalEnv("COMMUNITY_REPORTS_PER_DAY", "10"), 10),
+  communityDuplicateRadiusMeters: parseInt(getOptionalEnv("COMMUNITY_DUPLICATE_RADIUS_M", "500"), 10),
+  communityReportMediaEnabled:
+    getOptionalEnv("COMMUNITY_REPORT_MEDIA_ENABLED", "false") === "true",
+
+  // CORS / Socket.IO — comma-separated origins; localhost/127.0.0.1 still allowed in non-prod when list does not match
+  cors: {
+    allowedOrigins: getOptionalEnv(
+      "CORS_ALLOWED_ORIGINS",
+      "https://admin.safetyalrt.com",
+    )
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
+  },
+
+  // Database
+  database: {
+    url: getRequiredEnv("DATABASE_URL"),
+  },
+
+  // JWT
+  jwt: {
+    accessSecret: getRequiredEnv("JWT_ACCESS_SECRET"),
+    accessExpirationMinutes: parseInt(getRequiredEnv("JWT_ACCESS_EXP_M"), 10),
+    refreshSecret: getRequiredEnv("JWT_REFRESH_SECRET"),
+    refreshExpirationDays: parseInt(getRequiredEnv("JWT_REFRESH_EXP_D"), 10),
+  },
+
+  // Admin JWT - Separate secrets for better security isolation
+  adminJwt: {
+    accessSecret: getRequiredEnv("ADMIN_JWT_ACCESS_SECRET"),
+    accessExpirationMinutes: parseInt(
+      getRequiredEnv("ADMIN_JWT_ACCESS_EXP_M"),
+      10,
+    ),
+    refreshSecret: getRequiredEnv("ADMIN_JWT_REFRESH_SECRET"),
+    refreshExpirationDays: parseInt(
+      getRequiredEnv("ADMIN_JWT_REFRESH_EXP_D"),
+      10,
+    ),
+  },
+
+  // Admin Credentials
+  adminCredentials: {
+    superAdminEmail: getRequiredEnv("SUPER_ADMIN_EMAIL"),
+    superAdminPassword: getRequiredEnv("SUPER_ADMIN_PASSWORD"),
+    superAdminName: getRequiredEnv("SUPER_ADMIN_NAME"),
+  },
+
+  // Google OAuth
+  googleOAuth: {
+    clientIdWeb: getRequiredEnv("GOOGLE_OAUTH_CLIENT_ID_WEB"),
+    clientIdIos: getRequiredEnv("GOOGLE_OAUTH_CLIENT_ID_IOS"),
+    clientIdAndroid: getRequiredEnv("GOOGLE_OAUTH_CLIENT_ID_ANDROID"),
+  },
+
+  // Apple OAuth
+  appleOAuth: {
+    audience: getRequiredEnv("APPLE_OAUTH_AUDIENCE"),
+  },
+
+  // Microsoft OAuth (Azure AD / MSAL). Optional so the server still boots when
+  // Microsoft sign-in isn't configured; the verifier returns a clear error if a
+  // Microsoft login is attempted without a client id set.
+  microsoftOAuth: {
+    clientId: getOptionalEnv("MICROSOFT_OAUTH_CLIENT_ID", ""),
+    tenantId: getOptionalEnv("MICROSOFT_OAUTH_TENANT_ID", "common"),
+  },
+
+  // OpenAI
+  openAI: {
+    apiKey: getRequiredEnv("OPENAI_API_KEY"),
+  },
+
+  // AWS
+  aws: {
+    s3: {
+      region: getRequiredEnv("AWS_S3_REGION"),
+      // Optional, like the Bedrock pair below: left blank, s3_client.util.ts
+      // falls back to the machine's own role, so a deployment on an instance
+      // role needs no stored access key. Production sets both and is
+      // unaffected. The bucket name is still required either way.
+      accessKeyId: getOptionalEnv("AWS_S3_ACCESS_KEY_ID", ""),
+      secretAccessKey: getOptionalEnv("AWS_S3_SECRET_ACCESS_KEY", ""),
+      bucketName: getRequiredEnv("AWS_S3_BUCKET_NAME"),
+      cloudfrontDomain: getOptionalEnv("AWS_CLOUDFRONT_DOMAIN", ""),
+    },
+    bedrock: {
+      region: getRequiredEnv("AWS_BEDROCK_REGION"),
+      accessKeyId: getOptionalEnv("AWS_BEDROCK_ACCESS_KEY_ID", ""),
+      secretAccessKey: getOptionalEnv("AWS_BEDROCK_SECRET_ACCESS_KEY", ""),
+      // Must be a cross-region inference profile ID (global./us./eu. prefix).
+      // Bare model IDs don't support on-demand throughput for newer Claude models.
+      // global. prefix works from any region including ap-southeast-2.
+      fallbackModelId: getOptionalEnv(
+        "AWS_BEDROCK_FALLBACK_MODEL_ID",
+        "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      ),
+    },
+  },
+
+  // AI provider selection (bedrock or openai)
+  ai: {
+    provider: getOptionalEnv("AI_PROVIDER", "bedrock"),
+  },
+
+  // NSW Transport API
+  nswTransportApi: {
+    apiKey: getRequiredEnv("NSW_TRANSPORT_API_KEY"),
+  },
+
+  // QLD Traffic API. No fallback on purpose: when the key is unset the
+  // QLD Traffic source is skipped by ingestion until one is provided.
+  qldTrafficApi: {
+    apiKey: getOptionalEnv("QLD_TRAFFIC_API_KEY", ""),
+  },
+
+  // WAQI API
+  waqiApi: {
+    apiToken: getRequiredEnv("WAQI_API_TOKEN"),
+  },
+
+  // Google Maps API
+  googleMapsApi: {
+    apiKey: getRequiredEnv("GOOGLE_MAPS_API_KEY"),
+  },
+
+  // Sightengine API
+  sightengineApi: {
+    apiUser: getRequiredEnv("SIGHTENGINE_API_USER"),
+    apiSecret: getRequiredEnv("SIGHTENGINE_API_SECRET"),
+    workflowId: getRequiredEnv("SIGHTENGINE_WORKFLOW_ID"),
+  },
+
+  // Force-update policy served at GET /api/app/version-policy (public).
+  // Blank = no requirement for that platform (served as null).
+  appVersionPolicy: {
+    ios: {
+      minVersion: getOptionalEnv("MIN_APP_VERSION_IOS", "").trim(),
+      minBuild: getOptionalEnv("MIN_APP_BUILD_IOS", "").trim(),
+      storeUrl: getOptionalEnv("APP_STORE_URL_IOS", "").trim(),
+    },
+    android: {
+      minVersion: getOptionalEnv("MIN_APP_VERSION_ANDROID", "").trim(),
+      minBuild: getOptionalEnv("MIN_APP_BUILD_ANDROID", "").trim(),
+      storeUrl: getOptionalEnv("APP_STORE_URL_ANDROID", "").trim(),
+    },
+  },
+
+  // Webhook API Key
+  WEBHOOK_API_KEY: getOptionalEnv("WEBHOOK_API_KEY", ""),
+
+  // Cache (ElastiCache / Valkey)
+  cache: {
+    url: getOptionalEnv("CACHE_URL", ""),
+    tls: getOptionalEnv("CACHE_TLS", "false") === "true",
+  },
+
+  // HTTP API rate limiting (express-rate-limit). Webhook routes use separate per-key limits.
+  rateLimit: {
+    // Set true when behind a reverse proxy so req.ip / rate-limit keys use X-Forwarded-For safely
+    // Recommended in prod environment for rate-limiting client IPs accurately.
+    trustProxy: getOptionalEnv("TRUST_PROXY", "false") === "true",
+    generalWindowMs: parseInt(
+      getOptionalEnv("API_RATE_LIMIT_WINDOW_MS", String(15 * 60 * 1000)),
+      10,
+    ),
+    generalMax: parseInt(getOptionalEnv("API_RATE_LIMIT_MAX", "600"), 10),
+    authWindowMs: parseInt(
+      getOptionalEnv("AUTH_RATE_LIMIT_WINDOW_MS", String(15 * 60 * 1000)),
+      10,
+    ),
+    authMax: parseInt(getOptionalEnv("AUTH_RATE_LIMIT_MAX", "40"), 10),
+    /** Per-IP for all GET /api/hazards* (before auth) — map polling + abuse guard */
+    hazardGetIpWindowMs: parseInt(
+      getOptionalEnv("HAZARD_GET_IP_RATE_LIMIT_WINDOW_MS", "60000"),
+      10,
+    ),
+    hazardGetIpMax: parseInt(
+      getOptionalEnv("HAZARD_GET_IP_RATE_LIMIT_MAX", "600"),
+      10,
+    ),
+    /** Per authenticated user for hazard reads (list/detail/subscription GETs) */
+    hazardReadWindowMs: parseInt(
+      getOptionalEnv(
+        "HAZARD_READ_RATE_LIMIT_WINDOW_MS",
+        String(15 * 60 * 1000),
+      ),
+      10,
+    ),
+    hazardReadMax: parseInt(
+      getOptionalEnv("HAZARD_READ_RATE_LIMIT_MAX", "15000"),
+      10,
+    ),
+    /** Per authenticated user for the /api/maps proxy (Geocoding/Places) — protects the shared Google quota/billing from one account's search-as-you-type traffic. */
+    mapsProxyWindowMs: parseInt(
+      getOptionalEnv("MAPS_PROXY_RATE_LIMIT_WINDOW_MS", "60000"),
+      10,
+    ),
+    mapsProxyMax: parseInt(
+      getOptionalEnv("MAPS_PROXY_RATE_LIMIT_MAX", "60"),
+      10,
+    ),
+  },
+
+  // RevenueCat webhook (ALRT+ entitlement sync). Must match the
+  // Authorization header configured in the RevenueCat dashboard.
+  revenuecat: {
+    webhookAuth: getOptionalEnv("REVENUECAT_WEBHOOK_AUTH", ""),
+  },
+
+  // Password reset link. Optional: when unset, the link is built from the
+  // incoming request's own protocol/host, so this works out of the box on
+  // any deployment. Set it to pin the link to a specific public domain
+  // instead (e.g. behind a proxy/CDN where the request's own host header
+  // isn't the public one).
+  passwordReset: {
+    baseUrl: getOptionalEnv("PASSWORD_RESET_BASE_URL", ""),
+  },
+
+  // Email configuration
+  email: {
+    smtpHost: getRequiredEnv("SMTP_HOST"),
+    smtpPort: parseInt(getRequiredEnv("SMTP_PORT"), 10),
+    smtpSecure: getOptionalEnv("SMTP_SECURE", "true") === "true",
+    smtpUser: getRequiredEnv("SMTP_USER"),
+    smtpPassword: getRequiredEnv("SMTP_PASSWORD"),
+    fromAddress: getRequiredEnv("EMAIL_FROM_ADDRESS"),
+    supportAddress: getRequiredEnv("EMAIL_SUPPORT_ADDRESS"),
+    supportCcAddresses: getOptionalEnv("EMAIL_SUPPORT_CC_ADDRESSES", "")
+      .split(",")
+      .map((email) => email.trim()),
+  },
+};

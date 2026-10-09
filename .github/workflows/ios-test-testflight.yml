@@ -149,6 +149,18 @@ on:
         options:
           - bypass
           - platform_sandbox
+      crash_logs_only:
+        description: "Only print the newest TestFlight crash reports testers shared (no build, no upload)"
+        type: boolean
+        default: false
+      simulator_smoke:
+        description: "Build for the iPhone Simulator, launch it on GitHub's Mac and print any crash (no signing, no upload)"
+        type: boolean
+        default: false
+      dummy_ai_reports:
+        description: "Community reports skip the AI review on the TEST backend (USE_DUMMY_AI_FOR_REPORTS=true; every report stays pending). Off by default so the real review runs."
+        type: boolean
+        default: false
 
 # The actual Flutter/iOS project lives in frontend/, not the repo root -
 # see the header comment above. Applies to every plain `run:` step below;
@@ -162,12 +174,55 @@ defaults:
     working-directory: frontend
 
 jobs:
+  crash-logs:
+    if: ${{ inputs.crash_logs_only }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: test
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Print the newest shared TestFlight crash reports (read only)
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          pip install --quiet "pyjwt[crypto]"
+          python3 .github/scripts/testflight_crash_logs.py
+
+      - name: Can the TEST backend be reached? (what the app calls at start-up)
+        run: |
+          H=api-test.safetyalrt.com
+          echo "== DNS"; getent hosts "$H" || echo "DNS lookup failed"
+          echo "== TLS certificate"
+          echo | timeout 15 openssl s_client -connect "$H:443" -servername "$H" 2>/dev/null \
+            | openssl x509 -noout -subject -issuer -dates -ext subjectAltName 2>/dev/null || echo "no certificate / connection failed"
+          P=https://claude-compassionate-frankli.alrt-v1-release-candidate.pages.dev
+          echo "== Admin Portal preview relay ($P/api -> TEST backend)"
+          curl -sS -o /dev/null -m 20 -w "GET /api/hazard-categories via portal: HTTP %{http_code}\n" "$P/api/hazard-categories" || true
+          curl -sS -m 20 -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.invalid","password":"x"}' -w "\nPOST /api/admin/auth/login via portal: HTTP %{http_code}\n" "$P/api/admin/auth/login" | tail -c 300 || true
+          for p in / /api/hazard-categories /api/user /api/app/version-policy /api/ask-alrt/allowance; do
+            printf "%-32s " "$p"
+            curl -sS -o /dev/null -m 20 -w "HTTP %{http_code} in %{time_total}s\n" "https://$H$p" || echo "request failed"
+          done
+
   build:
+    if: ${{ !inputs.crash_logs_only }}
     runs-on: macos-15
     timeout-minutes: 90
     environment: test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Stops the checkout step leaving GITHUB_TOKEN auth behind: it
+          # overrides the MATCH_GIT_BASIC_AUTHORIZATION header that fastlane
+          # match needs to reach the separate ios-certificates repo.
+          persist-credentials: false
 
       - uses: subosito/flutter-action@v2
         with:
@@ -203,19 +258,31 @@ jobs:
         env:
           REVENUECAT_API_KEY_APPLE: ${{ secrets.TEST_REVENUECAT_API_KEY_APPLE }}
 
-      # Google Sign-In is blanked at the Dart layer here, and the dev-flavour
-      # build configurations use ios/Runner/Info-dev.plist, which carries no
-      # GIDClientID / Google URL scheme at all (see that file's header) - so
-      # this build embeds no production Google OAuth identity anywhere.
+      # Google Sign-In: the dev-flavour build configurations use
+      # ios/Runner/Info-dev.plist, which carries no GIDClientID / Google URL
+      # scheme at all (see that file's header) - so this build embeds no
+      # production Google OAuth identity anywhere. It is switched on only by
+      # the two TEST-only repository Secrets below
+      # (TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID here, TEST_GOOGLE_IOS_CLIENT_ID in
+      # the "Enable Google Sign-In" step further down); while both are absent
+      # Google Sign-In stays blank, exactly as before. See
+      # frontend/ios/TEST_IOS_SETUP.md section 7.
       # DEV_BASE_URL is the hardcoded isolated TEST backend URL - see the
       # comment at the top of this file for why this is a literal, not a
       # secret lookup. GOOGLE_MAPS_API_KEY (Dart layer) mirrors the native
-      # xcconfig below. USE_DUMMY_AI_FOR_REPORTS=true matches the Android
-      # TEST build: the backend honours it only when it is itself running as
-      # TEST. REVENUECAT_API_KEY_APPLE and ALRT_PLUS_TEST_UNLOCK depend on
+      # xcconfig below. GOOGLE_MAPS_IOS_BUNDLE_ID is this build's bundle id,
+      # sent as X-Ios-Bundle-Identifier so an iOS-restricted key accepts the
+      # Routes call. USE_DUMMY_AI_FOR_REPORTS follows the dummy_ai_reports
+      # input (default false), as on the Android TEST build: the backend
+      # honours it only when it is itself running as TEST, and even then
+      # skips only the AI calls (rate limits and the duplicate check still
+      # run). REVENUECAT_API_KEY_APPLE and ALRT_PLUS_TEST_UNLOCK depend on
       # billing_mode - see the billing_mode comment at the top of this file.
       - name: Create .env pointed at the isolated test backend
         run: |
+          # A Secret set from Windows can carry a byte-order mark or CR/LF; Google keys
+          # only ever contain letters, digits, - and _, so keep just those.
+          GOOGLE_MAPS_API_KEY_IOS="$(printf '%s' "$GOOGLE_MAPS_API_KEY_IOS" | LC_ALL=C tr -cd 'A-Za-z0-9_-')"
           if [ "${{ inputs.billing_mode }}" = "platform_sandbox" ]; then
             REVENUECAT_APPLE_VALUE="$REVENUECAT_API_KEY_APPLE"
             TEST_UNLOCK_VALUE="false"
@@ -224,19 +291,68 @@ jobs:
             TEST_UNLOCK_VALUE="true"
           fi
           {
-            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=$GOOGLE_OAUTH_SERVER_CLIENT_ID"
             echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS"
+            echo "GOOGLE_MAPS_IOS_BUNDLE_ID=com.safetyalrt.alrt.dev"
             echo "MICROSOFT_CLIENT_ID="
             echo "MICROSOFT_TENANT_ID="
             echo "REVENUECAT_API_KEY_APPLE=$REVENUECAT_APPLE_VALUE"
             echo "REVENUECAT_API_KEY_GOOGLE="
             echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
             echo "ALRT_PLUS_TEST_UNLOCK=$TEST_UNLOCK_VALUE"
-            echo "USE_DUMMY_AI_FOR_REPORTS=true"
+            echo "USE_DUMMY_AI_FOR_REPORTS=${{ inputs.dummy_ai_reports && 'true' || 'false' }}"
           } > .env
         env:
           REVENUECAT_API_KEY_APPLE: ${{ secrets.TEST_REVENUECAT_API_KEY_APPLE }}
           GOOGLE_MAPS_API_KEY_IOS: ${{ secrets.TEST_GOOGLE_MAPS_API_KEY_IOS }}
+          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID }}
+
+      # Enables Google Sign-In on the TEST build. Without a GIDClientID in the
+      # app's Info.plist the Google SDK throws "No active configuration. Make
+      # sure GIDClientID is set in Info.plist" the moment the Google button is
+      # tapped. Info-dev.plist deliberately has none (it must never carry the
+      # production client), so this step adds the TEST-only iOS OAuth client
+      # (created for bundle id com.safetyalrt.alrt.dev) to the checked-out
+      # copy of that plist at build time. Nothing is committed back.
+      #   TEST_GOOGLE_IOS_CLIENT_ID          the iOS OAuth client ID, form
+      #                                      <digits>-<hash>.apps.googleusercontent.com
+      #   TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID the Web OAuth client ID (same value
+      #                                      as the backend's
+      #                                      GOOGLE_OAUTH_CLIENT_ID_WEB); read
+      #                                      by the .env step above
+      # Both are public identifiers, not secrets. Set both or neither: setting
+      # only one would give a Google button that still fails, so that case
+      # stops the build. Neither set = Google Sign-In stays off (warning only).
+      - name: Enable Google Sign-In on the TEST build (test-only iOS OAuth client)
+        run: |
+          if [ -z "$GOOGLE_IOS_CLIENT_ID" ] && [ -z "$GOOGLE_OAUTH_SERVER_CLIENT_ID" ]; then
+            echo "::warning::TEST_GOOGLE_IOS_CLIENT_ID and TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID are not set - Google Sign-In is disabled on this TEST build (Apple sign-in is unaffected)."
+            exit 0
+          fi
+          if [ -z "$GOOGLE_IOS_CLIENT_ID" ] || [ -z "$GOOGLE_OAUTH_SERVER_CLIENT_ID" ]; then
+            echo "::error::Set BOTH TEST_GOOGLE_IOS_CLIENT_ID and TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID, or neither - one without the other leaves Google Sign-In broken."
+            exit 1
+          fi
+          case "$GOOGLE_IOS_CLIENT_ID" in
+            *.apps.googleusercontent.com) ;;
+            *)
+              echo "::error::TEST_GOOGLE_IOS_CLIENT_ID must end in .apps.googleusercontent.com (the iOS OAuth client ID from Google Cloud Console)."
+              exit 1
+              ;;
+          esac
+          REVERSED="com.googleusercontent.apps.${GOOGLE_IOS_CLIENT_ID%.apps.googleusercontent.com}"
+          PLIST=ios/Runner/Info-dev.plist
+          PB=/usr/libexec/PlistBuddy
+          "$PB" -c "Add :GIDClientID string $GOOGLE_IOS_CLIENT_ID" "$PLIST"
+          "$PB" -c "Add :CFBundleURLTypes:1 dict" "$PLIST"
+          "$PB" -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes array" "$PLIST"
+          "$PB" -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string $REVERSED" "$PLIST"
+          "$PB" -c "Add :LSApplicationQueriesSchemes: string $REVERSED" "$PLIST"
+          plutil -lint "$PLIST"
+          echo "Google Sign-In enabled for the TEST build (URL scheme $REVERSED)."
+        env:
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.TEST_GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_OAUTH_SERVER_CLIENT_ID: ${{ secrets.TEST_GOOGLE_OAUTH_SERVER_CLIENT_ID }}
 
       # iOS reads the Maps key from this xcconfig too (see AppDelegate.swift
       # / Info.plist's GMSApiKey) - a separate native-layer path from the
@@ -249,6 +365,7 @@ jobs:
       # production key. Non-fatal on purpose; reported by length only.
       - name: Create ios/Flutter/Maps.xcconfig from the TEST-only iOS Maps key (blank = Maps disabled)
         run: |
+          GOOGLE_MAPS_API_KEY_IOS="$(printf '%s' "$GOOGLE_MAPS_API_KEY_IOS" | LC_ALL=C tr -cd 'A-Za-z0-9_-')"
           echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY_IOS" > ios/Flutter/Maps.xcconfig
           if [ -z "$GOOGLE_MAPS_API_KEY_IOS" ]; then
             echo "::warning::TEST_GOOGLE_MAPS_API_KEY_IOS is not set - Google Maps is disabled on this TEST build (no production key is ever used here)."
@@ -266,6 +383,7 @@ jobs:
       # this exact step already required before this file existed at the
       # live location.
       - name: Install signing certificate and profile (ALRT Dev / com.safetyalrt.alrt.dev)
+        if: ${{ !inputs.simulator_smoke }}
         working-directory: frontend/ios
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -276,22 +394,166 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
 
+      - name: Configure Xcode to use the installed dev profile
+        if: ${{ !inputs.simulator_smoke }}
+        run: |
+          OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
+          NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$NEW"
+          PROFILE_NAME=""
+          for PROFILE in "$OLD"/*.mobileprovision; do
+            [ -f "$PROFILE" ] || continue
+            DECODED="$(mktemp)"
+            if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
+              APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
+              if [[ "$APP_ID" == *".com.safetyalrt.alrt.dev" ]]; then
+                PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED")"
+                cp -f "$PROFILE" "$NEW/"
+                rm -f "$DECODED"
+                break
+              fi
+            fi
+            rm -f "$DECODED"
+          done
+          if [ -z "$PROFILE_NAME" ]; then
+            echo "::error::No installed provisioning profile found for com.safetyalrt.alrt.dev"
+            exit 1
+          fi
+          python3 - "$PROFILE_NAME" ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI-dev.plist <<'PY'
+          import pathlib
+          import sys
+
+          profile_name, *paths = sys.argv[1:]
+          expected_name = "match AppStore com.safetyalrt.alrt.dev"
+          files = [(pathlib.Path(path), pathlib.Path(path).read_text()) for path in paths]
+          if any(expected_name not in contents for _, contents in files):
+              raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
+          for path, contents in files:
+              path.write_text(contents.replace(expected_name, profile_name))
+          PY
+
+      - name: Select Xcode 26 (App Store Connect requires the iOS 26 SDK)
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$XC" ]; then
+            echo "::error::No Xcode 26 on this runner. Installed:"; ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Refresh CocoaPods specs (the runner's copy is out of date)
+        working-directory: frontend/ios
+        run: |
+          # Podfile.lock pins Firebase 12.2.0 but the current Flutter Firebase
+          # plugins need 12.17.x, so pod install cannot resolve the old lock.
+          # This CI-only build starts from a fresh resolve; the committed
+          # lock file is not changed.
+          rm -f Podfile.lock
+          pod repo update
+
+      # Diagnostic only: the same TEST app, built for the Simulator (no
+      # signing), launched on this runner for 90 seconds. Prints whether it
+      # stayed running, its console and error log, and any crash report, and
+      # keeps a screenshot. Nothing is signed or uploaded.
+      - name: Simulator launch test (diagnostic, no upload)
+        if: ${{ inputs.simulator_smoke }}
+        run: |
+          set -x
+          flutter build ios --simulator --debug --flavor dev -t lib/main_dev.dart \
+            --dart-define=ALRT_EMAIL_AUTH=true \
+            --dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} \
+            --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }}
+          APP="$(ls -d build/ios/iphonesimulator/*.app | head -1)"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          UDID="$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          c=[(r,x["udid"]) for r,l in d.items() if "iOS" in r for x in l if x["name"].startswith("iPhone")]
+          print(sorted(c)[-1][1])')"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p "$RUNNER_TEMP/sim"
+          xcrun simctl spawn "$UDID" log stream --level debug \
+            --predicate 'processImagePath CONTAINS "Runner.app" AND (messageType == error OR messageType == fault OR eventMessage CONTAINS[c] "exception" OR eventMessage CONTAINS[c] "crash" OR eventMessage CONTAINS[c] "terminat")' \
+            > "$RUNNER_TEMP/sim/errors.log" 2>&1 &
+          LOGPID=$!
+          xcrun simctl launch --console-pty "$UDID" com.safetyalrt.alrt.dev > "$RUNNER_TEMP/sim/console.log" 2>&1 &
+          for t in 15 30 60 90; do
+            sleep 15
+            if xcrun simctl spawn "$UDID" launchctl list | grep -q "com.safetyalrt.alrt.dev"; then
+              echo "== still running at about ${t}s"
+            else
+              echo "== NOT RUNNING at about ${t}s (exited or crashed)"
+            fi
+          done
+          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/sim/screen.png" || true
+          kill $LOGPID || true
+          echo "===== console (last 200 lines) ====="; tail -200 "$RUNNER_TEMP/sim/console.log"
+          echo "===== error log (last 200 lines) ====="; tail -200 "$RUNNER_TEMP/sim/errors.log"
+          echo "===== crash reports ====="
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/*Runner* ~/Library/Logs/DiagnosticReports/*ALRT* 2>/dev/null | head -3); do
+            echo "--- $f"; head -150 "$f"; cp "$f" "$RUNNER_TEMP/sim/" || true
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.simulator_smoke && always() }}
+        with:
+          name: ALRT-ios-simulator-smoke
+          path: ${{ runner.temp }}/sim
+          retention-days: 7
+
       - name: Build the signed iPhone app (dev flavour, isolated test backend)
+        if: ${{ !inputs.simulator_smoke }}
         run: |
           BUILD_NUMBER="${{ inputs.build_number }}"
           if [ -z "$BUILD_NUMBER" ]; then
             BUILD_NUMBER=$((100 + ${{ github.run_number }}))
           fi
           echo "Building with build number $BUILD_NUMBER"
+          # TEST builds only: show the email sign-in button (the app hides it by
+          # default). The server still decides who may sign in with a password.
           flutter build ipa --release --flavor dev -t lib/main_dev.dart \
+            --dart-define=ALRT_EMAIL_AUTH=true \
+            --dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} \
+            --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }} \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=ios/ExportOptionsCI-dev.plist
+
+      # Diagnostic, read only: what the device will actually check at launch.
+      # Prints the signed app's entitlements, the embedded profile's
+      # entitlements, the frameworks it links and embeds, and the Info.plist
+      # keys, so a launch-time refusal can be matched against them.
+      - name: Inspect the signed app (entitlements, profile, frameworks)
+        if: ${{ !inputs.simulator_smoke }}
+        run: |
+          IPA="$(ls build/ios/ipa/*.ipa | head -1)"
+          D="$RUNNER_TEMP/ipa"; rm -rf "$D"; mkdir -p "$D"; unzip -q "$IPA" -d "$D"
+          APP="$(ls -d "$D"/Payload/*.app | head -1)"
+          echo "== app entitlements"; codesign -d --entitlements :- "$APP" 2>/dev/null || true
+          echo "== embedded profile entitlements"
+          security cms -D -i "$APP/embedded.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          /usr/libexec/PlistBuddy -c 'Print :Entitlements' "$RUNNER_TEMP/profile.plist" || true
+          /usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist" || true
+          /usr/libexec/PlistBuddy -c 'Print :ExpirationDate' "$RUNNER_TEMP/profile.plist" || true
+          echo "== codesign verify"; codesign --verify --deep --strict --verbose=2 "$APP" 2>&1 | tail -5 || true
+          echo "== linked libraries"; otool -L "$APP/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")" | head -80
+          echo "== embedded frameworks"; ls "$APP/Frameworks" || true
+          echo "== bundles"; ls "$APP" | grep -i bundle || true
+          echo "== Info.plist keys"; /usr/libexec/PlistBuddy -c 'Print' "$APP/Info.plist" | grep -E '^    [A-Za-z]' | sed 's/ = .*//' | sort | tr '\n' ' '; echo
+          echo "== MinimumOSVersion"; /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist"
+          echo "== Flutter build mode check (a debug engine cannot run outside Xcode)"
+          ls "$APP/Frameworks/App.framework" || true
+          strings "$APP/Frameworks/Flutter.framework/Flutter" | grep -m3 -E "Dart_IsPrecompiledRuntime|kDartVmSnapshot" || true
 
       # ci_upload_dev (not the production ci_upload lane) pins the App Store
       # Connect record to com.safetyalrt.alrt.dev / "ALRT Dev" and refuses any
       # ipa whose bundle id is not exactly that, so this step can never reach
       # the live ALRT app. The production lane is untouched.
       - name: Upload to TestFlight (ALRT Dev only)
+        if: ${{ !inputs.simulator_smoke }}
         working-directory: frontend/ios
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -308,6 +570,7 @@ jobs:
       # checkout root regardless of the working-directory default above -
       # see the header comment - so it needs the frontend/ prefix here.
       - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.simulator_smoke }}
         with:
           name: ALRT-ios-dev-ipa
           path: frontend/build/ios/ipa/*.ipa

@@ -1,0 +1,570 @@
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hazard_app/features/family/models/family_models.dart';
+import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/providers/selected_circle_provider.dart';
+import 'package:hazard_app/features/family/utils/group_state.dart';
+import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
+import 'package:hazard_app/features/family/views/widgets/family_group_actions.dart';
+import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+/// Every group you belong to, on one dark page, each wearing its own beacon.
+///
+/// The colour is the point: a group is recognised before its name is read,
+/// which is why the cards are full-bleed gradients rather than list rows.
+/// V1 access model: no seats and no group-count limit. How each group is
+/// paid for is shown on My plans, not here.
+class FamilySwitchGroupScreen extends ConsumerWidget {
+  const FamilySwitchGroupScreen({super.key});
+
+  static const route = '/family-switch-group';
+
+  static const _page = Color(0xFF0E0E12);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final circles = ref.watch(providerOfFamily.select((s) => s.circles));
+    final selectedId = ref.watch(providerOfSelectedCircleId);
+    final circle = ref.watch(providerOfFamily.select((s) => s.circle));
+
+    // With no explicit selection the family tab shows the first circle, so
+    // the switcher has to highlight the same one or CURRENT lies.
+    final currentId = selectedId ?? circles.firstOrNull?.circleId;
+
+    return Scaffold(
+      backgroundColor: _page,
+      body: ListView(
+        padding: EdgeInsets.only(bottom: 104.spMin),
+        children: [
+          _headerBuilder(context),
+          ...circles.map(
+            (summary) => Padding(
+              padding: EdgeInsets.fromLTRB(16.spMin, 0, 16.spMin, 11.spMin),
+              child: _groupCardBuilder(
+                context: context,
+                ref: ref,
+                summary: summary,
+                isCurrent: summary.circleId == currentId,
+                // Members are only loaded for the circle in scope, so the
+                // dots ride on the current card and nowhere else.
+                loaded: summary.circleId == currentId ? circle : null,
+              ),
+            ),
+          ),
+          _actionsBuilder(context, ref),
+        ],
+      ),
+    );
+  }
+
+  /// Being in a group never closes the door on the next one: joining and
+  /// creating groups are free and unlimited. Both paths live here, on the switcher, where the
+  /// question "can I be in another group?" actually gets asked.
+  Widget _actionsBuilder(final BuildContext context, final WidgetRef ref) {
+    ref.listen(providerOfFamily.select((s) => s.joinCircleState), (
+      prev,
+      next,
+    ) {
+      if (prev != next && next.isError && next.error != null) {
+        // A full group says so, with its capacity; never a payment ask.
+        showFamilyActionError(context, ref, next.error!);
+      }
+    });
+    ref.listen(providerOfFamily.select((s) => s.createCircleState), (
+      prev,
+      next,
+    ) {
+      if (prev != next && next.isError && next.error != null) {
+        context.showErrorToast(message: next.error!.message);
+      }
+    });
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Type a code or scan the host's QR - two equal ways in. The
+          // camera is only touched when the scan button itself is tapped.
+          Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: SizedBox(
+                  height: 48.spMin,
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15.spMin),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.16),
+                        ),
+                      ),
+                    ),
+                    onPressed: () => showJoinGroupSheet(context, ref),
+                    child: Text(
+                      'Join with a code',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.spMin,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 9.spMin),
+              Expanded(
+                flex: 4,
+                child: SizedBox(
+                  height: 48.spMin,
+                  child: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15.spMin),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.16),
+                        ),
+                      ),
+                    ),
+                    onPressed: () => scanInviteQrAndJoin(context, ref),
+                    icon: Icon(Icons.qr_code_scanner_rounded, size: 18.spMin),
+                    label: Text(
+                      'Scan invite QR',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.spMin,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 9.spMin),
+          SizedBox(
+            height: 48.spMin,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFC939DD),
+                    Color(0xFFA22CC6),
+                    Color(0xFF7E1FA8),
+                    Color(0xFF5C1585),
+                  ],
+                  stops: [0.0, 0.4, 0.74, 1.0],
+                ),
+                borderRadius: BorderRadius.circular(15.spMin),
+              ),
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15.spMin),
+                  ),
+                ),
+                onPressed: () => showCreateGroupSheet(context, ref),
+                child: Text(
+                  'Create another circle',
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(top: 10.spMin),
+            child: Text(
+              'Joining with a code is always free, in as many groups as you '
+              'like. Creating a group is free too.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11.spMin,
+                height: 1.5,
+                color: Colors.white.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerBuilder(final BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.spMin, 52.spMin, 16.spMin, 14.spMin),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).maybePop(),
+                child: Container(
+                  width: 30.spMin,
+                  height: 30.spMin,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(LucideIcons.x, size: 14.spMin, color: Colors.white),
+                ),
+              ),
+              SizedBox(width: 11.spMin),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'YOUR FAMILY CIRCLES',
+                      style: TextStyle(
+                        fontSize: 11.spMin,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                        color: Colors.white.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    Text(
+                      'Switch between circles',
+                      style: TextStyle(
+                        fontSize: 23.spMin,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 5.spMin),
+          Text(
+            'Each with its own name and beacon colour',
+            style: TextStyle(
+              fontSize: 12.5.spMin,
+              color: Colors.white.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// One group, wearing its beacon as a gradient. Tapping rescopes the whole
+  /// family tab and returns, so the switch is felt on the hub, not here.
+  Widget _groupCardBuilder({
+    required final BuildContext context,
+    required final WidgetRef ref,
+    required final FamilyCircleSummary summary,
+    required final bool isCurrent,
+    required final FamilyCircle? loaded,
+  }) {
+    final beacon = _beaconOf(summary);
+    final lift = _lighten(beacon, 0.16);
+
+    return GestureDetector(
+      onTap: () async {
+        if (!isCurrent) {
+          await ref.read(providerOfFamily.notifier).selectCircle(
+                summary.circleId,
+              );
+        }
+        if (!context.mounted) return;
+        Navigator.of(context).maybePop();
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: 16.spMin,
+          vertical: 15.spMin,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: const Alignment(-0.8, -1),
+            end: const Alignment(0.8, 1),
+            colors: [lift, beacon],
+          ),
+          borderRadius: BorderRadius.circular(18.spMin),
+          boxShadow: [
+            BoxShadow(
+              color: beacon.withValues(alpha: 0.36),
+              blurRadius: 26.spMin,
+              offset: Offset(0, 10.spMin),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // The group's own picture, so a switcher of same-coloured
+                // cards is still told apart at a glance.
+                FamilyGroupAvatar(
+                  name: summary.name,
+                  photoUrl: summary.photoUrl,
+                  themeColorHex: summary.themeColor,
+                  size: 38.spMin,
+                  borderColor: Colors.white.withValues(alpha: 0.55),
+                  borderWidth: 1.6,
+                ),
+                SizedBox(width: 10.spMin),
+                Expanded(
+                  child: Text(
+                    summary.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 17.spMin,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8.spMin),
+                _pillBuilder(
+                  label: isCurrent ? 'CURRENT' : _roleLabelOf(summary),
+                  isCurrent: isCurrent,
+                ),
+              ],
+            ),
+            SizedBox(height: 3.spMin),
+            Text(
+              _subtitleOf(summary),
+              style: TextStyle(
+                fontSize: 11.5.spMin,
+                height: 1.5,
+                color: Colors.white.withValues(alpha: 0.88),
+              ),
+            ),
+            SizedBox(height: 10.spMin),
+            _stateRowBuilder(context, ref, summary, loaded),
+            if (loaded != null && loaded.members.isNotEmpty) ...[
+              SizedBox(height: 11.spMin),
+              _memberDotsBuilder(loaded, beacon),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The same one-line state as the hub tiles ("2 of 3 · waiting on Amy",
+  /// "SOS live · Tom"), plus the action it calls for: ask this group to
+  /// check in, or open the SOS. Asking switches the hub to the group and
+  /// opens the ask sheet there, because a check-in is answered per group.
+  Widget _stateRowBuilder(
+    final BuildContext context,
+    final WidgetRef ref,
+    final FamilyCircleSummary summary,
+    final FamilyCircle? loaded,
+  ) {
+    final activeSos = ref.watch(
+      providerOfFamily.select((s) => s.activeSosEvents),
+    );
+    final state = groupStateOf(
+      summary,
+      openCircle: loaded,
+      loadedCircles: ref.watch(
+        providerOfFamily.select((s) => s.loadedCircles),
+      ),
+      activeSosEvents: activeSos,
+    );
+    final isSos = state.kind == GroupStateKind.sos;
+    final canAsk = state.kind == GroupStateKind.waiting ||
+        state.kind == GroupStateKind.allIn;
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 10.spMin,
+              vertical: 7.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: isSos
+                  ? FamilyColors.sosRed
+                  : Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10.spMin),
+            ),
+            child: Text(
+              state.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5.spMin,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        if (isSos || canAsk) ...[
+          SizedBox(width: 8.spMin),
+          GestureDetector(
+            onTap: () => isSos
+                ? _openSos(context, ref, summary)
+                : _askThisGroup(context, ref, summary),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: 12.spMin,
+                vertical: 7.spMin,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10.spMin),
+              ),
+              child: Text(
+                isSos ? 'Open SOS' : 'Ask to check in',
+                style: TextStyle(
+                  fontSize: 11.5.spMin,
+                  fontWeight: FontWeight.w800,
+                  color: isSos ? FamilyColors.sosRed : FamilyColors.indigo,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _askThisGroup(
+    final BuildContext context,
+    final WidgetRef ref,
+    final FamilyCircleSummary summary,
+  ) async {
+    await ref.read(providerOfFamily.notifier).selectCircle(summary.circleId);
+    if (!context.mounted) return;
+    await showFamilyAskCheckInSheet(context, ref);
+  }
+
+  /// Opens the SOS running in [summary]: the hub is switched to that group
+  /// first, whose banner and strip then carry the live event.
+  Future<void> _openSos(
+    final BuildContext context,
+    final WidgetRef ref,
+    final FamilyCircleSummary summary,
+  ) async {
+    await ref.read(providerOfFamily.notifier).selectCircle(summary.circleId);
+    if (!context.mounted) return;
+    Navigator.of(context).maybePop();
+  }
+
+  Widget _pillBuilder({
+    required final String label,
+    required final bool isCurrent,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 4.spMin),
+      decoration: BoxDecoration(
+        color: isCurrent
+            ? Colors.white.withValues(alpha: 0.22)
+            : Colors.black.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12.spMin),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.spMin,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  /// Overlapping initials with a count of who has checked in. The ring is the
+  /// beacon so the dots read as belonging to this card, not floating on it.
+  Widget _memberDotsBuilder(final FamilyCircle circle, final Color beacon) {
+    final members = circle.members.take(5).toList();
+    final safeCount = circle.members.where((m) => m.isCheckedInRecently).length;
+
+    return Row(
+      children: [
+        SizedBox(
+          height: 24.spMin,
+          width: (24 + (members.length - 1) * 16).spMin,
+          child: Stack(
+            children: [
+              for (var index = 0; index < members.length; index++)
+                Positioned(
+                  left: (index * 16).spMin,
+                  child: Container(
+                    width: 24.spMin,
+                    height: 24.spMin,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: FamilyColors.memberColor(members[index].id),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: beacon, width: 2.spMin),
+                    ),
+                    child: Text(
+                      members[index].initials,
+                      style: TextStyle(
+                        fontSize: 8.spMin,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        SizedBox(width: 8.spMin),
+        Text(
+          '$safeCount of ${circle.members.length} checked in',
+          style: TextStyle(
+            fontSize: 11.spMin,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Everything that isn't the current group still needs a word: who
+  /// hosts it.
+  String _roleLabelOf(final FamilyCircleSummary summary) =>
+      summary.isOwned ? 'YOU HOST' : 'JOINED';
+
+  String _subtitleOf(final FamilyCircleSummary summary) {
+    final people = '${summary.memberCount} '
+        '${summary.memberCount == 1 ? 'person' : 'people'}';
+    final host = summary.isOwned ? 'you host' : 'hosted by someone else';
+    return '$people · $host';
+  }
+
+  /// The group's chosen beacon, falling back to the family indigo so a group
+  /// that has never been themed still looks deliberate.
+  Color _beaconOf(final FamilyCircleSummary summary) =>
+      FamilyColors.beaconOf(summary.themeColor);
+
+  /// The top-left stop of the card gradient: the same beacon, lifted, so
+  /// every card shares one light source.
+  Color _lighten(final Color color, final double amount) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withLightness((hsl.lightness + amount).clamp(0.0, 1.0)).toColor();
+  }
+}

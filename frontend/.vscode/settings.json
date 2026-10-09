@@ -1,0 +1,23 @@
+{
+  "dart.flutterSdkPath": ".fvm/versions/3.35.3",
+  "search.exclude": {
+    "**/.fvm": true
+  },
+  "files.watcherExclude": {
+    "**/.fvm": true
+  },
+  "cmake.sourceDirectory": "/Users/shrijanregmi/Projects/Flutter/alp/linux",
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": false,
+    "markdown": false,
+    "scminput": false,
+    "log": true,
+    "python": true,
+    "ruby": true
+  },
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "cSpell.words": [
+    "topup"
+  ]
+}

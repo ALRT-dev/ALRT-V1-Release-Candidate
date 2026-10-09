@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the app icon -> "Add ... widget" jumps straight to the system
+     pin-widget dialog (handled in MainActivity via the pin_widget extra). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="pin_alerts_widget"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_pin_alerts_short"
+        android:shortcutLongLabel="@string/shortcut_pin_alerts_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.safetyalrt.alrt"
+            android:targetClass="com.safetyalrt.alrt.MainActivity">
+            <extra
+                android:name="pin_widget"
+                android:value="alerts" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="pin_family_widget"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_pin_family_short"
+        android:shortcutLongLabel="@string/shortcut_pin_family_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.safetyalrt.alrt"
+            android:targetClass="com.safetyalrt.alrt.MainActivity">
+            <extra
+                android:name="pin_widget"
+                android:value="family" />
+        </intent>
+    </shortcut>
+</shortcuts>

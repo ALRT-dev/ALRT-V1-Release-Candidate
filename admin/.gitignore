@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Env files - never commit an admin portal API base URL override that
+# might point at a real deployment; .env.example documents the shape.
+# .env.test is the one deliberate exception: it points only at the
+# isolated internal-test backend (never production), and a base URL is
+# not a secret - see V1_RECONCILIATION_REPORT.md Stage A.
+.env
+.env.*
+!.env.example
+!.env.test
+# .env.production holds only public live build values (the live API URL and
+# Firebase web identifiers) so a plain `npm run build` targets the live
+# backend. Never add a secret to it.
+!.env.production
+
+coverage
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
