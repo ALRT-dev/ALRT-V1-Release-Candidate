@@ -344,8 +344,24 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   /// no buttons: what needs answering shows up as the ask card and the
   /// members' chips below, and the ways in and across live in the sheet.
   Widget _headerBuilder(final FamilyCircle circle) {
+    // State-dependent gradient: SOS red, asked teal, idle indigo.
+    final isSosActive = ref.watch(
+      providerOfFamily.select((s) => s.activeSosEvents.isNotEmpty),
+    );
+    final isAskedOfMe = !isSosActive &&
+        (() {
+          final roll = CheckInRoll.of(circle);
+          return roll.notYet.any((m) => m.id == circle.myMemberId);
+        })();
+    final Gradient? headerGradient = isSosActive
+        ? FamilyColors.sosHeaderGradient
+        : isAskedOfMe
+            ? FamilyColors.tealHeaderGradient
+            : null; // default indigo
+
     return SliverToBoxAdapter(
       child: FamilyHeaderSurface(
+        gradient: headerGradient,
         padding: EdgeInsets.fromLTRB(20.spMin, 0, 16.spMin, 18.spMin),
         child: SafeArea(
           bottom: false,
@@ -1779,6 +1795,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     // Guests never request locations, so they never see the affordance.
     final iAmGuest = circle.me?.role == FamilyRole.guest;
     final roll = CheckInRoll.of(circle);
+    final isSosActive = ref.watch(
+      providerOfFamily.select((s) => s.activeSosEvents.isNotEmpty),
+    );
 
     Widget rowFor(final FamilyMember member) {
       final isMe = member.id == circle.myMemberId;
@@ -1787,12 +1806,25 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       final hasAnswered = roll.answerFor(member);
       final canAsk = !isMe && hasAnswered != true;
       final canRequest = !iAmGuest && !isMe;
+
+      // Ring colour: red while SOS is live, teal while asked and
+      // unanswered, nothing otherwise.
+      final Color? ringColor;
+      if (isSosActive) {
+        ringColor = FamilyColors.sosRed;
+      } else if (hasAnswered == false) {
+        ringColor = FamilyColors.teal;
+      } else {
+        ringColor = null;
+      }
+
       return FamilyMemberListItem(
         member: member,
         isMe: isMe,
         isNearAlert: isNearAlert,
         hasAnswered: hasAnswered,
         askedAt: roll.askedAt,
+        ringColor: ringColor,
         // Every action on a person — ask, request, and the host's remove —
         // sits in one visible sheet, permission-checked here. Nothing is
         // long-press-only any more.

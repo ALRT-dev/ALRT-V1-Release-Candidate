@@ -41,10 +41,44 @@ class FamilyColors {
   static const sosDarkRed = Color(0xFF5C1010);
 
   /// The bright red used for SOS accents.
-  static const sosRed = Color(0xFFDC2626);
+  static const sosRed = Color(0xFFDA1F2D);
 
   /// A light red background for SOS banners.
   static const sosRedLight = Color(0xFFFDECEC);
+
+  // ── State colours (hub header, footer slot, member rings) ─────────────
+
+  /// Teal for the "check-in asked of you" state — footer, header, member
+  /// rings. Chosen over green so it reads as "awaiting" rather than "safe".
+  static const teal = Color(0xFF0D9488);
+
+  /// The deeper end of the teal gradient for the header band.
+  static const tealDeep = Color(0xFF0F766E);
+
+  /// The teal header gradient: bright teal at the top left falling through
+  /// the deeper stop into a near-dark teal.
+  static const tealHeaderGradient = LinearGradient(
+    begin: Alignment(-0.7, -1),
+    end: Alignment(0.6, 1),
+    stops: [0.0, 0.55, 1.0],
+    colors: [
+      Color(0xFF0D9488),
+      Color(0xFF0F766E),
+      Color(0xFF0A5C53),
+    ],
+  );
+
+  /// The SOS header gradient: the approved red band.
+  static const sosHeaderGradient = LinearGradient(
+    begin: Alignment(-0.7, -1),
+    end: Alignment(0.6, 1),
+    stops: [0.0, 0.55, 1.0],
+    colors: [
+      Color(0xFFC8102E),
+      Color(0xFFA00D24),
+      Color(0xFF7A0012),
+    ],
+  );
 
   // ── V3.1 prototype tokens ──────────────────────────────────────────────
   // Read straight off the approved prototype boards. The accent is the

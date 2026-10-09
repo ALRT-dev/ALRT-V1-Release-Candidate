@@ -22,6 +22,7 @@ import 'package:hazard_app/features/map/providers/map_search_text_editing_contro
 import 'package:hazard_app/features/map/providers/places_provider.dart';
 import 'package:hazard_app/features/map/views/screens/map_screen.dart';
 import 'package:hazard_app/features/notification/enums/push_notification_types.dart';
+import 'package:hazard_app/features/notification/views/widgets/offline_banner.dart';
 import 'package:hazard_app/features/notification/extensions/remote_message_extension.dart';
 import 'package:hazard_app/features/notification/providers/manage_notifications_provider.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
@@ -204,6 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: FamilyColors.sosRed,
             child: const SafeArea(bottom: false, child: FamilySosStrip()),
           ),
+        const OfflineBanner(),
         Expanded(
           // Only the strip takes the status-bar inset; with no SOS the
           // tabs keep it, or their headers sit under the notch.

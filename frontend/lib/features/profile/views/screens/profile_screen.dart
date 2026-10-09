@@ -26,7 +26,9 @@ import 'package:hazard_app/features/profile/providers/states/profile_provider_st
 import 'package:hazard_app/features/profile/views/screens/delete_account_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/my_hazards_screen.dart';
 import 'package:hazard_app/features/profile/views/widgets/accepted_hazards_widgets/my_accepted_hazards_list.dart';
-import 'package:hazard_app/features/profile/views/widgets/add_widget_sheet.dart';
+import 'package:hazard_app/features/notification/views/screens/accessible_alerts_screen.dart';
+import 'package:hazard_app/features/profile/views/screens/add_widget_screen.dart';
+import 'package:hazard_app/features/profile/views/screens/leaderboard_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/points_breakdown_screen.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_colors.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_gradient_icon.dart';
@@ -811,6 +813,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           accent: const ProfileRowAccent(Color(0xFF6199FF), Color(0xFF2FA6FF)),
           onTap: _showLanguagePicker,
         ),
+        _buildProfileRow(
+          title: 'Accessible alerts',
+          subtitle: 'Sound and vibration settings',
+          icon: LucideIcons.vibrate,
+          accent: const ProfileRowAccent(Color(0xFF6CBFFF), Color(0xFF3A9BDC)),
+          onTap: () => context.push(AccessibleAlertsScreen.route),
+        ),
       ],
     );
   }
@@ -834,6 +843,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           icon: LucideIcons.star,
           accent: const ProfileRowAccent(Color(0xFFFFD166), Color(0xFFE1A500)),
           onTap: () => context.push(PointsBreakdownScreen.route),
+        ),
+        _buildProfileRow(
+          title: 'Leaderboard',
+          subtitle: 'See where you rank',
+          icon: LucideIcons.trophy,
+          accent: const ProfileRowAccent(Color(0xFFFFD166), Color(0xFFE1A500)),
+          onTap: () => context.push(LeaderboardScreen.route),
         ),
         // QA builds ship with the test unlock on, which hides every
         // paywall gate — this row lets the paywall itself be reviewed.
@@ -934,7 +950,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           subtitle: 'Nearby alerts or family at a glance',
           icon: LucideIcons.layoutGrid,
           accent: const ProfileRowAccent(Color(0xFFFFB33D), AppColors.orange),
-          onTap: () => showAddWidgetSheet(context),
+          onTap: () => context.push(AddWidgetScreen.route),
         ),
         _buildProfileRow(
           title: 'Share ALRT',

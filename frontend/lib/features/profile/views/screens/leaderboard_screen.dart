@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/profile/models/xp_leaderboard_models.dart';
 import 'package:hazard_app/features/profile/providers/xp_leaderboard_provider.dart';
+import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Community XP leaderboard. Reads GET /api/xp/leaderboard (top 20) and lets
-/// the user pull to refresh. Trust tier is a verification rate, never a raw
-/// count — so we surface reports + reliability, not just points.
+/// Community XP leaderboard. Ranks and points only — the leaderboard never
+/// shows other users' identities (CLAUDE.md). The user's own row is
+/// highlighted so they can see where they sit.
 class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});
 
@@ -16,6 +17,9 @@ class LeaderboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final leaderboard = ref.watch(providerOfXpLeaderboard);
+    final myId = ref.watch(
+      providerOfLoggedInUser.select((u) => u?.id),
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F4F6),
@@ -45,7 +49,8 @@ class LeaderboardScreen extends ConsumerWidget {
               padding: EdgeInsets.all(16.spMin),
               itemCount: entries.length,
               separatorBuilder: (_, __) => SizedBox(height: 10.spMin),
-              itemBuilder: (context, index) => _entryRowBuilder(entries[index]),
+              itemBuilder: (context, index) =>
+                  _entryRowBuilder(entries[index], myId),
             ),
           );
         },
@@ -53,7 +58,8 @@ class LeaderboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _entryRowBuilder(XpLeaderboardEntry entry) {
+  Widget _entryRowBuilder(XpLeaderboardEntry entry, String? myId) {
+    final isMe = myId != null && entry.id == myId;
     final medal = switch (entry.rank) {
       1 => const Color(0xFFE1A500), // gold
       2 => const Color(0xFF9AA0A6), // silver
@@ -63,9 +69,12 @@ class LeaderboardScreen extends ConsumerWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isMe ? const Color(0xFFFFF7ED) : Colors.white,
         borderRadius: BorderRadius.circular(14.spMin),
-        border: Border.all(color: const Color(0xFFECECEF)),
+        border: Border.all(
+          color: isMe ? const Color(0xFFE8622A).withValues(alpha: 0.4) : const Color(0xFFECECEF),
+          width: isMe ? 1.5 : 1.0,
+        ),
       ),
       child: Row(
         children: [
@@ -83,27 +92,13 @@ class LeaderboardScreen extends ConsumerWidget {
           ),
           SizedBox(width: 8.spMin),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 2.spMin),
-                Text(
-                  '${entry.hazardsReported} reports',
-                  style: TextStyle(
-                    fontSize: 12.spMin,
-                    color: const Color(0xFF5f5c66),
-                  ),
-                ),
-              ],
+            child: Text(
+              isMe ? 'Your position' : 'Rank ${entry.rank}',
+              style: TextStyle(
+                fontSize: 15.spMin,
+                fontWeight: isMe ? FontWeight.w800 : FontWeight.w600,
+                color: isMe ? const Color(0xFFE8622A) : const Color(0xFF5f5c66),
+              ),
             ),
           ),
           Row(

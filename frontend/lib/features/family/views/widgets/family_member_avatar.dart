@@ -14,6 +14,7 @@ class FamilyMemberAvatar extends StatelessWidget {
     this.size = 44.0,
     this.showStatusDot = true,
     this.isNearAlert = false,
+    this.ringColor,
   });
 
   final FamilyMember member;
@@ -22,6 +23,10 @@ class FamilyMemberAvatar extends StatelessWidget {
 
   /// Ambers the status dot when the member is near an active alert.
   final bool isNearAlert;
+
+  /// Optional ring drawn around the avatar for state emphasis: teal when a
+  /// check-in is asked of this member, red while an SOS is live.
+  final Color? ringColor;
 
   /// Parses "#RRGGBB"; falls back to the stable per-member palette.
   Color _memberColor() {
@@ -67,7 +72,21 @@ class FamilyMemberAvatar extends StatelessWidget {
           : null,
     );
 
-    if (!showStatusDot) return avatar;
+    // Wrap in a state ring when one is set (teal asked, red SOS).
+    final ringed = ringColor != null
+        ? Container(
+            width: (size + 6).spMin,
+            height: (size + 6).spMin,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: ringColor!, width: 2.5),
+            ),
+            alignment: Alignment.center,
+            child: avatar,
+          )
+        : avatar;
+
+    if (!showStatusDot) return ringed;
 
     final dotColor = isNearAlert
         ? FamilyColors.amber
@@ -78,7 +97,7 @@ class FamilyMemberAvatar extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        avatar,
+        ringed,
         Positioned(
           bottom: 0,
           right: 0,

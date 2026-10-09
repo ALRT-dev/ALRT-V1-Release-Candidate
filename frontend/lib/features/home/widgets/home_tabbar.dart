@@ -7,6 +7,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/utils/check_in_roll.dart';
+import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
@@ -115,6 +117,12 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
   static final _frostedFilter = ImageFilter.blur(sigmaX: 20, sigmaY: 20);
 
   Widget _tabItemBuilder(final HomeTab tab, {required final bool isActive}) {
+    // The family slot has its own builder: its colour and dot change with
+    // the family state (idle / asked / SOS).
+    if (tab == HomeTab.family) {
+      return _familyTabItemBuilder(isActive: isActive);
+    }
+
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -154,12 +162,113 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
     );
   }
 
-  /// Label colour: Family is always indigo, active tabs are orange, rest
-  /// are medium grey.
+  /// The full family tab slot, state-aware: indigo when idle, teal with a
+  /// dot when a check-in is asked of the user, red with a dot during SOS.
+  Widget _familyTabItemBuilder({required final bool isActive}) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _onTabChanged(HomeTab.family),
+        child: Center(
+          child: Consumer(
+            builder: (context, ref, child) {
+              final isSosActive = ref.watch(
+                providerOfFamily.select(
+                  (s) => s.activeSosEvents.isNotEmpty,
+                ),
+              );
+              final isAskedOfMe = ref.watch(
+                providerOfFamily.select((s) {
+                  final circle = s.circle;
+                  if (circle == null) return false;
+                  final roll = CheckInRoll.of(circle);
+                  return roll.notYet
+                      .any((m) => m.id == circle.myMemberId);
+                }),
+              );
+
+              // SOS trumps asked; both trump idle.
+              final Color accent;
+              final bool showDot;
+              if (isSosActive) {
+                accent = FamilyColors.sosRed;
+                showDot = true;
+              } else if (isAskedOfMe) {
+                accent = FamilyColors.teal;
+                showDot = true;
+              } else {
+                accent = HomeTabbar.familyIndigo;
+                showDot = false;
+              }
+
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 36.spMin,
+                    height: 36.spMin,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? _activeCircleColor
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(
+                            HomeTab.family.iconData,
+                            size: 20.spMin,
+                            color: isActive
+                                ? accent
+                                : accent.withValues(alpha: 0.75),
+                          ),
+                          if (showDot)
+                            Positioned(
+                              top: -1,
+                              right: -1,
+                              child: Container(
+                                width: 7.spMin,
+                                height: 7.spMin,
+                                decoration: BoxDecoration(
+                                  color: accent,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 2.spMin),
+                  Text(
+                    HomeTab.family.title,
+                    style: TextStyle(
+                      fontSize: 10.spMin,
+                      fontWeight: isActive
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: accent,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Label colour: active tabs are orange, rest are medium grey. The
+  /// family tab has its own builder and never reaches here.
   Color _labelColor(final HomeTab tab, {required final bool isActive}) {
-    if (tab == HomeTab.family) {
-      return HomeTabbar.familyIndigo;
-    }
     return isActive ? _activeCircleColor : AppColors.mediumGrey;
   }
 
@@ -182,13 +291,8 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
       case HomeTab.notifications:
         return _alertsIconBuilder(isActive: isActive);
       case HomeTab.family:
-        return Icon(
-          tab.iconData,
-          size: 20.spMin,
-          color: isActive
-              ? HomeTabbar.familyIndigo
-              : HomeTabbar.familyIndigo.withValues(alpha: 0.75),
-        );
+        // Handled by _familyTabItemBuilder; this case is unreachable.
+        return const SizedBox.shrink();
       case HomeTab.profile:
         return _profileAvatarBuilder(isActive: isActive);
       default:

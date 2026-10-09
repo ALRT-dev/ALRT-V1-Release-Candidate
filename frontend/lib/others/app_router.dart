@@ -22,6 +22,8 @@ import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/learn/views/screens/guide_detail_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_circle_profile_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/how_points_work_screen.dart';
+import 'package:hazard_app/features/notification/views/screens/accessible_alerts_screen.dart';
+import 'package:hazard_app/features/profile/views/screens/add_widget_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/leaderboard_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/points_breakdown_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
@@ -35,6 +37,7 @@ import 'package:hazard_app/features/map/providers/states/map_provider_state.dart
 import 'package:hazard_app/features/map/views/screens/select_location_on_map_screen.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:hazard_app/features/notification/views/screens/manage_notifications_screen.dart';
+import 'package:hazard_app/features/notification/views/screens/push_inbox_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_alert_level_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_alrt_plus_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_complete_screen.dart';
@@ -260,6 +263,14 @@ class AppRouter {
           builder: (context, state) => const LeaderboardScreen(),
         ),
         GoRoute(
+          path: AccessibleAlertsScreen.route,
+          builder: (context, state) => const AccessibleAlertsScreen(),
+        ),
+        GoRoute(
+          path: AddWidgetScreen.route,
+          builder: (context, state) => const AddWidgetScreen(),
+        ),
+        GoRoute(
           path: PointsBreakdownScreen.route,
           builder: (context, state) => const PointsBreakdownScreen(),
         ),
@@ -294,6 +305,10 @@ class AppRouter {
               args: state.extra as ViewHazardScreenArgs,
             );
           },
+        ),
+        GoRoute(
+          path: PushInboxScreen.route,
+          builder: (context, state) => const PushInboxScreen(),
         ),
         GoRoute(
           path: MyHazardsScreen.route,

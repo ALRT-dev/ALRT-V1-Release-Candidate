@@ -3,8 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hazard_app/features/family/views/widgets/family_safe_strip.dart';
+import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
+import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/home/views/screens/home_screen.dart';
+import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
+import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/learn/views/widgets/guide_strip_card.dart';
+import 'package:hazard_app/features/shared/enums/hazard_vote_types.dart';
+import 'package:hazard_app/features/shared/providers/hazard_item_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/report/views/screens/create_update_report_screen.dart';
 import 'package:hazard_app/features/shared/enums/ai_confidence_types.dart';
@@ -72,6 +80,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// Whether this alert is being read aloud right now. Drives the lit
   /// Listen button, and is cleared when the speech ends on its own.
   bool _isSpeaking = false;
+
+  /// Whether the user has already checked in near this alert.
+  bool _checkInSent = false;
 
   @override
   void initState() {
@@ -795,38 +806,30 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   }
 
   Widget _buildWhiteContentSection() {
+    // Section order per ruling L46 (8 Oct 2026, approved Detail board):
+    // Source strip, In plain terms, title — already in the header above —
+    // then: map, location, What we know, What to do (verbatim), For you,
+    // Tell your people, attribution.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Map Preview Card
+        // Map Preview Card (map + location + distance + time)
         _buildMapPreviewCard(),
         16.hSizedBox,
 
+        // Medias: photos/video attached to the alert.
+        _buildMediasSection(),
+
         // What we know: the SOURCE's own description, verbatim. Not our
-        // words and not an AI summary, which is the whole point of it
-        // being called what we know.
+        // words and not an AI summary.
         _buildOfficialDescriptionSection(),
 
-        // What To Do Section
+        // What To Do Section (verbatim from source)
         _buildWhatToDoSection(),
-
-        // Family check-in, on EVERY alert type. It used to sit inside the
-        // "What to do" section, so an alert with no directives (every
-        // community report, most GDACS and intel items) had no way to
-        // tell your circle you are okay (phone QA 2026-09-09).
-        Consumer(
-          builder: (context, ref, child) {
-            final hazard = ref.watch(provider.select((value) => value.hazard));
-            if (hazard == null) return const SizedBox.shrink();
-            return FamilySafeStrip(hazard: hazard);
-          },
-        ),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
           builder: (context, ref, child) {
-            // Its own category first, the parent as the fallback: a Flood
-            // alert should get flood guidance, not generic weather.
             final categoryName = ref.watch(
               provider.select((value) => value.hazard?.category?.name),
             );
@@ -850,18 +853,71 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           },
         ),
 
-        // Medias Section
-        _buildMediasSection(),
+        // Tell your people: Send to my group, Check in, Share a link.
+        _buildTellYourPeopleSection(),
 
-        // Share + Follow (V3 CTA row)
-        _buildShareFollowRow(),
+        // Community alerts: I see it / I don't see it voting, plus
+        // flag (3 flags sends back to review) and block.
+        _buildCommunityVoteSection(),
+
+        // Follow + Listen utility row (compact)
+        _buildUtilityRow(),
         12.hSizedBox,
 
-        // Source Section
+        // Attribution
         _buildSourceSection(),
         40.hSizedBox,
       ],
     );
+  }
+
+  /// Sends this alert to the user's family circle as a check-in with alert
+  /// context, so circle members see the alert and know the user is nearby.
+  Future<void> _sendAlertToGroup(final Hazard hazard) async {
+    final circles = ref.read(providerOfFamily).circles;
+    // Multi-circle: let the user pick which circle to send to.
+    // showChooseCircleSheet switches the active circle internally.
+    if (circles.length > 1) {
+      await showChooseCircleSheet(context, ref);
+      if (!mounted) return;
+    }
+
+    final title = hazard.title;
+    final choice = await showCheckInConsentSheet(
+      context,
+      contextLine: title == null ? null : 'About the alert: $title',
+      sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
+    );
+    if (choice == null || !mounted) return;
+    await ref.read(providerOfFamily.notifier).checkIn(
+          message: title == null
+              ? 'Alert shared'
+              : 'Alert: "$title"',
+          shareLocation:
+              choice == CheckInConsentChoice.checkInAndShareLocation,
+          hazardId: hazard.id,
+        );
+    if (mounted) setState(() => _checkInSent = true);
+  }
+
+  /// Sends a personal check-in near this alert to the user's family circle.
+  Future<void> _sendCheckIn(final Hazard hazard) async {
+    final title = hazard.title;
+    final choice = await showCheckInConsentSheet(
+      context,
+      contextLine: title == null ? null : 'About the alert: $title',
+      sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
+    );
+    if (choice == null || !mounted) return;
+    await ref.read(providerOfFamily.notifier).checkIn(
+          message: title == null
+              ? 'Checked in'
+              : 'Checked in near "$title"',
+          shareLocation:
+              choice == CheckInConsentChoice.checkInAndShareLocation,
+          hazardId: hazard.id,
+        );
+    if (mounted) setState(() => _checkInSent = true);
   }
 
   /// Speaks the alert: source, title, plain terms, then the description.
@@ -899,19 +955,413 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     if (mounted) setState(() => _isSpeaking = false);
   }
 
-  Widget _buildShareFollowRow() {
+  /// TELL YOUR PEOPLE: three actions that let the user act on this alert
+  /// socially. "Send to my group" shares the alert context with their
+  /// family circle; "Check in" tells the circle they are okay near this
+  /// alert; "Share a link" opens the OS share sheet with the public link.
+  Widget _buildTellYourPeopleSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null) return const SizedBox.shrink();
+
+        final canShare = isAlertShareable(hazard);
+        final circleName = ref.watch(
+          providerOfFamily.select((s) => s.circle?.name),
+        );
+        final circleCount = ref.watch(
+          providerOfFamily.select((s) => s.circles.length),
+        );
+        final loaded = ref.watch(
+          providerOfFamily.select((s) => s.hasLoadedOnce),
+        );
+        final isSending = ref.watch(
+          providerOfFamily.select((s) => s.checkInState.isLoading),
+        );
+
+        final hasCircle = circleName != null;
+
+        return Padding(
+          padding: EdgeInsets.only(top: 16.spMin),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // V3 section label
+              Padding(
+                padding: EdgeInsets.only(bottom: 10.spMin),
+                child: Text(
+                  'TELL YOUR PEOPLE',
+                  style: TextStyle(
+                    fontSize: 11.spMin,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                    color: const Color(0xFFB84500),
+                  ),
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.all(14.spMin),
+                decoration: BoxDecoration(
+                  color: FamilyColors.indigoLight,
+                  borderRadius: BorderRadius.circular(16.spMin),
+                ),
+                child: Column(
+                  children: [
+                    // Send to my group
+                    if (hasCircle || !loaded) ...[
+                      _tellYourPeopleAction(
+                        icon: LucideIcons.users,
+                        label: 'Send to my group',
+                        sublabel: hasCircle
+                            ? (circleCount > 1
+                                ? '$circleName · tap to change'
+                                : circleName!)
+                            : 'Loading...',
+                        loading: isSending,
+                        onTap: hasCircle
+                            ? () => _sendAlertToGroup(hazard)
+                            : null,
+                      ),
+                      _thinDivider(),
+                    ],
+                    // Check in
+                    if (hasCircle || !loaded) ...[
+                      _tellYourPeopleAction(
+                        icon: _checkInSent
+                            ? LucideIcons.circleCheck
+                            : LucideIcons.heartHandshake,
+                        label: _checkInSent ? 'Checked in' : 'Check in',
+                        sublabel: _checkInSent
+                            ? 'Your group can see it'
+                            : 'Let your group know you are OK',
+                        iconColor: _checkInSent
+                            ? FamilyColors.safeGreen
+                            : FamilyColors.indigo,
+                        onTap: _checkInSent
+                            ? null
+                            : () => _sendCheckIn(hazard),
+                      ),
+                      if (canShare) _thinDivider(),
+                    ],
+                    // No circle: nudge
+                    if (!hasCircle && loaded) ...[
+                      _tellYourPeopleAction(
+                        icon: LucideIcons.users,
+                        label: 'Join a group',
+                        sublabel:
+                            'Create or join a family circle to share alerts',
+                        onTap: () {
+                          ref.read(providerOfHomeTab.notifier).state =
+                              HomeTab.family;
+                          context.go(HomeScreen.route);
+                        },
+                      ),
+                      if (canShare) _thinDivider(),
+                    ],
+                    // Share a link
+                    if (canShare)
+                      _tellYourPeopleAction(
+                        icon: LucideIcons.share2,
+                        label: 'Share a link',
+                        sublabel: 'Send the public alert link',
+                        onTap: () =>
+                            shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _tellYourPeopleAction({
+    required final IconData icon,
+    required final String label,
+    required final String sublabel,
+    final Color? iconColor,
+    final bool loading = false,
+    final VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10.spMin),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 10.spMin),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: iconColor ?? FamilyColors.indigo,
+              size: 20.spMin,
+            ),
+            SizedBox(width: 12.spMin),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  Text(
+                    sublabel,
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      color: AppColors.grey,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (loading)
+              SizedBox(
+                width: 16.spMin,
+                height: 16.spMin,
+                child: const CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(
+                LucideIcons.chevronRight,
+                size: 18.spMin,
+                color: AppColors.grey,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _thinDivider() {
+    return Divider(
+      height: 1,
+      color: FamilyColors.indigo.withValues(alpha: 0.12),
+    );
+  }
+
+  /// Community reports: "I see it / I don't see it" voting + flag/block.
+  Widget _buildCommunityVoteSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null || !hazard.isUserReported) {
+          return const SizedBox.shrink();
+        }
+
+        final itemProvider = providerOfHazardItem(hazard.id!);
+        final voteType = ref.watch(
+          itemProvider.select((value) => value.hazard?.userVoteType),
+        );
+        final voteCount = ref.watch(
+          itemProvider.select((value) => value.hazard?.voteCount ?? 0),
+        );
+
+        return Padding(
+          padding: EdgeInsets.only(top: 16.spMin),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Section label
+              Text(
+                'IS THIS ALERT STILL ACTIVE?',
+                style: TextStyle(
+                  fontSize: 11.spMin,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                  color: const Color(0xFFB84500),
+                ),
+              ),
+              10.hSizedBox,
+              // Vote buttons: I see it / I don't see it
+              Container(
+                height: 44.spMin,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12.spMin),
+                  border: Border.all(
+                    color: AppColors.lightGrey,
+                    width: 1.0,
+                  ),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // I don't see it (downvote)
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => ref
+                            .read(itemProvider.notifier)
+                            .voteHazard(voteType: HazardVoteType.downvote),
+                        child: Container(
+                          height: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(12.spMin),
+                              bottomLeft: Radius.circular(12.spMin),
+                            ),
+                            color: voteType == HazardVoteType.downvote
+                                ? Colors.red
+                                : Colors.transparent,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            spacing: 6.spMin,
+                            children: [
+                              Icon(
+                                Icons.thumb_down_outlined,
+                                size: 16.spMin,
+                                color: voteType == HazardVoteType.downvote
+                                    ? AppColors.white
+                                    : AppColors.grey,
+                              ),
+                              Text(
+                                'I don\'t see it',
+                                style: TextStyle(
+                                  fontSize: 12.5.spMin,
+                                  fontWeight: FontWeight.w600,
+                                  color: voteType == HazardVoteType.downvote
+                                      ? AppColors.white
+                                      : AppColors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Divider
+                    Container(
+                      width: 1.0,
+                      height: double.infinity,
+                      margin: EdgeInsets.symmetric(vertical: 8.spMin),
+                      color: AppColors.lightGrey,
+                    ),
+                    // I see it (upvote)
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => ref
+                            .read(itemProvider.notifier)
+                            .voteHazard(voteType: HazardVoteType.upvote),
+                        child: Container(
+                          height: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.only(
+                              topRight: Radius.circular(12.spMin),
+                              bottomRight: Radius.circular(12.spMin),
+                            ),
+                            color: voteType == HazardVoteType.upvote
+                                ? Colors.green
+                                : Colors.transparent,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            spacing: 6.spMin,
+                            children: [
+                              Icon(
+                                Icons.thumb_up_outlined,
+                                size: 16.spMin,
+                                color: voteType == HazardVoteType.upvote
+                                    ? AppColors.white
+                                    : AppColors.grey,
+                              ),
+                              Text(
+                                'I see it',
+                                style: TextStyle(
+                                  fontSize: 12.5.spMin,
+                                  fontWeight: FontWeight.w600,
+                                  color: voteType == HazardVoteType.upvote
+                                      ? AppColors.white
+                                      : AppColors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Vote count
+              if (voteCount != 0) ...[
+                8.hSizedBox,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      voteCount > 0
+                          ? Icons.thumb_up_alt_rounded
+                          : Icons.thumb_down_alt_rounded,
+                      size: 13.spMin,
+                      color: voteCount > 0 ? AppColors.green : AppColors.red,
+                    ),
+                    4.wSizedBox,
+                    Text(
+                      '${voteCount.abs()} ${voteCount.abs() == 1 ? 'person' : 'people'} ${voteCount > 0 ? 'confirmed' : 'reported not there'}',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        color: AppColors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              // Flag and block (community reports only)
+              12.hSizedBox,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => showReportContentSheet(
+                      context: context,
+                      hazard: hazard,
+                    ),
+                    icon: Icon(
+                      LucideIcons.flag,
+                      size: 14.spMin,
+                      color: AppColors.grey,
+                    ),
+                    label: Text(
+                      'Report',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.grey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Follow + Listen: compact utility row below the main sections.
+  Widget _buildUtilityRow() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         final id = hazard?.id;
         if (hazard == null || id == null) return const SizedBox.shrink();
-        final canShare = isAlertShareable(hazard);
         final isFollowing =
             ref.watch(providerOfFollowedAlerts).contains(id);
 
-        // An active button lights orange and carries a glow behind it, so
-        // "following" and "speaking" are states you can see rather than
-        // things you have to remember doing.
         const litInk = Color(0xFFFF6B01);
         Widget action({
           required final String label,
@@ -959,43 +1409,25 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           );
         }
 
-        return Row(
-          children: [
-            if (canShare) ...[
+        return Padding(
+          padding: EdgeInsets.only(top: 12.spMin),
+          child: Row(
+            children: [
               action(
-                label: 'Share',
-                onTap: () => shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+                label: isFollowing ? 'Following' : 'Follow',
+                highlighted: isFollowing,
+                onTap: () =>
+                    ref.read(providerOfFollowedAlerts.notifier).toggle(id),
               ),
               8.wSizedBox,
-            ],
-            action(
-              label: isFollowing ? 'Following' : 'Follow',
-              highlighted: isFollowing,
-              onTap: () =>
-                  ref.read(providerOfFollowedAlerts.notifier).toggle(id),
-            ),
-            8.wSizedBox,
-            // Accessible delivery: the whole alert, spoken on demand.
-            action(
-              label: _isSpeaking ? 'Stop' : 'Listen',
-              highlighted: _isSpeaking,
-              onTap: () => _speakAlert(ref, hazard),
-            ),
-            // Community reports can be sent for review or the account
-            // blocked. Official alerts belong to their agency, so they
-            // carry no report action.
-            if (hazard.isUserReported) ...[
-              8.wSizedBox,
               action(
-                label: 'Report',
-                onTap: () => showReportContentSheet(
-                  context: context,
-                  hazard: hazard,
-                ),
+                label: _isSpeaking ? 'Stop' : 'Listen',
+                highlighted: _isSpeaking,
+                onTap: () => _speakAlert(ref, hazard),
               ),
             ],
-          ],
-        ).pX(16.0);
+          ),
+        );
       },
     );
   }
