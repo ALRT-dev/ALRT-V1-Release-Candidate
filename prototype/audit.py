@@ -35,7 +35,7 @@ with sync_playwright() as p:
     bg = pg.evaluate("getComputedStyle(document.querySelector('#screen > div')).backgroundColor")
     check('Splash is white with the icon', bg == 'rgb(255, 255, 255)', bg)
     check('Splash: Get started and I already have an account', has('onb-next') and has('have-account'))
-    check('Sign-in screen: white, writing and logos only, no blurred coloured circles (9 Oct)', pg.evaluate("[...document.querySelectorAll('#screen *')].every(e=>!(e.getAttribute('style')||'').includes('radial-gradient') && !(e.getAttribute('style')||'').includes('blur('))"))
+    check('Sign-in screen: white, writing and logo only, no blurred coloured circles, no tile or glow behind the logo (9 Oct)', pg.evaluate("[...document.querySelectorAll('#screen *')].every(e=>!(e.getAttribute('style')||'').includes('radial-gradient') && !(e.getAttribute('style')||'').includes('blur(') && (e.tagName==='A' || !(e.getAttribute('style')||'').includes('box-shadow')))") and has('onb-next'))
     click('onb-next'); settle(300); check('Onb1 opens with Welcome to ALRT', 'Welcome to ALRT' in text()); scan('Onb1')
     click('onb-next'); settle(300); check('Onb2: three things to know plus age gate', has('age')); scan('Onb2')
     click('onb-next'); settle(300); check('Cannot continue until all four are ticked', has('onb1'))

@@ -27,6 +27,9 @@ for name in PHONE:
     # Sarah 9 Oct: the sign-in screen is white with the writing and logos only, no blurred coloured circles in the corners
     if name == 'Splash':
         body = re.sub(r'\s*<span style="position: absolute;[^"]*radial-gradient[^"]*"></span>', '', body)
+        # and just the logo: no white tile and no coloured blur behind it
+        body = body.replace('<span style="width: 140px; height: 140px; border-radius: 38px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 18px 44px rgba(255,0,4,0.16)">', '<span style="width: 140px; height: 140px; display: flex; align-items: center; justify-content: center">')
+        body = body.replace('viewBox="0 0 555 412" width="96" height="71">', 'viewBox="0 0 555 412" width="128" height="95">', 1)
     boards[name] = body
 nav = re.sub(r'href="([A-Za-z0-9]+)\.dc\.html"', r'href="#" data-nav="\1"', nav)
 # widget tiles from the Widgets board (the "Improved" set)
