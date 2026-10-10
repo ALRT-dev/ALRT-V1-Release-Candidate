@@ -185,6 +185,16 @@ const kUrlGuideForCategory = '$kUrlGuides/for-category/{categoryId}';
 const kUrlGuideDetail = '$kUrlGuides/{slugOrId}';
 const kUrlGuideComplete = '$kUrlGuides/{slugOrId}/complete';
 
+// ---------------------------- READY (Plan & Drill) ----------------------------
+
+const kUrlReady = '$kUrlApi/ready';
+
+const kUrlReadySummary = '$kUrlReady/summary';
+const kUrlReadyPlans = '$kUrlReady/plans';
+const kUrlReadyPlan = '$kUrlReadyPlans/{planId}';
+const kUrlReadyDrills = '$kUrlReady/drills';
+const kUrlReadyDrill = '$kUrlReadyDrills/{drillId}';
+
 // ---------------------------- PUBLIC SHARE ----------------------------
 
 /// Public share page for an alert — used when sharing an alert externally.

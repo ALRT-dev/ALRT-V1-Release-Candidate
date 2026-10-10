@@ -7,15 +7,17 @@ import 'package:hazard_app/features/notification/views/screens/manage_notificati
 import 'package:hazard_app/features/learn/views/screens/learn_topics_screen.dart';
 import 'package:hazard_app/features/profile/providers/safety_profile_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
+import 'package:hazard_app/features/ready/providers/ready_provider.dart';
+import 'package:hazard_app/features/ready/views/screens/drill_list_screen.dart';
+import 'package:hazard_app/features/ready/views/screens/plan_list_screen.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
 /// The Ready tab: readiness score and five preparation steps.
 ///
-/// The score is client-side only, computed from how many of the five steps
-/// the user has completed or started. Plan and Drill are Layer 3 features
-/// with no backend yet, so they show as available but navigate to an
-/// in-screen placeholder.
+/// The score is computed from how many of the five steps the user has
+/// completed or started, using the backend summary for Plan and Drill
+/// counts.
 class ReadyScreen extends ConsumerStatefulWidget {
   const ReadyScreen({super.key});
 
@@ -31,12 +33,13 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
   @override
   void initState() {
     super.initState();
-    // Kick off learn data load if it hasn't been loaded yet, so we can
-    // show guide completion progress.
+    // Kick off learn data and ready summary loads so we can show
+    // guide completion progress and plan/drill counts.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!ref.read(providerOfLearn).hasData) {
         ref.read(providerOfLearn.notifier).load();
       }
+      ref.read(providerOfReady.notifier).loadSummary();
     });
   }
 
@@ -62,14 +65,23 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
     //    for now completing onboarding counts.
     count++;
 
-    // 4. Plan -- Layer 3, not completable yet.
-    // 5. Drill -- Layer 3, not completable yet.
+    // 4. Plan -- completed if the user has at least one emergency plan.
+    final readyState = ref.watch(providerOfReady);
+    if (readyState.summary != null && readyState.summary!.planCount > 0) {
+      count++;
+    }
+
+    // 5. Drill -- completed if the user has logged at least one drill.
+    if (readyState.summary != null && readyState.summary!.drillCount > 0) {
+      count++;
+    }
 
     return count;
   }
 
   @override
   Widget build(BuildContext context) {
+    final readyState = ref.watch(providerOfReady);
     final completed = _completedSteps(ref);
     const total = 5;
     final pct = (completed / total * 100).round();
@@ -120,18 +132,18 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
               icon: Icons.description_rounded,
               title: 'Plan',
               subtitle: 'Create a household emergency plan',
-              completed: false,
-              isLayer3: true,
-              onTap: () => _showComingSoon(context, 'Plan'),
+              completed: readyState.summary != null &&
+                  readyState.summary!.planCount > 0,
+              onTap: () => context.push(PlanListScreen.route),
             ),
             10.hSizedBox,
             _buildStepCard(
               icon: Icons.directions_run_rounded,
               title: 'Drill',
               subtitle: 'Practice with your household',
-              completed: false,
-              isLayer3: true,
-              onTap: () => _showComingSoon(context, 'Drill'),
+              completed: readyState.summary != null &&
+                  readyState.summary!.drillCount > 0,
+              onTap: () => context.push(DrillListScreen.route),
             ),
             10.hSizedBox,
             _buildStepCard(
@@ -254,7 +266,6 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
     required String subtitle,
     required bool completed,
     required VoidCallback onTap,
-    bool isLayer3 = false,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -292,38 +303,13 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 15.spMin,
-                          fontWeight: FontWeight.w600,
-                          color: _ink,
-                        ),
-                      ),
-                      if (isLayer3) ...[
-                        SizedBox(width: 8.spMin),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 7.spMin,
-                            vertical: 2.spMin,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.blue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6.spMin),
-                          ),
-                          child: Text(
-                            'Soon',
-                            style: TextStyle(
-                              fontSize: 10.spMin,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.blue,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w600,
+                      color: _ink,
+                    ),
                   ),
                   SizedBox(height: 3.spMin),
                   Text(
@@ -383,20 +369,4 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
     );
   }
 
-  // ---------------------------------------------------------------
-  // Layer 3 placeholder
-  // ---------------------------------------------------------------
-
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature is coming in a future update'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-  }
 }

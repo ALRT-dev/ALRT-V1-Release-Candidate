@@ -81,6 +81,11 @@ class UserService {
     );
   }
 
+  /// Deletes the profile picture of the current logged-in user.
+  Future<Either<void, AppError>> deleteUserProfilePicture() async {
+    return _userRepository.deleteUserProfilePicture();
+  }
+
   /// Subscribes the current user to location.
   Future<Either<LocationSubscription, AppError>> subscribeToLocation({
     required double northeastLat,

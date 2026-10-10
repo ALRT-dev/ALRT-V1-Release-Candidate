@@ -19,8 +19,10 @@ const TOKEN_FILE =
   process.env.AWS_SECRETS_AGENT_TOKEN_FILE || "/var/run/awssmatoken";
 
 // Secret holding the application secrets (JSON map) or a single raw value.
-const SECRET_ID =
-  process.env.MAPS_API_KEY_SECRET_ID || "safety-alert-prod/api-token";
+// SAFETY: no production default. The caller must set MAPS_API_KEY_SECRET_ID
+// explicitly; falling back to a prod secret ID from a non-prod environment
+// would silently load production credentials into a dev/test server.
+const SECRET_ID = process.env.MAPS_API_KEY_SECRET_ID || "";
 
 // When the secret is a plain string (not a JSON map), assign it to this env var.
 const RAW_SECRET_ENV_KEY =
@@ -60,6 +62,24 @@ export const loadSecretsFromAgent = (): void => {
   // Only attempt when the agent token file is present (i.e. running on a workload with
   // the Secrets Manager Agent). Otherwise fall back to .env for local/dev.
   if (!existsSync(TOKEN_FILE)) return;
+
+  // SAFETY: refuse to load a production secret into a non-production environment.
+  // An empty SECRET_ID (no env var set) is also refused -- the caller must configure it.
+  if (!SECRET_ID) {
+    console.warn(
+      "[secrets] MAPS_API_KEY_SECRET_ID is not set; skipping Secrets Manager Agent",
+    );
+    return;
+  }
+
+  const nodeEnv = (process.env.NODE_ENV || "").toLowerCase();
+  if (nodeEnv !== "production" && SECRET_ID.toLowerCase().includes("prod")) {
+    throw new Error(
+      "[secrets] Refusing to start: SECRET_ID \"" + SECRET_ID + "\" references a production " +
+        "secret but NODE_ENV is \"" + (process.env.NODE_ENV || "(unset)") + "\". " +
+        "Set MAPS_API_KEY_SECRET_ID to a non-production secret or set NODE_ENV=production.",
+    );
+  }
 
   try {
     const token = readFileSync(TOKEN_FILE, "utf8").trim();

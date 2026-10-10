@@ -185,6 +185,60 @@ export const updateUserProfilePicture = async (
   }
 };
 
+/// Controller to delete (remove) the authenticated user's profile picture,
+/// reverting them to their initials avatar.
+export const deleteUserProfilePicture = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { userId } = res;
+    if (!userId) {
+      throw new HttpError(400, "Unauthenticated user");
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { profilePictureUrl: true },
+    });
+
+    if (!currentUser) {
+      throw new HttpError(404, "User not found");
+    }
+
+    if (!currentUser.profilePictureUrl) {
+      throw new HttpError(400, "No profile picture to remove");
+    }
+
+    // Delete the file from S3.
+    try {
+      const s3Key = extractS3KeyFromUrl(currentUser.profilePictureUrl);
+      if (s3Key) {
+        await deleteFileFromS3(s3Key);
+      }
+    } catch (error) {
+      console.error("Error deleting profile picture from S3:", error);
+      // Continue clearing the DB reference even if S3 delete fails.
+    }
+
+    // Clear the URL in the database.
+    await prisma.user.update({
+      where: { id: userId },
+      data: { profilePictureUrl: null },
+    });
+
+    const updatedUser = await getUserById(userId);
+    if (!updatedUser) {
+      throw new HttpError(404, "User not found after removing profile picture");
+    }
+
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    next(error);
+  }
+};
+
 /// Controller to handle subscribing the authenticated user to a location.
 export const subscribeToLocation = async (
   req: Request,

@@ -3,11 +3,13 @@ import type { AdminRequest } from "../../middlewares/auth.admin.middleware.js";
 import { HttpError } from "../../models/http_error.js";
 import {
   cancelAppUserDeletion,
+  forcePasswordReset,
   getAppUser,
   listAdmins,
   listAppUsers,
   requestAppUserDeletion,
   setAdminActive,
+  updateAdmin,
   updateAppUser,
 } from "../../services/app_user.admin.service.js";
 import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
@@ -179,6 +181,66 @@ export const setAdminActiveController = async (
       targetType: "Admin",
       targetId: adminId,
       after: { isActive },
+    });
+
+    res.status(200).json({ success: true, data: admin });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateAdminController = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const adminId = req.params.adminId as string;
+    const { role, email } = req.body as { role?: string; email?: string };
+
+    if (!role && !email) {
+      throw new HttpError(400, "Provide at least one field to update (role, email)");
+    }
+
+    if (role && !["superAdmin", "admin", "moderator"].includes(role)) {
+      throw new HttpError(400, "Invalid role. Must be superAdmin, admin, or moderator");
+    }
+
+    const admin = await updateAdmin(adminId, {
+      ...(role ? { role } : {}),
+      ...(email ? { email } : {}),
+    });
+
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "admin.update",
+      targetType: "Admin",
+      targetId: adminId,
+      after: { ...(role ? { role } : {}), ...(email ? { email } : {}) },
+    });
+
+    res.status(200).json({ success: true, data: admin });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const forcePasswordResetController = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const adminId = req.params.adminId as string;
+
+    const admin = await forcePasswordReset(adminId);
+
+    await recordAdminAuditEntry({
+      adminId: req.admin?.id ?? null,
+      action: "admin.forcePasswordReset",
+      targetType: "Admin",
+      targetId: adminId,
+      after: { mustChangePassword: true },
     });
 
     res.status(200).json({ success: true, data: admin });
