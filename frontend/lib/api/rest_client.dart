@@ -105,6 +105,9 @@ abstract class RestClient {
     @SendProgress() final void Function(int, int)? onSendProgress,
   });
 
+  @DELETE(kUrlUserProfilePicture)
+  Future<void> deleteUserProfilePicture();
+
   @POST(kUrlSubscribeLocation)
   Future<LocationSubscription> subscribeToLocation({
     @Field() required final double northeastLat,
@@ -645,5 +648,52 @@ abstract class RestClient {
   @GET(kUrlGuideForCategory)
   Future<HttpResponse<dynamic>> getGuideForCategory({
     @Path() required final String categoryId,
+  });
+
+  // ---------------------------- READY (Plan & Drill) ----------------------------
+
+  @GET(kUrlReadySummary)
+  Future<HttpResponse<dynamic>> getReadySummary();
+
+  @GET(kUrlReadyPlans)
+  Future<HttpResponse<dynamic>> getReadyPlans();
+
+  @GET(kUrlReadyPlan)
+  Future<HttpResponse<dynamic>> getReadyPlan({
+    @Path() required final String planId,
+  });
+
+  @POST(kUrlReadyPlans)
+  Future<HttpResponse<dynamic>> createReadyPlan({
+    @Body() required final Map<String, dynamic> body,
+  });
+
+  @PATCH(kUrlReadyPlan)
+  Future<HttpResponse<dynamic>> updateReadyPlan({
+    @Path() required final String planId,
+    @Body() required final Map<String, dynamic> body,
+  });
+
+  @DELETE(kUrlReadyPlan)
+  Future<void> deleteReadyPlan({
+    @Path() required final String planId,
+  });
+
+  @GET(kUrlReadyDrills)
+  Future<HttpResponse<dynamic>> getReadyDrills();
+
+  @GET(kUrlReadyDrill)
+  Future<HttpResponse<dynamic>> getReadyDrill({
+    @Path() required final String drillId,
+  });
+
+  @POST(kUrlReadyDrills)
+  Future<HttpResponse<dynamic>> createReadyDrill({
+    @Body() required final Map<String, dynamic> body,
+  });
+
+  @DELETE(kUrlReadyDrill)
+  Future<void> deleteReadyDrill({
+    @Path() required final String drillId,
   });
 }

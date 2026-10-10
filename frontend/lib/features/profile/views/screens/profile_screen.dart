@@ -1147,6 +1147,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     .updateProfilePicture(source: ImageSource.gallery);
               },
             ),
+            if (ref.read(providerOfLoggedInUser)?.processedProfilePicture !=
+                null)
+              ListTile(
+                leading: Icon(Icons.delete_outline_rounded,
+                    color: AppColors.red),
+                title: Text(
+                  'Remove Photo',
+                  style: TextStyle(
+                      fontSize: 15.spMin, fontWeight: FontWeight.w600),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  ref
+                      .read(providerOfProfile.notifier)
+                      .deleteProfilePicture();
+                },
+              ),
             8.spMin.hSizedBox,
           ],
         ),

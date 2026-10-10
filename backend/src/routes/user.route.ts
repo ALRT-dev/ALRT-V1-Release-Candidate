@@ -14,6 +14,7 @@ import {
   updateUserNotificationSettingsController,
   updateUserProfile,
   updateUserProfilePicture,
+  deleteUserProfilePicture,
   updateUserOwnLocationSubscriptionRadiusController,
   updateUserOwnLocationSubscriptionController,
   requestAccountDeletionController,
@@ -45,6 +46,7 @@ userRouter.put(
   handleMulterError,
   updateUserProfilePicture
 );
+userRouter.delete("/profile-picture", requireAuth, deleteUserProfilePicture);
 
 userRouter.post(
   "/subscribe-location",

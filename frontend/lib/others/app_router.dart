@@ -55,6 +55,10 @@ import 'package:hazard_app/others/app_wrapper.dart';
 import 'package:hazard_app/features/profile/views/screens/blocked_accounts_screen.dart';
 import 'package:hazard_app/features/profile/providers/child_mode_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/child_mode_screen.dart';
+import 'package:hazard_app/features/ready/views/screens/plan_list_screen.dart';
+import 'package:hazard_app/features/ready/views/screens/plan_edit_screen.dart';
+import 'package:hazard_app/features/ready/views/screens/drill_list_screen.dart';
+import 'package:hazard_app/features/ready/views/screens/drill_create_screen.dart';
 
 class AppRouter {
   /// Builds and returns a [GoRouter] instance configured with routes and navigation settings.
@@ -368,6 +372,29 @@ class AppRouter {
           builder: (context, state) {
             return const DeletedAccountInfoScreen();
           },
+        ),
+        // Ready – Plan & Drill
+        GoRoute(
+          path: PlanListScreen.route,
+          builder: (context, state) => const PlanListScreen(),
+        ),
+        GoRoute(
+          path: PlanEditScreen.route,
+          builder: (context, state) => const PlanEditScreen(),
+        ),
+        GoRoute(
+          path: '/ready/plans/:planId',
+          builder: (context, state) => PlanEditScreen(
+            planId: state.pathParameters['planId'],
+          ),
+        ),
+        GoRoute(
+          path: DrillListScreen.route,
+          builder: (context, state) => const DrillListScreen(),
+        ),
+        GoRoute(
+          path: DrillCreateScreen.route,
+          builder: (context, state) => const DrillCreateScreen(),
         ),
       ],
     );

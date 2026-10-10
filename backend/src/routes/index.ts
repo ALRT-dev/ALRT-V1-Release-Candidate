@@ -17,6 +17,7 @@ import publicRouter from "./public.route.js";
 import accessRouter from "./access.route.js";
 import askAlrtRouter from "./ask_alrt.route.js";
 import appRouter from "./app.route.js";
+import readyRouter from "./ready.route.js";
 
 export {
   accessRouter,
@@ -38,4 +39,5 @@ export {
   familyRouter,
   guideRouter,
   publicRouter,
+  readyRouter,
 };

@@ -70,6 +70,8 @@ model User {
   passwordResetTokens      PasswordResetToken[]
   askAlrtUsage             AskAlrtUsage[]
   askAlrtZone              AskAlrtZone?
+  emergencyPlans           EmergencyPlan[]
+  emergencyDrills          EmergencyDrill[]
 
   // Activity streak (any qualifying action counts: report, check-in, guide)
   streakDays       Int       @default(0)
@@ -1142,7 +1144,8 @@ model FamilyScheduledCheckIn {
   circleId String
   memberId String
 
-  timeOfDay String // "HH:mm" 24h, Australia/Brisbane local time
+  timeOfDay String // "HH:mm" 24h, in the member's local timezone
+  timezone  String @default("Australia/Brisbane") // IANA timezone, e.g. "Australia/Brisbane"
   mode      FamilyScheduledCheckInMode @default(prompted)
 
   lastFiredAt DateTime? // Guards against double-firing within the same day
@@ -1154,7 +1157,7 @@ model FamilyScheduledCheckIn {
 
   @@unique([memberId, timeOfDay])
   @@index([circleId])
-  @@index([timeOfDay])
+  @@index([timeOfDay, timezone])
 }
 
 model FamilySavedPlace {
@@ -1637,4 +1640,44 @@ model AskAlrtZone {
   timeZone  String
   setAt     DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Ready tab — household emergency plans and drill records
+// ---------------------------------------------------------------------------
+
+model EmergencyPlan {
+  id              String   @id @default(uuid())
+  userId          String
+  title           String
+  meetingPoint    String?  // Where the household meets after evacuating
+  evacuationRoute String?  // Free-text description of the route out
+  notes           String?  // Any extra detail the user wants to capture
+  items           Json     @default("[]") // Checklist items [{text, checked}]
+
+  user   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drills EmergencyDrill[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model EmergencyDrill {
+  id              String   @id @default(uuid())
+  userId          String
+  planId          String?  // Optional link to the plan being drilled
+  title           String
+  notes           String?
+  completedAt     DateTime @default(now()) // When the drill was done
+  durationMinutes Int?     // How long it took
+
+  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan EmergencyPlan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([planId])
 }

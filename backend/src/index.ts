@@ -27,6 +27,7 @@ import {
   accessRouter,
   askAlrtRouter,
   appRouter,
+  readyRouter,
 } from "./routes/index.js";
 import { errorHandlerMiddleware } from "./middlewares/error_handler.middleware.js";
 import { unknownRouteMiddleware } from "./middlewares/unknown_route.middleware.js";
@@ -120,6 +121,7 @@ app.use("/api/guides", guideRouter);
 app.use("/api/family", familyRouter);
 app.use("/api/access", accessRouter);
 app.use("/api/ask-alrt", askAlrtRouter);
+app.use("/api/ready", readyRouter);
 // Public, no auth: the force-update policy the app reads before sign-in.
 app.use("/api/app", appRouter);
 // Previously mounted twice under two casings of the same import
