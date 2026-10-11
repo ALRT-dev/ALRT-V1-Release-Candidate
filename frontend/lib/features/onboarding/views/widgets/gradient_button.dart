@@ -72,12 +72,15 @@ class _GradientButtonState extends ConsumerState<GradientButton> {
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        widget.title,
-                        style: TextStyle(
-                          fontSize: 16.spMin,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.white,
+                      Flexible(
+                        child: Text(
+                          widget.title,
+                          style: TextStyle(
+                            fontSize: 16.spMin,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (widget.icon != null) ...[
