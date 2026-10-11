@@ -398,11 +398,13 @@ void main() {
       );
       await _open(tester);
       expect(find.text('ALRT is free to use'), findsOneWidget);
-      expect(find.text(kChooseForMyselfTitle), findsOneWidget);
-      expect(find.text(kChooseCoverGroupTitle), findsOneWidget);
-      expect(find.textContaining('Create or join a group in Family first'),
-          findsOneWidget);
-      await tester.tap(find.text(kContinueFree));
+      // The rewritten onboarding screen is a plain free-tier info page.
+      // It explains what ALRT + adds and that it's optional.
+      expect(
+        find.textContaining('ALRT + is optional'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Continue with ALRT Free'));
       await tester.pumpAndSettle();
       expect(done, 1);
       expect(gateway.purchased, isEmpty);

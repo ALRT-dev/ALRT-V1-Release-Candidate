@@ -160,6 +160,10 @@ class _FakeUserRepository implements UserRepository {
   }) => throw UnimplementedError();
 
   @override
+  Future<Either<void, AppError>> deleteUserProfilePicture() =>
+      throw UnimplementedError();
+
+  @override
   Future<Either<void, AppError>> deleteAccount() => throw UnimplementedError();
 
   @override
