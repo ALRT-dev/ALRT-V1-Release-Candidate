@@ -24,11 +24,14 @@ void main() {
         isTrue,
         reason: 'SecureTokenStorage must delegate to FlutterSecureStorage',
       );
+      // flutter_secure_storage 11.x removed the encryptedSharedPreferences
+      // parameter — EncryptedSharedPreferences is now the default on Android,
+      // so AndroidOptions() with no arguments is the correct call.
       expect(
-        content.contains('encryptedSharedPreferences: true'),
+        content.contains('AndroidOptions('),
         isTrue,
         reason:
-            'Android must use EncryptedSharedPreferences for Keystore-backed storage',
+            'Android must use AndroidOptions for Keystore-backed storage',
       );
     });
 

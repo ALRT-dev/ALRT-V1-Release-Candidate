@@ -10,8 +10,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  final frontendDir =
-      Directory.fromUri(Platform.script.resolve('../'));
+  // flutter test runs from the frontend/ directory, so Directory.current
+  // is the reliable way to locate project files (Platform.script can
+  // resolve to a kernel path in CI).
+  final frontendDir = Directory.current;
 
   group('R-05: .env not bundled as Flutter asset', () {
     test('pubspec.yaml does not list .env as an asset', () {
