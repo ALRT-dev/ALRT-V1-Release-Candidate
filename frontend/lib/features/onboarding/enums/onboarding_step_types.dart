@@ -1,19 +1,14 @@
 import 'package:hazard_app/features/onboarding/views/onboarding_alrt_plus_screen.dart';
-import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
+import 'package:hazard_app/features/onboarding/views/onboarding_alert_level_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_complete_screen.dart';
-import 'package:hazard_app/features/onboarding/views/onboarding_disclaimer_screen.dart';
-import 'package:hazard_app/features/onboarding/views/onboarding_legal_screen.dart';
+import 'package:hazard_app/features/onboarding/views/onboarding_things_to_know_screen.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_welcome_screen.dart';
 
 enum OnboardingStep {
   welcome,
-  disclaimer,
-  legal,
-  safetyProfile,
+  thingsToKnow,
+  alertLevel,
   alrtPlus,
-  // location,
-  // radius,
-  // pushNotification,
   completed;
 
   /// Returns the route associated with the onboarding step.
@@ -21,20 +16,12 @@ enum OnboardingStep {
     switch (this) {
       case OnboardingStep.welcome:
         return OnboardingWelcomeScreen.route;
-      case OnboardingStep.disclaimer:
-        return OnboardingDisclaimerScreen.route;
-      case OnboardingStep.legal:
-        return OnboardingLegalScreen.route;
-      case OnboardingStep.safetyProfile:
-        return SafetyProfileScreen.onboardingRoute;
+      case OnboardingStep.thingsToKnow:
+        return OnboardingThingsToKnowScreen.route;
+      case OnboardingStep.alertLevel:
+        return OnboardingAlertLevelScreen.route;
       case OnboardingStep.alrtPlus:
         return OnboardingAlrtPlusScreen.route;
-      // case OnboardingStep.location:
-      //   return OnboardingLocationScreen.route;
-      // case OnboardingStep.radius:
-      //   return OnboardingRadiusScreen.route;
-      // case OnboardingStep.pushNotification:
-      //   return OnboardingAlertSourcesScreen.route;
       case OnboardingStep.completed:
         return OnboardingCompleteScreen.route;
     }

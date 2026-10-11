@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/api/dio_instance.dart';
 import 'package:hazard_app/features/shared/enums/network_connection_status.dart';
 import 'package:hazard_app/features/shared/providers/base_url_provider.dart';
+import 'package:hazard_app/features/shared/providers/instance_providers.dart';
 import 'package:hazard_app/features/shared/providers/network_connection_checker_provider.dart';
-import 'package:hazard_app/features/shared/providers/repository_providers.dart';
 
 /// A provider that provides a new instance of [Dio] with the given baseUrl.
 ///
@@ -14,12 +14,10 @@ final providerOfDioInstance = Provider.family<Dio, bool>((
   ref,
   disableRetryFunction,
 ) {
-  final sharedPreferencesRepository = ref.watch(
-    providerOfSharedPreferencesRepository,
-  );
+  final secureTokenStorage = ref.watch(providerOfSecureTokenStorage);
   final dio = dioInstance(
     baseUrl: ref.watch(providerOfBaseUrl),
-    sharedPreferencesRepository: sharedPreferencesRepository,
+    secureTokenStorage: secureTokenStorage,
   );
 
   // if the retry interceptor is not added to the dio instance, then add it

@@ -8,8 +8,8 @@ import 'package:hazard_app/api/interceptors/auth_interceptor.dart';
 import 'package:hazard_app/features/shared/enums/socket_event_types.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/providers/dio_instance_provider.dart';
-import 'package:hazard_app/features/shared/providers/repository_providers.dart';
-import 'package:hazard_app/features/shared/repositories/shared_prefs_repository.dart';
+import 'package:hazard_app/features/shared/providers/instance_providers.dart';
+import 'package:hazard_app/features/shared/repositories/secure_token_storage.dart';
 import 'package:hazard_app/features/shared/services/socket_reconnect_policy.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
@@ -19,8 +19,8 @@ class SocketService {
   SocketService(final Ref ref) : _ref = ref;
 
   final Ref _ref;
-  SharedPreferencesRepository get _sharedPrefRepository =>
-      _ref.read(providerOfSharedPreferencesRepository);
+  SecureTokenStorage get _secureTokenStorage =>
+      _ref.read(providerOfSecureTokenStorage);
   Dio get _dioInstance => _ref.read(providerOfDioInstance(true));
 
   Socket? _socket;
@@ -64,7 +64,7 @@ class SocketService {
   Future<String?> _freshAccessToken() {
     final authInterceptor = AuthInterceptor(
       dio: _dioInstance,
-      sharedPreferencesRepository: _sharedPrefRepository,
+      secureTokenStorage: _secureTokenStorage,
     );
     return authInterceptor.getAccessToken();
   }

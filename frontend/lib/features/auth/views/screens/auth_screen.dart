@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
-import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +7,6 @@ import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/auth/providers/auth_provider.dart';
 import 'package:hazard_app/features/auth/providers/states/auth_provider_state.dart';
-import 'package:hazard_app/features/auth/views/screens/email_auth_screen.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
@@ -32,25 +29,10 @@ class AuthScreen extends ConsumerStatefulWidget {
   ConsumerState<ConsumerStatefulWidget> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends ConsumerState<AuthScreen>
-    with SingleTickerProviderStateMixin {
-  String _selectedRole = 'Community'; // default role
-  late final AnimationController _backgroundAnimationController;
-
-  @override
-  void initState() {
-    super.initState();
-    _backgroundAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _backgroundAnimationController.dispose();
-    super.dispose();
-  }
+class _AuthScreenState extends ConsumerState<AuthScreen> {
+  /// Whether the sign-in buttons are visible (after tapping Get Started or
+  /// I already have an account).
+  bool _showSignIn = false;
 
   @override
   Widget build(BuildContext context) {
@@ -60,91 +42,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     _listenToAuthStateChanges();
 
     return Scaffold(
-      body: Stack(
-        children: [
-          _buildBackground(),
-          // _buildAnimatedBlobs(),
-          _buildContent(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBackground() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFF1F5F9),
-            Color(0xFFFFF1E7),
-            Color(0xFFFFEBEB),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ignore: unused_element
-  Widget _buildAnimatedBlobs() {
-    return AnimatedBuilder(
-      animation: _backgroundAnimationController,
-      builder: (context, _) {
-        final animationValue = _backgroundAnimationController.value;
-        return Stack(
-          children: [
-            _BlobWidget(
-              alignment: Alignment.topLeft,
-              diameter: 320.spMin,
-              color: const Color(0xFFFECACA).withValues(alpha: 0.35),
-              offsetX: 40 * math.sin(animationValue * 2 * math.pi),
-              offsetY: 24 * math.sin(animationValue * 2 * math.pi),
-              scale: 1 + 0.08 * (1 + math.sin(animationValue * 2 * math.pi)),
-            ),
-            _BlobWidget(
-              alignment: Alignment.bottomRight,
-              diameter: 360.spMin,
-              color: const Color(0xFFFDE68A).withValues(alpha: 0.35),
-              offsetX: -36 * math.sin(animationValue * 2 * math.pi * 0.8),
-              offsetY: -22 * math.sin(animationValue * 2 * math.pi * 0.8),
-              scale:
-                  1 + 0.12 * (1 + math.sin(animationValue * 2 * math.pi * 0.8)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildContent() {
-    return SafeArea(
-      // Centred while it fits, scrollable the moment it doesn't. A bare
-      // Center clips instead of scrolling, which on a short phone hid the
-      // terms line under the bottom edge with no way to reach it.
-      child: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 520.w),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildBrandSection(),
-                    28.hSizedBox,
-                    // _buildRoleSelector(),
-                    // 24.hSizedBox,
-                    _buildAuthButtons(),
-                    // 18.hSizedBox,
-                    // _buildDivider(),
-                    // 12.hSizedBox,
-                    // _buildGuestOption(),
-                    28.hSizedBox,
-                    _buildTermsAndPrivacySection(),
-                  ],
-                ).pX(24.0),
+      backgroundColor: AppColors.white,
+      body: SafeArea(
+        // Centred while it fits, scrollable the moment it doesn't. A bare
+        // Center clips instead of scrolling, which on a short phone hid the
+        // terms line under the bottom edge with no way to reach it.
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 520.w),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildBrandSection(),
+                      32.hSizedBox,
+                      if (_showSignIn) ...[
+                        _buildAuthButtons(),
+                      ] else ...[
+                        _buildWelcomeActions(),
+                      ],
+                      28.hSizedBox,
+                      _buildTermsAndPrivacySection(),
+                    ],
+                  ).pX(24.0),
+                ),
               ),
             ),
           ),
@@ -180,99 +104,86 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     );
   }
 
-  // ignore: unused_element
-  Widget _buildRoleSelector() {
-    return Wrap(
-      spacing: 10.spMin,
-      runSpacing: 10.spMin,
-      alignment: WrapAlignment.center,
+  /// The initial welcome view with Get Started and I already have an account.
+  Widget _buildWelcomeActions() {
+    return Column(
       children: [
-        _RoleChipWidget(
-          label: 'Community',
-          icon: Icons.groups_2_rounded,
-          isSelected: _selectedRole == 'Community',
-          onTap: () => setState(() => _selectedRole = 'Community'),
+        SizedBox(
+          width: double.infinity,
+          height: 50.spMin,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              padding: EdgeInsets.symmetric(vertical: 14.spMin),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14.r),
+              ),
+              elevation: 0,
+            ),
+            onPressed: () => setState(() => _showSignIn = true),
+            child: Text(
+              'Get Started',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16.spMin,
+              ),
+            ),
+          ),
         ),
-        _RoleChipWidget(
-          label: 'Agency',
-          icon: Icons.shield_outlined,
-          isSelected: _selectedRole == 'Agency',
-          onTap: () => setState(() => _selectedRole = 'Agency'),
-        ),
-        _RoleChipWidget(
-          label: 'Partner',
-          icon: Icons.handshake_outlined,
-          isSelected: _selectedRole == 'Partner',
-          onTap: () => setState(() => _selectedRole = 'Partner'),
+        12.hSizedBox,
+        TextButton(
+          onPressed: () => setState(() => _showSignIn = true),
+          child: Text(
+            'I already have an account',
+            style: TextStyle(
+              color: AppColors.darkGrey,
+              fontSize: 15.spMin,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
       ],
     );
   }
 
+  /// Apple, Google and Microsoft sign-in buttons.
   Widget _buildAuthButtons() {
     return Column(
       children: [
-        // Email sign-in is off: people use Google or Apple.
-        if (const bool.fromEnvironment('ALRT_EMAIL_AUTH')) ...[
-          _buildEmailButton(),
+        Text(
+          'Sign in to continue',
+          style: TextStyle(
+            color: AppColors.darkGrey,
+            fontSize: 16.spMin,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        20.hSizedBox,
+        if (Platform.isIOS) ...[
+          _buildAppleButton(),
           12.hSizedBox,
         ],
-        Row(
-          spacing: 12.spMin,
-          children: [
-            Platform.isIOS
-                ? Expanded(child: _buildAppleButton())
-                // : Expanded(child: _buildMicrosoftButton()),
-                : SizedBox.shrink(),
-            // Only offer Google when this build has its Google settings. Test
-            // builds leave them blank on purpose, and tapping Google there
-            // can crash the app on iPhone.
-            if (Env.googleAuthServerClientId.isNotEmpty)
-              Expanded(child: _buildGoogleButton()),
-          ],
-        ),
-        // 12.hSizedBox,
-        // if (Platform.isIOS) _buildMicrosoftButton(),
-        // A quiet link for the App Store / Google Play reviewer login. The
-        // server only lets the listed reviewer emails in (REVIEW_LOGIN_EMAILS).
-        if (!const bool.fromEnvironment('ALRT_EMAIL_AUTH'))
-          TextButton(
-            onPressed: _handleEmailAuth,
-            child: Text(
-              'App review sign-in',
-              style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
+        // Only offer Google when this build has its Google settings. Test
+        // builds leave them blank on purpose, and tapping Google there
+        // can crash the app on iPhone.
+        if (Env.googleAuthServerClientId.isNotEmpty) ...[
+          _buildGoogleButton(),
+          12.hSizedBox,
+        ],
+        _buildMicrosoftButton(),
+        16.hSizedBox,
+        TextButton(
+          onPressed: () => setState(() => _showSignIn = false),
+          child: Text(
+            'Back',
+            style: TextStyle(
+              color: AppColors.grey,
+              fontSize: 14.spMin,
             ),
           ),
+        ),
       ],
-    );
-  }
-
-  Widget _buildEmailButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.white,
-          padding: EdgeInsets.symmetric(
-            vertical: 14.spMin,
-            horizontal: 16.spMin,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14.r),
-          ),
-          elevation: 2,
-        ),
-        onPressed: () => _handleEmailAuth(),
-        icon: Icon(Icons.mail_outline, size: 20.spMin),
-        label: Text(
-          'Continue with Email',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16.spMin,
-          ),
-        ),
-      ),
     );
   }
 
@@ -288,6 +199,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
         // Apple's guidelines: Use black background with white text and logo
         return SizedBox(
+          width: double.infinity,
           height: 50.spMin,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -326,7 +238,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                       ),
                       8.wSizedBox,
                       Text(
-                        'Apple',
+                        'Continue with Apple',
                         style: TextStyle(
                           fontSize: 15.spMin,
                           fontWeight: FontWeight.w600,
@@ -351,6 +263,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           ),
         );
         return SizedBox(
+          width: double.infinity,
           height: 50.spMin,
           child: Button.bordered(
             onPressed: _signInWithGoogle,
@@ -363,14 +276,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               width: 20.spMin,
               height: 20.spMin,
             ),
-            value: 'Google',
+            value: 'Continue with Google',
           ),
         );
       },
     );
   }
 
-  // ignore: unused_element
   Widget _buildMicrosoftButton() {
     return Consumer(
       builder: (context, ref, child) {
@@ -382,6 +294,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           ),
         );
         return SizedBox(
+          width: double.infinity,
           height: 50.spMin,
           child: Button.bordered(
             onPressed: _signInWithMicrosoft,
@@ -394,55 +307,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               width: 18.spMin,
               height: 18.spMin,
             ),
-            value: 'Microsoft',
+            value: 'Continue with Microsoft',
           ),
         );
       },
-    );
-  }
-
-  // ignore: unused_element
-  Widget _buildDivider() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 1.spMin,
-            color: AppColors.lightGrey,
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8.spMin),
-          child: Text(
-            'or',
-            style: TextStyle(
-              color: AppColors.grey,
-              fontSize: 14.spMin,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Container(
-            height: 1.spMin,
-            color: AppColors.lightGrey,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ignore: unused_element
-  Widget _buildGuestOption() {
-    return TextButton(
-      onPressed: () => _handleGuestMode(),
-      child: Text(
-        'Continue as Guest',
-        style: TextStyle(
-          color: AppColors.primary,
-          fontSize: 16.spMin,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
     );
   }
 
@@ -546,11 +414,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     ref.read(providerOfAuth.notifier).signInWithGoogle();
   }
 
-  /// Handles email authentication flow.
-  void _handleEmailAuth() {
-    context.push(EmailAuthScreen.route);
-  }
-
   /// Signs in the user with Apple.
   void _signInWithApple() {
     ref.read(providerOfAuth.notifier).signInWithApple();
@@ -559,11 +422,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   /// Signs in the user with Microsoft.
   void _signInWithMicrosoft() {
     ref.read(providerOfAuth.notifier).signInWithMicrosoft();
-  }
-
-  /// Handles guest mode flow.
-  void _handleGuestMode() {
-    context.showErrorToast(message: 'Continue as guest ($_selectedRole)');
   }
 
   /// Navigates to the app wrapper screen.
@@ -584,119 +442,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     openLink(
       context: context,
       link: AppLinks.privacyPolicy,
-    );
-  }
-}
-
-/// A widget representing a role selection chip.
-class _RoleChipWidget extends StatelessWidget {
-  const _RoleChipWidget({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(999.r),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(
-          horizontal: 16.spMin,
-          vertical: 10.spMin,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.12)
-              : AppColors.white,
-          borderRadius: BorderRadius.circular(999.r),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.lightGrey,
-            width: 1.2.spMin,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    blurRadius: 10.spMin,
-                    offset: Offset(0, 4.spMin),
-                  ),
-                ]
-              : [],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 18.spMin,
-              color: isSelected ? AppColors.primary : AppColors.grey,
-            ),
-            8.wSizedBox,
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? AppColors.primary : AppColors.black,
-                fontSize: 16.spMin,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A widget representing an animated background blob.
-class _BlobWidget extends StatelessWidget {
-  const _BlobWidget({
-    required this.alignment,
-    required this.diameter,
-    required this.offsetX,
-    required this.offsetY,
-    required this.scale,
-    required this.color,
-  });
-
-  final Alignment alignment;
-  final double diameter;
-  final double offsetX;
-  final double offsetY;
-  final double scale;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: alignment,
-      child: Transform.translate(
-        offset: Offset(offsetX, offsetY),
-        child: Transform.scale(
-          scale: scale,
-          child: ClipOval(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                width: diameter,
-                height: diameter,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

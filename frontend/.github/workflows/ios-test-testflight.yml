@@ -80,7 +80,7 @@ jobs:
           bundler-cache: true
           working-directory: ios
 
-      - name: Create .env pointed at the isolated test backend
+      - name: Write build-time defines (compiled in, not bundled as an asset)
         run: |
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}"
@@ -120,6 +120,7 @@ jobs:
           fi
           echo "Building with build number $BUILD_NUMBER"
           flutter build ipa --release --flavor dev -t lib/main_dev.dart \
+            --dart-define-from-file=.env \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=ios/ExportOptionsCI-dev.plist
 

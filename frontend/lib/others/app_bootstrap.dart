@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
@@ -32,7 +31,6 @@ class AppBootstrap {
     await Future.wait([
       _initializeEasyLocalization(),
       _initializeFirebase(),
-      _loadEnvironmentVariables(),
       _initializeGoogleFonts(),
       _initializeHomeWidget(),
       _initializeMapsAvailability(),
@@ -79,16 +77,6 @@ class AppBootstrap {
     );
   }
 
-  Future<void> _loadEnvironmentVariables() async {
-    return runAsyncCall(
-      name: 'loadEnvironmentVariables',
-      future: () async {
-        await dotenv.load(fileName: '.env');
-      },
-      onError: (_) {},
-    );
-  }
-
   Future<void> _initializeGoogleFonts() async {
     return runAsyncCall(
       name: 'initializeGoogleFonts',
@@ -96,6 +84,7 @@ class AppBootstrap {
         // Never hold the first frame on a slow network: the font falls
         // back to the system face if it has not arrived in time.
         await GoogleFonts.pendingFonts([
+          GoogleFonts.figtree(),
           GoogleFonts.bebasNeue(),
         ]).timeout(const Duration(seconds: 5));
       },

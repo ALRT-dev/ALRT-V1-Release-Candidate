@@ -11,11 +11,13 @@ import {
 } from "../../controllers/admin/user.controller.js";
 import {
   deleteAppUserController,
+  forcePasswordResetController,
   getAppUserController,
   listAdminsController,
   listAppUsersController,
   restoreAppUserController,
   setAdminActiveController,
+  updateAdminController,
   updateAppUserController,
 } from "../../controllers/admin/app_user.controller.js";
 import { validate } from "../../middlewares/validation.middleware.js";
@@ -42,9 +44,21 @@ adminUserRouter.post(
 );
 
 adminUserRouter.patch(
+  "/admins/:adminId",
+  requireSuperAdmin,
+  updateAdminController
+);
+
+adminUserRouter.patch(
   "/admins/:adminId/active",
   requireSuperAdmin,
   setAdminActiveController
+);
+
+adminUserRouter.post(
+  "/admins/:adminId/force-password-reset",
+  requireSuperAdmin,
+  forcePasswordResetController
 );
 
 // --- App user management --------------------------------------------------

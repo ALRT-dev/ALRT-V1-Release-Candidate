@@ -174,7 +174,107 @@ export const listAdmins = async () =>
     orderBy: { createdAt: "asc" },
   });
 
+const ADMIN_SAFE_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  isActive: true,
+  mustChangePassword: true,
+  lastLoginAt: true,
+  createdAt: true,
+} as const;
+
 export const setAdminActive = async (adminId: string, isActive: boolean) => {
+  const existing = await prisma.admin.findUnique({
+    where: { id: adminId },
+    select: { id: true, role: true },
+  });
+
+  if (!existing) {
+    throw new HttpError(404, "Admin not found");
+  }
+
+  // Guard against deactivating the last active super admin.
+  if (!isActive && existing.role === "superAdmin") {
+    const activeSuperAdminCount = await prisma.admin.count({
+      where: { role: "superAdmin", isActive: true },
+    });
+    if (activeSuperAdminCount <= 1) {
+      throw new HttpError(
+        400,
+        "Cannot deactivate the last active super admin",
+      );
+    }
+  }
+
+  return prisma.admin.update({
+    where: { id: adminId },
+    data: { isActive },
+    select: ADMIN_SAFE_SELECT,
+  });
+};
+
+/**
+ * Update an admin's role and/or email. Super-admin only.
+ * Guards against demoting the last active super admin.
+ */
+export const updateAdmin = async (
+  adminId: string,
+  patch: { role?: string; email?: string },
+) => {
+  const existing = await prisma.admin.findUnique({
+    where: { id: adminId },
+    select: { id: true, role: true, email: true },
+  });
+
+  if (!existing) {
+    throw new HttpError(404, "Admin not found");
+  }
+
+  // Guard: demoting the last super admin would lock everyone out.
+  if (
+    patch.role &&
+    patch.role !== "superAdmin" &&
+    existing.role === "superAdmin"
+  ) {
+    const activeSuperAdminCount = await prisma.admin.count({
+      where: { role: "superAdmin", isActive: true },
+    });
+    if (activeSuperAdminCount <= 1) {
+      throw new HttpError(
+        400,
+        "Cannot demote the last active super admin",
+      );
+    }
+  }
+
+  // Check email uniqueness when changing.
+  if (patch.email && patch.email !== existing.email) {
+    const emailTaken = await prisma.admin.findUnique({
+      where: { email: patch.email },
+      select: { id: true },
+    });
+    if (emailTaken) {
+      throw new HttpError(409, "An admin with this email already exists");
+    }
+  }
+
+  return prisma.admin.update({
+    where: { id: adminId },
+    data: {
+      ...(patch.role ? { role: patch.role as "superAdmin" | "admin" | "moderator" } : {}),
+      ...(patch.email ? { email: patch.email } : {}),
+    },
+    select: ADMIN_SAFE_SELECT,
+  });
+};
+
+/**
+ * Force-resets an admin's password flag so they must change it at next login.
+ * Super-admin only.
+ */
+export const forcePasswordReset = async (adminId: string) => {
   const existing = await prisma.admin.findUnique({
     where: { id: adminId },
     select: { id: true },
@@ -186,14 +286,7 @@ export const setAdminActive = async (adminId: string, isActive: boolean) => {
 
   return prisma.admin.update({
     where: { id: adminId },
-    data: { isActive },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      isActive: true,
-      lastLoginAt: true,
-    },
+    data: { mustChangePassword: true },
+    select: ADMIN_SAFE_SELECT,
   });
 };

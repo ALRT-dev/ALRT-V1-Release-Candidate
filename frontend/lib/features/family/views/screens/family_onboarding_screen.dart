@@ -136,9 +136,11 @@ class _FamilyOnboardingScreenState
               vertical: 12.spMin,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFF6ECFA),
+              color: const Color(0xFFEBEBF7),
               borderRadius: BorderRadius.circular(14.spMin),
-              border: Border.all(color: const Color(0xFFECD9F4)),
+              border: Border.all(
+                color: FamilyColors.v31Indigo.withValues(alpha: 0.15),
+              ),
             ),
             child: Text(
               'Location is shared only when someone chooses it: for a '
@@ -147,7 +149,7 @@ class _FamilyOnboardingScreenState
               style: TextStyle(
                 fontSize: 12.spMin,
                 height: 1.7,
-                color: const Color(0xFF8E4AA6),
+                color: FamilyColors.v31Indigo.withValues(alpha: 0.75),
               ),
             ),
           ),
@@ -160,15 +162,7 @@ class _FamilyOnboardingScreenState
                   height: 50.spMin,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFFC939DD),
-                          Color(0xFFA22CC6),
-                          Color(0xFF7E1FA8),
-                          Color(0xFF5C1585),
-                        ],
-                        stops: [0.0, 0.4, 0.74, 1.0],
-                      ),
+                      gradient: FamilyColors.headerGradient,
                       borderRadius: BorderRadius.circular(15.spMin),
                       boxShadow: [
                         BoxShadow(
@@ -226,8 +220,10 @@ class _FamilyOnboardingScreenState
                             padding: EdgeInsets.symmetric(horizontal: 8.spMin),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15.spMin),
-                              side: const BorderSide(
-                                color: Color(0xFFE8E4EE),
+                              side: BorderSide(
+                                color: FamilyColors.v31Indigo.withValues(
+                                  alpha: 0.15,
+                                ),
                                 width: 1.5,
                               ),
                             ),
@@ -302,7 +298,7 @@ class _FamilyOnboardingScreenState
           Padding(
             padding: EdgeInsets.only(top: 14.spMin),
             child: Text(
-              'No price to look. Joining is always free.',
+              'Create and join free.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11.spMin,

@@ -51,7 +51,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create .env pointed at the isolated test backend
+      - name: Write build-time defines (compiled in, not bundled as an asset)
         run: |
           {
             echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_SERVER_CLIENT_ID }}"
@@ -68,7 +68,7 @@ jobs:
 
       # Same dev flavour/app id as android-apk.yml - only DEV_BASE_URL
       # differs, via the .env written above.
-      - run: flutter build apk --release --flavor dev -t lib/main_dev.dart
+      - run: flutter build apk --release --flavor dev -t lib/main_dev.dart --dart-define-from-file=.env
         env:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || secrets.googlemaps }}
 

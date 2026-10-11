@@ -479,6 +479,14 @@ class _FamilyCircleProfileScreenState
                 ),
               ),
             ),
+            SizedBox(height: 6.spMin),
+            Text(
+              'Shown to your groups only, never the map.',
+              style: TextStyle(
+                fontSize: 11.spMin,
+                color: Colors.white.withValues(alpha: 0.65),
+              ),
+            ),
           ],
         ),
       ),

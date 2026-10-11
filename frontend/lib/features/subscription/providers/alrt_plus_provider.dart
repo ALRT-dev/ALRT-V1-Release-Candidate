@@ -1,4 +1,3 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/subscription/models/access_models.dart';
@@ -23,7 +22,8 @@ const kFreeSavedLocationsLimit = 1;
 /// 3.1.2 rejection. appFlavor is the honest signal: the sideloaded dev
 /// APK is built --release too, so kReleaseMode cannot tell them apart.
 bool get isAlrtPlusTestUnlocked =>
-    appFlavor == 'dev' && dotenv.env['ALRT_PLUS_TEST_UNLOCK'] == 'true';
+    appFlavor == 'dev' &&
+    const String.fromEnvironment('ALRT_PLUS_TEST_UNLOCK') == 'true';
 
 /// The access the backend computed for the signed-in person: personal
 /// plan and each group's coverage, separately (GET /api/access). Null

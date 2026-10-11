@@ -4,19 +4,19 @@ import 'package:hazard_app/api/endpoints.dart';
 import 'package:hazard_app/api/token_handler.dart';
 import 'package:hazard_app/features/shared/enums/shared_prefs_key_types.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
-import 'package:hazard_app/features/shared/repositories/shared_prefs_repository.dart';
+import 'package:hazard_app/features/shared/repositories/secure_token_storage.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 
 class AuthInterceptor implements Interceptor {
   AuthInterceptor({
     required final Dio dio,
-    required final SharedPreferencesRepository sharedPreferencesRepository,
+    required final SecureTokenStorage secureTokenStorage,
   }) : _dio = dio,
-       _sharedPreferencesRepository = sharedPreferencesRepository;
+       _secureTokenStorage = secureTokenStorage;
 
   final Dio _dio;
-  final SharedPreferencesRepository _sharedPreferencesRepository;
+  final SecureTokenStorage _secureTokenStorage;
 
   /// Single in-flight refresh shared by all concurrent requests, so an
   /// expired token triggers exactly one refresh call instead of one per
@@ -122,17 +122,10 @@ class AuthInterceptor implements Interceptor {
     );
   }
 
-  /// Retrieves the access token from shared preferences.
+  /// Retrieves the access token from encrypted storage.
   Future<String?> getAccessToken() async {
-    // get the accessToken from the local storage
-    final result = await _sharedPreferencesRepository.getString(
-      key: SharedPrefsKey.accessToken,
-    );
-    final accessToken = result.whenSuccess(
-      (success) {
-        if (success is String) return success;
-        return null;
-      },
+    final accessToken = await _secureTokenStorage.read(
+      SharedPrefsKey.accessToken,
     );
     if (accessToken == null) return null;
 
@@ -180,19 +173,16 @@ class AuthInterceptor implements Interceptor {
       (error) => error.code != null || error.requestUri == null,
     );
     return newAccessTokenResult.whenSuccess((success) {
-      // save the new access token to the local storage.
-      _sharedPreferencesRepository.saveString(
-        key: SharedPrefsKey.accessToken,
-        value: success,
-      );
+      // save the new access token to encrypted storage.
+      _secureTokenStorage.write(SharedPrefsKey.accessToken, success);
       return success;
     });
   }
 
   Future<void> _clearStoredTokens() async {
     await Future.wait([
-      _sharedPreferencesRepository.removeKey(key: SharedPrefsKey.accessToken),
-      _sharedPreferencesRepository.removeKey(key: SharedPrefsKey.refreshToken),
+      _secureTokenStorage.delete(SharedPrefsKey.accessToken),
+      _secureTokenStorage.delete(SharedPrefsKey.refreshToken),
     ]);
   }
 
@@ -201,14 +191,8 @@ class AuthInterceptor implements Interceptor {
     return runAsyncCall(
       name: 'generateNewAccessToken',
       future: () async {
-        final result = await _sharedPreferencesRepository.getString(
-          key: SharedPrefsKey.refreshToken,
-        );
-        final refreshToken = result.whenSuccess(
-          (success) {
-            if (success is String) return success;
-            return null;
-          },
+        final refreshToken = await _secureTokenStorage.read(
+          SharedPrefsKey.refreshToken,
         );
         if (refreshToken == null) {
           throw AppError(message: 'No refresh token!');

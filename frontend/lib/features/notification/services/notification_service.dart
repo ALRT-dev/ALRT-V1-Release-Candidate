@@ -10,6 +10,7 @@ import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/notification/providers/accessible_alerts_provider.dart';
+import 'package:hazard_app/features/notification/providers/push_inbox_provider.dart';
 import 'package:hazard_app/features/notification/providers/repository_providers.dart';
 import 'package:hazard_app/features/notification/repositories/notification_repository.dart';
 import 'package:hazard_app/features/notification/services/local_notification_service.dart';
@@ -117,13 +118,17 @@ class NotificationService {
           remoteMessage?.messageId ?? remoteMessage?.sentTime?.toString();
       if (remoteMessage != null && id != _consumedLaunchMessageId) {
         _consumedLaunchMessageId = id;
+        _recordToInbox(remoteMessage);
         onMessageReceived(remoteMessage);
       }
     });
 
     _remoteMessageStreamSub = _notificationRepository
         .onPushNotificationMessageOpenedApp()
-        .listen(onMessageReceived);
+        .listen((message) {
+          _recordToInbox(message);
+          onMessageReceived(message);
+        });
 
     // Foreground messages: FCM does not display these automatically. Show
     // them via the local-notification layer (Android) / native presentation
@@ -144,6 +149,7 @@ class NotificationService {
         .listen((message) {
           LocalNotificationService.instance.showFromRemoteMessage(message);
           _maybeSpeak(message);
+          _recordToInbox(message);
         });
   }
 
@@ -167,6 +173,12 @@ class NotificationService {
       if (body != null && body.isNotEmpty) body,
     ].join(' ');
     _ref.read(providerOfAlertSpeech).speak(text);
+  }
+
+  /// Persists the push notification in the on-device inbox so the user
+  /// can review past notifications from the ALRT Feed bell icon.
+  void _recordToInbox(final RemoteMessage message) {
+    _ref.read(providerOfPushInbox.notifier).record(message);
   }
 
   /// Same envelope as LocalNotificationService: the hazard rides in

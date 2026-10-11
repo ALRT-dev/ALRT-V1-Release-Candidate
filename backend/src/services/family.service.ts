@@ -1820,11 +1820,50 @@ const withHazardTitles = async <T extends { hazardId: string | null }>(
 
 // ---------------------------------------------------------------------------
 // Scheduled check-ins: a member's Daily reminder to check in (never a check-in).
-// timeOfDay is Australia/Brisbane local time (fixed UTC+10, no DST in QLD).
+// timeOfDay is in the member's local timezone (IANA, e.g. "Australia/Brisbane").
 // ---------------------------------------------------------------------------
 
-const BRISBANE_UTC_OFFSET_MS = 10 * 60 * 60 * 1000;
 const MAX_SCHEDULED_CHECK_INS_PER_MEMBER = 3;
+
+/**
+ * Returns the current "HH:mm" and the start-of-day (UTC) for a given IANA
+ * timezone. Uses Intl to handle DST transitions correctly.
+ */
+const clockForZone = (
+  now: Date,
+  tz: string,
+): { hhmm: string; dayStartUtc: Date } => {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    hour: "2-digit",
+    minute: "2-digit",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(
+    fmt.formatToParts(now).map((p) => [p.type, p.value]),
+  );
+  const hhmm = `${parts.hour}:${parts.minute}`;
+
+  // Build the local midnight as a UTC instant.
+  // Parse the local date, then find UTC offset by comparing the local
+  // representation back to the real time.
+  const localMidnightStr = `${parts.year}-${parts.month}-${parts.day}T00:00:00`;
+  // Compute offset: diff between now-UTC and the formatted local time.
+  const localNowMs =
+    new Date(
+      `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:00Z`,
+    ).getTime();
+  const offsetMs = localNowMs - now.getTime();
+  // dayStartUtc = local midnight as a UTC instant
+  const dayStartUtc = new Date(
+    new Date(localMidnightStr + "Z").getTime() - offsetMs,
+  );
+
+  return { hhmm, dayStartUtc };
+};
 
 const scheduledCheckInInclude = {
   member: { select: memberIdentitySelect },
@@ -1832,10 +1871,22 @@ const scheduledCheckInInclude = {
 
 export const createScheduledCheckIn = async (
   userId: string,
-  input: { timeOfDay: string; mode?: FamilyScheduledCheckInMode | undefined },
+  input: {
+    timeOfDay: string;
+    timezone?: string | undefined;
+    mode?: FamilyScheduledCheckInMode | undefined;
+  },
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
+
+  // Validate the timezone if provided, fall back to Brisbane.
+  const tz = input.timezone ?? "Australia/Brisbane";
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+  } catch {
+    throw new HttpError(400, `Invalid timezone: ${tz}`);
+  }
 
   const count = await prisma.familyScheduledCheckIn.count({
     where: { memberId: membership.id },
@@ -1858,9 +1909,10 @@ export const createScheduledCheckIn = async (
       circleId: membership.circleId,
       memberId: membership.id,
       timeOfDay: input.timeOfDay,
+      timezone: tz,
       mode: input.mode ?? "prompted",
     },
-    update: { mode: input.mode ?? "prompted" },
+    update: { mode: input.mode ?? "prompted", timezone: tz },
     include: scheduledCheckInInclude,
   });
 };
@@ -1901,29 +1953,51 @@ export const deleteScheduledCheckIn = async (
 };
 
 /**
- * Fires every schedule whose timeOfDay matches the current Brisbane minute
- * and hasn't fired yet today. Called by the scheduler once a minute.
+ * Fires every schedule whose timeOfDay matches the current local-time minute
+ * (in the schedule's own timezone) and hasn't fired yet today.
+ * Called by the scheduler once a minute.
+ *
+ * Groups schedules by timezone so each zone is evaluated against its own clock.
  */
 export const fireDueScheduledCheckIns = async () => {
   const now = new Date();
-  const brisbaneNow = new Date(now.getTime() + BRISBANE_UTC_OFFSET_MS);
-  const hhmm = `${String(brisbaneNow.getUTCHours()).padStart(2, "0")}:${String(
-    brisbaneNow.getUTCMinutes(),
-  ).padStart(2, "0")}`;
 
-  const brisbaneDayStart = new Date(brisbaneNow);
-  brisbaneDayStart.setUTCHours(0, 0, 0, 0);
-  const dayStartUtc = new Date(
-    brisbaneDayStart.getTime() - BRISBANE_UTC_OFFSET_MS,
-  );
+  // Collect all distinct timezones that have scheduled check-ins.
+  const zones: { timezone: string }[] = await prisma.$queryRaw`
+    SELECT DISTINCT "timezone" FROM "FamilyScheduledCheckIn"
+  `;
 
-  const due = await prisma.familyScheduledCheckIn.findMany({
-    where: {
-      timeOfDay: hhmm,
-      OR: [{ lastFiredAt: null }, { lastFiredAt: { lt: dayStartUtc } }],
-    },
-    include: scheduledCheckInInclude,
-  });
+  // For each timezone, find schedules whose timeOfDay matches the local HH:mm
+  // and haven't fired since local midnight.
+  const due: Array<
+    Awaited<
+      ReturnType<typeof prisma.familyScheduledCheckIn.findFirst>
+    > & { member: { userId: string } }
+  > = [];
+
+  for (const { timezone } of zones) {
+    let clock: ReturnType<typeof clockForZone>;
+    try {
+      clock = clockForZone(now, timezone);
+    } catch {
+      // Invalid timezone stored — skip rather than crash the whole scheduler.
+      console.warn(`[scheduled-check-in] skipping invalid timezone: ${timezone}`);
+      continue;
+    }
+
+    const rows = await prisma.familyScheduledCheckIn.findMany({
+      where: {
+        timezone,
+        timeOfDay: clock.hhmm,
+        OR: [
+          { lastFiredAt: null },
+          { lastFiredAt: { lt: clock.dayStartUtc } },
+        ],
+      },
+      include: scheduledCheckInInclude,
+    });
+    due.push(...(rows as typeof due));
+  }
 
   for (const schedule of due) {
     // Paused access skips the schedule without consuming it: lastFiredAt

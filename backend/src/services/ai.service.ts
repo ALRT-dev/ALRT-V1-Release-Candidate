@@ -48,7 +48,7 @@ export const executePrompt = async (
 ): Promise<string> => {
   if (config.ai.provider === "openai") {
     const response = await openai.executePrompt({
-      model: params.model ?? "gpt-4o-mini",
+      model: params.model || "gpt-4o-mini",
       systemPromptContent: params.systemPromptContent,
       userPromptContent: params.userPromptContent,
     });

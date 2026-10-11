@@ -292,6 +292,42 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
     );
   }
 
+  /// Deletes the current profile picture via the backend and clears
+  /// the local state.
+  Future<void> deleteProfilePicture() async {
+    state = state.copyWith(
+      profilePictureUpdateState: const ProfilePictureUpdateState.loading(),
+    );
+
+    final result = await _userService.deleteUserProfilePicture();
+    if (!mounted) return;
+
+    result.when(
+      (_) {
+        updateProfilePictureInTheState(null);
+
+        state = state.copyWith(
+          profilePictureUpdateState: const ProfilePictureUpdateState.initial(),
+        );
+
+        // Update the logged-in user in the global state.
+        _ref
+            .read(providerOfLoggedInUser.notifier)
+            .update(
+              (user) => user?.copyWith(
+                processedProfilePicture: null,
+                profilePictureUrl: null,
+              ),
+            );
+      },
+      (error) {
+        state = state.copyWith(
+          profilePictureUpdateState: ProfilePictureUpdateState.error(error),
+        );
+      },
+    );
+  }
+
   /// Updates the [ProfileProviderState.profilePicture] with the given [profilePicture].
   void updateProfilePictureInTheState(final AlrtMedia? profilePicture) {
     state = state.copyWith(profilePicture: profilePicture);

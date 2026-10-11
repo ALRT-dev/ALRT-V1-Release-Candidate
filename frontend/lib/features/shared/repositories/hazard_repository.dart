@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hazard_app/api/rest_client.dart';
 import 'package:hazard_app/features/search/models/hazard_search_params.dart';
 import 'package:hazard_app/features/shared/enums/hazard_vote_types.dart';
@@ -26,7 +25,8 @@ import 'package:hazard_app/features/shared/utils/either.dart';
 /// --release too, so kReleaseMode alone can't tell it apart from a real
 /// release build.
 bool get useDummyAiForReports =>
-    appFlavor == 'dev' && dotenv.env['USE_DUMMY_AI_FOR_REPORTS'] == 'true';
+    appFlavor == 'dev' &&
+    const String.fromEnvironment('USE_DUMMY_AI_FOR_REPORTS') == 'true';
 
 /// Whether the community report flow should offer a manual "Use
 /// Scarborough WA (TEST)" location option when the device's own location

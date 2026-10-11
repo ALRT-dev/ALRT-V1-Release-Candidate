@@ -22,6 +22,7 @@ import 'package:hazard_app/features/map/providers/map_search_text_editing_contro
 import 'package:hazard_app/features/map/providers/places_provider.dart';
 import 'package:hazard_app/features/map/views/screens/map_screen.dart';
 import 'package:hazard_app/features/notification/enums/push_notification_types.dart';
+import 'package:hazard_app/features/notification/views/widgets/offline_banner.dart';
 import 'package:hazard_app/features/notification/extensions/remote_message_extension.dart';
 import 'package:hazard_app/features/notification/providers/manage_notifications_provider.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
@@ -36,8 +37,8 @@ import 'package:hazard_app/features/report/providers/create_update_report_provid
 import 'package:hazard_app/features/report/providers/states/create_update_report_provider_state.dart';
 import 'package:hazard_app/features/report/views/screens/create_update_report_screen.dart';
 import 'package:hazard_app/features/report/views/widgets/alrt_approved_toast.dart';
+import 'package:hazard_app/features/ready/views/screens/ready_screen.dart';
 import 'package:hazard_app/features/search/providers/main_search_provider.dart';
-import 'package:hazard_app/features/search/views/screens/hazard_search_screen.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
@@ -164,9 +165,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   const MapScreen(),
-                  const HazardSearchScreen(),
-                  const CreateUpdateReportScreen(),
                   const NotificationsScreen(),
+                  const CreateUpdateReportScreen(),
+                  const ReadyScreen(),
                   const FamilyTabView(),
                   const ProfileScreen(),
                 ],
@@ -204,6 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: FamilyColors.sosRed,
             child: const SafeArea(bottom: false, child: FamilySosStrip()),
           ),
+        const OfflineBanner(),
         Expanded(
           // Only the strip takes the status-bar inset; with no SOS the
           // tabs keep it, or their headers sit under the notch.

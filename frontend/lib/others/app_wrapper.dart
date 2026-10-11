@@ -11,8 +11,8 @@ import 'package:hazard_app/features/onboarding/enums/onboarding_step_types.dart'
 import 'package:hazard_app/features/profile/views/screens/deleted_account_info_screen.dart';
 import 'package:hazard_app/features/shared/enums/shared_prefs_key_types.dart';
 import 'package:hazard_app/features/shared/providers/app_initialization_provider.dart';
+import 'package:hazard_app/features/shared/providers/instance_providers.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
-import 'package:hazard_app/features/shared/providers/repository_providers.dart';
 import 'package:hazard_app/features/shared/views/screens/splash_screen.dart';
 import 'package:hazard_app/others/startup_trace.dart';
 import 'package:hazard_app/features/app_update/providers/force_update_provider.dart';
@@ -104,10 +104,9 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
   }
 
   Future<bool> _hasStoredSignIn() async {
-    final result = await ref
-        .read(providerOfSharedPreferencesRepository)
-        .getString(key: SharedPrefsKey.refreshToken);
-    final token = result.whenSuccess((value) => value);
+    final token = await ref
+        .read(providerOfSecureTokenStorage)
+        .read(SharedPrefsKey.refreshToken);
     return token != null && token.isNotEmpty;
   }
 

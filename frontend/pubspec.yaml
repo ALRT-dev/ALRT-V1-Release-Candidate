@@ -26,7 +26,6 @@ dependencies:
   easy_localization: ^3.0.8
   google_sign_in: ^7.2.0
   google_sign_in_web: ^1.1.0
-  flutter_dotenv: ^6.0.0
   flutter_svg: ^2.2.1
   toastification: ^3.0.3
   google_maps_flutter: ^2.13.1
@@ -70,6 +69,7 @@ dependencies:
   qr_flutter: ^4.1.0
   flutter_tts: ^4.2.5
   mobile_scanner: ^7.4.0
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:
@@ -89,7 +89,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - .env
     - assets/msal_config.json
     - assets/translations/
     - assets/logos/

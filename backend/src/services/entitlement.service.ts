@@ -820,8 +820,12 @@ const statusForEvent = (
       return "billingIssue";
     case "EXPIRATION":
       return "expired";
+    // Google Play pause: access continues to expiresAt, no renewal.
+    // A later RENEWAL or UNCANCELLATION resumes it.
+    case "SUBSCRIPTION_PAUSED":
+      return "cancelled";
     default:
-      return null; // TEST, TRANSFER (handled separately), SUBSCRIPTION_PAUSED...
+      return null; // TEST, TRANSFER (handled separately)
   }
 };
 
@@ -1397,9 +1401,14 @@ const applyTransfer = async (event: RevenueCatEvent): Promise<ApplyResult> => {
 };
 
 /**
- * Keeps the compatibility mirror in step with the canonical personal
- * entitlement: User.plan (old app builds). Ask ALRT reads the entitlement
- * directly (getPersonalAccess), so there is no second copy to keep.
+ * Keeps both compatibility mirrors in step with the canonical personal
+ * entitlement:
+ *  1. User.plan (Postgres) — old app builds.
+ *  2. Firestore entitlements/{uid} — Ask ALRT reads this to decide
+ *     quota (planFor in askAlrt.ts). The backend is the only writer.
+ *
+ * Firestore writes are best-effort: a failure logs a warning but never
+ * breaks the webhook or the Postgres mirror.
  */
 export const syncPersonalMirror = async (userId: string) => {
   const personal = await getPersonalAccess(userId);
@@ -1412,6 +1421,26 @@ export const syncPersonalMirror = async (userId: string) => {
       planUpdatedAt: new Date(),
     },
   });
+
+  // Mirror to Firestore for Ask ALRT. Best-effort: never let a Firestore
+  // outage break the webhook or the Postgres mirror.
+  try {
+    const { firebaseAdmin } = await import("../utils/firebase_admin_client.util.js");
+    await firebaseAdmin.firestore().collection("entitlements").doc(userId).set(
+      {
+        individual: isIndividual,
+        individualExpiresAt: isIndividual && personal.expiresAt
+          ? personal.expiresAt.getTime()
+          : null,
+        version: Date.now(),
+      },
+      { merge: false },
+    );
+  } catch (error) {
+    console.warn(
+      `[entitlement] failed to mirror entitlements/${userId} to Firestore: ${(error as Error).message}`,
+    );
+  }
 };
 
 /** Whether a circle's sponsored grants are paused (sponsored + not live). */

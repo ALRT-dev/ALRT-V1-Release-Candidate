@@ -14,6 +14,7 @@ class FamilyHeaderSurface extends StatelessWidget {
     required this.child,
     this.padding,
     this.borderRadius,
+    this.gradient,
   });
 
   final Widget child;
@@ -22,11 +23,16 @@ class FamilyHeaderSurface extends StatelessWidget {
   /// Square by default: most family headers run full-bleed off the top.
   final BorderRadius? borderRadius;
 
+  /// Override the default indigo gradient with a state-specific one.
+  /// Pass [FamilyColors.tealHeaderGradient] when a check-in is asked,
+  /// [FamilyColors.sosHeaderGradient] when an SOS is live.
+  final Gradient? gradient;
+
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: FamilyColors.headerGradient,
+        gradient: gradient ?? FamilyColors.headerGradient,
         borderRadius: borderRadius,
       ),
       child: DecoratedBox(

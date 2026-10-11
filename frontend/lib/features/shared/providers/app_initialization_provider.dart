@@ -7,6 +7,7 @@ import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/providers/instance_providers.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
+import 'package:hazard_app/features/shared/providers/repository_providers.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/features/shared/services/sim_country.dart';
@@ -35,6 +36,11 @@ class AppInitializationProvider extends Notifier<bool> {
 
     await _initializeSharedPreferences();
     StartupTrace.mark('init: settings storage ready');
+    if (!ref.mounted) return;
+
+    // Migrate any auth tokens still in plaintext SharedPreferences into
+    // encrypted storage. No-ops after the first successful run.
+    await _migrateTokensToSecureStorage();
     if (!ref.mounted) return;
 
     // The SIM's country decides which emergency number the app offers, so
@@ -98,6 +104,20 @@ class AppInitializationProvider extends Notifier<bool> {
         final sharedPrefs = await SharedPreferences.getInstance();
         ref.read(providerOfSharedPreferencesInstance.notifier).state =
             sharedPrefs;
+      },
+      onError: (_) {},
+    );
+  }
+
+  /// Migrates auth tokens from plaintext SharedPreferences to encrypted
+  /// storage. Safe on every cold start -- no-ops when nothing to migrate.
+  Future<void> _migrateTokensToSecureStorage() {
+    return runAsyncCall(
+      name: '_migrateTokensToSecureStorage',
+      future: () async {
+        await ref.read(providerOfSecureTokenStorage).migrateFromSharedPrefs(
+              ref.read(providerOfSharedPreferencesRepository),
+            );
       },
       onError: (_) {},
     );

@@ -20,6 +20,7 @@ class FamilyMemberListItem extends StatelessWidget {
     this.hasAnswered,
     this.askedAt,
     this.onAskToCheckIn,
+    this.ringColor,
   });
 
   final FamilyMember member;
@@ -38,6 +39,10 @@ class FamilyMemberListItem extends StatelessWidget {
   /// time it was sent, so the row says "Asked 3 min ago" instead of a
   /// stale "Checked in yesterday".
   final DateTime? askedAt;
+
+  /// Optional ring drawn around the avatar for state emphasis: teal when
+  /// a check-in is asked of this member, red while an SOS is live.
+  final Color? ringColor;
 
   /// "Ask" on a row that still owes a check-in: asks THIS person only.
   final VoidCallback? onAskToCheckIn;
@@ -59,6 +64,7 @@ class FamilyMemberListItem extends StatelessWidget {
               member: member,
               size: 48.0,
               isNearAlert: isNearAlert,
+              ringColor: ringColor,
             ),
             SizedBox(width: 13.spMin),
             Expanded(
@@ -225,8 +231,21 @@ class FamilyMemberListItem extends StatelessWidget {
       isNearAlert: isNearAlert,
     );
     final safe = text == 'Checked in';
-    final background = safe ? FamilyColors.safeGreenLight : FamilyColors.amberLight;
-    final foreground = safe ? FamilyColors.safeGreen : FamilyColors.amber;
+    final waiting = text == 'Waiting';
+    final Color background;
+    final Color foreground;
+    if (safe) {
+      background = FamilyColors.safeGreenLight;
+      foreground = FamilyColors.safeGreen;
+    } else if (waiting) {
+      // Teal reads as "awaiting" rather than "danger", matching the
+      // header and footer slot teal.
+      background = const Color(0xFFE6F7F5);
+      foreground = FamilyColors.teal;
+    } else {
+      background = FamilyColors.amberLight;
+      foreground = FamilyColors.amber;
+    }
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 6.spMin),

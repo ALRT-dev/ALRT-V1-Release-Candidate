@@ -25,21 +25,23 @@ explicit instruction from the product owner in the current session.
 - V3 section labels: #B84500, uppercase, letter-spaced. Exception: the
   Report an ALRT screen takes the V3.1 prototype's brighter #FF6B01, which
   is what that prototype specifies for its own section labels.
-- Family palette is the approved purple (product owner, 8 Sep 2026,
-  commit ed05fcc; it superseded the V3.1 indigo #3D3DDF): accent
-  #7B3FA0 (FamilyColors.v31Indigo, which FamilyColors.indigo points
-  to) for buttons, selected chips and links; the family header gradient
-  is #4A1C7A -> #42186C (45%) -> #2A0E45 with a soft radial highlight
+- Family palette is the approved indigo (reinstated from the 28 approved
+  prototype boards, superseding the 8 Sep purple): accent #3D3DDF
+  (FamilyColors.v31Indigo, which FamilyColors.indigo points to) for
+  buttons, selected chips and links; the family header gradient is
+  #2E2A9E -> #1E1780 (45%) -> #120D4F with a soft radial highlight
   top-right (FamilyColors.headerGradient); the page behind family cards
-  is #ECE8F2 (FamilyColors.v31Page). Take Family colours from
+  is #EBEBF7 (FamilyColors.v31Page). Take Family colours from
   family_colors.dart, never a one-off hex (the old Family purple
-  #9C27B0 is retired).
-- Footer (when rebuilt as the floating capsule): active slot gets a lit grey
-  pill, the ALRT slot uses the full six-path ALRT logo SVG (32x26, never
+  #7B3FA0 and #9C27B0 are both retired).
+- Footer (frosted light bar with labels, 18 px radius): six slots in order
+  Map, Alerts, Report, Ready, Family, Me. Active slot gets brand orange
+  #E8622A, the ALRT slot uses the full six-path ALRT logo SVG (never
   redrawn or substituted) and opens Report, the Alerts bell always carries
   the red unread dot when anything is unread, the avatar shows a ring while
   any live share or SOS runs, and the footer is absent on exactly one
-  screen: full-screen SOS.
+  screen: full-screen SOS. Search tab removed (search lives in the Map
+  search bar). Ready is new.
 - Typography: primary font is Arial (resolves to Helvetica on iOS, Roboto
   on Android) via AppTheme.defaultFontFamily, with fallbacks Aptos,
   Helvetica Neue, Helvetica, Roboto, San Francisco. Poppins is
@@ -233,7 +235,7 @@ docs/V1_ACCESS_MODEL_IMPLEMENTATION.md.
 - Codegen: `dart run build_runner build --delete-conflicting-outputs` only.
   NEVER use --build-filter (it corrupts other generated files).
 - `flutter analyze` must pass before every push; ~5 pre-existing infos
-  (deprecations + the .env asset warning) are the accepted baseline.
+  (deprecations) are the accepted baseline.
 - CI: android-apk.yml publishes the dev APK to a fixed release URL
   (tag dev-latest) — the QR code never changes.
 - Work happens on branch `claude/safety-alert-repo-audit-8exgvn`.

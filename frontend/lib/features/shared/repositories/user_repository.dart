@@ -24,6 +24,8 @@ abstract class UserRepository {
     void Function(int, int)? onSendProgress,
   });
 
+  Future<Either<void, AppError>> deleteUserProfilePicture();
+
   Future<Either<LocationSubscription, AppError>> subscribeToLocation({
     required final double northeastLat,
     required final double northeastLng,
@@ -120,6 +122,18 @@ class UserRepositoryImpl implements UserRepository {
           onSendProgress: onSendProgress,
         );
         return Success(result);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
+  Future<Either<void, AppError>> deleteUserProfilePicture() {
+    return runAsyncCall(
+      name: 'deleteUserProfilePicture',
+      future: () async {
+        await _restClient.deleteUserProfilePicture();
+        return Success(null);
       },
       onError: Failure.new,
     );

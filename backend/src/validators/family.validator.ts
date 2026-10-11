@@ -119,6 +119,7 @@ export const familyScheduledCheckInSchema = z.object({
   timeOfDay: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "timeOfDay must be HH:mm (24h)"),
+  timezone: z.string().min(1).max(64).optional(),
   mode: z.enum(["automatic", "prompted"]).optional(),
 });
 

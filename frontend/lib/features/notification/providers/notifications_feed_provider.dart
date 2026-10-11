@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:hazard_app/features/notification/providers/last_feed_fetch_provider.dart';
 import 'package:hazard_app/features/notification/providers/service_providers.dart';
 import 'package:hazard_app/features/notification/providers/states/notifications_feed_provider_state.dart';
 import 'package:hazard_app/features/notification/services/notification_service.dart';
@@ -162,6 +163,7 @@ class NotificationsFeedProvider
               ),
         );
         updateHazards(visible);
+        _ref.read(providerOfLastFeedFetchAt.notifier).state = DateTime.now();
       },
       (error) {
         state = state.copyWith(
@@ -238,6 +240,7 @@ class NotificationsFeedProvider
               GetNotificationsFeedHazardsState.success(visible),
         );
         addMultipleToHazards(visible);
+        _ref.read(providerOfLastFeedFetchAt.notifier).state = DateTime.now();
       },
       (error) {
         state = state.copyWith(

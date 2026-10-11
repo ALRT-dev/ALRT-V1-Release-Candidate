@@ -8,6 +8,7 @@ import 'package:hazard_app/features/map/services/location_service.dart';
 import 'package:hazard_app/features/profile/providers/my_hazards_provider.dart';
 import 'package:hazard_app/features/profile/providers/states/my_hazards_provider_state.dart';
 import 'package:hazard_app/features/report/providers/duplicate_report_provider.dart';
+import 'package:hazard_app/features/report/providers/report_rate_limit_provider.dart';
 import 'package:hazard_app/features/report/providers/states/create_update_report_provider_state.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_types.dart';
@@ -178,6 +179,17 @@ class CreateReportProvider
         _mapProvider.getMapHazards();
       },
       (error) {
+        // Rate limit (3/hour, 10/day): show the refusal and drop the attempt.
+        if (error.code == '429') {
+          updateCreatingHazardReports(
+            state.creatingUpdatingHazardReports
+                .where((chr) => chr.id != creatingHazardReport.id)
+                .toList(),
+          );
+          _ref.read(providerOfReportRateLimit.notifier).state = error.message;
+          return;
+        }
+
         // A repeat of a live alert nearby is not a failed upload: offer to
         // confirm the existing alert instead and drop this attempt.
         final duplicate = DuplicateReport.fromErrorDetails(

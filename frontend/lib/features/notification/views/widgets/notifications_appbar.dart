@@ -4,13 +4,17 @@ import 'package:hazard_app/features/shared/providers/states/hazard_filters_provi
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
+import 'package:hazard_app/features/notification/providers/push_inbox_provider.dart';
 import 'package:hazard_app/features/notification/providers/states/notifications_feed_provider_state.dart';
+import 'package:hazard_app/features/notification/views/screens/push_inbox_screen.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/hazard_filters_button.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class NotificationsAppBar extends ConsumerStatefulWidget {
   const NotificationsAppBar({super.key});
@@ -82,6 +86,10 @@ class _NotificationsAppBarState extends ConsumerState<NotificationsAppBar> {
               fontSize: 24.spMin,
             ),
           ),
+          actions: [
+            _pushInboxButton(),
+            8.wSizedBox,
+          ],
           bottom: !isHazardsPresent && !isHazardsLoading && !hasFiltersSelected
               ? PreferredSize(
                   preferredSize: Size.fromHeight(0),
@@ -104,6 +112,51 @@ class _NotificationsAppBarState extends ConsumerState<NotificationsAppBar> {
                     ],
                   ),
                 ),
+        );
+      },
+    );
+  }
+
+  Widget _pushInboxButton() {
+    return Consumer(
+      builder: (context, ref, child) {
+        // Re-watch whenever the list changes so the badge updates.
+        ref.watch(providerOfPushInbox);
+        final unread =
+            ref.read(providerOfPushInbox.notifier).unreadCount;
+        return GestureDetector(
+          onTap: () => context.push(PushInboxScreen.route),
+          child: SizedBox(
+            width: 40.spMin,
+            height: 40.spMin,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  LucideIcons.bell,
+                  color: AppColors.white,
+                  size: 22.spMin,
+                ),
+                if (unread > 0)
+                  Positioned(
+                    top: 4.spMin,
+                    right: 4.spMin,
+                    child: Container(
+                      width: 10.spMin,
+                      height: 10.spMin,
+                      decoration: BoxDecoration(
+                        color: AppColors.emergency,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
