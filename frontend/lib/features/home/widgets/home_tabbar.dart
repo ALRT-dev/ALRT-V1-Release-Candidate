@@ -30,7 +30,7 @@ class HomeTabbar extends ConsumerStatefulWidget {
   static const double height = 76.0;
 
   /// Indigo accent for the Family destination.
-  static const familyIndigo = Color(0xFF7C7CE0);
+  static const familyIndigo = Color(0xFF7B3FA0);
 
   /// The ring the avatar wears while an SOS is running.
   static const _sosRing = Color(0xFFE4002B);

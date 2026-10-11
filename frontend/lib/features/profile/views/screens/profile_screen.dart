@@ -7,7 +7,7 @@ import 'package:hazard_app/others/env.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_journey_screen.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
@@ -1183,7 +1183,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         children: [
           Text(
             NumberFormat.compact().format(value),
-            style: GoogleFonts.poppins(
+            style: TextStyle(
+              fontFamily: 'Arial',
               fontSize: 30.spMin,
               fontWeight: FontWeight.bold,
               color: valueColor,

@@ -16,10 +16,10 @@ explicit instruction from the product owner in the current session.
   Hazard.globalHumanitarianSourceIds alone. Every shape, the shield
   included, takes the band hexes above; there is no separate brighter
   shield palette.
-- Category colours (brightened 2026-08-04; Security changed to magenta
-  2026-08-20, both on product-owner instruction): Weather #2FA6FF,
-  Health #FF7E29, Security #D946EF (magenta, never red — red is reserved
-  for highest-danger severity), Traffic #00CC96, Utilities #FFB300,
+- Category colours (brightened 2026-08-04; Security changed to
+  crimson-pink 2026-09-08, product-owner instruction): Weather #2FA6FF,
+  Health #FF7E29, Security #D9304F (crimson-pink, "make security and
+  crime a bit more red"), Traffic #00CC96, Utilities #FFB300,
   Community #C233DB, Other #A67C52.
 - Plain-terms summary sits on the dark surface #23252B with white text.
 - V3 section labels: #B84500, uppercase, letter-spaced. Exception: the
@@ -40,6 +40,13 @@ explicit instruction from the product owner in the current session.
   the red unread dot when anything is unread, the avatar shows a ring while
   any live share or SOS runs, and the footer is absent on exactly one
   screen: full-screen SOS.
+- Typography: primary font is Arial (resolves to Helvetica on iOS, Roboto
+  on Android) via AppTheme.defaultFontFamily, with fallbacks Aptos,
+  Helvetica Neue, Helvetica, Roboto, San Francisco. Poppins is
+  deliberately removed (see app_theme.dart comment). Bebas Neue is
+  preloaded via GoogleFonts in app_bootstrap.dart for display use (XP
+  counters, leaderboard figures); it is the only Google Font the app
+  fetches at runtime.
 
 ## Safety and privacy (non-negotiable)
 
