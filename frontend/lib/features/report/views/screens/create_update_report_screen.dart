@@ -32,6 +32,7 @@ import 'package:hazard_app/features/shared/views/widgets/dotted_border_container
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Community report photo/video. Off for V1. Matches backend COMMUNITY_REPORT_MEDIA_ENABLED.

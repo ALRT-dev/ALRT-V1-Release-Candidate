@@ -15,7 +15,7 @@ class SecureTokenStorage {
     FlutterSecureStorage? secureStorage,
   }) : _secureStorage = secureStorage ??
             const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
+              aOptions: AndroidOptions(),
             );
 
   final FlutterSecureStorage _secureStorage;
