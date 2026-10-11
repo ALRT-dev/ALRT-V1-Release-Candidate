@@ -8,7 +8,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -231,9 +230,6 @@ Future<void> _shoot(
 
 void main() {
   setUpAll(() async {
-    dotenv.loadFromString(
-      envString: 'ALRT_PLUS_TEST_UNLOCK=false\nREVENUECAT_API_KEY_GOOGLE=\n',
-    );
     if (_enabled) await loadScreenshotFonts();
   });
 

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -96,9 +95,6 @@ Future<void> _open(WidgetTester tester) async {
 }
 
 void main() {
-  setUpAll(() {
-    dotenv.loadFromString(envString: 'ALRT_PLUS_TEST_UNLOCK=false\n');
-  });
   setUp(() {
     final view =
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
