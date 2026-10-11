@@ -104,14 +104,13 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
 
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.orange300,
-            AppColors.orange,
-          ],
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.orange.withValues(alpha: 0.15),
+            width: 1,
+          ),
         ),
       ),
       child: SafeArea(
@@ -130,7 +129,7 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                       padding: EdgeInsets.all(4.spMin),
                       child: Icon(
                         LucideIcons.chevronLeft,
-                        color: AppColors.white,
+                        color: AppColors.black,
                         size: 24.spMin,
                       ),
                     ),
@@ -144,7 +143,7 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                       style: TextStyle(
                         fontSize: 15.spMin,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.white,
+                        color: AppColors.mediumGrey,
                       ),
                     ),
                   ),
@@ -159,7 +158,7 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                       vertical: 4.spMin,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.white,
+                      color: AppColors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(100.spMin),
                     ),
                     child: Text(
@@ -177,7 +176,7 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                   style: TextStyle(
                     fontSize: 22.spMin,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.white,
+                    color: AppColors.black,
                     height: 1.2,
                   ),
                 ),
@@ -187,7 +186,7 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                     children: [
                       Icon(
                         LucideIcons.shieldCheck,
-                        color: AppColors.white,
+                        color: AppColors.orange,
                         size: 15.spMin,
                       ),
                       6.wSizedBox,
@@ -199,7 +198,7 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                           style: TextStyle(
                             fontSize: 12.spMin,
                             fontWeight: FontWeight.w500,
-                            color: AppColors.white,
+                            color: AppColors.mediumGrey,
                           ),
                         ),
                       ),

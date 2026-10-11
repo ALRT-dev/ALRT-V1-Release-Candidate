@@ -137,20 +137,17 @@ class _CreateUpdateReportScreenState
       backgroundColor: _pageColor,
       bottomNavigationBar: _submitBarBuilder(),
       appBar: AppBar(
-        backgroundColor: AppColors.transparent,
+        backgroundColor: AppColors.white,
         surfaceTintColor: AppColors.transparent,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.orange300,
-                AppColors.red200,
-              ],
-            ),
-          ),
-        ),
+        elevation: 0,
         centerTitle: false,
         toolbarHeight: 64.spMin,
+        shape: Border(
+          bottom: BorderSide(
+            color: AppColors.orange.withValues(alpha: 0.15),
+            width: 1,
+          ),
+        ),
         title: Consumer(
           builder: (context, ref, child) {
             final isUpdating = ref.watch(
@@ -176,7 +173,7 @@ class _CreateUpdateReportScreenState
                 Text(
                   isUpdating ? 'Update an ALRT' : 'Report an ALRT',
                   style: TextStyle(
-                    color: AppColors.white,
+                    color: AppColors.black,
                     fontSize: 21.spMin,
                     fontWeight: FontWeight.w700,
                     height: 1.1,
@@ -186,7 +183,7 @@ class _CreateUpdateReportScreenState
                 Text(
                   'Tell your neighbours what you can see',
                   style: TextStyle(
-                    color: AppColors.white.withValues(alpha: 0.9),
+                    color: AppColors.mediumGrey,
                     fontSize: 13.spMin,
                     fontWeight: FontWeight.w400,
                     height: 1.1,
@@ -196,7 +193,7 @@ class _CreateUpdateReportScreenState
             );
           },
         ),
-        foregroundColor: AppColors.white,
+        foregroundColor: AppColors.black,
         actions: [
           _clearAllBuilder(),
           15.wSizedBox,
@@ -402,18 +399,14 @@ class _CreateUpdateReportScreenState
   Widget _disclosureBandBuilder() {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.orange300, AppColors.red200],
-        ),
-      ),
-      padding: EdgeInsets.fromLTRB(16.spMin, 0, 16.spMin, 14.spMin),
+      color: _pageColor,
+      padding: EdgeInsets.fromLTRB(16.spMin, 12.spMin, 16.spMin, 4.spMin),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.black.withValues(alpha: 0.18),
+          color: const Color(0xFFFFF4ED),
           borderRadius: BorderRadius.circular(11.spMin),
           border: Border.all(
-            color: AppColors.white.withValues(alpha: 0.25),
+            color: AppColors.orange.withValues(alpha: 0.2),
           ),
         ),
         padding: EdgeInsets.symmetric(
@@ -426,7 +419,7 @@ class _CreateUpdateReportScreenState
             Icon(
               LucideIcons.info,
               size: 14.spMin,
-              color: AppColors.white,
+              color: AppColors.orange,
             ),
             SizedBox(width: 8.spMin),
             Expanded(
@@ -436,8 +429,8 @@ class _CreateUpdateReportScreenState
                 style: TextStyle(
                   fontSize: 12.5.spMin,
                   height: 1.4,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.white,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF5C4A3A),
                   fontFamily: AppTheme.defaultFontFamily,
                 ),
               ),
@@ -714,13 +707,13 @@ class _CreateUpdateReportScreenState
           width: 38.spMin,
           height: 38.spMin,
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.2),
+            color: AppColors.orange.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
           child: Icon(
             LucideIcons.star,
             size: 16.spMin,
-            color: AppColors.white,
+            color: AppColors.orange,
           ),
         ),
         8.wSizedBox,
@@ -733,7 +726,7 @@ class _CreateUpdateReportScreenState
                 style: TextStyle(
                   fontSize: 15.spMin,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.black,
                   height: 1.4,
                   letterSpacing: -0.5,
                 ),
@@ -753,7 +746,7 @@ class _CreateUpdateReportScreenState
                       text: '+10 points ',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: AppColors.white,
+                        color: AppColors.orange,
                       ),
                     ),
                     TextSpan(
@@ -764,9 +757,7 @@ class _CreateUpdateReportScreenState
                 style: TextStyle(
                   fontSize: 13.5.spMin,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(
-                    alpha: 0.7,
-                  ),
+                  color: AppColors.mediumGrey,
                 ),
               ),
             ],

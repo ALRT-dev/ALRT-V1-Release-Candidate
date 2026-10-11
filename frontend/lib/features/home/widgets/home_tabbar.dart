@@ -132,14 +132,9 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+              SizedBox(
                 width: 36.spMin,
                 height: 36.spMin,
-                decoration: BoxDecoration(
-                  color: isActive ? _activeCircleColor : Colors.transparent,
-                  shape: BoxShape.circle,
-                ),
                 child: Center(
                     child: _tabIconBuilder(tab, isActive: isActive)),
               ),
@@ -205,16 +200,9 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
+                  SizedBox(
                     width: 36.spMin,
                     height: 36.spMin,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? _activeCircleColor
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
                     child: Center(
                       child: Stack(
                         clipBehavior: Clip.none,
@@ -299,7 +287,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
         return Icon(
           tab.iconData,
           size: 20.spMin,
-          color: isActive ? AppColors.white : AppColors.mediumGrey,
+          color: isActive ? _activeCircleColor : AppColors.mediumGrey,
         );
     }
   }
@@ -324,7 +312,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
             Icon(
               HomeTab.notifications.iconData,
               size: 20.spMin,
-              color: isActive ? AppColors.white : AppColors.mediumGrey,
+              color: isActive ? _activeCircleColor : AppColors.mediumGrey,
             ),
             if (hasFreshAlerts)
               Positioned(
@@ -387,7 +375,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
             : isSharingLive
             ? HomeTabbar.familyIndigo
             : isActive
-            ? AppColors.white
+            ? _activeCircleColor
             : null;
 
         return Container(
