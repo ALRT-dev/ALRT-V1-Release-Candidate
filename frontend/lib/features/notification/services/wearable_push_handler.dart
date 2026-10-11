@@ -5,7 +5,6 @@ import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hazard_app/api/endpoints.dart';
@@ -21,8 +20,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///    data-only pilot push and draws it with action buttons. Any other
 ///    message is ignored here (the system or the foreground app draws it
 ///    as today).
-/// 2. [alrtWearableBackgroundActionHandler] runs when "Check in to
-///    <circle>" is tapped in the tray or on a mirrored watch notification:
+/// 2. [alrtWearableBackgroundActionHandler] runs when `Check in to
+///    <circle>` is tapped in the tray or on a mirrored watch notification:
 ///    it posts the check-in with NO location, using the phone's own
 ///    session, and then shows a follow-up notification with the server's
 ///    answer. Opening the notification itself sends nothing.
@@ -50,11 +49,17 @@ Future<void> alrtWearableBackgroundActionHandler(
   final NotificationResponse response,
 ) async {
   if (response.actionId != WearablePush.actionCheckInCircle) return;
-  WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
-  final parsed = WearableNotifications.parsePayload(response.payload);
-  if (parsed == null || !parsed.isCheckInRequest) return;
-  await WearableCheckInAction().perform(parsed);
+  // The plugin does not await this handler: anything thrown here would be
+  // an uncaught zone error with nobody to see it.
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
+    final parsed = WearableNotifications.parsePayload(response.payload);
+    if (parsed == null || !parsed.isCheckInRequest) return;
+    await WearableCheckInAction().perform(parsed);
+  } catch (e) {
+    debugPrint('wearable check-in action failed: $e');
+  }
 }
 
 /// Draws pilot pushes with their buttons. Owns its own plugin instance so
@@ -68,6 +73,11 @@ class WearableNotifications {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+
+  /// The plugin is a singleton. When the foreground app has already
+  /// initialised it (with its tap handler and iOS categories), this must
+  /// not initialise it again, or the tap handler would be replaced.
+  void markInitialized() => _initialized = true;
 
   static WearablePushMessage? parsePayload(final String? payload) {
     if (payload == null || payload.isEmpty) return null;
@@ -134,16 +144,40 @@ class WearableNotifications {
     ];
   }
 
+  /// The urgent channel exists only while the user's strong-vibration
+  /// switch is on (LocalNotificationService.applyStrongVibrationChannel).
+  /// Drawing on it when it does not exist would create it with a default
+  /// pattern and defeat the switch, so an urgent push goes to the urgent
+  /// channel only if that channel already exists, and a server-named
+  /// channel is never created from here.
+  Future<String> _channelFor(final WearablePushMessage m) async {
+    if (!m.urgent) return WearablePush.channelDefault;
+    try {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      final channels = await android?.getNotificationChannels();
+      final exists =
+          channels?.any((c) => c.id == WearablePush.channelUrgent) ?? false;
+      return exists ? WearablePush.channelUrgent : WearablePush.channelDefault;
+    } catch (_) {
+      return WearablePush.channelDefault;
+    }
+  }
+
   Future<void> show(final WearablePushMessage m) async {
+    if (kIsWeb || !Platform.isAndroid) return;
     await _ensureInitialized();
-    final urgent = m.urgent && m.channelId == WearablePush.channelUrgent;
+    final channelId = await _channelFor(m);
+    final urgent = channelId == WearablePush.channelUrgent;
     await _plugin.show(
       m.notificationId,
       m.title,
       m.body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          m.channelId,
+          channelId,
           urgent ? 'Urgent alerts (strong vibration)' : 'Safety alerts',
           channelDescription: urgent
               ? 'Take-action and critical alerts with long strong vibration'
@@ -169,6 +203,7 @@ class WearableNotifications {
     final WearablePushMessage m,
     final WearableFollowUp followUp,
   ) async {
+    if (kIsWeb || !Platform.isAndroid) return;
     await _ensureInitialized();
     await _plugin.show(
       m.followUpNotificationId,
@@ -193,6 +228,7 @@ class WearableNotifications {
   /// tray (and a mirrored watch) no longer offers a button that would do
   /// nothing.
   Future<void> dismiss(final WearablePushMessage m) async {
+    if (kIsWeb || !Platform.isAndroid) return;
     await _ensureInitialized();
     await _plugin.cancel(m.notificationId, tag: m.collapseKey);
   }
@@ -232,9 +268,13 @@ class WearableCheckInAction {
     final requestId = m.requestId;
     final circleName = m.circleName ?? 'your circle';
     if (requestId == null || requestId.isEmpty) {
+      await _report(m, WearableCheckInOutcome.failed, circleName);
       return WearableCheckInOutcome.failed;
     }
     final prefs = await _prefs();
+    // The background engine is reused across taps: without a reload the
+    // cache could hold the previous account's session or answered list.
+    await prefs.reload();
 
     // Answered already from a notification on this phone: say so, send
     // nothing. The server would dedupe anyway (same clientKey), but the
@@ -300,11 +340,15 @@ class WearableCheckInAction {
         status = await post(accessToken);
       }
     }
+    final firstUnanswered = status == null;
     if (status == null) {
       // Sent, no answer: one more attempt with the SAME key. The server
       // treats a repeat as the same check-in, so this can never create a
       // second row or a second push to the circle.
       status = await post(accessToken);
+      // If the first attempt may have reached the server but the retry
+      // could not connect, the truth is "uncertain", not "offline".
+      if (status == -1 && firstUnanswered) status = null;
     }
 
     WearableCheckInOutcome outcome;
@@ -319,11 +363,17 @@ class WearableCheckInAction {
     }
 
     if (outcome == WearableCheckInOutcome.confirmed) {
-      await prefs.setStringList(
-        SharedPrefsKey.wearableAnsweredRequestIds.name,
-        rememberAnsweredRequest(answered, requestId),
-      );
-      await _notifications.dismiss(m);
+      // Bookkeeping must never cost the user the follow-up that says the
+      // server confirmed.
+      try {
+        await prefs.setStringList(
+          SharedPrefsKey.wearableAnsweredRequestIds.name,
+          rememberAnsweredRequest(answered, requestId),
+        );
+        await _notifications.dismiss(m);
+      } catch (_) {
+        // The follow-up below still goes out.
+      }
     }
     await _report(m, outcome, circleName, reason: reason);
     return outcome;

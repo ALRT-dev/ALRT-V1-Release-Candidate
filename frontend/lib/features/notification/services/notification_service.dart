@@ -203,7 +203,7 @@ class NotificationService {
     _goToHomeTab(HomeTab.family);
   }
 
-  /// "Check in to <circle>" tapped on a pilot notification while the app is
+  /// `Check in to <circle>` tapped on a pilot notification while the app is
   /// open: the same no-location check-in the background isolate performs,
   /// then the circle state is reloaded so the hub reflects it. No screen is
   /// opened: the follow-up notification says what happened.

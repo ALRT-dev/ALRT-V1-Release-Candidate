@@ -78,17 +78,20 @@ class AppBootstrap {
     return runAsyncCall(
       name: 'initializeWearablePilot',
       future: () async {
-        final override = dotenv.env['DEV_BASE_URL'];
-        final baseUrl = flavor == AppFlavor.dev
-            ? ((override != null && override.isNotEmpty)
-                  ? override
-                  : kUrlBaseDev)
-            : kUrlBase;
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(SharedPrefsKey.apiBaseUrl.name, baseUrl);
+        // Register first: a failure to store the base URL must not cost
+        // the handler, and prod never touches dotenv here.
         FirebaseMessaging.onBackgroundMessage(
           alrtWearableBackgroundMessageHandler,
         );
+        var baseUrl = kUrlBase;
+        if (flavor == AppFlavor.dev) {
+          final override = dotenv.env['DEV_BASE_URL'];
+          baseUrl = (override != null && override.isNotEmpty)
+              ? override
+              : kUrlBaseDev;
+        }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(SharedPrefsKey.apiBaseUrl.name, baseUrl);
       },
       onError: (_) {},
     );

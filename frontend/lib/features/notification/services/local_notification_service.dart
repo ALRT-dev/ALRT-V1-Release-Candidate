@@ -130,6 +130,9 @@ class LocalNotificationService {
       onDidReceiveBackgroundNotificationResponse:
           alrtWearableBackgroundActionHandler,
     );
+    // The plugin is a singleton: the pilot's drawer must not initialise it
+    // a second time on this isolate and replace the handlers above.
+    WearableNotifications.instance.markInitialized();
 
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
@@ -253,6 +256,9 @@ class LocalNotificationService {
               : _channelDescription,
           importance: Importance.max,
           priority: Priority.high,
+          // A pilot push drawn here must share its tag with the background
+          // drawer, so a redelivery replaces it and dismiss() finds it.
+          tag: wearable?.collapseKey,
           actions: actions,
         ),
       ),
