@@ -981,7 +981,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         sublabel: hasCircle
                             ? (circleCount > 1
                                 ? '$circleName · tap to change'
-                                : circleName!)
+                                : circleName)
                             : 'Loading...',
                         loading: isSending,
                         onTap: hasCircle
