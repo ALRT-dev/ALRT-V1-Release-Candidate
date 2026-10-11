@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hazard_app/features/onboarding/providers/onboarding_provider.dart';
+import 'package:hazard_app/features/onboarding/providers/states/onboarding_provider_state.dart';
 import 'package:hazard_app/features/onboarding/views/onboarding_alrt_plus_screen.dart';
 import 'package:hazard_app/features/subscription/models/access_models.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
@@ -68,6 +70,14 @@ Widget _app(
     providerOfAlrtPlus.overrideWith((ref) async => false),
     providerOfAlrtPlusBillingIssue.overrideWith((ref) async => false),
     providerOfExpiredAlrtPlus.overrideWith((ref) async => null),
+    // OnboardingAlrtPlusScreen's GradientButton watches this provider;
+    // without an override, it tries to construct the full service chain.
+    providerOfOnboarding.overrideWith(
+      (ref) => OnboardingProvider(
+        ref: ref,
+        initialState: OnboardingProviderState(),
+      ),
+    ),
   ],
   child: ScreenUtilInit(
     designSize: const Size(375, 812),
