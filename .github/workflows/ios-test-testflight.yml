@@ -462,6 +462,7 @@ jobs:
         run: |
           set -x
           flutter build ios --simulator --debug --flavor dev -t lib/main_dev.dart \
+            --dart-define-from-file=.env \
             --dart-define=ALRT_EMAIL_AUTH=true \
             --dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} \
             --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }}
@@ -516,6 +517,7 @@ jobs:
           # TEST builds only: show the email sign-in button (the app hides it by
           # default). The server still decides who may sign in with a password.
           flutter build ipa --release --flavor dev -t lib/main_dev.dart \
+            --dart-define-from-file=.env \
             --dart-define=ALRT_EMAIL_AUTH=true \
             --dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} \
             --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }} \
