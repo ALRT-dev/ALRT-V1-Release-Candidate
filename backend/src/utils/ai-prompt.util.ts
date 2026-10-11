@@ -436,7 +436,7 @@ Always respond with **valid JSON** in this format:
  * This is the V2 extraction-only prompt. The AI's *only* job is to extract
  * facts from an alert and write a plain-language meaning. It must NEVER:
  *   - set or infer a severity/urgency band (that is a deterministic keyword
- *     scan keyed on the source — see severity_scan.service.ts),
+ *     scan keyed on the source: see ingestion.severity.util.ts),
  *   - give safety/movement advice (that comes from the pre-written For You
  *     library, not from the model),
  *   - invent a level, category, or fact that isn't in the source text.

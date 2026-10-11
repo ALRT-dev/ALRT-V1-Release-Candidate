@@ -36,7 +36,9 @@ export type { AskRequest, NearbyAlert } from "./ask_alrt/rules.js";
  *      library's generic emergency answer never hides the number asked for).
  *   2. Pre-written library, zero AI.
  *   3. AI fallback (Claude Haiku on Bedrock), the only path that spends money.
- * Every answer counts as one question against the person's daily allowance.
+ * Only an answer that goes to the AI model counts against the person's daily
+ * allowance (ruling 3 Oct 2026). Library and emergency-number answers are
+ * never counted and never refused with 429.
  * Nothing the person types is stored: only a count per day.
  */
 
@@ -189,11 +191,13 @@ const requireQuota = async (userId: string, plan: AskPlan, timeZone: string): Pr
   return count;
 };
 
-const atDailyCap = async (userId: string, plan: AskPlan, timeZone: string): Promise<boolean> => {
+/** Read-only: how many AI questions are left today. Never consumes. */
+const remainingQuota = async (userId: string, plan: AskPlan, timeZone: string): Promise<number> => {
   const row = await prisma.askAlrtUsage.findUnique({
     where: { userId_dayKey: { userId, dayKey: localDayKey(new Date(), timeZone) } },
   });
-  return (row?.aiCount ?? 0) >= AI_DAILY_LIMIT[plan];
+  const limit = AI_DAILY_LIMIT[plan];
+  return Math.max(0, limit - Math.min(row?.aiCount ?? 0, limit));
 };
 
 const refundQuota = async (userId: string, timeZone: string): Promise<void> => {
@@ -240,33 +244,30 @@ export const askAlrt = async (
   const timeZone = userId
     ? await effectiveTimeZone(userId, zoneFromRequest(data.timeZone, data.utcOffsetMinutes))
     : "UTC";
+  // Counts one AI question (429 at the cap) and returns what is left today.
   const count = async (): Promise<number | undefined> =>
     userId ? AI_DAILY_LIMIT[plan] - (await requireQuota(userId, plan, timeZone)) : undefined;
+  // Read-only counter for answers that never count (library, emergency number).
+  const peek = async (): Promise<number | undefined> =>
+    userId ? remainingQuota(userId, plan, timeZone) : undefined;
 
   // 1 and 2. Zero-AI answers: a named country's emergency number first (so
   // "what number do I call in Japan" gets Japan's number, not the library's
-  // generic answer), otherwise the library (see localAnswer).
+  // generic answer), otherwise the library (see localAnswer). Neither counts
+  // against the daily allowance and neither is ever refused with 429
+  // (ruling 3 Oct 2026): only answers that go to the AI model count.
   const emergency = await loadEmergency();
   const local = localAnswer(question, await loadEntries(), {
     aliases: aliasesFromNames(emergency.names),
     answerFor: (iso) => emergencyAnswer(iso, emergency.table, emergency.names),
   });
   if (local?.source === "library") {
-    const remainingToday = await count();
+    const remainingToday = await peek();
     console.log(JSON.stringify({ event: "ask_alrt_answered", source: "library", entry: local.entry.id }));
     return { answer: local.entry.answer, source: "library", usedAI: false, ...(remainingToday !== undefined && { remainingToday }) };
   }
   if (local?.source === "emergency_lookup") {
-    // At the cap the number is still shown, uncounted.
-    let remainingToday: number | undefined;
-    if (userId) {
-      if (await atDailyCap(userId, plan, timeZone)) {
-        remainingToday = 0;
-      } else {
-        const used = await consumeQuota(userId, plan, timeZone);
-        remainingToday = used === null ? 0 : AI_DAILY_LIMIT[plan] - used;
-      }
-    }
+    const remainingToday = await peek();
     console.log(JSON.stringify({ event: "ask_alrt_answered", source: "emergency_lookup", iso: local.iso }));
     return { answer: local.answer, source: "emergency_lookup", usedAI: false, ...(remainingToday !== undefined && { remainingToday }) };
   }

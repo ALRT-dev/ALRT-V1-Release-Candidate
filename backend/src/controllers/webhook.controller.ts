@@ -179,8 +179,6 @@ const processSingleHazard = async (
     title,
     description,
     aiSummary,
-    severity = attributes.severity,
-    severityBand = attributes.severityBand,
     callsToAction,
     fireStatus = attributes.fireStatus || undefined,
     latitude,
@@ -192,11 +190,15 @@ const processSingleHazard = async (
     southwestLng,
     categoryId,
     sourceId,
-    isAwsCompliant = attributes.isAwsCompliant,
     link,
     occurredAt,
     expiresAt,
   } = hazardData;
+  // Severity, band and AWS compliance come from the server's own scan of the
+  // description only; the validator strips any client-supplied values.
+  const severity = attributes.severity;
+  const severityBand = attributes.severityBand;
+  const isAwsCompliant = attributes.isAwsCompliant;
 
   // Step 2: Validate source
   const source = await prisma.hazardSource.findUnique({

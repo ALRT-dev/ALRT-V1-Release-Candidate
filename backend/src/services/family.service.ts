@@ -21,7 +21,6 @@ import {
 import {
   awardFamilyJoined,
   awardSavedPlace,
-  touchActivityStreak,
 } from "./xp_ledger.service.js";
 import {
   assertConnectionAccess,
@@ -1623,11 +1622,8 @@ export const createCheckIn = async (
     return created;
   });
 
-  // Checking in counts as daily activity for the streak (no XP awarded —
-  // safety actions never earn points, streaks only gate the report bonus).
-  touchActivityStreak(userId).catch((error) =>
-    console.error("Streak touch failed on check-in:", error),
-  );
+  // No XP for checking in: safety actions never earn points. (The streak
+  // touch that used to live here was removed with the streak multiplier.)
 
   const memberName =
     checkIn.member.nickname || checkIn.member.user.name || "A family member";
@@ -1880,8 +1876,15 @@ export const createScheduledCheckIn = async (
 ) => {
   const membership = await requireMembership(userId, circleId);
 
-  // Validate the timezone if provided, fall back to Brisbane.
-  const tz = input.timezone ?? "Australia/Brisbane";
+  // The time zone is required: a scheduled check-in is a local time and the
+  // server never guesses the zone (no Brisbane default).
+  const tz = input.timezone?.trim();
+  if (!tz) {
+    throw new HttpError(
+      400,
+      "timezone is required for a scheduled check-in (an IANA zone such as Australia/Perth)",
+    );
+  }
   try {
     Intl.DateTimeFormat(undefined, { timeZone: tz });
   } catch {
@@ -3277,10 +3280,13 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
   assertSosAudience(sos, userId, sender.user.id);
   if (sos.status !== "active") return sos;
 
-  // Decided rule: only the person who sent the SOS can end it. The group
-  // host cannot end someone else's SOS.
-  if (sos.memberId !== membership.id) {
-    throw new HttpError(403, "Only the person who sent the SOS can end it");
+  // The person who sent the SOS can end it, and so can the group host
+  // (role "owner"). Nobody else. endedByMemberId records who did it so
+  // history says who ended it.
+  const isSender = sos.memberId === membership.id;
+  const isHost = membership.role === "owner";
+  if (!isSender && !isHost) {
+    throw new HttpError(403, "Only the person who sent the SOS or the group host can end it");
   }
 
   // Ending also wipes the trigger position now, exactly as the 1-hour
@@ -3316,11 +3322,21 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
     sender.nickname || sender.user.name || "A family member";
 
   // Factual ending wording (master spec §12): never "safe" or "resolved".
+  // Sender's own end: "<Name> ended their SOS." Host's end: "<Host> ended
+  // <Name>'s SOS." so the audience knows who stood it down.
+  const hostName = isSender
+    ? null
+    : membership.nickname ||
+      (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }))?.name ||
+      "The group host";
+  const body = isSender
+    ? `${memberName} ended their SOS.`
+    : `${hostName} ended ${memberName}'s SOS.`;
   const audience = await sosAudienceUserIds(sos);
   await notifyUsers({
     userIds: audience.filter((id) => id !== userId),
     title: "SOS ended",
-    body: `${memberName} ended their SOS.`,
+    body,
     data: { circleId: membership.circleId, sosEventId: sos.id },
     type: PushNotificationType.familySosResolved,
     socketEvent: SocketEvent.familySosResolved,
@@ -3350,6 +3366,10 @@ export const resolveSos = async (userId: string, sosEventId: string) => {
  */
 export const SOS_MAX_DURATION_MS = 60 * 60 * 1000;
 
+/** Hard ceiling (locked spec): however often it is extended, an SOS can run
+ * for 4 hours at most from its createdAt. */
+export const SOS_TOTAL_CAP_MS = 4 * 60 * 60 * 1000;
+
 /** When this SOS stands itself down: 1 hour from the start, or from the
  * sender's latest confirmation to keep it going. */
 export const sosExpiresAt = (sos: {
@@ -3358,7 +3378,8 @@ export const sosExpiresAt = (sos: {
 }): Date =>
   sos.liveUntil ?? new Date(sos.createdAt.getTime() + SOS_MAX_DURATION_MS);
 
-/** Sender confirms the SOS should keep going: another hour from now. */
+/** Sender confirms the SOS should keep going: another hour from now, never
+ * past SOS_TOTAL_CAP_MS (4 hours) from the start (409 MAX_DURATION). */
 export const extendSos = async (userId: string, sosEventId: string) => {
   const sos = await prisma.familySosEvent.findUnique({
     where: { id: sosEventId },
@@ -3370,9 +3391,13 @@ export const extendSos = async (userId: string, sosEventId: string) => {
   if (sos.status !== "active" || sosExpiresAt(sos).getTime() <= Date.now()) {
     throw new HttpError(409, "This SOS has ended");
   }
+  const newLiveUntil = new Date(Date.now() + SOS_MAX_DURATION_MS);
+  if (newLiveUntil.getTime() > sos.createdAt.getTime() + SOS_TOTAL_CAP_MS) {
+    throw new HttpError(409, "SOS can run for 4 hours at most.", "MAX_DURATION");
+  }
   const updated = await prisma.familySosEvent.update({
     where: { id: sos.id },
-    data: { liveUntil: new Date(Date.now() + SOS_MAX_DURATION_MS) },
+    data: { liveUntil: newLiveUntil },
     include: {
       member: { select: memberIdentitySelect },
       responses: { include: { member: { select: memberIdentitySelect } } },

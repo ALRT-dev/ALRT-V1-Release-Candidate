@@ -119,7 +119,12 @@ export const familyScheduledCheckInSchema = z.object({
   timeOfDay: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "timeOfDay must be HH:mm (24h)"),
-  timezone: z.string().min(1).max(64).optional(),
+  // Required: a scheduled check-in is a local time, and the server never
+  // guesses the zone (the old Australia/Brisbane default is gone).
+  timezone: z
+    .string({ error: "timezone is required (an IANA zone such as Australia/Perth)" })
+    .min(1, "timezone is required (an IANA zone such as Australia/Perth)")
+    .max(64),
   mode: z.enum(["automatic", "prompted"]).optional(),
 });
 

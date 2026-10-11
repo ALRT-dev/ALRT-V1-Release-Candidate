@@ -240,7 +240,9 @@ export const getXpLeaderboard = async (
 
     // Privacy: other users are never identifiable on the leaderboard.
     // Only the caller's own row carries their name; ids and emails of
-    // other accounts are never returned.
+    // other accounts are never returned. Other rows carry rank and points
+    // only: reliabilityScore and hazardsReported are null for them (the
+    // app's XpLeaderboardEntry model defaults both when null or absent).
     const leaderboard = topUsers.map((user, index) => {
       const isSelf = user.id === callerUserId;
       return {
@@ -249,8 +251,8 @@ export const getXpLeaderboard = async (
         name: isSelf ? user.name || "You" : "Community member",
         isSelf,
         xpPoints: user.xpPoints,
-        reliabilityScore: user.reliabilityScore,
-        hazardsReported: user._count.hazardsReported,
+        reliabilityScore: isSelf ? user.reliabilityScore : null,
+        hazardsReported: isSelf ? user._count.hazardsReported : null,
       };
     });
 

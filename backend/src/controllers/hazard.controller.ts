@@ -15,6 +15,8 @@ import {
   reviewHazard,
 } from "../services/hazard.service.js";
 import {
+  communityPushWaitsForConfirmation,
+  sendCommunityConfirmationPush,
   sendPushNotificationAboutNewHazard,
   sendPushNotificationToUser,
 } from "../services/notification.service.js";
@@ -658,9 +660,15 @@ export const createHazard = async (
     // rather than on approval, because it marks the moment someone became a
     // contributor, not the quality of that one report.
     if (reviewStatus === HazardReviewStatus.accepted) {
-      // Send push notifications to users who subscribed to this area when a new hazard is created
-      // This will ignore the user who reported the hazard
-      sendPushNotificationAboutNewHazard(hazard);
+      // Subscriber push: the community source's pushPolicy decides WHEN.
+      // `afterConfirmation` (the §1 default for community reports) means no
+      // push on AI acceptance; the push goes out the first time another
+      // user confirms the report (see voteHazard). Any other policy keeps
+      // today's behaviour: push now. This never ignores the reporter's own
+      // socket event or the "ALRT Approved" message to the reporter.
+      if (!(await communityPushWaitsForConfirmation(hazard))) {
+        sendPushNotificationAboutNewHazard(hazard);
+      }
 
       // Send socket events to users who subscribed to this area when a new hazard is created
       // This will NOT ignore the user who reported the hazard
@@ -1278,6 +1286,38 @@ export const voteHazard = async (
     });
 
     await invalidateHazardCaches(hazardId);
+
+    // Community push on first confirmation (source pushPolicy
+    // `afterConfirmation`): a NEW upvote from someone other than the
+    // reporter on an accepted report. The count of confirming upvotes after
+    // this vote decides whether it is the first one; see
+    // sendCommunityConfirmationPush for the no-schema-change bookkeeping.
+    if (
+      result.updatedHazard &&
+      result.voteAction === "new" &&
+      voteType === "upvote" &&
+      result.updatedHazard.reportedById &&
+      result.updatedHazard.reportedById !== userId &&
+      result.updatedHazard.reviewStatus === HazardReviewStatus.accepted
+    ) {
+      try {
+        if (await communityPushWaitsForConfirmation(result.updatedHazard)) {
+          const confirmingUpvotes = await prisma.hazardVote.count({
+            where: {
+              hazardId,
+              voteType: HazardVoteType.upvote,
+              userId: { not: result.updatedHazard.reportedById },
+            },
+          });
+          await sendCommunityConfirmationPush({
+            hazard: result.updatedHazard,
+            confirmingUpvotes,
+          });
+        }
+      } catch (error) {
+        console.error("Community confirmation push failed:", error);
+      }
+    }
 
     if (result.updatedHazard) {
       // Award XP points for engagement changes (simple approach)

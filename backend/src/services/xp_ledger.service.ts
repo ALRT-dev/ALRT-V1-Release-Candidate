@@ -38,23 +38,16 @@ export const XP_POINTS: Record<XpEventType, number> = {
   shareInstall: 25,
 };
 
-/** Streak bonus: reports earn 1.2x once the streak reaches 3 days. */
-const STREAK_MULTIPLIER = 1.2;
-const STREAK_MIN_DAYS = 3;
+// Removed (Oct 2026): the activity-streak multiplier (1.2x after 3 days) and
+// the weekly guides quest. Points are flat. User.streakDays and
+// User.lastActivityDate are no longer written by the ledger; the columns stay
+// in the schema untouched. The summary keeps `streakDays: 0`,
+// `streakMultiplierActive: false` and `weeklyQuest: null` so older apps still
+// parse it.
 
 const CORROBORATION_RADIUS_KM = 1;
 const OFFICIAL_MATCH_RADIUS_KM = 5;
 const MATCH_WINDOW_MS = 12 * 60 * 60 * 1000;
-
-/** Weekly quest: complete this many guides in a (UTC, Monday-based) week. */
-export const WEEKLY_QUEST = {
-  id: "weekly-guides",
-  title: "Learn 2 safety guides",
-  description:
-    "Complete any 2 guides in the Learn hub this week to earn bonus XP.",
-  target: 2,
-  xpReward: XP_POINTS.questCompleted,
-};
 
 // ---------------------------------------------------------------------------
 // Core ledger write
@@ -215,51 +208,13 @@ export const awardSavedPlace = async (
 };
 
 // ---------------------------------------------------------------------------
-// Streaks
-// ---------------------------------------------------------------------------
-
-const utcDayString = (date: Date): string => date.toISOString().slice(0, 10);
-
-/**
- * Marks the user active today (UTC) and updates their streak: consecutive
- * days extend it, gaps reset it to 1. Returns the current streak length.
- */
-export const touchActivityStreak = async (userId: string): Promise<number> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { streakDays: true, lastActivityDate: true },
-  });
-  if (!user) return 0;
-
-  const today = utcDayString(new Date());
-  const last = user.lastActivityDate
-    ? utcDayString(user.lastActivityDate)
-    : null;
-
-  if (last === today) return user.streakDays;
-
-  const yesterday = utcDayString(new Date(Date.now() - 24 * 60 * 60 * 1000));
-  const newStreak = last === yesterday ? user.streakDays + 1 : 1;
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { streakDays: newStreak, lastActivityDate: new Date() },
-  });
-
-  return newStreak;
-};
-
-export const streakMultiplierFor = (streakDays: number): number =>
-  streakDays >= STREAK_MIN_DAYS ? STREAK_MULTIPLIER : 1;
-
-// ---------------------------------------------------------------------------
 // Report outcomes
 // ---------------------------------------------------------------------------
 
 /**
  * Applies Scoring v2 to a just-reviewed user report:
- * - accepted: +10 (streak-multiplied), plus official-match and
- *   corroboration bonuses where they apply
+ * - accepted: +10, plus official-match and corroboration bonuses where
+ *   they apply
  * - rejected: -15
  * Also refreshes the reporter's reliability score (verification rate).
  * Never throws — scoring must not break report submission.
@@ -317,16 +272,11 @@ const awardApprovedReport = async (
   if (!userId) return null;
 
   try {
-    const streakDays = await touchActivityStreak(userId);
-    const multiplier = streakMultiplierFor(streakDays);
-    const points = Math.round(XP_POINTS.reportApproved * multiplier);
-
+    // Flat XP_POINTS.reportApproved (recordXpEvent's default for the type).
     const { event, newXpTotal } = await recordXpEvent({
       userId,
       type: XpEventType.reportApproved,
-      points,
       hazardId: hazard.id,
-      meta: { streakDays, multiplier },
     });
 
     await refreshReliabilityScore(userId);
@@ -505,32 +455,18 @@ const refreshReliabilityScore = async (userId: string) => {
 };
 
 // ---------------------------------------------------------------------------
-// Guides + weekly quest
+// Guides
 // ---------------------------------------------------------------------------
 
-/** Monday 00:00 UTC of the current week. */
-const currentWeekStart = (): Date => {
-  const now = new Date();
-  const day = now.getUTCDay(); // 0 = Sunday
-  const daysSinceMonday = (day + 6) % 7;
-  const monday = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  monday.setUTCDate(monday.getUTCDate() - daysSinceMonday);
-  return monday;
-};
-
 /**
- * Ledger hook for a completed guide: awards the XP, extends the streak and
- * awards the weekly quest bonus when the target is hit.
+ * Ledger hook for a completed guide: awards the XP.
  *
  * This is the ONLY place a guide's XP is applied. The guide service used
  * to increment user.xpPoints itself and then ask this to journal a
  * matching row, which meant the header total and the ledger were two
- * separate writes that could disagree: the journal is best-effort, so a
- * failure here left the user with the points but no ledger row, and the
- * weekly quest counter (which counts guideCompleted rows) never moved.
- * One write now, one source of truth.
+ * separate writes that could disagree. One write now, one source of truth.
+ * The streak touch and weekly quest award that used to follow were removed
+ * (Oct 2026).
  */
 export const recordGuideCompletion = async (params: {
   userId: string;
@@ -544,41 +480,8 @@ export const recordGuideCompletion = async (params: {
       points: params.xpAwarded,
       guideId: params.guideId,
     });
-
-    await touchActivityStreak(params.userId);
-
-    // Weekly quest check.
-    const weekStart = currentWeekStart();
-    const [guidesThisWeek, questAlreadyAwarded] = await Promise.all([
-      prisma.xpEvent.count({
-        where: {
-          userId: params.userId,
-          type: XpEventType.guideCompleted,
-          createdAt: { gte: weekStart },
-        },
-      }),
-      prisma.xpEvent.findFirst({
-        where: {
-          userId: params.userId,
-          type: XpEventType.questCompleted,
-          createdAt: { gte: weekStart },
-        },
-        select: { id: true },
-      }),
-    ]);
-
-    if (guidesThisWeek >= WEEKLY_QUEST.target && !questAlreadyAwarded) {
-      await recordXpEvent({
-        userId: params.userId,
-        type: XpEventType.questCompleted,
-        meta: { questId: WEEKLY_QUEST.id, week: weekStart.toISOString() },
-      });
-    }
   } catch (error) {
-    // The streak and the quest bonus are the parts that can fail here.
-    // Swallowing kept the guide completion itself safe, but it also meant
-    // a lost +20 was invisible to everyone, which is how the totals drift
-    // away from what the quest card promises. Still non-fatal, but loud.
+    // Non-fatal, but loud: a lost guide award must not be invisible.
     console.error("Guide completion ledger hook failed:", {
       userId: params.userId,
       guideId: params.guideId,
@@ -639,23 +542,12 @@ export const trustTierFor = (
 
 /** Everything the profile scoring UI needs in one call. */
 export const getXpSummary = async (userId: string) => {
-  const weekStart = currentWeekStart();
-
-  const [
-    user,
-    approvedCount,
-    rejectedCount,
-    guidesThisWeek,
-    quest,
-    events,
-    badges,
-  ] = await Promise.all([
+  const [user, approvedCount, rejectedCount, events, badges] =
+    await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
         select: {
           xpPoints: true,
-          streakDays: true,
-          lastActivityDate: true,
           reliabilityScore: true,
         },
       }),
@@ -671,21 +563,6 @@ export const getXpSummary = async (userId: string) => {
           reviewStatus: HazardReviewStatus.rejected,
         },
       }),
-      prisma.xpEvent.count({
-        where: {
-          userId,
-          type: XpEventType.guideCompleted,
-          createdAt: { gte: weekStart },
-        },
-      }),
-      prisma.xpEvent.findFirst({
-        where: {
-          userId,
-          type: XpEventType.questCompleted,
-          createdAt: { gte: weekStart },
-        },
-        select: { id: true },
-      }),
       prisma.xpEvent.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
@@ -696,31 +573,18 @@ export const getXpSummary = async (userId: string) => {
 
   if (!user) return null;
 
-  // A streak is only "alive" if the user was active today or yesterday.
-  const today = utcDayString(new Date());
-  const yesterday = utcDayString(new Date(Date.now() - 24 * 60 * 60 * 1000));
-  const lastActive = user.lastActivityDate
-    ? utcDayString(user.lastActivityDate)
-    : null;
-  const streakAlive = lastActive === today || lastActive === yesterday;
-
   return {
     xpPoints: user.xpPoints,
-    streakDays: streakAlive ? user.streakDays : 0,
-    streakMultiplierActive:
-      streakAlive && streakMultiplierFor(user.streakDays) > 1,
+    // Backward-compatible placeholders: the streak multiplier and weekly
+    // quest were removed (Oct 2026). The app's XpSummary model defaults
+    // streakDays to 0, streakMultiplierActive to false and allows a null
+    // weeklyQuest.
+    streakDays: 0,
+    streakMultiplierActive: false,
     trustTier: trustTierFor(approvedCount, rejectedCount),
     badges: badges.badges,
     badgeCounts: badges.counts,
-    weeklyQuest: {
-      id: WEEKLY_QUEST.id,
-      title: WEEKLY_QUEST.title,
-      description: WEEKLY_QUEST.description,
-      target: WEEKLY_QUEST.target,
-      progress: Math.min(guidesThisWeek, WEEKLY_QUEST.target),
-      xpReward: WEEKLY_QUEST.xpReward,
-      completed: quest != null,
-    },
+    weeklyQuest: null,
     pointValues: XP_POINTS,
     recentEvents: events.map((e) => ({
       id: e.id,

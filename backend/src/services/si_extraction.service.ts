@@ -16,7 +16,7 @@ import {
  * The V2 extraction-only AI step. Given a raw alert, it returns a fixed,
  * card-ready JSON object. It deliberately does NOT return a severity band or
  * any advice — banding is the deterministic keyword scan
- * (`severity_scan.service.ts`) and advice comes from the pre-written For You
+ * (`ingestion.severity.util.ts`) and advice comes from the pre-written For You
  * library. This keeps the AI a pure extractor.
  *
  * Cost discipline: a closed-list `canonicalHazard` match runs BEFORE the model

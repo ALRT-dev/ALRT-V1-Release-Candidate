@@ -18,6 +18,8 @@ export type HttpErrorCode =
   // Ask ALRT: today's question allowance is used up (429). Distinguishes it
   // from the general rate limiter's 429.
   | "ask_limit"
+  // SOS: an extension would take the SOS past 4 hours from its start (409).
+  | "MAX_DURATION"
   // The group allows periodic journey updates only (journeysSnapPointsOnly).
   | "LIVE_JOURNEY_NOT_ALLOWED"
   // Admin Portal: an admin with a temporary password must change it first.

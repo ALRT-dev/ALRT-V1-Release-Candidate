@@ -1,5 +1,5 @@
 import z from "zod";
-import { FireStatus, HazardSeverity, HazardSeverityBand } from "@prisma/client";
+import { FireStatus, HazardSeverityBand } from "@prisma/client";
 import { SyncHazardsFromExternalSourceOption } from "../enums/sync_hazards_from_external_source_option_types.js";
 
 export const createHazardWebhookBodySchema = z.object({
@@ -26,9 +26,12 @@ export const createHazardWebhookBodySchema = z.object({
     .max(1000, "Summary must be at most 1000 characters")
     .optional(),
 
-  severity: z.enum(HazardSeverity).optional(),
-
-  severityBand: z.enum(HazardSeverityBand).optional(),
+  // Classification is the server's decision. Client-supplied `severity`,
+  // `severityBand` and `isAwsCompliant` are deliberately NOT part of this
+  // schema: zod strips unknown keys, so whatever a webhook caller sends for
+  // them is dropped and the server's own description scan
+  // (getHazardAttributesFromDescription) decides. There is no trusted-caller
+  // flag on this endpoint, so nothing can opt out of the strip.
 
   callsToAction: z
     .array(
@@ -89,8 +92,6 @@ export const createHazardWebhookBodySchema = z.object({
     .string()
     .min(1, "Invalid sourceId provided")
     .max(50, "Invalid sourceId provided"),
-
-  isAwsCompliant: z.boolean().optional(),
 
   link: z.url("Invalid URL format").optional(),
 

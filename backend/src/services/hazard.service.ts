@@ -613,7 +613,10 @@ Please analyze this hazard report:
         description: aiReview.description,
       }),
       summary: aiReview.summary,
-      callsToAction: aiReview.callsToAction,
+      // Locked rule: a community report never carries a call to action,
+      // whatever the model returned. It is an unverified observation, not an
+      // instruction.
+      callsToAction: [],
       confidence: aiReview.confidence,
     };
   } catch (parseError) {

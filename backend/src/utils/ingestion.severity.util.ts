@@ -195,8 +195,10 @@ export const getSeverityBandFromAWSCompliantSeverity = (
     throw new Error(`Severity ${severity} is not AWS compliant.`);
   }
   switch (severity) {
+    // AWS Advice is the lowest WARNING level, not informational: it maps to
+    // the monitor band (yellow), never info (grey).
     case HazardSeverity.advice:
-      return HazardSeverityBand.info;
+      return HazardSeverityBand.monitor;
     case HazardSeverity.watchAndAct:
       return HazardSeverityBand.action;
     case HazardSeverity.emergency:

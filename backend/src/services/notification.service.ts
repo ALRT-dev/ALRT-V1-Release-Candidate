@@ -1,11 +1,16 @@
-import { HazardSeverity, type Hazard } from "@prisma/client";
+import { HazardSeverity, SourcePushPolicy, type Hazard } from "@prisma/client";
 import { firebaseAdmin } from "../utils/firebase_admin_client.util.js";
 import prisma from "../utils/prisma_client.util.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
 import {
   getFormattedHazardSeverity,
 } from "../utils/hazard.util.js";
-import { isUnderNotificationCooldown } from "./hazard_cache.service.js";
+import {
+  isUnderNotificationCooldown,
+  markContentNotified,
+  wasContentNotified,
+} from "./hazard_cache.service.js";
+import { SOURCE_REGISTRY_DEFAULTS } from "../utils/source_registry.util.js";
 import { getCacheClient } from "../utils/cache_client.util.js";
 import { pausedSavedPlaceIds } from "./location_subscription.service.js";
 
@@ -527,6 +532,69 @@ export const sendPushNotificationToUser = async ({
   } catch (error) {
     console.error("Error sending push notification to user:", error);
   }
+};
+
+/**
+ * The push policy that governs a community report (one with a reportedById).
+ *
+ * Community reports are written with no HazardSource row (sourceId null), so
+ * the policy comes from the §1 registry default for the community system
+ * (`afterConfirmation`) unless the report does carry a source whose
+ * HazardSource.pushPolicy says otherwise.
+ */
+export const resolveCommunityPushPolicy = async (
+  hazard: Pick<Hazard, "sourceId">,
+): Promise<SourcePushPolicy> => {
+  if (hazard.sourceId) {
+    try {
+      const source = await prisma.hazardSource.findUnique({
+        where: { id: hazard.sourceId },
+        select: { pushPolicy: true },
+      });
+      if (source?.pushPolicy) return source.pushPolicy;
+    } catch (error) {
+      console.error("Could not read community source push policy:", error);
+    }
+  }
+  return SOURCE_REGISTRY_DEFAULTS.community.pushPolicy;
+};
+
+/** True when this community report's push waits for its first confirmation. */
+export const communityPushWaitsForConfirmation = async (
+  hazard: Pick<Hazard, "sourceId">,
+): Promise<boolean> =>
+  (await resolveCommunityPushPolicy(hazard)) ===
+  SourcePushPolicy.afterConfirmation;
+
+/** Dedup key for the one-time "confirmed" push of a community report. */
+const communityConfirmedPushKey = (hazardId: string): string =>
+  `community-confirmed-push:${hazardId}`;
+
+/**
+ * Sends the subscriber push for a community report the first time another
+ * user confirms it (upvotes it). Used when the source's pushPolicy is
+ * `afterConfirmation`, in place of the push on AI acceptance.
+ *
+ * "Has this report been pushed yet?" is answered without a schema change:
+ * - `confirmingUpvotes` is the number of upvotes from people other than the
+ *   reporter after this vote was recorded. The first confirmation is the one
+ *   that takes it to exactly 1, so the push fires then and only then.
+ * - As a best-effort guard against the remove-then-upvote-again case (which
+ *   returns the count to 1), the hazard id is also recorded in the existing
+ *   Redis content-notified bookkeeping. Without Redis that guard is skipped
+ *   and the count rule alone applies.
+ */
+export const sendCommunityConfirmationPush = async (params: {
+  hazard: Hazard;
+  confirmingUpvotes: number;
+}): Promise<boolean> => {
+  const { hazard, confirmingUpvotes } = params;
+  if (confirmingUpvotes !== 1) return false;
+  const key = communityConfirmedPushKey(hazard.id);
+  if (await wasContentNotified(key)) return false;
+  await markContentNotified(key);
+  await sendPushNotificationAboutNewHazard(hazard);
+  return true;
 };
 
 /**

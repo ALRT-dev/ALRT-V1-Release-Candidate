@@ -6,10 +6,11 @@
  * ALRT + Individual (or its trial) 10, per LOCAL calendar day, once per
  * account. Group sponsorship never raises it.
  *
- * Counting unit (decided 3 Oct 2026): every question and answer counts as 1,
- * whether it is answered from the library, the emergency-number lookup or the
- * AI. At the cap the local emergency number is still shown (and not counted).
- * A request that fails (model error, assistant switched off) is not counted.
+ * Counting unit (ruling 3 Oct 2026): only an answer that goes to the AI model
+ * counts as 1. Library answers and emergency-number lookups never count and
+ * are never refused with 429, at the cap or otherwise. A request that fails
+ * (model error, assistant switched off) is not counted: the AI count is
+ * refunded on a model failure.
  */
 export const AI_DAILY_LIMIT = { free: 3, individual: 10 } as const;
 
