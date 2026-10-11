@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/notification/services/wearable_push.dart';
 import 'package:hazard_app/features/family/services/location_fix.dart';
 import 'package:hazard_app/features/family/services/sos_api.dart';
 import 'dart:async';
@@ -1288,6 +1289,9 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
         longitude: position?.longitude,
         requestId: requestId,
         hazardId: hazardId,
+        // The same key a notification action (phone tray or watch) uses
+        // for this ask, so two surfaces answering it produce one row.
+        clientKey: requestId == null ? null : checkInClientKeyFor(requestId),
       );
       if (!mounted) return;
 

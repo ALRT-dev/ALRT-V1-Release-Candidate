@@ -128,6 +128,7 @@ abstract class FamilyRepository {
     final String? requestId,
     final String? hazardId,
     final String? circleId,
+    final String? clientKey,
   });
 
   Future<Either<FamilyCheckInRequest, AppError>> requestFamilyCheckIn({
@@ -693,6 +694,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
     String? requestId,
     String? hazardId,
     String? circleId,
+    String? clientKey,
   }) {
     return runAsyncCall(
       name: 'sendFamilyCheckIn',
@@ -704,6 +706,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
           longitude: longitude,
           requestId: requestId,
           hazardId: hazardId,
+          clientKey: clientKey,
           circleId: circleId ?? _circleId,
         );
         return Success(result);

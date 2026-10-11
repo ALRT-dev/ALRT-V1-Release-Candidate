@@ -193,6 +193,7 @@ class FamilyService {
     final String? requestId,
     final String? hazardId,
     final String? circleId,
+    final String? clientKey,
   }) {
     return _familyRepository.sendFamilyCheckIn(
       status: status,
@@ -202,6 +203,7 @@ class FamilyService {
       requestId: requestId,
       hazardId: hazardId,
       circleId: circleId,
+      clientKey: clientKey,
     );
   }
 

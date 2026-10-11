@@ -85,6 +85,13 @@
     </activity>
 
     <!-- ALRT Nearby Alerts home-screen widget -->
+    <!-- Wearable notification pilot: lets "Check in to <circle>" on a tray
+         or watch-mirrored notification run in the background without opening
+         the app (flutter_local_notifications background actions). -->
+    <receiver
+      android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+      android:exported="false" />
+
     <receiver
       android:name=".AlrtAlertsWidgetProvider"
       android:label="@string/widget_alerts_label"

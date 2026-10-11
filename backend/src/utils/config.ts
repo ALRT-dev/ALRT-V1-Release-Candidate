@@ -48,6 +48,16 @@ export const config = {
   runScheduledJobsInTest:
     getOptionalEnv("RUN_SCHEDULED_JOBS_IN_TEST", "false") === "true",
 
+  // Wearable notification pilot (WEARABLES_AUDIT_AND_PLAN.md §4.5). Off by
+  // default everywhere. When on, exactly two push types (a check-in
+  // request and an SOS received) are shaped so that a system-drawn
+  // notification carries action buttons: an APNs category on iOS and a
+  // data-only message on Android that the app draws itself. Every other
+  // push keeps its current shape. Turning the flag off restores today's
+  // shape at once, with no redeploy and no migration.
+  wearableActionablePush:
+    getOptionalEnv("WEARABLE_ACTIONABLE_PUSH", "false") === "true",
+
   // CORS / Socket.IO — comma-separated origins; localhost/127.0.0.1 still allowed in non-prod when list does not match
   cors: {
     allowedOrigins: getOptionalEnv(

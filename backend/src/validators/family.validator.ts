@@ -93,6 +93,15 @@ export const familyCheckInSchema = z.object({
   longitude: longitudeSchema.optional(),
   requestId: z.string().uuid().optional(),
   hazardId: z.string().uuid().optional(),
+  // A key the client keeps the same across a retry or a second surface
+  // (phone and watch) for ONE check-in, so the server creates one row.
+  // Opaque; the app uses `req:<requestId>` when answering an ask.
+  clientKey: z
+    .string()
+    .min(8)
+    .max(80)
+    .regex(/^[A-Za-z0-9:_.-]+$/)
+    .optional(),
 });
 
 export type FamilyCheckInInput = z.infer<typeof familyCheckInSchema>;

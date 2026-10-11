@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hazard_app/features/notification/services/wearable_push_handler.dart';
 import 'package:hazard_app/features/notification/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
@@ -229,6 +230,7 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
         // Clear the Family widget too, or a signed-out phone keeps
         // showing the last signed-in person's circle state.
         FamilyWidgetSync.clear();
+        unawaited(WearableCheckInAction.clearLocalState());
         // And the store identity: the next account on this phone must
         // never read this one's ALRT+ entitlement.
         unawaited(_ref.read(providerOfRevenueCat).signOut());
@@ -279,6 +281,7 @@ class ProfileProvider extends StateNotifier<ProfileProviderState> {
         // the entitlement caches, exactly as on sign-out.
         FirebaseSessionService.signOut();
         FamilyWidgetSync.clear();
+        unawaited(WearableCheckInAction.clearLocalState());
         unawaited(_ref.read(providerOfRevenueCat).signOut());
         _ref.invalidate(providerOfAccess);
         _ref.invalidate(providerOfAlrtPlus);

@@ -17,4 +17,13 @@ enum SharedPrefsKey {
 
   /// Millis timestamp of the last in-app review ask, so we never nag.
   reviewLastAskedAt,
+
+  /// The API base URL the running flavour resolved at start-up, kept so
+  /// the background notification-action isolate (which has no Riverpod
+  /// and no loaded .env) can reach the same backend.
+  apiBaseUrl,
+
+  /// Check-in request ids already answered from a notification action, so
+  /// a second tap on the same request (phone or watch) sends nothing.
+  wearableAnsweredRequestIds,
 }

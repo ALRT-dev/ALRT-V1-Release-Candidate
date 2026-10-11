@@ -514,7 +514,11 @@ export const checkInController = async (
     // client sent coordinates.
     const level = checkIn.member?.sharingLevel;
     const snapshotAllowed = level === "precise" || level === "approximate";
+    // A repeat of an already-recorded check-in (same clientKey) is handed
+    // the first row back and must not stamp a second snapshot.
+    const deduplicated = "deduplicated" in checkIn && checkIn.deduplicated === true;
     if (
+      !deduplicated &&
       snapshotAllowed &&
       input.latitude !== undefined &&
       input.longitude !== undefined

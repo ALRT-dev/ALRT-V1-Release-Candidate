@@ -9,6 +9,34 @@ import {
 import { isUnderNotificationCooldown } from "./hazard_cache.service.js";
 import { getCacheClient } from "../utils/cache_client.util.js";
 import { pausedSavedPlaceIds } from "./location_subscription.service.js";
+import { config } from "../utils/config.js";
+
+/**
+ * Wearable notification pilot (WEARABLES_AUDIT_AND_PLAN.md §4.5).
+ *
+ * A push the system draws while the app is closed carries no action
+ * buttons today: iOS needs an APNs `category`, and Android only shows
+ * actions on notifications the app draws itself. For the pilot, exactly
+ * two types are shaped for that when the flag is on; everything else is
+ * untouched. The flag is read once from config and kept in a mutable
+ * object so the verification script can exercise both shapes in-process.
+ */
+export const wearablePushFlags = { enabled: config.wearableActionablePush };
+
+/** iOS notification categories the app registers (see the app's
+ *  LocalNotificationService). Only the two pilot types have one. */
+export const wearableCategoryFor = (
+  type: PushNotificationType,
+): string | null => {
+  switch (type) {
+    case PushNotificationType.familyCheckInRequest:
+      return "ALRT_CHECKIN_REQUEST";
+    case PushNotificationType.familySos:
+      return "ALRT_SOS_RECEIVED";
+    default:
+      return null;
+  }
+};
 
 /**
  * A function to get user push notification tokens of a specific user by their user ID.
@@ -402,28 +430,57 @@ const sendPushNotificationToTokens = async ({
     ).toLowerCase();
     const isUrgent =
       urgent ?? (severityBand === "action" || severityBand === "critical");
+    const channelId = isUrgent ? "alrt_alerts_urgent" : "alrt_alerts";
+    const wearableCategory = wearablePushFlags.enabled
+      ? wearableCategoryFor(type)
+      : null;
+    const apnsHeaders = {
+      ...(collapseKey && { "apns-collapse-id": collapseKey.slice(0, 64) }),
+      ...(wearableCategory && { "apns-push-type": "alert" }),
+    };
     const baseMessage = {
-      notification: {
-        title,
-        body,
-      },
+      // Pilot shape: no top-level notification block. iOS gets the alert
+      // inside the APNs payload (with the category that gives it action
+      // buttons); Android gets a data-only message that the app draws
+      // with action buttons from its background handler. With the flag
+      // off, or for any other type, the block below is sent as before.
+      ...(wearableCategory
+        ? {}
+        : {
+            notification: {
+              title,
+              body,
+            },
+          }),
       data: {
         payload: JSON.stringify(data),
         notificationType: type.toString(),
         urgent: isUrgent ? "1" : "0",
+        ...(wearableCategory && {
+          wearable: "1",
+          category: wearableCategory,
+          title,
+          body,
+          channelId,
+          ...(collapseKey && { collapseKey }),
+        }),
       },
       android: {
         priority: "high" as const,
-        notification: {
-          channelId: isUrgent ? "alrt_alerts_urgent" : "alrt_alerts",
-          ...(collapseKey && { tag: collapseKey }),
-          // PRIVATE: on a locked phone Android shows the app name and hides
-          // the text when the user has "sensitive content" hidden; it
-          // never forces the body onto the lock screen (PUBLIC) and never
-          // hides the notification entirely (SECRET). The user's own
-          // lock-screen setting decides.
-          visibility: "private" as const,
-        },
+        ...(wearableCategory
+          ? {}
+          : {
+              notification: {
+                channelId,
+                ...(collapseKey && { tag: collapseKey }),
+                // PRIVATE: on a locked phone Android shows the app name and hides
+                // the text when the user has "sensitive content" hidden; it
+                // never forces the body onto the lock screen (PUBLIC) and never
+                // hides the notification entirely (SECRET). The user's own
+                // lock-screen setting decides.
+                visibility: "private" as const,
+              },
+            }),
       },
       // iOS: a sound so an alert is heard, and time-sensitive delivery
       // for urgent ones (honoured only where the app carries the
@@ -431,11 +488,15 @@ const sendPushNotificationToTokens = async ({
       // Never critical: that needs Apple's entitlement and would bypass
       // silent mode, which no alert here is allowed to do.
       apns: {
-        ...(collapseKey && { headers: { "apns-collapse-id": collapseKey.slice(0, 64) } }),
+        ...(Object.keys(apnsHeaders).length > 0 && { headers: apnsHeaders }),
         payload: {
           aps: {
             sound: "default",
             "interruption-level": isUrgent ? "time-sensitive" : "active",
+            ...(wearableCategory && {
+              alert: { title, body },
+              category: wearableCategory,
+            }),
           },
         },
       },

@@ -431,6 +431,7 @@ abstract class RestClient {
     @Field() final double? longitude,
     @Field() final String? requestId,
     @Field() final String? hazardId,
+    @Field() final String? clientKey,
     @Query('circleId') final String? circleId,
   });
 

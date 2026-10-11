@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hazard_app/features/notification/services/wearable_push.dart';
+import 'package:hazard_app/features/notification/services/wearable_push_handler.dart';
 
 /// Displays push notifications received while the app is in the FOREGROUND.
 ///
@@ -55,6 +57,15 @@ class LocalNotificationService {
   static const categoryHighBand = 'ALRT_HIGH_BAND';
   static const categoryCheckInPrompt = 'ALRT_CHECKIN_PROMPT';
 
+  // Wearable notification pilot: the two categories the backend names on
+  // its pilot pushes (see wearable_push.dart). Registered here so iOS
+  // knows their action sets; the Android buttons are drawn by
+  // WearableNotifications in the background isolate, or here when the
+  // app is open.
+  static const categoryWearableCheckInRequest =
+      WearablePush.categoryCheckInRequest;
+  static const categoryWearableSosReceived = WearablePush.categorySosReceived;
+
   /// Backend push type for a scheduled daily check-in prompt (the only
   /// family push that carries an action button).
   static const _typeScheduledCheckInPrompt = 'familyScheduledCheckInPrompt';
@@ -65,6 +76,7 @@ class LocalNotificationService {
   void Function(String alertId)? _onFollowAction;
   void Function()? _onOpenMapAction;
   void Function()? _onImSafeAction;
+  void Function(WearablePushMessage message)? _onWearableCheckInAction;
   bool Function(String alertId)? _isFollowing;
   bool Function()? _useStrongVibration;
 
@@ -78,6 +90,7 @@ class LocalNotificationService {
     void Function(String alertId)? onFollowAction,
     void Function()? onOpenMapAction,
     void Function()? onImSafeAction,
+    void Function(WearablePushMessage message)? onWearableCheckInAction,
     bool Function(String alertId)? isFollowing,
     bool Function()? useStrongVibration,
   }) async {
@@ -85,6 +98,7 @@ class LocalNotificationService {
     _onFollowAction = onFollowAction;
     _onOpenMapAction = onOpenMapAction;
     _onImSafeAction = onImSafeAction;
+    _onWearableCheckInAction = onWearableCheckInAction;
     _isFollowing = isFollowing;
     _useStrongVibration = useStrongVibration;
     if (_initialized || kIsWeb) return;
@@ -111,6 +125,10 @@ class LocalNotificationService {
     await _plugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _handleNotificationResponse,
+      // "Check in to <circle>" from the tray while the app is closed runs
+      // in its own isolate and never opens a screen.
+      onDidReceiveBackgroundNotificationResponse:
+          alrtWearableBackgroundActionHandler,
     );
 
     final androidPlugin = _plugin
@@ -210,7 +228,12 @@ class LocalNotificationService {
     final body = notification?.body ?? message.data['body'] as String?;
     if (title == null && body == null) return;
 
-    final actions = _actionsFor(message.data);
+    // A pilot push arriving while the app is open is drawn with the same
+    // buttons the background isolate would give it.
+    final wearable = WearablePushMessage.parse(message.data);
+    final actions = wearable != null
+        ? WearableNotifications.actionsFor(wearable)
+        : _actionsFor(message.data);
     final urgent =
         _isUrgent(message.data) && (_useStrongVibration?.call() ?? false);
 
@@ -380,6 +403,34 @@ class LocalNotificationService {
           ),
         ],
       ),
+      // Wearable pilot. The check-in action deliberately has no foreground
+      // option: it is meant to run without opening the app. Whether iOS
+      // hands that action to this plugin for a server-drawn push is a
+      // device test, not assumed (WEARABLES_AUDIT_AND_PLAN.md §9).
+      DarwinNotificationCategory(
+        categoryWearableCheckInRequest,
+        actions: [
+          DarwinNotificationAction.plain(
+            WearablePush.actionCheckInCircle,
+            'Check in to this circle',
+          ),
+          DarwinNotificationAction.plain(
+            WearablePush.actionOpenOnPhone,
+            'Open on iPhone',
+            options: {DarwinNotificationActionOption.foreground},
+          ),
+        ],
+      ),
+      DarwinNotificationCategory(
+        categoryWearableSosReceived,
+        actions: [
+          DarwinNotificationAction.plain(
+            WearablePush.actionOpenOnPhone,
+            'Open on iPhone',
+            options: {DarwinNotificationActionOption.foreground},
+          ),
+        ],
+      ),
     ];
   }
 
@@ -392,6 +443,13 @@ class LocalNotificationService {
       );
 
       switch (response.actionId) {
+        case WearablePush.actionCheckInCircle:
+          final wearable = WearablePushMessage.parse(data);
+          if (wearable != null) _onWearableCheckInAction?.call(wearable);
+          return;
+        case WearablePush.actionOpenOnPhone:
+          // Fall through to the body-tap routing below.
+          break;
         case actionImSafe:
           _onImSafeAction?.call();
           return;

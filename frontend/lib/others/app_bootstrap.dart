@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:hazard_app/features/shared/services/firebase_session_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
+import 'package:hazard_app/api/endpoints.dart';
+import 'package:hazard_app/features/notification/services/wearable_push_handler.dart';
+import 'package:hazard_app/features/shared/enums/shared_prefs_key_types.dart';
 import 'package:hazard_app/features/shared/providers/base_url_provider.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_service.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
@@ -14,6 +18,7 @@ import 'package:hazard_app/firebase_options.dart';
 import 'package:hazard_app/firebase_options_dev.dart';
 import 'package:hazard_app/others/app.dart';
 import 'package:hazard_app/others/app_flavor_types.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppBootstrap {
   /// Initializes the app with the given [flavor].
@@ -33,6 +38,7 @@ class AppBootstrap {
       _initializeGoogleFonts(),
       _initializeHomeWidget(),
     ]);
+    await _initializeWearablePilot();
 
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
@@ -61,6 +67,30 @@ class AppBootstrap {
           child: const MyApp(),
         ),
       ),
+    );
+  }
+
+  /// Wearable notification pilot: the background isolate that draws the two
+  /// pilot push types needs no Riverpod, but it needs the same backend the
+  /// app talks to, so the resolved base URL is kept where the isolate can
+  /// read it. The handler ignores every other push.
+  Future<void> _initializeWearablePilot() async {
+    return runAsyncCall(
+      name: 'initializeWearablePilot',
+      future: () async {
+        final override = dotenv.env['DEV_BASE_URL'];
+        final baseUrl = flavor == AppFlavor.dev
+            ? ((override != null && override.isNotEmpty)
+                  ? override
+                  : kUrlBaseDev)
+            : kUrlBase;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(SharedPrefsKey.apiBaseUrl.name, baseUrl);
+        FirebaseMessaging.onBackgroundMessage(
+          alrtWearableBackgroundMessageHandler,
+        );
+      },
+      onError: (_) {},
     );
   }
 

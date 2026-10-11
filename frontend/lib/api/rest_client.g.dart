@@ -1961,6 +1961,7 @@ class _RestClient implements RestClient {
     double? longitude,
     String? requestId,
     String? hazardId,
+    String? clientKey,
     String? circleId,
   }) async {
     final _extra = <String, dynamic>{};
@@ -1974,6 +1975,7 @@ class _RestClient implements RestClient {
       'longitude': longitude,
       'requestId': requestId,
       'hazardId': hazardId,
+      'clientKey': clientKey,
     };
     _data.removeWhere((k, v) => v == null);
     final _options = _setStreamType<FamilyCheckIn>(

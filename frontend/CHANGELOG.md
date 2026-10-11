@@ -1,3 +1,7 @@
+## v1.0.5+52 - unreleased
+* Wearable notification pilot (Milestone 1, WEARABLES_AUDIT_AND_PLAN.md): when the TEST backend sends a check-in request or an SOS in the pilot shape, the phone draws it with a "Check in to <circle>" button (Android) that sends a check-in with no location from the background and reports the server's answer in a follow-up notification. Off unless the backend flag is on; every other notification is unchanged.
+* Check-ins answering an ask carry a client key so the same answer from two surfaces is one row.
+
 ## v1.0.5+35 - unreleased
 * In-map navigation mode: travel modes, alternate routes, hazard corridors and bypass re-routing.
 * Home-screen widgets: Nearby Alerts + Family status (Android fully wired; iOS needs the Xcode target step in ios/AlrtWidget/SETUP.md).

@@ -16,9 +16,15 @@
  *   5. SOS stand-down: "SOS resolved" to the others only, ordinary channel.
  *   6. A departed member receives nothing after leaving.
  *   7. Test notification: reaches the caller's own devices only.
+ *   8. Wearable notification pilot (WEARABLE_ACTIONABLE_PUSH): with the
+ *      flag off the two pilot types keep today's shape; with it on a
+ *      check-in request and an SOS are data-only on Android and carry an
+ *      APNs category and alert on iOS, every other type is unchanged, a
+ *      repeated clientKey creates one row and one push, and an ask from
+ *      another circle is refused.
  *
  * NOT covered (needs a phone): the tray, the lock screen, the sound and
- * the vibration themselves.
+ * the vibration themselves, and whether a watch shows the action buttons.
  *
  * Run with:
  *   NODE_ENV=test npx dotenv -e .env.test -- npx tsx src/scripts/verify_family_push_delivery.ts
@@ -43,7 +49,7 @@ type Msg = {
   notification?: { title?: string; body?: string };
   data?: Record<string, string>;
   android?: { priority?: string; notification?: { channelId?: string; visibility?: string } };
-  apns?: { payload?: { aps?: Record<string, unknown> } };
+  apns?: { headers?: Record<string, string>; payload?: { aps?: Record<string, unknown> } };
 };
 const captured: Msg[] = [];
 Object.defineProperty(firebaseAdmin, "messaging", {
@@ -227,6 +233,122 @@ async function main() {
       await checkIn(amy.id, { status: "safe" }, circleId);
       assert.ok(!tokensOf("familyCheckIn").has(host.device));
     });
+
+    console.log("\n§7 Wearable notification pilot (WEARABLE_ACTIONABLE_PUSH)");
+    // The host's token was removed in §6; give the host a fresh device so
+    // the pilot shapes can be inspected on a recipient.
+    const hostDevice2 = `fake-fcm-host2-${crypto.randomUUID().slice(0, 6)}`;
+    await prisma.userDevice.create({ data: { userId: host.id, deviceToken: hostDevice2, platform: "android" } });
+    const { wearablePushFlags } = await import("../services/notification.service.js");
+    const { resetLocalClientKeys } = await import("../utils/client_key.util.js");
+    const hostMember = await memberIdOf(host);
+
+    await check("flag off: a check-in request keeps today's shape (notification block, no category)", async () => {
+      wearablePushFlags.enabled = false;
+      captured.length = 0;
+      await requestCheckIn(amy.id, { memberIds: [hostMember] }, circleId);
+      const msgs = of("familyCheckInRequest");
+      assert.ok(msgs.length > 0);
+      for (const m of msgs) {
+        assert.ok(m.notification?.title, "top-level notification present");
+        assert.match(m.notification!.title!, /Delivery circle/, "the circle is named in the title");
+        assert.equal(m.data?.wearable, undefined);
+        assert.equal((m.apns?.payload?.aps as any)?.category, undefined);
+        assert.equal(m.android?.notification?.channelId, "alrt_alerts");
+      }
+    });
+
+    let pilotAsk: { id: string } | undefined;
+    await check("flag on: a check-in request is data-only on Android, carries an APNs category and alert on iOS", async () => {
+      wearablePushFlags.enabled = true;
+      captured.length = 0;
+      pilotAsk = await requestCheckIn(amy.id, { memberIds: [hostMember] }, circleId);
+      const msgs = of("familyCheckInRequest");
+      assert.ok(msgs.length > 0);
+      for (const m of msgs) {
+        assert.equal(m.notification, undefined, "no top-level notification block");
+        assert.equal(m.android?.notification, undefined, "Android is data-only");
+        assert.equal(m.android?.priority, "high");
+        assert.equal(m.data?.wearable, "1");
+        assert.equal(m.data?.category, "ALRT_CHECKIN_REQUEST");
+        assert.equal(m.data?.channelId, "alrt_alerts");
+        assert.match(m.data?.title ?? "", /Delivery circle/);
+        assert.match(m.data?.body ?? "", /check in to Delivery circle/);
+        const aps = m.apns?.payload?.aps as any;
+        assert.equal(aps?.category, "ALRT_CHECKIN_REQUEST");
+        assert.match(aps?.alert?.title ?? "", /Delivery circle/);
+        assert.equal(aps?.sound, "default");
+        assert.equal((m.apns as any)?.headers?.["apns-push-type"], "alert");
+        const p = JSON.parse(m.data!.payload as string);
+        assert.equal(p.circleName, "Delivery circle");
+        assert.equal(p.requestId, pilotAsk!.id);
+        assert.ok(!("latitude" in p) && !("locationLabel" in p));
+      }
+    });
+
+    await check("flag on: an SOS is urgent, data-only on Android, category ALRT_SOS_RECEIVED on iOS, names the circle, no location", async () => {
+      captured.length = 0;
+      const sos2 = await triggerSos(amy.id, { latitude: -27.47, longitude: 153.02, isLive: false }, circleId);
+      const msgs = of("familySos");
+      assert.ok(msgs.length > 0);
+      for (const m of msgs) {
+        assert.equal(m.notification, undefined);
+        assert.equal(m.android?.notification, undefined);
+        assert.equal(m.data?.urgent, "1");
+        assert.equal(m.data?.channelId, "alrt_alerts_urgent");
+        assert.equal(m.data?.category, "ALRT_SOS_RECEIVED");
+        assert.match(m.data?.body ?? "", /Delivery circle/);
+        const aps = m.apns?.payload?.aps as any;
+        assert.equal(aps?.category, "ALRT_SOS_RECEIVED");
+        assert.equal(aps?.["interruption-level"], "time-sensitive");
+        const p = JSON.parse(m.data!.payload as string);
+        assert.equal(p.sosEventId, sos2.id);
+        assert.ok(!("latitude" in p) && !("locationLabel" in p));
+      }
+      await resolveSos(amy.id, sos2.id);
+    });
+
+    await check("flag on: every other type keeps today's shape", async () => {
+      captured.length = 0;
+      await checkIn(amy.id, { status: "safe" }, circleId);
+      const msgs = of("familyCheckIn");
+      assert.ok(msgs.length > 0);
+      for (const m of msgs) {
+        assert.ok(m.notification?.title);
+        assert.equal(m.data?.wearable, undefined);
+        assert.equal(m.android?.notification?.channelId, "alrt_alerts");
+      }
+    });
+
+    await check("the same clientKey sent twice creates one check-in row and one push", async () => {
+      resetLocalClientKeys();
+      captured.length = 0;
+      const key = `req:${pilotAsk!.id}`;
+      const first = await checkIn(host.id, { requestId: pilotAsk!.id, clientKey: key }, circleId);
+      const second = await checkIn(host.id, { requestId: pilotAsk!.id, clientKey: key }, circleId);
+      assert.equal(second.id, first.id, "the repeat is handed the first row");
+      assert.equal((second as any).deduplicated, true);
+      const rows = await prisma.familyCheckIn.count({ where: { memberId: hostMember, requestId: pilotAsk!.id } });
+      assert.equal(rows, 1);
+      assert.equal(of("familyCheckIn").length, 1, "one push to the circle, not two");
+    });
+
+    await check("a check-in naming another circle's ask is refused (400)", async () => {
+      const other = await api("/api/family/circle", { method: "POST", token: amy.token, body: { name: "Other circle" } });
+      assert.equal(other.status, 201, JSON.stringify(other.body));
+      const otherId = other.body.id as string;
+      try {
+        const inv = await api(`/api/family/invites?circleId=${otherId}`, { method: "POST", token: amy.token, body: {} });
+        assert.equal(inv.status, 201, JSON.stringify(inv.body));
+        const join = await api(`/api/family/join`, { method: "POST", token: host.token, body: { code: inv.body.code } });
+        assert.equal(join.status, 200, JSON.stringify(join.body));
+        const res = await api(`/api/family/check-in?circleId=${otherId}`, { method: "POST", token: host.token, body: { requestId: pilotAsk!.id } });
+        assert.equal(res.status, 400, JSON.stringify(res.body));
+      } finally {
+        await prisma.familyCircle.deleteMany({ where: { id: otherId } }).catch(() => undefined);
+      }
+    });
+    wearablePushFlags.enabled = false;
   } finally {
     await prisma.familyCircle.deleteMany({ where: { id: circleId } }).catch(() => undefined);
     await prisma.userDevice.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });

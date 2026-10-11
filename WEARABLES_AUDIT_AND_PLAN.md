@@ -418,6 +418,21 @@ Optional, later:
 
 ---
 
+## 13. Implementation status (11 October 2026)
+
+Sarah asked on 11 October for the work to be developed to a production-ready standard. The only part that can honestly be built to that standard without the hardware is Milestone 1, so that is what was built, on this branch, behind a server flag that is off by default. Runbook, file list, verification status and the device checklist: `docs/WEARABLE_NOTIFICATION_PILOT.md`.
+
+| Item | Code | Tests | TEST | Device |
+|---|---|---|---|---|
+| Backend: flag, per-platform push shape for the two pilot types, circle name on both pushes, `clientKey` dedupe (cache claim, no migration), cross-circle `requestId` check | yes | `verify_family_push_delivery.ts` §7 written, not yet run | no | no |
+| App 1.0.5+52: background handler, actionable notifications, background check-in with no location, four-state follow-up, answered-request cache, sign-out clearing, client key on request answers | yes, **not compiled here** | `test/wearable_push_test.dart` written; CI runs it on dispatch | no | no |
+| Scheduler on TEST | not changed | | | |
+| Existing push delivery for every other type | unchanged | | | |
+
+Branch state when this was built: `test` had moved since 10 September (SOS now lasts 1 hour with sender extension, 2-week trial, V1 access model with 402 refusals on gated actions, iOS TEST build workflow now producing builds). The §2 baseline tables above describe the 10 September state and are kept as the audit record; the pilot code was written against the 6 October head (`7973fa3`). The background check-in treats a 402 as "not sent" with the plan reason, so the access model is respected.
+
+Still Sarah's to decide, in this order: confirm the phone models and the watch purchase (§7), approve the app build and backend rollout on TEST, approve setting the flag on TEST, run the device checklist. Nothing was deployed.
+
 ## 12. Open questions for Sarah
 
 1. Exact Samsung phone model and Android version, and exact iPhone model and iOS version.

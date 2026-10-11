@@ -9,6 +9,11 @@ import type {
   FamilySosResponseType,
 } from "@prisma/client";
 import prisma from "../utils/prisma_client.util.js";
+import {
+  claimClientKey,
+  completeClientKey,
+  releaseClientKey,
+} from "../utils/client_key.util.js";
 import { convertLatLngToAddress } from "./google_map.service.js";
 import { HttpError } from "../models/http_error.js";
 import { SocketEvent } from "../models/socket_event_types.js";
@@ -1471,6 +1476,38 @@ export const joinCircleWithCode = async (userId: string, code: string) => {
 // Check-ins
 // ---------------------------------------------------------------------------
 
+/** The check-in row and the member's last-check-in stamp, in one transaction. */
+const createCheckInRow = (
+  circleId: string,
+  memberId: string,
+  row: {
+    status: FamilyCheckInStatus;
+    message?: string | undefined;
+    coordinates: { latitude: number; longitude: number } | Record<string, never>;
+    requestId?: string | undefined;
+    hazardId?: string | undefined;
+  },
+) =>
+  prisma.$transaction(async (tx) => {
+    const created = await tx.familyCheckIn.create({
+      data: {
+        circleId,
+        memberId,
+        status: row.status,
+        ...(row.message && { message: row.message }),
+        ...row.coordinates,
+        ...(row.requestId && { requestId: row.requestId }),
+        ...(row.hazardId && { hazardId: row.hazardId }),
+      },
+      include: { member: { select: memberIdentitySelect } },
+    });
+    await tx.familyMember.update({
+      where: { id: memberId },
+      data: { lastCheckInAt: created.createdAt },
+    });
+    return created;
+  });
+
 export const createCheckIn = async (
   userId: string,
   input: {
@@ -1480,6 +1517,7 @@ export const createCheckIn = async (
     longitude?: number | undefined;
     requestId?: string | undefined;
     hazardId?: string | undefined;
+    clientKey?: string | undefined;
   },
   circleId?: string,
 ) => {
@@ -1488,6 +1526,39 @@ export const createCheckIn = async (
   // "safe" is the stored value of an ordinary check-in (enum kept for
   // existing rows); it is never shown or pushed as a claim of safety.
   const status: FamilyCheckInStatus = input.status ?? "safe";
+
+  // A check-in may answer only an ask that lives in THIS circle. The app
+  // scopes an answered ask to its own circle (checkInTargetCircleIds), but
+  // a second client (a watch action, an older app) must not be able to
+  // record circle B's ask against circle A (WEARABLES_AUDIT_AND_PLAN.md
+  // §4.4). The ask need not be open: a late answer to a cancelled ask is
+  // still a plain check-in in the right circle.
+  if (input.requestId) {
+    const ask = await prisma.familyCheckInRequest.findFirst({
+      where: { id: input.requestId, circleId: membership.circleId },
+      select: { id: true },
+    });
+    if (!ask) {
+      throw new HttpError(400, "That check-in request is not in this circle");
+    }
+  }
+
+  // One human intention, one row: a check-in sent twice with the same
+  // client key (phone and watch within seconds, or a retry after a lost
+  // answer) returns the row the first attempt created, and sends no
+  // second push to the circle.
+  if (input.clientKey) {
+    const claim = await claimClientKey("checkin", userId, input.clientKey);
+    if (claim.status === "done") {
+      const existing = await prisma.familyCheckIn.findUnique({
+        where: { id: claim.resultId },
+        include: { member: { select: memberIdentitySelect } },
+      });
+      if (existing) return { ...existing, deduplicated: true as const };
+    } else if (claim.status === "pending") {
+      throw new HttpError(409, "That check-in is already being sent");
+    }
+  }
 
   // An alert link is only stored when it names a real, published alert
   // (the id has no foreign key). Anything else is refused rather than
@@ -1513,25 +1584,24 @@ export const createCheckIn = async (
       ? { latitude: input.latitude, longitude: input.longitude }
       : {};
 
-  const checkIn = await prisma.$transaction(async (tx) => {
-    const created = await tx.familyCheckIn.create({
-      data: {
-        circleId: membership.circleId,
-        memberId: membership.id,
-        status,
-        ...(input.message && { message: input.message }),
-        ...coordinates,
-        ...(input.requestId && { requestId: input.requestId }),
-        ...(input.hazardId && { hazardId: input.hazardId }),
-      },
-      include: { member: { select: memberIdentitySelect } },
+  let checkIn: Awaited<ReturnType<typeof createCheckInRow>>;
+  try {
+    checkIn = await createCheckInRow(membership.circleId, membership.id, {
+      status,
+      message: input.message,
+      coordinates,
+      requestId: input.requestId,
+      hazardId: input.hazardId,
     });
-    await tx.familyMember.update({
-      where: { id: membership.id },
-      data: { lastCheckInAt: created.createdAt },
-    });
-    return created;
-  });
+  } catch (error) {
+    if (input.clientKey) {
+      await releaseClientKey("checkin", userId, input.clientKey);
+    }
+    throw error;
+  }
+  if (input.clientKey) {
+    await completeClientKey("checkin", userId, input.clientKey, checkIn.id);
+  }
 
   // Checking in counts as daily activity for the streak (no XP awarded —
   // safety actions never earn points, streaks only gate the report bonus).
@@ -1632,13 +1702,21 @@ export const requestCheckIn = async (
     // A targeted ask reaches its targets only: nobody else is asked, so
     // nobody else is told.
     ...(isTargeted ? { onlyMemberIds: targetMemberIds } : {}),
-    title: "Check-in requested",
+    // The circle is named on the notification itself so an action taken
+    // from the tray or a watch ("Check in to Home") is never ambiguous
+    // about where the check-in goes (WEARABLES_AUDIT_AND_PLAN.md §11).
+    title: `Check-in requested · ${membership.circle.name}`,
     body:
       input.message ||
       (isTargeted
-        ? `${requesterName} asked you to check in.`
-        : `${requesterName} asked everyone to check in.`),
-    data: { circleId: membership.circleId, requestId: request.id },
+        ? `${requesterName} asked you to check in to ${membership.circle.name}.`
+        : `${requesterName} asked everyone in ${membership.circle.name} to check in.`),
+    data: {
+      circleId: membership.circleId,
+      circleName: membership.circle.name,
+      requestId: request.id,
+      requesterName,
+    },
     type: PushNotificationType.familyCheckInRequest,
     socketEvent: SocketEvent.familyCheckInRequest,
     socketData: request,
@@ -2542,10 +2620,12 @@ export const triggerSos = async (
     sos.member.nickname || sos.member.user.name || "A family member";
   const title = `🆘 ${memberName} triggered SOS`;
   // No suburb on the lock screen: where they are is inside the app, for
-  // the audience only, after a tap.
-  const body = "Open ALRT to see their SOS and respond.";
+  // the audience only, after a tap. The circle is named so a mirrored
+  // copy on a watch says which circle this is.
+  const body = `${membership.circle.name} · Open ALRT to see their SOS and respond.`;
   const data = {
     circleId: membership.circleId,
+    circleName: membership.circle.name,
     sosEventId: sos.id,
     ...(listName && { sosListName: listName }),
   };

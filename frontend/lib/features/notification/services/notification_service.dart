@@ -13,6 +13,8 @@ import 'package:hazard_app/features/notification/providers/accessible_alerts_pro
 import 'package:hazard_app/features/notification/providers/repository_providers.dart';
 import 'package:hazard_app/features/notification/repositories/notification_repository.dart';
 import 'package:hazard_app/features/notification/services/local_notification_service.dart';
+import 'package:hazard_app/features/notification/services/wearable_push.dart';
+import 'package:hazard_app/features/notification/services/wearable_push_handler.dart';
 import 'package:hazard_app/features/search/models/hazard_search_params.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
@@ -136,6 +138,7 @@ class NotificationService {
           _ref.read(providerOfFollowedAlerts.notifier).follow(alertId),
       onOpenMapAction: () => _goToHomeTab(HomeTab.map),
       onImSafeAction: _handleImSafeAction,
+      onWearableCheckInAction: _handleWearableCheckInAction,
       useStrongVibration: () =>
           _ref.read(providerOfAccessibleAlerts).strongVibration,
     );
@@ -198,6 +201,17 @@ class NotificationService {
       _ref.read(providerOfFamily.notifier).checkIn(shareLocation: false);
     }
     _goToHomeTab(HomeTab.family);
+  }
+
+  /// "Check in to <circle>" tapped on a pilot notification while the app is
+  /// open: the same no-location check-in the background isolate performs,
+  /// then the circle state is reloaded so the hub reflects it. No screen is
+  /// opened: the follow-up notification says what happened.
+  Future<void> _handleWearableCheckInAction(
+    final WearablePushMessage message,
+  ) async {
+    await WearableCheckInAction().perform(message);
+    await _ref.read(providerOfFamily.notifier).load(silent: true);
   }
 
   /// Navigates to the home shell and selects [tab] once the route settles
