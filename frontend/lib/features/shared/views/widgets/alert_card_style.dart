@@ -119,13 +119,23 @@ abstract final class AlertCardStyle {
 
     // What the alert is ABOUT, in the alert's own facts: the hazard and
     // where it is. Never our words for what is happening or what to do.
-    final what = (categoryName ?? '').trim().toLowerCase();
-    final where = (locationName ?? '').trim();
+    // "Other" is a bucket, not a thing an agency reports, so it reads as
+    // "an alert". Everything else takes the article its first sound needs
+    // ("an outage", "a bushfire"). A place name the source shouted in
+    // capitals is brought back to title case; it is not our emphasis.
+    final rawWhat = (categoryName ?? '').trim().toLowerCase();
+    final what = rawWhat == 'other' ? 'alert' : rawWhat;
+    final where = _calmCase((locationName ?? '').trim());
+    final article = what.isEmpty
+        ? ''
+        : 'aeiou'.contains(what[0])
+            ? 'an'
+            : 'a';
     final subject = what.isEmpty
         ? 'this'
         : where.isEmpty
-            ? 'a $what'
-            : 'a $what near $where';
+            ? '$article $what'
+            : '$article $what near $where';
 
     // The source's own level word, verbatim, never reworded. Only AWS
     // publishes one.
@@ -143,6 +153,22 @@ abstract final class AlertCardStyle {
           'Their advice is in this alert.';
     }
     return '$who has reported $subject. Their advice is in this alert.';
+  }
+
+  /// Title-cases a string only when it is entirely upper case (a shouted
+  /// feed value such as "METRO SOUTH EAST"); mixed-case input is returned
+  /// untouched so a deliberate spelling like "McLaren Vale" survives.
+  static String _calmCase(final String value) {
+    if (value.isEmpty || value != value.toUpperCase()) return value;
+    if (value == value.toLowerCase()) return value;
+    return value
+        .split(' ')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : word[0] + word.substring(1).toLowerCase(),
+        )
+        .join(' ');
   }
 
   // ── V3 expanded-card treatments (alert detail screen) ──────────────────

@@ -246,6 +246,22 @@ jobs:
             changed_files="lib/"
           fi
           echo "Gating analyzer findings on:"; echo "$changed_files"
+          # Surface every analyzer finding as a check annotation too (the
+          # raw log is not always reachable from where this is reviewed).
+          # Findings in gated files are errors, the rest warnings; capped
+          # so GitHub's per-step annotation limit is not hit.
+          gated_n=0; other_n=0
+          grep -E '^\s*(error|warning|info) •' /tmp/analyze-output.txt | while IFS= read -r line; do
+            hit=0
+            for f in $changed_files; do
+              case "$line" in *"$f"*) hit=1; break;; esac
+            done
+            if [ "$hit" = "1" ] && [ "$gated_n" -lt 10 ]; then
+              echo "::error title=flutter analyze (gated)::$line"; gated_n=$((gated_n+1))
+            elif [ "$hit" = "0" ] && [ "$other_n" -lt 10 ]; then
+              echo "::warning title=flutter analyze (baseline)::$line"; other_n=$((other_n+1))
+            fi
+          done
           fail=0
           for f in $changed_files; do
             if grep -q "$f" /tmp/analyze-output.txt; then
