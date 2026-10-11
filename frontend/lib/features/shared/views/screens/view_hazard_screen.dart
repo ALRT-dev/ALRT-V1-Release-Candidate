@@ -11,10 +11,9 @@ import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/learn/views/widgets/guide_strip_card.dart';
-import 'package:hazard_app/features/shared/enums/hazard_vote_types.dart';
+import 'package:hazard_app/features/notification/views/widgets/confirmation_buttons.dart';
 import 'package:hazard_app/features/shared/providers/hazard_item_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
-import 'package:hazard_app/features/report/views/screens/create_update_report_screen.dart';
 import 'package:hazard_app/features/shared/enums/ai_confidence_types.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
@@ -364,39 +363,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  Widget _buildEditButton() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isExpired = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isExpired ?? false,
-          ),
-        );
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          padding: EdgeInsets.all(16.spMin),
-          child: Icon(
-            LucideIcons.pencil,
-            color: isExpired
-                ? AppColors.grey.withValues(alpha: 0.5)
-                : AppColors.black,
-            size: 20.spMin,
-          ),
-        ).onPressed(() => _handleEditHazard());
-      },
-    );
-  }
-
   Widget _buildDeleteButton() {
     return Container(
       decoration: BoxDecoration(
@@ -467,7 +433,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // AWS treatment applies to AWS-compliant OFFICIAL alerts only.
         final isAws = !isUserReported && isAwsCompliant && sourceName != null;
 
-        // Five possible kickers (AWS/OFFICIAL/COMMUNITY/GDACS/ALRT INTEL) —
+        // Five possible kickers (AWS/OFFICIAL/COMMUNITY/GDACS/ALRT INTEL) -
         // GDACS and ALRT Intel are official too, but naming them
         // specifically is what lets a reader tell a humanitarian-monitoring
         // feed or ALRT's own assessment apart from a government agency.
@@ -807,7 +773,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   Widget _buildWhiteContentSection() {
     // Section order per ruling L46 (8 Oct 2026, approved Detail board):
-    // Source strip, In plain terms, title — already in the header above —
+    // Source strip, In plain terms, title - already in the header above -
     // then: map, location, What we know, What to do (verbatim), For you,
     // Tell your people, attribution.
     return Column(
@@ -1033,7 +999,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         label: _checkInSent ? 'Checked in' : 'Check in',
                         sublabel: _checkInSent
                             ? 'Your group can see it'
-                            : 'Let your group know you are OK',
+                            : 'Check in with your group.',
                         iconColor: _checkInSent
                             ? FamilyColors.safeGreen
                             : FamilyColors.indigo,
@@ -1168,159 +1134,54 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Section label
-              Text(
-                'IS THIS ALERT STILL ACTIVE?',
-                style: TextStyle(
-                  fontSize: 11.spMin,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                  color: const Color(0xFFB84500),
-                ),
-              ),
+              // One wording everywhere: the same label, helper, buttons
+              // and count line as the feed card. The vote handler is the
+              // same call the inline buttons made before.
+              const ConfirmationPrompt(),
               10.hSizedBox,
-              // Vote buttons: I see it / I don't see it
+              ConfirmationButtons(
+                key: ValueKey('vote-${hazard.id}'),
+                initialVoteType: voteType,
+                initialVoteCount: voteCount,
+                onVotePressed: (type) => ref
+                    .read(itemProvider.notifier)
+                    .voteHazard(voteType: type),
+              ),
+              12.hSizedBox,
+              // Community reports are never authority. Said once, plainly.
               Container(
-                height: 44.spMin,
+                width: double.infinity,
+                padding: EdgeInsets.all(12.spMin),
                 decoration: BoxDecoration(
+                  color: const Color(0xFFF0EEEA),
                   borderRadius: BorderRadius.circular(12.spMin),
-                  border: Border.all(
-                    color: AppColors.lightGrey,
-                    width: 1.0,
-                  ),
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // I don't see it (downvote)
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => ref
-                            .read(itemProvider.notifier)
-                            .voteHazard(voteType: HazardVoteType.downvote),
-                        child: Container(
-                          height: double.infinity,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(12.spMin),
-                              bottomLeft: Radius.circular(12.spMin),
-                            ),
-                            color: voteType == HazardVoteType.downvote
-                                ? Colors.red
-                                : Colors.transparent,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            spacing: 6.spMin,
-                            children: [
-                              Icon(
-                                Icons.thumb_down_outlined,
-                                size: 16.spMin,
-                                color: voteType == HazardVoteType.downvote
-                                    ? AppColors.white
-                                    : AppColors.grey,
-                              ),
-                              Text(
-                                'I don\'t see it',
-                                style: TextStyle(
-                                  fontSize: 12.5.spMin,
-                                  fontWeight: FontWeight.w600,
-                                  color: voteType == HazardVoteType.downvote
-                                      ? AppColors.white
-                                      : AppColors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    Icon(
+                      LucideIcons.info,
+                      size: 16.spMin,
+                      color: AppColors.mediumGrey,
                     ),
-                    // Divider
-                    Container(
-                      width: 1.0,
-                      height: double.infinity,
-                      margin: EdgeInsets.symmetric(vertical: 8.spMin),
-                      color: AppColors.lightGrey,
-                    ),
-                    // I see it (upvote)
+                    8.wSizedBox,
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () => ref
-                            .read(itemProvider.notifier)
-                            .voteHazard(voteType: HazardVoteType.upvote),
-                        child: Container(
-                          height: double.infinity,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.only(
-                              topRight: Radius.circular(12.spMin),
-                              bottomRight: Radius.circular(12.spMin),
-                            ),
-                            color: voteType == HazardVoteType.upvote
-                                ? Colors.green
-                                : Colors.transparent,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            spacing: 6.spMin,
-                            children: [
-                              Icon(
-                                Icons.thumb_up_outlined,
-                                size: 16.spMin,
-                                color: voteType == HazardVoteType.upvote
-                                    ? AppColors.white
-                                    : AppColors.grey,
-                              ),
-                              Text(
-                                'I see it',
-                                style: TextStyle(
-                                  fontSize: 12.5.spMin,
-                                  fontWeight: FontWeight.w600,
-                                  color: voteType == HazardVoteType.upvote
-                                      ? AppColors.white
-                                      : AppColors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
+                      child: Text(
+                        'Community reports are not verified by authorities '
+                        'and can be wrong. Always follow official advice. '
+                        'This report disappears when its time runs out.',
+                        style: TextStyle(
+                          fontSize: 12.5.spMin,
+                          height: 1.4,
+                          color: AppColors.mediumGrey,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              // Vote count
-              if (voteCount != 0) ...[
-                8.hSizedBox,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      voteCount > 0
-                          ? Icons.thumb_up_alt_rounded
-                          : Icons.thumb_down_alt_rounded,
-                      size: 13.spMin,
-                      color: voteCount > 0 ? AppColors.green : AppColors.red,
-                    ),
-                    4.wSizedBox,
-                    Text(
-                      '${voteCount.abs()} ${voteCount.abs() == 1 ? 'person' : 'people'} ${voteCount > 0 ? 'confirmed' : 'reported not there'}',
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        color: AppColors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
               // Flag and block (community reports only)
-              12.hSizedBox,
+              4.hSizedBox,
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1672,7 +1533,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   /// Matches a What To Do line the backend built as an attribution prefix
   /// relaying a source's own instruction, e.g. "NSW SES advises: do not
-  /// drive through floodwater." — see the classification standard's
+  /// drive through floodwater." - see the classification standard's
   /// directive-extraction rule (every relayed instruction is prefixed with
   /// the issuing agency's name and the word "advises:").
   static final RegExp _attributedActionPattern = RegExp(
@@ -1681,7 +1542,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   /// Bolds the "{Agency} advises:" prefix of a What To Do line so an
   /// attributed source directive reads visibly differently from ALRT's own
-  /// wording around it — the classification standard's "attribution
+  /// wording around it - the classification standard's "attribution
   /// prefixes bold" rule. Falls back to plain text for a line that isn't in
   /// that shape (community reports carry no instructions at all, and older
   /// content may not follow the pattern).
@@ -1995,7 +1856,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     child: Center(
                       child: isUserReported
                           ? Icon(
-                              Icons.person_outline_rounded,
+                              LucideIcons.userRound,
                               size: 15.spMin,
                               color: AppColors.blue,
                             )
@@ -2047,7 +1908,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                       child: Padding(
                         padding: EdgeInsets.all(5.spMin),
                         child: Icon(
-                          Icons.open_in_new,
+                          LucideIcons.externalLink,
                           size: 15.spMin,
                           color: AppColors.grey,
                         ),
@@ -2063,8 +1924,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         padding: EdgeInsets.all(5.spMin),
                         child: Icon(
                           _attributionExpanded
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
+                              ? LucideIcons.chevronUp
+                              : LucideIcons.chevronDown,
                           size: 18.spMin,
                           color: AppColors.grey,
                         ),
@@ -2199,8 +2060,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     ),
                     child: Icon(
                       reviewStatus == HazardReviewStatus.accepted
-                          ? Icons.feedback_outlined
-                          : Icons.warning_outlined,
+                          ? LucideIcons.messageSquare
+                          : LucideIcons.triangleAlert,
                       color: reviewStatus == HazardReviewStatus.accepted
                           ? AppColors.green
                           : AppColors.red,
@@ -2293,29 +2154,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   void _handleError(final AppError error) {
     context.showErrorToast(
       message: error.message,
-    );
-  }
-
-  /// Handle edit hazard action.
-  void _handleEditHazard() {
-    final isExpired = ref.read(
-      provider.select(
-        (value) => value.hazard?.isExpired == true,
-      ),
-    );
-    if (isExpired) {
-      context.showErrorToast(
-        message:
-            'Cannot edit an expired alert. You can delete this and create a new one.',
-      );
-      return;
-    }
-
-    context.push(
-      CreateUpdateReportScreen.updateRoute,
-      extra: CreateUpdateReportScreenArgs(
-        hazardToUpdate: widget.args.hazard,
-      ),
     );
   }
 

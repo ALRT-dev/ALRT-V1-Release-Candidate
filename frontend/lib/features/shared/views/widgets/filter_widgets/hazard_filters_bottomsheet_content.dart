@@ -6,10 +6,10 @@ import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.da
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
-import 'package:hazard_app/features/shared/views/widgets/alert_key_content.dart';
 import 'package:hazard_app/features/shared/views/widgets/base_bottomsheet_v2.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class HazardFiltersBottomsheetContent extends ConsumerStatefulWidget {
   const HazardFiltersBottomsheetContent({
@@ -59,21 +59,14 @@ class _HazardFiltersBottomsheetContentState
                 child: Column(
                   children: [
                     20.hSizedBox,
-                    _awsWarningsSection(),
-                    16.hSizedBox,
+                    // Who is speaking, how serious, then what kind. The
+                    // key (shapes and colours) lives in the map's own Map
+                    // key sheet now, not here.
                     _alertTypesSection(),
                     16.hSizedBox,
-                    _categoriesSection(),
+                    _awsWarningsSection(),
                     16.hSizedBox,
-                    // THE key, same widget as the map's sheet, on the
-                    // light surface: filters above, meanings below.
-                    _sectionContainerBuilder(
-                      title: 'What the shapes and colours mean',
-                      subtitle:
-                          'The same key as the map, so an alert reads the '
-                          'same wherever you meet it.',
-                      child: const AlertKeyContent(isDark: false),
-                    ),
+                    _categoriesSection(),
                     SafeArea(child: 20.hSizedBox),
                   ],
                 ),
@@ -85,54 +78,81 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
+  /// White header: drag handle, "Filters", one line on what the sheet
+  /// controls, and Reset All as a plain text button.
   Widget _headerBuilder() {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.orange300,
-            AppColors.red200,
-          ],
-        ),
+        color: AppColors.white,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20.spMin),
           topRight: Radius.circular(20.spMin),
         ),
       ),
-      padding: EdgeInsets.all(16.spMin),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: EdgeInsets.fromLTRB(20.spMin, 10.spMin, 12.spMin, 14.spMin),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'ALRT Filters',
-            style: TextStyle(
-              fontSize: 22.spMin,
-              fontWeight: FontWeight.w700,
-              color: AppColors.white,
-              height: 1.2,
+          Center(
+            child: Container(
+              width: 40.spMin,
+              height: 4.spMin,
+              decoration: BoxDecoration(
+                color: AppColors.lightGrey,
+                borderRadius: BorderRadius.circular(2.spMin),
+              ),
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20.spMin),
-              border: Border.all(
-                color: AppColors.white.withValues(alpha: 0.3),
-                width: 1.0,
+          12.hSizedBox,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  'Filters',
+                  style: TextStyle(
+                    fontSize: 24.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                    height: 1.2,
+                  ),
+                ),
               ),
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: 14.spMin,
-              vertical: 5.spMin,
-            ),
+              TextButton(
+                onPressed: _handleResetAll,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.orange,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 8.spMin,
+                    vertical: 4.spMin,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Reset All',
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.orange,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          4.hSizedBox,
+          Padding(
+            padding: EdgeInsets.only(right: 8.spMin),
             child: Text(
-              'Reset All',
+              'What shows on the map and in Alerts. Emergency Warnings are '
+              'never hidden.',
               style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppColors.white,
+                fontSize: 15.spMin,
+                height: 1.4,
+                color: AppColors.mediumGrey,
               ),
             ),
-          ).onPressed(_handleResetAll),
+          ),
         ],
       ),
     );
@@ -152,8 +172,8 @@ class _HazardFiltersBottomsheetContentState
         );
 
         return _sectionContainerBuilder(
-          title: 'AWS Warnings'.toUpperCase(),
-          subtitle: 'Official Australian Warning System alerts only',
+          title: 'How serious',
+          subtitle: 'Australian Warning System levels',
           spacing: 5.0,
           padding: EdgeInsets.only(
             top: 18.spMin,
@@ -226,7 +246,7 @@ class _HazardFiltersBottomsheetContentState
         // same names, so the feed and the map filter one way (product
         // owner 2026-08-07). AWS has its own level section above.
         return _sectionContainerBuilder(
-          title: 'Show alerts from'.toUpperCase(),
+          title: 'Who is speaking',
           subtitle: 'The same sources as the map',
           child: Column(
             children: [
@@ -280,7 +300,7 @@ class _HazardFiltersBottomsheetContentState
           _filtersProvider.select((value) => value.selectedCategoryIds),
         );
         return _sectionContainerBuilder(
-          title: 'Alrt Categories'.toUpperCase(),
+          title: 'Categories',
           subtitle:
               'One category shown on every alert. Tap to toggle visibility.',
           child: Wrap(
@@ -333,16 +353,14 @@ class _HazardFiltersBottomsheetContentState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // The V3 section label: rust, uppercase, letter-spaced, the
-          // same one every other section header in the app wears. These
-          // two sheets were drawing plain black body type instead, which
-          // is what made them read as a different app.
+          // same one every other section header in the app wears.
           Text(
             title.toUpperCase(),
             style: TextStyle(
-              fontSize: 10.5.spMin,
+              fontSize: 11.spMin,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1.1,
-              color: const Color(0xFFB84500),
+              letterSpacing: 1.0,
+              color: AppColors.sectionLabel,
             ),
           ),
           5.hSizedBox,
@@ -392,7 +410,7 @@ class _HazardFiltersBottomsheetContentState
           ),
           child: isEnabled
               ? Icon(
-                  Icons.check_rounded,
+                  LucideIcons.check,
                   color: AppColors.white,
                   size: 16.spMin,
                 )

@@ -10,6 +10,7 @@ import 'package:hazard_app/features/family/views/widgets/family_group_actions.da
 import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Shown when the user has no family circle yet: create one or join with a
 /// code. Embedded as the Family tab body.
@@ -36,11 +37,11 @@ class _FamilyOnboardingScreenState
       providerOfFamily.select((s) => s.joinCircleState),
     );
 
-    // The prototype's empty state, in the family section's locked colours:
-    // gradient header carrying the promise, one card of what a group gives
-    // you, the privacy note, then the two paths. No price appears here —
-    // the paywall comes only after tapping Create, and the invite path
-    // never sees one.
+    // The approved board's empty state in the family section's locked
+    // colours: gradient header carrying the promise, one card of what a
+    // group gives you, then the two paths. No price appears here: the
+    // paywall comes only after tapping Create, and the invite path never
+    // sees one.
     return Scaffold(
       backgroundColor: FamilyColors.v31Page,
       body: ListView(
@@ -67,8 +68,7 @@ class _FamilyOnboardingScreenState
                 ),
                 SizedBox(height: 5.spMin),
                 Text(
-                  'Know the people you care about are OK. Location is '
-                  'shared only when someone chooses it.',
+                  'Know your people are okay, in one tap.',
                   style: TextStyle(
                     fontSize: 13.spMin,
                     height: 1.5,
@@ -82,7 +82,7 @@ class _FamilyOnboardingScreenState
             margin: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 0),
             padding: EdgeInsets.symmetric(
               horizontal: 16.spMin,
-              vertical: 15.spMin,
+              vertical: 6.spMin,
             ),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -98,59 +98,26 @@ class _FamilyOnboardingScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'What a Family circle gives you',
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w800,
-                  ),
+                _featureRow(
+                  icon: LucideIcons.check,
+                  title: 'Check in with one tap',
+                  body: 'Everyone sees it at once. No group chat.',
                 ),
-                SizedBox(height: 9.spMin),
-                _pitchLineBuilder(
-                  'One tap ',
-                  'Check in',
-                  ' to everyone at once',
+                const Divider(height: 1, color: FamilyColors.v31Divider),
+                _featureRow(
+                  icon: LucideIcons.mapPin,
+                  title: 'A location only when you send it',
+                  body: 'One moment, sent on purpose. Gone in an hour.',
                 ),
-                _pitchLineBuilder(
-                  'Ask for a ',
-                  'location snapshot',
-                  ', they choose to send it',
-                ),
-                _pitchLineBuilder(
-                  '',
-                  'SOS',
-                  ' to your people, with live location while it runs',
-                ),
-                _pitchLineBuilder(
-                  'Alerts near your people, ',
-                  'flagged automatically',
-                  '',
+                const Divider(height: 1, color: FamilyColors.v31Divider),
+                _featureRow(
+                  icon: LucideIcons.siren,
+                  title: 'SOS to your group',
+                  body:
+                      'Hold 3 seconds. Runs for 1 hour. ALRT never contacts '
+                      'emergency services.',
                 ),
               ],
-            ),
-          ),
-          Container(
-            margin: EdgeInsets.fromLTRB(16.spMin, 11.spMin, 16.spMin, 0),
-            padding: EdgeInsets.symmetric(
-              horizontal: 14.spMin,
-              vertical: 12.spMin,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEBEBF7),
-              borderRadius: BorderRadius.circular(14.spMin),
-              border: Border.all(
-                color: FamilyColors.v31Indigo.withValues(alpha: 0.15),
-              ),
-            ),
-            child: Text(
-              'Location is shared only when someone chooses it: for a '
-              'one-time snapshot, an active SOS, or an active journey. '
-              'Live sharing can be stopped at any time.',
-              style: TextStyle(
-                fontSize: 12.spMin,
-                height: 1.7,
-                color: FamilyColors.v31Indigo.withValues(alpha: 0.75),
-              ),
             ),
           ),
           Padding(
@@ -194,7 +161,7 @@ class _FamilyOnboardingScreenState
                               ),
                             )
                           : Text(
-                              'Create a circle',
+                              'Create a group',
                               style: TextStyle(
                                 fontSize: 15.spMin,
                                 fontWeight: FontWeight.w800,
@@ -204,13 +171,13 @@ class _FamilyOnboardingScreenState
                   ),
                 ),
                 SizedBox(height: 9.spMin),
-                // Two equal ways in with a host's invite: type the code, or
-                // scan the QR on their phone. The camera is only touched
-                // when the scan button itself is tapped.
+                // Two ways in with a host's invite: type the code, or scan
+                // the QR on their phone from the small button beside it.
+                // The camera is only touched when the scan button itself
+                // is tapped.
                 Row(
                   children: [
                     Expanded(
-                      flex: 5,
                       child: SizedBox(
                         height: 48.spMin,
                         child: TextButton(
@@ -252,15 +219,16 @@ class _FamilyOnboardingScreenState
                       ),
                     ),
                     SizedBox(width: 9.spMin),
-                    Expanded(
-                      flex: 4,
-                      child: SizedBox(
-                        height: 48.spMin,
-                        child: TextButton.icon(
+                    SizedBox(
+                      width: 48.spMin,
+                      height: 48.spMin,
+                      child: Tooltip(
+                        message: 'Scan invite QR',
+                        child: TextButton(
                           style: TextButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: FamilyColors.indigo,
-                            padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                            padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15.spMin),
                               side: BorderSide(
@@ -274,19 +242,7 @@ class _FamilyOnboardingScreenState
                           onPressed: joinState.isLoading
                               ? null
                               : () => scanInviteQrAndJoin(context, ref),
-                          icon: Icon(
-                            Icons.qr_code_scanner_rounded,
-                            size: 18.spMin,
-                          ),
-                          label: Text(
-                            'Scan invite QR',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14.spMin,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                          child: Icon(LucideIcons.qrCode, size: 20.spMin),
                         ),
                       ),
                     ),
@@ -296,12 +252,15 @@ class _FamilyOnboardingScreenState
             ),
           ),
           Padding(
-            padding: EdgeInsets.only(top: 14.spMin),
+            padding: EdgeInsets.fromLTRB(24.spMin, 14.spMin, 24.spMin, 0),
             child: Text(
-              'Create and join free.',
+              'Creating and joining a group is free. Check in, Check on, SOS '
+              'and Journey need ALRT + for each person taking part, or one '
+              'Family or Group plan that covers the whole group.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11.spMin,
+                height: 1.5,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF6B6875),
               ),
@@ -312,30 +271,53 @@ class _FamilyOnboardingScreenState
     );
   }
 
-  /// One benefit line: plain text with the load-bearing words in ink.
-  Widget _pitchLineBuilder(
-    final String lead,
-    final String strong,
-    final String tail,
-  ) {
-    return Text.rich(
-      TextSpan(
+  /// One row of the "what a group gives you" card: indigo icon, bold
+  /// title, one plain line under it.
+  Widget _featureRow({
+    required final IconData icon,
+    required final String title,
+    required final String body,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 12.spMin),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextSpan(text: lead),
-          TextSpan(
-            text: strong,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1D1D21),
+          Container(
+            width: 36.spMin,
+            height: 36.spMin,
+            decoration: BoxDecoration(
+              color: FamilyColors.indigoLight,
+              borderRadius: BorderRadius.circular(10.spMin),
+            ),
+            child: Icon(icon, size: 18.spMin, color: FamilyColors.indigo),
+          ),
+          SizedBox(width: 12.spMin),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1D1D21),
+                  ),
+                ),
+                SizedBox(height: 3.spMin),
+                Text(
+                  body,
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    height: 1.4,
+                    color: FamilyColors.v31Ink,
+                  ),
+                ),
+              ],
             ),
           ),
-          TextSpan(text: tail),
         ],
-      ),
-      style: TextStyle(
-        fontSize: 13.spMin,
-        height: 2.0,
-        color: FamilyColors.v31Ink,
       ),
     );
   }

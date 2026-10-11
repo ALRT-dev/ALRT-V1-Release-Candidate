@@ -16,6 +16,7 @@ import 'package:hazard_app/features/subscription/utils/store_price.dart';
 import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
 import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class AlrtPlusGroupPaywallArgs {
   const AlrtPlusGroupPaywallArgs({this.circleId, this.tier});
@@ -525,6 +526,33 @@ class _AlrtPlusGroupPaywallScreenState
     ),
   );
 
+  /// A 22 px radio: a 2 px #D9D6D0 ring, filled ink with a white dot when
+  /// selected. Replaces the Material radio glyphs.
+  Widget _radioBuilder({required final bool selected}) {
+    return Container(
+      width: 22.spMin,
+      height: 22.spMin,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? const Color(0xFF1C1C1E) : Colors.transparent,
+        border: selected
+            ? null
+            : Border.all(color: const Color(0xFFD9D6D0), width: 2.0),
+      ),
+      child: selected
+          ? Container(
+              width: 8.spMin,
+              height: 8.spMin,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+              ),
+            )
+          : null,
+    );
+  }
+
   Widget _groupRow(final GroupAccess g, {required final bool selected}) {
     return InkWell(
       onTap: () => setState(() => _circleId = g.circleId),
@@ -532,13 +560,7 @@ class _AlrtPlusGroupPaywallScreenState
         padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 10.spMin),
         child: Row(
           children: [
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: selected
-                  ? PlanIdentity.of(_effectiveTier(g)).accentFor(context)
-                  : kPaywallInkFaint,
-              size: 22.spMin,
-            ),
+            _radioBuilder(selected: selected),
             SizedBox(width: 10.spMin),
             Expanded(
               child: Text(
@@ -643,7 +665,7 @@ class _AlrtPlusGroupPaywallScreenState
               if (enabled) ...[
                 SizedBox(width: 8.spMin),
                 Icon(
-                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  selected ? LucideIcons.circleCheck : LucideIcons.circle,
                   color: selected ? accent : kPaywallInkFaint,
                   size: 20.spMin,
                 ),

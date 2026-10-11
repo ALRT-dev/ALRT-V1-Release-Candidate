@@ -133,7 +133,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   }
 
   /// The amber strip that says this circle needs a new host and opens the
-  /// ways forward. Never implies SOS, check-ins or journeys have stopped —
+  /// ways forward. Never implies SOS, check-ins or journeys have stopped -
   /// they haven't, for anyone, at any point in this window.
   Widget _hostTransitionBannerBuilder(final FamilyCircle circle) {
     return GestureDetector(
@@ -210,10 +210,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
 
   /// A member is sharing a journey with the caller. This is the whole point
   /// of this card: before it existed, the only way to find out was catching
-  /// the "shared with you" push notification the moment it landed — miss it
+  /// the "shared with you" push notification the moment it landed - miss it
   /// or dismiss it, and there was no other way into the private viewer from
   /// the Family tab. Shows only what the backend actually returns (name,
-  /// status, last-updated time) — never a destination, route, ETA or trail,
+  /// status, last-updated time) - never a destination, route, ETA or trail,
   /// since the journey model carries none of those.
   Widget _sharedJourneyCardBuilder(final FamilyJourney journey) {
     final label = journey.isLive ? 'Live journey' : 'Journey';
@@ -630,7 +630,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             child: Text('Transfer hosting'),
           ),
         // Leaving without naming a successor starts a 7-day host-transition
-        // window instead of deleting the circle — a real, separate choice
+        // window instead of deleting the circle - a real, separate choice
         // from "Delete circle" below, only offered when there's someone
         // left to keep the circle running for.
         if (isOwner && circle.members.length > 1)
@@ -1005,7 +1005,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
       ),
       trailing: Icon(
-        Icons.chevron_right,
+        LucideIcons.chevronRight,
         size: 20.spMin,
         color: AppColors.grey,
       ),
@@ -1572,7 +1572,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     strokeWidth: 2,
                   ),
                 )
-              : Icon(Icons.check_rounded, size: 20.spMin),
+              : Icon(LucideIcons.check, size: 20.spMin),
           label: Text(
             imSafeLabel(requesterNames: circle.namesOwedMyCheckIn),
             maxLines: 1,
@@ -1825,7 +1825,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         hasAnswered: hasAnswered,
         askedAt: roll.askedAt,
         ringColor: ringColor,
-        // Every action on a person — ask, request, and the host's remove —
+        // Every action on a person - ask, request, and the host's remove -
         // sits in one visible sheet, permission-checked here. Nothing is
         // long-press-only any more.
         onTap: () => showFamilyMemberDetailsSheet(
@@ -1960,7 +1960,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     }
   }
 
-  /// Asks the whole group at once — each member still gets their own
+  /// Asks the whole group at once - each member still gets their own
   /// request and their own consent prompt, this only sends every ask in
   /// one tap instead of one per member.
   Future<void> _requestEveryoneLocation(final FamilyCircle circle) async {

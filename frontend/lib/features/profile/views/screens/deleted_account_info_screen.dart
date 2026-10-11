@@ -11,6 +11,7 @@ import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dar
 import 'package:hazard_app/features/shared/views/widgets/button.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_wrapper.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class DeletedAccountInfoScreen extends ConsumerStatefulWidget {
   const DeletedAccountInfoScreen({super.key});
@@ -62,7 +63,7 @@ class _DeletedAccountInfoScreenState
             shape: BoxShape.circle,
           ),
           child: Icon(
-            Icons.schedule_rounded,
+            LucideIcons.clock,
             color: AppColors.orange,
             size: 50.spMin,
           ),
@@ -131,7 +132,7 @@ class _DeletedAccountInfoScreenState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.timer_outlined,
+                    LucideIcons.alarmClock,
                     color: AppColors.red,
                     size: 28.spMin,
                   ),
@@ -170,7 +171,7 @@ class _DeletedAccountInfoScreenState
         Row(
           children: [
             Icon(
-              Icons.info_outline,
+              LucideIcons.info,
               size: 20.spMin,
               color: AppColors.grey,
             ),
@@ -187,7 +188,7 @@ class _DeletedAccountInfoScreenState
         ),
         16.hSizedBox,
         _buildStatusItem(
-          icon: Icons.visibility_off_outlined,
+          icon: LucideIcons.eyeOff,
           title: 'Content Hidden',
           description:
               "Your ALRTs are hidden from the public feed. Anyone you've "
@@ -196,14 +197,14 @@ class _DeletedAccountInfoScreenState
         ),
         12.hSizedBox,
         _buildStatusItem(
-          icon: Icons.notifications_off_outlined,
+          icon: LucideIcons.bellOff,
           title: 'Notifications Paused',
           description: 'You are not receiving any notifications or alerts.',
           color: AppColors.blue,
         ),
         12.hSizedBox,
         _buildStatusItem(
-          icon: Icons.restore_rounded,
+          icon: LucideIcons.refreshCw,
           title: 'Recoverable',
           description:
               'You can recover your account and all data by clicking the button below.',
@@ -289,7 +290,7 @@ class _DeletedAccountInfoScreenState
         return Button.filled(
           value: 'Recover My Account',
           color: AppColors.green,
-          icon: Icon(Icons.restore_rounded),
+          icon: Icon(LucideIcons.refreshCw),
           isLoading: isLoading,
           onPressed: _handleRecoverAccount,
         );
@@ -300,7 +301,7 @@ class _DeletedAccountInfoScreenState
   Widget _buildLogoutButton() {
     return Button.bordered(
       value: 'Logout',
-      icon: Icon(Icons.logout_rounded),
+      icon: Icon(LucideIcons.logOut),
       onPressed: _handleLogout,
     );
   }

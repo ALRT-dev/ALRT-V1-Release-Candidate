@@ -7,6 +7,7 @@ import 'package:hazard_app/features/ready/providers/ready_provider.dart';
 import 'package:hazard_app/features/ready/views/screens/plan_edit_screen.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class PlanListScreen extends ConsumerStatefulWidget {
   const PlanListScreen({super.key});
@@ -40,7 +41,7 @@ class _PlanListScreenState extends ConsumerState<PlanListScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Color(0xFF232326)),
+          icon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF232326)),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -56,7 +57,7 @@ class _PlanListScreenState extends ConsumerState<PlanListScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.orange,
         onPressed: () => context.push(PlanEditScreen.route),
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(LucideIcons.plus, color: Colors.white),
       ),
       body: readyState.isLoadingPlans
           ? const Center(child: CircularProgressIndicator())
@@ -80,7 +81,7 @@ class _PlanListScreenState extends ConsumerState<PlanListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.description_rounded,
+              LucideIcons.fileText,
               size: 56.spMin,
               color: AppColors.orange.withValues(alpha: 0.4),
             ),
@@ -159,7 +160,7 @@ class _PlanListScreenState extends ConsumerState<PlanListScreen> {
                 ],
                 SizedBox(width: 8.spMin),
                 Icon(
-                  Icons.chevron_right_rounded,
+                  LucideIcons.chevronRight,
                   size: 22.spMin,
                   color: const Color(0xFF75757E),
                 ),
@@ -179,7 +180,7 @@ class _PlanListScreenState extends ConsumerState<PlanListScreen> {
               SizedBox(height: 6.spMin),
               Row(
                 children: [
-                  Icon(Icons.place_rounded,
+                  Icon(LucideIcons.mapPin,
                       size: 14.spMin, color: const Color(0xFF75757E)),
                   SizedBox(width: 4.spMin),
                   Expanded(

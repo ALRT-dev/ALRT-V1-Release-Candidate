@@ -28,8 +28,8 @@ class AlrtPlusChooseScreen extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: IconButton(
-                tooltip: 'Close',
-                icon: const Icon(LucideIcons.x),
+                tooltip: 'Back',
+                icon: const Icon(LucideIcons.chevronLeft),
                 onPressed: () => Navigator.of(context).pop(false),
               ),
             ),
@@ -37,10 +37,20 @@ class AlrtPlusChooseScreen extends StatelessWidget {
             Text(
               kChooseHeading,
               style: TextStyle(
-                fontSize: 24.spMin,
-                fontWeight: FontWeight.w800,
+                fontSize: 26.spMin,
+                fontWeight: FontWeight.w700,
                 height: 1.2,
                 color: kPaywallInk,
+              ),
+            ),
+            SizedBox(height: 8.spMin),
+            Text(
+              'Alerts, the live map, navigation, one saved place and 3 Ask '
+              'ALRT questions a day are always free.',
+              style: TextStyle(
+                fontSize: 14.spMin,
+                height: 1.5,
+                color: kPaywallInkSoft,
               ),
             ),
             SizedBox(height: 18.spMin),
@@ -74,17 +84,31 @@ class AlrtPlusChooseScreen extends StatelessWidget {
                 }
               },
             ),
-            SizedBox(height: 22.spMin),
-            SizedBox(
-              height: 48.spMin,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  shape: const StadiumBorder(),
-                  side: const BorderSide(color: kPaywallLine, width: 1.5),
-                  foregroundColor: kPaywallInk,
-                ),
+            SizedBox(height: 16.spMin),
+            // Prices are the store's, never typed here; a group plan buys
+            // nobody personal extras, the payer included.
+            Text(
+              'Prices come from your app store. No annual plan. A group plan '
+              'gives nobody personal extras, including the payer.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5.spMin,
+                height: 1.5,
+                color: kPaywallInkFaint,
+              ),
+            ),
+            SizedBox(height: 14.spMin),
+            Center(
+              child: TextButton(
+                style: TextButton.styleFrom(foregroundColor: kPaywallInk),
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text(kContinueFree),
+                child: Text(
+                  kContinueFree,
+                  style: TextStyle(
+                    fontSize: 15.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ],

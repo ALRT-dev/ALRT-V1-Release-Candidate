@@ -293,9 +293,11 @@ int sponsoredCapacity(final PlanTier tier) => switch (tier) {
   PlanTier.individual => 1,
 };
 
-/// "Family", "Group 20", "Group 50", "Individual".
+/// "Family", "Group 20", "Group 50", "ALRT +". The personal plan is never
+/// called "Individual" in UI copy (product owner 2026-09-28); the id stays
+/// `individual` for the store and backend only.
 String planTierName(final PlanTier tier) => switch (tier) {
-  PlanTier.individual => 'Individual',
+  PlanTier.individual => 'ALRT +',
   PlanTier.family => 'Family',
   PlanTier.group20 => 'Group 20',
   PlanTier.group50 => 'Group 50',

@@ -6,6 +6,7 @@ import 'package:hazard_app/features/ready/providers/ready_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class DrillCreateScreen extends ConsumerStatefulWidget {
   const DrillCreateScreen({super.key});
@@ -76,7 +77,7 @@ class _DrillCreateScreenState extends ConsumerState<DrillCreateScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Color(0xFF232326)),
+          icon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF232326)),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -117,7 +118,7 @@ class _DrillCreateScreenState extends ConsumerState<DrillCreateScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today_rounded,
+                  Icon(LucideIcons.calendar,
                       size: 18.spMin, color: const Color(0xFF75757E)),
                   SizedBox(width: 8.spMin),
                   Text(

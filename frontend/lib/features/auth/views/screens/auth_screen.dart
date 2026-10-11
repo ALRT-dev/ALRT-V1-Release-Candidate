@@ -66,6 +66,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ],
                       28.hSizedBox,
                       _buildTermsAndPrivacySection(),
+                      if (!_showSignIn) ...[
+                        16.hSizedBox,
+                        Text(
+                          'Not an emergency service. In danger? Call your '
+                          'local emergency number.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11.spMin,
+                            height: 1.4,
+                            color: AppColors.grey,
+                          ),
+                        ),
+                      ],
                     ],
                   ).pX(24.0),
                 ),
@@ -87,19 +100,51 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             width: 300.spMin,
           ),
         ),
-        Text(
-          'Welcome to ALRT',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        8.hSizedBox,
-        Text(
-          'Fast, plain-language safety alerts.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.grey,
-            fontSize: 16.spMin,
+        if (_showSignIn) ...[
+          Text(
+            'LAST STEP',
+            style: TextStyle(
+              color: AppColors.sectionLabel,
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
           ),
-        ),
+          8.hSizedBox,
+          Text(
+            'Keep your places and points',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          8.hSizedBox,
+          Text(
+            'An account keeps your places, settings and points across '
+            'phones. ALRT never creates or stores a password: you sign in '
+            'with Apple, Google or Microsoft.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.grey,
+              fontSize: 15.spMin,
+              height: 1.45,
+            ),
+          ),
+        ] else ...[
+          Text(
+            'Welcome to ALRT',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          8.hSizedBox,
+          Text(
+            'Official warnings, in plain words, for the people and places '
+            'you care about.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.grey,
+              fontSize: 16.spMin,
+              height: 1.4,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -123,7 +168,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ),
             onPressed: () => setState(() => _showSignIn = true),
             child: Text(
-              'Get Started',
+              'Get started',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 16.spMin,
@@ -151,15 +196,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Widget _buildAuthButtons() {
     return Column(
       children: [
-        Text(
-          'Sign in to continue',
-          style: TextStyle(
-            color: AppColors.mediumGrey,
-            fontSize: 16.spMin,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        20.hSizedBox,
         if (Platform.isIOS) ...[
           _buildAppleButton(),
           12.hSizedBox,

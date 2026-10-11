@@ -7,11 +7,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/map_display_settings_provider.dart';
-import 'package:hazard_app/features/map/views/widgets/custom_compass_button.dart';
 import 'package:hazard_app/features/map/views/widgets/map_hazard_info_window.dart';
 import 'package:hazard_app/features/map/views/widgets/map_rail.dart';
 import 'package:hazard_app/features/map/views/widgets/map_searchbar.dart';
-import 'package:hazard_app/features/map/views/widgets/map_setup_chips.dart';
+import 'package:hazard_app/features/map/views/widgets/map_warnings_banner.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/navigation_mode_overlay.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/navigation_route_info_cards_list.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/navigation_simulation_controls.dart';
@@ -119,130 +118,119 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           return const NavigationModeOverlay();
         }
 
-        return SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                children: [
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final isRoutePresent = ref.watch(
-                        providerOfMap.select(
-                          (value) => value.currentRoutePlan != null,
-                        ),
-                      );
+        return Stack(
+          children: [
+            _safeAreaContentsBuilder(),
+            _railBuilder(),
+          ],
+        );
+      },
+    );
+  }
 
-                      if (isRoutePresent) {
-                        return Column(
-                          spacing: 5.spMin,
-                          children: [
-                            RouteSourceAndDestination().pX(20.0),
-                            NavigationTravelModesList(),
-                          ],
-                        );
-                      }
-                      // A real gap below the status bar. At 18 the capsule
-                      // still sat under the clock on tall screens and read
-                      // as part of the system bar rather than as something
-                      // floating over the map.
-                      return Column(
+  /// The search bar, warnings banner and the bottom cards.
+  Widget _safeAreaContentsBuilder() {
+    return SafeArea(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            children: [
+              Consumer(
+                builder: (context, ref, child) {
+                  final isRoutePresent = ref.watch(
+                    providerOfMap.select(
+                      (value) => value.currentRoutePlan != null,
+                    ),
+                  );
+
+                  if (isRoutePresent) {
+                    return Column(
+                      spacing: 5.spMin,
+                      children: [
+                        RouteSourceAndDestination().pX(20.0),
+                        NavigationTravelModesList(),
+                      ],
+                    );
+                  }
+                  // A real gap below the status bar. At 18 the capsule
+                  // still sat under the clock on tall screens and read
+                  // as part of the system bar rather than as something
+                  // floating over the map.
+                  return Column(
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(child: MapSearchbar()),
-                            ],
-                          ).pX(20.0).pT(34.0),
-                          SizedBox(height: 10.spMin),
-                          const MapSetupChips(),
+                          Expanded(child: MapSearchbar()),
                         ],
-                      );
-                    },
-                  ),
-                ],
+                      ).pX(20.0).pT(34.0),
+                      SizedBox(height: 8.spMin),
+                      const MapWarningsBanner().pX(20.0),
+                    ],
+                  );
+                },
               ),
-              Expanded(
-                child: Consumer(
+            ],
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                // The rail is positioned against the screen in
+                // _railBuilder; this spacer keeps the cards below
+                // pinned to the bottom.
+                const Expanded(child: SizedBox.shrink()),
+                Consumer(
                   builder: (context, ref, child) {
                     final isRoutePresent = ref.watch(
                       providerOfMap.select(
                         (value) => value.currentRoutePlan != null,
                       ),
                     );
+                    if (isRoutePresent) {
+                      return NavigationRouteInfoCardsList().pT(10.0);
+                    }
 
-                    return Column(
-                      children: [
-                        // Don't show the map action buttons and view list button if a route is present
-                        isRoutePresent
-                            ? Expanded(
-                                child: const SizedBox.shrink(),
-                              )
-                            : Expanded(
-                                child: Stack(
-                                  children: [
-                                    Positioned(
-                                      right: 15.spMin,
-                                      bottom: 0.0,
-                                      child: _mapActionButtons(),
-                                    ),
-                                    Positioned(
-                                      right: 12.spMin,
-                                      top: 0.0,
-                                      bottom: 0.0,
-                                      child: const Center(
-                                        child: MapRail(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                        Consumer(
-                          builder: (context, ref, child) {
-                            final isRoutePresent = ref.watch(
-                              providerOfMap.select(
-                                (value) => value.currentRoutePlan != null,
-                              ),
-                            );
-                            if (isRoutePresent) {
-                              return NavigationRouteInfoCardsList().pT(10.0);
-                            }
-
-                            final isSelectedLocationPresent = ref.watch(
-                              providerOfMap.select(
-                                (value) => value.selectedLocation != null,
-                              ),
-                            );
-                            if (isSelectedLocationPresent) {
-                              return SelectedLocationPreview()
-                                  .pT(10.0)
-                                  .pX(20.0);
-                            }
-
-                            return const SizedBox();
-                          },
-                        ),
-                      ],
+                    final isSelectedLocationPresent = ref.watch(
+                      providerOfMap.select(
+                        (value) => value.selectedLocation != null,
+                      ),
                     );
+                    if (isSelectedLocationPresent) {
+                      return SelectedLocationPreview().pT(10.0).pX(20.0);
+                    }
+
+                    return const SizedBox();
                   },
                 ),
-              ),
-            ],
-          ).pB(30.0),
-        );
-      },
+              ],
+            ),
+          ),
+        ],
+      ).pB(30.0),
     );
   }
 
-  // The V3 map rail owns layers/keys and filtering; only the compass
-  // remains as a floating action.
-  Widget _mapActionButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      spacing: 10.spMin,
-      children: [
-        CustomCompassButton(),
-      ],
+  /// The white rail on the right edge, 280 logical px from the top of the
+  /// screen (prototype board "Main", 9 Oct 2026). Hidden while a route is
+  /// being planned; navigation mode has its own overlay.
+  Widget _railBuilder() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final isRoutePresent = ref.watch(
+          providerOfMap.select(
+            (value) => value.currentRoutePlan != null,
+          ),
+        );
+        if (isRoutePresent) {
+          return const SizedBox.shrink();
+        }
+
+        return Positioned(
+          right: 16.spMin,
+          top: 280.spMin,
+          child: const MapRail(),
+        );
+      },
     );
   }
 

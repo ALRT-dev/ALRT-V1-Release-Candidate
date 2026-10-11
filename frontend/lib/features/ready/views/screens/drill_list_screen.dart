@@ -8,6 +8,7 @@ import 'package:hazard_app/features/ready/views/screens/drill_create_screen.dart
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class DrillListScreen extends ConsumerStatefulWidget {
   const DrillListScreen({super.key});
@@ -41,7 +42,7 @@ class _DrillListScreenState extends ConsumerState<DrillListScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Color(0xFF232326)),
+          icon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF232326)),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -57,7 +58,7 @@ class _DrillListScreenState extends ConsumerState<DrillListScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.orange,
         onPressed: () => context.push(DrillCreateScreen.route),
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(LucideIcons.plus, color: Colors.white),
       ),
       body: readyState.isLoadingDrills
           ? const Center(child: CircularProgressIndicator())
@@ -81,7 +82,7 @@ class _DrillListScreenState extends ConsumerState<DrillListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.directions_run_rounded,
+              LucideIcons.footprints,
               size: 56.spMin,
               color: AppColors.orange.withValues(alpha: 0.4),
             ),
@@ -126,7 +127,7 @@ class _DrillListScreenState extends ConsumerState<DrillListScreen> {
           color: AppColors.red,
           borderRadius: BorderRadius.circular(14.spMin),
         ),
-        child: Icon(Icons.delete_rounded, color: Colors.white, size: 22.spMin),
+        child: Icon(LucideIcons.trash2, color: Colors.white, size: 22.spMin),
       ),
       confirmDismiss: (_) async {
         return await showDialog<bool>(
@@ -167,7 +168,7 @@ class _DrillListScreenState extends ConsumerState<DrillListScreen> {
                 borderRadius: BorderRadius.circular(12.spMin),
               ),
               child: Icon(
-                Icons.directions_run_rounded,
+                LucideIcons.footprints,
                 size: 22.spMin,
                 color: AppColors.green,
               ),

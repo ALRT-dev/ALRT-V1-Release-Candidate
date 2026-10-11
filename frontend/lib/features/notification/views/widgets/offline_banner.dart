@@ -2,18 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/notification/providers/last_feed_fetch_provider.dart';
+import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/shared/enums/network_connection_status.dart';
 import 'package:hazard_app/features/shared/providers/network_connection_checker_provider.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// A banner that appears when the device is offline, showing the time
+/// A card that appears when the device is offline, showing the time
 /// alerts were last fetched so the user knows how stale the data is.
 ///
-/// Displays: "Showing alerts as of HH:MM"
+/// Displays: "Can't update right now" / "Showing alerts from HH:MM"
 class OfflineBanner extends ConsumerWidget {
   const OfflineBanner({super.key});
+
+  static const _cardColor = Color(0xFFFFF6D6);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,43 +32,80 @@ class OfflineBanner extends ConsumerWidget {
         ? DateFormat('h:mm a').format(lastFetch).toLowerCase()
         : null;
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: 16.spMin,
-        vertical: 10.spMin,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.info.withValues(alpha: 0.12),
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.info.withValues(alpha: 0.25),
-            width: 1,
-          ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.spMin, 8.spMin, 16.spMin, 0),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(
+          horizontal: 14.spMin,
+          vertical: 12.spMin,
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.wifiOff,
-            size: 16.spMin,
-            color: AppColors.info,
-          ),
-          SizedBox(width: 8.spMin),
-          Expanded(
-            child: Text(
-              timeString != null
-                  ? 'Showing alerts as of $timeString'
-                  : 'You are offline',
-              style: TextStyle(
-                fontSize: 13.spMin,
-                fontWeight: FontWeight.w500,
-                color: AppColors.info,
-                height: 1.3,
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(14.spMin),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              LucideIcons.wifiOff,
+              size: 18.spMin,
+              color: AppColors.ink,
+            ),
+            SizedBox(width: 10.spMin),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Can't update right now",
+                    style: TextStyle(
+                      fontSize: 14.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                      height: 1.3,
+                    ),
+                  ),
+                  SizedBox(height: 2.spMin),
+                  Text(
+                    timeString != null
+                        ? 'Showing alerts from $timeString'
+                        : 'You are offline',
+                    style: TextStyle(
+                      fontSize: 12.5.spMin,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.mediumGrey,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            SizedBox(width: 10.spMin),
+            GestureDetector(
+              onTap: () => ref
+                  .read(providerOfNotificationsFeed.notifier)
+                  .getNotificationsFeedHazards(silent: true),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 14.spMin,
+                  vertical: 8.spMin,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.ink,
+                  borderRadius: BorderRadius.circular(20.spMin),
+                ),
+                child: Text(
+                  'Retry',
+                  style: TextStyle(
+                    fontSize: 13.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

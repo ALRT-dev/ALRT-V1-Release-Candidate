@@ -34,7 +34,7 @@ class FamilySosReceiverScreenArgs {
 /// tells the person in trouble - by name, with a time - that someone is
 /// looking (product-owner instruction 2026-09-03: an explicit tap, not an
 /// automatic post on open). There is no in-app call action here
-/// (product-owner instruction 2026-08-30) — anyone worried should call
+/// (product-owner instruction 2026-08-30) - anyone worried should call
 /// their own local emergency number from their own phone.
 ///
 /// SOS is the one place location updates automatically: triggering it starts
@@ -341,7 +341,7 @@ class _FamilySosReceiverScreenState
           children: [
             IconButton(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
             ),
             Expanded(
               child: Column(
@@ -683,7 +683,7 @@ class _FamilySosReceiverScreenState
   }
 
   /// Two-tier confirmation before an SOS actually stops, so the sender
-  /// understands what is about to happen before it happens — not just
+  /// understands what is about to happen before it happens - not just
   /// after. When live location sharing is active, a second, live-specific
   /// confirmation follows the first: stopping SOS and stopping live
   /// sharing are two things happening at once, and both need to be said,
@@ -1006,7 +1006,7 @@ class _FamilySosReceiverScreenState
                           switch (response.type) {
                             FamilySosResponseType.onMyWay =>
                               LucideIcons.navigation,
-                            FamilySosResponseType.called => Icons.phone,
+                            FamilySosResponseType.called => LucideIcons.phoneCall,
                             FamilySosResponseType.seen => LucideIcons.eye,
                           },
                           size: 18.spMin,

@@ -1,16 +1,17 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart' hide DatePickerTheme;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
+import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/report/providers/duplicate_report_provider.dart';
 import 'package:hazard_app/features/report/providers/report_rate_limit_provider.dart';
 import 'package:hazard_app/features/report/views/widgets/duplicate_report_sheet.dart';
 import 'package:hazard_app/features/report/views/widgets/report_rate_limit_sheet.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
-import 'package:hazard_app/features/map/models/alrt_location_model.dart';
+import 'package:hazard_app/features/profile/enums/my_hazards_tab_types.dart';
+import 'package:hazard_app/features/profile/models/xp_summary_models.dart';
+import 'package:hazard_app/features/profile/providers/xp_summary_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/how_points_work_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/my_hazards_screen.dart';
 import 'package:hazard_app/features/report/providers/create_update_report_provider.dart';
@@ -23,7 +24,6 @@ import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
-import 'package:hazard_app/features/shared/repositories/hazard_repository.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/media_service.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
@@ -32,7 +32,6 @@ import 'package:hazard_app/features/shared/views/widgets/dotted_border_container
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Community report photo/video. Off for V1. Matches backend COMMUNITY_REPORT_MEDIA_ENABLED.
@@ -54,8 +53,12 @@ const _labelColor = Color(0xFFFF6B01);
 const _iconTint = Color(0xFFFFF3E8);
 const _cardShadow = Color(0x0D1E142D);
 
-/// The chip treatment the prototype gives secondary actions.
-const _chipFill = Color(0xFFF0F2F5);
+/// The posted state: soft green disc behind the tick, the brand gradient on
+/// the one primary action, and the warm grey behind the headline preview.
+const _postedTickBackground = Color(0xFFE6F7EC);
+const _previewFill = Color(0xFFF0EEEA);
+const _brandGradientStart = Color(0xFFFF6B00);
+const _brandGradientEnd = Color(0xFFFF0004);
 
 class CreateUpdateReportScreenArgs {
   CreateUpdateReportScreenArgs({this.hazardToUpdate});
@@ -89,10 +92,10 @@ class _CreateUpdateReportScreenState
   final _descriptionController = TextEditingController();
   final _descriptionFocusNode = FocusNode();
 
-  /// "What can you see?" — selected observation chip ids (locked taxonomy).
+  /// "What can you see?": selected observation chip ids (locked taxonomy).
   final Set<String> _selectedChipIds = {};
 
-  /// "How would you describe it?" — the active wording. Pre-selected from
+  /// "How would you describe it?": the active wording. Pre-selected from
   /// the tapped chips until the user picks one themselves.
   ReportSeverityWording? _pickedWording;
   bool _wordingTouched = false;
@@ -195,7 +198,7 @@ class _CreateUpdateReportScreenState
         ),
         foregroundColor: AppColors.black,
         actions: [
-          _clearAllBuilder(),
+          _closeButtonBuilder(),
           15.wSizedBox,
         ],
       ),
@@ -212,21 +215,9 @@ class _CreateUpdateReportScreenState
     ).keyboardDismisser(context);
   }
 
-  /// Every step is on the page from the first frame — nothing unfolds only
+  /// Every step is on the page from the first frame: nothing unfolds only
   /// after a category is picked, so the whole job is visible up front.
   Widget _formBuilder() {
-    // Read once for the step ticks, so each card can show whether it is
-    // done without every section watching the provider separately.
-    final report = ref.watch(providerOfCreateReport);
-    final hazard = report.hazardToCreateOrUpdate;
-    // Nothing below location glows until location is answered, so there
-    // is exactly one lit box at a time and the order is obvious without
-    // numbering it.
-    final hasLocation = (hazard.locationName ?? '').trim().isNotEmpty;
-    final hasCategory = (hazard.categoryId ?? '').isNotEmpty;
-    final hasSeverityWording = hazard.severity != null;
-    final hasMedia = report.medias.isNotEmpty;
-
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,29 +235,21 @@ class _CreateUpdateReportScreenState
               children: [
                 _locationBuilder(),
                 _sectionBuilder(
-                  isDone: hasCategory,
-                  isUnlocked: hasLocation,
                   label: 'Category',
                   helper: 'one tap, pick the closest fit',
                   child: _categoriesBuilder(),
                 ),
                 _sectionBuilder(
-                  isDone: _selectedChipIds.isNotEmpty,
-                  isUnlocked: hasLocation,
                   label: 'What can you see?',
                   helper: 'tap any, this is an observation not a diagnosis',
                   child: _chipsBuilder(),
                 ),
                 _sectionBuilder(
-                  isDone: hasSeverityWording,
-                  isUnlocked: hasLocation,
                   label: 'How would you describe it?',
                   helper: 'auto-set from what you picked, tap to change',
                   child: _severityWordingBuilder(),
                 ),
                 _sectionBuilder(
-                  isOptional: true,
-                  isDone: _descriptionController.text.trim().isNotEmpty,
                   label: 'Add details',
                   helper: 'optional',
                   child: _descriptionBuilder(),
@@ -276,13 +259,12 @@ class _CreateUpdateReportScreenState
                 // to bring it back; the backend flag must match.
                 if (kCommunityReportMediaEnabled)
                   _sectionBuilder(
-                    isOptional: true,
-                    isDone: hasMedia,
                     label: 'Photos',
                     helper: 'optional',
                     child: _mediaBuilder(),
                   ),
                 _headlinePreviewBuilder(),
+                _clearAllBuilder(),
               ],
             ),
           ),
@@ -299,27 +281,15 @@ class _CreateUpdateReportScreenState
   /// made this screen feel like paperwork rather than telling a neighbour
   /// what you can see. The label is the quietest thing in each section and
   /// the content is the loudest, which is the right way round.
+  ///
+  /// Cards are plain white on a light shadow (approved Report board). The
+  /// done / active / ahead coloured outlines are gone: the selected chips
+  /// already say what has been answered.
   Widget _sectionBuilder({
     required final String label,
     required final Widget child,
     final String? helper,
-    final bool isDone = false,
-    final bool isOptional = false,
-    final bool isUnlocked = true,
   }) {
-    // The steps are highlighted so the order is obvious at a glance:
-    // done goes green, the one you are up to wears the orange outline,
-    // and anything still ahead stays quiet. Optional steps never nag.
-    // No numbers: the glow says which box wants you next. Done goes green
-    // and settles down, the one you are up to carries a lit orange ring,
-    // and optional boxes never demand attention.
-    final isActive = !isDone && !isOptional && isUnlocked;
-    final outline = isDone
-        ? const Color(0xFF17A05E)
-        : isActive
-        ? _labelColor
-        : const Color(0xFFE8E4EE);
-
     return Padding(
       padding: EdgeInsets.only(top: 12.spMin),
       child: Container(
@@ -332,30 +302,13 @@ class _CreateUpdateReportScreenState
         ),
         decoration: BoxDecoration(
           color: AppColors.white,
-          borderRadius: BorderRadius.circular(16.spMin),
-          border: Border.all(
-            color: outline.withValues(alpha: isDone || isActive ? 0.9 : 0.5),
-            width:
-                (isActive
-                        ? 2.0
-                        : isDone
-                        ? 1.6
-                        : 1.0)
-                    .spMin,
-          ),
-          boxShadow: [
-            if (isActive)
-              BoxShadow(
-                color: _labelColor.withValues(alpha: 0.28),
-                blurRadius: 22.0,
-                spreadRadius: 1.5,
-              )
-            else
-              const BoxShadow(
-                color: _cardShadow,
-                blurRadius: 10.0,
-                offset: Offset(0, 2),
-              ),
+          borderRadius: BorderRadius.circular(18.spMin),
+          boxShadow: const [
+            BoxShadow(
+              color: _cardShadow,
+              blurRadius: 10.0,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         child: Column(
@@ -425,7 +378,8 @@ class _CreateUpdateReportScreenState
             Expanded(
               child: Text(
                 'ALRT is a community report, not an emergency service. '
-                'Report only what you can see safely.',
+                'Report only what you can see safely. In an emergency, '
+                'contact your local emergency number.',
                 style: TextStyle(
                   fontSize: 12.5.spMin,
                   height: 1.4,
@@ -461,7 +415,7 @@ class _CreateUpdateReportScreenState
     );
   }
 
-  /// "What can you see?" — observation chips, never a diagnosis. Multi-tap;
+  /// "What can you see?": observation chips, never a diagnosis. Multi-tap;
   /// "Something else" focuses the details field instead of adding data.
   Widget _chipsBuilder() {
     return Consumer(
@@ -550,7 +504,7 @@ class _CreateUpdateReportScreenState
   }
 
   /// Highest severityDefault across the selected chips (spec A.3), or null
-  /// when nothing selected — then no wording is highlighted.
+  /// when nothing selected, in which case no wording is highlighted.
   ReportSeverityWording? _preselectedWording() {
     final categoryName = ref
         .read(providerOfCreateReport)
@@ -566,7 +520,7 @@ class _CreateUpdateReportScreenState
     return ReportSeverityWording.fromDefault(maxDefault);
   }
 
-  /// "How would you describe it?" — severity is declared by the reporter,
+  /// "How would you describe it?": severity is declared by the reporter,
   /// pre-selected from the chips, never imposed.
   Widget _severityWordingBuilder() {
     return Row(
@@ -633,7 +587,7 @@ class _CreateUpdateReportScreenState
   }
 
   /// Compact category pills (V3.1 mock): coloured dot + name, everything
-  /// on one page, no descriptions — the observation chips below act as
+  /// on one page, no descriptions; the observation chips below act as
   /// the examples.
   Widget _categoriesBuilder() {
     return Consumer(
@@ -700,251 +654,110 @@ class _CreateUpdateReportScreenState
     });
   }
 
+  /// The header once the report has gone: a plain title. The body below
+  /// carries the thanks and what the report can earn, so the header does
+  /// not repeat it.
   Widget _submittedAppbarTitleBuilder() {
-    return Row(
-      children: [
-        Container(
-          width: 38.spMin,
-          height: 38.spMin,
-          decoration: BoxDecoration(
-            color: AppColors.orange.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            LucideIcons.star,
-            size: 16.spMin,
-            color: AppColors.orange,
-          ),
-        ),
-        8.wSizedBox,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Your ALRT has been submitted!',
-                style: TextStyle(
-                  fontSize: 15.spMin,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.black,
-                  height: 1.4,
-                  letterSpacing: -0.5,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text.rich(
-                TextSpan(
-                  style: TextStyle(
-                    fontFamily: AppTheme.defaultFontFamily,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: 'Once approved you will gain ',
-                    ),
-                    TextSpan(
-                      text: '+10 points ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.orange,
-                      ),
-                    ),
-                    TextSpan(
-                      text: '- keep it up!',
-                    ),
-                  ],
-                ),
-                style: TextStyle(
-                  fontSize: 13.5.spMin,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.mediumGrey,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return Text(
+      'Report sent',
+      style: TextStyle(
+        color: AppColors.black,
+        fontSize: 21.spMin,
+        fontWeight: FontWeight.w700,
+        height: 1.1,
+      ),
     );
   }
 
+  /// The posted state (approved Report board): a green tick, thanks, what
+  /// the report can earn, the next badge when the ledger knows one, and one
+  /// primary action back to the map.
   Widget _submittedBuilder() {
-    final line = Center(
-      child: Container(
-        height: 15.spMin,
-        width: 2.5,
-        decoration: BoxDecoration(
-          color: const Color(0xFF3CBE5F),
-          borderRadius: BorderRadius.circular(10.spMin),
-        ),
-      ),
-    );
-    final offset = 6.spMin;
-
-    return Center(
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(20.spMin, 36.spMin, 20.spMin, 24.spMin),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                height: 110.spMin,
-                width: 110.spMin,
-                decoration: BoxDecoration(
-                  color: Color(0xFF3CBE5F).withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.shadowColorLight,
-                      blurRadius: 6.0,
-                      offset: const Offset(0.0, 0.0),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Container(
-                    width: 80.spMin,
-                    height: 80.spMin,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Color(0xFF3CBE5F).withValues(alpha: 0.8),
-                          AppColors.darkGreen.withValues(alpha: 0.8),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.white.withValues(alpha: 0.4),
-                          blurRadius: 20.spMin,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.check_rounded,
-                      size: 50.spMin,
-                      color: AppColors.white,
-                    ),
-                  ),
-                ),
+          Center(
+            child: Container(
+              width: 72.spMin,
+              height: 72.spMin,
+              decoration: const BoxDecoration(
+                color: _postedTickBackground,
+                shape: BoxShape.circle,
               ),
-
-              /// Top line
-              Positioned(
-                top: -offset,
-                left: 0.0,
-                right: 0.0,
-                child: line,
+              child: Icon(
+                LucideIcons.check,
+                size: 36.spMin,
+                color: AppColors.green,
               ),
-
-              /// Bottom line
-              Positioned(
-                bottom: -offset,
-                left: 0.0,
-                right: 0.0,
-                child: line,
-              ),
-
-              /// Left line
-              Positioned(
-                top: 0.0,
-                bottom: 0.0,
-                left: -offset,
-                child: RotatedBox(
-                  quarterTurns: 1,
-                  child: line,
-                ),
-              ),
-
-              /// Right line
-              Positioned(
-                top: 0.0,
-                bottom: 0.0,
-                right: -offset,
-                child: RotatedBox(
-                  quarterTurns: 1,
-                  child: line,
-                ),
-              ),
-
-              /// Top-left corner line
-              Positioned(
-                top: offset + 6.0,
-                left: offset + 6.0,
-                child: Center(
-                  child: Transform.rotate(
-                    angle: -pi / 4,
-                    child: line,
-                  ),
-                ),
-              ),
-
-              /// Top-right corner line
-              Positioned(
-                top: offset + 6.0,
-                right: offset + 6.0,
-                child: Center(
-                  child: Transform.rotate(
-                    angle: pi / 4,
-                    child: line,
-                  ),
-                ),
-              ),
-
-              /// Bottom-left corner line
-              Positioned(
-                bottom: offset + 6.0,
-                left: offset + 6.0,
-                child: Center(
-                  child: Transform.rotate(
-                    angle: pi / 4,
-                    child: line,
-                  ),
-                ),
-              ),
-
-              /// Bottom-right corner line
-              Positioned(
-                bottom: offset + 6.0,
-                right: offset + 6.0,
-                child: Center(
-                  child: Transform.rotate(
-                    angle: -pi / 4,
-                    child: line,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          30.hSizedBox,
-          Text(
-            'ALRT Submitted!',
-            style: TextStyle(
-              fontSize: 24.spMin,
-              fontWeight: FontWeight.w600,
             ),
           ),
-          5.hSizedBox,
+          20.hSizedBox,
           Text(
-            'Thank you for keeping your community safe.\nYour ALRT has been submitted for review.',
+            'Thanks for telling your neighbours',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 26.spMin,
+              fontWeight: FontWeight.w700,
+              height: 1.15,
+              color: AppColors.black,
+            ),
+          ),
+          10.hSizedBox,
+          Text(
+            'Your report is being checked. It shows as unverified until '
+            'others nearby confirm it.',
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15.spMin,
-              fontWeight: FontWeight.normal,
+              height: 1.4,
               color: AppColors.mediumGrey,
             ),
-            textAlign: TextAlign.center,
           ),
-          20.hSizedBox,
+          24.hSizedBox,
           _whatThisEarnsBuilder(),
-          20.hSizedBox,
-          _submitAnotherButtonBuilder(),
-          12.hSizedBox,
-          _seeActiveReportsButtonBuilder(),
+          _nextBadgeBuilder(),
+          24.hSizedBox,
+          SizedBox(
+            height: 54.spMin,
+            child: Button.gradient(
+              value: 'Back to the map',
+              gradient: const LinearGradient(
+                colors: [_brandGradientStart, _brandGradientEnd],
+              ),
+              borderRadius: 16.0,
+              valueStyle: TextStyle(
+                fontSize: 16.spMin,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+              ),
+              onPressed: _handleBackToMap,
+            ),
+          ),
+          14.hSizedBox,
+          Center(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _handleSeeMyReports,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 12.spMin,
+                  vertical: 6.spMin,
+                ),
+                child: Text(
+                  'See my reports',
+                  style: TextStyle(
+                    fontSize: 15.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.orange,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
-      ).pX(20.0),
+      ),
     );
   }
 
@@ -952,7 +765,7 @@ class _CreateUpdateReportScreenState
   /// certain to be looking: right after they sent it.
   ///
   /// Every line is conditional on purpose. Nothing is awarded at submission
-  /// — approval, corroboration and an official match all happen later — so
+  /// (approval, corroboration and an official match all happen later), so
   /// the card says "if", never "you earned". Claiming points that a
   /// moderator has not granted would be the one dishonest screen in the app.
   Widget _whatThisEarnsBuilder() {
@@ -960,47 +773,68 @@ class _CreateUpdateReportScreenState
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF6EE),
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(color: const Color(0xFFF6DCC4)),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18.spMin),
+        boxShadow: const [
+          BoxShadow(
+            color: _cardShadow,
+            blurRadius: 10.0,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'WHAT THIS CAN EARN',
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              color: _labelColor,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'POINTS YOU CAN EARN',
+                  style: TextStyle(
+                    fontSize: 12.spMin,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                    color: _labelColor,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => context.push(HowPointsWorkScreen.route),
+                child: Text(
+                  'How points work',
+                  style: TextStyle(
+                    fontSize: 13.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.orange,
+                  ),
+                ),
+              ),
+            ],
           ),
-          10.hSizedBox,
+          12.hSizedBox,
           _earnLineBuilder(
             points: '+10',
             text: 'when a moderator approves it',
+            isPrimary: true,
           ),
           _earnLineBuilder(
             points: '+5',
-            text: 'if someone nearby reports the same thing',
+            text: 'if someone nearby confirms the same thing',
           ),
           _earnLineBuilder(
             points: '+15',
             text: 'if it matches an official warning',
           ),
-          10.hSizedBox,
-          GestureDetector(
-            onTap: () => context.push(HowPointsWorkScreen.route),
-            child: Text(
-              'How points work',
-              style: TextStyle(
-                fontSize: 13.5.spMin,
-                fontWeight: FontWeight.w700,
-                color: _labelColor,
-                decoration: TextDecoration.underline,
-                decorationColor: _labelColor,
-              ),
+          6.hSizedBox,
+          Text(
+            'Points reward careful, accurate reports. Reporting more does '
+            'not earn more.',
+            style: TextStyle(
+              fontSize: 12.5.spMin,
+              height: 1.4,
+              color: AppColors.mediumGrey,
             ),
           ),
         ],
@@ -1011,20 +845,21 @@ class _CreateUpdateReportScreenState
   Widget _earnLineBuilder({
     required final String points,
     required final String text,
+    final bool isPrimary = false,
   }) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 6.spMin),
+      padding: EdgeInsets.only(bottom: 8.spMin),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 30.spMin,
+            width: 40.spMin,
             child: Text(
               points,
               style: TextStyle(
-                fontSize: 14.spMin,
+                fontSize: 16.spMin,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF0A8A58),
+                color: isPrimary ? AppColors.orange : AppColors.black,
               ),
             ),
           ),
@@ -1034,12 +869,125 @@ class _CreateUpdateReportScreenState
               style: TextStyle(
                 fontSize: 14.spMin,
                 height: 1.4,
-                color: AppColors.mediumGrey,
+                color: AppColors.black,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// The next badge still to earn, with how far off it is. Shown only when
+  /// the XP summary has loaded and holds a locked badge with a threshold;
+  /// nothing is invented when the ledger is quiet.
+  Widget _nextBadgeBuilder() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final badges = ref.watch(
+          providerOfXpSummary.select(
+            (summary) => summary.value?.badges ?? const <SafetyBadge>[],
+          ),
+        );
+        SafetyBadge? next;
+        for (final badge in badges) {
+          if (badge.earned || badge.threshold <= 0) continue;
+          if (next == null || badge.fraction > next.fraction) next = badge;
+        }
+        if (next == null) return const SizedBox.shrink();
+
+        return Container(
+          width: double.infinity,
+          margin: EdgeInsets.only(top: 12.spMin),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16.spMin,
+            vertical: 14.spMin,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(18.spMin),
+            boxShadow: const [
+              BoxShadow(
+                color: _cardShadow,
+                blurRadius: 10.0,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'NEXT BADGE',
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.7,
+                  color: _labelColor,
+                ),
+              ),
+              10.hSizedBox,
+              Row(
+                children: [
+                  Icon(
+                    LucideIcons.award,
+                    size: 18.spMin,
+                    color: AppColors.orange,
+                  ),
+                  8.wSizedBox,
+                  Expanded(
+                    child: Text(
+                      next.name,
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${next.progress} of ${next.threshold}',
+                    style: TextStyle(
+                      fontSize: 12.5.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.mediumGrey,
+                    ),
+                  ),
+                ],
+              ),
+              10.hSizedBox,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4.spMin),
+                child: LinearProgressIndicator(
+                  value: next.fraction,
+                  minHeight: 6.spMin,
+                  backgroundColor: AppColors.extraLightGrey,
+                  color: AppColors.orange,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Back to the map tab, then off this screen.
+  void _handleBackToMap() {
+    ref.read(providerOfHomeTab.notifier).state = HomeTab.map;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(HomeScreen.route);
+    }
+  }
+
+  /// The same route and arguments the profile uses for "My reports".
+  void _handleSeeMyReports() {
+    ref.read(providerOfHomeTab.notifier).state = HomeTab.profile;
+    context.push(
+      MyHazardsScreen.route,
+      extra: const MyHazardsScreenArgs(initialTab: MyHazardsTab.accepted),
     );
   }
 
@@ -1211,31 +1159,20 @@ class _CreateUpdateReportScreenState
               ),
             );
             // Location is auto-filled from GPS and posted from the actual
-            // location — no adjust pin. The card is read-only.
-            final hasLocation = (locationName ?? '').trim().isNotEmpty;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+            // location, no adjust pin. The card is read-only.
+            // Plain white like every other card: the text says whether the
+            // location has been found, so no coloured ring is needed.
+            return Container(
               width: double.infinity,
               decoration: BoxDecoration(
                 color: AppColors.white,
-                borderRadius: BorderRadius.circular(14.spMin),
-                border: Border.all(
-                  color: hasLocation ? const Color(0xFF17A05E) : _labelColor,
-                  width: (hasLocation ? 1.6 : 2.0).spMin,
-                ),
-                boxShadow: [
-                  if (!hasLocation)
-                    BoxShadow(
-                      color: _labelColor.withValues(alpha: 0.28),
-                      blurRadius: 22.0,
-                      spreadRadius: 1.5,
-                    )
-                  else
-                    const BoxShadow(
-                      color: _cardShadow,
-                      blurRadius: 10.0,
-                      offset: Offset(0, 2),
-                    ),
+                borderRadius: BorderRadius.circular(18.spMin),
+                boxShadow: const [
+                  BoxShadow(
+                    color: _cardShadow,
+                    blurRadius: 10.0,
+                    offset: Offset(0, 2),
+                  ),
                 ],
               ),
               padding: EdgeInsets.symmetric(
@@ -1307,47 +1244,50 @@ class _CreateUpdateReportScreenState
           locationName: locationName,
         );
 
-        // The preview is a footnote, not a step: it reports back what the
-        // choices above already decided, so it takes the quietest treatment
-        // on the page rather than a section label of its own.
+        // The preview reports back what the choices above already decided:
+        // the headline as it will read on the map, and how it is posted.
         return Container(
           width: double.infinity,
           margin: EdgeInsets.only(top: 16.spMin),
           decoration: BoxDecoration(
-            color: const Color(0xFFF6F5F2),
-            borderRadius: BorderRadius.circular(12.spMin),
-            border: Border.all(
-              color: AppColors.lightGrey.withValues(alpha: 0.6),
-            ),
+            color: _previewFill,
+            borderRadius: BorderRadius.circular(16.spMin),
           ),
           padding: EdgeInsets.symmetric(
-            horizontal: 13.spMin,
-            vertical: 11.spMin,
+            horizontal: 14.spMin,
+            vertical: 13.spMin,
           ),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: 'Headline preview:  ',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.mediumGrey,
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'HEADLINE PREVIEW',
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.7,
+                  color: _labelColor,
                 ),
-                TextSpan(
-                  text: headline,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.black,
-                  ),
+              ),
+              8.hSizedBox,
+              Text(
+                headline,
+                style: TextStyle(
+                  fontSize: 16.spMin,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                  color: AppColors.black,
                 ),
-              ],
-            ),
-            style: TextStyle(
-              fontSize: 14.spMin,
-              height: 1.5,
-              fontFamily: AppTheme.defaultFontFamily,
-            ),
+              ),
+              4.hSizedBox,
+              Text(
+                'Unverified · posted anonymously',
+                style: TextStyle(
+                  fontSize: 12.5.spMin,
+                  color: AppColors.mediumGrey,
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -1356,7 +1296,7 @@ class _CreateUpdateReportScreenState
 
   /// Headline fallback ladder (locked spec A.4), first match wins:
   /// chips → chip fragment; details → first sentence to 60 chars;
-  /// otherwise "{category} report — {suburb}".
+  /// otherwise "{category} report, {suburb}".
   String _assembleHeadline({
     required final String? categoryName,
     required final String? locationName,
@@ -1523,15 +1463,11 @@ class _CreateUpdateReportScreenState
         ];
 
         return Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.white,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorMedium,
-                blurRadius: 16.0,
-                offset: const Offset(0, -2),
-              ),
-            ],
+            border: Border(
+              top: BorderSide(color: AppColors.lightGrey, width: 1.0),
+            ),
           ),
           padding: EdgeInsets.fromLTRB(
             16.spMin,
@@ -1545,17 +1481,25 @@ class _CreateUpdateReportScreenState
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Button.gradient(
-                  value: 'Submit report',
-                  icon: Icon(Icons.check_rounded),
-                  borderRadius: 16.0,
-                  onPressed: isReady ? _handleSubmitReport : null,
+                SizedBox(
+                  height: 54.spMin,
+                  child: Button.filled(
+                    value: 'Submit report',
+                    color: AppColors.orange,
+                    borderRadius: 16.0,
+                    // No colour here: the theme greys the label with the
+                    // button while a location or category is still missing.
+                    valueStyle: TextStyle(
+                      fontSize: 16.spMin,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    onPressed: isReady ? _handleSubmitReport : null,
+                  ),
                 ),
                 8.hSizedBox,
                 Text(
                   isReady
-                      ? 'Shows as unverified until others nearby confirm it. '
-                            'No points for posting, points for being right.'
+                      ? 'Shows as unverified until others nearby confirm it.'
                       : 'Add ${missing.join(' and ')} to submit.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -1571,108 +1515,45 @@ class _CreateUpdateReportScreenState
     );
   }
 
-  Widget _submitAnotherButtonBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isUpdating = ref.watch(
-          providerOfCreateReport.select(
-            (value) => value.hazardToCreateOrUpdate.id?.isNotEmpty ?? false,
-          ),
-        );
-        if (isUpdating) return const SizedBox.shrink();
-
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 6.0,
-                offset: const Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          padding: EdgeInsets.symmetric(
-            horizontal: 10.spMin,
-            vertical: 15.spMin,
-          ),
-          child: Center(
-            child: Row(
-              spacing: 10.spMin,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.add_rounded,
-                  color: AppColors.black,
-                ),
-                Text(
-                  'Submit Another Report',
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.black,
-                  ),
-                ),
-              ],
+  /// A 40 px white round close button in the header. Closing is not
+  /// clearing: whatever was typed stays in the provider for next time.
+  Widget _closeButtonBuilder() {
+    return Semantics(
+      button: true,
+      label: 'Close',
+      child: Container(
+        width: 40.spMin,
+        height: 40.spMin,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          shape: BoxShape.circle,
+          boxShadow: const [
+            BoxShadow(
+              color: _cardShadow,
+              blurRadius: 10.0,
+              offset: Offset(0, 2),
             ),
-          ),
-        ).onPressed(_handleAnotherReport);
-      },
+          ],
+        ),
+        child: Icon(
+          LucideIcons.x,
+          color: AppColors.black,
+          size: 20.spMin,
+        ),
+      ).onPressed(() {
+        context.unfocusInputs();
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(HomeScreen.route);
+        }
+      }),
     );
   }
 
-  Widget _seeActiveReportsButtonBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isUpdating = ref.watch(
-          providerOfCreateReport.select(
-            (value) => value.hazardToCreateOrUpdate.id?.isNotEmpty ?? false,
-          ),
-        );
-        if (isUpdating) return const SizedBox.shrink();
-
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 6.0,
-                offset: const Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          padding: EdgeInsets.symmetric(
-            horizontal: 10.spMin,
-            vertical: 15.spMin,
-          ),
-          child: Center(
-            child: Row(
-              spacing: 10.spMin,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.list_rounded, color: AppColors.black),
-                Text(
-                  'See My Active Reports',
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ).onPressed(() {
-          ref.read(providerOfHomeTab.notifier).state = HomeTab.profile;
-          context.push(MyHazardsScreen.route);
-        });
-      },
-    );
-  }
-
+  /// A quiet "Clear all" under the form, shown only once something has been
+  /// entered. It used to be a trash icon in the header, where it read as a
+  /// delete button.
   Widget _clearAllBuilder() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1680,23 +1561,29 @@ class _CreateUpdateReportScreenState
         if (!hasAnyDataEntered) {
           return const SizedBox.shrink();
         }
-        return Container(
-          width: 32.spMin,
-          height: 32.spMin,
-          decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8.spMin),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.3),
-              width: 1.0,
+        return Padding(
+          padding: EdgeInsets.only(top: 14.spMin),
+          child: Center(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _clearAll,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 12.spMin,
+                  vertical: 6.spMin,
+                ),
+                child: Text(
+                  'Clear all',
+                  style: TextStyle(
+                    fontSize: 13.5.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.mediumGrey,
+                  ),
+                ),
+              ),
             ),
           ),
-          child: Icon(
-            LucideIcons.trash2,
-            color: AppColors.white.withValues(alpha: 0.8),
-            size: 16.spMin,
-          ),
-        ).onPressed(_clearAll);
+        );
       },
     );
   }
@@ -1730,22 +1617,6 @@ class _CreateUpdateReportScreenState
   /// Updates the title in the state.
   void _updateTitle(final String title) {
     ref.read(providerOfCreateReport.notifier).updateTitle(title);
-  }
-
-  /// Updates the location in the state. Picking the TEST-only Scarborough
-  /// fallback also labels the report, so it can never be submitted looking
-  /// like a real one even if the tester never touches the title field -
-  /// only when the title is still empty, so it never overwrites something
-  /// the tester already typed.
-  void _updateLocation(final AlrtLocation location) {
-    ref.read(providerOfCreateReport.notifier).updateLocation(location);
-
-    if (location == testScarboroughLocation &&
-        _titleController.text.trim().isEmpty) {
-      const testTitle = 'TEST — DO NOT USE — Community test report';
-      _titleController.text = testTitle;
-      _updateTitle(testTitle);
-    }
   }
 
   /// Updates the description in the state.
@@ -1825,11 +1696,6 @@ class _CreateUpdateReportScreenState
       ref.read(providerOfCreateReport.notifier).createOrUpdateReport();
       _clearAll();
     }
-  }
-
-  /// Handles the action when user wants to submit another report.
-  void _handleAnotherReport() {
-    ref.read(providerOfCreateReport.notifier).updateReportSubmitted(false);
   }
 
   Future<void> _handleCameraPress() async {

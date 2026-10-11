@@ -6,6 +6,7 @@ import 'package:hazard_app/features/ready/models/ready_models.dart';
 import 'package:hazard_app/features/ready/providers/ready_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class PlanEditScreen extends ConsumerStatefulWidget {
   const PlanEditScreen({super.key, this.planId});
@@ -126,7 +127,7 @@ class _PlanEditScreenState extends ConsumerState<PlanEditScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Color(0xFF232326)),
+          icon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF232326)),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -141,7 +142,7 @@ class _PlanEditScreenState extends ConsumerState<PlanEditScreen> {
         actions: [
           if (_isEditing)
             IconButton(
-              icon: Icon(Icons.delete_outline_rounded,
+              icon: Icon(LucideIcons.trash2,
                   color: AppColors.red, size: 22.spMin),
               onPressed: isSaving
                   ? null
@@ -227,8 +228,8 @@ class _PlanEditScreenState extends ConsumerState<PlanEditScreen> {
                     onTap: () => _toggleItem(index),
                     child: Icon(
                       item.checked
-                          ? Icons.check_box_rounded
-                          : Icons.check_box_outline_blank_rounded,
+                          ? LucideIcons.circleCheck
+                          : LucideIcons.circle,
                       color: item.checked ? AppColors.green : const Color(0xFF75757E),
                       size: 22.spMin,
                     ),
@@ -246,7 +247,7 @@ class _PlanEditScreenState extends ConsumerState<PlanEditScreen> {
                   ),
                   trailing: GestureDetector(
                     onTap: () => _removeItem(index),
-                    child: Icon(Icons.close_rounded,
+                    child: Icon(LucideIcons.x,
                         size: 18.spMin, color: const Color(0xFF75757E)),
                   ),
                 ),
@@ -293,7 +294,7 @@ class _PlanEditScreenState extends ConsumerState<PlanEditScreen> {
                     color: AppColors.orange,
                     borderRadius: BorderRadius.circular(10.spMin),
                   ),
-                  child: Icon(Icons.add, color: Colors.white, size: 22.spMin),
+                  child: Icon(LucideIcons.plus, color: Colors.white, size: 22.spMin),
                 ),
               ),
             ],

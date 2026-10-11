@@ -4,14 +4,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/profile/providers/child_mode_provider.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Child mode: a parent's switch on a child's phone.
 ///
-/// It is honest about what it is. A restriction that helps, not a security
-/// boundary: the PIN stops the casual case and the copy says so rather
-/// than implying the phone is locked down.
+/// A restriction that helps, not a security boundary: the PIN stops the
+/// casual case. Approved board 9 Oct 2026: plain white app bar, one status
+/// card, the optional PIN, one solid CTA.
 class ChildModeScreen extends ConsumerStatefulWidget {
   const ChildModeScreen({super.key});
 
@@ -22,6 +23,10 @@ class ChildModeScreen extends ConsumerStatefulWidget {
 }
 
 class _ChildModeScreenState extends ConsumerState<ChildModeScreen> {
+  static const _page = Color(0xFFF5F5F7);
+  static const _muted = Color(0xFF5C5C66);
+  static const _cta = Color(0xFFE8622A);
+
   final _pinController = TextEditingController();
 
   @override
@@ -80,88 +85,64 @@ class _ChildModeScreenState extends ConsumerState<ChildModeScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(providerOfChildMode);
+    final isOn = settings.isOn;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F4F6),
+      backgroundColor: _page,
       appBar: AppBar(
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.white,
+        surfaceTintColor: AppColors.white,
+        foregroundColor: AppColors.black,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFF8C00), Color(0xFFFF6B01)],
-            ),
-          ),
-        ),
+        centerTitle: false,
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
+          icon: const Icon(LucideIcons.chevronLeft, color: AppColors.black),
         ),
         title: Text(
           'Child mode',
           style: TextStyle(
-            fontSize: 17.spMin,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
+            fontSize: 22.spMin,
+            fontWeight: FontWeight.w700,
+            color: AppColors.black,
           ),
         ),
       ),
       body: ListView(
-        padding: EdgeInsets.all(18.spMin),
+        padding: EdgeInsets.all(16.spMin),
         children: [
           Container(
             padding: EdgeInsets.all(16.spMin),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.spMin),
-            ),
+            decoration: _cardDecoration(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        settings.isOn ? 'Child mode is on' : 'Child mode',
-                        style: TextStyle(
-                          fontSize: 16.spMin,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.black,
-                        ),
-                      ),
-                    ),
-                    Switch(
-                      value: settings.isOn,
-                      activeTrackColor: AppColors.orange,
-                      onChanged: _toggle,
-                    ),
-                  ],
+                Text(
+                  isOn ? 'Child mode is on' : 'Child mode is off',
+                  style: TextStyle(
+                    fontSize: 18.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.black,
+                  ),
                 ),
                 SizedBox(height: 6.spMin),
                 Text(
-                  'For a phone you have set up for your child. They keep the '
-                  'map, alerts near them, SOS and check-ins. Posting a '
-                  'community report is turned off, so they are not '
-                  'publishing to strangers.',
+                  'Map, SOS and check-ins only. Report is hidden. Set by a '
+                  'parent or guardian.',
                   style: TextStyle(
-                    fontSize: 13.spMin,
-                    height: 1.5,
-                    color: AppColors.grey,
+                    fontSize: 14.spMin,
+                    height: 1.4,
+                    color: _muted,
                   ),
                 ),
               ],
             ),
           ),
-          SizedBox(height: 12.spMin),
-          if (!settings.isOn) ...[
+          if (!isOn) ...[
+            SizedBox(height: 12.spMin),
             Container(
               padding: EdgeInsets.all(16.spMin),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16.spMin),
-              ),
+              decoration: _cardDecoration(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -173,16 +154,6 @@ class _ChildModeScreenState extends ConsumerState<ChildModeScreen> {
                       color: AppColors.black,
                     ),
                   ),
-                  SizedBox(height: 4.spMin),
-                  Text(
-                    'Set one and it is asked for before child mode can be '
-                    'turned off.',
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      height: 1.45,
-                      color: AppColors.grey,
-                    ),
-                  ),
                   SizedBox(height: 10.spMin),
                   TextField(
                     controller: _pinController,
@@ -191,7 +162,7 @@ class _ChildModeScreenState extends ConsumerState<ChildModeScreen> {
                     decoration: InputDecoration(
                       hintText: 'Choose a PIN',
                       filled: true,
-                      fillColor: const Color(0xFFF4F4F6),
+                      fillColor: _page,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.spMin),
                         borderSide: BorderSide.none,
@@ -201,29 +172,38 @@ class _ChildModeScreenState extends ConsumerState<ChildModeScreen> {
                 ],
               ),
             ),
-            SizedBox(height: 12.spMin),
           ],
+          SizedBox(height: 20.spMin),
           Container(
-            padding: EdgeInsets.all(14.spMin),
+            height: 54.spMin,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF3E8),
-              borderRadius: BorderRadius.circular(14.spMin),
-              border: Border.all(color: const Color(0xFFFFD9B8)),
+              color: _cta,
+              borderRadius: BorderRadius.circular(16.spMin),
             ),
             child: Text(
-              'Worth knowing: this is a helpful restriction, not a locked '
-              'device. A determined child could reinstall the app or use '
-              'another phone. For real device limits, use Screen Time on '
-              'iPhone or Family Link on Android.',
+              isOn ? 'Turn off' : 'Turn on',
               style: TextStyle(
-                fontSize: 12.spMin,
-                height: 1.55,
-                color: const Color(0xFF8A4B00),
+                fontSize: 16.spMin,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
               ),
             ),
-          ),
+          ).onPressed(() => _toggle(!isOn)),
         ],
       ),
     );
   }
+
+  BoxDecoration _cardDecoration() => BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18.spMin),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 3.0,
+            offset: Offset(0, 1),
+          ),
+        ],
+      );
 }

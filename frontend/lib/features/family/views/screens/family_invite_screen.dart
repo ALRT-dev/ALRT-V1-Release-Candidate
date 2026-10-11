@@ -127,8 +127,8 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
             ),
             SizedBox(height: 8.spMin),
             Text(
-              'Codes can be used up to 10 times and expire after 7 days. '
-              'Revoke one at any time below.',
+              'Codes can be used up to 20 times and expire after 7 days. '
+              'Joining is always free.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
             ),

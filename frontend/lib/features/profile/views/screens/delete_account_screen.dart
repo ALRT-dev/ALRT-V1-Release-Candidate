@@ -17,7 +17,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Deleting an account, told straight: what changes today, what you can
 /// still do for 30 days, and what is actually gone for good after that.
-/// Every line here matches what the backend does — nothing is claimed
+/// Every line here matches what the backend does - nothing is claimed
 /// that `requestAccountDeletion`/`executeAccountDeletion` don't do.
 class DeleteAccountScreen extends ConsumerStatefulWidget {
   const DeleteAccountScreen({super.key});
@@ -291,7 +291,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
   }
 
   /// One consequence row: colour lives on the icon only, matching the
-  /// Profile screen's own restrained treatment — never a filled row
+  /// Profile screen's own restrained treatment - never a filled row
   /// background, even for the danger-accent rows.
   Widget _buildConsequenceRow({
     required final IconData icon,

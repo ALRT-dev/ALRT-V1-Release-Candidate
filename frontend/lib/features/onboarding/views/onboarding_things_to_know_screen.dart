@@ -6,13 +6,14 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/onboarding/enums/onboarding_step_types.dart';
 import 'package:hazard_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:hazard_app/features/onboarding/views/widgets/gradient_button.dart';
-import 'package:hazard_app/features/onboarding/views/widgets/progress_bar.dart';
+import 'package:hazard_app/features/onboarding/views/widgets/onboarding_page.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
-import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/utils/app_links.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/others/app_theme.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Merged onboarding screen combining the former Disclaimer and Legal screens.
 ///
@@ -69,172 +70,83 @@ class _OnboardingThingsToKnowScreenState
     // Keep the provider alive while this screen is mounted.
     ref.watch(providerOfOnboarding.select((value) => null));
 
-    return Scaffold(
-      body: Container(
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.orange.withValues(alpha: 0.08),
-              AppColors.purple.withValues(alpha: 0.06),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeIn,
-            child: SlideTransition(
-              position: _slideUp,
-              child: _buildCard(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCard() {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(30.spMin),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadowColor,
-                  blurRadius: 15.spMin,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(20.spMin),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBackButton(),
-                  24.hSizedBox,
-                  ProgressBar(
-                    currentStep: _step.index,
-                    totalSteps: OnboardingStep.values.length - 1,
-                    label:
-                        'Step ${_step.index} of ${OnboardingStep.values.length - 1}',
-                  ),
-                  32.hSizedBox,
-                  _buildHeader(),
-                  28.hSizedBox,
-                  _buildTickItem(
-                    index: 0,
-                    title: 'ALRT is not an emergency service',
-                    subtitle:
-                        'In a life-threatening situation, call your local emergency number.',
-                  ),
-                  16.hSizedBox,
-                  _buildTickItem(
-                    index: 1,
-                    title: 'Information may be delayed or incomplete',
-                    subtitle:
-                        'Alerts come from many sources and may not be verified.',
-                  ),
-                  16.hSizedBox,
-                  _buildTickItem(
-                    index: 2,
-                    title: 'Your location stays on your phone',
-                    subtitle:
-                        'Location is used only to show alerts near you and is never shared unless you choose.',
-                  ),
-                  16.hSizedBox,
-                  _buildTickItem(
-                    index: 3,
-                    title: 'I accept the Terms, Privacy Policy and Disclaimer',
-                    subtitle: null,
-                    hasLinks: true,
-                  ),
-                  32.hSizedBox,
-                  GradientButton(
-                    title: 'Continue',
-                    onPressed: _allTicked ? _onContinue : null,
-                  ),
-                  20.hSizedBox,
-                ],
+    return FadeTransition(
+      opacity: _fadeIn,
+      child: SlideTransition(
+        position: _slideUp,
+        child: OnboardingPage(
+          step: _step,
+          children: [
+            Text(
+              'Things to know',
+              style: TextStyle(
+                fontSize: 26.spMin,
+                fontWeight: FontWeight.w700,
+                height: 1.15,
+                color: AppColors.ink,
               ),
             ),
-          ).pad(20.0),
+            8.hSizedBox,
+            Text(
+              'Tap each one to agree.',
+              style: TextStyle(
+                fontSize: 15.spMin,
+                height: 1.45,
+                color: AppColors.mediumGrey,
+              ),
+            ),
+            24.hSizedBox,
+            _buildTickItem(
+              index: 0,
+              title: 'ALRT is not an emergency service',
+              subtitle:
+                  'Alerts can be late or wrong. In a life-threatening '
+                  'situation, call your local emergency number first. Do not '
+                  'wait.',
+            ),
+            12.hSizedBox,
+            _buildTickItem(
+              index: 1,
+              title: 'Your location leaves your phone only when you send it',
+              subtitle:
+                  'No tracking in the background. A sent location expires '
+                  'after an hour.',
+            ),
+            12.hSizedBox,
+            _buildTickItem(
+              index: 2,
+              title: 'Community reports are not verified by authorities',
+              subtitle:
+                  'They always say Unverified. Official warnings always come '
+                  'first.',
+            ),
+            12.hSizedBox,
+            _buildTickItem(
+              index: 3,
+              title:
+                  'I am 16 or older, or local law allows me to use this app',
+              subtitle: null,
+            ),
+            const Spacer(),
+            24.hSizedBox,
+            _buildFooter(),
+            16.hSizedBox,
+            GradientButton(
+              title: 'Agree and continue',
+              onPressed: _allTicked ? _onContinue : null,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildBackButton() {
-    return GestureDetector(
-      onTap: () => context.pop(),
-      child: Container(
-        width: 40.spMin,
-        height: 40.spMin,
-        decoration: BoxDecoration(
-          color: AppColors.extraLightGrey,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          Icons.arrow_back_ios_new,
-          size: 18.spMin,
-          color: AppColors.black,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Center(
-          child: Container(
-            padding: EdgeInsets.all(14.spMin),
-            decoration: BoxDecoration(
-              color: AppColors.orange.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.info_outline_rounded,
-              size: 40.spMin,
-              color: AppColors.orange,
-            ),
-          ),
-        ),
-        20.hSizedBox,
-        Text(
-          'Three things to know',
-          style: TextStyle(
-            fontSize: 26.spMin,
-            fontWeight: FontWeight.w700,
-            color: AppColors.black,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        10.hSizedBox,
-        Text(
-          'Please read and acknowledge each item to continue.',
-          style: TextStyle(
-            fontSize: 15.spMin,
-            color: AppColors.grey,
-            height: 1.4,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
+  /// A white card with a 22 px black check square: tapping anywhere on
+  /// the card toggles it.
   Widget _buildTickItem({
     required int index,
     required String title,
     required String? subtitle,
-    bool hasLinks = false,
   }) {
     final isChecked = _ticks[index];
 
@@ -244,36 +156,29 @@ class _OnboardingThingsToKnowScreenState
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.all(16.spMin),
         decoration: BoxDecoration(
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(14.spMin),
           border: Border.all(
-            color: isChecked
-                ? AppColors.orange
-                : AppColors.lightGrey.withValues(alpha: 0.5),
-            width: isChecked ? 2 : 1,
+            color: isChecked ? AppColors.ink : AppColors.lightGrey,
+            width: isChecked ? 1.5 : 1,
           ),
-          color: isChecked
-              ? AppColors.orange.withValues(alpha: 0.04)
-              : AppColors.white,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 26.spMin,
-              height: 26.spMin,
+              width: 22.spMin,
+              height: 22.spMin,
               decoration: BoxDecoration(
-                color: isChecked ? AppColors.orange : Colors.transparent,
-                borderRadius: BorderRadius.circular(7.spMin),
-                border: Border.all(
-                  color: isChecked ? AppColors.orange : AppColors.mediumGrey,
-                  width: 2,
-                ),
+                color: isChecked ? AppColors.ink : AppColors.white,
+                borderRadius: BorderRadius.circular(6.spMin),
+                border: Border.all(color: AppColors.ink, width: 1.5),
               ),
               child: isChecked
                   ? Icon(
-                      Icons.check,
-                      size: 16.spMin,
+                      LucideIcons.check,
+                      size: 15.spMin,
                       color: AppColors.white,
                     )
                   : null,
@@ -288,24 +193,20 @@ class _OnboardingThingsToKnowScreenState
                     style: TextStyle(
                       fontSize: 15.spMin,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.black,
+                      color: AppColors.ink,
                       height: 1.3,
                     ),
                   ),
                   if (subtitle != null) ...[
-                    6.hSizedBox,
+                    5.hSizedBox,
                     Text(
                       subtitle,
                       style: TextStyle(
                         fontSize: 13.spMin,
-                        color: AppColors.grey,
+                        color: AppColors.mediumGrey,
                         height: 1.4,
                       ),
                     ),
-                  ],
-                  if (hasLinks) ...[
-                    6.hSizedBox,
-                    _buildLegalLinks(),
                   ],
                 ],
               ),
@@ -316,50 +217,54 @@ class _OnboardingThingsToKnowScreenState
     );
   }
 
-  Widget _buildLegalLinks() {
+  /// The legal line under the cards, with the Terms and Privacy links
+  /// opening in the browser.
+  Widget _buildFooter() {
     final linkStyle = TextStyle(
-      fontSize: 13.spMin,
-      color: AppColors.orange,
+      fontSize: 12.spMin,
+      height: 1.45,
+      color: AppColors.ink,
       fontWeight: FontWeight.w600,
       decoration: TextDecoration.underline,
-      decorationColor: AppColors.orange,
+      decorationColor: AppColors.ink,
+      fontFamily: AppTheme.defaultFontFamily,
     );
     final normalStyle = TextStyle(
-      fontSize: 13.spMin,
-      color: AppColors.grey,
+      fontSize: 12.spMin,
+      height: 1.45,
+      color: AppColors.mediumGrey,
+      fontFamily: AppTheme.defaultFontFamily,
     );
 
     return RichText(
+      textAlign: TextAlign.center,
       text: TextSpan(
+        style: normalStyle,
         children: [
+          const TextSpan(text: 'By continuing you accept the '),
           TextSpan(
             text: 'Terms of Use',
             style: linkStyle,
             recognizer: TapGestureRecognizer()
               ..onTap = () => openLink(
-                    context: context,
-                    link: AppLinks.termsOfUse,
-                  ),
+                context: context,
+                link: AppLinks.termsOfUse,
+              ),
           ),
-          TextSpan(text: ', ', style: normalStyle),
+          const TextSpan(text: ' and '),
           TextSpan(
             text: 'Privacy Policy',
             style: linkStyle,
             recognizer: TapGestureRecognizer()
               ..onTap = () => openLink(
-                    context: context,
-                    link: AppLinks.privacyPolicy,
-                  ),
+                context: context,
+                link: AppLinks.privacyPolicy,
+              ),
           ),
-          TextSpan(text: ' and ', style: normalStyle),
-          TextSpan(
-            text: 'Disclaimer',
-            style: linkStyle,
-            recognizer: TapGestureRecognizer()
-              ..onTap = () => openLink(
-                    context: context,
-                    link: AppLinks.disclaimer,
-                  ),
+          const TextSpan(
+            text:
+                '. Under 16? Child mode can be set up by a parent or '
+                'guardian.',
           ),
         ],
       ),

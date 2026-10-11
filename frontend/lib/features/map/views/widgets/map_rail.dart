@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hazard_app/features/ask_alrt/views/ask_alrt_sheet.dart';
-import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
-import 'package:hazard_app/features/family/views/widgets/family_journey_share_sheet.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hazard_app/features/home/enums/home_tab_types.dart';
+import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
-import 'package:hazard_app/features/map/views/widgets/around_you_sheet.dart';
-import 'package:hazard_app/features/map/views/widgets/map_details_sheet.dart';
+import 'package:hazard_app/features/map/views/screens/map_screen.dart';
+import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
+import 'package:hazard_app/features/map/views/widgets/map_key_sheet.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
+import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// The dark floating vertical rail on the map's right edge (V3 map UI).
+/// The white floating rail on the map's right edge (prototype board "Main",
+/// approved 9 Oct 2026).
 ///
-/// Top to bottom: layers (Map details sheet), Ask ALRT, locate (go to my
-/// location) and list (Around You sheet).
+/// Exactly five 48 x 48 buttons. Top: one stacked block of three (filters,
+/// alerts list, map key). Below it, standalone: locate me, then check a
+/// route. Ask ALRT and the voice mic moved into the search bar; the journey
+/// share button and the hidden-filters badge were removed.
 class MapRail extends ConsumerStatefulWidget {
   const MapRail({super.key});
 
@@ -26,176 +29,150 @@ class MapRail extends ConsumerStatefulWidget {
 }
 
 class _MapRailState extends ConsumerState<MapRail> {
-  static const _railColor = Color(0xFF23252B);
-  static const _layersColor = Color(0xFFFF6B01);
-  static const _locateColor = Color(0xFF4A90D9);
-  static const _journeyLitColor = FamilyColors.v31Indigo;
+  static const _inkColor = Color(0xFF1C1C1E);
+  static const _locateColor = Color(0xFF2563EB);
+  static const _dividerColor = Color(0xFFECEEF1);
+
+  static double get _buttonSize => 48.spMin;
+  static double get _iconSize => 22.spMin;
+  static BorderRadius get _radius => BorderRadius.circular(14.spMin);
+
+  static List<BoxShadow> get _shadow => [
+        BoxShadow(
+          color: AppColors.black.withValues(alpha: 0.10),
+          blurRadius: 16.0,
+          offset: const Offset(0, 4),
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        // Translucent so the map still reads behind the rail, with the same
-        // purply-blue halo the footer carries.
-        color: _railColor.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.footerGlow.withValues(alpha: 0.34),
-            blurRadius: 22.0,
-            spreadRadius: 1.0,
-            offset: const Offset(0, 4),
-          ),
-          const BoxShadow(
-            color: AppColors.shadowColorDark,
-            blurRadius: 14.0,
-            offset: Offset(0, 4.0),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: 6.spMin,
-        vertical: 8.spMin,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        spacing: 10.spMin,
-        children: [
-          _layersButtonBuilder(),
-          _askAlrtButtonBuilder(),
-          _journeyButtonBuilder(),
-          _locateButtonBuilder(),
-          _listButtonBuilder(),
-        ],
-      ),
-    );
-  }
-
-  Widget _layersButtonBuilder() {
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      spacing: 10.spMin,
       children: [
-        _circleButtonBuilder(
-          color: _layersColor,
-          icon: LucideIcons.layers,
-          onPressed: () => showMapDetailsSheet(context: context),
+        _stackedBlockBuilder(),
+        _standaloneButtonBuilder(
+          icon: LucideIcons.navigation,
+          iconColor: _locateColor,
+          semanticLabel: 'Go to my location',
+          onPressed: _handleLocateTap,
         ),
-        Positioned(
-          top: -2.spMin,
-          right: -2.spMin,
-          child: _hiddenSystemsCountBadgeBuilder(),
+        _standaloneButtonBuilder(
+          icon: LucideIcons.route,
+          iconColor: _inkColor,
+          semanticLabel: 'Check a route',
+          onPressed: () => context.push(SelectLocationScreen.route),
         ),
       ],
     );
   }
 
-  /// A white-on-red badge with the count of ALRT Filters currently off.
-  Widget _hiddenSystemsCountBadgeBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        // The ALRT Filters sheet is the one source of what is hidden; the
-        // badge counts its switched-off filters (the old per-sheet source
-        // toggles no longer exist).
-        final hiddenCount = ref.watch(
-          providerOfHazardFiltersForMap.select(
-            (value) => value.unselectedFiltersCount,
-          ),
-        );
-        if (hiddenCount == 0) {
-          return const SizedBox.shrink();
-        }
-
-        return Container(
-          width: 16.spMin,
-          height: 16.spMin,
-          decoration: BoxDecoration(
-            color: AppColors.red,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: _railColor,
-              width: 1.5,
-            ),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            hiddenCount.toString(),
-            style: TextStyle(
-              fontSize: 9.spMin,
-              fontWeight: FontWeight.w700,
-              color: AppColors.white,
-              height: 1.0,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _askAlrtButtonBuilder() {
-    return _circleButtonBuilder(
-      color: AppColors.transparent,
-      icon: LucideIcons.sparkles,
-      onPressed: () => showAskAlrtSheet(context),
-    );
-  }
-
-  /// Share a journey from the map, which is where people are when they set
-  /// off. Lit while a journey of theirs is running.
-  Widget _journeyButtonBuilder() {
-    final isSharing = ref.watch(
-      providerOfFamily.select((s) {
-        final journey = s.activeJourney;
-        return journey != null && journey.isActive;
-      }),
-    );
-    return _circleButtonBuilder(
-      color: isSharing ? _journeyLitColor : AppColors.transparent,
-      icon: isSharing ? LucideIcons.route : LucideIcons.share2,
-      onPressed: () => showFamilyJourneyShareSheet(context),
-    );
-  }
-
-  Widget _locateButtonBuilder() {
-    return _circleButtonBuilder(
-      color: _locateColor,
-      icon: LucideIcons.navigation,
-      onPressed: _handleLocateTap,
-    );
-  }
-
-  Widget _listButtonBuilder() {
-    return _circleButtonBuilder(
-      color: _layersColor,
-      icon: LucideIcons.list,
-      onPressed: () => showAroundYouSheet(context: context),
-    );
-  }
-
-  Widget _circleButtonBuilder({
-    required final Color color,
-    required final IconData icon,
-    required final VoidCallback onPressed,
-  }) {
+  /// Filters, alerts list and map key in one white block with hairline
+  /// dividers inset 10 px from each side.
+  Widget _stackedBlockBuilder() {
     return Container(
-      width: 40.spMin,
-      height: 40.spMin,
+      width: _buttonSize,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.9),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.45),
-            blurRadius: 10.0,
-            offset: const Offset(0, 2),
+        color: AppColors.white,
+        borderRadius: _radius,
+        boxShadow: _shadow,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _railButtonBuilder(
+            icon: LucideIcons.layers,
+            iconColor: _inkColor,
+            semanticLabel: 'Filters',
+            onPressed: _handleFiltersTap,
+          ),
+          _dividerBuilder(),
+          _railButtonBuilder(
+            icon: LucideIcons.list,
+            iconColor: _inkColor,
+            semanticLabel: 'Alerts',
+            onPressed: _handleAlertsTap,
+          ),
+          _dividerBuilder(),
+          _railButtonBuilder(
+            icon: LucideIcons.info,
+            iconColor: _inkColor,
+            semanticLabel: 'Map key',
+            onPressed: () => showMapKeySheet(context: context),
           ),
         ],
       ),
-      child: Icon(
-        icon,
-        size: 19.spMin,
+    );
+  }
+
+  Widget _dividerBuilder() {
+    return Container(
+      height: 1.0,
+      margin: EdgeInsets.symmetric(horizontal: 10.spMin),
+      color: _dividerColor,
+    );
+  }
+
+  Widget _standaloneButtonBuilder({
+    required final IconData icon,
+    required final Color iconColor,
+    required final String semanticLabel,
+    required final VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
         color: AppColors.white,
+        borderRadius: _radius,
+        boxShadow: _shadow,
       ),
-    ).onPressed(onPressed);
+      clipBehavior: Clip.antiAlias,
+      child: _railButtonBuilder(
+        icon: icon,
+        iconColor: iconColor,
+        semanticLabel: semanticLabel,
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  Widget _railButtonBuilder({
+    required final IconData icon,
+    required final Color iconColor,
+    required final String semanticLabel,
+    required final VoidCallback onPressed,
+  }) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: SizedBox(
+        width: _buttonSize,
+        height: _buttonSize,
+        child: Center(
+          child: Icon(
+            icon,
+            size: _iconSize,
+            color: iconColor,
+          ),
+        ),
+      ).onPressed(onPressed),
+    );
+  }
+
+  /// Opens the shared ALRT Filters sheet for the map, reloading the map's
+  /// alerts when the filters change.
+  void _handleFiltersTap() {
+    showHazardFiltersBottomSheet(
+      context: context,
+      filtersKey: MapScreen.filtersKey,
+      onFiltersUpdated: () => ref.read(providerOfMap.notifier).getMapHazards(),
+    );
+  }
+
+  /// Switches the home shell to the Alerts tab.
+  void _handleAlertsTap() {
+    ref.read(providerOfHomeTab.notifier).state = HomeTab.notifications;
   }
 
   /// Animates the map to the user's current location (same behaviour as the

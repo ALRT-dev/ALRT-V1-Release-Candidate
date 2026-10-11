@@ -13,7 +13,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// The Learn hub content: progress hero card + expandable topic cards.
 ///
-/// This is NOT a routed screen — embed it directly (e.g. as the "Learn"
+/// This is NOT a routed screen - embed it directly (e.g. as the "Learn"
 /// toggle tab of the alerts feed screen). For direct navigation use
 /// [LearnTopicsScreen] (route `/learn`) which wraps this in a Scaffold.
 class LearnTopicsView extends ConsumerStatefulWidget {
@@ -90,7 +90,8 @@ class _LearnTopicsViewState extends ConsumerState<LearnTopicsView> {
               fontSize: 12.spMin,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
-              color: AppColors.grey,
+              // The V3 section-label rust used across the app.
+              color: const Color(0xFFB84500),
             ),
           ),
           10.hSizedBox,

@@ -6,6 +6,7 @@ import 'package:hazard_app/features/notification/views/widgets/all_location_subs
 import 'package:hazard_app/features/notification/views/widgets/manage_push_notifications_list.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ManageNotificationsScreenArgs {
   const ManageNotificationsScreenArgs({
@@ -58,32 +59,37 @@ class _ManageNotificationsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.white,
       appBar: AppBar(
         title: Text(
-          'Manage Notifications',
+          'Notifications',
           style: TextStyle(
             fontSize: 18.spMin,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: AppColors.black,
           ),
         ),
         backgroundColor: AppColors.white,
+        surfaceTintColor: AppColors.transparent,
         foregroundColor: AppColors.black,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, size: 20.spMin),
+          icon: Icon(LucideIcons.chevronLeft, size: 24.spMin),
           onPressed: () => Navigator.of(context).pop(),
         ),
         bottom: TabBar(
           controller: _tabController,
           dividerColor: AppColors.transparent,
+          labelColor: AppColors.black,
+          unselectedLabelColor: AppColors.grey,
+          indicatorColor: AppColors.orange,
           tabs: [
             Tab(
-              icon: Icon(Icons.notifications_outlined),
+              icon: Icon(LucideIcons.bell, size: 20.spMin),
               text: 'Categories',
             ),
             Tab(
-              icon: Icon(Icons.location_on_outlined),
+              icon: Icon(LucideIcons.mapPin, size: 20.spMin),
               text: 'Locations',
             ),
           ],
@@ -99,33 +105,13 @@ class _ManageNotificationsScreenState
     );
   }
 
+  /// The first tab: the device status card, then the type toggles and the
+  /// category pills. The old heading and intro paragraph are gone; the
+  /// section labels say what each block is.
   Widget _buildNotificationCategoriesTab() {
     return Column(
       children: [
-        Padding(
-          padding: EdgeInsets.all(16.spMin),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Notification Categories',
-                style: TextStyle(
-                  fontSize: 18.spMin,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.black,
-                ),
-              ),
-              8.spMin.hSizedBox,
-              Text(
-                'Choose which types of ALRTs you want to receive on your device.',
-                style: TextStyle(
-                  fontSize: 14.spMin,
-                  color: AppColors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
+        8.spMin.hSizedBox,
         const NotificationStatusCard(),
         Expanded(
           child: ManagePushNotificationsList(),
@@ -150,7 +136,7 @@ class _ManageNotificationsScreenState
           ),
           8.spMin.hSizedBox,
           Text(
-            'Manage your subscribed locations for targeted hazard alrts. Your own location is always subscribed.',
+            'Places you follow for alerts. Where you are is always included.',
             style: TextStyle(
               fontSize: 14.spMin,
               color: AppColors.grey,

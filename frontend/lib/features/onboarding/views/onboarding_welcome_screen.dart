@@ -4,11 +4,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/onboarding/enums/onboarding_step_types.dart';
 import 'package:hazard_app/features/onboarding/views/widgets/gradient_button.dart';
-import 'package:hazard_app/features/onboarding/views/widgets/progress_bar.dart';
+import 'package:hazard_app/features/onboarding/views/widgets/onboarding_page.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
-import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// Onboarding step 1 (board Onb1): the promise in three plain rows, then
+/// "Get started".
 class OnboardingWelcomeScreen extends ConsumerStatefulWidget {
   const OnboardingWelcomeScreen({super.key});
 
@@ -51,170 +53,134 @@ class _OnboardingWelcomeScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.orange.withValues(alpha: 0.08),
-              AppColors.purple.withValues(alpha: 0.06),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeIn,
-            child: SlideTransition(
-              position: _slideUp,
-              child: _buildCard(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCard() {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(30.spMin),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadowColor,
-                  blurRadius: 15.spMin,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(20.spMin),
-              child: Column(
-                children: [
-                  24.hSizedBox,
-                  ProgressBar(
-                    currentStep: _step.index + 1,
-                    totalSteps: OnboardingStep.values.length - 1,
-                    label:
-                        'Step ${_step.index + 1} of ${OnboardingStep.values.length - 1}',
-                  ),
-                  32.hSizedBox,
-                  _buildLogo(),
-                  20.hSizedBox,
-                  _buildWelcomeSection(),
-                  32.hSizedBox,
-                  _buildFeaturesList(),
-                  40.hSizedBox,
-                  GradientButton(
-                    title: 'Get Started',
-                    onPressed: _onGetStarted,
-                  ),
-                  20.hSizedBox,
-                ],
+    return FadeTransition(
+      opacity: _fadeIn,
+      child: SlideTransition(
+        position: _slideUp,
+        child: OnboardingPage(
+          step: _step,
+          showBack: false,
+          children: [
+            8.hSizedBox,
+            Center(
+              child: Image.asset(
+                'assets/logos/alrt_logo.png',
+                width: 96.spMin,
+                filterQuality: FilterQuality.high,
               ),
             ),
-          ).pad(20.0),
+            24.hSizedBox,
+            Text(
+              'Welcome to ALRT',
+              style: TextStyle(
+                fontSize: 30.spMin,
+                fontWeight: FontWeight.w700,
+                height: 1.15,
+                color: AppColors.ink,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            10.hSizedBox,
+            Text(
+              'Official warnings and what they mean for you, in plain words. '
+              'Free, always.',
+              style: TextStyle(
+                fontSize: 15.spMin,
+                height: 1.45,
+                color: AppColors.mediumGrey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            32.hSizedBox,
+            const _FeatureRow(
+              icon: LucideIcons.bell,
+              title: 'Warnings near the places you choose',
+              body: 'Bushfire, flood, storm, outages, road closures',
+            ),
+            18.hSizedBox,
+            const _FeatureRow(
+              icon: LucideIcons.shieldCheck,
+              title: 'What to do, from the people in charge',
+              body: 'Official advice word for word, never invented',
+            ),
+            18.hSizedBox,
+            const _FeatureRow(
+              icon: LucideIcons.users,
+              title: 'Know your people are okay',
+              body: 'Check in with one tap. Nobody is tracked.',
+            ),
+            const Spacer(),
+            32.hSizedBox,
+            GradientButton(
+              title: 'Get started',
+              onPressed: _onGetStarted,
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLogo() {
-    return Image.asset(
-      'assets/logos/alrt_logo.png',
-      width: 110.spMin,
-      filterQuality: FilterQuality.high,
-    );
-  }
-
-  Widget _buildWelcomeSection() {
-    return Column(
-      children: [
-        Text(
-          'Welcome to ALRT',
-          style: TextStyle(
-            fontSize: 26.spMin,
-            fontWeight: FontWeight.w700,
-            color: AppColors.black,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        10.hSizedBox,
-        Text(
-          'Make safety awareness a daily habit. Every action you take helps protect you and your community.',
-          style: TextStyle(
-            fontSize: 15.spMin,
-            color: AppColors.grey,
-            height: 1.4,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeaturesList() {
-    return Column(
-      children: [
-        _buildFeatureItem(
-          icon: Icons.map_rounded,
-          text: 'Real-time alerts near you',
-        ),
-        12.hSizedBox,
-        _buildFeatureItem(
-          icon: Icons.people_rounded,
-          text: 'Community-verified reports',
-        ),
-        12.hSizedBox,
-        _buildFeatureItem(
-          icon: Icons.notifications_rounded,
-          text: 'Instant safety notifications',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeatureItem({
-    required IconData icon,
-    required String text,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(10.spMin),
-          decoration: BoxDecoration(
-            color: AppColors.orange.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12.spMin),
-          ),
-          child: Icon(
-            icon,
-            size: 22.spMin,
-            color: AppColors.orange,
-          ),
-        ),
-        14.wSizedBox,
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 15.spMin,
-              color: AppColors.black,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
   void _onGetStarted() {
     context.push(_step.nextStep.route);
+  }
+}
+
+/// A 44 px white rounded square holding an orange icon, with a bold line
+/// and a plain line beside it.
+class _FeatureRow extends StatelessWidget {
+  const _FeatureRow({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 44.spMin,
+          height: 44.spMin,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12.spMin),
+            border: Border.all(color: AppColors.lightGrey, width: 1),
+          ),
+          child: Icon(icon, size: 22.spMin, color: AppColors.orange),
+        ),
+        14.wSizedBox,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15.spMin,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                  color: AppColors.ink,
+                ),
+              ),
+              3.hSizedBox,
+              Text(
+                body,
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  height: 1.35,
+                  color: AppColors.mediumGrey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

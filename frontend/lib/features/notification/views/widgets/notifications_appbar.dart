@@ -1,21 +1,16 @@
-import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
-import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
-import 'package:hazard_app/features/notification/providers/push_inbox_provider.dart';
-import 'package:hazard_app/features/notification/providers/states/notifications_feed_provider_state.dart';
-import 'package:hazard_app/features/notification/views/screens/push_inbox_screen.dart';
-import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
-import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
-import 'package:hazard_app/features/shared/views/widgets/filter_widgets/hazard_filters_button.dart';
+import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
+import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// Plain white pinned header for the Alerts feed: the title and one
+/// filters button. Search lives in the Map search bar, and the push inbox
+/// is reached from elsewhere, so neither sits up here any more.
 class NotificationsAppBar extends ConsumerStatefulWidget {
   const NotificationsAppBar({super.key});
 
@@ -27,248 +22,103 @@ class NotificationsAppBar extends ConsumerStatefulWidget {
 }
 
 class _NotificationsAppBarState extends ConsumerState<NotificationsAppBar> {
-  final _searchFocusNode = FocusNode();
-  final _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.text = ref.read(providerOfNotificationsFeed).searchString;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isHazardsLoading = ref.watch(
-          providerOfNotificationsFeed.select(
-            (value) => value.getNotificationsFeedHazardsState.maybeWhen(
-              orElse: () => false,
-              loading: () => true,
-            ),
-          ),
-        );
-        final isHazardsPresent = ref.watch(
-          providerOfNotificationsFeed.select(
-            (value) =>
-                value.searchString.isNotEmpty ? true : value.hazards.isNotEmpty,
-          ),
-        );
-        final hasFiltersSelected = ref.watch(
-          providerOfHazardFiltersForNotifications.select(
-            (value) => value.hasFiltersSelected,
-          ),
-        );
-        return SliverAppBar(
-          backgroundColor: AppColors.transparent,
-          surfaceTintColor: AppColors.transparent,
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.orange300,
-                  AppColors.red200,
-                ],
-              ),
-            ),
-          ),
-          floating: true,
-          pinned: true,
-          leading: const SizedBox(),
-          leadingWidth: 5.spMin,
-          toolbarHeight: 50.spMin,
-          expandedHeight: 120.spMin,
-          centerTitle: false,
-          title: Text(
-            'ALRT Feed',
-            style: TextStyle(
-              color: AppColors.white,
-              fontSize: 24.spMin,
-            ),
-          ),
-          actions: [
-            _pushInboxButton(),
-            8.wSizedBox,
-          ],
-          bottom: !isHazardsPresent && !isHazardsLoading && !hasFiltersSelected
-              ? PreferredSize(
-                  preferredSize: Size.fromHeight(0),
-                  child: Divider(
-                    height: 0.0,
-                    color: AppColors.lightGrey.withValues(alpha: 0.5),
-                  ),
-                )
-              : PreferredSize(
-                  preferredSize: Size.fromHeight(63.spMin),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(child: _searchbarBuilder()),
-                          _filtersButtonBuilder(),
-                        ],
-                      ).pX(18.0),
-                      13.hSizedBox,
-                    ],
-                  ),
-                ),
-        );
-      },
+    return SliverAppBar(
+      backgroundColor: AppColors.white,
+      surfaceTintColor: AppColors.transparent,
+      shadowColor: AppColors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      pinned: true,
+      floating: false,
+      automaticallyImplyLeading: false,
+      leading: const SizedBox.shrink(),
+      leadingWidth: 0,
+      titleSpacing: 20.spMin,
+      toolbarHeight: 60.spMin,
+      centerTitle: false,
+      title: Text(
+        'Alerts',
+        style: TextStyle(
+          color: AppColors.ink,
+          fontSize: 28.spMin,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+        ),
+      ),
+      actions: [
+        _filtersButtonBuilder(),
+        SizedBox(width: 20.spMin),
+      ],
     );
   }
 
-  Widget _pushInboxButton() {
+  /// 40x40 white square with a hairline border, a red count badge when any
+  /// filter is switched off, and the same filters sheet as the map.
+  Widget _filtersButtonBuilder() {
     return Consumer(
       builder: (context, ref, child) {
-        // Re-watch whenever the list changes so the badge updates.
-        ref.watch(providerOfPushInbox);
-        final unread =
-            ref.read(providerOfPushInbox.notifier).unreadCount;
+        final count = ref.watch(
+          providerOfHazardFilters(NotificationsAppBar.filtersKey).select(
+            (value) => value.unselectedFiltersCount,
+          ),
+        );
         return GestureDetector(
-          onTap: () => context.push(PushInboxScreen.route),
-          child: SizedBox(
-            width: 40.spMin,
-            height: 40.spMin,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  LucideIcons.bell,
+          onTap: _showFiltersBottomSheet,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 40.spMin,
+                height: 40.spMin,
+                decoration: BoxDecoration(
                   color: AppColors.white,
-                  size: 22.spMin,
+                  borderRadius: BorderRadius.circular(12.spMin),
+                  border: Border.all(color: AppColors.lightGrey, width: 1.0),
                 ),
-                if (unread > 0)
-                  Positioned(
-                    top: 4.spMin,
-                    right: 4.spMin,
-                    child: Container(
-                      width: 10.spMin,
-                      height: 10.spMin,
-                      decoration: BoxDecoration(
-                        color: AppColors.emergency,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.white,
-                          width: 1.5,
-                        ),
+                alignment: Alignment.center,
+                child: Icon(
+                  LucideIcons.slidersHorizontal,
+                  size: 20.spMin,
+                  color: AppColors.ink,
+                ),
+              ),
+              if (count > 0)
+                Positioned(
+                  top: -4.spMin,
+                  right: -4.spMin,
+                  child: Container(
+                    width: 18.spMin,
+                    height: 18.spMin,
+                    decoration: const BoxDecoration(
+                      color: AppColors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      count.toString(),
+                      style: TextStyle(
+                        fontSize: 11.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _searchbarBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isSearchActive = ref.watch(
-          providerOfNotificationsFeed.select(
-            (value) => value.searchString.isNotEmpty,
-          ),
-        );
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(14.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColor,
-                blurRadius: 10.0,
-                offset: Offset(0, 2.0),
-              ),
+                ),
             ],
           ),
-          padding: EdgeInsets.symmetric(vertical: 1.spMin),
-          child: TextFormField(
-            focusNode: _searchFocusNode,
-            controller: _searchController,
-            textInputAction: TextInputAction.search,
-            textAlignVertical: TextAlignVertical.center,
-            onChanged: _handleSearchChanged,
-            decoration: InputDecoration(
-              hintText: 'Search alerts around you...',
-              contentPadding: EdgeInsets.only(
-                top: 5.spMin,
-                bottom: 5.spMin,
-                left: 20.spMin,
-                right: 10.spMin,
-              ),
-              hintStyle: TextStyle(
-                color: AppColors.grey.withValues(alpha: 0.7),
-              ),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              prefixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    'assets/icons/search.svg',
-                    width: 25.spMin,
-                    height: 25.spMin,
-                    color: AppColors.grey.withValues(alpha: 0.6),
-                  ).pL(15.0),
-                ],
-              ),
-              suffixIcon: !isSearchActive
-                  ? null
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          onPressed: _handleClearSearchPressed,
-                          icon: Icon(
-                            Icons.close_rounded,
-                            size: 20.spMin,
-                            color: AppColors.black,
-                          ),
-                        ).pR(5.0),
-                      ],
-                    ),
-            ),
-          ),
         );
       },
     );
   }
 
-  Widget _filtersButtonBuilder() {
-    return HazardFiltersButton(
+  void _showFiltersBottomSheet() {
+    showHazardFiltersBottomSheet(
+      context: context,
       filtersKey: NotificationsAppBar.filtersKey,
-      onFiltersUpdated: () => _getHazards(),
-      buttonShadow: [],
-      useTransparentStyle: true,
-    ).pL(10.0);
-  }
-
-  /// Updates the state with the given search string.
-  void _handleSearchChanged(String value) {
-    ref.read(providerOfNotificationsFeed.notifier)
-      ..updateSearchString(value.trim())
-      ..updateGetNotificationsFeedStateToLoading();
-    EasyDebounce.debounce(
-      'notifications-search',
-      const Duration(milliseconds: 300),
-      () {
-        if (!mounted) return;
-        ref
-            .read(providerOfNotificationsFeed.notifier)
-            .getNotificationsFeedHazards();
-      },
+      onFiltersUpdated: _getHazards,
     );
-  }
-
-  /// Clears the search input field.
-  void _handleClearSearchPressed() {
-    _searchController.clear();
-    _searchFocusNode.unfocus();
-    ref.read(providerOfNotificationsFeed.notifier)
-      ..updateSearchString('')
-      ..getNotificationsFeedHazards();
   }
 
   /// Fetches the hazards for the notifications feed.

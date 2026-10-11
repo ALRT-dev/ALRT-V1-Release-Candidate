@@ -10,6 +10,7 @@ import 'package:hazard_app/features/family/views/widgets/family_member_avatar.da
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Share a journey: live location while you travel, on your terms.
 ///
@@ -131,7 +132,7 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
+                  LucideIcons.chevronLeft,
                   size: 15.spMin,
                   color: Colors.white,
                 ),

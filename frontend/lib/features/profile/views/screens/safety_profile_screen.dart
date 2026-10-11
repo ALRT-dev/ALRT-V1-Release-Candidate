@@ -10,7 +10,7 @@ import 'package:hazard_app/features/notification/views/widgets/accessible_alerts
 
 /// The safety profile: coarse cohort chips that tailor For You guidance.
 ///
-/// Everything ticked here stays on the phone — nothing is sent to a server.
+/// Everything ticked here stays on the phone; nothing is sent to a server.
 /// Cohorts speak to a situation, never an assumed limitation.
 class SafetyProfileScreen extends ConsumerWidget {
   const SafetyProfileScreen({super.key, this.isOnboarding = false});
@@ -41,7 +41,7 @@ class SafetyProfileScreen extends ConsumerWidget {
               elevation: 0,
               leading: IconButton(
                 onPressed: () => context.pop(),
-                icon: const Icon(LucideIcons.arrowLeft, color: _ink),
+                icon: const Icon(LucideIcons.chevronLeft, color: _ink),
               ),
             ),
       bottomNavigationBar: isOnboarding ? _onboardingFooter(context) : null,
@@ -69,9 +69,8 @@ class SafetyProfileScreen extends ConsumerWidget {
                   SizedBox(width: 10.spMin),
                   Expanded(
                     child: Text(
-                      'Stays on your phone. What you tick here tailors the '
-                      'For You guidance on alerts, and it never leaves this '
-                      'device. No diagnoses, no details: broad groups only.',
+                      'Stays on your phone. It is never sent to ALRT or '
+                      'anyone else.',
                       style: TextStyle(
                         fontSize: 12.spMin,
                         height: 1.55,
@@ -205,7 +204,7 @@ class SafetyProfileScreen extends ConsumerWidget {
               ),
             SizedBox(width: 7.spMin),
             Text(
-              cohort.label,
+              _displayLabel(cohort),
               style: TextStyle(
                 fontSize: 13.spMin,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
@@ -218,62 +217,43 @@ class SafetyProfileScreen extends ConsumerWidget {
     );
   }
 
-  /// The onboarding lead-in: what this is, and that it is optional.
-  /// The big banner: this screen decides what every alert says first,
-  /// so it leads with what it is and why it is safe to answer.
+  /// The heading: who this is for, and what ticking something changes. The
+  /// old dark banner is gone; the small white lock note below carries the
+  /// privacy promise.
   Widget _heroBuilder() {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(bottom: 14.spMin),
-      padding: EdgeInsets.all(20.spMin),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF23252B), Color(0xFF121216)],
-        ),
-        borderRadius: BorderRadius.circular(18.spMin),
-      ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(2.spMin, 10.spMin, 2.spMin, 16.spMin),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44.spMin,
-            height: 44.spMin,
-            margin: EdgeInsets.only(bottom: 12.spMin),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(13.spMin),
-            ),
-            child: Icon(
-              LucideIcons.shieldCheck,
-              size: 22.spMin,
-              color: Colors.white,
-            ),
-          ),
           Text(
-            'Your safety profile',
+            'Who are we looking out for?',
             style: TextStyle(
               fontSize: 26.spMin,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              color: _ink,
               height: 1.15,
             ),
           ),
           SizedBox(height: 8.spMin),
           Text(
-            'Pick anything that applies to you or the people you care for. '
-            'Alerts will show the guidance that matters to you first. '
-            'Optional, and you can change it anytime.',
+            'Tick anything that applies to you or the people you care for. '
+            'Alerts will show the advice that matters to you first.',
             style: TextStyle(
-              fontSize: 13.spMin,
+              fontSize: 14.spMin,
               height: 1.5,
-              color: Colors.white.withValues(alpha: 0.8),
+              color: _inkSoft,
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// Display names that differ from the stored cohort label. The id and
+  /// stored label are untouched; only what the chip says changes.
+  String _displayLabel(final SafetyCohort cohort) {
+    return cohort == SafetyCohort.older ? 'Older person' : cohort.label;
   }
 
   Widget _onboardingFooter(final BuildContext context) {
@@ -289,7 +269,7 @@ class SafetyProfileScreen extends ConsumerWidget {
               height: 54.spMin,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6B01),
+                  backgroundColor: const Color(0xFFE8622A),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(

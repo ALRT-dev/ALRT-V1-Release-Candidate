@@ -113,31 +113,31 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
 
     return InkWell(
       onTap: widget.isInfoWindow ? null : _gotoViewHazard,
-      borderRadius: BorderRadius.circular(14.spMin),
+      borderRadius: BorderRadius.circular(18.spMin),
       child: CustomPaint(
         foregroundPainter: isOfficialAction
             ? DashedRRectPainter(
                 color: AlertCardStyle.dashedBorderColor,
-                radius: 16.spMin,
+                radius: 18.spMin,
               )
             : null,
         child: Container(
         decoration: BoxDecoration(
           color: AppColors.white,
-          borderRadius: BorderRadius.circular(16.spMin),
+          borderRadius: BorderRadius.circular(18.spMin),
           boxShadow: [
             if (isOfficialCritical)
               AlertCardStyle.criticalGlow
             else
-              BoxShadow(
-                color: AppColors.shadowColor,
-                blurRadius: 5.0,
-                offset: const Offset(0.0, 0.0),
+              const BoxShadow(
+                color: Color(0x0F000000),
+                blurRadius: 3,
+                offset: Offset(0, 1),
               ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16.spMin),
+          borderRadius: BorderRadius.circular(18.spMin),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -150,7 +150,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
               // screen rather than being half-shown here.
               _coloredHeaderBuilder(),
               // "In plain terms" is mandatory on every card type (locked
-              // rule), not just the detail screen — this is the same
+              // rule), not just the detail screen - this is the same
               // deterministic line _buildPlainTermsBox shows there.
               _plainTermsBuilder(),
               Row(
@@ -223,7 +223,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
     );
   }
 
-  /// "Confirmed by ×N" — independent community reports of the same event,
+  /// "Confirmed by ×N" - independent community reports of the same event,
   /// never official sources and never a severity signal (classification
   /// standard §11: a corroboration indicator, clearly attributed to the
   /// community, not implying official verification).
@@ -341,7 +341,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
             spacing: 10.spMin,
             children: [
               // V3 rule: shape identifies the source system, colour carries
-              // urgency — never colour alone.
+              // urgency - never colour alone.
               Icon(
                 AlertCardStyle.systemShapeIcon(
                   isAws: isAwsCompliant,
@@ -363,7 +363,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                         : AppColors.white,
               ),
               // Left: the SOURCE system, one badge and only one. Five
-              // possible values (AWS/OFFICIAL/COMMUNITY/GDACS/ALRT INTEL) —
+              // possible values (AWS/OFFICIAL/COMMUNITY/GDACS/ALRT INTEL) -
               // GDACS and ALRT Intel are official too, but naming them
               // specifically (not folding into generic OFFICIAL) is what
               // lets a reader tell a humanitarian-monitoring feed or ALRT's
@@ -409,7 +409,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
     );
   }
 
-  /// "In plain terms" — mandatory on every card type, not just the detail
+  /// "In plain terms" - mandatory on every card type, not just the detail
   /// screen (locked rule). Same deterministic line as
   /// ViewHazardScreen._buildPlainTermsBox, scaled down for a compact card.
   Widget _plainTermsBuilder() {
@@ -574,9 +574,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
           child: Row(
             children: [
               Icon(
-                voteCount > 0
-                    ? Icons.thumb_up_alt_rounded
-                    : Icons.thumb_down_alt_rounded,
+                voteCount > 0 ? LucideIcons.thumbsUp : LucideIcons.thumbsDown,
                 size: 14.spMin,
                 color: AppColors.white,
               ),
@@ -737,18 +735,13 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
           return const SizedBox.shrink();
         }
 
+        // One wording everywhere: the same label, helper and buttons as
+        // the detail screen's vote section.
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 10.spMin,
           children: [
-            Text(
-              'Is this alert still active?',
-              style: TextStyle(
-                fontSize: 14.spMin,
-                fontWeight: FontWeight.w600,
-                color: AppColors.black,
-              ),
-            ),
+            const ConfirmationPrompt(),
             ConfirmationButtons(
               updateOnPressed: !isExpired,
               initialVoteType: voteType,
@@ -834,33 +827,20 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IntrinsicWidth(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'View Details',
-                                style: TextStyle(
-                                  fontSize: 14.spMin,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.black,
-                                  height: 1.0,
-                                ),
-                              ),
-                              0.6.hSizedBox,
-                              Container(
-                                height: 1.0,
-                                color: AppColors.black,
-                              ),
-                            ],
+                        Text(
+                          'View Details',
+                          style: TextStyle(
+                            fontSize: 14.spMin,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink,
+                            height: 1.0,
                           ),
                         ),
-                        6.wSizedBox,
+                        4.wSizedBox,
                         Icon(
-                          Icons.arrow_forward,
+                          LucideIcons.arrowRight,
                           size: 16.spMin,
-                          color: AppColors.black,
+                          color: AppColors.ink,
                         ),
                       ],
                     ),

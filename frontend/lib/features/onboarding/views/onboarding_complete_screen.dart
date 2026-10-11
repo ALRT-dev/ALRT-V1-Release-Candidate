@@ -11,6 +11,7 @@ import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_theme.dart';
 import 'package:hazard_app/others/app_wrapper.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class OnboardingCompleteScreen extends ConsumerStatefulWidget {
   const OnboardingCompleteScreen({super.key});
@@ -158,29 +159,14 @@ class _OnboardingCompleteScreenState
                 child: Container(
                   width: 96.spMin,
                   height: 96.spMin,
-                  decoration: BoxDecoration(
-                    color: AppColors.green.withValues(alpha: 0.9),
+                  decoration: const BoxDecoration(
+                    color: AppColors.white,
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.white.withValues(alpha: 0.4),
-                        blurRadius: 20.spMin,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
                   ),
-                  child: AnimatedBuilder(
-                    animation: _checkController,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: _checkScaleAnimation.value,
-                        child: Icon(
-                          Icons.check_rounded,
-                          size: 56.spMin,
-                          color: AppColors.white,
-                        ),
-                      );
-                    },
+                  child: Icon(
+                    LucideIcons.circleCheck,
+                    size: 88.spMin,
+                    color: AppColors.green,
                   ),
                 ),
               ),
@@ -207,7 +193,7 @@ class _OnboardingCompleteScreenState
                 child: Column(
                   children: [
                     Text(
-                      'Congratulations!',
+                      "You're set up",
                       style: TextStyle(
                         fontSize: 32.spMin,
                         fontWeight: FontWeight.w700,
@@ -216,7 +202,7 @@ class _OnboardingCompleteScreenState
                     ),
                     8.hSizedBox,
                     Text(
-                      'Set up complete.',
+                      'Your first 20 points are on the board.',
                       style: TextStyle(
                         fontSize: 18.spMin,
                         fontWeight: FontWeight.w600,
@@ -289,15 +275,15 @@ class _OnboardingCompleteScreenState
                                 child: Stack(
                                   children: [
                                     Icon(
-                                      Icons.shield_outlined,
+                                      LucideIcons.shield,
                                       size: 60.spMin,
                                       color: AppColors.orange,
                                     ),
                                     Positioned.fill(
                                       child: Center(
                                         child: Icon(
-                                          Icons.star,
-                                          size: 24.spMin,
+                                          LucideIcons.star,
+                                          size: 22.spMin,
                                           color: AppColors.orange,
                                         ),
                                       ),
@@ -324,7 +310,7 @@ class _OnboardingCompleteScreenState
                             ),
                             4.hSizedBox,
                             Text(
-                              'Your first 20 points are on the board.',
+                              'Welcome points for setting up ALRT.',
                               style: TextStyle(
                                 fontSize: 16.spMin,
                                 fontWeight: FontWeight.w600,
@@ -349,7 +335,7 @@ class _OnboardingCompleteScreenState
                       ),
                     ),
                     child: Text(
-                      'Start exploring alerts in your area and contribute to your community\'s safety. Every report you share helps keep others informed and protected.',
+                      'Alerts near your places are live now. Reporting what you see earns points too.',
                       style: TextStyle(
                         fontSize: 14.spMin,
                         height: 1.5,
@@ -417,8 +403,8 @@ class _OnboardingCompleteScreenState
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.star,
-                      size: 24.spMin,
+                      LucideIcons.star,
+                      size: 22.spMin,
                       color: AppColors.white,
                     ),
                   ),
@@ -485,7 +471,7 @@ class _OnboardingCompleteScreenState
                 child: Column(
                   children: [
                     GradientButton(
-                      title: 'Start Using ALRT',
+                      title: 'Start using ALRT',
                       onPressed: _gotoMapScreen,
                     ),
                   ],

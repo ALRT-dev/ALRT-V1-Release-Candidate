@@ -4,15 +4,18 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/onboarding/enums/onboarding_step_types.dart';
 import 'package:hazard_app/features/onboarding/views/widgets/gradient_button.dart';
-import 'package:hazard_app/features/onboarding/views/widgets/progress_bar.dart';
+import 'package:hazard_app/features/onboarding/views/widgets/onboarding_page.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
-import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
+import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
+import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
-/// Onboarding step 4: explains that ALRT is free and what the free tier
-/// includes. No prices, no purchase flow, no paywall navigation.
+/// Onboarding step 4 (board Onb4): ALRT is free; ALRT + is optional.
 ///
-/// Handoff: "No prices, no purchase; free tier stated plainly."
+/// No prices here (they come from the store, on the plan screens) and no
+/// purchase flow: the one link opens the ALRT + chooser, and it is hidden
+/// when the backend says billing is off or the person already has ALRT +.
 class OnboardingAlrtPlusScreen extends ConsumerWidget {
   const OnboardingAlrtPlusScreen({super.key, this.onDone});
 
@@ -33,234 +36,157 @@ class OnboardingAlrtPlusScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      body: Container(
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.orange.withValues(alpha: 0.08),
-              AppColors.purple.withValues(alpha: 0.06),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(30.spMin),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.shadowColor,
-                        blurRadius: 15.spMin,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(20.spMin),
-                    child: Column(
-                      children: [
-                        _buildBackButton(context),
-                        24.hSizedBox,
-                        ProgressBar(
-                          currentStep: _step.index,
-                          totalSteps: OnboardingStep.values.length - 1,
-                          label:
-                              'Step ${_step.index} of ${OnboardingStep.values.length - 1}',
-                        ),
-                        32.hSizedBox,
-                        _buildHeader(),
-                        28.hSizedBox,
-                        _buildFreeFeatures(),
-                        12.hSizedBox,
-                        _buildAlrtPlusNote(),
-                        32.hSizedBox,
-                        GradientButton(
-                          title: 'Continue with ALRT Free',
-                          onPressed: () => _next(context),
-                        ),
-                        20.hSizedBox,
-                      ],
-                    ),
-                  ),
-                ).pad(20.0),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    // Hidden when billing is disabled server-side or ALRT + is already
+    // held; an unreachable backend (null) still shows it, since the plan
+    // screens handle every refusal themselves.
+    final billingEnabled =
+        ref.watch(providerOfAccess).asData?.value?.billingEnabled ?? true;
+    final hasAlrtPlus = ref.watch(providerOfAlrtPlus).asData?.value ?? false;
+    final showPlansLink = billingEnabled && !hasAlrtPlus;
 
-  Widget _buildBackButton(BuildContext context) {
-    return Row(
+    return OnboardingPage(
+      step: _step,
       children: [
-        GestureDetector(
-          onTap: () => context.pop(),
-          child: Container(
-            width: 40.spMin,
-            height: 40.spMin,
-            decoration: BoxDecoration(
-              color: AppColors.extraLightGrey,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.arrow_back_ios_new,
-              size: 18.spMin,
-              color: AppColors.black,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          padding: EdgeInsets.all(14.spMin),
-          decoration: BoxDecoration(
-            color: AppColors.green.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.check_circle_outline_rounded,
-            size: 40.spMin,
-            color: AppColors.green,
-          ),
-        ),
-        20.hSizedBox,
         Text(
           'ALRT is free to use',
           style: TextStyle(
             fontSize: 26.spMin,
             fontWeight: FontWeight.w700,
-            color: AppColors.black,
+            height: 1.15,
+            color: AppColors.ink,
           ),
-          textAlign: TextAlign.center,
         ),
-        10.hSizedBox,
+        8.hSizedBox,
         Text(
-          'Everything you need to stay aware is included at no cost.',
+          'Alerts, the live map, navigation, one saved place and 3 Ask ALRT '
+          'questions a day are always free. ALRT + is optional, and you can '
+          'add it any time.',
           style: TextStyle(
             fontSize: 15.spMin,
-            color: AppColors.grey,
-            height: 1.4,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFreeFeatures() {
-    const features = [
-      _FreeFeature(
-        icon: Icons.map_rounded,
-        text: 'Live safety map with alerts near you',
-      ),
-      _FreeFeature(
-        icon: Icons.navigation_rounded,
-        text: 'Navigation that avoids hazards',
-      ),
-      _FreeFeature(
-        icon: Icons.place_rounded,
-        text: 'One saved place besides where you are',
-      ),
-      _FreeFeature(
-        icon: Icons.smart_toy_rounded,
-        text: '3 Ask ALRT questions a day',
-      ),
-      _FreeFeature(
-        icon: Icons.notifications_rounded,
-        text: 'Push notifications for alerts that matter',
-      ),
-    ];
-
-    return Column(
-      children: features
-          .map((f) => Padding(
-                padding: EdgeInsets.only(bottom: 12.spMin),
-                child: _buildFeatureRow(f),
-              ))
-          .toList(),
-    );
-  }
-
-  Widget _buildFeatureRow(_FreeFeature feature) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(8.spMin),
-          decoration: BoxDecoration(
-            color: AppColors.orange.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10.spMin),
-          ),
-          child: Icon(
-            feature.icon,
-            size: 20.spMin,
-            color: AppColors.orange,
+            height: 1.45,
+            color: AppColors.mediumGrey,
           ),
         ),
-        12.wSizedBox,
-        Expanded(
-          child: Text(
-            feature.text,
-            style: TextStyle(
-              fontSize: 15.spMin,
-              color: AppColors.black,
-              height: 1.3,
+        24.hSizedBox,
+        const _PlanCard(
+          identity: PlanIdentity.individual,
+          title: 'For myself',
+          body: 'Unlimited places, 10 questions a day, any groups',
+        ),
+        12.hSizedBox,
+        const _PlanCard(
+          identity: PlanIdentity.family,
+          title: 'Cover a group of up to 6',
+          body: 'Check in, Check on, SOS and Journey for everyone in it',
+        ),
+        12.hSizedBox,
+        const _PlanCard(
+          identity: PlanIdentity.group,
+          title: 'Cover 20 or 50 people',
+          body: 'Same, for a team, a street or a club',
+        ),
+        16.hSizedBox,
+        Text(
+          'Prices are shown in the app store. Create or join a group in '
+          'Family first if you want to cover one.',
+          style: TextStyle(
+            fontSize: 12.spMin,
+            height: 1.45,
+            color: AppColors.mediumGrey,
+          ),
+        ),
+        const Spacer(),
+        24.hSizedBox,
+        GradientButton(
+          title: 'Continue with ALRT Free',
+          dark: true,
+          onPressed: () => _next(context),
+        ),
+        if (showPlansLink) ...[
+          6.hSizedBox,
+          Center(
+            child: TextButton(
+              onPressed: () => context.push(AlrtPlusChooseScreen.route),
+              child: Text(
+                'See ALRT + plans',
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
+}
 
-  Widget _buildAlrtPlusNote() {
+/// A white card with the plan's coloured pill, a bold title and one line.
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.identity,
+    required this.title,
+    required this.body,
+  });
+
+  final PlanIdentity identity;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
-        color: AppColors.extraLightGrey.withValues(alpha: 0.5),
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(14.spMin),
+        border: Border.all(color: AppColors.lightGrey, width: 1),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.star_rounded,
-            size: 20.spMin,
-            color: AppColors.grey,
-          ),
-          10.wSizedBox,
-          Expanded(
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 10.spMin,
+              vertical: 4.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: identity.accent,
+              borderRadius: BorderRadius.circular(100),
+            ),
             child: Text(
-              'ALRT + is optional and adds more saved places, more Ask ALRT '
-              'questions, and family features. You can add it any time from '
-              'your profile.',
+              identity.label,
               style: TextStyle(
-                fontSize: 13.spMin,
-                color: AppColors.grey,
-                height: 1.4,
+                fontSize: 11.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                color: AppColors.white,
               ),
+            ),
+          ),
+          10.hSizedBox,
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15.spMin,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+              color: AppColors.ink,
+            ),
+          ),
+          4.hSizedBox,
+          Text(
+            body,
+            style: TextStyle(
+              fontSize: 13.spMin,
+              height: 1.4,
+              color: AppColors.mediumGrey,
             ),
           ),
         ],
       ),
     );
   }
-}
-
-class _FreeFeature {
-  final IconData icon;
-  final String text;
-  const _FreeFeature({required this.icon, required this.text});
 }

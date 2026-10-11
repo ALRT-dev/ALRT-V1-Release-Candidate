@@ -97,6 +97,18 @@ void main() {
       expect(sponsoredCapacity(PlanTier.group20), 20);
       expect(sponsoredCapacity(PlanTier.group50), 50);
     });
+
+    test('the personal plan is named "ALRT +", never "Individual" '
+        '(product owner 2026-09-28); group tiers keep their size names', () {
+      expect(planTierName(PlanTier.individual), 'ALRT +');
+      expect(planTierName(PlanTier.family), 'Family');
+      expect(planTierName(PlanTier.group20), 'Group 20');
+      expect(planTierName(PlanTier.group50), 'Group 50');
+      for (final tier in PlanTier.values) {
+        expect(planTierName(tier), isNot(contains('Individual')));
+        expect(planTierName(tier), isNot(contains('ALRT+')));
+      }
+    });
   });
 
   group('trial offers', () {

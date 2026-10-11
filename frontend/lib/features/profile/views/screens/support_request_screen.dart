@@ -11,6 +11,7 @@ import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/views/widgets/button.dart';
 import 'package:hazard_app/features/shared/views/widgets/round_button.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class SupportRequestScreen extends ConsumerStatefulWidget {
   const SupportRequestScreen({super.key});
@@ -101,7 +102,7 @@ class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.check_circle_rounded,
+            LucideIcons.circleCheck,
             color: AppColors.green,
             size: 80.spMin,
           ),
@@ -292,13 +293,13 @@ class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
                     ),
                     if (isSelected)
                       Icon(
-                        Icons.check_circle,
+                        LucideIcons.circleCheck,
                         color: typeInfo['color'],
                         size: 24.spMin,
                       )
                     else
                       Icon(
-                        Icons.circle_outlined,
+                        LucideIcons.circle,
                         color: AppColors.lightGrey,
                         size: 24.spMin,
                       ),
@@ -376,7 +377,7 @@ class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
             child: SafeArea(
               child: Button.filled(
                 value: 'Submit Request',
-                icon: Icon(Icons.check_rounded),
+                icon: Icon(LucideIcons.check),
                 isLoading: isLoading,
                 onPressed: _handleSubmitRequest,
               ),
@@ -391,7 +392,7 @@ class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
     return Button.bordered(
       width: 300.0,
       value: 'Submit Another Request',
-      icon: Icon(Icons.add_rounded),
+      icon: Icon(LucideIcons.plus),
       onPressed: _handleAnotherRequest,
     );
   }
@@ -400,7 +401,7 @@ class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
     return Button.bordered(
       width: 300.0,
       value: 'Go Back',
-      icon: Icon(Icons.arrow_back_rounded),
+      icon: Icon(LucideIcons.chevronLeft),
       onPressed: () => context.pop(),
     );
   }
@@ -414,7 +415,7 @@ class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
         }
         return RoundButton(
           icon: Icon(
-            Icons.delete_rounded,
+            LucideIcons.trash2,
             color: AppColors.black,
             size: 24.spMin,
           ),
@@ -451,28 +452,28 @@ class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
         return {
           'title': 'Support',
           'description': 'Get help with technical issues or account problems',
-          'icon': Icons.support_agent_outlined,
+          'icon': LucideIcons.lifeBuoy,
           'color': AppColors.blue,
         };
       case SupportRequestType.feedback:
         return {
           'title': 'Feedback',
           'description': 'Share your thoughts on how we can improve',
-          'icon': Icons.feedback_outlined,
+          'icon': LucideIcons.messageSquare,
           'color': AppColors.green,
         };
       case SupportRequestType.question:
         return {
           'title': 'Question',
           'description': 'Ask questions about features or functionality',
-          'icon': Icons.help_outline,
+          'icon': LucideIcons.info,
           'color': AppColors.orange,
         };
       case SupportRequestType.other:
         return {
           'title': 'Other',
           'description': 'Something else? Let us know what you need',
-          'icon': Icons.more_horiz,
+          'icon': LucideIcons.ellipsisVertical,
           'color': AppColors.grey,
         };
     }

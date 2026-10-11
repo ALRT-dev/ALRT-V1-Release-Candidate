@@ -149,9 +149,8 @@ class _ManagePushNotificationsListState
         );
 
         return _sectionContainerBuilder(
-          title: 'Alert Types',
-          subtitle:
-              'Which alerts can send you a push. The same names as the map and feed filters; saved to your account.',
+          title: 'Types',
+          subtitle: 'Which alerts can send you a push.',
           trailing: _customToggleSwitch(
             isEnabled: isAnyAlertTypeEnabled,
             onToggle: (_) {
@@ -176,8 +175,8 @@ class _ManagePushNotificationsListState
               // The four bands mirror how alerts render on the front screen
               // (locked hexes; shapes carry the source system there).
               _filterToggleCard(
-                title: 'Emergency Warning',
-                description: 'AWS · immediate danger, take action now',
+                title: 'Emergency Warning (AWS)',
+                description: 'Immediate danger. Act now.',
                 isEnabled: awsEmergency,
                 onToggle: (value) {
                   filterProvider.updateAwsEmergency(value);
@@ -186,8 +185,8 @@ class _ManagePushNotificationsListState
               ),
               10.hSizedBox,
               _filterToggleCard(
-                title: 'Watch & Act',
-                description: 'AWS · conditions are changing, prepare',
+                title: 'Watch and Act (AWS)',
+                description: 'Conditions are changing. Prepare.',
                 isEnabled: awsWatchAndAct,
                 onToggle: (value) {
                   filterProvider.updateAwsWatchAndAct(value);
@@ -196,8 +195,8 @@ class _ManagePushNotificationsListState
               ),
               10.hSizedBox,
               _filterToggleCard(
-                title: 'Advice',
-                description: 'AWS · stay informed and watch conditions',
+                title: 'Advice (AWS)',
+                description: 'Stay informed. Watch conditions.',
                 isEnabled: awsAdvice,
                 onToggle: (value) {
                   filterProvider.updateAwsAdvice(value);
@@ -206,9 +205,8 @@ class _ManagePushNotificationsListState
               ),
               10.hSizedBox,
               _filterToggleCard(
-                title: 'Official',
-                description:
-                    'State agencies, global feeds and ALRT Intel alerts',
+                title: 'Other official alerts',
+                description: 'State agencies, global feeds and ALRT Intel.',
                 isEnabled: officialNonAws,
                 onToggle: (value) {
                   filterProvider.updateOfficialNonAws(value);
@@ -217,8 +215,8 @@ class _ManagePushNotificationsListState
               ),
               10.hSizedBox,
               _filterToggleCard(
-                title: 'Community',
-                description: 'Reports from people nearby - unverified',
+                title: 'Community reports',
+                description: 'From people nearby. Unverified.',
                 isEnabled: isUserReported,
                 onToggle: (value) {
                   filterProvider.updateUserReported(value);
@@ -367,7 +365,7 @@ class _ManagePushNotificationsListState
           initial: () => const SizedBox.shrink(),
           loading: () => _sectionContainerBuilder(
             title: 'Categories',
-            subtitle: 'Same categories, colours and icons as the ALRT feed.',
+            subtitle: 'Which hazard categories reach you.',
             child: SizedBox(
               height: 50.spMin,
               child: Center(
@@ -390,8 +388,7 @@ class _ManagePushNotificationsListState
 
             return _sectionContainerBuilder(
               title: 'Categories',
-              subtitle:
-                  'Same categories, colours and icons as the ALRT feed. Tap to toggle.',
+              subtitle: 'Which hazard categories reach you. Tap to toggle.',
               trailing: _customToggleSwitch(
                 isEnabled: isAnyCategoryEnabled,
                 onToggle: (_) {

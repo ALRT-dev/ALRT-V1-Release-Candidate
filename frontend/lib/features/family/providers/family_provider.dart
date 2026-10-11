@@ -547,7 +547,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     state = state.copyWith(activeSosEvents: events);
 
     // The person IN SOS is told, loudly, who has seen it and who is
-    // coming — that reassurance is the point of responding (product
+    // coming - that reassurance is the point of responding (product
     // owner 2026-08-07). Only for MY event, and never for my own tap.
     FamilySosEvent? event;
     for (final e in events) {
@@ -568,15 +568,19 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
             response.member?.user?.id == myUserId);
     if (!eventIsMine || responderIsMe) return;
 
+    // "I've seen this" is the only deliberate response left in the flow
+    // (master spec 28 Sep 2026): onMyWay and called stay in the model for
+    // historical data but never produce an alert.
+    if (response.type != FamilySosResponseType.seen) return;
+
     final name = response.member?.displayName ?? 'A family member';
-    final title = switch (response.type) {
-      FamilySosResponseType.onMyWay => '$name is on their way to you',
-      FamilySosResponseType.called => '$name is calling for help for you',
-      _ => '$name has seen your SOS',
-    };
+    // The body states only what is true right now: the live-location line
+    // appears only while this phone is sharing live points to that SOS.
+    final sharingLive =
+        (_sosLiveTimer?.isActive ?? false) && _sosLiveEventId == event.id;
     _showBigAlert(
-      title: title,
-      body: 'They can see your live location.',
+      title: '$name has seen your SOS',
+      body: sharingLive ? 'They can see your live location.' : '',
       isSos: false,
       onTap: null,
     );
@@ -696,11 +700,11 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       },
       (error) async {
         // A silent failure is only allowed to stay silent when the screen
-        // already shows a truthful answer — a loaded circle, OR a prior
+        // already shows a truthful answer - a loaded circle, OR a prior
         // successful load that said "no group" (a failed background
         // refresh must not swap the onboarding pitch for an error). With
         // nothing loaded yet, swallowing the error made the tab conclude
-        // "no group" and show the create-a-group pitch — on a phone with
+        // "no group" and show the create-a-group pitch - on a phone with
         // patchy network the group looked like it had vanished every
         // cold start.
         final canStaySilent =
@@ -827,7 +831,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     return result.when((candidates) => candidates, (_) => null);
   }
 
-  /// Owner-only (§29 TRANSFER): hands the circle — and its seats — to
+  /// Owner-only (§29 TRANSFER): hands the circle - and its seats - to
   /// [newOwnerMemberId]. The prior host stays on as an adult member.
   Future<bool> transferOwnership({
     required final String newOwnerMemberId,
@@ -867,7 +871,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   }
 
   /// Takeover: revive the paused circle by becoming its host. Returns null
-  /// on success, otherwise the backend's refusal in plain words — the
+  /// on success, otherwise the backend's refusal in plain words - the
   /// backend is the only judge of eligibility, so its reason is shown
   /// verbatim rather than pre-computed client-side.
   Future<String?> takeOverCircle() async {
@@ -942,8 +946,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     await result.when(
       (circle) async {
         // Scope the tab to the group just made. Without this the selection
-        // still points at the oldest membership, so the next load — a
-        // socket update, a pull-to-refresh, an app resume — quietly
+        // still points at the oldest membership, so the next load - a
+        // socket update, a pull-to-refresh, an app resume - quietly
         // switched back and the new group looked like it had not been
         // created. It also has to reach the circles list, or the switcher
         // and the home-screen widget never learn about it.
@@ -1279,7 +1283,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   AppError? lastLocationError;
 
   /// Asks every one of [memberIds] to share a one-time snapshot in one go
-  /// — "selected people" or "the whole group," depending on which ids are
+  /// - "selected people" or "the whole group," depending on which ids are
   /// passed. Each person still gets their own request and their own
   /// consent prompt; this only saves asking one at a time. Returns the ids
   /// that failed their own check (e.g. sharing off) so the caller can tell
@@ -1359,7 +1363,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   ///
   /// A check-in answering a specific request (`requestId` set, e.g. a
   /// scheduled prompt or someone's "ask everyone") stays scoped to that
-  /// request's own circle — answering it must not silently mark the user
+  /// request's own circle - answering it must not silently mark the user
   /// safe in circles nobody asked in. A proactive "I'm Safe" tap (no
   /// pending request) is the app's one-tap-to-everyone action per the
   /// onboarding pitch and the Ask ALRT system prompt's own description of
@@ -2162,7 +2166,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   // ---------------------------- SOS ----------------------------
 
   /// Triggers an SOS with the user's current location attached.
-  /// [isLive] is the sender's own choice, made before triggering — never
+  /// [isLive] is the sender's own choice, made before triggering - never
   /// assumed. Live tracking only starts when they chose it; SOS itself
   /// still reaches every recipient either way.
   Future<FamilySosEvent?> triggerSos({
@@ -2391,7 +2395,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     });
   }
 
-  /// Other members' journeys currently shared with the caller — refreshed
+  /// Other members' journeys currently shared with the caller - refreshed
   /// on every load so a recipient sees an active share even if they never
   /// saw or opened the "shared with you" notification. A failure here
   /// stays silent (same reasoning as the other background refreshes in

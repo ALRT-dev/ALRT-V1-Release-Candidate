@@ -12,6 +12,7 @@ import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dar
 import 'package:hazard_app/features/shared/enums/alrt_media_source_types.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Circle settings: the ONE place a circle's name, rules, picture and
 /// beacon colour are edited. The hub's overflow menu and its shortcuts all
@@ -232,7 +233,7 @@ class _FamilyGroupSettingsScreenState
           FamilyCircleProfileScreen.route,
           extra: const FamilyCircleProfileArgs(),
         ),
-        leading: Icon(Icons.person_outline, color: _perGroupLabel),
+        leading: Icon(LucideIcons.userRound, color: _perGroupLabel),
         title: Text(
           'How this circle sees you',
           style: TextStyle(fontSize: 14.5.spMin, fontWeight: FontWeight.w800),
@@ -242,7 +243,7 @@ class _FamilyGroupSettingsScreenState
           'never shared with location data.',
           style: TextStyle(fontSize: 11.5.spMin, color: _muted),
         ),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(LucideIcons.chevronRight),
       ),
     );
   }
@@ -276,7 +277,7 @@ class _FamilyGroupSettingsScreenState
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
+                      LucideIcons.chevronLeft,
                       size: 14.spMin,
                       color: Colors.white,
                     ),
@@ -551,7 +552,7 @@ class _FamilyGroupSettingsScreenState
               : null,
         ),
         child: isSelected
-            ? Icon(Icons.check_rounded, size: 16.spMin, color: Colors.white)
+            ? Icon(LucideIcons.check, size: 16.spMin, color: Colors.white)
             : takenBy == null
             ? null
             : Text(

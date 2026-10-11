@@ -23,8 +23,9 @@ import 'package:hazard_app/features/family/views/screens/family_sos_lists_screen
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/services/emergency_number.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Hold-to-send Family SOS. Sends a location snapshot + SOS to the circle only —
+/// Hold-to-send Family SOS. Sends a location snapshot + SOS to the circle only -
 /// ALRT never contacts authorities; this screen states that and tells the
 /// sender to call their local emergency number themselves if life or
 /// property is in danger (product-owner instruction 2026-08-30 removed the
@@ -333,7 +334,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                       _whatThisDoesBuilder(emergencyNumber),
                       SizedBox(height: 8.spMin),
                       TextButton(
-                        // Returns to whichever screen this SOS was started from —
+                        // Returns to whichever screen this SOS was started from -
                         // today, always the Family hub's own SOS tile, since that's
                         // the only place this screen is reachable from.
                         onPressed: _sent ? _goToFamily : () => context.pop(),
@@ -356,7 +357,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     );
   }
 
-  /// §28: large single-select rows — radio, name, count. No checkboxes,
+  /// §28: large single-select rows - radio, name, count. No checkboxes,
   /// no expansion, no counting on this screen.
   Widget _presetRowBuilder({
     required final String? id,
@@ -394,12 +395,33 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
         ),
         child: Row(
           children: [
-            Icon(
-              isSelected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
-              size: 20.spMin,
-              color: Colors.white,
+            // A 22 px radio in the row's white, since this sits on the red
+            // SOS surface: a 2 px ring, filled white with a dark dot when
+            // selected.
+            Container(
+              width: 22.spMin,
+              height: 22.spMin,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? Colors.white : Colors.transparent,
+                border: isSelected
+                    ? null
+                    : Border.all(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        width: 2.0,
+                      ),
+              ),
+              child: isSelected
+                  ? Container(
+                      width: 8.spMin,
+                      height: 8.spMin,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF1C1C1E),
+                      ),
+                    )
+                  : null,
             ),
             SizedBox(width: 10.spMin),
             Expanded(
@@ -663,7 +685,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           line(
-            Icons.people_alt_outlined,
+            LucideIcons.users,
             'Goes to:',
             p == null && !_previewFailed
                 ? '$names (checking who can receive it…)'
@@ -673,13 +695,13 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
           ),
           if (_previewFailed)
             line(
-              Icons.info_outline,
+              LucideIcons.info,
               'Not checked:',
               'ALRT will check who can receive it when you send.',
             ),
           if (excluded.isNotEmpty)
             line(
-              Icons.person_off_outlined,
+              LucideIcons.circleX,
               'Not included:',
               excluded
                   .map((e) => '${e.name} (${excludedReason(e.reason)})')
@@ -687,14 +709,14 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             ),
           if (p?.preset?.state == 'outdated')
             line(
-              Icons.warning_amber_rounded,
+              LucideIcons.triangleAlert,
               'List out of date:',
               '${p!.preset!.removedCount} ${p.preset!.removedCount == 1 ? 'person has' : 'people have'} left since you made "${p.preset!.name}".',
             ),
-          line(Icons.place_outlined, 'Location:', locationLine),
+          line(LucideIcons.mapPin, 'Location:', locationLine),
           if (limited.isNotEmpty)
             line(
-              Icons.notifications_off_outlined,
+              LucideIcons.bellOff,
               'May not be notified:',
               '${joinNames(limited.map((r) => r.name).toList())} (no phone '
                   'registered for alerts). They will see it in ALRT.',
@@ -973,7 +995,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
         shape: BoxShape.circle,
         color: FamilyColors.safeGreen,
       ),
-      child: Icon(Icons.check_rounded, color: Colors.white, size: 90.spMin),
+      child: Icon(LucideIcons.check, color: Colors.white, size: 90.spMin),
     );
   }
 

@@ -180,6 +180,10 @@ jobs:
     environment: test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Two commits so the analyze gate below can diff HEAD against
+          # its parent and gate on the files this commit actually touched.
+          fetch-depth: 2
 
       # Fail fast, before any setup/build time is spent. This workflow's
       # whole point is a TEST APK with a STABLE signing identity (needed
@@ -229,14 +233,19 @@ jobs:
           status=$?
           cat /tmp/analyze-output.txt
           set -e
-          changed_files="
-            lib/features/family/utils/family_sos_authorization.dart
-            lib/features/family/views/widgets/family_sos_strip.dart
-            lib/features/family/views/screens/family_sos_screen.dart
-            lib/features/family/views/screens/family_sos_resolved_screen.dart
-            lib/features/family/views/screens/family_sos_receiver_screen.dart
-            lib/features/family/views/screens/family_hub_screen.dart
-          "
+          # Files this commit touched under frontend/lib (paths relative
+          # to frontend/, which is how flutter analyze prints them).
+          # Falls back to the whole of lib/ if git cannot tell, so the
+          # gate never silently passes an unanalysed change.
+          changed_files="$(git diff --name-only HEAD~1 HEAD -- lib 2>/dev/null | sed 's#^frontend/##')"
+          if [ -z "$changed_files" ]; then
+            changed_files="$(git diff --name-only HEAD~1 HEAD -- ../frontend/lib 2>/dev/null | sed 's#^frontend/##')"
+          fi
+          if [ -z "$changed_files" ]; then
+            echo "::warning::could not derive changed files from git; gating on all of lib/"
+            changed_files="lib/"
+          fi
+          echo "Gating analyzer findings on:"; echo "$changed_files"
           fail=0
           for f in $changed_files; do
             if grep -q "$f" /tmp/analyze-output.txt; then
