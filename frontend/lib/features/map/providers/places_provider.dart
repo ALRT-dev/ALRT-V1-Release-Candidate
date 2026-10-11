@@ -6,12 +6,10 @@ import 'package:hazard_app/features/map/providers/states/places_provider_state.d
 import 'package:hazard_app/features/map/services/location_service.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:hazard_app/features/map/views/widgets/map_searchbar.dart';
-import 'package:hazard_app/features/onboarding/views/onboarding_location_screen.dart';
 import 'package:hazard_app/features/search/views/widgets/hazard_search_appbar.dart';
 
-final providerOfPlacesForOnboarding = providerOfPlaces(
-  OnboardingLocationScreen.placesSearchKey,
-);
+/// Used by the manual location popup (change-location sheet).
+final providerOfPlacesForOnboarding = providerOfPlaces('ManualLocationPopup');
 final providerOfPlacesForMap = providerOfPlaces(
   MapSearchbar.placesSearchKey,
 );

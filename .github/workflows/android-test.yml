@@ -181,9 +181,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Two commits so the analyze gate below can diff HEAD against
-          # its parent and gate on the files this commit actually touched.
-          fetch-depth: 2
+          # Full history so the analyze gate below can diff this branch
+          # against its merge-base with main and gate on every file the
+          # branch touched.
+          fetch-depth: 0
 
       # Fail fast, before any setup/build time is spent. This workflow's
       # whole point is a TEST APK with a STABLE signing identity (needed
@@ -233,34 +234,49 @@ jobs:
           status=$?
           cat /tmp/analyze-output.txt
           set -e
-          # Files this commit touched under frontend/lib (paths relative
-          # to frontend/, which is how flutter analyze prints them).
-          # Falls back to the whole of lib/ if git cannot tell, so the
-          # gate never silently passes an unanalysed change.
-          changed_files="$(git diff --name-only HEAD~1 HEAD -- lib 2>/dev/null | sed 's#^frontend/##')"
-          if [ -z "$changed_files" ]; then
-            changed_files="$(git diff --name-only HEAD~1 HEAD -- ../frontend/lib 2>/dev/null | sed 's#^frontend/##')"
+          # Files this branch touched under frontend/lib since it left
+          # main (paths relative to frontend/, which is how flutter
+          # analyze prints them). Falls back to the whole of lib/ if git
+          # cannot tell, so the gate never silently passes an unanalysed
+          # change.
+          base="$(git merge-base origin/main HEAD 2>/dev/null || true)"
+          changed_files=""
+          if [ -n "$base" ]; then
+            changed_files="$(git diff --name-only "$base" HEAD -- lib 2>/dev/null | sed 's#^frontend/##')"
           fi
           if [ -z "$changed_files" ]; then
             echo "::warning::could not derive changed files from git; gating on all of lib/"
             changed_files="lib/"
           fi
           echo "Gating analyzer findings on:"; echo "$changed_files"
-          # Surface every analyzer finding as a check annotation too (the
-          # raw log is not always reachable from where this is reviewed).
-          # Findings in gated files are errors, the rest warnings; capped
-          # so GitHub's per-step annotation limit is not hit.
-          gated_n=0; other_n=0
-          grep -E '^\s*(error|warning|info) •' /tmp/analyze-output.txt | while IFS= read -r line; do
+          # Surface analyzer findings as check annotations too (the raw
+          # log is not always reachable from where this is reviewed).
+          # Gated findings first, spread over error/warning/notice to
+          # stay inside GitHub's 10-per-level-per-step cap; baseline
+          # findings take whatever notice slots are left.
+          grep -E '^\s*(error|warning|info) •' /tmp/analyze-output.txt > /tmp/analyze-lines.txt || true
+          gated_lines=""; other_lines=""
+          while IFS= read -r line; do
             hit=0
             for f in $changed_files; do
               case "$line" in *"$f"*) hit=1; break;; esac
             done
-            if [ "$hit" = "1" ] && [ "$gated_n" -lt 10 ]; then
-              echo "::error title=flutter analyze (gated)::$line"; gated_n=$((gated_n+1))
-            elif [ "$hit" = "0" ] && [ "$other_n" -lt 10 ]; then
-              echo "::warning title=flutter analyze (baseline)::$line"; other_n=$((other_n+1))
+            if [ "$hit" = "1" ]; then gated_lines="$gated_lines$line\n"; else other_lines="$other_lines$line\n"; fi
+          done < /tmp/analyze-lines.txt
+          n=0
+          printf "%b" "$gated_lines" | while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            n=$((n+1))
+            if [ "$n" -le 10 ]; then echo "::error title=flutter analyze (gated)::$line"
+            elif [ "$n" -le 20 ]; then echo "::warning title=flutter analyze (gated)::$line"
+            elif [ "$n" -le 30 ]; then echo "::notice title=flutter analyze (gated)::$line"
             fi
+          done
+          n=0
+          printf "%b" "$other_lines" | while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            n=$((n+1))
+            if [ "$n" -le 10 ]; then echo "::notice title=flutter analyze (baseline)::$line"; fi
           done
           fail=0
           for f in $changed_files; do

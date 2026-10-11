@@ -50,8 +50,6 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
   static const _pillColor = Color(0xE6F5F5F7);
   static const _activeCircleColor = AppColors.orange;
 
-  /// The capsule sits on a soft shadow so it lifts off the map.
-  static const _glowColor = AppColors.footerGlow;
 
   @override
   Widget build(BuildContext context) {

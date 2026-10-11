@@ -9,7 +9,6 @@ import 'package:hazard_app/features/subscription/models/access_models.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/repositories/access_repository.dart';
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
-import 'package:hazard_app/features/subscription/utils/paywall_copy.dart';
 import 'package:hazard_app/features/subscription/utils/restore_outcome.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';

@@ -30,7 +30,6 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
   static const _readAloudKey = 'accessible_alerts_read_aloud';
 
   bool? _explicitVibration;
-  bool? _explicitReadAloud;
   bool _loaded = false;
 
   @override
@@ -50,7 +49,6 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
     _loaded = true;
     final prefs = await SharedPreferences.getInstance();
     _explicitVibration = prefs.getBool(_vibrationKey);
-    _explicitReadAloud = prefs.getBool(_readAloudKey);
     _recompute();
   }
 
@@ -70,8 +68,7 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
       LocalNotificationService.instance.showStrongVibrationTest();
 
   Future<void> setReadAloud(final bool value) async {
-    _explicitReadAloud = value;
-    _recompute();
+    // Stored for a future read-aloud setting; nothing reads it back yet.
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_readAloudKey, value);
   }

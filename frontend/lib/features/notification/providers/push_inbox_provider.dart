@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hazard_app/features/notification/models/push_inbox_item_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
