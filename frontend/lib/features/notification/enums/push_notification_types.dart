@@ -23,6 +23,10 @@ enum PushNotificationType {
   familyLocationShared,
   familyScheduledCheckInPrompt,
   familyJourneyShared,
+  // A member sent a public alert to their group from the alert detail
+  // screen ("Send to my group"). Payload carries hazardId (and circleId),
+  // never a location; tapping opens that alert.
+  familyHazardShare,
 
   // A test the signed-in user sent to their own phones.
   testNotification,

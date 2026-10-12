@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 
 part 'hazard_filters_provider_state.freezed.dart';
@@ -87,12 +88,27 @@ abstract class HazardFiltersProviderState with _$HazardFiltersProviderState {
       alrtIntel ||
       selectedCategoryIds.isNotEmpty;
 
-  /// Whether [hazard] passes the source toggles that are applied on the
-  /// phone (the API predates the global humanitarian and Intel switches,
-  /// so those two filter the results after they arrive).
+  /// Whether [hazard] passes the toggles that are applied on the phone
+  /// (the API predates the Intel switch and the colour rows, so those
+  /// filter the results after they arrive).
+  ///
+  /// The "How serious" rows are named by colour (product owner, 12 Oct
+  /// 2026) and one colour means one thing for every source: the yellow row
+  /// is AWS Advice AND the official yellow band, orange is Watch and Act
+  /// AND the official orange band, red is never hidden. AWS alerts are
+  /// already filtered by the server on those same switches; here the same
+  /// switch is applied to the band an official (non-AWS) alert or an ALRT
+  /// Assessment wears. Community reports wear their category, not a band,
+  /// so the colour rows never touch them. The grey band has no switch.
   bool allowsHazard(final Hazard hazard) {
     if (!alrtIntel && hazard.isAlrtIntel) return false;
-    return true;
+    if (hazard.isUserReported || hazard.isAwsCompliant == true) return true;
+    return switch (hazard.severityBand) {
+      HazardSeverityBand.monitor => awsAdvice,
+      HazardSeverityBand.action => awsWatchAndAct,
+      HazardSeverityBand.critical => awsEmergency,
+      HazardSeverityBand.info || null => true,
+    };
   }
 
   /// Returns the total count of unselected filters.

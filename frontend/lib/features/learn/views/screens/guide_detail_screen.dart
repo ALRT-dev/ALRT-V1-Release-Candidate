@@ -5,8 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/learn/enums/guide_phase_types.dart';
 import 'package:hazard_app/features/learn/models/guide_models.dart';
 import 'package:hazard_app/features/learn/providers/guide_detail_provider.dart';
-import 'package:hazard_app/features/learn/views/widgets/guide_phase_selector.dart';
-import 'package:hazard_app/features/learn/views/widgets/guide_step_card.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
@@ -26,8 +24,9 @@ class GuideDetailScreenArgs {
   final String? topicName;
 }
 
-/// Full guide screen: orange gradient header, Before/During/After phases,
-/// numbered steps, source attribution and a sticky "Mark complete" button.
+/// Full guide screen: white header, Before / During / After stacked as
+/// cards of numbered steps, source attribution and a sticky "Mark complete"
+/// button.
 class GuideDetailScreen extends ConsumerStatefulWidget {
   const GuideDetailScreen({
     super.key,
@@ -44,21 +43,6 @@ class GuideDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
-  /// The phase the reader explicitly picked. Null means "not chosen yet",
-  /// so the guide opens on whichever phase actually has steps.
-  GuidePhase? _pickedPhase;
-
-  /// Opening on a fixed phase meant a guide whose content lives in During
-  /// or After rendered as "no steps" — the lesson was there, just never
-  /// shown. Fall back to the first phase that has something to read.
-  GuidePhase _phaseFor(final GuideDetail detail) {
-    if (_pickedPhase != null) return _pickedPhase!;
-    for (final phase in GuidePhase.values) {
-      if (phase.stepsOf(detail.sections).isNotEmpty) return phase;
-    }
-    return GuidePhase.before;
-  }
-
   String get _slugOrId => widget.args.slugOrId;
 
   @override
@@ -216,27 +200,21 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
   // -------------------------------- BODY --------------------------------
 
   Widget _bodyBuilder(final GuideDetail detail) {
-    final selectedPhase = _phaseFor(detail);
-    final steps = selectedPhase.stepsOf(detail.sections);
-    final hasAnySteps = GuidePhase.values.any(
-      (phase) => phase.stepsOf(detail.sections).isNotEmpty,
-    );
+    // Every phase with content is on the page at once, so a guide whose
+    // lesson lives in During or After is never hidden behind a tab.
+    final phases = GuidePhase.values
+        .where((phase) => phase.stepsOf(detail.sections).isNotEmpty)
+        .toList();
+    final sourceNote = (detail.sourceNote ?? '').trim();
 
     return ListView(
       padding: EdgeInsets.all(16.spMin),
       children: [
-        GuidePhaseSelector(
-          selectedPhase: selectedPhase,
-          onPhaseSelected: (phase) => setState(() => _pickedPhase = phase),
-        ),
-        16.hSizedBox,
-        if (steps.isEmpty)
+        if (phases.isEmpty)
           Padding(
             padding: EdgeInsets.symmetric(vertical: 20.spMin),
             child: Text(
-              hasAnySteps
-                  ? 'Nothing for this phase. Try the other tabs above.'
-                  : 'This guide has no steps yet.',
+              'This guide has no steps yet.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.spMin,
@@ -245,31 +223,133 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
             ),
           )
         else
-          ...List.generate(
-            steps.length,
-            (index) => Padding(
-              padding: EdgeInsets.only(bottom: 12.spMin),
-              child: GuideStepCard(
-                stepNumber: index + 1,
-                step: steps[index],
+          for (final phase in phases) ...[
+            _phaseCardBuilder(phase, phase.stepsOf(detail.sections)),
+            14.hSizedBox,
+          ],
+        if (sourceNote.isNotEmpty) ...[
+          // Rendered verbatim: this is the official disclaimer text.
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4.spMin),
+            child: Text(
+              sourceNote,
+              style: TextStyle(
+                fontSize: 12.spMin,
+                color: AppColors.grey,
+                height: 1.4,
               ),
             ),
           ),
-        8.hSizedBox,
+          14.hSizedBox,
+        ],
         _sourceCardBuilder(detail),
         20.hSizedBox,
       ],
     );
   }
 
-  Widget _sourceCardBuilder(final GuideDetail detail) {
-    final sourceNote = detail.sourceNote?.trim();
-    final sourceName = detail.sourceName?.trim();
-    final sourceUrl = detail.sourceUrl?.trim();
+  /// One white card per phase: V3 label (BEFORE / DURING / AFTER) and that
+  /// phase's numbered steps.
+  Widget _phaseCardBuilder(
+    final GuidePhase phase,
+    final List<GuideStep> steps,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16.spMin),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18.spMin),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.shadowColorLight,
+            blurRadius: 3.0,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            phase.label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: AppColors.sectionLabel,
+            ),
+          ),
+          12.hSizedBox,
+          for (var index = 0; index < steps.length; index++) ...[
+            if (index > 0) 12.hSizedBox,
+            _stepRowBuilder(index + 1, steps[index]),
+          ],
+        ],
+      ),
+    );
+  }
 
-    final hasNote = (sourceNote ?? '').isNotEmpty;
-    final hasName = (sourceName ?? '').isNotEmpty;
-    if (!hasNote && !hasName) return const SizedBox.shrink();
+  /// A numbered step inside a phase card. The standalone GuideStepCard
+  /// widget carries its own white card and shadow, which would nest a card
+  /// in a card here, so the row is drawn flat.
+  Widget _stepRowBuilder(final int stepNumber, final GuideStep step) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 26.spMin,
+          height: 26.spMin,
+          decoration: const BoxDecoration(
+            color: AppColors.orange,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              '$stepNumber',
+              style: TextStyle(
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+              ),
+            ),
+          ),
+        ),
+        12.wSizedBox,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                step.title,
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.black,
+                ),
+              ),
+              4.hSizedBox,
+              Text(
+                step.body,
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  color: AppColors.grey,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The SOURCE card: who the guidance came from, with the link when there
+  /// is one. The disclaimer note sits above it as a plain grey line.
+  Widget _sourceCardBuilder(final GuideDetail detail) {
+    final sourceName = (detail.sourceName ?? '').trim();
+    final sourceUrl = (detail.sourceUrl ?? '').trim();
+    if (sourceName.isEmpty) return const SizedBox.shrink();
 
     return Container(
       width: double.infinity,
@@ -302,54 +382,40 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
               color: AppColors.orange,
             ),
           ),
-          if (hasNote) ...[
-            6.hSizedBox,
-            // Rendered verbatim — this is the official disclaimer text.
-            Text(
-              sourceNote!,
-              style: TextStyle(
-                fontSize: 12.spMin,
-                color: AppColors.grey,
-                height: 1.4,
-              ),
-            ),
-          ],
-          if (hasName) ...[
-            8.hSizedBox,
-            InkWell(
-              onTap: (sourceUrl ?? '').isEmpty
-                  ? null
-                  : () => openLink(
-                      context: context,
-                      link: sourceUrl!,
-                    ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      sourceName!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.black,
-                      ),
+          8.hSizedBox,
+          InkWell(
+            onTap: sourceUrl.isEmpty
+                ? null
+                : () => openLink(
+                    context: context,
+                    link: sourceUrl,
+                  ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    sourceName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
                     ),
                   ),
-                  if ((sourceUrl ?? '').isNotEmpty) ...[
-                    5.wSizedBox,
-                    Icon(
-                      LucideIcons.externalLink,
-                      size: 13.spMin,
-                      color: AppColors.grey,
-                    ),
-                  ],
+                ),
+                if (sourceUrl.isNotEmpty) ...[
+                  5.wSizedBox,
+                  Icon(
+                    LucideIcons.externalLink,
+                    size: 13.spMin,
+                    color: AppColors.grey,
+                  ),
                 ],
-              ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );

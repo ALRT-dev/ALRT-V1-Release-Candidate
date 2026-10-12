@@ -35,6 +35,9 @@ class AlrtPlusManageScreen extends ConsumerStatefulWidget {
 class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
   static final _date = DateFormat('d MMMM y');
 
+  /// V3 section label rust (#B84500, uppercase, letter-spaced).
+  static const _sectionLabelColor = Color(0xFFB84500);
+
   Future<void> _openStoreManagement() async {
     const fallback =
         'Manage your subscription in your app store account settings.';
@@ -281,13 +284,38 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                 'Manage in your app store',
                 _openStoreManagement,
               ),
-              const Divider(height: 1),
-              _action(
-                LucideIcons.refreshCw,
-                _restoring ? 'Restoring purchases…' : 'Restore purchases',
-                _restore,
-              ),
             ],
+          ),
+        ),
+        SizedBox(height: 14.spMin),
+        // Restore never says "restored" unless ALRT confirms it
+        // (restore_outcome.dart); the outcome is said in a snackbar.
+        SizedBox(
+          width: double.infinity,
+          height: 48.spMin,
+          child: OutlinedButton(
+            key: const Key('my-plans-restore'),
+            style: OutlinedButton.styleFrom(
+              shape: const StadiumBorder(),
+              side: const BorderSide(color: kPaywallLine, width: 1.5),
+              foregroundColor: kPaywallInk,
+              backgroundColor: Colors.white,
+            ),
+            onPressed: _restoring ? null : _restore,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.refreshCw, size: 16.spMin),
+                SizedBox(width: 8.spMin),
+                Text(
+                  _restoring ? 'Restoring purchases…' : 'Restore purchases',
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -301,8 +329,8 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
       style: TextStyle(
         fontSize: 11.spMin,
         fontWeight: FontWeight.w800,
-        letterSpacing: 0.8,
-        color: kPaywallInkFaint,
+        letterSpacing: 1.0,
+        color: _sectionLabelColor,
       ),
     ),
   );
@@ -357,7 +385,9 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
         identity: PlanIdentity.of(s.tier),
         eyebrow: planDisplayName(s.tier),
         title: g.name,
-        chip: 'Covers everyone here · ${g.peopleCount} of $capacity people',
+        chip:
+            'Covered by ${planDisplayName(s.tier)} · ${g.peopleCount} of '
+            '$capacity people',
         covers:
             'Check in, Check on, SOS and Journey for everyone in this '
             'group. Paid by $who.',
@@ -406,8 +436,9 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
         actionLabel: s?.youPay ?? false
             ? 'Renew in your app store'
             : g.isHost
-            ? 'Cover this group'
+            ? 'Cover'
             : null,
+        outlinedAction: !(s?.youPay ?? false),
         onAction: s?.youPay ?? false
             ? _openStoreManagement
             : g.isHost
@@ -426,7 +457,8 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
                 'the host can cover everyone with a Family or Group plan.'
           : 'Each person needs ALRT + to use Check in, Check on, SOS and '
                 'Journey here, or the host can cover everyone.',
-      actionLabel: g.isHost ? 'Cover this group' : null,
+      actionLabel: g.isHost ? 'Cover' : null,
+      outlinedAction: true,
       onAction: g.isHost
           ? () => context.push(
               AlrtPlusGroupPaywallScreen.route,

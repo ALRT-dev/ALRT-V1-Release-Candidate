@@ -114,7 +114,10 @@ class HazardFiltersProvider extends StateNotifier<HazardFiltersProviderState> {
         return;
       }
       state = state.copyWith(
-        awsEmergency: saved.awsEmergency,
+        // Red is never hidden (the Filters sheet shows it as "Always on"
+        // since 12 Oct 2026), so a saved "off" from an older build is not
+        // honoured: there is no control left to turn it back on.
+        awsEmergency: true,
         awsWatchAndAct: saved.awsWatchAndAct,
         awsAdvice: saved.awsAdvice,
         officialNonAws: saved.officialNonAws,

@@ -250,7 +250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               success: (hazard) {
                 if (hazard.reviewStatus == HazardReviewStatus.accepted) {
                   _showAlrtApprovedToast();
-                  // A just-approved report is the happiest moment we have —
+                  // A just-approved report is the happiest moment we have -
                   // ask for a store review once the toast has landed.
                   Future.delayed(const Duration(seconds: 5), () {
                     if (!mounted) return;
@@ -305,6 +305,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               return _gotoViewHazardScreen(
                 Hazard.fromJson(remoteMessage.payload),
               );
+            case PushNotificationType.familyHazardShare:
+              // "Send to my group": the push carries only the hazard id
+              // (payload JSON, with data as a fallback), so open the alert
+              // with a minimal Hazard and let ViewHazardScreen fetch the
+              // rest, the same way the push inbox does.
+              final sharedHazardId =
+                  remoteMessage.payload['hazardId'] ??
+                  remoteMessage.data['hazardId'];
+              if (sharedHazardId is String && sharedHazardId.isNotEmpty) {
+                return _gotoViewHazardScreen(Hazard(id: sharedHazardId));
+              }
+              ref.read(providerOfFamily.notifier).load(silent: true);
+              ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
+              return;
             case PushNotificationType.familyLocationRequest:
               // Consent-first: open the Share once / Not now sheet.
               // Structured fields ride in the decoded payload (see journeyId below).
@@ -323,7 +337,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               }
               return;
             case PushNotificationType.familyJourneyShared:
-              // Targeted at the picked recipients only — open the shared
+              // Targeted at the picked recipients only - open the shared
               // journey directly rather than landing on the family hub and
               // making them go find it. Like the hazard cases above, the
               // structured fields ride in data['payload'] (a JSON string),
@@ -337,7 +351,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               return;
             case PushNotificationType.familyCheckInRequest:
               // A specific ask deserves the response flow, not a generic
-              // landing on the hub — open the roll call directly.
+              // landing on the hub - open the roll call directly.
               ref.read(providerOfFamily.notifier).load(silent: true);
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family;
               return _gotoFamilyCheckInRollCallScreen();
@@ -430,7 +444,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   /// Opens the recipient's shared-journey viewer for [journeyId]. The
-  /// screen fetches the journey itself — the notification carries only the
+  /// screen fetches the journey itself - the notification carries only the
   /// id, not a ready-made journey object.
   void _gotoSharedJourneyScreen(final String journeyId) {
     context.push(

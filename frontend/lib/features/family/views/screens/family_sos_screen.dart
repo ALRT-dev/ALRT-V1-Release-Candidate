@@ -21,6 +21,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_lists_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/features/shared/services/emergency_number.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -161,7 +162,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       providerOfFamily.select((s) => (s.circle?.others.length ?? 0)),
     );
     final circleName = ref.watch(
-      providerOfFamily.select((s) => s.circle?.name ?? 'your family circle'),
+      providerOfFamily.select((s) => s.circle?.name ?? 'your group'),
     );
     // One group per list: only lists for THIS group are offered, plus old
     // lists that need repair (so they can be opened and fixed).
@@ -196,91 +197,68 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       list: selectedList,
       live: _liveLocationEnabled,
     );
-    final targetLabel = selectedList == null
-        ? 'all $memberCount members of $circleName'
-        : 'the ${selectedList.memberIds.length} people on '
-              '${selectedList.name}';
+    final blocker = _sent
+        ? null
+        : _blockerBuilder(preview, sosLists, emergencyNumber);
 
     return Scaffold(
-      backgroundColor: FamilyColors.sosDarkRed,
+      backgroundColor: Colors.white,
       body: SafeArea(
-        // Scrolls on short phones / large text instead of overflowing; on
-        // taller screens the Spacers still centre the hold button.
+        // Scrolls on short phones / large text instead of overflowing.
         child: LayoutBuilder(
           builder: (final context, final constraints) => SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Padding(
-                  padding: EdgeInsets.all(24.spMin),
-                  child: Column(
-                    children: [
-                      SizedBox(height: 20.spMin),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 14.spMin,
-                          vertical: 6.spMin,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20.spMin),
-                          border: Border.all(
-                            color: FamilyColors.sosRed.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        child: Text(
-                          'FAMILY SOS',
-                          style: TextStyle(
-                            color: const Color(0xFFFCA5A5),
-                            fontSize: 12.spMin,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20.spMin,
+                  16.spMin,
+                  20.spMin,
+                  12.spMin,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      _sent ? 'SOS sent' : 'Send SOS to $circleName',
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 22.spMin,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
                       ),
-                      SizedBox(height: 18.spMin),
-                      Text(
-                        _sent ? 'SOS sent' : 'Alert your circle',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 30.spMin,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    ),
+                    SizedBox(height: 8.spMin),
+                    Text(
+                      _sent
+                          ? _sentLocationNote ?? switch (_choice) {
+                              SosLocationChoice.live =>
+                                'Your live location is now shared with '
+                                    'the people this SOS went to. '
+                                    '$kSosDurationLine',
+                              SosLocationChoice.once =>
+                                'The people this SOS went to were sent your '
+                                    'location once. It won\'t update.',
+                              _ =>
+                                'The people this SOS went to were alerted '
+                                    'without your location.',
+                            }
+                          : 'SOS notifies the people you chose. ALRT never '
+                                'contacts emergency services. In danger? '
+                                'Call your local emergency number, '
+                                '$emergencyNumber.',
+                      style: TextStyle(
+                        color: FamilyColors.v31Ink,
+                        fontSize: 14.spMin,
+                        height: 1.45,
                       ),
-                      SizedBox(height: 8.spMin),
-                      Text(
-                        _sent
-                            ? _sentLocationNote ?? switch (_choice) {
-                                SosLocationChoice.live =>
-                                  'Your live location is now shared with '
-                                      'the people this SOS went to. '
-                                      '$kSosDurationLine',
-                                SosLocationChoice.once =>
-                                  'The people this SOS went to were sent your '
-                                      'location once. It won\'t update.',
-                                _ =>
-                                  'The people this SOS went to were alerted '
-                                      'without your location.',
-                              }
-                            : switch (_choice) {
-                                SosLocationChoice.live =>
-                                  'Sends an SOS and your live location to '
-                                      '$targetLabel.',
-                                SosLocationChoice.once =>
-                                  'Sends an SOS and your location once to '
-                                      '$targetLabel. It won\'t update.',
-                                _ =>
-                                  'Sends an SOS to $targetLabel, without '
-                                      'your location.',
-                              },
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 14.spMin,
-                        ),
-                      ),
-                      if (!_sent && sosLists.isNotEmpty) ...[
+                    ),
+                    if (!_sent) ...[
+                      SizedBox(height: 16.spMin),
+                      _previewBuilder(preview),
+                      if (sosLists.isNotEmpty) ...[
                         SizedBox(height: 16.spMin),
+                        _labelBuilder('WHO IT REACHES'),
                         _presetRowBuilder(
                           id: null,
                           name: 'Everyone in $circleName',
@@ -293,9 +271,16 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                             count: list.memberIds.length,
                           ),
                       ],
-                      if (!_sent) ...[
-                        SizedBox(height: 6.spMin),
-                        TextButton(
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 4.spMin,
+                              vertical: 8.spMin,
+                            ),
+                            foregroundColor: FamilyColors.indigo,
+                          ),
                           onPressed: () =>
                               context.push(FamilySosListsScreen.route),
                           child: Text(
@@ -303,56 +288,68 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                                 ? 'Set up who your SOS reaches'
                                 : 'Manage lists',
                             style: TextStyle(
-                              fontSize: 12.spMin,
+                              fontSize: 13.spMin,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white.withValues(alpha: 0.85),
-                              decoration: TextDecoration.underline,
-                              decorationColor: Colors.white54,
                             ),
                           ),
                         ),
-                        SizedBox(height: 10.spMin),
-                        _locationChoiceBuilder(),
-                        SizedBox(height: 10.spMin),
-                        _previewBuilder(preview),
-                      ],
-                      const Spacer(),
-                      _sent
-                          ? _sentIndicatorBuilder()
-                          : _blockerBuilder(preview, sosLists, emergencyNumber) ??
-                                _holdButtonBuilder(),
-                      SizedBox(height: 14.spMin),
-                      if (!_sent && _blockerBuilder(preview, sosLists, emergencyNumber) == null)
-                        Text(
-                          'Keep holding to send',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 13.spMin,
-                          ),
-                        ),
-                      const Spacer(),
-                      _whatThisDoesBuilder(emergencyNumber),
+                      ),
                       SizedBox(height: 8.spMin),
-                      TextButton(
-                        // Returns to whichever screen this SOS was started from -
-                        // today, always the Family hub's own SOS tile, since that's
-                        // the only place this screen is reachable from.
-                        onPressed: _sent ? _goToFamily : () => context.pop(),
-                        child: Text(
-                          _sent ? 'Done' : 'Cancel',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 15.spMin,
-                          ),
+                      _labelBuilder('SHARE LOCATION'),
+                      SizedBox(height: 10.spMin),
+                      _locationChoiceBuilder(),
+                      SizedBox(height: 24.spMin),
+                      blocker ?? _holdButtonBuilder(),
+                      SizedBox(height: 12.spMin),
+                      Text(
+                        kSosDurationLine,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.grey,
+                          fontSize: 12.5.spMin,
                         ),
                       ),
+                    ] else ...[
+                      SizedBox(height: 32.spMin),
+                      Center(child: _sentIndicatorBuilder()),
+                      SizedBox(height: 32.spMin),
                     ],
-                  ),
+                    SizedBox(height: 8.spMin),
+                    TextButton(
+                      // Returns to whichever screen this SOS was started from -
+                      // today, always the Family hub's own SOS tile, since that's
+                      // the only place this screen is reachable from.
+                      onPressed: _sent ? _goToFamily : () => context.pop(),
+                      style: TextButton.styleFrom(foregroundColor: _ink),
+                      child: Text(
+                        _sent ? 'Done' : 'Cancel',
+                        style: TextStyle(
+                          fontSize: 15.spMin,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// The near-black of the mockup's selected controls and ink.
+  static const _ink = AppColors.ink;
+
+  Widget _labelBuilder(final String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11.spMin,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.8,
+        color: AppColors.sectionLabel,
       ),
     );
   }
@@ -384,41 +381,33 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
           vertical: 12.spMin,
         ),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: isSelected ? 0.16 : 0.07),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(14.spMin),
           border: Border.all(
-            color: isSelected
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.2),
-            width: isSelected ? 1.6 : 1.0,
+            color: isSelected ? _ink : FamilyColors.v31Border,
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
-            // A 22 px radio in the row's white, since this sits on the red
-            // SOS surface: a 2 px ring, filled white with a dark dot when
-            // selected.
             Container(
-              width: 22.spMin,
-              height: 22.spMin,
+              width: 20.spMin,
+              height: 20.spMin,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isSelected ? Colors.white : Colors.transparent,
-                border: isSelected
-                    ? null
-                    : Border.all(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        width: 2.0,
-                      ),
+                border: Border.all(
+                  color: isSelected ? _ink : FamilyColors.v31Border,
+                  width: 2,
+                ),
               ),
               child: isSelected
                   ? Container(
-                      width: 8.spMin,
-                      height: 8.spMin,
+                      width: 10.spMin,
+                      height: 10.spMin,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF1C1C1E),
+                        color: _ink,
                       ),
                     )
                   : null,
@@ -430,7 +419,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _ink,
                   fontSize: 15.spMin,
                   fontWeight: FontWeight.w700,
                 ),
@@ -439,7 +428,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             Text(
               '$count ${count == 1 ? 'person' : 'people'}',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
+                color: AppColors.grey,
                 fontSize: 12.5.spMin,
                 fontWeight: FontWeight.w600,
               ),
@@ -450,9 +439,9 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     );
   }
 
-  /// No location / Share location once / Share live location, with the
-  /// phone's real location state above them. "Once" with live off is
-  /// always labelled as a point being sent, never as "not shared".
+  /// No location / Share once / Share live, with the phone's real location
+  /// state above them. "Once" with live off is always labelled as a point
+  /// being sent, never as "not shared".
   Widget _locationChoiceBuilder() {
     final fix = _fixNow;
     // Record what this build actually shows: onTapDown reads this instead
@@ -481,111 +470,110 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
         : 'Your last known location is NOT used. Starts when your phone '
               'finds you, then updates while your SOS runs. '
               '$kSosDurationLine';
-    Widget segment(
-      final SosLocationChoice value,
-      final String label, {
-      required final bool enabled,
-    }) {
-      final selected = _choice == value;
-      return Expanded(
-        child: Opacity(
-          opacity: enabled ? 1 : 0.45,
-          child: InkWell(
-            key: Key('sos-loc-${value.name}'),
-            borderRadius: BorderRadius.circular(10.spMin),
-            onTap: enabled && !_sent
-                ? () => setState(() => _choice = value)
-                : null,
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 8.spMin),
-              decoration: BoxDecoration(
-                color: selected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10.spMin),
-              ),
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: selected ? FamilyColors.sosDarkRed : Colors.white,
-                  fontSize: 12.5.spMin,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
 
     final chosenText = switch (_choice) {
       null => 'Checking your location…',
       SosLocationChoice.none => 'No location: your SOS is sent without where you are.',
-      SosLocationChoice.once => 'Share location once: $onceText',
-      SosLocationChoice.live => 'Share live location: $liveText',
+      SosLocationChoice.once => 'Share once: $onceText',
+      SosLocationChoice.live => 'Share live: $liveText',
     };
-    return Container(
+    return Column(
       key: const Key('sos-location-choice'),
-      width: double.infinity,
-      padding: EdgeInsets.all(10.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(14.spMin),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            fix == null ? 'Checking your location…' : fix.statusLine,
-            key: const Key('sos-location-status'),
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w600,
-            ),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          fix == null ? 'Checking your location…' : fix.statusLine,
+          key: const Key('sos-location-status'),
+          style: TextStyle(
+            color: FamilyColors.v31Ink,
+            fontSize: 12.5.spMin,
+            fontWeight: FontWeight.w600,
           ),
-          SizedBox(height: 6.spMin),
+        ),
+        SizedBox(height: 8.spMin),
+        Row(
+          children: [
+            _choicePill(SosLocationChoice.none, 'No location', enabled: true),
+            SizedBox(width: 8.spMin),
+            _choicePill(SosLocationChoice.once, 'Share once', enabled: onceEnabled),
+            SizedBox(width: 8.spMin),
+            _choicePill(SosLocationChoice.live, 'Share live', enabled: liveEnabled),
+          ],
+        ),
+        SizedBox(height: 8.spMin),
+        Text(
+          chosenText,
+          style: TextStyle(
+            color: FamilyColors.v31Ink,
+            fontSize: 12.5.spMin,
+            height: 1.4,
+          ),
+        ),
+        if (_choice == SosLocationChoice.once ||
+            _choice == SosLocationChoice.live) ...[
+          SizedBox(height: 10.spMin),
           Row(
             children: [
-              segment(SosLocationChoice.none, 'No location', enabled: true),
-              SizedBox(width: 6.spMin),
-              segment(SosLocationChoice.once, 'Once', enabled: onceEnabled),
-              SizedBox(width: 6.spMin),
-              segment(SosLocationChoice.live, 'Live', enabled: liveEnabled),
+              _precisionChip(SosPrecisionChoice.exact, 'Exact'),
+              SizedBox(width: 8.spMin),
+              _precisionChip(SosPrecisionChoice.suburb, 'Suburb only'),
             ],
           ),
-          SizedBox(height: 6.spMin),
+        ],
+        if (fix != null && !fix.hasPoint) ...[
+          SizedBox(height: 8.spMin),
           Text(
-            chosenText,
+            'You can still send your SOS without location.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 12.spMin,
-              height: 1.35,
+              color: _ink,
+              fontSize: 12.5.spMin,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          if (_choice == SosLocationChoice.once ||
-              _choice == SosLocationChoice.live) ...[
-            SizedBox(height: 6.spMin),
-            Row(
-              children: [
-                _precisionChip(SosPrecisionChoice.exact, 'Exact'),
-                SizedBox(width: 6.spMin),
-                _precisionChip(SosPrecisionChoice.suburb, 'Suburb only'),
-              ],
+        ],
+      ],
+    );
+  }
+
+  /// One of the three location pills: selected = a 2 px ink border.
+  Widget _choicePill(
+    final SosLocationChoice value,
+    final String label, {
+    required final bool enabled,
+  }) {
+    final selected = _choice == value;
+    return Expanded(
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: InkWell(
+          key: Key('sos-loc-${value.name}'),
+          borderRadius: BorderRadius.circular(12.spMin),
+          onTap: enabled && !_sent
+              ? () => setState(() => _choice = value)
+              : null,
+          child: Container(
+            height: 44.spMin,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12.spMin),
+              border: Border.all(
+                color: selected ? _ink : FamilyColors.v31Border,
+                width: selected ? 2 : 1,
+              ),
             ),
-          ],
-          if (fix != null && !fix.hasPoint)
-            Text(
-              'You can still send your SOS without location.',
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 12.spMin,
+                color: _ink,
+                fontSize: 13.spMin,
                 fontWeight: FontWeight.w700,
               ),
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -599,18 +587,21 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       borderRadius: BorderRadius.circular(16.spMin),
       onTap: _sent ? null : () => setState(() => _precision = value),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 4.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 7.spMin),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16.spMin),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+          border: Border.all(
+            color: selected ? _ink : FamilyColors.v31Border,
+            width: selected ? 2 : 1,
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? FamilyColors.sosDarkRed : Colors.white,
-            fontSize: 11.5.spMin,
-            fontWeight: FontWeight.w800,
+            color: _ink,
+            fontSize: 12.5.spMin,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -627,7 +618,10 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 16.spMin, color: Colors.white),
+              Padding(
+                padding: EdgeInsets.only(top: 2.spMin),
+                child: Icon(icon, size: 16.spMin, color: _ink),
+              ),
               SizedBox(width: 8.spMin),
               Expanded(
                 child: Text.rich(
@@ -635,13 +629,16 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                     children: [
                       TextSpan(
                         text: '$label ',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _ink,
+                        ),
                       ),
                       TextSpan(text: text),
                     ],
                   ),
                   style: TextStyle(
-                    color: Colors.white,
+                    color: FamilyColors.v31Ink,
                     fontSize: 13.spMin,
                     height: 1.4,
                   ),
@@ -677,20 +674,19 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 10.spMin),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
+        color: AppColors.extraLightGrey,
         borderRadius: BorderRadius.circular(14.spMin),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           line(
             LucideIcons.users,
-            'Goes to:',
+            'Reaches',
             p == null && !_previewFailed
                 ? '$names (checking who can receive it…)'
                 : names.isEmpty
-                ? 'No one yet'
+                ? 'no one yet'
                 : names,
           ),
           if (_previewFailed)
@@ -727,7 +723,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
               'Notifications can be delayed or missed; ALRT can\'t promise '
               'delivery.',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: AppColors.grey,
                 fontSize: 11.5.spMin,
               ),
             ),
@@ -813,8 +809,9 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       width: double.infinity,
       padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: FamilyColors.sosRedLight,
         borderRadius: BorderRadius.circular(16.spMin),
+        border: Border.all(color: FamilyColors.sosRed.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -822,8 +819,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 18.spMin,
+              color: _ink,
+              fontSize: 17.spMin,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -832,7 +829,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             body,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: FamilyColors.v31Ink,
               fontSize: 13.5.spMin,
               height: 1.4,
             ),
@@ -842,8 +839,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             FilledButton(
               onPressed: onAction,
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: FamilyColors.sosDarkRed,
+                backgroundColor: _ink,
+                foregroundColor: Colors.white,
                 shape: const StadiumBorder(),
               ),
               child: Text(action),
@@ -861,16 +858,17 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       width: double.infinity,
       padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: FamilyColors.sosRedLight,
         borderRadius: BorderRadius.circular(16.spMin),
+        border: Border.all(color: FamilyColors.sosRed.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
           Text(
             'Add someone first',
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 18.spMin,
+              color: _ink,
+              fontSize: 17.spMin,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -880,7 +878,7 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
             'in immediate danger, call $emergencyNumber.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: FamilyColors.v31Ink,
               fontSize: 13.5.spMin,
               height: 1.4,
             ),
@@ -889,8 +887,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
           FilledButton(
             onPressed: () => context.push(FamilyInviteScreen.route),
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: FamilyColors.sosDarkRed,
+              backgroundColor: _ink,
+              foregroundColor: Colors.white,
               shape: const StadiumBorder(),
             ),
             child: const Text('Invite someone'),
@@ -900,6 +898,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     );
   }
 
+  /// The 3-second hold, as an 80 px red pill. The fill creeps across as
+  /// the hold progresses; letting go before the end cancels it.
   Widget _holdButtonBuilder() {
     return GestureDetector(
       key: const Key('sos-hold-button'),
@@ -920,64 +920,53 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
       child: AnimatedBuilder(
         animation: _holdController,
         builder: (context, child) {
-          return SizedBox(
-            width: 210.spMin,
-            height: 210.spMin,
+          return Container(
+            height: 80.spMin,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(40.spMin),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: FamilyColors.sosRed.withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
             child: Stack(
               alignment: Alignment.center,
               children: [
-                SizedBox(
-                  width: 210.spMin,
-                  height: 210.spMin,
-                  child: CircularProgressIndicator(
-                    value: _holdController.value,
-                    strokeWidth: 6,
-                    color: const Color(0xFFFCA5A5),
-                    backgroundColor: Colors.white.withValues(alpha: 0.15),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: _holdController.value,
+                    heightFactor: 1,
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(color: Color(0x4DFFFFFF)),
+                    ),
                   ),
                 ),
-                Container(
-                  width: 180.spMin,
-                  height: 180.spMin,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(LucideIcons.siren, color: Colors.white, size: 22.spMin),
+                    SizedBox(width: 10.spMin),
+                    Text(
+                      _holdController.isAnimating
+                          ? 'Keep holding to send'
+                          : 'Hold for 3 seconds to send',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17.spMin,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: FamilyColors.sosRed.withValues(alpha: 0.5),
-                        blurRadius: 30,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'SOS',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 42.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      Text(
-                        'HOLD 3 SEC',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 12.spMin,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -989,49 +978,13 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
 
   Widget _sentIndicatorBuilder() {
     return Container(
-      width: 180.spMin,
-      height: 180.spMin,
+      width: 140.spMin,
+      height: 140.spMin,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         color: FamilyColors.safeGreen,
       ),
-      child: Icon(LucideIcons.check, color: Colors.white, size: 90.spMin),
-    );
-  }
-
-  Widget _whatThisDoesBuilder(final String emergencyNumber) {
-    return Container(
-      padding: EdgeInsets.all(16.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'WHAT THIS DOES',
-            style: TextStyle(
-              color: const Color(0xFFFCA5A5),
-              fontSize: 11.spMin,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-            ),
-          ),
-          SizedBox(height: 6.spMin),
-          Text(
-            'SOS notifies your family only. ALRT does not contact emergency '
-            'services or monitor this alert. If life or property is in '
-            'danger, call $emergencyNumber.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 13.spMin,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
+      child: Icon(LucideIcons.check, color: Colors.white, size: 72.spMin),
     );
   }
 

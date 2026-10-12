@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
-import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
+import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
+import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
+import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// THE key: what the shapes mean, the AWS words, the official colours and
-/// the category chips.
+/// THE key: who is speaking (the shapes), how serious (the colours) and
+/// the category chips community reports wear.
 ///
-/// One widget, rendered everywhere a key appears (the Map details sheet,
-/// the ALRT feed's filter sheet, the ALRT Key sheet), so the key cannot
-/// disagree with itself again. [isDark] only flips the surface colours;
-/// every word and every colour swatch is identical on both.
-class AlertKeyContent extends StatelessWidget {
+/// One widget, rendered everywhere a key appears (the Map details sheet
+/// and the Map key sheet), so the key cannot disagree with itself again.
+/// [isDark] only flips the surface colours; every word, every shape and
+/// every colour swatch is identical on both.
+///
+/// Product owner, 12 Oct 2026: the shapes are drawn as dark grey outlines
+/// with no fill, so the key never hints that a source is more or less
+/// serious. The seriousness band carries no level words; only the three
+/// AWS words sit above it, because AWS is the only source that writes its
+/// level in words.
+class AlertKeyContent extends ConsumerWidget {
   const AlertKeyContent({super.key, required this.isDark});
 
   /// Dark for the map's sheet, light for the feed's.
@@ -30,48 +38,51 @@ class AlertKeyContent extends StatelessWidget {
       : AppColors.extraLightGrey;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categories = ref.watch(
+      providerOfMainCategories.select((value) => value.mainCategories),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _labelBuilder('KEY · SHAPE SAYS WHO'),
+        _labelBuilder('WHO IS SPEAKING'),
         SizedBox(height: 10.spMin),
         _keyRowBuilder(
-          icon: LucideIcons.triangleAlert,
-          iconColor: AlertCardStyle.bandMonitor,
-          title: 'Triangle · AWS warning',
-          subtitle: 'The only source that states a severity level',
+          icon: LucideIcons.triangle,
+          title: 'Australian Warning System',
+          subtitle: 'The only one that writes the level in words',
         ),
         _keyRowBuilder(
           icon: LucideIcons.diamond,
-          iconColor: AlertCardStyle.bandAction,
-          title: 'Diamond · official source',
-          subtitle: 'State agencies, services and global feeds',
+          title: 'Official source',
+          subtitle: 'Colour for the level, never a level word',
         ),
         _keyRowBuilder(
           icon: LucideIcons.circle,
-          iconColor: const Color(0xFF5AB0FF),
-          title: 'Circle · community report',
-          subtitle: 'Unverified, from someone nearby',
+          title: 'Community report',
+          subtitle: 'Colour is the category. Always Unverified',
         ),
         _keyRowBuilder(
           icon: LucideIcons.shield,
-          iconColor: AlertCardStyle.bandInfo,
-          title: "Shield · ALRT's own assessment",
-          subtitle: 'Never restates or overrides an official warning',
+          title: 'ALRT Assessment',
+          subtitle: 'Named sources. Never restates a warning',
         ),
         SizedBox(height: 16.spMin),
-        _labelBuilder('AWS WARNING LEVELS'),
+        _labelBuilder('HOW SERIOUS'),
         SizedBox(height: 10.spMin),
-        _awsLevelsBuilder(),
-        SizedBox(height: 16.spMin),
-        _labelBuilder('OFFICIAL ALERT COLOURS'),
-        SizedBox(height: 10.spMin),
-        _officialColoursBuilder(),
+        _seriousnessBuilder(),
         SizedBox(height: 16.spMin),
         _labelBuilder('COMMUNITY REPORTS WEAR THEIR CATEGORY'),
         SizedBox(height: 10.spMin),
-        _categoriesBuilder(),
+        Wrap(
+          spacing: 7.spMin,
+          runSpacing: 7.spMin,
+          children: [
+            for (final category in categories)
+              CategoryFilterChip(category: category, isSelected: true),
+          ],
+        ),
       ],
     );
   }
@@ -88,9 +99,10 @@ class AlertKeyContent extends StatelessWidget {
     );
   }
 
+  /// One source: its shape as a dark grey outline on a soft tile, then
+  /// the name and one line on how to read it.
   Widget _keyRowBuilder({
     required final IconData icon,
-    required final Color iconColor,
     required final String title,
     required final String subtitle,
   }) {
@@ -101,11 +113,12 @@ class AlertKeyContent extends StatelessWidget {
           Container(
             width: 34.spMin,
             height: 34.spMin,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: _tile,
               borderRadius: BorderRadius.circular(10.spMin),
             ),
-            child: Icon(icon, size: 17.spMin, color: iconColor),
+            child: HazardShapeBadge.outlineGlyph(icon: icon, size: 18.spMin),
           ),
           SizedBox(width: 10.spMin),
           Expanded(
@@ -132,51 +145,58 @@ class AlertKeyContent extends StatelessWidget {
     );
   }
 
-  /// The AWS words, in AWS's own colours. Only AWS states a level.
-  Widget _awsLevelsBuilder() {
-    const levels = [
-      (AppColors.advice, 'Advice'),
-      (AppColors.watchAndAct, 'Watch and Act'),
-      (AppColors.emergency, 'Emergency Warning'),
-    ];
-    return Row(
-      children: [
-        for (final (color, label) in levels)
-          Expanded(
-            child: Column(
-              children: [
-                _barBuilder(color),
-                SizedBox(height: 4.spMin),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10.5.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: _softInk,
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// The four official colours, no words: official sources never write a
-  /// level, so the colour only SUGGESTS how serious it is.
-  Widget _officialColoursBuilder() {
+  /// The four colours as one band, no level words under it. The three AWS
+  /// words sit over the yellow, orange and red segments with a pointer,
+  /// because AWS is the only source that writes its level.
+  Widget _seriousnessBuilder() {
     const bands = [
       AppColors.info,
       AppColors.advice,
       AppColors.watchAndAct,
       AppColors.emergency,
     ];
+    const awsWords = ['Advice', 'Watch and Act', 'Emergency Warning'];
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            for (final color in bands) Expanded(child: _barBuilder(color)),
+            // Nothing over the grey segment: AWS never uses it.
+            const Expanded(child: SizedBox.shrink()),
+            for (final word in awsWords)
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      word,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10.5.spMin,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                        color: _ink,
+                      ),
+                    ),
+                    Text(
+                      '▲',
+                      style: TextStyle(
+                        fontSize: 8.spMin,
+                        height: 1.2,
+                        color: _softInk,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        SizedBox(height: 2.spMin),
+        Row(
+          children: [
+            for (final color in bands) Expanded(child: _segmentBuilder(color)),
           ],
         ),
         SizedBox(height: 6.spMin),
@@ -184,84 +204,37 @@ class AlertKeyContent extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Lower',
+              'Less serious',
               style: TextStyle(fontSize: 10.5.spMin, color: _softInk),
             ),
             Text(
-              'The colour shows the suggested severity',
-              style: TextStyle(fontSize: 10.5.spMin, color: _softInk),
-            ),
-            Text(
-              'Higher',
+              'More serious',
               style: TextStyle(fontSize: 10.5.spMin, color: _softInk),
             ),
           ],
+        ),
+        SizedBox(height: 8.spMin),
+        Text(
+          'Colour shows how serious it is. Official alerts use the same '
+          'colours; only AWS writes its level in words.',
+          style: TextStyle(
+            fontSize: 11.spMin,
+            height: 1.4,
+            color: _softInk,
+          ),
         ),
       ],
     );
   }
 
-  Widget _barBuilder(final Color color) {
+  Widget _segmentBuilder(final Color color) {
     return Container(
-      height: 8.spMin,
-      margin: EdgeInsets.symmetric(horizontal: 3.spMin),
+      height: 10.spMin,
+      margin: EdgeInsets.symmetric(horizontal: 2.spMin),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(999),
       ),
-    );
-  }
-
-  Widget _categoriesBuilder() {
-    const names = [
-      'Weather',
-      'Health',
-      'Security',
-      'Traffic',
-      'Utilities',
-      'Community',
-      'Other',
-    ];
-    return Wrap(
-      spacing: 7.spMin,
-      runSpacing: 7.spMin,
-      children: [
-        for (final name in names)
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 10.spMin,
-              vertical: 5.spMin,
-            ),
-            decoration: BoxDecoration(
-              color: _tile,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 9.spMin,
-                  height: 9.spMin,
-                  decoration: BoxDecoration(
-                    color: lockedCategoryColorFor(name) ?? categoryOtherColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                SizedBox(width: 6.spMin),
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 11.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: isDark
-                        ? AppColors.white.withValues(alpha: 0.85)
-                        : AppColors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
     );
   }
 }

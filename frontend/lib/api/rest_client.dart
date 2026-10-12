@@ -262,7 +262,7 @@ abstract class RestClient {
 
   // ---------------------------- FAMILY ----------------------------
 
-  /// Returns the user's family circle, or a null body when they have none —
+  /// Returns the user's family circle, or a null body when they have none -
   /// handled as dynamic so the repository can map null -> no circle.
   @GET(kUrlFamilyCircle)
   Future<HttpResponse<dynamic>> getFamilyCircle({
@@ -426,6 +426,15 @@ abstract class RestClient {
     @Query('circleId') final String? circleId,
   });
 
+  /// Sends an alert to a group: everyone in the circle gets the alert and
+  /// the sender's optional one-line note. Body: `{circleId, message?}`.
+  @POST('$kUrlFamily/hazards/{hazardId}/share')
+  Future<HttpResponse<dynamic>> shareHazardWithFamilyCircle({
+    @Path() required final String hazardId,
+    @Field() required final String circleId,
+    @Field() final String? message,
+  });
+
   @POST(kUrlFamilyCheckInRequest)
   Future<FamilyCheckInRequest> requestFamilyCheckIn({
     @Field() final String? message,
@@ -443,6 +452,7 @@ abstract class RestClient {
   Future<FamilyScheduledCheckIn> createFamilyScheduledCheckIn({
     @Field() required final String timeOfDay,
     @Field() final String? mode,
+    @Field() final int? utcOffsetMinutes,
     @Query('circleId') final String? circleId,
   });
 

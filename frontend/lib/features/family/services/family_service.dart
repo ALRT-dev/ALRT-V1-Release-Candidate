@@ -242,10 +242,12 @@ class FamilyService {
   createFamilyScheduledCheckIn({
     required final String timeOfDay,
     final FamilyScheduledCheckInMode? mode,
+    final int? utcOffsetMinutes,
   }) {
     return _familyRepository.createFamilyScheduledCheckIn(
       timeOfDay: timeOfDay,
       mode: mode,
+      utcOffsetMinutes: utcOffsetMinutes,
     );
   }
 

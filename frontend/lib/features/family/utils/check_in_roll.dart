@@ -56,6 +56,15 @@ class CheckInRoll {
     return null;
   }
 
+  /// Whether a real, fresh ask is open for [memberId] and unanswered.
+  ///
+  /// Without an ask [notYet] holds everyone who simply has not checked in
+  /// today, which is silence, not a request: the footer, the header band
+  /// and the "Waiting" pill must never light up for that. Only an ask
+  /// under a day old, aimed at this person, still unanswered, counts.
+  bool isAskedOf(final String memberId) =>
+      askedAt != null && notYet.any((m) => m.id == memberId);
+
   static const _askFreshFor = Duration(hours: 24);
 
   static CheckInRoll of(final FamilyCircle circle, {final DateTime? now}) {

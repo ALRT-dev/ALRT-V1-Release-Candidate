@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
@@ -11,6 +13,7 @@ import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/learn/views/widgets/guide_strip_card.dart';
+import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/notification/views/widgets/confirmation_buttons.dart';
 import 'package:hazard_app/features/shared/providers/hazard_item_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
@@ -18,7 +21,6 @@ import 'package:hazard_app/features/shared/enums/ai_confidence_types.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/enums/video_priority_types.dart';
-import 'package:hazard_app/features/shared/extensions/color_extension.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/date_time_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
@@ -29,17 +31,18 @@ import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/providers/followed_alerts_provider.dart';
 import 'package:hazard_app/features/shared/models/video_id_priority_model.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
-import 'package:hazard_app/features/shared/providers/states/view_hazard_provider_state.dart';
 import 'package:hazard_app/features/shared/providers/video_preview_lifecycle_provider.dart';
 import 'package:hazard_app/features/shared/providers/view_hazard_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/share_alert.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
+import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.dart';
 import 'package:hazard_app/features/shared/views/widgets/small_map_view.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/hazard_medias_carousel.dart';
-import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
+import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/send_to_group_sheet.dart';
+import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'dart:math' as math;
 
@@ -82,6 +85,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   /// Whether the user has already checked in near this alert.
   bool _checkInSent = false;
+
+  /// The lit state of Follow and Listen: the brand orange.
+  static const _litInk = Color(0xFFFF6B01);
+  static const _litWash = Color(0xFFFFF0E4);
 
   @override
   void initState() {
@@ -135,7 +142,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           _buildAppBar(),
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.all(20.spMin),
+              padding: EdgeInsets.fromLTRB(20.spMin, 4.spMin, 20.spMin, 20.spMin),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -143,7 +150,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     _buildEditDeleteRow(),
                     16.hSizedBox,
                   ],
-                  _buildHeaderV3(),
+                  _buildHeaderCard(),
                   16.hSizedBox,
 
                   // Review feedback section (if applicable)
@@ -188,168 +195,193 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
+  // ── Top controls ───────────────────────────────────────────────────────
+
+  /// Page-coloured bar with floating white round controls (approved Detail
+  /// board, 12 Oct 2026). Official: back left; Follow pill and Listen
+  /// right. Community: back, a centred "Community report" title, share.
   Widget _buildAppBar() {
     final isUserReported = ref.watch(
-      provider.select(
-        (value) => value.hazard!.isUserReported,
-      ),
+      provider.select((value) => value.hazard!.isUserReported),
     );
-    final isAwsCompliant = ref.watch(
-      provider.select(
-        (value) => value.hazard!.isAwsCompliant ?? false,
-      ),
-    );
-    final severityTitle = ref.watch(
-      provider.select(
-        (value) => value.hazard!.severityTitle,
-      ),
-    );
-    final source = ref.watch(
-      provider.select(
-        (value) => value.hazard!.source,
-      ),
-    );
-    final hazardColor = ref.watch(
-      provider.select(
-        (value) => value.hazard?.color ?? AppColors.black,
-      ),
-    );
-    final isVerified = source != null;
-
-    final pillForegroundColor = hazardColor.isLight
-        ? AppColors.grey
-        : AppColors.white;
-    final pillBackgroundColor = isUserReported
-        ? AppColors.white
-        : hazardColor.isLight
-        ? AppColors.grey
-        : AppColors.black;
-    final pillBackgroundColorAlpha = isUserReported
-        ? 0.6
-        : hazardColor == AppColors.transparent
-        ? 0.06
-        : 0.2;
-    final pillBorderColor = hazardColor == AppColors.transparent
-        ? AppColors.lightGrey
-        : null;
 
     return SliverAppBar(
       pinned: true,
-      backgroundColor: hazardColor == AppColors.transparent
-          ? AppColors.white
-          : hazardColor,
-      foregroundColor: AppColors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      surfaceTintColor: AppColors.transparent,
+      scrolledUnderElevation: 0,
       elevation: 0,
       automaticallyImplyLeading: false,
-      leadingWidth: 80.spMin,
-      title: Row(
-        spacing: 10.spMin,
-        children: [
-          if (isAwsCompliant &&
-              severityTitle.isNotEmpty &&
-              severityTitle != 'Unknown')
-            _headerPillBuilder(
-              label: severityTitle.toUpperCase(),
-              foregroundColor: pillForegroundColor,
-              backgroundColor: pillBackgroundColor,
-              backgroundColorAlpha: pillBackgroundColorAlpha,
-              borderColor: pillBorderColor,
-            ),
-          if (isUserReported)
-            _headerPillBuilder(
-              label: 'USER',
-              foregroundColor: pillForegroundColor,
-              backgroundColor: pillBackgroundColor,
-              backgroundColorAlpha: pillBackgroundColorAlpha,
-              borderColor: pillBorderColor,
-            ),
-          if (isAwsCompliant)
-            _headerPillBuilder(
-              label: 'AWS',
-              foregroundColor: pillForegroundColor,
-              backgroundColor: pillBackgroundColor,
-              backgroundColorAlpha: pillBackgroundColorAlpha,
-              borderColor: pillBorderColor,
-            ),
-          if (isVerified)
-            _headerPillBuilder(
-              label: 'OFFICIAL',
-              foregroundColor: pillForegroundColor,
-              backgroundColor: pillBackgroundColor,
-              backgroundColorAlpha: pillBackgroundColorAlpha,
-              borderColor: pillBorderColor,
-            ),
-          Spacer(),
-          _buildShareButton(
-            backgroundColor: pillBackgroundColor,
-            backgroundColorAlpha: pillBackgroundColorAlpha,
-            foregroundColor: pillForegroundColor,
-            borderColor: pillBorderColor,
-          ),
-          _buildBackButton(
-            backgroundColor: pillBackgroundColor,
-            backgroundColorAlpha: pillBackgroundColorAlpha,
-            foregroundColor: pillForegroundColor,
-            borderColor: pillBorderColor,
-          ),
-        ],
+      titleSpacing: 0,
+      toolbarHeight: 56.spMin,
+      title: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.spMin),
+        child: isUserReported
+            ? _buildCommunityTopControls()
+            : _buildOfficialTopControls(),
       ),
     );
   }
 
-  Widget _buildShareButton({
-    required final Color backgroundColor,
-    required final Color foregroundColor,
-    required final double backgroundColorAlpha,
-    required final Color? borderColor,
-  }) {
-    final hazard = ref.watch(provider.select((value) => value.hazard));
-    if (hazard == null || !isAlertShareable(hazard)) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildOfficialTopControls() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        final id = hazard?.id;
+        if (hazard == null || id == null) return const SizedBox.shrink();
+        final isFollowing =
+            ref.watch(providerOfFollowedAlerts).contains(id);
 
-    return Container(
-      width: 35.spMin,
-      height: 35.spMin,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: backgroundColor.withValues(alpha: backgroundColorAlpha),
-        border: Border.all(
-          color: borderColor ?? AppColors.transparent,
-          width: 1,
-        ),
-      ),
-      child: Icon(
-        LucideIcons.share,
-        color: foregroundColor,
-        size: 18.spMin,
-      ),
-    ).onPressed(() => shareAlert(ref: ref, hazard: hazard, from: 'detail'));
+        return Row(
+          children: [
+            _roundControl(
+              icon: LucideIcons.chevronLeft,
+              semanticLabel: 'Back',
+              onTap: () => context.pop(),
+            ),
+            const Spacer(),
+            _followPill(
+              isFollowing: isFollowing,
+              onTap: () =>
+                  ref.read(providerOfFollowedAlerts.notifier).toggle(id),
+            ),
+            8.wSizedBox,
+            _roundControl(
+              icon: LucideIcons.volume2,
+              semanticLabel: _isSpeaking ? 'Stop' : 'Listen',
+              lit: _isSpeaking,
+              onTap: () => _speakAlert(ref, hazard),
+            ),
+          ],
+        );
+      },
+    );
   }
 
-  Widget _buildBackButton({
-    required final Color backgroundColor,
-    required final Color foregroundColor,
-    required final double backgroundColorAlpha,
-    required final Color? borderColor,
+  Widget _buildCommunityTopControls() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null) return const SizedBox.shrink();
+        final canShare = isAlertShareable(hazard);
+
+        return Row(
+          children: [
+            _roundControl(
+              icon: LucideIcons.chevronLeft,
+              semanticLabel: 'Back',
+              onTap: () => context.pop(),
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  'Community report',
+                  style: TextStyle(
+                    fontSize: 16.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+            ),
+            if (canShare)
+              _roundControl(
+                icon: LucideIcons.share2,
+                semanticLabel: 'Share',
+                onTap: () =>
+                    shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+              )
+            else
+              SizedBox(width: 40.spMin),
+          ],
+        );
+      },
+    );
+  }
+
+  /// A 40 px floating white round control.
+  Widget _roundControl({
+    required final IconData icon,
+    required final VoidCallback onTap,
+    final String? semanticLabel,
+    final bool lit = false,
   }) {
-    return Container(
-      width: 35.spMin,
-      height: 35.spMin,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: backgroundColor.withValues(alpha: backgroundColorAlpha),
-        border: Border.all(
-          color: borderColor ?? AppColors.transparent,
-          width: 1,
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Container(
+        width: 40.spMin,
+        height: 40.spMin,
+        decoration: BoxDecoration(
+          color: lit ? _litWash : AppColors.white,
+          shape: BoxShape.circle,
+          border: lit ? Border.all(color: _litInk, width: 1.5) : null,
+          boxShadow: const [AlertCardStyle.cardShadow],
+        ),
+        child: Material(
+          color: AppColors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Center(
+              child: Icon(
+                icon,
+                size: 18.spMin,
+                color: lit ? _litInk : AppColors.ink,
+              ),
+            ),
+          ),
         ),
       ),
-      child: Icon(
-        LucideIcons.x500,
-        color: foregroundColor,
-        size: 22.spMin,
+    );
+  }
+
+  /// The Follow pill: bell plus "Follow", filled orange-tint once followed.
+  Widget _followPill({
+    required final bool isFollowing,
+    required final VoidCallback onTap,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      height: 40.spMin,
+      decoration: BoxDecoration(
+        color: isFollowing ? _litWash : AppColors.white,
+        borderRadius: BorderRadius.circular(20.spMin),
+        border: isFollowing ? Border.all(color: _litInk, width: 1.5) : null,
+        boxShadow: const [AlertCardStyle.cardShadow],
       ),
-    ).onPressed(() => context.pop());
+      child: Material(
+        color: AppColors.transparent,
+        borderRadius: BorderRadius.circular(20.spMin),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.spMin),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.bell,
+                  size: 16.spMin,
+                  color: isFollowing ? _litInk : AppColors.ink,
+                ),
+                6.wSizedBox,
+                Text(
+                  isFollowing ? 'Following' : 'Follow',
+                  style: TextStyle(
+                    fontSize: 13.spMin,
+                    fontWeight: FontWeight.w600,
+                    color: isFollowing ? _litInk : AppColors.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildEditDeleteRow() {
@@ -368,13 +400,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16.spMin),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColorLight,
-            blurRadius: 2.0,
-            offset: Offset(0.0, 0.0),
-          ),
-        ],
+        boxShadow: const [AlertCardStyle.cardShadow],
       ),
       padding: EdgeInsets.all(16.spMin),
       child: Icon(
@@ -385,159 +411,64 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     ).onPressed(() => _handleDeleteHazard());
   }
 
-  /// The V3 "expanded card" header: gradient band by source system (kicker,
-  /// title, byline), then the pills row and the "In plain terms:" summary box.
-  Widget _buildHeaderV3() {
+  // ── Header card ────────────────────────────────────────────────────────
+
+  /// The header card (approved Detail board): band strip, source row,
+  /// "In plain terms", title, the small map with "Show on map", and one
+  /// location line. Community reports get the category header instead.
+  Widget _buildHeaderCard() {
     return Consumer(
       builder: (context, ref, child) {
-        final isUserReported = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isUserReported ?? false,
-          ),
-        );
-        final isAwsCompliant = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isAwsCompliant ?? false,
-          ),
-        );
-        final sourceName = ref.watch(
-          provider.select(
-            (value) => value.hazard?.source?.name,
-          ),
-        );
-        final title = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isUserReported ?? false
-                ? value.hazard?.category?.name ?? 'Alert Report'
-                : value.hazard?.title ?? 'Alert',
-          ),
-        );
-        final postedAt = ref.watch(
-          provider.select(
-            (value) => value.hazard?.createdAt ?? value.hazard?.occurredAt,
-          ),
-        );
-        final severity = ref.watch(
-          provider.select((value) => value.hazard?.severity),
-        );
-        final severityBand = ref.watch(
-          provider.select((value) => value.hazard?.severityBand),
-        );
-        final isGlobalHumanitarian = ref.watch(
-          provider.select((value) => value.hazard?.isGlobalHumanitarian ?? false),
-        );
-        final isAlrtIntel = ref.watch(
-          provider.select((value) => value.hazard?.isAlrtIntel ?? false),
-        );
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null) return const SizedBox.shrink();
 
-        // AWS treatment applies to AWS-compliant OFFICIAL alerts only.
-        final isAws = !isUserReported && isAwsCompliant && sourceName != null;
-
-        // Five possible kickers (AWS/OFFICIAL/COMMUNITY/GDACS/ALRT INTEL) -
-        // GDACS and ALRT Intel are official too, but naming them
-        // specifically is what lets a reader tell a humanitarian-monitoring
-        // feed or ALRT's own assessment apart from a government agency.
-        final kicker = isUserReported
-            ? 'COMMUNITY REPORT · UNVERIFIED'
-            : isAws
-            ? 'AWS · EMERGENCY WARNING SYSTEM'
-            : isAlrtIntel
-            ? 'ALRT INTEL'
-            : isGlobalHumanitarian
-            ? 'GDACS'
-            : 'OFFICIAL SOURCE';
-
-        final byline = isUserReported
-            ? 'Reported by a community member'
-            : [
-                if (sourceName != null) sourceName,
-                if (postedAt != null) 'posted ${postedAt.timeAgo}',
-              ].join(' · ');
+        final radius = BorderRadius.circular(AlertCardStyle.cardRadius.spMin);
 
         return Container(
           decoration: BoxDecoration(
             color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
+            borderRadius: radius,
+            boxShadow: const [AlertCardStyle.cardShadow],
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Gradient header band: colour says which source system.
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  // Community keeps blue; official bands designate their
-                  // level (Advice yellow, Watch and Act orange, red only
-                  // at the top tier).
-                  gradient: isUserReported
-                      ? AlertCardStyle.communityHeaderGradient
-                      : AlertCardStyle.officialHeaderGradientFor(
-                          isAws: isAws,
-                          severity: severity,
-                          band: severityBand,
-                        ),
+              if (!hazard.isUserReported)
+                Container(
+                  width: double.infinity,
+                  height: AlertCardStyle.detailBandStripHeight.spMin,
+                  color: hazard.color,
                 ),
-                padding: EdgeInsets.fromLTRB(
-                  16.spMin,
-                  16.spMin,
-                  16.spMin,
-                  13.spMin,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      kicker,
-                      style: TextStyle(
-                        fontSize: 10.spMin,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.6,
-                        color: AppColors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    4.hSizedBox,
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 19.spMin,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                        color: AppColors.white,
-                      ),
-                    ),
-                    if (byline.isNotEmpty) ...[
-                      3.hSizedBox,
-                      Text(
-                        byline,
-                        style: TextStyle(
-                          fontSize: 11.spMin,
-                          color: AppColors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              // Pills row + plain-terms summary.
               Padding(
                 padding: EdgeInsets.all(16.spMin),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildV3PillsRow(
-                      isAws: isAws,
-                      isUserReported: isUserReported,
+                    if (hazard.isUserReported)
+                      _communitySourceRow(hazard)
+                    else ...[
+                      _officialSourceRow(hazard),
+                      10.hSizedBox,
+                      _buildPlainTermsBox(),
+                    ],
+                    12.hSizedBox,
+                    Text(
+                      _titleOf(hazard),
+                      style: TextStyle(
+                        fontSize: 21.spMin,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                        color: AppColors.black,
+                      ),
                     ),
-                    _buildPlainTermsBox(isUserReported: isUserReported),
+                    if (hazard.latitude != null &&
+                        hazard.longitude != null) ...[
+                      14.hSizedBox,
+                      _buildSmallMap(hazard),
+                    ],
+                    10.hSizedBox,
+                    _buildLocationLine(hazard),
                   ],
                 ),
               ),
@@ -548,98 +479,171 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// The V3 pills row. AWS is the ONLY system whose pill shows a level word;
-  /// official non-AWS and community alerts show their category instead.
-  Widget _buildV3PillsRow({
-    required final bool isAws,
-    required final bool isUserReported,
-  }) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final severityTitle = ref.watch(
-          provider.select(
-            (value) => value.hazard?.severityTitle ?? '',
+  /// The headline: the alert's own title, or, for a community report with
+  /// none, its category.
+  String _titleOf(final Hazard hazard) {
+    final title = hazard.title?.trim();
+    if (title != null && title.isNotEmpty) return title;
+    if (hazard.isUserReported) {
+      return hazard.category?.name ?? 'Community report';
+    }
+    return 'Alert';
+  }
+
+  /// Official and AWS: shape glyph, the label (only the Australian Warning
+  /// System writes a level word), and "<source> · <ago>" on the right.
+  Widget _officialSourceRow(final Hazard hazard) {
+    final isAws = hazard.isAwsCompliant ?? false;
+    final severityTitle = hazard.severityTitle;
+    final hasAwsLevel =
+        isAws && severityTitle.isNotEmpty && severityTitle != 'Unknown';
+
+    final String label;
+    final Color labelInk;
+    if (hazard.isAlrtIntel) {
+      label = 'ALRT ASSESSMENT';
+      labelInk = AlertCardStyle.labelInkNeutral;
+    } else if (hazard.isGlobalHumanitarian) {
+      label = 'GDACS';
+      labelInk = AlertCardStyle.labelInkNeutral;
+    } else if (hasAwsLevel) {
+      label = severityTitle.toUpperCase();
+      labelInk = AlertCardStyle.bandLabelInk(hazard.severityBand);
+    } else if (isAws) {
+      label = 'AWS';
+      labelInk = AlertCardStyle.bandLabelInk(hazard.severityBand);
+    } else {
+      label = 'OFFICIAL';
+      labelInk = AlertCardStyle.labelInkNeutral;
+    }
+
+    final postedAt = hazard.createdAt ?? hazard.occurredAt;
+    final sourceName = hazard.source?.name?.trim();
+    final right = [
+      if (sourceName != null && sourceName.isNotEmpty) sourceName,
+      if (postedAt != null) postedAt.timeAgo,
+    ].join(' · ');
+
+    return Row(
+      children: [
+        SourceShapeGlyph(
+          isAws: isAws,
+          isOfficial: hazard.source != null,
+          isGlobalHumanitarian: hazard.isGlobalHumanitarian,
+          isAlrtIntel: hazard.isAlrtIntel,
+          color: hazard.color,
+          size: 14.spMin,
+        ),
+        8.wSizedBox,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: labelInk,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        );
-        final categoryName = ref.watch(
-          provider.select(
-            (value) =>
-                value.hazard?.category?.parent?.name ??
-                value.hazard?.category?.name ??
-                'Other',
+        ),
+        if (right.isNotEmpty) ...[
+          8.wSizedBox,
+          Text(
+            right,
+            style: TextStyle(
+              fontSize: 12.spMin,
+              color: AlertCardStyle.metaInk,
+            ),
           ),
-        );
-        // The category keeps its own colour here, so Traffic & Transport
-        // reads the same green opened as it does on the map pin.
-        final category = ref.watch(
-          provider.select((value) => value.hazard?.category),
-        );
-        final categoryInk = category == null
-            ? null
-            : categoryChipColor(category);
-
-        final updatedAt = ref.watch(
-          provider.select((value) => value.hazard?.updatedAt),
-        );
-
-        final hasAwsLevel =
-            isAws && severityTitle.isNotEmpty && severityTitle != 'Unknown';
-        final isLive =
-            updatedAt != null &&
-            DateTime.now().difference(updatedAt) < const Duration(hours: 24);
-
-        return Wrap(
-          spacing: 8.spMin,
-          runSpacing: 8.spMin,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            // AWS: the verbatim level word. Never shown for any other system.
-            if (hasAwsLevel)
-              _v3PillBuilder(
-                label: severityTitle,
-                backgroundColor: AlertCardStyle.awsLevelPillBackground,
-                foregroundColor: AlertCardStyle.awsLevelPillForeground,
-                borderColor: AlertCardStyle.awsLevelPillBorder,
-              )
-            // Everyone else: the category, never a severity word.
-            else if (isUserReported)
-              _v3PillBuilder(
-                label: categoryName,
-                backgroundColor:
-                    categoryInk?.withValues(alpha: 0.14) ??
-                    AlertCardStyle.communityCategoryPillBackground,
-                foregroundColor:
-                    categoryInk ??
-                    AlertCardStyle.communityCategoryPillForeground,
-                borderColor:
-                    categoryInk ??
-                    AlertCardStyle.communityCategoryPillForeground,
-              )
-            else
-              _v3PillBuilder(
-                label: categoryName,
-                backgroundColor:
-                    categoryInk?.withValues(alpha: 0.14) ??
-                    AlertCardStyle.officialCategoryPillBackground,
-                foregroundColor:
-                    categoryInk ?? AlertCardStyle.officialCategoryPillForeground,
-                borderColor:
-                    categoryInk ?? AlertCardStyle.officialCategoryPillBorder,
-              ),
-            if (isLive)
-              _v3PillBuilder(
-                label: '● Live · updated ${updatedAt.timeAgo}',
-                backgroundColor: AlertCardStyle.livePillBackground,
-                foregroundColor: AlertCardStyle.livePillForeground,
-              ),
-          ],
-        );
-      },
+        ],
+      ],
     );
   }
 
-  /// The "In plain terms:" summary box (the AI summary, tinted per system).
-  Widget _buildPlainTermsBox({required final bool isUserReported}) {
+  /// Community: the category disc in a rounded square, the category name
+  /// in the V3 label orange, "Unverified · <ago>", and the corroboration
+  /// pill on the right ("Confirmed by ×N" is independent community
+  /// reports, never official verification).
+  Widget _communitySourceRow(final Hazard hazard) {
+    final category = hazard.category;
+    final categoryName =
+        (category?.parent?.name ?? category?.name ?? 'Other').toUpperCase();
+    final postedAt = hazard.createdAt ?? hazard.occurredAt;
+    final categoryColor = category?.resolvedColor ?? AppColors.grey;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 56.spMin,
+          height: 56.spMin,
+          decoration: BoxDecoration(
+            color: categoryColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14.spMin),
+          ),
+          alignment: Alignment.center,
+          child: category == null
+              ? Icon(LucideIcons.users, size: 24.spMin, color: categoryColor)
+              : CategoryGlyph(category: category, size: 40.spMin),
+        ),
+        12.wSizedBox,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                categoryName,
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                  color: AlertCardStyle.labelInkCommunity,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              3.hSizedBox,
+              Text(
+                postedAt == null
+                    ? 'Unverified'
+                    : 'Unverified · ${postedAt.timeAgo}',
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  color: AlertCardStyle.metaInk,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (hazard.corroborationCount > 0) ...[
+          8.wSizedBox,
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 10.spMin,
+              vertical: 4.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.extraLightGrey,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'Confirmed by ×${hazard.corroborationCount}',
+              style: TextStyle(
+                fontSize: 11.spMin,
+                fontWeight: FontWeight.w600,
+                color: AlertCardStyle.metaInk,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// The "In plain terms" box on the dark surface.
+  Widget _buildPlainTermsBox() {
     return Consumer(
       builder: (context, ref, child) {
         // Locked rule (product owner, 2026-08-05): In plain terms states
@@ -664,9 +668,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         return Container(
           width: double.infinity,
-          margin: EdgeInsets.only(top: 10.spMin),
           decoration: BoxDecoration(
-            // The plain-terms surface is always the dark band (V3 mock).
+            // The plain-terms surface is always the dark band (locked).
             color: AlertCardStyle.plainTermsBackground,
             borderRadius: BorderRadius.circular(10.spMin),
           ),
@@ -678,8 +681,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             TextSpan(
               children: [
                 TextSpan(
-                  text: 'In plain terms: ',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                  text: 'In plain terms ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AlertCardStyle.plainTermsLeadInk,
+                  ),
                 ),
                 TextSpan(text: plainTerms),
               ],
@@ -695,94 +701,153 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  Widget _v3PillBuilder({
-    required final String label,
-    required final Color backgroundColor,
-    required final Color foregroundColor,
-    final Color? borderColor,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-        border: borderColor != null
-            ? Border.all(color: borderColor, width: 1.5)
-            : null,
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: 10.spMin,
-        vertical: 4.spMin,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10.spMin,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.3,
-          color: foregroundColor,
+  /// The small map inside the header, with a white "Show on map" pill
+  /// bottom-right that opens the Map tab centred on this alert.
+  Widget _buildSmallMap(final Hazard hazard) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14.spMin),
+      child: SizedBox(
+        height: 130.spMin,
+        width: double.infinity,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ColoredBox(
+                color: AppColors.extraLightGrey,
+                child: SmallMapView(hazard: hazard, height: 130.0),
+              ),
+            ),
+            Positioned(
+              right: 10.spMin,
+              bottom: 10.spMin,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: const [AlertCardStyle.cardShadow],
+                ),
+                child: Material(
+                  color: AppColors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _showOnMap(hazard),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.spMin,
+                        vertical: 7.spMin,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.map,
+                            size: 14.spMin,
+                            color: AppColors.ink,
+                          ),
+                          6.wSizedBox,
+                          Text(
+                            'Show on map',
+                            style: TextStyle(
+                              fontSize: 12.spMin,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _headerPillBuilder({
-    required final String label,
-    final Color backgroundColor = AppColors.black,
-    final Color foregroundColor = AppColors.white,
-    final Color? borderColor,
-    final double backgroundColorAlpha = 0.2,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor.withValues(
-          alpha: backgroundColorAlpha,
-        ),
-        borderRadius: BorderRadius.circular(20.spMin),
-        border: borderColor != null
-            ? Border.all(color: borderColor, width: 1.0)
-            : null,
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: 12.spMin,
-        vertical: 5.spMin,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6.spMin,
-            height: 6.spMin,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: foregroundColor,
-            ),
+  /// One location line: "<place> · 8.4 km from you", with "Updated <ago>"
+  /// trailing when the alert has been touched since it was posted.
+  Widget _buildLocationLine(final Hazard hazard) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final latitude = hazard.latitude;
+        final longitude = hazard.longitude;
+        final distance = ref.watch(
+          providerOfLocation.select(
+            (value) => latitude == null || longitude == null
+                ? null
+                : value.distanceTo(latitude, longitude),
           ),
-          5.wSizedBox,
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13.spMin,
-              fontWeight: FontWeight.w700,
-              color: foregroundColor,
+        );
+        final distanceText = distance == null
+            ? null
+            : distance < 1000
+            ? '${distance.toStringAsFixed(0)} m from you'
+            : '${(distance / 1000).toStringAsFixed(1)} km from you';
+
+        final place = hazard.locationName?.trim();
+        final updatedAt = hazard.updatedAt;
+        final fragments = [
+          if (place != null && place.isNotEmpty) place,
+          if (distanceText != null) distanceText,
+          if (updatedAt != null) 'Updated ${updatedAt.timeAgo}',
+        ];
+        if (fragments.isEmpty) return const SizedBox.shrink();
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              LucideIcons.mapPin,
+              size: 14.spMin,
+              color: AlertCardStyle.metaInk,
+            ).pT(1.0),
+            6.wSizedBox,
+            Expanded(
+              child: Text(
+                fragments.join(' · '),
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  height: 1.35,
+                  color: AlertCardStyle.metaInk,
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
+
+  /// Leaves the alert for the Map tab, centred on this alert with it
+  /// selected, so the callout opens where the pin is.
+  void _showOnMap(final Hazard hazard) {
+    final latitude = hazard.latitude;
+    final longitude = hazard.longitude;
+    if (latitude == null || longitude == null) return;
+
+    ref.read(providerOfHomeTab.notifier).state = HomeTab.map;
+    final map = ref.read(providerOfMap.notifier);
+    map.updateSelectedHazard(hazard);
+    map.focusOnPosition(
+      position: LatLng(latitude, longitude),
+      zoom: 13.0,
+    );
+    context.go(HomeScreen.route, extra: HomeScreenArgs(initialTab: HomeTab.map));
+  }
+
+  // ── Body ───────────────────────────────────────────────────────────────
 
   Widget _buildWhiteContentSection() {
     // Section order per ruling L46 (8 Oct 2026, approved Detail board):
-    // Source strip, In plain terms, title - already in the header above -
-    // then: map, location, What we know, What to do (verbatim), For you,
-    // Tell your people, attribution.
+    // Source strip, In plain terms, title, map and location - all in the
+    // header above - then: What we know, What to do (verbatim), For you,
+    // Tell your people, the community vote, attribution.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Map Preview Card (map + location + distance + time)
-        _buildMapPreviewCard(),
-        16.hSizedBox,
-
         // Medias: photos/video attached to the alert.
         _buildMediasSection(),
 
@@ -822,12 +887,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // Tell your people: Send to my group, Check in, Share a link.
         _buildTellYourPeopleSection(),
 
-        // Community alerts: I see it / I don't see it voting, plus
-        // flag (3 flags sends back to review) and block.
+        // Community alerts: I see it / I don't see it voting, the
+        // unverified note, then Follow / Listen / Report.
         _buildCommunityVoteSection(),
-
-        // Follow + Listen utility row (compact)
-        _buildUtilityRow(),
         12.hSizedBox,
 
         // Attribution
@@ -837,33 +899,26 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// Sends this alert to the user's family circle as a check-in with alert
-  /// context, so circle members see the alert and know the user is nearby.
+  /// "Send to my group": opens the send sheet for the active group.
+  /// Everyone in it gets the alert and the sender's optional note.
   Future<void> _sendAlertToGroup(final Hazard hazard) async {
-    final circles = ref.read(providerOfFamily).circles;
-    // Multi-circle: let the user pick which circle to send to.
-    // showChooseCircleSheet switches the active circle internally.
-    if (circles.length > 1) {
-      await showChooseCircleSheet(context, ref);
-      if (!mounted) return;
-    }
+    final circle = ref.read(providerOfFamily).circle;
+    if (circle == null) return;
 
-    final title = hazard.title;
-    final choice = await showCheckInConsentSheet(
-      context,
-      contextLine: title == null ? null : 'About the alert: $title',
-      sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
+    final sent = await showSendToGroupSheet(
+      context: context,
+      hazard: hazard,
+      circleId: circle.id,
+      circleName: circle.name,
     );
-    if (choice == null || !mounted) return;
-    await ref.read(providerOfFamily.notifier).checkIn(
-          message: title == null
-              ? 'Alert shared'
-              : 'Alert: "$title"',
-          shareLocation:
-              choice == CheckInConsentChoice.checkInAndShareLocation,
-          hazardId: hazard.id,
-        );
-    if (mounted) setState(() => _checkInSent = true);
+    if (!mounted || sent == null) return;
+    if (sent) {
+      context.showSuccessToast(message: 'Sent to ${circle.name}.');
+    } else {
+      context.showErrorToast(
+        message: 'That could not be sent. Please try again.',
+      );
+    }
   }
 
   /// Sends a personal check-in near this alert to the user's family circle.
@@ -883,7 +938,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               choice == CheckInConsentChoice.checkInAndShareLocation,
           hazardId: hazard.id,
         );
-    if (mounted) setState(() => _checkInSent = true);
+    if (!mounted) return;
+    final result = ref.read(providerOfFamily).checkInState;
+    if (result.isError && result.error != null) {
+      await showFamilyActionError(context, ref, result.error!);
+      return;
+    }
+    if (result.isSuccess) setState(() => _checkInSent = true);
   }
 
   /// Speaks the alert: source, title, plain terms, then the description.
@@ -921,31 +982,35 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     if (mounted) setState(() => _isSpeaking = false);
   }
 
-  /// TELL YOUR PEOPLE: three actions that let the user act on this alert
-  /// socially. "Send to my group" shares the alert context with their
-  /// family circle; "Check in" tells the circle they are okay near this
-  /// alert; "Share a link" opens the OS share sheet with the public link.
+  // ── Tell your people ───────────────────────────────────────────────────
+
+  /// TELL YOUR PEOPLE (approved Detail board): the indigo group card with
+  /// "Send to my group", "Check in" and "Share a link". Nothing is shown
+  /// when the user has no group.
   Widget _buildTellYourPeopleSection() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
 
-        final canShare = isAlertShareable(hazard);
         final circleName = ref.watch(
           providerOfFamily.select((s) => s.circle?.name),
+        );
+        if (circleName == null) return const SizedBox.shrink();
+
+        final memberCount = ref.watch(
+          providerOfFamily.select((s) => s.circle?.members.length ?? 0),
         );
         final circleCount = ref.watch(
           providerOfFamily.select((s) => s.circles.length),
         );
-        final loaded = ref.watch(
-          providerOfFamily.select((s) => s.hasLoadedOnce),
-        );
         final isSending = ref.watch(
           providerOfFamily.select((s) => s.checkInState.isLoading),
         );
-
-        final hasCircle = circleName != null;
+        final canShare = isAlertShareable(hazard);
+        final canPickGroup = circleCount > 1;
+        final peopleLine =
+            '$circleName · $memberCount ${memberCount == 1 ? 'person' : 'people'}';
 
         return Padding(
           padding: EdgeInsets.only(top: 16.spMin),
@@ -961,78 +1026,111 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     fontSize: 11.spMin,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.0,
-                    color: const Color(0xFFB84500),
+                    color: AlertCardStyle.officialSectionHeaderColor,
                   ),
                 ),
               ),
               Container(
-                padding: EdgeInsets.all(14.spMin),
+                padding: EdgeInsets.all(16.spMin),
                 decoration: BoxDecoration(
-                  color: FamilyColors.indigoLight,
-                  borderRadius: BorderRadius.circular(16.spMin),
+                  gradient: FamilyColors.headerGradient,
+                  borderRadius:
+                      BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FamilyColors.indigo.withValues(alpha: 0.25),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Send to my group
-                    if (hasCircle || !loaded) ...[
-                      _tellYourPeopleAction(
-                        icon: LucideIcons.users,
-                        label: 'Send to my group',
-                        sublabel: hasCircle
-                            ? (circleCount > 1
-                                ? '$circleName · tap to change'
-                                : circleName)
-                            : 'Loading...',
-                        loading: isSending,
-                        onTap: hasCircle
-                            ? () => _sendAlertToGroup(hazard)
-                            : null,
+                    // Group line. More than one group: tap to change.
+                    InkWell(
+                      onTap: canPickGroup
+                          ? () => showChooseCircleSheet(context, ref)
+                          : null,
+                      borderRadius: BorderRadius.circular(8.spMin),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              peopleLine,
+                              style: TextStyle(
+                                fontSize: 13.spMin,
+                                color: AppColors.white.withValues(alpha: 0.85),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (canPickGroup) ...[
+                            Text(
+                              'tap to change',
+                              style: TextStyle(
+                                fontSize: 12.spMin,
+                                color: AppColors.white.withValues(alpha: 0.85),
+                              ),
+                            ),
+                            Icon(
+                              LucideIcons.chevronRight,
+                              size: 14.spMin,
+                              color: AppColors.white.withValues(alpha: 0.85),
+                            ),
+                          ],
+                        ],
                       ),
-                      _thinDivider(),
-                    ],
-                    // Check in
-                    if (hasCircle || !loaded) ...[
-                      _tellYourPeopleAction(
-                        icon: _checkInSent
-                            ? LucideIcons.circleCheck
-                            : LucideIcons.heartHandshake,
-                        label: _checkInSent ? 'Checked in' : 'Check in',
-                        sublabel: _checkInSent
-                            ? 'Your group can see it'
-                            : 'Check in with your group.',
-                        iconColor: _checkInSent
-                            ? FamilyColors.safeGreen
-                            : FamilyColors.indigo,
-                        onTap: _checkInSent
-                            ? null
-                            : () => _sendCheckIn(hazard),
+                    ),
+                    12.hSizedBox,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _groupButton(
+                            label: 'Send to my group',
+                            icon: LucideIcons.send,
+                            filled: true,
+                            loading: isSending,
+                            onTap: isSending
+                                ? null
+                                : () => _sendAlertToGroup(hazard),
+                          ),
+                        ),
+                        10.wSizedBox,
+                        Expanded(
+                          child: _groupButton(
+                            label: _checkInSent ? 'Checked in' : 'Check in',
+                            icon: _checkInSent
+                                ? LucideIcons.circleCheck
+                                : LucideIcons.heartHandshake,
+                            onTap: _checkInSent || isSending
+                                ? null
+                                : () => _sendCheckIn(hazard),
+                          ),
+                        ),
+                      ],
+                    ),
+                    10.hSizedBox,
+                    Text(
+                      'Send delivers this alert and a one-line note to '
+                      'everyone in the group. Check in tells them you are '
+                      'okay, near this alert.',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        height: 1.4,
+                        color: AppColors.white.withValues(alpha: 0.85),
                       ),
-                      if (canShare) _thinDivider(),
-                    ],
-                    // No circle: nudge
-                    if (!hasCircle && loaded) ...[
-                      _tellYourPeopleAction(
-                        icon: LucideIcons.users,
-                        label: 'Join a group',
-                        sublabel:
-                            'Create or join a family circle to share alerts',
-                        onTap: () {
-                          ref.read(providerOfHomeTab.notifier).state =
-                              HomeTab.family;
-                          context.go(HomeScreen.route);
-                        },
-                      ),
-                      if (canShare) _thinDivider(),
-                    ],
-                    // Share a link
-                    if (canShare)
-                      _tellYourPeopleAction(
-                        icon: LucideIcons.share2,
+                    ),
+                    if (canShare) ...[
+                      12.hSizedBox,
+                      _groupButton(
                         label: 'Share a link',
-                        sublabel: 'Send the public alert link',
+                        icon: LucideIcons.share2,
                         onTap: () =>
                             shareAlert(ref: ref, hazard: hazard, from: 'detail'),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -1043,91 +1141,93 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  Widget _tellYourPeopleAction({
-    required final IconData icon,
+  /// A 44 px button on the indigo card: white with indigo ink when
+  /// [filled], otherwise translucent white with white ink.
+  Widget _groupButton({
     required final String label,
-    required final String sublabel,
-    final Color? iconColor,
+    required final IconData icon,
+    final bool filled = false,
     final bool loading = false,
     final VoidCallback? onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10.spMin),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 10.spMin),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: iconColor ?? FamilyColors.indigo,
-              size: 20.spMin,
-            ),
-            SizedBox(width: 12.spMin),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 14.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.black,
+    const filledInk = Color(0xFF3229C4);
+    final ink = filled ? filledInk : AppColors.white;
+    final enabled = onTap != null;
+
+    return Opacity(
+      opacity: enabled || loading ? 1.0 : 0.6,
+      child: Container(
+        height: 44.spMin,
+        decoration: BoxDecoration(
+          color: filled
+              ? AppColors.white
+              : AppColors.white.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(12.spMin),
+        ),
+        child: Material(
+          color: AppColors.transparent,
+          borderRadius: BorderRadius.circular(12.spMin),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Center(
+              child: loading
+                  ? SizedBox(
+                      width: 18.spMin,
+                      height: 18.spMin,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: ink,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: 16.spMin, color: ink),
+                        8.wSizedBox,
+                        Flexible(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 14.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: ink,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    sublabel,
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      color: AppColors.grey,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
             ),
-            if (loading)
-              SizedBox(
-                width: 16.spMin,
-                height: 16.spMin,
-                child: const CircularProgressIndicator(strokeWidth: 2),
-              )
-            else
-              Icon(
-                LucideIcons.chevronRight,
-                size: 18.spMin,
-                color: AppColors.grey,
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _thinDivider() {
-    return Divider(
-      height: 1,
-      color: FamilyColors.indigo.withValues(alpha: 0.12),
-    );
-  }
+  // ── Community vote ─────────────────────────────────────────────────────
 
-  /// Community reports: "I see it / I don't see it" voting + flag/block.
+  /// Community reports: "I see it / I don't see it" voting, the unverified
+  /// note, then Follow / Listen / Report as three outlined pills.
   Widget _buildCommunityVoteSection() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
-        if (hazard == null || !hazard.isUserReported) {
+        final id = hazard?.id;
+        if (hazard == null || id == null || !hazard.isUserReported) {
           return const SizedBox.shrink();
         }
 
-        final itemProvider = providerOfHazardItem(hazard.id!);
+        final itemProvider = providerOfHazardItem(id);
         final voteType = ref.watch(
           itemProvider.select((value) => value.hazard?.userVoteType),
         );
         final voteCount = ref.watch(
           itemProvider.select((value) => value.hazard?.voteCount ?? 0),
         );
+        final isFollowing =
+            ref.watch(providerOfFollowedAlerts).contains(id);
 
         return Padding(
           padding: EdgeInsets.only(top: 16.spMin),
@@ -1140,7 +1240,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               const ConfirmationPrompt(),
               10.hSizedBox,
               ConfirmationButtons(
-                key: ValueKey('vote-${hazard.id}'),
+                key: ValueKey('vote-$id'),
                 initialVoteType: voteType,
                 initialVoteCount: voteCount,
                 onVotePressed: (type) => ref
@@ -1180,28 +1280,33 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   ],
                 ),
               ),
-              // Flag and block (community reports only)
-              4.hSizedBox,
+              12.hSizedBox,
+              // Follow / Listen / Report: one row of three outlined pills.
+              // Report opens the review-or-block sheet (3 flags sends the
+              // report back to review).
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TextButton.icon(
-                    onPressed: () => showReportContentSheet(
+                  _outlinedPill(
+                    label: isFollowing ? 'Following' : 'Follow',
+                    icon: LucideIcons.bell,
+                    highlighted: isFollowing,
+                    onTap: () =>
+                        ref.read(providerOfFollowedAlerts.notifier).toggle(id),
+                  ),
+                  8.wSizedBox,
+                  _outlinedPill(
+                    label: _isSpeaking ? 'Stop' : 'Listen',
+                    icon: LucideIcons.volume2,
+                    highlighted: _isSpeaking,
+                    onTap: () => _speakAlert(ref, hazard),
+                  ),
+                  8.wSizedBox,
+                  _outlinedPill(
+                    label: 'Report',
+                    icon: LucideIcons.flag,
+                    onTap: () => showReportContentSheet(
                       context: context,
                       hazard: hazard,
-                    ),
-                    icon: Icon(
-                      LucideIcons.flag,
-                      size: 14.spMin,
-                      color: AppColors.grey,
-                    ),
-                    label: Text(
-                      'Report',
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.grey,
-                      ),
                     ),
                   ),
                 ],
@@ -1213,285 +1318,51 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// Follow + Listen: compact utility row below the main sections.
-  Widget _buildUtilityRow() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final hazard = ref.watch(provider.select((value) => value.hazard));
-        final id = hazard?.id;
-        if (hazard == null || id == null) return const SizedBox.shrink();
-        final isFollowing =
-            ref.watch(providerOfFollowedAlerts).contains(id);
-
-        const litInk = Color(0xFFFF6B01);
-        Widget action({
-          required final String label,
-          required final VoidCallback onTap,
-          final bool highlighted = false,
-        }) {
-          return Expanded(
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(11.spMin),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                height: 40.spMin,
-                decoration: BoxDecoration(
-                  color: highlighted
-                      ? const Color(0xFFFFF0E4)
-                      : AppColors.white,
-                  borderRadius: BorderRadius.circular(11.spMin),
-                  border: Border.all(
-                    color: highlighted ? litInk : const Color(0xFFD8D4DE),
-                    width: highlighted ? 2.0 : 1.5,
-                  ),
-                  boxShadow: highlighted
-                      ? [
-                          BoxShadow(
-                            color: litInk.withValues(alpha: 0.35),
-                            blurRadius: 16.0,
-                            spreadRadius: 1.0,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Center(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12.5.spMin,
-                      fontWeight: FontWeight.w800,
-                      color: highlighted ? litInk : const Color(0xFF5F5C66),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-
-        return Padding(
-          padding: EdgeInsets.only(top: 12.spMin),
-          child: Row(
-            children: [
-              action(
-                label: isFollowing ? 'Following' : 'Follow',
-                highlighted: isFollowing,
-                onTap: () =>
-                    ref.read(providerOfFollowedAlerts.notifier).toggle(id),
-              ),
-              8.wSizedBox,
-              action(
-                label: _isSpeaking ? 'Stop' : 'Listen',
-                highlighted: _isSpeaking,
-                onTap: () => _speakAlert(ref, hazard),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMapPreviewCard() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final latitude = ref.watch(
-          provider.select((value) => value.hazard?.latitude),
-        );
-        final longitude = ref.watch(
-          provider.select((value) => value.hazard?.longitude),
-        );
-        final locationName = ref.watch(
-          provider.select((value) => value.hazard?.locationName),
-        );
-        final createdAt = ref.watch(
-          provider.select(
-            (value) => value.hazard?.createdAt,
-          ),
-        );
-        final updatedAt = ref.watch(
-          provider.select((value) => value.hazard?.updatedAt),
-        );
-        final hazard = ref.watch(
-          provider.select((value) => value.hazard),
-        );
-
-        if (latitude == null || longitude == null) {
-          return const SizedBox.shrink();
-        }
-
-        final distance = ref.watch(
-          providerOfLocation.select(
-            (value) => value.distanceTo(
-              latitude,
-              longitude,
-            ),
-          ),
-        );
-
-        final isUserReported = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isUserReported ?? false,
-          ),
-        );
-
-        return Container(
+  /// One of the three outlined pills under the community note.
+  Widget _outlinedPill({
+    required final String label,
+    required final IconData icon,
+    required final VoidCallback onTap,
+    final bool highlighted = false,
+  }) {
+    final ink = highlighted ? _litInk : const Color(0xFF5F5C66);
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11.spMin),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: 40.spMin,
           decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
+            color: highlighted ? _litWash : AppColors.white,
+            borderRadius: BorderRadius.circular(11.spMin),
             border: Border.all(
-              color: AppColors.lightGrey.withValues(alpha: 0.5),
-              width: 2,
+              color: highlighted ? _litInk : const Color(0xFFD8D4DE),
+              width: highlighted ? 2.0 : 1.5,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(15.spMin),
-            child: Column(
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Map placeholder or actual map
-                Container(
-                  height: 220.spMin,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.spMin),
-                    color: AppColors.extraLightGrey,
-                  ),
-                  child: SmallMapView(
-                    hazard: hazard!,
-                    height: 220.0,
+                Icon(icon, size: 14.spMin, color: ink),
+                6.wSizedBox,
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    fontWeight: FontWeight.w800,
+                    color: ink,
                   ),
                 ),
-
-                // Address and Time Info
-                Column(
-                  children: [
-                    // Address
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          LucideIcons.mapPin,
-                          size: 14.spMin,
-                          color: AppColors.grey.withValues(alpha: 0.8),
-                        ).pT(1.0),
-                        8.spMin.wSizedBox,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Location'.toUpperCase(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.grey.withValues(alpha: 0.7),
-                                  fontSize: 12.spMin,
-                                ),
-                              ),
-                              4.spMin.hSizedBox,
-                              if (locationName != null) ...[
-                                Text(
-                                  locationName,
-                                  style: TextStyle(
-                                    color: AppColors.black,
-                                    fontSize: 14.spMin,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                2.spMin.hSizedBox,
-                                if (!isUserReported)
-                                  Text(
-                                    '${(distance < 1000 ? '${distance.toStringAsFixed(1)} m' : '${(distance / 1000).toStringAsFixed(1)} km')} from your location',
-                                    style: TextStyle(
-                                      fontSize: 12.spMin,
-                                      color: AppColors.grey.withValues(
-                                        alpha: 0.9,
-                                      ),
-                                    ),
-                                  ),
-                              ] else ...[
-                                if (!isUserReported)
-                                  Text(
-                                    '${(distance < 1000 ? '${distance.toStringAsFixed(1)} m' : '${(distance / 1000).toStringAsFixed(1)} km')} from your location',
-                                    style: TextStyle(
-                                      color: AppColors.black,
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 14.spMin,
-                                    ),
-                                  ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    Divider(
-                      color: AppColors.extraLightGrey,
-                      height: 30.spMin,
-                    ),
-
-                    // Time
-                    if (createdAt != null)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            LucideIcons.clock,
-                            size: 14.spMin,
-                            color: AppColors.grey.withValues(alpha: 0.7),
-                          ).pT(1.0),
-                          8.spMin.wSizedBox,
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Posted'.toUpperCase(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.grey.withValues(alpha: 0.7),
-                                  fontSize: 12.spMin,
-                                ),
-                              ),
-                              4.spMin.hSizedBox,
-                              Text(
-                                createdAt.timeAgo,
-                                style: TextStyle(
-                                  fontSize: 14.spMin,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              2.spMin.hSizedBox,
-                              if (updatedAt != null)
-                                Text(
-                                  'Updated ${updatedAt.timeAgo}',
-                                  style: TextStyle(
-                                    fontSize: 12.spMin,
-                                    color: AppColors.grey.withValues(
-                                      alpha: 0.9,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                  ],
-                ).pad(16.0),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
+
 
   Widget _buildMediasSection() {
     return Consumer(

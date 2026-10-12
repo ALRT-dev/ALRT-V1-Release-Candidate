@@ -1,21 +1,19 @@
-import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_share_ending_screen.dart';
+import 'package:hazard_app/features/family/views/widgets/family_app_bar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
-import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
-import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Share a journey: live location while you travel, on your terms.
-///
-/// The traveller picks how long and exactly who, and the journey always
-/// stops itself at the time they chose. Nothing here is gated on ALRT+.
+/// Share a journey (12 Oct 2026 mockup): who sees it, how long, periodic
+/// or live, on one card. The traveller picks exactly who, and the journey
+/// always stops itself at the time they chose. Nothing here is gated on
+/// ALRT+.
 class FamilyJourneyScreen extends ConsumerStatefulWidget {
   const FamilyJourneyScreen({super.key});
 
@@ -34,7 +32,8 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
   int _durationMinutes = 60;
   final Set<String> _recipientIds = {};
 
-  /// Snap points are the locked default; live is opted into per journey.
+  /// Periodic updates are the locked default; live is opted into per
+  /// journey.
   bool _isLive = false;
 
   /// The prompt is raised once per journey, never on a loop.
@@ -62,327 +61,208 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
         .toList();
 
     return Scaffold(
-      backgroundColor: FamilyColors.v31Page,
-      body: Column(
-        children: [
-          _headerBuilder(circle.name),
-          Expanded(
-            child: activeJourney != null && activeJourney.isActive
-                ? _runningBuilder(activeJourney)
-                : _setupBuilder(
-                    others,
-                    snapPointsOnly: circle.journeysSnapPointsOnly,
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _headerBuilder(final String circleName) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        // The shared family header blend (FamilyColors.headerGradient), so
-        // this screen matches the hub, the invite screen and the rest of
-        // the section instead of carrying its own copy of the stops.
-        gradient: FamilyColors.headerGradient,
-      ),
-      child: Stack(
-        children: [
-          // The soft blob of light in the top-right corner.
-          Positioned(
-            top: -40.spMin,
-            right: -30.spMin,
-            child: Container(
-              width: 180.spMin,
-              height: 180.spMin,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    FamilyColors.v31HeaderGlow.withValues(alpha: 0.4),
-                    FamilyColors.v31HeaderGlow.withValues(alpha: 0.0),
-                  ],
-                  stops: const [0.0, 0.68],
-                ),
+      backgroundColor: Colors.white,
+      appBar: const FamilyWhiteAppBar(title: 'Share my journey'),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          16.spMin,
+          4.spMin,
+          16.spMin,
+          28.spMin + MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        child: activeJourney != null && activeJourney.isActive
+            ? _runningBuilder(activeJourney)
+            : _setupBuilder(
+                others,
+                snapPointsOnly: circle.journeysSnapPointsOnly,
               ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              16.spMin,
-              8.spMin,
-              16.spMin,
-              22.spMin,
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
-              child: Container(
-                width: 30.spMin,
-                height: 30.spMin,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  LucideIcons.chevronLeft,
-                  size: 15.spMin,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            14.hSizedBox,
-            Text(
-              circleName.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11.spMin,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
-            ),
-            4.hSizedBox,
-            Text(
-              'Share my journey',
-              style: TextStyle(
-                fontSize: 22.spMin,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: -0.5,
-                height: 1.15,
-              ),
-            ),
-            5.hSizedBox,
-                  Text(
-                    'A few points along the way, on your terms',
-                    style: TextStyle(
-                      fontSize: 12.5.spMin,
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
   // ── Setup ────────────────────────────────────────────────────────────
 
-  Widget _setupBuilder(final List<FamilyMember> others, {
+  Widget _setupBuilder(
+    final List<FamilyMember> others, {
     required final bool snapPointsOnly,
   }) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16.spMin,
-        16.spMin,
-        16.spMin,
-        28.spMin + MediaQuery.viewPaddingOf(context).bottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _cardBuilder(
-            label: 'How long',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _cardBuilder(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _labelBuilder('WHO SEES IT'),
+              SizedBox(height: 10.spMin),
+              if (others.isEmpty)
+                Text(
+                  'Invite someone to your group first.',
+                  style: TextStyle(
+                    fontSize: 13.spMin,
+                    color: AppColors.mediumGrey,
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 8.spMin,
+                  runSpacing: 8.spMin,
                   children: [
-                    for (final minutes in _durations) ...[
-                      Expanded(child: _durationChipBuilder(minutes)),
-                      if (minutes != _durations.last)
-                        SizedBox(width: 10.spMin),
-                    ],
+                    for (final member in others) _recipientChipBuilder(member),
                   ],
                 ),
-                12.hSizedBox,
-                Text(
-                  'Sharing always stops on its own at the time you pick, '
-                  '1 hour at most per extension. ALRT asks before it ends '
-                  'and only you can extend.',
-                  style: TextStyle(
-                    fontSize: 11.spMin,
-                    height: 1.6,
-                    color: FamilyColors.v31Ink,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          11.hSizedBox,
-          _cardBuilder(
-            label: 'Who sees it',
-            padding: EdgeInsets.zero,
-            child: others.isEmpty
-                ? Padding(
-                    padding: EdgeInsets.all(16.spMin),
-                    child: Text(
-                      'Invite someone to your circle first.',
-                      style: TextStyle(
-                        fontSize: 13.spMin,
-                        color: AppColors.mediumGrey,
-                      ),
-                    ),
-                  )
-                : Column(
-                    children: [
-                      for (final (index, member) in others.indexed) ...[
-                        if (index > 0)
-                          Divider(
-                            height: 1,
-                            indent: 68.spMin,
-                            color: const Color(0xFFF0F0F2),
-                          ),
-                        _recipientRowBuilder(member),
-                      ],
-                    ],
-                  ),
-          ),
-          11.hSizedBox,
-          _cardBuilder(
-            label: 'How much detail',
-            child: _liveToggleBuilder(snapPointsOnly),
-          ),
-          14.hSizedBox,
-          _noteBuilder(
-            'A banner stays visible the whole time you are sharing, and '
-            'Stop is one tap, any time.',
-          ),
-          18.hSizedBox,
-          _startButtonBuilder(),
-        ],
-      ),
-    );
-  }
-
-  /// Snap points or live, chosen per journey. The group's own rule can
-  /// take live off the table, in which case the switch is stated as
-  /// unavailable rather than silently ignored.
-  Widget _liveToggleBuilder(final bool snapPointsOnly) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Send live updates',
-                style: TextStyle(
-                  fontSize: 14.spMin,
-                  fontWeight: FontWeight.w700,
-                  color: snapPointsOnly
-                      ? FamilyColors.v31Ink
-                      : AppColors.black,
-                ),
+              SizedBox(height: 18.spMin),
+              _labelBuilder('HOW LONG WILL YOU BE?'),
+              SizedBox(height: 10.spMin),
+              Row(
+                children: [
+                  for (final minutes in _durations) ...[
+                    Expanded(child: _durationPillBuilder(minutes)),
+                    if (minutes != _durations.last) SizedBox(width: 8.spMin),
+                  ],
+                ],
               ),
-            ),
-            Switch(
-              value: _isLive && !snapPointsOnly,
-              activeTrackColor: FamilyColors.v31ToggleOn,
-              inactiveTrackColor: FamilyColors.v31ToggleOff,
-              inactiveThumbColor: Colors.white,
-              onChanged: snapPointsOnly
-                  ? null
-                  : (value) => setState(() => _isLive = value),
-            ),
-          ],
+              SizedBox(height: 16.spMin),
+              _liveToggleBuilder(snapPointsOnly),
+              SizedBox(height: 16.spMin),
+              _startButtonBuilder(),
+            ],
+          ),
         ),
-        8.hSizedBox,
+        SizedBox(height: 12.spMin),
         Text(
-          snapPointsOnly
-              ? 'This group uses periodic updates only: they see your '
-                    'departure, an update about every 10 minutes, and '
-                    'your arrival.'
-              : _isLive
-                  ? 'Your position updates as you move, until the journey '
-                        'stops. It still ends at the time you picked.'
-                  : 'Periodic updates: your departure, an update about every '
-                        '10 minutes, and your arrival. Nothing in between.',
+          'A journey is seen only by the people you pick. It ends on time '
+          'or when you stop it, whichever comes first.',
           style: TextStyle(
-            fontSize: 11.spMin,
-            height: 1.6,
-            color: FamilyColors.v31Ink,
+            fontSize: 12.5.spMin,
+            height: 1.5,
+            color: AppColors.grey,
           ),
         ),
       ],
     );
   }
 
-  Widget _durationChipBuilder(final int minutes) {
-    final isSelected = _durationMinutes == minutes;
-    return GestureDetector(
-      onTap: () => setState(() => _durationMinutes = minutes),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        height: 44.spMin,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected ? FamilyColors.v31Indigo : Colors.white,
-          borderRadius: BorderRadius.circular(12.spMin),
-          border: Border.all(
-            color: isSelected
-                ? FamilyColors.v31Indigo
-                : FamilyColors.v31Border,
-            width: 1.5,
+  /// One chip per other member: the recipient picker. Selected chips take
+  /// the family indigo.
+  Widget _recipientChipBuilder(final FamilyMember member) {
+    final isOn = _recipientIds.contains(member.id);
+    return Semantics(
+      selected: isOn,
+      child: GestureDetector(
+        key: Key('journey-recipient-${member.id}'),
+        onTap: () => setState(() {
+          if (isOn) {
+            _recipientIds.remove(member.id);
+          } else {
+            _recipientIds.add(member.id);
+          }
+        }),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: EdgeInsets.symmetric(
+            horizontal: 14.spMin,
+            vertical: 9.spMin,
           ),
-        ),
-        child: Text(
-          minutes < 60 ? '$minutes min' : '${minutes ~/ 60} hour',
-          style: TextStyle(
-            fontSize: 14.spMin,
-            fontWeight: FontWeight.w800,
-            color: isSelected ? Colors.white : FamilyColors.v31Indigo,
+          decoration: BoxDecoration(
+            color: isOn ? FamilyColors.indigo : Colors.white,
+            borderRadius: BorderRadius.circular(20.spMin),
+            border: Border.all(
+              color: isOn ? FamilyColors.indigo : FamilyColors.v31Border,
+              width: 1.5,
+            ),
+          ),
+          child: Text(
+            member.name,
+            style: TextStyle(
+              fontSize: 14.spMin,
+              fontWeight: FontWeight.w700,
+              color: isOn ? Colors.white : AppColors.ink,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _recipientRowBuilder(final FamilyMember member) {
-    final isOn = _recipientIds.contains(member.id);
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 8.spMin),
-      child: Row(
-        children: [
-          FamilyMemberAvatar(member: member, isNearAlert: false),
-          SizedBox(width: 12.spMin),
-          Expanded(
-            child: Text(
-              member.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14.spMin,
-                fontWeight: FontWeight.w700,
-                color: isOn ? AppColors.black : FamilyColors.v31Ink,
-              ),
-            ),
+  /// 15 / 30 / 60 min. The selected pill takes a 2 px ink border.
+  Widget _durationPillBuilder(final int minutes) {
+    final isSelected = _durationMinutes == minutes;
+    return GestureDetector(
+      key: Key('journey-duration-$minutes'),
+      onTap: () => setState(() => _durationMinutes = minutes),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        height: 44.spMin,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12.spMin),
+          border: Border.all(
+            color: isSelected ? AppColors.ink : FamilyColors.v31Border,
+            width: isSelected ? 2 : 1,
           ),
-          Switch(
-            value: isOn,
-            activeTrackColor: FamilyColors.v31ToggleOn,
-            inactiveTrackColor: FamilyColors.v31ToggleOff,
-            inactiveThumbColor: Colors.white,
-            onChanged: (value) => setState(() {
-              if (value) {
-                _recipientIds.add(member.id);
-              } else {
-                _recipientIds.remove(member.id);
-              }
-            }),
+        ),
+        child: Text(
+          '$minutes min',
+          style: TextStyle(
+            fontSize: 14.spMin,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  /// Periodic or live, chosen per journey. The group's own rule can take
+  /// live off the table, in which case the switch is disabled and says why
+  /// rather than being silently ignored. A live start the server still
+  /// refuses (LIVE_JOURNEY_NOT_ALLOWED) comes back through journeyState and
+  /// is shown by [_handleStart].
+  Widget _liveToggleBuilder(final bool snapPointsOnly) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Send live updates',
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: snapPointsOnly ? FamilyColors.v31Ink : AppColors.ink,
+                ),
+              ),
+              SizedBox(height: 2.spMin),
+              Text(
+                snapPointsOnly
+                    ? 'This group uses periodic updates only'
+                    : _isLive
+                    ? 'Live location until the journey stops'
+                    : 'Periodic updates: departure, about every 10 minutes, '
+                          'arrival',
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  height: 1.35,
+                  color: FamilyColors.v31Ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          key: const Key('journey-live'),
+          value: _isLive && !snapPointsOnly,
+          activeTrackColor: FamilyColors.v31ToggleOn,
+          inactiveTrackColor: FamilyColors.v31ToggleOff,
+          inactiveThumbColor: Colors.white,
+          onChanged: snapPointsOnly
+              ? null
+              : (value) => setState(() => _isLive = value),
+        ),
+      ],
     );
   }
 
@@ -391,29 +271,38 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
       providerOfFamily.select((s) => s.journeyState.isLoading),
     );
     final canStart = _recipientIds.isNotEmpty && !isBusy;
-    final endsAt = TimeOfDay.fromDateTime(
-      DateTime.now().add(Duration(minutes: _durationMinutes)),
-    );
 
-    return SizedBox(
-      height: 50.spMin,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: FamilyColors.v31Indigo,
-          disabledBackgroundColor:
-              FamilyColors.v31Indigo.withValues(alpha: 0.4),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.spMin),
+    return Opacity(
+      opacity: canStart ? 1 : 0.5,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [FamilyColors.v31Indigo, FamilyColors.v31HeaderMid],
           ),
+          borderRadius: BorderRadius.circular(16.spMin),
         ),
-        onPressed: canStart ? _handleStart : null,
-        child: Text(
-          _recipientIds.isEmpty
-              ? 'Pick who sees it'
-              : 'Start sharing until ${endsAt.format(context)}',
-          style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w800),
+        child: SizedBox(
+          height: 54.spMin,
+          child: TextButton(
+            key: const Key('journey-start'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.spMin),
+              ),
+            ),
+            onPressed: canStart ? _handleStart : null,
+            child: Text(
+              isBusy ? 'Starting...' : 'Start sharing',
+              style: TextStyle(
+                fontSize: 16.spMin,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -422,7 +311,6 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
   // ── Running ──────────────────────────────────────────────────────────
 
   Widget _runningBuilder(final FamilyJourney journey) {
-    final endsAt = TimeOfDay.fromDateTime(journey.endsAt);
     final minutesLeft = journey.remaining.inMinutes;
 
     // ALRT asks before sharing ends rather than letting it lapse quietly.
@@ -433,132 +321,108 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16.spMin,
-        16.spMin,
-        16.spMin,
-        28.spMin + MediaQuery.viewPaddingOf(context).bottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _cardBuilder(
-            label: 'Sharing now',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  minutesLeft < 1
-                      ? 'Stopping now'
-                      : 'Stops in $minutesLeft min',
-                  style: TextStyle(
-                    fontSize: 22.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.black,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _cardBuilder(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Journey active',
+                style: TextStyle(
+                  fontSize: 20.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
                 ),
-                4.hSizedBox,
+              ),
+              SizedBox(height: 4.spMin),
+              Text(
+                '${minutesLeft < 1 ? 'Stopping now' : 'Stops in $minutesLeft min'}. '
+                '${journey.isLive ? 'Live location: updating as you move' : 'Periodic updates: about every 10 minutes'}.',
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  height: 1.45,
+                  color: FamilyColors.v31Ink,
+                ),
+              ),
+              if (journey.recipients.isNotEmpty) ...[
+                SizedBox(height: 6.spMin),
                 Text(
-                  'Ends at ${endsAt.format(context)} on its own. '
-                  'Nothing renews unless you choose it.',
+                  'Seen by ${journey.recipients.map((r) => r.name).join(', ')}',
                   style: TextStyle(
                     fontSize: 12.5.spMin,
-                    height: 1.45,
                     color: AppColors.mediumGrey,
                   ),
                 ),
-                8.hSizedBox,
-                Text(
-                  journey.isLive
-                      ? 'Live updates as you move.'
-                      : 'Periodic updates: departure, about every 10 '
-                            'minutes, and arrival.',
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: FamilyColors.v31Indigo,
-                  ),
-                ),
-                if (journey.recipients.isNotEmpty) ...[
-                  12.hSizedBox,
-                  Text(
-                    'Seen by ${journey.recipients.map((r) => r.name).join(', ')}',
-                    style: TextStyle(
-                      fontSize: 12.5.spMin,
-                      color: AppColors.mediumGrey,
-                    ),
-                  ),
-                ],
               ],
-            ),
-          ),
-          14.hSizedBox,
-          _noteBuilder(
-            'When it stops, your last position is deleted. History keeps '
-            'the time and how long, never where you were.',
-          ),
-          18.hSizedBox,
-          if (journey.canExtend)
-            SizedBox(
-              height: 52.spMin,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: FamilyColors.indigo,
-                  backgroundColor: Colors.white,
-                  side: const BorderSide(color: FamilyColors.indigo),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.spMin),
-                  ),
+              SizedBox(height: 16.spMin),
+              if (journey.canExtend) ...[
+                _outlinedBuilder(
+                  key: 'journey-extend',
+                  label: 'Keep sharing 1 more hour',
+                  onPressed: _handleExtend,
                 ),
-                onPressed: _handleExtend,
-                child: Text(
-                  'Keep sharing 1 more hour',
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                SizedBox(height: 10.spMin),
+              ],
+              _outlinedBuilder(
+                key: 'journey-stop',
+                label: 'Stop sharing now',
+                color: AppColors.red,
+                onPressed: _handleStop,
               ),
-            ),
-          10.hSizedBox,
-          SizedBox(
-            height: 56.spMin,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FamilyColors.sosRed,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.spMin),
-                ),
-              ),
-              onPressed: _handleStop,
-              child: Text(
-                'Stop sharing now',
-                style: TextStyle(
-                  fontSize: 16.spMin,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+        SizedBox(height: 12.spMin),
+        Text(
+          'When it stops, your last position is deleted. History keeps the '
+          'time and how long, never where you were.',
+          style: TextStyle(
+            fontSize: 12.5.spMin,
+            height: 1.5,
+            color: AppColors.grey,
+          ),
+        ),
+      ],
     );
   }
 
   // ── Shared pieces ────────────────────────────────────────────────────
 
-  Widget _cardBuilder({
+  Widget _outlinedBuilder({
+    required final String key,
     required final String label,
-    required final Widget child,
-    final EdgeInsetsGeometry? padding,
+    required final VoidCallback onPressed,
+    final Color color = AppColors.ink,
   }) {
+    return SizedBox(
+      height: 50.spMin,
+      child: OutlinedButton(
+        key: Key(key),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: FamilyColors.v31Border),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.spMin),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(
+          label,
+          style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
+  Widget _cardBuilder({required final Widget child}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.spMin),
+        border: Border.all(color: FamilyColors.v31Divider),
         boxShadow: const [
           BoxShadow(
             color: FamilyColors.v31CardShadow,
@@ -567,48 +431,19 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
           ),
         ],
       ),
-      padding: padding ?? EdgeInsets.fromLTRB(15.spMin, 14.spMin, 15.spMin, 14.spMin),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: padding == EdgeInsets.zero
-                ? EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 10.spMin)
-                : EdgeInsets.only(bottom: 12.spMin),
-            child: Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontSize: 10.spMin,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: FamilyColors.v31Label,
-              ),
-            ),
-          ),
-          child,
-        ],
-      ),
+      padding: EdgeInsets.all(16.spMin),
+      child: child,
     );
   }
 
-  Widget _noteBuilder(final String text) {
-    return Container(
-      decoration: BoxDecoration(
-        color: FamilyColors.v31NoteBackground,
-        borderRadius: BorderRadius.circular(14.spMin),
-        border: Border.all(color: FamilyColors.v31NoteBorder, width: 1.5),
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: 14.spMin,
-        vertical: 11.spMin,
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12.spMin,
-          height: 1.6,
-          color: FamilyColors.v31NoteInk,
-        ),
+  Widget _labelBuilder(final String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11.spMin,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.8,
+        color: AppColors.sectionLabel,
       ),
     );
   }
@@ -652,6 +487,8 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
       context.showSuccessToast(message: 'Sharing your journey');
       return;
     }
+    // LIVE_JOURNEY_NOT_ALLOWED and the access refusals arrive here as the
+    // provider's journeyState error, each with its own wording.
     final error = ref.read(providerOfFamily).journeyState.error;
     error != null
         ? await showFamilyActionError(context, ref, error)

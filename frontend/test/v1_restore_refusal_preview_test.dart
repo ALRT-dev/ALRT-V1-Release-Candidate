@@ -426,6 +426,20 @@ void main() {
       expect(PlanIdentity.individual.accent, const Color(0xFF7B359A));
       expect(PlanIdentity.family.accent, const Color(0xFF0A7F4F));
       expect(PlanIdentity.group.accent, const Color(0xFF1F5CAD));
+      // ALRT + is purple end to end (product owner 2026-09-28): the hero
+      // gradient is never the orange -> red wordmark colours.
+      expect(PlanIdentity.individual.gradient, const [
+        Color(0xFF4A1766),
+        Color(0xFF8E3FB3),
+      ]);
+      expect(PlanIdentity.family.gradient, const [
+        Color(0xFF05603B),
+        Color(0xFF17A96A),
+      ]);
+      expect(PlanIdentity.group.gradient, const [
+        Color(0xFF123A73),
+        Color(0xFF2468C4),
+      ]);
       for (final i in [
         PlanIdentity.individual,
         PlanIdentity.family,

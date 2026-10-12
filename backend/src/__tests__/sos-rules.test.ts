@@ -6,7 +6,8 @@
  *  - resolveSos: the sender OR the group host (role "owner") can end an SOS;
  *    anyone else gets 403. endedByMemberId records who ended it and the push
  *    copy names them factually (never "safe" or "resolved").
- *  - createScheduledCheckIn: timezone is required (no Brisbane default).
+ *  - createScheduledCheckIn: an IANA timezone or the phone's utcOffsetMinutes
+ *    is required (no Brisbane default); offsets resolve to Etc/GMT zones.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -71,6 +72,7 @@ import {
   extendSos,
   resolveSos,
   createScheduledCheckIn,
+  zoneFromOffset,
   SOS_MAX_DURATION_MS,
   SOS_TOTAL_CAP_MS,
 } from "../services/family.service.js";
@@ -233,8 +235,12 @@ describe("resolveSos: who may end an SOS", () => {
 // createScheduledCheckIn
 // ---------------------------------------------------------------------------
 
-describe("createScheduledCheckIn: timezone is required", () => {
+describe("createScheduledCheckIn: timezone or utcOffsetMinutes is required", () => {
+  const storedTimezone = (): string =>
+    (prisma.familyScheduledCheckIn.upsert as any).mock.calls[0][0].create.timezone;
+
   beforeEach(() => {
+    vi.clearAllMocks();
     (prisma.familyMember.findFirst as any).mockResolvedValue(
       membershipRow(SENDER_MEMBER, SENDER_USER, "adult"),
     );
@@ -260,5 +266,61 @@ describe("createScheduledCheckIn: timezone is required", () => {
   it("stores the schedule when a valid IANA timezone is given", async () => {
     await createScheduledCheckIn(SENDER_USER, { timeOfDay: "08:00", timezone: "Australia/Perth" });
     expect(prisma.familyScheduledCheckIn.upsert).toHaveBeenCalledOnce();
+    expect(storedTimezone()).toBe("Australia/Perth");
+  });
+
+  it("returns 400 when neither timezone nor utcOffsetMinutes is given", async () => {
+    await expect(
+      createScheduledCheckIn(SENDER_USER, { timeOfDay: "08:00", utcOffsetMinutes: undefined }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: expect.stringContaining("timezone is required"),
+    });
+    expect(prisma.familyScheduledCheckIn.upsert).not.toHaveBeenCalled();
+  });
+
+  it("maps a +480 minute offset to Etc/GMT-8 (inverted POSIX sign)", async () => {
+    await createScheduledCheckIn(SENDER_USER, { timeOfDay: "08:00", utcOffsetMinutes: 480 });
+    expect(storedTimezone()).toBe("Etc/GMT-8");
+  });
+
+  it("maps a -300 minute offset to Etc/GMT+5", async () => {
+    await createScheduledCheckIn(SENDER_USER, { timeOfDay: "08:00", utcOffsetMinutes: -300 });
+    expect(storedTimezone()).toBe("Etc/GMT+5");
+  });
+
+  it("maps a 0 minute offset to Etc/GMT", async () => {
+    await createScheduledCheckIn(SENDER_USER, { timeOfDay: "08:00", utcOffsetMinutes: 0 });
+    expect(storedTimezone()).toBe("Etc/GMT");
+  });
+
+  it("maps a +570 minute offset to a zone Intl accepts, else the nearest Etc hour", async () => {
+    await createScheduledCheckIn(SENDER_USER, { timeOfDay: "08:00", utcOffsetMinutes: 570 });
+    const tz = storedTimezone();
+    expect(["+09:30", "Etc/GMT-10"]).toContain(tz);
+    expect(() => Intl.DateTimeFormat(undefined, { timeZone: tz })).not.toThrow();
+  });
+
+  it("prefers a supplied timezone over the offset", async () => {
+    await createScheduledCheckIn(SENDER_USER, {
+      timeOfDay: "08:00",
+      timezone: "Australia/Perth",
+      utcOffsetMinutes: -300,
+    });
+    expect(storedTimezone()).toBe("Australia/Perth");
+  });
+});
+
+describe("zoneFromOffset", () => {
+  it("returns Etc zones with the inverted sign for whole hours", () => {
+    expect(zoneFromOffset(480)).toBe("Etc/GMT-8");
+    expect(zoneFromOffset(-300)).toBe("Etc/GMT+5");
+    expect(zoneFromOffset(0)).toBe("Etc/GMT");
+  });
+
+  it("returns undefined for a missing or out-of-range offset", () => {
+    expect(zoneFromOffset(undefined)).toBeUndefined();
+    expect(zoneFromOffset(900)).toBeUndefined();
+    expect(zoneFromOffset(12.5)).toBeUndefined();
   });
 });

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/notification/views/widgets/confirmation_buttons.dart';
 import 'package:hazard_app/features/shared/enums/hazard_vote_types.dart';
-import 'package:hazard_app/features/shared/extensions/color_extension.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
@@ -14,16 +13,21 @@ import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/providers/hazard_item_provider.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/providers/states/hazard_item_provider_state.dart';
-import 'package:hazard_app/features/shared/utils/share_alert.dart';
-import 'package:hazard_app/features/shared/views/widgets/freshness_chip.dart';
 import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
-import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
-import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
+import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
+import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+/// The feed card (approved Feed board, 12 Oct 2026). One card everywhere
+/// it is shown: the alert list, the map callout and the notification list.
+///
+/// Top to bottom: a band strip (official and AWS only), the source row
+/// (shape glyph, label, how long ago), "In plain terms" on the dark
+/// surface (official and AWS only, locked rule), the title, then one meta
+/// line (source and distance, or corroboration and distance). Community
+/// cards keep the "Can you see it?" vote block below that.
 class CommonHazardsListItem extends ConsumerStatefulWidget {
   const CommonHazardsListItem({
     super.key,
@@ -94,324 +98,191 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
       return const SizedBox.shrink();
     }
 
-    // Locked two-reds rule: solid red + glow is reserved for official
-    // CRITICAL; official ACTION gets the dashed needs-attention outline.
-    final isOfficialCritical = ref.watch(
-      provider.select(
-        (value) =>
-            value.hazard?.source != null &&
-            value.hazard?.severityBand == HazardSeverityBand.critical,
-      ),
+    final isUserReported = ref.watch(
+      provider.select((value) => value.hazard!.isUserReported),
     );
-    final isOfficialAction = ref.watch(
-      provider.select(
-        (value) =>
-            value.hazard?.source != null &&
-            value.hazard?.severityBand == HazardSeverityBand.action,
-      ),
-    );
+
+    final radius = BorderRadius.circular(AlertCardStyle.cardRadius.spMin);
 
     return InkWell(
       onTap: widget.isInfoWindow ? null : _gotoViewHazard,
-      borderRadius: BorderRadius.circular(18.spMin),
-      child: CustomPaint(
-        foregroundPainter: isOfficialAction
-            ? DashedRRectPainter(
-                color: AlertCardStyle.dashedBorderColor,
-                radius: 18.spMin,
-              )
-            : null,
-        child: Container(
+      borderRadius: radius,
+      child: Container(
         decoration: BoxDecoration(
           color: AppColors.white,
-          borderRadius: BorderRadius.circular(18.spMin),
-          boxShadow: [
-            if (isOfficialCritical)
-              AlertCardStyle.criticalGlow
-            else
-              const BoxShadow(
-                color: Color(0x0F000000),
-                blurRadius: 3,
-                offset: Offset(0, 1),
-              ),
-          ],
+          borderRadius: radius,
+          boxShadow: const [AlertCardStyle.cardShadow],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(18.spMin),
+          borderRadius: radius,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // One card, whatever it is shown in. The map callout, the
-              // list and the alert list all get the same thing: the
-              // coloured heading that says who and how urgent, the title,
-              // when and how far, and the way in. What we know and what to
-              // do are a read, not a glance, so they wait for the detail
-              // screen rather than being half-shown here.
-              _coloredHeaderBuilder(),
-              // "In plain terms" is mandatory on every card type (locked
-              // rule), not just the detail screen - this is the same
-              // deterministic line _buildPlainTermsBox shows there.
-              _plainTermsBuilder(),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _iconBuilder(),
-                  12.wSizedBox,
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _titleBuilder(),
-                              4.hSizedBox,
-                              _dateAndDistanceBuilder(),
-                              // How recently this alert was really touched.
-                              // Never dressed up: green only inside the
-                              // hour, plain grey beyond it.
-                              6.hSizedBox,
-                              _freshnessRowBuilder(),
-                            ],
-                          ),
-                        ),
-                        if (widget.hazard.isUserReported) _votesCountBuilder(),
-                      ],
-                    ),
-                  ),
-                ],
-              ).pX(16.0).pT(16.0),
-              10.hSizedBox,
-              if (widget.showTrustMeter &&
-                  widget.hazard.isUserReported &&
-                  !widget.isInfoWindow) ...[
-                _confirmationButtonsBuilder().pX(16.0),
-              ],
-              _categoryAndViewDetailsBuilder(),
+              // Band strip: official and AWS cards only. A community card
+              // has no band, so it has no strip.
+              if (!isUserReported) _bandStripBuilder(),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16.spMin,
+                  14.spMin,
+                  16.spMin,
+                  16.spMin,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _sourceRowBuilder(),
+                    // "In plain terms" is mandatory on every official card
+                    // (locked rule), the same deterministic line the detail
+                    // screen shows. Community reports get no line at all.
+                    if (!isUserReported) ...[
+                      10.hSizedBox,
+                      _plainTermsBuilder(),
+                    ],
+                    10.hSizedBox,
+                    _titleBuilder(),
+                    6.hSizedBox,
+                    _metaRowBuilder(),
+                    if (widget.showTrustMeter &&
+                        isUserReported &&
+                        !widget.isInfoWindow)
+                      _confirmationButtonsBuilder(),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
         ),
       ),
     ).pX(widget.horizontalPadding);
   }
 
-  /// The live-freshness chip, plus a community-corroboration chip when this
-  /// report has been independently confirmed by other nearby reports. Share
-  /// lives in the card's own action row, so it is not repeated here.
-  Widget _freshnessRowBuilder() {
+  /// The 5 px band strip across the top of an official or AWS card, in
+  /// the alert's locked band hex.
+  Widget _bandStripBuilder() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final bandColor = ref.watch(
+          provider.select((value) => value.hazard?.color ?? AppColors.info),
+        );
+        return Container(
+          width: double.infinity,
+          height: AlertCardStyle.feedBandStripHeight.spMin,
+          color: bandColor,
+        );
+      },
+    );
+  }
+
+  /// Row 1: the source shape, the label and how long ago.
+  ///
+  /// Only the Australian Warning System writes a level word, and it is
+  /// the whole label: "ADVICE", "WATCH AND ACT", "EMERGENCY WARNING".
+  /// Every other source is named without a level.
+  Widget _sourceRowBuilder() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
+
+        final isUserReported = hazard.isUserReported;
+        final isAws = !isUserReported && (hazard.isAwsCompliant ?? false);
+        final isOfficial = hazard.source != null;
+        final severityTitle = hazard.severityTitle;
+        final hasAwsLevel =
+            isAws && severityTitle.isNotEmpty && severityTitle != 'Unknown';
+
+        final String label;
+        final Color labelInk;
+        if (isUserReported) {
+          label = 'COMMUNITY · UNVERIFIED';
+          labelInk = AlertCardStyle.labelInkCommunity;
+        } else if (hazard.isAlrtIntel) {
+          label = 'ALRT ASSESSMENT';
+          labelInk = AlertCardStyle.labelInkNeutral;
+        } else if (hazard.isGlobalHumanitarian) {
+          label = 'GDACS';
+          labelInk = AlertCardStyle.labelInkNeutral;
+        } else if (hasAwsLevel) {
+          label = severityTitle.toUpperCase();
+          labelInk = AlertCardStyle.bandLabelInk(hazard.severityBand);
+        } else if (isAws) {
+          label = 'AWS';
+          labelInk = AlertCardStyle.bandLabelInk(hazard.severityBand);
+        } else {
+          label = 'OFFICIAL';
+          labelInk = AlertCardStyle.labelInkNeutral;
+        }
+
+        final category = hazard.category;
+        final Widget glyph = isUserReported && category != null
+            ? CategoryGlyph(category: category, size: 22.spMin)
+            : SourceShapeGlyph(
+                isAws: isAws,
+                isOfficial: isOfficial,
+                isGlobalHumanitarian: hazard.isGlobalHumanitarian,
+                isAlrtIntel: hazard.isAlrtIntel,
+                color: hazard.color,
+                size: 14.spMin,
+              );
+
         return Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            FreshnessChip(
-              updatedAt: hazard.updatedAt,
-              createdAt: hazard.createdAt,
+            glyph,
+            8.wSizedBox,
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                  color: labelInk,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            if (hazard.isUserReported && hazard.corroborationCount > 0) ...[
-              6.wSizedBox,
-              _corroborationChipBuilder(hazard.corroborationCount),
-            ],
+            8.wSizedBox,
+            _agoBuilder(),
           ],
         );
       },
     );
   }
 
-  /// "Confirmed by ×N" - independent community reports of the same event,
-  /// never official sources and never a severity signal (classification
-  /// standard §11: a corroboration indicator, clearly attributed to the
-  /// community, not implying official verification).
-  Widget _corroborationChipBuilder(final int corroborationCount) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.grey.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10.spMin),
-      ),
-      padding: EdgeInsets.symmetric(horizontal: 8.spMin, vertical: 3.spMin),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            LucideIcons.users,
-            size: 11.spMin,
-            color: AppColors.grey,
-          ),
-          3.wSizedBox,
-          Text(
-            'Confirmed by ×$corroborationCount',
-            style: TextStyle(
-              fontSize: 10.spMin,
-              fontWeight: FontWeight.w600,
-              color: AppColors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _coloredHeaderBuilder() {
+  /// How long ago, right-aligned. An expired alert says so instead.
+  Widget _agoBuilder() {
     return Consumer(
       builder: (context, ref, child) {
-        final isUserReported = ref.watch(
+        final dateTime = ref.watch(
           provider.select(
-            (value) => value.hazard!.isUserReported,
+            (value) =>
+                value.hazard!.updatedAt ??
+                value.hazard!.occurredAt ??
+                value.hazard!.createdAt,
           ),
         );
-        final isAwsCompliant = ref.watch(
-          provider.select(
-            (value) => value.hazard!.isAwsCompliant ?? false,
-          ),
+        final hasExpired = ref.watch(
+          provider.select((value) => value.hazard!.isExpired),
         );
-        final severityTitle = ref.watch(
-          provider.select(
-            (value) => value.hazard!.severityTitle,
-          ),
-        );
-        final source = ref.watch(
-          provider.select(
-            (value) => value.hazard!.source,
-          ),
-        );
-        final hazardColor = ref.watch(
-          provider.select(
-            (value) => value.hazard?.color ?? AppColors.black,
-          ),
-        );
+        if (dateTime == null && !hasExpired) return const SizedBox.shrink();
 
-        final isVerified = source != null;
-
-        final pillForegroundColor = hazardColor.isLight
-            ? AppColors.grey
-            : AppColors.white;
-        final pillBackgroundColor = isUserReported
-            ? AppColors.white
-            : hazardColor.isLight
-            ? AppColors.grey
-            : AppColors.black;
-        final pillBackgroundColorAlpha = isUserReported
-            ? 0.6
-            : hazardColor == AppColors.transparent
-            ? 0.06
-            : 0.2;
-        final pillBorderColor = hazardColor == AppColors.transparent
-            ? AppColors.lightGrey
-            : null;
-
-        final severityBand = ref.watch(
-          provider.select(
-            (value) => value.hazard?.severityBand,
-          ),
-        );
-        // Solid red fill is reserved for official CRITICAL (two-reds rule).
-        final isOfficialCritical =
-            isVerified && severityBand == HazardSeverityBand.critical;
-
-        return Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(
-            horizontal: 10.spMin,
-            vertical: 6.spMin,
-          ),
-
-          decoration: BoxDecoration(
-            gradient:
-                isOfficialCritical ? AlertCardStyle.solidRedGradient : null,
-            color: isOfficialCritical
-                ? null
-                : hazardColor == AppColors.transparent
-                ? AppColors.white
-                : hazardColor,
-            border: hazardColor == AppColors.transparent
-                ? Border(
-                    bottom: BorderSide(
-                      color: AppColors.lightGrey.withValues(alpha: 0.5),
-                      width: 1.0,
-                    ),
-                  )
-                : null,
-          ),
-          child: Row(
-            spacing: 10.spMin,
-            children: [
-              // V3 rule: shape identifies the source system, colour carries
-              // urgency - never colour alone.
-              Icon(
-                AlertCardStyle.systemShapeIcon(
-                  isAws: isAwsCompliant,
-                  isOfficial: isVerified,
-                  isGlobalHumanitarian: widget.hazard.isGlobalHumanitarian,
-                  isAlrtIntel: widget.hazard.isAlrtIntel,
-                ),
-                size: 14.spMin,
-                // Official shapes carry the locked band hex; community
-                // circles take the category colour, never a band hex.
-                color: isOfficialCritical
-                    ? AppColors.white
-                    : hazardColor == AppColors.transparent ||
-                            hazardColor.isLight
-                        ? (isVerified
-                              ? AlertCardStyle.bandShapeColor(severityBand)
-                              : widget.hazard.category?.resolvedColor ??
-                                    AppColors.grey)
-                        : AppColors.white,
-              ),
-              // Left: the SOURCE system, one badge and only one. Five
-              // possible values (AWS/OFFICIAL/COMMUNITY/GDACS/ALRT INTEL) -
-              // GDACS and ALRT Intel are official too, but naming them
-              // specifically (not folding into generic OFFICIAL) is what
-              // lets a reader tell a humanitarian-monitoring feed or ALRT's
-              // own assessment apart from a government agency at a glance.
-              _headerPillBuilder(
-                label: isAwsCompliant
-                    ? 'AWS'
-                    : widget.hazard.isAlrtIntel
-                    ? 'ALRT INTEL'
-                    : widget.hazard.isGlobalHumanitarian
-                    ? 'GDACS'
-                    : isVerified
-                    ? 'OFFICIAL'
-                    : 'COMMUNITY',
-                foregroundColor: pillForegroundColor,
-                backgroundColor: pillBackgroundColor,
-                backgroundColorAlpha: pillBackgroundColorAlpha,
-                borderColor: pillBorderColor,
-              ),
-              const Spacer(),
-              // Right: the severity word, and only the Australian Warning
-              // System ever writes one. No other source states a level.
-              if (isAwsCompliant &&
-                  severityTitle.isNotEmpty &&
-                  severityTitle != 'Unknown')
-                Text(
-                  severityTitle,
-                  style: TextStyle(
-                    fontSize: 13.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: isOfficialCritical
-                        ? AppColors.white
-                        : hazardColor == AppColors.transparent ||
-                              hazardColor.isLight
-                        ? AppColors.black
-                        : AppColors.white,
-                  ),
-                ),
-            ],
+        return Text(
+          hasExpired ? 'Expired' : timeago.format(dateTime!),
+          style: TextStyle(
+            fontSize: 12.spMin,
+            color: hasExpired ? AppColors.red : AlertCardStyle.metaInk,
           ),
         );
       },
     );
   }
 
-  /// "In plain terms" - mandatory on every card type, not just the detail
-  /// screen (locked rule). Same deterministic line as
-  /// ViewHazardScreen._buildPlainTermsBox, scaled down for a compact card.
+  /// "In plain terms" on the dark surface - mandatory on every official
+  /// card (locked rule). Same deterministic line as the detail screen.
   Widget _plainTermsBuilder() {
     return Consumer(
       builder: (context, ref, child) {
@@ -431,95 +302,35 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
 
         return Container(
           width: double.infinity,
-          color: AlertCardStyle.plainTermsBackground,
-          padding: EdgeInsets.symmetric(
-            horizontal: 10.spMin,
-            vertical: 6.spMin,
+          decoration: BoxDecoration(
+            color: AlertCardStyle.plainTermsBackground,
+            borderRadius: BorderRadius.circular(10.spMin),
           ),
-          child: Text(
-            plainTerms,
+          padding: EdgeInsets.symmetric(
+            horizontal: 11.spMin,
+            vertical: 8.spMin,
+          ),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: 'In plain terms ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AlertCardStyle.plainTermsLeadInk,
+                  ),
+                ),
+                TextSpan(text: plainTerms),
+              ],
+            ),
             style: TextStyle(
-              fontSize: 11.spMin,
-              height: 1.4,
+              fontSize: 11.5.spMin,
+              height: 1.45,
               color: Colors.white,
             ),
-            maxLines: 2,
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
-        );
-      },
-    );
-  }
-
-  Widget _headerPillBuilder({
-    required final String label,
-    final Color backgroundColor = AppColors.black,
-    final Color foregroundColor = AppColors.white,
-    final Color? borderColor,
-    final double backgroundColorAlpha = 0.2,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor.withValues(
-          alpha: backgroundColorAlpha,
-        ),
-        borderRadius: BorderRadius.circular(20.spMin),
-        border: borderColor != null
-            ? Border.all(color: borderColor, width: 1.0)
-            : null,
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: 10.spMin,
-        vertical: 4.spMin,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6.spMin,
-            height: 6.spMin,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: foregroundColor,
-            ),
-          ),
-          5.wSizedBox,
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11.spMin,
-              fontWeight: FontWeight.w700,
-              color: foregroundColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Triage in half a second: the source shape inside a band-tinted
-  /// rounded square. Shape = which system, tint = which band.
-  Widget _iconBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isAwsCompliant = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isAwsCompliant ?? false,
-          ),
-        );
-        final isOfficial = ref.watch(
-          provider.select((value) => value.hazard?.source != null),
-        );
-        final severityBand = ref.watch(
-          provider.select((value) => value.hazard?.severityBand),
-        );
-
-        return HazardShapeBadge(
-          isAws: isAwsCompliant,
-          isOfficial: isOfficial,
-          isGlobalHumanitarian: widget.hazard.isGlobalHumanitarian,
-          isAlrtIntel: widget.hazard.isAlrtIntel,
-          band: severityBand,
         );
       },
     );
@@ -539,8 +350,9 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         return Text(
           title,
           style: TextStyle(
-            fontSize: 16.spMin,
-            fontWeight: FontWeight.bold,
+            fontSize: 17.spMin,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
             color: AppColors.black,
           ),
           maxLines: 2,
@@ -550,73 +362,18 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
     );
   }
 
-  Widget _votesCountBuilder() {
+  /// Row 4. Official: a category dot, then "<source> · 8.4 km away".
+  /// Community: "Confirmed by ×N · 940 m away", with the corroboration
+  /// fragment left out while nobody has confirmed it. "Confirmed by" is
+  /// independent community reports, never official verification.
+  Widget _metaRowBuilder() {
     return Consumer(
       builder: (context, ref, child) {
-        final voteCount = ref.watch(
-          provider.select(
-            (value) => value.hazard!.voteCount,
-          ),
-        );
-        if (voteCount == 0) {
-          return const SizedBox.shrink();
-        }
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null) return const SizedBox.shrink();
 
-        return Container(
-          decoration: BoxDecoration(
-            color: voteCount > 0 ? AppColors.green : AppColors.red,
-            borderRadius: BorderRadius.circular(14.spMin),
-          ),
-          padding: EdgeInsets.symmetric(
-            horizontal: 10.spMin,
-            vertical: 4.spMin,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                voteCount > 0 ? LucideIcons.thumbsUp : LucideIcons.thumbsDown,
-                size: 14.spMin,
-                color: AppColors.white,
-              ),
-              4.wSizedBox,
-              Text(
-                '$voteCount',
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.white,
-                ),
-              ),
-            ],
-          ),
-        ).pL(5.0);
-      },
-    );
-  }
-
-  Widget _dateAndDistanceBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final dateTime = ref.watch(
-          provider.select(
-            (value) =>
-                value.hazard!.updatedAt ??
-                value.hazard!.occurredAt ??
-                value.hazard!.createdAt,
-          ),
-        );
-
-        final latitude = ref.watch(
-          provider.select(
-            (value) => value.hazard!.latitude,
-          ),
-        );
-        final longitude = ref.watch(
-          provider.select(
-            (value) => value.hazard!.longitude,
-          ),
-        );
-
+        final latitude = hazard.latitude;
+        final longitude = hazard.longitude;
         final distance = ref.watch(
           providerOfLocation.select(
             (value) => latitude == null || longitude == null
@@ -624,63 +381,52 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                 : value.distanceTo(latitude, longitude),
           ),
         );
-
         final distanceText = distance == null
             ? null
             : distance < 1000
-            ? '${distance.toStringAsFixed(1)} m'
-            : '${(distance / 1000).toStringAsFixed(1)} km';
+            ? '${distance.toStringAsFixed(0)} m away'
+            : '${(distance / 1000).toStringAsFixed(1)} km away';
 
-        final hasExpired = ref.watch(
-          provider.select(
-            (value) => value.hazard!.isExpired,
-          ),
-        );
+        final fragments = <String>[];
+        if (hazard.isUserReported) {
+          if (hazard.corroborationCount > 0) {
+            fragments.add('Confirmed by ×${hazard.corroborationCount}');
+          }
+        } else {
+          final sourceName = hazard.source?.name?.trim();
+          if (sourceName != null && sourceName.isNotEmpty) {
+            fragments.add(sourceName);
+          }
+        }
+        if (distanceText != null) fragments.add(distanceText);
+        if (fragments.isEmpty) return const SizedBox.shrink();
+
+        final categoryColor = hazard.category?.resolvedColor;
 
         return Row(
-          spacing: 8.spMin,
           children: [
-            if (dateTime != null)
-              Row(
-                children: [
-                  Icon(
-                    LucideIcons.clock,
-                    size: 12.spMin,
-                    color: hasExpired
-                        ? AppColors.red
-                        : AppColors.grey.withValues(alpha: 0.6),
-                  ),
-                  4.wSizedBox,
-                  Text(
-                    hasExpired ? 'Expired' : timeago.format(dateTime),
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      color: hasExpired ? AppColors.red : AppColors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+            if (!hazard.isUserReported && categoryColor != null) ...[
+              Container(
+                width: 8.spMin,
+                height: 8.spMin,
+                decoration: BoxDecoration(
+                  color: categoryColor,
+                  shape: BoxShape.circle,
+                ),
               ),
-
-            if (distanceText != null)
-              Row(
-                children: [
-                  Icon(
-                    LucideIcons.mapPin,
-                    size: 12.spMin,
-                    color: AppColors.grey.withValues(alpha: 0.6),
-                  ),
-                  4.wSizedBox,
-                  Text(
-                    distanceText,
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      color: AppColors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              6.wSizedBox,
+            ],
+            Expanded(
+              child: Text(
+                fragments.join(' · '),
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  color: AlertCardStyle.metaInk,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
+            ),
           ],
         );
       },
@@ -737,145 +483,20 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
 
         // One wording everywhere: the same label, helper and buttons as
         // the detail screen's vote section.
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 10.spMin,
-          children: [
-            const ConfirmationPrompt(),
-            ConfirmationButtons(
-              updateOnPressed: !isExpired,
-              initialVoteType: voteType,
-              initialVoteCount: voteCount,
-              onVotePressed: _voteOnHazard,
-            ),
-          ],
-        ).pT(2.0).pB(16.0);
-      },
-    );
-  }
-
-  Widget _categoryAndViewDetailsBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final categoryId = ref.watch(
-          provider.select(
-            (value) => value.hazard!.category?.id,
-          ),
-        );
-        final categoryName = ref.watch(
-          provider.select(
-            (value) =>
-                value.hazard!.category?.parent?.name ??
-                value.hazard!.category?.name ??
-                'Other',
-          ),
-        );
-        final categoryColor = ref.watch(
-          provider.select(
-            (value) =>
-                value.hazard!.category?.resolvedColor ?? AppColors.black,
-          ),
-        );
-        final darkenCategoryColor = categoryId == 'utilitiesAndInfrastructure'
-            ? categoryColor.darken(0.3)
-            : categoryColor.darken(0.2);
-
-        return Column(
-          children: [
-            Divider(
-              color: AppColors.lightGrey.withValues(alpha: 0.5),
-              height: 1.0,
-              thickness: 1.0,
-            ).pX(10.0),
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 16.spMin,
-                vertical: 12.spMin,
+        return Padding(
+          padding: EdgeInsets.only(top: 14.spMin),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 10.spMin,
+            children: [
+              const ConfirmationPrompt(),
+              ConfirmationButtons(
+                updateOnPressed: !isExpired,
+                initialVoteType: voteType,
+                initialVoteCount: voteCount,
+                onVotePressed: _voteOnHazard,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 14.spMin,
-                      vertical: 6.spMin,
-                    ),
-                    decoration: BoxDecoration(
-                      color: categoryColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20.spMin),
-                      border: Border.all(
-                        color: darkenCategoryColor,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Text(
-                      categoryName,
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        fontWeight: FontWeight.w600,
-                        color: darkenCategoryColor,
-                      ),
-                    ),
-                  ),
-                  // Share sits on the map callout too, so an alert can be
-                  // passed on without opening it first.
-                  const Spacer(),
-                  _shareButtonBuilder(),
-                  12.wSizedBox,
-                  GestureDetector(
-                    onTap: _gotoViewHazard,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View Details',
-                          style: TextStyle(
-                            fontSize: 14.spMin,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.ink,
-                            height: 1.0,
-                          ),
-                        ),
-                        4.wSizedBox,
-                        Icon(
-                          LucideIcons.arrowRight,
-                          size: 16.spMin,
-                          color: AppColors.ink,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _shareButtonBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final hazard = ref.watch(provider.select((value) => value.hazard));
-        if (hazard == null || !isAlertShareable(hazard)) {
-          return const SizedBox.shrink();
-        }
-
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => shareAlert(
-            ref: ref,
-            hazard: hazard,
-            from: widget.isInfoWindow ? 'map_callout' : 'card',
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(7.spMin),
-            child: Icon(
-              LucideIcons.share,
-              size: 17.spMin,
-              color: AppColors.grey,
-            ),
+            ],
           ),
         );
       },

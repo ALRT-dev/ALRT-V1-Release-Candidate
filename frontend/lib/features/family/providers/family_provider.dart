@@ -1598,9 +1598,12 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     required final String timeOfDay,
     final FamilyScheduledCheckInMode mode = FamilyScheduledCheckInMode.prompted,
   }) async {
+    // The backend resolves the phone's UTC offset to a zone so the daily
+    // reminder fires at the member's local time.
     final result = await _familyService.createFamilyScheduledCheckIn(
       timeOfDay: timeOfDay,
       mode: mode,
+      utcOffsetMinutes: DateTime.now().timeZoneOffset.inMinutes,
     );
     if (!mounted) return false;
 

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hazard_app/features/shared/extensions/color_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/views/widgets/base_bottomsheet_v2.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
+import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -32,6 +32,9 @@ class HazardFiltersBottomsheetContent extends ConsumerStatefulWidget {
 class _HazardFiltersBottomsheetContentState
     extends ConsumerState<HazardFiltersBottomsheetContent> {
   late final _filtersProvider = providerOfHazardFilters(widget.filtersKey);
+
+  /// The switch colour (product owner, 12 Oct 2026: the green toggle).
+  static const _toggleOn = AppColors.green;
 
   @override
   Widget build(BuildContext context) {
@@ -61,10 +64,10 @@ class _HazardFiltersBottomsheetContentState
                     20.hSizedBox,
                     // Who is speaking, how serious, then what kind. The
                     // key (shapes and colours) lives in the map's own Map
-                    // key sheet now, not here.
-                    _alertTypesSection(),
+                    // key sheet, not here.
+                    _whoIsSpeakingSection(),
                     16.hSizedBox,
-                    _awsWarningsSection(),
+                    _howSeriousSection(),
                     16.hSizedBox,
                     _categoriesSection(),
                     SafeArea(child: 20.hSizedBox),
@@ -158,100 +161,52 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
-  Widget _awsWarningsSection() {
+  /// The four sources, each behind its outline shape (product owner, 12 Oct
+  /// 2026): triangle, diamond, circle, shield. The square is gone; global
+  /// feeds show as Official.
+  Widget _whoIsSpeakingSection() {
     return Consumer(
       builder: (context, ref, child) {
-        final awsEmergency = ref.watch(
-          _filtersProvider.select((value) => value.awsEmergency),
+        final awsAdvice = ref.watch(
+          _filtersProvider.select((value) => value.awsAdvice),
         );
         final awsWatchAndAct = ref.watch(
           _filtersProvider.select((value) => value.awsWatchAndAct),
         );
-        final awsAdvice = ref.watch(
-          _filtersProvider.select((value) => value.awsAdvice),
-        );
-
-        return _sectionContainerBuilder(
-          title: 'How serious',
-          subtitle: 'Australian Warning System levels',
-          spacing: 5.0,
-          padding: EdgeInsets.only(
-            top: 18.spMin,
-            bottom: 10.spMin,
-            left: 18.spMin,
-            right: 18.spMin,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _checkboxBuilder(
-                title: 'Emergency Warning',
-                isEnabled: awsEmergency,
-                activeColor: AppColors.emergency,
-                onToggle: (value) {
-                  ref.read(_filtersProvider.notifier).updateAwsEmergency(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-              Divider(
-                color: AppColors.extraLightGrey,
-                height: 0.0,
-              ),
-              _checkboxBuilder(
-                title: 'Watch & Act',
-                isEnabled: awsWatchAndAct,
-                activeColor: AppColors.watchAndAct,
-                onToggle: (value) {
-                  ref
-                      .read(_filtersProvider.notifier)
-                      .updateAwsWatchAndAct(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-              Divider(
-                color: AppColors.extraLightGrey,
-                height: 0.0,
-              ),
-              _checkboxBuilder(
-                title: 'Advice',
-                isEnabled: awsAdvice,
-                activeColor: AppColors.advice.darken(0.01),
-                onToggle: (value) {
-                  ref.read(_filtersProvider.notifier).updateAwsAdvice(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _alertTypesSection() {
-    return Consumer(
-      builder: (context, ref, child) {
         final officialAlerts = ref.watch(
           _filtersProvider.select((value) => value.officialNonAws),
         );
         final userAlerts = ref.watch(
           _filtersProvider.select((value) => value.userReported),
         );
-
-        final alrtIntel = ref.watch(
+        final alrtAssessment = ref.watch(
           _filtersProvider.select((value) => value.alrtIntel),
         );
 
-        // The same five systems as the map's "Show alerts from", with the
-        // same names, so the feed and the map filter one way (product
-        // owner 2026-08-07). AWS has its own level section above.
         return _sectionContainerBuilder(
           title: 'Who is speaking',
-          subtitle: 'The same sources as the map',
+          subtitle: 'Shape says who. The same sources as the map.',
           child: Column(
             children: [
+              // AWS has no switch of its own on the server: its yellow and
+              // orange levels are the two switches below, and red never
+              // hides. This row flips both of those together.
               _switchBuilder(
-                title: 'Official',
+                icon: LucideIcons.triangle,
+                title: 'AWS warnings',
+                subtitle: 'Emergency Warnings always show',
+                isEnabled: awsAdvice || awsWatchAndAct,
+                onToggle: (value) {
+                  final notifier = ref.read(_filtersProvider.notifier);
+                  notifier.updateAwsAdvice(value);
+                  notifier.updateAwsWatchAndAct(value);
+                  widget.onFiltersUpdated?.call();
+                },
+              ),
+              10.hSizedBox,
+              _switchBuilder(
+                icon: LucideIcons.diamond,
+                title: 'Official sources',
                 subtitle: 'State agencies, services and global feeds',
                 isEnabled: officialAlerts,
                 onToggle: (value) {
@@ -263,8 +218,9 @@ class _HazardFiltersBottomsheetContentState
               ),
               10.hSizedBox,
               _switchBuilder(
-                title: 'Community',
-                subtitle: 'Reports from people nearby',
+                icon: LucideIcons.circle,
+                title: 'Community reports',
+                subtitle: 'From people nearby. Always Unverified',
                 isEnabled: userAlerts,
                 onToggle: (value) {
                   ref.read(_filtersProvider.notifier).updateUserReported(value);
@@ -273,9 +229,10 @@ class _HazardFiltersBottomsheetContentState
               ),
               10.hSizedBox,
               _switchBuilder(
-                title: 'ALRT Intel',
-                subtitle: "ALRT's own assessment",
-                isEnabled: alrtIntel,
+                icon: LucideIcons.shield,
+                title: 'ALRT Assessment',
+                subtitle: 'Named sources. Never restates a warning',
+                isEnabled: alrtAssessment,
                 onToggle: (value) {
                   ref.read(_filtersProvider.notifier).updateAlrtIntel(value);
                   widget.onFiltersUpdated?.call();
@@ -286,6 +243,75 @@ class _HazardFiltersBottomsheetContentState
         );
       },
     );
+  }
+
+  /// The four colours, named by colour and nothing else (product owner,
+  /// 12 Oct 2026). Yellow and orange are the AWS Advice and Watch and Act
+  /// switches, and the state applies the same switch to the matching band
+  /// on official alerts. Red is never hidden. Grey has no switch of its
+  /// own on the server, so it shows as always on while Official is on.
+  Widget _howSeriousSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final awsWatchAndAct = ref.watch(
+          _filtersProvider.select((value) => value.awsWatchAndAct),
+        );
+        final awsAdvice = ref.watch(
+          _filtersProvider.select((value) => value.awsAdvice),
+        );
+
+        return _sectionContainerBuilder(
+          title: 'How serious',
+          subtitle: 'Colour says how serious. One colour, one meaning.',
+          spacing: 6.0,
+          child: Column(
+            children: [
+              _colourRowBuilder(
+                swatch: AppColors.info,
+                title: 'Grey',
+                subtitle: 'Official, lowest level',
+                isEnabled: null,
+              ),
+              _dividerBuilder(),
+              _colourRowBuilder(
+                swatch: AppColors.advice,
+                title: 'Yellow',
+                subtitle: 'AWS Advice and official equivalents',
+                isEnabled: awsAdvice,
+                onToggle: (value) {
+                  ref.read(_filtersProvider.notifier).updateAwsAdvice(value);
+                  widget.onFiltersUpdated?.call();
+                },
+              ),
+              _dividerBuilder(),
+              _colourRowBuilder(
+                swatch: AppColors.watchAndAct,
+                title: 'Orange',
+                subtitle: 'AWS Watch and Act and official equivalents',
+                isEnabled: awsWatchAndAct,
+                onToggle: (value) {
+                  ref
+                      .read(_filtersProvider.notifier)
+                      .updateAwsWatchAndAct(value);
+                  widget.onFiltersUpdated?.call();
+                },
+              ),
+              _dividerBuilder(),
+              _colourRowBuilder(
+                swatch: AppColors.emergency,
+                title: 'Red',
+                subtitle: 'AWS Emergency Warning and official equivalents',
+                isEnabled: null,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _dividerBuilder() {
+    return const Divider(color: AppColors.extraLightGrey, height: 0.0);
   }
 
   Widget _categoriesSection() {
@@ -379,80 +405,118 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
-  Widget _checkboxBuilder({
+  /// One colour row: a 14 px rounded swatch, the colour's name, what it
+  /// covers, and either a switch or the "Always on" pill ([isEnabled]
+  /// null) for a colour that cannot be hidden.
+  Widget _colourRowBuilder({
+    required final Color swatch,
     required final String title,
-    required final bool isEnabled,
-    final Color activeColor = AppColors.primary,
-    required final ValueChanged<bool> onToggle,
+    required final String subtitle,
+    required final bool? isEnabled,
+    final ValueChanged<bool>? onToggle,
   }) {
-    return Row(
+    final row = Row(
       children: [
         Container(
-          width: 22.spMin,
-          height: 22.spMin,
+          width: 14.spMin,
+          height: 14.spMin,
           decoration: BoxDecoration(
-            color: isEnabled ? activeColor : Colors.transparent,
-            borderRadius: BorderRadius.circular(6.spMin),
-            border: Border.all(
-              color: isEnabled
-                  ? activeColor
-                  : AppColors.grey.withValues(alpha: 0.4),
-              width: 1.2,
-            ),
-            boxShadow: [
-              if (isEnabled)
-                BoxShadow(
-                  color: activeColor.withValues(alpha: 0.22),
-                  blurRadius: 6,
-                  offset: const Offset(0.0, 2.0),
-                ),
-            ],
+            color: swatch,
+            borderRadius: BorderRadius.circular(4.spMin),
           ),
-          child: isEnabled
-              ? Icon(
-                  LucideIcons.check,
-                  color: AppColors.white,
-                  size: 16.spMin,
-                )
-              : null,
         ),
         12.wSizedBox,
         Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 16.spMin,
-              color: AppColors.black,
-              fontWeight: FontWeight.w500,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16.spMin,
+                  color: AppColors.black,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              2.hSizedBox,
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  color: AppColors.grey,
+                ),
+              ),
+            ],
           ),
         ),
+        8.wSizedBox,
+        if (isEnabled == null || onToggle == null)
+          _alwaysOnPillBuilder()
+        else
+          _togglerBuilder(
+            isEnabled: isEnabled,
+            onToggle: onToggle,
+            activeColor: _toggleOn,
+          ),
       ],
-    ).pY(18.0).onPressed(() => onToggle(!isEnabled));
+    ).pY(12.0);
+    if (isEnabled == null || onToggle == null) return row;
+    return row.onPressed(() => onToggle(!isEnabled));
   }
 
+  Widget _alwaysOnPillBuilder() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 5.spMin),
+      decoration: BoxDecoration(
+        color: _toggleOn.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        'Always on',
+        style: TextStyle(
+          fontSize: 12.spMin,
+          fontWeight: FontWeight.w700,
+          color: _toggleOn,
+        ),
+      ),
+    );
+  }
+
+  /// One source row: its outline shape, the name, one line, and a switch.
   Widget _switchBuilder({
+    required final IconData icon,
     required final String title,
     required final String subtitle,
     required final bool isEnabled,
     required final ValueChanged<bool> onToggle,
   }) {
     return Container(
-      padding: EdgeInsets.all(16.spMin),
+      padding: EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
         color: isEnabled
-            ? AppColors.orange.withValues(alpha: 0.06)
+            ? _toggleOn.withValues(alpha: 0.06)
             : AppColors.transparent,
         borderRadius: BorderRadius.circular(16.spMin),
         border: Border.all(
           color: isEnabled
-              ? AppColors.orange.withValues(alpha: 0.5)
+              ? _toggleOn.withValues(alpha: 0.45)
               : AppColors.lightGrey,
           width: 1.0,
         ),
       ),
       child: Row(
         children: [
+          Container(
+            width: 34.spMin,
+            height: 34.spMin,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.extraLightGrey,
+              borderRadius: BorderRadius.circular(10.spMin),
+            ),
+            child: HazardShapeBadge.outlineGlyph(icon: icon, size: 18.spMin),
+          ),
+          12.wSizedBox,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,10 +540,11 @@ class _HazardFiltersBottomsheetContentState
               ],
             ),
           ),
+          8.wSizedBox,
           _togglerBuilder(
             isEnabled: isEnabled,
             onToggle: onToggle,
-            activeColor: AppColors.orange,
+            activeColor: _toggleOn,
           ),
         ],
       ),

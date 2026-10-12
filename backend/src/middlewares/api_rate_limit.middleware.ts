@@ -112,6 +112,27 @@ export const mapsProxyUserLimiter = rateLimit({
 });
 
 /**
+ * After requireAuth - "Send to my group" on an alert
+ * (POST /api/family/hazards/:hazardId/share): 10 shares per user per 10
+ * minutes, on top of the general API limit, so one account cannot spam a
+ * group's lock screens. In-memory (per process), keyed on res.userId.
+ */
+export const FAMILY_HAZARD_SHARE_LIMIT = 10;
+export const FAMILY_HAZARD_SHARE_WINDOW_MS = 10 * 60 * 1000;
+export const familyHazardShareUserLimiter = rateLimit({
+  windowMs: FAMILY_HAZARD_SHARE_WINDOW_MS,
+  max: FAMILY_HAZARD_SHARE_LIMIT,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: limiterValidate,
+  keyGenerator: (req: Request, res: Response) =>
+    res.userId ? `u:${res.userId}` : rateLimitKey(req),
+  handler: json429Handler(
+    `You can send up to ${FAMILY_HAZARD_SHARE_LIMIT} alerts to your groups every 10 minutes. Please try again later.`,
+  ),
+});
+
+/**
  * Admin Portal Ask ALRT test page (POST /api/admin/ask-alrt/ask): 50 asks
  * per admin per hour, so a stuck test loop or a shared admin login can't
  * run up the Bedrock bill. In-memory (per process), keyed on the admin id

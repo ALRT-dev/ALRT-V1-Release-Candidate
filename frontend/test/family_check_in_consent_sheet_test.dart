@@ -39,8 +39,9 @@ void main() {
   /// the sheet's own result future, so a test can tap and then await it.
   Future<Future<CheckInConsentChoice?>> pumpSheet(
     WidgetTester tester,
-    FamilySharingLevel? level,
-  ) async {
+    FamilySharingLevel? level, {
+    bool offerNeedHelp = false,
+  }) async {
     late BuildContext hostContext;
     await tester.binding.setSurfaceSize(const Size(375, 812));
     await tester.pumpWidget(
@@ -58,7 +59,11 @@ void main() {
         ),
       ),
     );
-    final result = showCheckInConsentSheet(hostContext, sharingLevel: level);
+    final result = showCheckInConsentSheet(
+      hostContext,
+      sharingLevel: level,
+      offerNeedHelp: offerNeedHelp,
+    );
     await tester.pumpAndSettle();
     return result;
   }
@@ -91,6 +96,8 @@ void main() {
     expect(find.text('Check in and share my location'), findsOneWidget);
     expect(find.text('Just check in'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
+    // Callers that cannot carry the needsHelp status never see the button.
+    expect(find.text('I need help'), findsNothing);
     expect(
       shareButtonEnabled(tester, 'Check in and share my location'),
       isTrue,
@@ -153,5 +160,26 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(await result, isNull);
+  });
+
+  testWidgets('"I need help" sits between the share buttons and Cancel',
+      (tester) async {
+    final result = await pumpSheet(
+      tester,
+      FamilySharingLevel.precise,
+      offerNeedHelp: true,
+    );
+    expect(find.text('I need help'), findsOneWidget);
+    // Order on the sheet: Just check in, the two share buttons, I need
+    // help, Cancel.
+    final suburbY =
+        tester.getTopLeft(find.text('Check in and share my suburb')).dy;
+    final helpY = tester.getTopLeft(find.text('I need help')).dy;
+    final cancelY = tester.getTopLeft(find.text('Cancel')).dy;
+    expect(helpY, greaterThan(suburbY));
+    expect(cancelY, greaterThan(helpY));
+    await tester.tap(find.text('I need help'));
+    await tester.pumpAndSettle();
+    expect(await result, CheckInConsentChoice.needHelp);
   });
 }

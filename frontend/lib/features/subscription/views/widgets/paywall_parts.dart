@@ -390,11 +390,16 @@ class PlanCoverageCard extends StatelessWidget {
     this.actionLabel,
     this.onAction,
     this.actionIdentity,
+    this.outlinedAction = false,
   });
 
   /// Colours the action on a white card (for example "See ALRT +" in
   /// purple). Ignored on a gradient card.
   final PlanIdentity? actionIdentity;
+
+  /// Draws the action as an outlined button (the "Cover" button on a
+  /// group row) instead of a filled one. Ignored on a gradient card.
+  final bool outlinedAction;
 
   /// Null = not in force: a white card.
   final PlanIdentity? identity;
@@ -502,7 +507,36 @@ class PlanCoverageCard extends StatelessWidget {
               ),
             ),
           ],
-          if (actionLabel != null && onAction != null) ...[
+          if (actionLabel != null &&
+              onAction != null &&
+              !on &&
+              outlinedAction) ...[
+            SizedBox(height: 12.spMin),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onAction,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: actionIdentity?.accent ?? ink,
+                  side: BorderSide(
+                    color: actionIdentity?.accent ?? kPaywallLine,
+                    width: 1.5,
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 12.spMin),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.spMin),
+                  ),
+                ),
+                child: Text(
+                  actionLabel!,
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ] else if (actionLabel != null && onAction != null) ...[
             SizedBox(height: 12.spMin),
             SizedBox(
               width: double.infinity,
@@ -537,15 +571,25 @@ class PlanCoverageCard extends StatelessWidget {
 }
 
 /// Green (Family) into blue (Group), for anything that means "a group
-/// plan" before the size is chosen.
+/// plan" before the size is chosen: the Family gradient's dark end into
+/// the Group gradient's light end (product owner 2026-09-28).
 const kGroupPlansGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF05603B), Color(0xFF1F5CAD)],
+  colors: [Color(0xFF05603B), Color(0xFF2468C4)],
 );
 
-/// A choice between plans, on the plan's gradient: eyebrow, title, one
-/// line of what it covers, and a chevron when it can be tapped.
+/// The ALRT + (personal) gradient, #4A1766 -> #8E3FB3 (product owner
+/// 2026-09-28), for the chooser's personal card and the Profile entry.
+const kAlrtPlusGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF4A1766), Color(0xFF8E3FB3)],
+);
+
+/// A choice between plans, on the plan's gradient: eyebrow (with the
+/// store's price line at its right when one is known), title, one line of
+/// what it covers, and a chevron when it can be tapped.
 class PlanChoiceCard extends StatelessWidget {
   const PlanChoiceCard({
     super.key,
@@ -555,6 +599,7 @@ class PlanChoiceCard extends StatelessWidget {
     required this.body,
     this.onTap,
     this.footnote,
+    this.priceLine,
   });
 
   final Gradient gradient;
@@ -565,6 +610,11 @@ class PlanChoiceCard extends StatelessWidget {
 
   /// Shown under the body, for example why it can't be chosen yet.
   final String? footnote;
+
+  /// The store's own price wording ("A\$5.99 a month · 2-week free
+  /// trial", "from A\$15.99 a month"), right of the eyebrow. Null or
+  /// empty shows nothing: never a typed price.
+  final String? priceLine;
 
   @override
   Widget build(BuildContext context) {
@@ -586,14 +636,32 @@ class PlanChoiceCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        eyebrow,
-                        style: TextStyle(
-                          fontSize: 11.5.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              eyebrow,
+                              style: TextStyle(
+                                fontSize: 11.5.spMin,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.1,
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                            ),
+                          ),
+                          if (priceLine != null && priceLine!.isNotEmpty) ...[
+                            SizedBox(width: 8.spMin),
+                            Text(
+                              priceLine!,
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 11.5.spMin,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white.withValues(alpha: 0.95),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       SizedBox(height: 6.spMin),
                       Text(

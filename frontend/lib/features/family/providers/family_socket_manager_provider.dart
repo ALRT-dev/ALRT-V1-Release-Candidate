@@ -29,6 +29,10 @@ class FamilySocketEvents {
   // (finding 4, review of 28bdec1).
   static const sosLocation = 'familySosLocation';
   static const hazardProximity = 'familyHazardProximity';
+  // A member sent a public alert to the group from the alert detail screen
+  // ("Send to my group"). Payload: {hazardId, circleId, hazardTitle,
+  // senderMemberId, senderName, message?}. Never a location.
+  static const hazardShare = 'familyHazardShare';
 
   static const all = <String>[
     circleUpdate,
@@ -42,6 +46,7 @@ class FamilySocketEvents {
     sosResolved,
     sosLocation,
     hazardProximity,
+    hazardShare,
   ];
 }
 
@@ -81,6 +86,8 @@ class FamilySocketManager {
   final _sosLocationStreamController =
       StreamController<Map<String, dynamic>>.broadcast();
   final _hazardProximityStreamController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final _hazardShareStreamController =
       StreamController<Map<String, dynamic>>.broadcast();
 
   /// Fires when the circle itself changed (members joined/left, renamed, ...).
@@ -127,6 +134,11 @@ class FamilySocketManager {
   /// Broadcasts raw hazard proximity payloads for circle members.
   Stream<Map<String, dynamic>> get hazardProximityStream =>
       _hazardProximityStreamController.stream;
+
+  /// Broadcasts raw "a member sent you an alert" payloads
+  /// ({hazardId, circleId, hazardTitle, senderName, message?}).
+  Stream<Map<String, dynamic>> get hazardShareStream =>
+      _hazardShareStreamController.stream;
 
   /// Registers listeners on the raw socket. The family events are not part of
   /// the shared [SocketEvent] enum, so we register on the socket directly and
@@ -259,6 +271,15 @@ class FamilySocketManager {
         }
       },
     );
+
+    socket.on(
+      FamilySocketEvents.hazardShare,
+      (data) {
+        if (data is Map) {
+          _hazardShareStreamController.add(Map<String, dynamic>.from(data));
+        }
+      },
+    );
   }
 
   /// Parses [data] with [parse] and adds it to [controller],
@@ -294,5 +315,6 @@ class FamilySocketManager {
     _sosResolvedStreamController.close();
     _sosLocationStreamController.close();
     _hazardProximityStreamController.close();
+    _hazardShareStreamController.close();
   }
 }

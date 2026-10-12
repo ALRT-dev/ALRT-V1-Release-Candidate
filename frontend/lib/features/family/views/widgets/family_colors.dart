@@ -20,7 +20,7 @@ class FamilyColors {
   static const safeGreen = Color(0xFF27AE60);
 
   /// The check-in button: the approved prototype's green gradient
-  /// (#149A4A → #0B7A3B) with WHITE text and icons — the owner's decision
+  /// (#149A4A → #0B7A3B) with WHITE text and icons - the owner's decision
   /// of 8 September 2026 replaces the earlier dark-ink treatment. The top
   /// stop is nudged from #149A4A to #10843F so white measures 4.6:1 there
   /// and 5.4:1 at the deep end (WCAG AA is 4.5:1).
@@ -48,25 +48,40 @@ class FamilyColors {
 
   // ── State colours (hub header, footer slot, member rings) ─────────────
 
-  /// Teal for the "check-in asked of you" state — footer, header, member
+  /// Teal for the "check-in asked of you" state - footer, header, member
   /// rings. Chosen over green so it reads as "awaiting" rather than "safe".
   static const teal = Color(0xFF0D9488);
 
   /// The deeper end of the teal gradient for the header band.
   static const tealDeep = Color(0xFF0F766E);
 
-  /// The teal header gradient: bright teal at the top left falling through
-  /// the deeper stop into a near-dark teal.
+  /// The teal header gradient for "a check-in is asked of you": a vivid
+  /// aqua top-left falling through the footer teal into a deep sea green
+  /// (product owner 12 Oct 2026: the flat teal read as bland). The
+  /// footer and rings keep [teal]; only the header band takes this.
   static const tealHeaderGradient = LinearGradient(
     begin: Alignment(-0.7, -1),
     end: Alignment(0.6, 1),
-    stops: [0.0, 0.55, 1.0],
+    stops: [0.0, 0.5, 1.0],
     colors: [
+      Color(0xFF2DD4BF),
       Color(0xFF0D9488),
-      Color(0xFF0F766E),
-      Color(0xFF0A5C53),
+      Color(0xFF115E59),
     ],
   );
+
+  /// The soft highlight over [tealHeaderGradient] top-right, the same
+  /// device the indigo header uses so the two bands feel like one family.
+  static const tealHeaderHighlight = RadialGradient(
+    center: Alignment(0.85, -0.9),
+    radius: 1.1,
+    colors: [Color(0x5599F6E4), Color(0x0099F6E4)],
+  );
+
+  /// "Checked in" pill: a cleaner, deeper green on a mint wash, replacing
+  /// the brighter pair that read as neon beside the indigo.
+  static const checkedInInk = Color(0xFF15803D);
+  static const checkedInWash = Color(0xFFDCFCE7);
 
   /// The SOS header gradient: the approved red band.
   static const sosHeaderGradient = LinearGradient(

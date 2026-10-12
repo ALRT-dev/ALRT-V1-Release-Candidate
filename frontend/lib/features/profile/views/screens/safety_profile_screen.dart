@@ -8,6 +8,16 @@ import 'package:hazard_app/features/profile/providers/safety_profile_provider.da
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:hazard_app/features/notification/views/widgets/accessible_alerts_section.dart';
 
+/// What the chip says for [cohort] on this screen. Display only: the
+/// persisted id and the stored label never change. "Older adult" reads
+/// "Older person"; "Visiting Australia" reads "Visitor" (ALRT is a global
+/// app, so the chip no longer names one country).
+String safetyCohortDisplayLabel(final SafetyCohort cohort) => switch (cohort) {
+  SafetyCohort.older => 'Older person',
+  SafetyCohort.visitor => 'Visitor',
+  _ => cohort.label,
+};
+
 /// The safety profile: coarse cohort chips that tailor For You guidance.
 ///
 /// Everything ticked here stays on the phone; nothing is sent to a server.
@@ -252,9 +262,8 @@ class SafetyProfileScreen extends ConsumerWidget {
 
   /// Display names that differ from the stored cohort label. The id and
   /// stored label are untouched; only what the chip says changes.
-  String _displayLabel(final SafetyCohort cohort) {
-    return cohort == SafetyCohort.older ? 'Older person' : cohort.label;
-  }
+  String _displayLabel(final SafetyCohort cohort) =>
+      safetyCohortDisplayLabel(cohort);
 
   Widget _onboardingFooter(final BuildContext context) {
     return SafeArea(

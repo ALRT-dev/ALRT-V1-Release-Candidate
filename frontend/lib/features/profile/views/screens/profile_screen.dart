@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/screens/family_journey_screen.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
@@ -31,6 +32,7 @@ import 'package:hazard_app/features/notification/views/screens/accessible_alerts
 import 'package:hazard_app/features/profile/views/screens/add_widget_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/leaderboard_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/points_breakdown_screen.dart';
+import 'package:hazard_app/features/profile/views/widgets/edit_profile_sheet.dart';
 import 'package:hazard_app/features/profile/views/widgets/profile_xp_progress.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
@@ -39,7 +41,6 @@ import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/profile/views/widgets/share_alrt_sheet.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_wrapper.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:hazard_app/features/profile/views/screens/blocked_accounts_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/child_mode_screen.dart';
@@ -50,8 +51,11 @@ import 'package:hazard_app/features/shared/utils/app_links.dart';
 /// (9 Oct 2026): a plain white header with the avatar inside a thin
 /// readiness ring, a "Finish setting up" card, the XP card, the one
 /// ALRT + entry on the plan's purple gradient, then grouped list cards
-/// (YOUR ALERTS, FAMILY, ACCOUNT, PRIVACY) with plain black Lucide icons,
-/// and Log out / Delete account at the bottom.
+/// (YOUR ALERTS, FAMILY, ACCOUNT, PRIVACY) whose Lucide icons sit in a
+/// 36 px tinted square per group (orange, Family indigo, ink on the page
+/// grey), and Log out / Delete account at the bottom. The avatar and the
+/// Edit link open the Edit profile sheet (photo, display name, email, home
+/// region).
 ///
 /// Every navigation target is wired exactly as before: same screens, same
 /// args, same route constants.
@@ -106,6 +110,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const _plusEnd = Color(0xFF8E3FB3);
   static const _plusPurple = Color(0xFF7B359A);
   static const _danger = Color(0xFFDA1F2D);
+
+  // Row icon badges (Me board, 12 Oct 2026): one tint per group.
+  static const _alertsIcon = AppColors.orange;
+  static const _alertsIconBg = Color(0xFFFFF1E8);
+  static const _familyIcon = FamilyColors.indigo;
+  static const _familyIconBg = FamilyColors.v31Page;
+  static const _neutralIcon = AppColors.ink;
+  static const _neutralIconBg = _page;
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +217,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               _buildAvatarWithRing(
                 userName: userName,
                 fraction: readiness.fraction,
-              ).onPressed(_showEditPhotoSheet),
+              ).onPressed(_openEditProfile),
               SizedBox(width: 14.spMin),
               Expanded(
                 child: Column(
@@ -246,7 +258,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     color: AppColors.orange,
                   ),
                 ),
-              ).onPressed(_showEditPhotoSheet),
+              ).onPressed(_openEditProfile),
             ],
           ),
         ),
@@ -621,6 +633,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       label: 'Your alerts',
       rows: [
         _buildRow(
+          iconColor: _alertsIcon,
+          iconBackground: _alertsIconBg,
           icon: LucideIcons.bell,
           title: 'Notifications',
           subtitle: 'Official and community · sound and vibration inside',
@@ -630,6 +644,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
         _buildRow(
+          iconColor: _alertsIcon,
+          iconBackground: _alertsIconBg,
           icon: LucideIcons.mapPin,
           title: 'Saved places',
           subtitle: savedSubtitle,
@@ -639,6 +655,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
         _buildRow(
+          iconColor: _alertsIcon,
+          iconBackground: _alertsIconBg,
           icon: LucideIcons.shield,
           title: 'Safety profile',
           subtitle: readiness.safetyProfile
@@ -647,12 +665,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           onTap: () => context.push(SafetyProfileScreen.route),
         ),
         _buildRow(
+          iconColor: _alertsIcon,
+          iconBackground: _alertsIconBg,
           icon: LucideIcons.layoutGrid,
           title: 'Home screen widget',
           subtitle: 'Nearby alerts or family at a glance',
           onTap: () => context.push(AddWidgetScreen.route),
         ),
         _buildRow(
+          iconColor: _alertsIcon,
+          iconBackground: _alertsIconBg,
           icon: LucideIcons.vibrate,
           title: 'Accessible alerts',
           subtitle: 'Strong vibration, read aloud',
@@ -682,6 +704,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       label: 'Family',
       rows: [
         _buildRow(
+          iconColor: _familyIcon,
+          iconBackground: _familyIconBg,
           icon: LucideIcons.users,
           title: 'Family and check-ins',
           subtitle: familySubtitle,
@@ -689,6 +713,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ref.read(providerOfHomeTab.notifier).state = HomeTab.family,
         ),
         _buildRow(
+          iconColor: _familyIcon,
+          iconBackground: _familyIconBg,
           icon: LucideIcons.route,
           title: 'Journey sharing',
           subtitle: 'See shared journeys and live trips',
@@ -827,20 +853,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// One list row: plain black 22 px Lucide icon, 16/700 title, 13 px
-  /// muted subtitle, chevron. No tinted icon badges.
+  /// One list row: a 20 px Lucide icon in a 36 px radius-10 tinted square
+  /// ([iconColor] on [iconBackground], one pair per group), 16/700 title,
+  /// 13 px muted subtitle, chevron.
   Widget _buildRow({
     required final IconData icon,
     required final String title,
     required final String subtitle,
     required final VoidCallback onTap,
+    final Color iconColor = _neutralIcon,
+    final Color iconBackground = _neutralIconBg,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
+      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 12.spMin),
       child: Row(
         children: [
-          Icon(icon, size: 22.spMin, color: AppColors.black),
-          SizedBox(width: 14.spMin),
+          Container(
+            width: 36.spMin,
+            height: 36.spMin,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: iconBackground,
+              borderRadius: BorderRadius.circular(10.spMin),
+            ),
+            child: Icon(icon, size: 20.spMin, color: iconColor),
+          ),
+          SizedBox(width: 12.spMin),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -964,77 +1002,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // Sheets and navigation
   // ---------------------------------------------------------------
 
-  /// Bottom sheet to change the profile photo. No name/email editing
-  /// here: that is not implemented.
-  void _showEditPhotoSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: EdgeInsets.all(16.spMin),
-              child: Text(
-                'Edit photo',
-                style: TextStyle(
-                  fontSize: 18.spMin,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.camera, color: AppColors.black),
-              title: Text(
-                'Take photo',
-                style:
-                    TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w600),
-              ),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                ref
-                    .read(providerOfProfile.notifier)
-                    .updateProfilePicture(source: ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.image, color: AppColors.black),
-              title: Text(
-                'Choose from library',
-                style:
-                    TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w600),
-              ),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                ref
-                    .read(providerOfProfile.notifier)
-                    .updateProfilePicture(source: ImageSource.gallery);
-              },
-            ),
-            if (ref.read(providerOfLoggedInUser)?.processedProfilePicture !=
-                null)
-              ListTile(
-                leading: const Icon(LucideIcons.trash2, color: _danger),
-                title: Text(
-                  'Remove photo',
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  ref.read(providerOfProfile.notifier).deleteProfilePicture();
-                },
-              ),
-            SizedBox(height: 8.spMin),
-          ],
-        ),
-      ),
-    );
+  /// The Edit profile sheet: photo (the old picker lives inside it),
+  /// display name, sign-in email and the home region for alerts.
+  void _openEditProfile() {
+    showEditProfileSheet(context);
   }
 
   /// Journey sharing only has a real destination once the user actually

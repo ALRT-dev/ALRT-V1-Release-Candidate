@@ -20,6 +20,9 @@ export enum PushNotificationType {
   familyLocationShared = "familyLocationShared",
   familyScheduledCheckInPrompt = "familyScheduledCheckInPrompt", // Daily reminder to check in
   familyJourneyShared = "familyJourneyShared", // sent only to the picked recipients
+  // A member sent a public alert to their group from the alert detail
+  // screen: deep-links into that hazard (data.hazardId), never a location.
+  familyHazardShare = "familyHazardShare",
 
   // A test the signed-in user sent to their own phones from Manage
   // notifications. Never reaches anyone else.

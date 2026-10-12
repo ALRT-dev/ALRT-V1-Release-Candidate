@@ -106,6 +106,11 @@ class _AlrtPlusGroupPaywallScreenState
     extends ConsumerState<AlrtPlusGroupPaywallScreen> {
   static const _tiers = [PlanTier.family, PlanTier.group20, PlanTier.group50];
 
+  /// V3 section label rust, and the selected size tile's fill and border.
+  static const _sectionLabelColor = Color(0xFFB84500);
+  static const _selectedTile = Color(0xFFE6F7EC);
+  static const _selectedBorder = Color(0xFF16A34A);
+
   Offering? _offering;
   bool _loading = true;
   bool _busy = false;
@@ -416,12 +421,21 @@ class _AlrtPlusGroupPaywallScreenState
                     ),
                   ),
                 SizedBox(height: 16.spMin),
-                _sectionLabel('Plan'),
-                for (final t in _tiers) ...[
-                  _tierRow(t, group, selectedTier: tier),
-                  SizedBox(height: 8.spMin),
-                ],
-                SizedBox(height: 8.spMin),
+                _sectionLabel('Plan size'),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < _tiers.length; i++) ...[
+                        if (i > 0) SizedBox(width: 8.spMin),
+                        Expanded(
+                          child: _tierTile(_tiers[i], group, selectedTier: tier),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(height: 16.spMin),
                 PaywallCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,6 +527,7 @@ class _AlrtPlusGroupPaywallScreenState
     );
   }
 
+  /// V3 section label: #B84500, uppercase, letter-spaced.
   Widget _sectionLabel(final String text) => Padding(
     padding: EdgeInsets.only(left: 4.spMin, bottom: 8.spMin),
     child: Text(
@@ -520,8 +535,8 @@ class _AlrtPlusGroupPaywallScreenState
       style: TextStyle(
         fontSize: 11.spMin,
         fontWeight: FontWeight.w800,
-        letterSpacing: 0.8,
-        color: kPaywallInkFaint,
+        letterSpacing: 1.0,
+        color: _sectionLabelColor,
       ),
     ),
   );
@@ -582,27 +597,28 @@ class _AlrtPlusGroupPaywallScreenState
     );
   }
 
-  /// Name and capacity on the left, the store's monthly price on the right.
-  Widget _tierRow(
+  /// One of three equal tiles: the size name, "up to N", the store's
+  /// monthly price under it, and a state line when the plan can't simply
+  /// be bought (your current plan, upgrade, too small, change in store).
+  /// The selected tile fills #E6F7EC with a green border.
+  Widget _tierTile(
     final PlanTier tier,
     final GroupAccess? group, {
     required final PlanTier selectedTier,
   }) {
-    final identity = PlanIdentity.of(tier);
     final selected = selectedTier == tier;
     final choice = _choice(tier, group);
     final enabled = choice == TierChoice.buy || choice == TierChoice.upgrade;
     final price = _priceFor(tier);
     final period = _periodFor(tier);
-    final accent = identity.accentFor(context);
-    final people = 'Up to ${sponsoredCapacity(tier)} people';
-    final subtitle = switch (choice) {
-      TierChoice.buy => people,
-      TierChoice.upgrade => '$people · upgrade',
-      TierChoice.current => '$people · your current plan',
-      TierChoice.smaller => '$people · change in your app store',
-      TierChoice.tooSmall => '$people · too small for this group',
+    final String? state = switch (choice) {
+      TierChoice.buy => null,
+      TierChoice.upgrade => 'Upgrade',
+      TierChoice.current => 'Your current plan',
+      TierChoice.smaller => 'Change in your app store',
+      TierChoice.tooSmall => 'Too small for this group',
     };
+    final on = selected && enabled;
     return Opacity(
       opacity: enabled || choice == TierChoice.current ? 1 : 0.5,
       child: InkWell(
@@ -610,64 +626,66 @@ class _AlrtPlusGroupPaywallScreenState
         onTap: enabled ? () => setState(() => _tier = tier) : null,
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: 14.spMin,
+            horizontal: 10.spMin,
             vertical: 12.spMin,
           ),
           decoration: BoxDecoration(
-            color: selected && enabled ? identity.tint : Colors.white,
+            color: on ? _selectedTile : Colors.white,
             borderRadius: BorderRadius.circular(16.spMin),
             border: Border.all(
-              color: selected && enabled ? accent : kPaywallLine,
-              width: selected && enabled ? 2 : 1,
+              color: on ? _selectedBorder : kPaywallLine,
+              width: on ? 2 : 1,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 12.spMin,
-                height: 36.spMin,
-                decoration: BoxDecoration(
-                  gradient: identity.linearGradient,
-                  borderRadius: BorderRadius.circular(6.spMin),
-                ),
-              ),
-              SizedBox(width: 12.spMin),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      planDisplayName(tier),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      planTierName(tier),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14.spMin,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: kPaywallInk,
                       ),
                     ),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        color: kPaywallInkSoft,
-                      ),
+                  ),
+                  if (on)
+                    Icon(
+                      LucideIcons.circleCheck,
+                      color: _selectedBorder,
+                      size: 16.spMin,
                     ),
-                  ],
-                ),
+                ],
               ),
+              SizedBox(height: 2.spMin),
+              Text(
+                'up to ${sponsoredCapacity(tier)}',
+                style: TextStyle(fontSize: 12.spMin, color: kPaywallInkSoft),
+              ),
+              SizedBox(height: 8.spMin),
               Text(
                 _loading ? '…' : (price.isEmpty ? '' : '$price/$period'),
                 style: TextStyle(
-                  fontSize: 14.spMin,
+                  fontSize: 12.5.spMin,
                   fontWeight: FontWeight.w700,
                   color: kPaywallInk,
                 ),
               ),
-              if (enabled) ...[
-                SizedBox(width: 8.spMin),
-                Icon(
-                  selected ? LucideIcons.circleCheck : LucideIcons.circle,
-                  color: selected ? accent : kPaywallInkFaint,
-                  size: 20.spMin,
+              if (state != null) ...[
+                SizedBox(height: 4.spMin),
+                Text(
+                  state,
+                  style: TextStyle(
+                    fontSize: 11.spMin,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                    color: kPaywallInkSoft,
+                  ),
                 ),
               ],
             ],

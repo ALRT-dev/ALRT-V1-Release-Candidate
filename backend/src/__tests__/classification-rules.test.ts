@@ -139,11 +139,28 @@ describe("webhook validator strips client classification", () => {
 });
 
 describe("scheduled check-in validator", () => {
-  it("requires timezone", () => {
-    expect(familyScheduledCheckInSchema.safeParse({ timeOfDay: "08:00" }).success).toBe(false);
+  it("accepts an IANA timezone or a UTC offset in minutes (the service refuses neither)", () => {
+    // Neither field is required at the validator: the service returns 400
+    // when neither is usable, so an older client gets a clear message.
+    expect(familyScheduledCheckInSchema.safeParse({ timeOfDay: "08:00" }).success).toBe(true);
     expect(
       familyScheduledCheckInSchema.safeParse({ timeOfDay: "08:00", timezone: "Australia/Perth" }).success,
     ).toBe(true);
+    expect(
+      familyScheduledCheckInSchema.safeParse({ timeOfDay: "08:00", utcOffsetMinutes: 480 }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an out-of-range or fractional utcOffsetMinutes", () => {
+    expect(
+      familyScheduledCheckInSchema.safeParse({ timeOfDay: "08:00", utcOffsetMinutes: 900 }).success,
+    ).toBe(false);
+    expect(
+      familyScheduledCheckInSchema.safeParse({ timeOfDay: "08:00", utcOffsetMinutes: -841 }).success,
+    ).toBe(false);
+    expect(
+      familyScheduledCheckInSchema.safeParse({ timeOfDay: "08:00", utcOffsetMinutes: 12.5 }).success,
+    ).toBe(false);
   });
 });
 

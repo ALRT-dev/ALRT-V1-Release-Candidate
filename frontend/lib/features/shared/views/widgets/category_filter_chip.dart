@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/shared/extensions/color_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
+import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
 /// The ink a category chip draws in: the locked category colour, darkened
@@ -51,8 +52,8 @@ class CategoryFilterChip extends StatelessWidget {
 
     final chip = Container(
       padding: EdgeInsets.symmetric(
-        horizontal: (isCompact ? 11 : 16).spMin,
-        vertical: (isCompact ? 7 : 8).spMin,
+        horizontal: (isCompact ? 9 : 12).spMin,
+        vertical: (isCompact ? 5 : 6).spMin,
       ),
       decoration: BoxDecoration(
         color: isSelected
@@ -71,13 +72,15 @@ class CategoryFilterChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // A filled dot repeats the colour where the outline is faint, so
-          // the category still reads at a glance and never by colour alone.
-          Container(
-            width: (isCompact ? 7 : 8).spMin,
-            height: (isCompact ? 7 : 8).spMin,
-            margin: EdgeInsets.only(right: (isCompact ? 5 : 7).spMin),
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          // The category's own glyph on its disc (product owner, 12 Oct
+          // 2026): a category is recognised by shape and colour, not by
+          // reading the label.
+          Padding(
+            padding: EdgeInsets.only(right: (isCompact ? 6 : 8).spMin),
+            child: CategoryGlyph(
+              category: category,
+              size: (isCompact ? 20 : 22).spMin,
+            ),
           ),
           Text(
             category.name ?? 'Unknown Category',
@@ -91,7 +94,10 @@ class CategoryFilterChip extends StatelessWidget {
       ),
     );
 
-    if (onToggle == null) return chip;
-    return chip.onPressed(() => onToggle!(!isSelected));
+    final faded = onToggle != null && !isSelected
+        ? Opacity(opacity: 0.45, child: chip)
+        : chip;
+    if (onToggle == null) return faded;
+    return faded.onPressed(() => onToggle!(!isSelected));
   }
 }

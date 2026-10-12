@@ -1968,6 +1968,34 @@ class _RestClient implements RestClient {
   }
 
   @override
+  Future<HttpResponse<dynamic>> shareHazardWithFamilyCircle({
+    required String hazardId,
+    required String circleId,
+    String? message,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{};
+    final _data = {'circleId': circleId, 'message': message};
+    _data.removeWhere((k, v) => v == null);
+    final _options = _setStreamType<HttpResponse<dynamic>>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/api/family/hazards/${hazardId}/share',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch(_options);
+    final _value = _result.data;
+    final httpResponse = HttpResponse(_value, _result);
+    return httpResponse;
+  }
+
+  @override
   Future<FamilyCheckInRequest> requestFamilyCheckIn({
     String? message,
     String? hazardId,
@@ -2028,13 +2056,18 @@ class _RestClient implements RestClient {
   Future<FamilyScheduledCheckIn> createFamilyScheduledCheckIn({
     required String timeOfDay,
     String? mode,
+    int? utcOffsetMinutes,
     String? circleId,
   }) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{r'circleId': circleId};
     queryParameters.removeWhere((k, v) => v == null);
     final _headers = <String, dynamic>{};
-    final _data = {'timeOfDay': timeOfDay, 'mode': mode};
+    final _data = {
+      'timeOfDay': timeOfDay,
+      'mode': mode,
+      'utcOffsetMinutes': utcOffsetMinutes,
+    };
     _data.removeWhere((k, v) => v == null);
     final _options = _setStreamType<FamilyScheduledCheckIn>(
       Options(method: 'POST', headers: _headers, extra: _extra)

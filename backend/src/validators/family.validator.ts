@@ -115,16 +115,26 @@ export type FamilyCheckInRequestInput = z.infer<
   typeof familyCheckInRequestSchema
 >;
 
+// "Send to my group" from the alert detail screen: which group, and an
+// optional short note. The hazard comes from the route param; the sender's
+// location is never part of this payload.
+export const familyHazardShareSchema = z.object({
+  circleId: z.string().min(1, "circleId is required").max(100),
+  message: z.string().trim().max(200).optional(),
+});
+
+export type FamilyHazardShareInput = z.infer<typeof familyHazardShareSchema>;
+
 export const familyScheduledCheckInSchema = z.object({
   timeOfDay: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "timeOfDay must be HH:mm (24h)"),
-  // Required: a scheduled check-in is a local time, and the server never
-  // guesses the zone (the old Australia/Brisbane default is gone).
-  timezone: z
-    .string({ error: "timezone is required (an IANA zone such as Australia/Perth)" })
-    .min(1, "timezone is required (an IANA zone such as Australia/Perth)")
-    .max(64),
+  // A scheduled check-in is a local time, and the server never guesses the
+  // zone (the old Australia/Brisbane default is gone). The client sends either
+  // an IANA zone or its UTC offset in minutes; the service refuses the request
+  // when neither is usable.
+  timezone: z.string().trim().min(1).max(64).optional(),
+  utcOffsetMinutes: z.number().int().min(-840).max(840).optional(),
   mode: z.enum(["automatic", "prompted"]).optional(),
 });
 

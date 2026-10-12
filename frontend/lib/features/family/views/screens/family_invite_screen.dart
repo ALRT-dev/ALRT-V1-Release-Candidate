@@ -4,21 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/views/widgets/family_app_bar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
-import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
-/// The Family invite flow: generate a code, show it as text and as a QR,
-/// copy or send it, see what is still active, revoke it.
+/// The Family invite flow (12 Oct 2026 mockup): a plain white sheet with
+/// one card per active code, a solid "Create an invite code" and a QR that
+/// shows on request.
 ///
 /// This is deliberately a different thing from Profile's "Share ALRT"
 /// (share_alrt_sheet.dart), which only tells someone about the app. A
-/// Family invite is a code for one specific circle, redeemed inside the
+/// Family invite is a code for one specific group, redeemed inside the
 /// app under Family → "I have an invite code". Nothing here links to the
 /// website or a store: the code is the whole payload, so it works the same
 /// on a TEST build (sideloaded APK) as it will on a store build.
@@ -39,11 +40,12 @@ class FamilyInviteScreen extends ConsumerStatefulWidget {
 }
 
 class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
-  /// The code the big card and QR currently show: the one just generated,
-  /// or an active one the owner tapped in the list.
+  /// The code the QR shows: the one just generated, or an active one the
+  /// host tapped in the list. Falls back to the newest active code.
   String? _shownCode;
 
-  /// When on, the next generated code makes whoever redeems it a guest.
+  /// "Show QR" toggles the QR under the buttons.
+  bool _qrVisible = false;
 
   @override
   void initState() {
@@ -56,8 +58,8 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
   /// What a recipient has to do with the code, spelled out once and reused
   /// by copy and share so the two can never drift apart. No URL on purpose.
   static String _redeemInstructions(final String code) =>
-      'Join my family circle on ALRT with code $code. In the app, open '
-      'Family, tap "I have an invite code" and enter it. Joining is free.';
+      'Join my group on ALRT with code $code. In the app, open Family, '
+      'tap "I have an invite code" and enter it. Joining is free.';
 
   @override
   Widget build(BuildContext context) {
@@ -65,89 +67,101 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
     final createState = ref.watch(
       providerOfFamily.select((s) => s.createInviteState),
     );
-    final circleName = ref.watch(
-      providerOfFamily.select((s) => s.circle?.name ?? 'your circle'),
+    final isHost = ref.watch(
+      providerOfFamily.select((s) => s.circle?.me?.role == FamilyRole.owner),
     );
 
     // Keep showing a code only while it is still active (revoked or
-    // expired codes drop out of `invites`, and so out of the big card).
+    // expired codes drop out of `invites`, and so out of the QR).
     final shown =
         _shownCode != null && invites.any((invite) => invite.code == _shownCode)
         ? _shownCode
-        : null;
+        : invites.firstOrNull?.code;
 
     return Scaffold(
-      backgroundColor: FamilyColors.v31Page,
-      appBar: FamilyAppBar(
-        title: 'Add a member',
-        subtitle: 'Invite someone to $circleName',
-      ),
+      backgroundColor: Colors.white,
+      appBar: const FamilyWhiteAppBar(title: 'Add a member'),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
           20.spMin,
+          4.spMin,
           20.spMin,
-          20.spMin,
-          20.spMin + MediaQuery.viewPaddingOf(context).bottom,
+          24.spMin + MediaQuery.viewPaddingOf(context).bottom,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (shown != null) ...[
-              _codeCardBuilder(shown),
-              SizedBox(height: 14.spMin),
-            ],
+            Text(
+              'Codes can be used up to 20 times and expire after 7 days. '
+              'Joining is always free.',
+              style: TextStyle(
+                fontSize: 13.spMin,
+                height: 1.45,
+                color: AppColors.grey,
+              ),
+            ),
+            SizedBox(height: 16.spMin),
+            for (final invite in invites)
+              _inviteCardBuilder(
+                invite,
+                isShown: invite.code == shown,
+                isHost: isHost,
+              ),
             SizedBox(
-              height: 50.spMin,
-              child: ElevatedButton.icon(
+              height: 54.spMin,
+              child: ElevatedButton(
+                key: const Key('invite-create'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: FamilyColors.indigo,
+                  backgroundColor: AppColors.orange,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppColors.orange.withValues(
+                    alpha: 0.5,
+                  ),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16.spMin),
                   ),
                 ),
                 onPressed: createState.isLoading ? null : _onGenerate,
-                icon: Icon(
-                  shown == null ? LucideIcons.userPlus : LucideIcons.ticket,
-                  size: 18.spMin,
-                ),
-                label: Text(
+                child: Text(
                   createState.isLoading
                       ? 'Generating...'
-                      : shown == null
-                      ? 'Create an invite code'
-                      : 'Create another code',
+                      : 'Create an invite code',
                   style: TextStyle(
-                    fontSize: 15.spMin,
+                    fontSize: 16.spMin,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ),
-            SizedBox(height: 8.spMin),
-            Text(
-              'Codes can be used up to 20 times and expire after 7 days. '
-              'Joining is always free.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
-            ),
-            SizedBox(height: 14.spMin),
-            SizedBox(height: 14.spMin),
-            _howTheyJoinBuilder(),
-            SizedBox(height: 24.spMin),
-            if (invites.isNotEmpty) ...[
-              Text(
-                'ACTIVE INVITES · ${invites.length}',
-                style: TextStyle(
-                  fontSize: 13.spMin,
-                  fontWeight: FontWeight.w700,
-                  color: FamilyColors.v31Label,
-                  letterSpacing: 0.5,
+            SizedBox(height: 10.spMin),
+            SizedBox(
+              height: 54.spMin,
+              child: OutlinedButton.icon(
+                key: const Key('invite-show-qr'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.ink,
+                  side: const BorderSide(color: FamilyColors.v31Border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.spMin),
+                  ),
+                ),
+                onPressed: shown == null
+                    ? null
+                    : () => setState(() => _qrVisible = !_qrVisible),
+                icon: Icon(LucideIcons.qrCode, size: 18.spMin),
+                label: Text(
+                  _qrVisible && shown != null ? 'Hide QR' : 'Show QR',
+                  style: TextStyle(
+                    fontSize: 16.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              SizedBox(height: 10.spMin),
-              ...invites.map((invite) => _inviteTileBuilder(invite, shown)),
+            ),
+            if (_qrVisible && shown != null) ...[
+              SizedBox(height: 16.spMin),
+              _qrBuilder(shown),
             ],
           ],
         ),
@@ -155,164 +169,111 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
     );
   }
 
-  /// The redeem path, stated on the screen the host is looking at, so they
-  /// can talk the other person through it.
-  Widget _howTheyJoinBuilder() {
-    Widget step(final int n, final String text) => Padding(
-      padding: EdgeInsets.only(bottom: 6.spMin),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 20.spMin,
-            height: 20.spMin,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: FamilyColors.indigoLight,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '$n',
-              style: TextStyle(
-                fontSize: 11.spMin,
-                fontWeight: FontWeight.w800,
-                color: FamilyColors.indigoDark,
-              ),
-            ),
-          ),
-          SizedBox(width: 10.spMin),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12.5.spMin,
-                height: 1.4,
-                color: FamilyColors.v31Ink,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  /// One active code: the code itself, how far through its 20 uses it is
+  /// and when it lapses, then Share and (host only) Revoke side by side.
+  /// Tapping the code copies it and makes it the one the QR shows.
+  Widget _inviteCardBuilder(
+    final FamilyInvite invite, {
+    required final bool isShown,
+    required final bool isHost,
+  }) {
+    final expiresAt = invite.expiresAt;
+    final expires = expiresAt == null
+        ? ''
+        : ' · expires ${DateFormat('d MMM').format(expiresAt.toLocal())}';
 
     return Container(
-      padding: EdgeInsets.all(14.spMin),
+      key: Key('invite-card-${invite.id}'),
+      margin: EdgeInsets.only(bottom: 12.spMin),
+      padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.spMin),
+        border: Border.all(
+          color: isShown && _qrVisible
+              ? AppColors.ink
+              : FamilyColors.v31Divider,
+          width: isShown && _qrVisible ? 1.5 : 1,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: FamilyColors.v31CardShadow,
+            blurRadius: 10.0,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'HOW THEY JOIN',
-            style: TextStyle(
-              fontSize: 11.spMin,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              color: FamilyColors.v31Label,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() => _shownCode = invite.code);
+              _copyCode(invite.code);
+            },
+            child: Text(
+              invite.code,
+              style: TextStyle(
+                fontSize: 22.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+                color: AppColors.ink,
+              ),
             ),
           ),
-          SizedBox(height: 10.spMin),
-          step(1, 'They open ALRT on their own phone and go to Family.'),
-          step(
-            2,
-            'They tap "Scan invite QR" and point their camera at this code, '
-            'or tap "I have an invite code" and type it.',
-          ),
-          step(
-            3,
-            'They are in. No website, no link, no store - the code is all '
-            'they need, on a TEST build or a store build alike.',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _codeCardBuilder(final String code) {
-    return Container(
-      padding: EdgeInsets.all(20.spMin),
-      decoration: BoxDecoration(
-        color: FamilyColors.indigoLight,
-        borderRadius: BorderRadius.circular(20.spMin),
-        border: Border.all(color: FamilyColors.indigo.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
+          SizedBox(height: 4.spMin),
           Text(
-            'Show this to the person you are inviting - they scan it in ALRT '
-            'or type the code in',
-            textAlign: TextAlign.center,
+            '${invite.useCount} of ${invite.maxUses} used$expires',
             style: TextStyle(fontSize: 13.spMin, color: AppColors.grey),
           ),
           SizedBox(height: 14.spMin),
-          Container(
-            padding: EdgeInsets.all(12.spMin),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.spMin),
-            ),
-            // The QR encodes the bare code. The in-app scanner reads it
-            // straight into the join flow; a plain phone camera just shows
-            // the code as text. There is no website or store link behind it.
-            child: QrImageView(
-              data: code,
-              size: 172.spMin,
-              backgroundColor: Colors.white,
-              eyeStyle: const QrEyeStyle(
-                eyeShape: QrEyeShape.square,
-                color: FamilyColors.indigoDark,
-              ),
-              dataModuleStyle: const QrDataModuleStyle(
-                dataModuleShape: QrDataModuleShape.square,
-                color: FamilyColors.indigoDark,
-              ),
-            ),
-          ),
-          SizedBox(height: 12.spMin),
-          SelectableText(
-            code,
-            style: TextStyle(
-              fontSize: 30.spMin,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
-              color: FamilyColors.indigoDark,
-            ),
-          ),
-          SizedBox(height: 12.spMin),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: FamilyColors.indigo,
-                    side: const BorderSide(color: FamilyColors.indigo),
+                    foregroundColor: AppColors.ink,
+                    side: const BorderSide(color: FamilyColors.v31Border),
+                    padding: EdgeInsets.symmetric(vertical: 12.spMin),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.spMin),
                     ),
                   ),
-                  onPressed: () => _copyCode(code),
-                  icon: Icon(LucideIcons.copy, size: 16.spMin),
-                  label: const Text('Copy code'),
-                ),
-              ),
-              SizedBox(width: 10.spMin),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: FamilyColors.indigo,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.spMin),
+                  onPressed: () => _shareCode(invite.code),
+                  icon: Icon(LucideIcons.share2, size: 16.spMin),
+                  label: Text(
+                    'Share',
+                    style: TextStyle(
+                      fontSize: 14.spMin,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  onPressed: () => _shareCode(code),
-                  icon: Icon(LucideIcons.send, size: 16.spMin),
-                  label: const Text('Send code'),
                 ),
               ),
+              if (isHost) ...[
+                SizedBox(width: 10.spMin),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.red,
+                      side: const BorderSide(color: FamilyColors.v31Border),
+                      padding: EdgeInsets.symmetric(vertical: 12.spMin),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.spMin),
+                      ),
+                    ),
+                    onPressed: () => _confirmRevoke(invite),
+                    child: Text(
+                      'Revoke',
+                      style: TextStyle(
+                        fontSize: 14.spMin,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -320,79 +281,48 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
     );
   }
 
-  Widget _inviteTileBuilder(final FamilyInvite invite, final String? shown) {
-    final isShown = invite.code == shown;
+  /// The QR for the shown code. It encodes the bare code: the in-app
+  /// scanner reads it straight into the join flow; a plain phone camera
+  /// just shows the code as text. There is no website or store link.
+  Widget _qrBuilder(final String code) {
     return Container(
-      margin: EdgeInsets.only(bottom: 8.spMin),
-      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 12.spMin),
+      key: const Key('invite-qr'),
+      padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.spMin),
-        border: isShown
-            ? Border.all(color: FamilyColors.indigo.withValues(alpha: 0.5))
-            : null,
+        border: Border.all(color: FamilyColors.v31Divider),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => setState(() => _shownCode = invite.code),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        invite.code,
-                        style: TextStyle(
-                          fontSize: 15.spMin,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (invite.isGuestInvite) ...[
-                        SizedBox(width: 8.spMin),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 7.spMin,
-                            vertical: 2.spMin,
-                          ),
-                          decoration: BoxDecoration(
-                            color: FamilyColors.indigoLight,
-                            borderRadius: BorderRadius.circular(8.spMin),
-                          ),
-                          child: Text(
-                            'GUEST',
-                            style: TextStyle(
-                              fontSize: 9.5.spMin,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                              color: FamilyColors.indigoDark,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  Text(
-                    'Used ${invite.useCount} of ${invite.maxUses}'
-                    '${invite.expiresAt != null ? ' · expires ${timeago.format(invite.expiresAt!, allowFromNow: true)}' : ''}'
-                    '${isShown ? '' : ' · tap for QR'}',
-                    style: TextStyle(fontSize: 11.spMin, color: AppColors.grey),
-                  ),
-                ],
-              ),
+          QrImageView(
+            data: code,
+            size: 180.spMin,
+            backgroundColor: Colors.white,
+            eyeStyle: const QrEyeStyle(
+              eyeShape: QrEyeShape.square,
+              color: AppColors.ink,
+            ),
+            dataModuleStyle: const QrDataModuleStyle(
+              dataModuleShape: QrDataModuleShape.square,
+              color: AppColors.ink,
             ),
           ),
-          IconButton(
-            tooltip: 'Copy code',
-            icon: Icon(LucideIcons.copy, size: 18.spMin, color: AppColors.grey),
-            onPressed: () => _copyCode(invite.code),
+          SizedBox(height: 10.spMin),
+          Text(
+            code,
+            style: TextStyle(
+              fontSize: 16.spMin,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+              color: AppColors.ink,
+            ),
           ),
-          IconButton(
-            tooltip: 'Revoke',
-            icon: Icon(LucideIcons.trash2, size: 18.spMin, color: Colors.red),
-            onPressed: () => _confirmRevoke(invite),
+          SizedBox(height: 4.spMin),
+          Text(
+            'They scan this in ALRT under Family, or type the code.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
           ),
         ],
       ),
@@ -418,7 +348,7 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
     return SharePlus.instance.share(
       ShareParams(
         text: _redeemInstructions(code),
-        subject: 'Your ALRT family invite code',
+        subject: 'Your ALRT invite code',
       ),
     );
   }
@@ -430,7 +360,7 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
         title: const Text('Revoke this invite?'),
         content: Text(
           'Code ${invite.code} stops working immediately. People who '
-          'already joined with it stay in the circle.',
+          'already joined with it stay in the group.',
         ),
         actions: [
           TextButton(

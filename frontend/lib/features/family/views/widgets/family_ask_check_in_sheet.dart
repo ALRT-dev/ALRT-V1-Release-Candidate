@@ -3,22 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/utils/check_in_roll.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
-import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// "Ask for a check-in": everyone in this group, or exactly the people you
-/// tick. The button always names who will be asked ("Ask Amy and Tom"),
-/// so what you are about to send is never a guess. Only the people asked
-/// are notified and see it as owed; you keep it as your tracker on the
-/// hub. Nothing about YOUR location travels with an ask (locked rule).
+/// pick. The button always names who will be asked ("Ask Amy and Tom"),
+/// so what you are about to send is never a guess (locked rule: an ask is
+/// everyone OR exactly the people picked, and the button names them). Only
+/// the people asked are notified and see it as owed; you keep it as your
+/// tracker on the hub. Nothing about YOUR location travels with an ask.
 ///
-/// [preselectMemberIds] ticks those people and opens in "Choose people"
-/// straight away (the per-row Ask and Nudge paths); otherwise it opens
-/// on "Everyone" with the people still owed pre-ticked for a quick switch.
+/// [preselectMemberIds] opens with those people picked (the per-row
+/// "Check on" path); otherwise it opens on "Everyone".
 Future<void> showFamilyAskCheckInSheet(
   final BuildContext context,
   final WidgetRef ref, {
@@ -31,11 +29,7 @@ Future<void> showFamilyAskCheckInSheet(
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
     ),
-    builder: (_) => _AskCheckInSheet(
-      hostContext: context,
-      hostRef: ref,
-      preselectMemberIds: preselectMemberIds,
-    ),
+    builder: (_) => _AskCheckInSheet(preselectMemberIds: preselectMemberIds),
   );
 }
 
@@ -48,16 +42,8 @@ String namesLabel(final List<String> names) {
 }
 
 class _AskCheckInSheet extends ConsumerStatefulWidget {
-  const _AskCheckInSheet({
-    required this.hostContext,
-    required this.hostRef,
-    this.preselectMemberIds,
-  });
+  const _AskCheckInSheet({this.preselectMemberIds});
 
-  /// The screen that opened the sheet: what "ask another group" re-opens
-  /// on, since this sheet's own context and ref die when it closes.
-  final BuildContext hostContext;
-  final WidgetRef hostRef;
   final List<String>? preselectMemberIds;
 
   @override
@@ -65,26 +51,10 @@ class _AskCheckInSheet extends ConsumerStatefulWidget {
 }
 
 class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
-  late bool _choosePeople = widget.preselectMemberIds != null;
+  /// Empty means "Everyone"; otherwise exactly these member ids.
   late final Set<String> _selected = {...?widget.preselectMemberIds};
   final _message = TextEditingController();
   bool _sending = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // With nothing preselected, tick the people still owed so switching
-    // to "Choose people" starts from the useful answer.
-    if (widget.preselectMemberIds == null) {
-      final circle = ref.read(providerOfFamily).circle;
-      if (circle != null) {
-        final roll = CheckInRoll.of(circle);
-        _selected.addAll(
-          roll.notYet.where((m) => m.id != circle.myMemberId).map((m) => m.id),
-        );
-      }
-    }
-  }
 
   @override
   void dispose() {
@@ -97,22 +67,25 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
     final circle = ref.watch(providerOfFamily.select((s) => s.circle));
     if (circle == null) return const SizedBox.shrink();
     final others = circle.others;
-    final roll = CheckInRoll.of(circle);
     final chosen = others.where((m) => _selected.contains(m.id)).toList();
-    final canSend =
-        !_sending && others.isNotEmpty && (!_choosePeople || chosen.isNotEmpty);
-    final buttonLabel = _choosePeople
-        ? (chosen.isEmpty
-              ? 'Pick who to ask'
-              : 'Ask ${namesLabel(chosen.map((m) => m.name).toList())}')
-        : 'Ask everyone in ${circle.name}';
+    // Nobody picked (or only people who have since left) means everyone.
+    final everyone = chosen.isEmpty;
+    final canSend = !_sending && others.isNotEmpty;
+    final buttonLabel = everyone
+        ? 'Ask everyone in ${circle.name}'
+        : 'Ask ${namesLabel(chosen.map((m) => m.name).toList())}';
 
     final media = MediaQuery.of(context);
     final bottom = media.viewInsets.bottom > media.viewPadding.bottom
         ? media.viewInsets.bottom
         : media.viewPadding.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.spMin, 16.spMin, 20.spMin, bottom + 20.spMin),
+      padding: EdgeInsets.fromLTRB(
+        20.spMin,
+        16.spMin,
+        20.spMin,
+        bottom + 20.spMin,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -135,49 +108,43 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
             ),
             SizedBox(height: 4.spMin),
             Text(
-              'They get one tap to check in. They choose whether '
-              'to share where they are; you never send your own location.',
+              'Pick who to ask, or ask everyone.',
               style: TextStyle(
                 fontSize: 12.5.spMin,
                 height: 1.45,
                 color: AppColors.grey,
               ),
             ),
-            SizedBox(height: 16.spMin),
-            _scopeToggleBuilder(circle),
-            if (_choosePeople) ...[
-              SizedBox(height: 12.spMin),
-              Container(
-                decoration: BoxDecoration(
-                  color: FamilyColors.v31Page,
-                  borderRadius: BorderRadius.circular(16.spMin),
+            SizedBox(height: 14.spMin),
+            Wrap(
+              spacing: 8.spMin,
+              runSpacing: 8.spMin,
+              children: [
+                _chipBuilder(
+                  label: 'Everyone',
+                  selected: everyone,
+                  onTap: () => setState(_selected.clear),
                 ),
-                child: Column(
-                  children: [
-                    for (final (index, member) in others.indexed) ...[
-                      if (index > 0)
-                        Divider(
-                          height: 1,
-                          indent: 60.spMin,
-                          color: Colors.white,
-                        ),
-                      _personRowBuilder(
-                        member,
-                        answered: roll.hasAnswered(member),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+                for (final member in others)
+                  _chipBuilder(
+                    label: member.name,
+                    selected: _selected.contains(member.id),
+                    onTap: () => setState(() {
+                      _selected.contains(member.id)
+                          ? _selected.remove(member.id)
+                          : _selected.add(member.id);
+                    }),
+                  ),
+              ],
+            ),
             SizedBox(height: 14.spMin),
             TextField(
               controller: _message,
               textCapitalization: TextCapitalization.sentences,
               maxLength: 140,
               decoration: InputDecoration(
-                hintText: 'Add a note (optional), e.g. "Storm near you, all OK?"',
-                hintStyle: TextStyle(fontSize: 13.spMin, color: AppColors.grey),
+                labelText: 'Message (optional)',
+                labelStyle: TextStyle(fontSize: 13.spMin, color: AppColors.grey),
                 counterText: '',
                 filled: true,
                 fillColor: FamilyColors.v31Page,
@@ -204,7 +171,7 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
                   ),
                 ),
                 onPressed: canSend ? () => _send(circle, chosen) : null,
-                icon: Icon(LucideIcons.bellRing, size: 18.spMin),
+                icon: Icon(LucideIcons.bell, size: 18.spMin),
                 label: Text(
                   buttonLabel,
                   maxLines: 1,
@@ -219,194 +186,88 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
             if (others.isEmpty) ...[
               SizedBox(height: 8.spMin),
               Text(
-                'There is nobody else in this circle yet.',
+                'There is nobody else in this group yet.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
               ),
             ],
-            _otherGroupsBuilder(circle),
+            SizedBox(height: 4.spMin),
+            TextButton(
+              onPressed: _sending ? null : () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 13.5.spMin,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.grey,
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// Everyone / Choose people. Two equal choices, one always selected.
-  Widget _scopeToggleBuilder(final FamilyCircle circle) {
-    Widget option({
-      required final String label,
-      required final bool selected,
-      required final VoidCallback onTap,
-    }) {
-      return Expanded(
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            height: 44.spMin,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? FamilyColors.indigo : Colors.transparent,
-              borderRadius: BorderRadius.circular(12.spMin),
-            ),
-            child: Text(
+  /// One pick chip: indigo when selected, outlined otherwise. Selecting
+  /// "Everyone" clears the names; picking a name leaves "Everyone".
+  Widget _chipBuilder({
+    required final String label,
+    required final bool selected,
+    required final VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 9.spMin),
+        decoration: BoxDecoration(
+          color: selected ? FamilyColors.indigo : Colors.white,
+          borderRadius: BorderRadius.circular(20.spMin),
+          border: Border.all(
+            color: selected ? FamilyColors.indigo : FamilyColors.v31Border,
+            width: 1.4,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[
+              Icon(LucideIcons.check, size: 14.spMin, color: Colors.white),
+              SizedBox(width: 5.spMin),
+            ],
+            Text(
               label,
               style: TextStyle(
                 fontSize: 13.5.spMin,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: selected ? Colors.white : FamilyColors.indigo,
               ),
             ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: EdgeInsets.all(4.spMin),
-      decoration: BoxDecoration(
-        color: FamilyColors.indigoLight,
-        borderRadius: BorderRadius.circular(14.spMin),
-      ),
-      child: Row(
-        children: [
-          option(
-            label: 'Everyone in ${circle.name}',
-            selected: !_choosePeople,
-            onTap: () => setState(() => _choosePeople = false),
-          ),
-          option(
-            label: 'Choose people',
-            selected: _choosePeople,
-            onTap: () => setState(() => _choosePeople = true),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _personRowBuilder(final FamilyMember member, {required final bool answered}) {
-    final selected = _selected.contains(member.id);
-    return InkWell(
-      onTap: () => setState(() {
-        selected ? _selected.remove(member.id) : _selected.add(member.id);
-      }),
-      borderRadius: BorderRadius.circular(16.spMin),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 10.spMin),
-        child: Row(
-          children: [
-            FamilyMemberAvatar(member: member, size: 36.spMin),
-            SizedBox(width: 12.spMin),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    member.name,
-                    style: TextStyle(
-                      fontSize: 14.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    answered ? 'Checked in today' : 'Not yet checked in',
-                    style: TextStyle(
-                      fontSize: 11.5.spMin,
-                      color: answered ? FamilyColors.safeGreen : FamilyColors.amber,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 24.spMin,
-              height: 24.spMin,
-              decoration: BoxDecoration(
-                color: selected ? FamilyColors.indigo : Colors.white,
-                borderRadius: BorderRadius.circular(7.spMin),
-                border: Border.all(
-                  color: selected ? FamilyColors.indigo : FamilyColors.v31Border,
-                  width: 1.5,
-                ),
-              ),
-              child: selected
-                  ? Icon(Icons.check, size: 16.spMin, color: Colors.white)
-                  : null,
-            ),
           ],
         ),
       ),
     );
   }
 
-  /// Your other groups, one tap each: switch the hub to that group and
-  /// re-open this sheet there. Asking is always per group, because a
-  /// check-in is answered per group.
-  Widget _otherGroupsBuilder(final FamilyCircle circle) {
-    final others = ref
-        .watch(providerOfFamily.select((s) => s.circles))
-        .where((c) => c.circleId != circle.id)
-        .toList();
-    if (others.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(height: 16.spMin),
-        Text(
-          'ASK ANOTHER GROUP',
-          style: TextStyle(
-            fontSize: 11.spMin,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.8,
-            color: FamilyColors.v31Label,
-          ),
-        ),
-        SizedBox(height: 8.spMin),
-        Wrap(
-          spacing: 8.spMin,
-          runSpacing: 8.spMin,
-          children: [
-            for (final summary in others)
-              ActionChip(
-                label: Text(summary.name),
-                avatar: Icon(LucideIcons.users, size: 14.spMin),
-                onPressed: _sending
-                    ? null
-                    : () => _switchGroupAndReopen(summary.circleId),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Future<void> _switchGroupAndReopen(final String circleId) async {
-    final notifier = ref.read(providerOfFamily.notifier);
-    final host = widget.hostContext;
-    final hostRef = widget.hostRef;
-    Navigator.of(context).pop();
-    await notifier.selectCircle(circleId);
-    if (!host.mounted) return;
-    await showFamilyAskCheckInSheet(host, hostRef);
-  }
-
+  /// POST check-in/request: memberIds for the people picked, none for
+  /// everyone (FamilyProvider.requestCheckIn).
   Future<void> _send(
     final FamilyCircle circle,
     final List<FamilyMember> chosen,
   ) async {
     setState(() => _sending = true);
+    final everyone = chosen.isEmpty;
     final message = _message.text.trim();
     final sent = await ref.read(providerOfFamily.notifier).requestCheckIn(
           message: message.isEmpty ? null : message,
-          memberIds: _choosePeople ? chosen.map((m) => m.id).toList() : null,
+          memberIds: everyone ? null : chosen.map((m) => m.id).toList(),
         );
     if (!mounted) return;
     setState(() => _sending = false);
     if (!sent) return; // the hub's error listener shows the reason
-    final who = _choosePeople
-        ? namesLabel(chosen.map((m) => m.name).toList())
-        : 'everyone in ${circle.name}';
+    final who = everyone
+        ? 'everyone in ${circle.name}'
+        : namesLabel(chosen.map((m) => m.name).toList());
     context.showSuccessToast(message: 'Asked $who to check in.');
     Navigator.of(context).maybePop();
   }

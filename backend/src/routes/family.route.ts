@@ -5,8 +5,10 @@ import {
 } from "../middlewares/upload.middleware.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
+import { familyHazardShareUserLimiter } from "../middlewares/api_rate_limit.middleware.js";
 import {
   createFamilyCircleSchema,
+  familyHazardShareSchema,
   extendFamilyJourneySchema,
   familyJourneyPointSchema,
   startFamilyJourneySchema,
@@ -60,6 +62,7 @@ import {
   getPendingLocationRequestsController,
   respondToLocationRequestController,
   checkInController,
+  shareHazardController,
   requestCheckInController,
   cancelCheckInRequestController,
   listCheckInsController,
@@ -176,6 +179,16 @@ familyRouter.get("/check-ins", listCheckInsController);
 familyRouter.delete(
   "/check-in/request/:requestId",
   cancelCheckInRequestController,
+);
+
+// "Send to my group" from the alert detail screen: pushes a visible alert
+// to the other members of one group. No location, nothing stored. The
+// general /api limiter applies; this adds 10 per user per 10 minutes.
+familyRouter.post(
+  "/hazards/:hazardId/share",
+  familyHazardShareUserLimiter,
+  validate(familyHazardShareSchema),
+  shareHazardController,
 );
 
 // Scheduled check-ins (daily routine; respond via the normal POST /check-in)

@@ -6,6 +6,8 @@ import 'package:hazard_app/features/subscription/models/access_models.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
 import 'package:hazard_app/features/subscription/utils/paywall_copy.dart';
+import 'package:hazard_app/features/subscription/utils/trial_copy.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
@@ -212,13 +214,19 @@ void main() {
       expect(find.text(kGroupHeading), findsOneWidget);
       expect(find.text(kGroupExplanation), findsOneWidget);
       expect(find.text('GROUP YOU WILL COVER'), findsOneWidget);
+      expect(find.text('PLAN SIZE'), findsOneWidget);
       expect(find.text('Nixon Family'), findsOneWidget);
       // Only groups you host can be covered.
       expect(find.text('Weekend Crew'), findsNothing);
-      // The hero badge names the selected plan too.
-      expect(find.text('ALRT + Family'), findsWidgets);
-      expect(find.text('ALRT + Group 20'), findsOneWidget);
-      expect(find.text('ALRT + Group 50'), findsOneWidget);
+      // The hero badge names the selected plan.
+      expect(find.text('ALRT + Family'), findsOneWidget);
+      // Three equal size tiles, each with its capacity and store price.
+      expect(find.text('Family'), findsOneWidget);
+      expect(find.text('Group 20'), findsOneWidget);
+      expect(find.text('Group 50'), findsOneWidget);
+      expect(find.text('up to 6'), findsOneWidget);
+      expect(find.text('up to 20'), findsOneWidget);
+      expect(find.text('up to 50'), findsOneWidget);
       expect(find.text(r'$15.99 AUD/month'), findsOneWidget);
       expect(find.text(r'$24.99 AUD/month'), findsOneWidget);
       expect(find.text(r'$49.99 AUD/month'), findsOneWidget);
@@ -238,8 +246,9 @@ void main() {
       expect(find.text(kSosSafetyStatement), findsOneWidget);
       expect(find.text(kContinueFree), findsOneWidget);
 
-      await tester.tap(find.text('ALRT + Group 20'));
+      await tester.tap(find.text('Group 20'));
       await tester.pumpAndSettle();
+      expect(find.text('ALRT + Group 20'), findsOneWidget);
       expect(find.text(r'Subscribe for $24.99 AUD/month'), findsOneWidget);
       expect(
         find.text(groupScope(capacity: 20, group: 'Nixon Family')),
@@ -259,10 +268,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.text('Up to 6 people · too small for this group'),
-        findsOneWidget,
-      );
+      expect(find.text('Too small for this group'), findsOneWidget);
+      // The tile still says its size; only the state line explains.
+      expect(find.text('up to 6'), findsOneWidget);
     });
 
     testWidgets('someone who hosts no group is told to create one first', (
@@ -310,15 +318,22 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('PERSONAL PLAN'), findsOneWidget);
+      expect(find.text('GROUP COVERAGE'), findsOneWidget);
       expect(find.text('ALRT Free'), findsOneWidget);
       expect(find.text('ALRT + Family'), findsOneWidget);
       expect(
-        find.text('Covers everyone here · 3 of 6 people'),
+        find.text('Covered by ALRT + Family · 3 of 6 people'),
         findsOneWidget,
       );
       expect(find.textContaining('Paid by you.'), findsOneWidget);
       expect(find.text('Upgrade to ALRT + Group 20'), findsOneWidget);
       expect(find.textContaining('seat'), findsNothing);
+      // Restore is an outlined button at the bottom, never a bare link.
+      expect(
+        find.widgetWithText(OutlinedButton, 'Restore purchases'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a covered member sees who covers the group, never that '
@@ -349,12 +364,114 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ALRT Free'), findsOneWidget);
       expect(
-        find.text('Covers everyone here · 3 of 20 people'),
+        find.text('Covered by ALRT + Group 20 · 3 of 20 people'),
         findsOneWidget,
       );
       expect(find.textContaining('Paid by Sarah.'), findsOneWidget);
       // Only the payer can upgrade.
       expect(find.textContaining('Upgrade to'), findsNothing);
+    });
+  });
+
+  group('My plans: Cover button', () {
+    testWidgets('a hosted group with no plan offers an outlined Cover '
+        'button; a member sees none', (tester) async {
+      final service = await _service();
+      await tester.pumpWidget(
+        _app(
+          const AlrtPlusManageScreen(),
+          service,
+          access: _access(
+            groups: [
+              _group(),
+              _group(id: 'g2', name: 'Weekend Crew', role: 'adult'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(OutlinedButton, 'Cover'), findsOneWidget);
+      expect(find.text('No group plan'), findsNWidgets(2));
+    });
+  });
+
+  group('Choose screen', () {
+    testWidgets('each card carries the store\'s price line: personal with '
+        'the trial, group from the cheapest plan', (tester) async {
+      final service = await _service(trial: true);
+      await tester.pumpWidget(
+        _app(const AlrtPlusChooseScreen(isAndroidOverride: true), service),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kChooseHeading), findsOneWidget);
+      expect(find.text('ALRT +'), findsOneWidget);
+      expect(find.text('ALRT + Family · Group'), findsOneWidget);
+      expect(
+        find.text(r'$5.99 AUD a month · 1-month free trial'),
+        findsOneWidget,
+      );
+      expect(find.text(r'from $15.99 AUD a month'), findsOneWidget);
+      expect(find.text(kContinueFree), findsOneWidget);
+    });
+
+    testWidgets('an account the store says is ineligible gets the price '
+        'without a trial', (tester) async {
+      final service = await _service(
+        trial: true,
+        eligibility: IntroEligibilityStatus.introEligibilityStatusIneligible,
+      );
+      await tester.pumpWidget(
+        _app(const AlrtPlusChooseScreen(isAndroidOverride: false), service),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(r'$5.99 AUD a month'), findsOneWidget);
+      expect(find.textContaining('free trial'), findsNothing);
+    });
+
+    testWidgets('a build without a billing key shows no price at all', (
+      tester,
+    ) async {
+      final service = RevenueCatService(
+        gateway: FakeStoreGateway(),
+        apiKeyOverride: '',
+      );
+      await tester.pumpWidget(
+        _app(const AlrtPlusChooseScreen(isAndroidOverride: true), service),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining(r'$'), findsNothing);
+      expect(find.textContaining('a month'), findsNothing);
+      expect(find.text(kChooseForMyselfTitle), findsOneWidget);
+      expect(find.text(kChooseCoverGroupTitle), findsOneWidget);
+    });
+  });
+
+  group('Price line helpers', () {
+    test('personalPriceLine joins price and trial, or is null with no package',
+        () {
+      expect(personalPriceLine(package: null, trial: null), isNull);
+      final offering = FakeStoreGateway(trial: true).personalOffering();
+      final package = offering.monthly!;
+      expect(
+        personalPriceLine(package: package, trial: null),
+        r'$5.99 AUD a month',
+      );
+      expect(
+        personalPriceLine(
+          package: package,
+          trial: const TrialOffer(1, PeriodUnit.month),
+        ),
+        r'$5.99 AUD a month · 1-month free trial',
+      );
+    });
+
+    test('groupPriceLine names the cheapest group plan', () {
+      expect(groupPriceLine(null), isNull);
+      expect(
+        groupPriceLine(FakeStoreGateway.groupsOffering),
+        r'from $15.99 AUD a month',
+      );
     });
   });
 }

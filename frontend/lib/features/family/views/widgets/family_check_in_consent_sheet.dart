@@ -12,6 +12,11 @@ enum CheckInConsentChoice {
 
   /// Check in AND share a one-hour location snapshot.
   checkInAndShareLocation,
+
+  /// "I need help": a check-in with status needsHelp and no location (the
+  /// same location rule as "Just check in"). Offered only where the host
+  /// screen asked for it ([showCheckInConsentSheet] offerNeedHelp).
+  needHelp,
 }
 
 /// The single consent gate every check-in goes through (locked rule:
@@ -34,12 +39,18 @@ enum CheckInConsentChoice {
 /// regardless of what a client sends, so the sheet is the explanation, not
 /// the guard.
 ///
+/// [offerNeedHelp] adds the red "I need help" button (approved Family
+/// board): a needsHelp check-in without location. Callers that cannot
+/// carry the status through leave it off, so the sheet never offers a
+/// choice that would be sent as a plain check-in.
+///
 /// Returns null when the sheet is dismissed without choosing.
 Future<CheckInConsentChoice?> showCheckInConsentSheet(
   final BuildContext context, {
   final String? requesterName,
   final String? contextLine,
   final FamilySharingLevel? sharingLevel,
+  final bool offerNeedHelp = false,
 }) {
   return showModalBottomSheet<CheckInConsentChoice>(
     context: context,
@@ -52,6 +63,7 @@ Future<CheckInConsentChoice?> showCheckInConsentSheet(
       requesterName: requesterName,
       contextLine: contextLine,
       sharingLevel: sharingLevel ?? FamilySharingLevel.precise,
+      offerNeedHelp: offerNeedHelp,
     ),
   );
 }
@@ -91,11 +103,13 @@ class _CheckInConsentSheetBody extends StatelessWidget {
     required this.requesterName,
     required this.contextLine,
     required this.sharingLevel,
+    required this.offerNeedHelp,
   });
 
   final String? requesterName;
   final String? contextLine;
   final FamilySharingLevel sharingLevel;
+  final bool offerNeedHelp;
 
   /// One short line explaining why a sharing button is narrowed or off.
   /// Null when the saved level allows the precise snapshot.
@@ -226,6 +240,14 @@ class _CheckInConsentSheetBody extends StatelessWidget {
                 ),
               ),
             ],
+            if (offerNeedHelp) ...[
+              SizedBox(height: 10.spMin),
+              _NeedHelpButton(
+                onPressed: () => Navigator.of(context).pop(
+                  CheckInConsentChoice.needHelp,
+                ),
+              ),
+            ],
             SizedBox(height: 6.spMin),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -275,6 +297,45 @@ class _PrimaryGradientButton extends StatelessWidget {
           icon: Icon(LucideIcons.check, size: 20.spMin),
           label: Text(
             label,
+            style: TextStyle(
+              fontSize: 15.spMin,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "I need help": the red SOS gradient, because this is the one check-in
+/// that is not "I am okay". It sends no location (the same rule as "Just
+/// check in"); the SOS screen is where location choices live.
+class _NeedHelpButton extends StatelessWidget {
+  const _NeedHelpButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52.spMin,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: FamilyColors.sosHeaderGradient,
+          borderRadius: BorderRadius.circular(16.spMin),
+        ),
+        child: TextButton.icon(
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16.spMin),
+            ),
+          ),
+          onPressed: onPressed,
+          icon: Icon(LucideIcons.siren, size: 20.spMin),
+          label: Text(
+            'I need help',
             style: TextStyle(
               fontSize: 15.spMin,
               fontWeight: FontWeight.w800,

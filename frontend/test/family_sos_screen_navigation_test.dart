@@ -465,7 +465,7 @@ void main() {
       ),
     );
     await openSos(tester, t.app);
-    expect(rich('Goes to: Alex'), findsOneWidget);
+    expect(rich('Reaches Alex'), findsOneWidget);
     expect(rich('Taylor (needs ALRT + here)'), findsOneWidget);
     expect(rich('May not be notified: Alex'), findsOneWidget);
     expect(rich('can\'t promise delivery'), findsOneWidget);
@@ -570,7 +570,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('now (about'), findsNothing);
-    expect(rich('without your location'), findsOneWidget, reason: 'default');
+    expect(rich('Location: None.'), findsOneWidget, reason: 'default');
     await tester.tap(find.byKey(const Key('sos-loc-once')));
     await tester.pumpAndSettle();
     expect(

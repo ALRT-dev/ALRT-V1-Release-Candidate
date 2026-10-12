@@ -19,4 +19,5 @@ export enum SocketEvent {
   familySosResponse = "familySosResponse", // seen / on my way / called
   familySosResolved = "familySosResolved", // SOS resolved or cancelled
   familyHazardProximity = "familyHazardProximity", // a member is near an active hazard
+  familyHazardShare = "familyHazardShare", // a member sent a public alert to the group
 }

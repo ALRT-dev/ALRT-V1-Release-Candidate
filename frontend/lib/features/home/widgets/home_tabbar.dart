@@ -20,8 +20,10 @@ import 'package:hazard_app/features/profile/providers/child_mode_provider.dart';
 /// destination.
 ///
 /// Six slots: Map, Alerts, Report (ALRT logo), Ready, Family, Me.
-/// Active slot highlighted in brand orange. The map shows through around
-/// it. Labels sit beneath each icon.
+/// Each slot is a 50 px radius-14 tile that takes a tinted background
+/// while active: brand orange for ordinary tabs, indigo for Family at
+/// rest, teal while a check-in is asked of the user, SOS red while any SOS
+/// runs. The map shows through around the pill. Labels sit beneath icons.
 class HomeTabbar extends ConsumerStatefulWidget {
   const HomeTabbar({
     super.key,
@@ -32,13 +34,10 @@ class HomeTabbar extends ConsumerStatefulWidget {
   final TabController tabController;
 
   /// Total vertical space the floating pill occupies (pill + bottom gap).
-  static const double height = 86.0;
+  static const double height = 80.0;
 
   /// Indigo accent for the Family destination.
-  static const familyIndigo = Color(0xFF3D3DDF);
-
-  /// The ring the avatar wears while an SOS is running.
-  static const _sosRing = Color(0xFFE4002B);
+  static const familyIndigo = FamilyColors.indigo;
 
   @override
   ConsumerState<ConsumerStatefulWidget> createState() => _HomeTabbarState();
@@ -50,6 +49,8 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
   static const _pillColor = Color(0xE6F5F5F7);
   static const _activeCircleColor = AppColors.orange;
 
+  /// The active tile tint for ordinary tabs; Family picks its own.
+  static const _activeTileAlpha = 0.10;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +76,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           child: BackdropFilter(
             filter: _frostedFilter,
             child: Container(
-              height: 68.spMin,
+              height: 62.spMin,
               decoration: BoxDecoration(
                 color: _pillColor,
                 borderRadius: BorderRadius.circular(18.spMin),
@@ -114,6 +115,36 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
 
   static final _frostedFilter = ImageFilter.blur(sigmaX: 20, sigmaY: 20);
 
+  /// The 50 px radius-14 tile every slot sits in. [tint] is the active
+  /// background, or null for a slot at rest.
+  Widget _tileBuilder({
+    required final Color? tint,
+    required final Widget icon,
+    required final Widget label,
+  }) {
+    return Container(
+      height: 50.spMin,
+      margin: EdgeInsets.symmetric(horizontal: 2.spMin),
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(14.spMin),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 36.spMin,
+            height: 28.spMin,
+            child: Center(child: icon),
+          ),
+          SizedBox(height: 2.spMin),
+          label,
+        ],
+      ),
+    );
+  }
+
   Widget _tabItemBuilder(final HomeTab tab, {required final bool isActive}) {
     // The family slot has its own builder: its colour and dot change with
     // the family state (idle / asked / SOS).
@@ -126,29 +157,22 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
         behavior: HitTestBehavior.opaque,
         onTap: () => _onTabChanged(tab),
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 36.spMin,
-                height: 36.spMin,
-                child: Center(
-                    child: _tabIconBuilder(tab, isActive: isActive)),
+          child: _tileBuilder(
+            tint: isActive
+                ? _activeCircleColor.withValues(alpha: _activeTileAlpha)
+                : null,
+            icon: _tabIconBuilder(tab, isActive: isActive),
+            label: Text(
+              tab.title,
+              style: TextStyle(
+                fontSize: 10.spMin,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: _labelColor(tab, isActive: isActive),
+                height: 1.2,
               ),
-              SizedBox(height: 2.spMin),
-              Text(
-                tab.title,
-                style: TextStyle(
-                  fontSize: 10.spMin,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                  color: _labelColor(tab, isActive: isActive),
-                  height: 1.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       ),
@@ -170,80 +194,75 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
                   (s) => s.activeSosEvents.isNotEmpty,
                 ),
               );
+              // Teal only for a real ask: fresh, aimed at me, unanswered.
+              // Without an ask the roll's notYet is just "not checked in
+              // today", which is silence, never a reason to light up.
               final isAskedOfMe = ref.watch(
                 providerOfFamily.select((s) {
                   final circle = s.circle;
                   if (circle == null) return false;
-                  final roll = CheckInRoll.of(circle);
-                  return roll.notYet
-                      .any((m) => m.id == circle.myMemberId);
+                  return CheckInRoll.of(circle).isAskedOf(circle.myMemberId);
                 }),
               );
 
               // SOS trumps asked; both trump idle.
               final Color accent;
               final bool showDot;
+              final double tintAlpha;
               if (isSosActive) {
                 accent = FamilyColors.sosRed;
                 showDot = true;
+                tintAlpha = 0.10;
               } else if (isAskedOfMe) {
                 accent = FamilyColors.teal;
                 showDot = true;
+                tintAlpha = 0.12;
               } else {
-                accent = HomeTabbar.familyIndigo;
+                accent = FamilyColors.indigo;
                 showDot = false;
+                tintAlpha = 0.10;
               }
 
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 36.spMin,
-                    height: 36.spMin,
-                    child: Center(
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Icon(
-                            HomeTab.family.iconData,
-                            size: 20.spMin,
-                            color: isActive
-                                ? accent
-                                : accent.withValues(alpha: 0.75),
+              return _tileBuilder(
+                tint: isActive ? accent.withValues(alpha: tintAlpha) : null,
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      HomeTab.family.iconData,
+                      size: 22.spMin,
+                      color: isActive
+                          ? accent
+                          : accent.withValues(alpha: 0.75),
+                    ),
+                    if (showDot)
+                      Positioned(
+                        top: -1,
+                        right: -1,
+                        child: Container(
+                          width: 7.spMin,
+                          height: 7.spMin,
+                          decoration: BoxDecoration(
+                            color: accent,
+                            shape: BoxShape.circle,
                           ),
-                          if (showDot)
-                            Positioned(
-                              top: -1,
-                              right: -1,
-                              child: Container(
-                                width: 7.spMin,
-                                height: 7.spMin,
-                                decoration: BoxDecoration(
-                                  color: accent,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
-                    ),
+                  ],
+                ),
+                label: Text(
+                  HomeTab.family.title,
+                  style: TextStyle(
+                    fontSize: 10.spMin,
+                    fontWeight: isActive
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: accent,
+                    height: 1.2,
                   ),
-                  SizedBox(height: 2.spMin),
-                  Text(
-                    HomeTab.family.title,
-                    style: TextStyle(
-                      fontSize: 10.spMin,
-                      fontWeight: isActive
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: accent,
-                      height: 1.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               );
             },
           ),
@@ -284,7 +303,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
       default:
         return Icon(
           tab.iconData,
-          size: 20.spMin,
+          size: 22.spMin,
           color: isActive ? _activeCircleColor : AppColors.mediumGrey,
         );
     }
@@ -309,7 +328,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           children: [
             Icon(
               HomeTab.notifications.iconData,
-              size: 20.spMin,
+              size: 22.spMin,
               color: isActive ? _activeCircleColor : AppColors.mediumGrey,
             ),
             if (hasFreshAlerts)
@@ -368,24 +387,33 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           }),
         );
 
-        final ringColor = isSosRunning
-            ? HomeTabbar._sosRing
-            : isSharingLive
-            ? HomeTabbar.familyIndigo
-            : isActive
-            ? _activeCircleColor
-            : null;
+        if (isSosRunning || isSharingLive) {
+          return Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSosRunning
+                    ? FamilyColors.sosRed
+                    : FamilyColors.indigo,
+                width: 2.5,
+              ),
+            ),
+            child: avatar,
+          );
+        }
 
+        if (!isActive) return avatar;
+
+        // Active: a 2 px white ring inside a 2 px orange ring. The orange
+        // spread is painted first so the white sits on top of it.
         return Container(
-          decoration: ringColor == null
-              ? null
-              : BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: ringColor,
-                    width: isSosRunning || isSharingLive ? 2.5 : 2,
-                  ),
-                ),
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: _activeCircleColor, spreadRadius: 4),
+              BoxShadow(color: AppColors.white, spreadRadius: 2),
+            ],
+          ),
           child: avatar,
         );
       },

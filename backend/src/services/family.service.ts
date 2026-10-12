@@ -1793,6 +1793,82 @@ export const listRecentCheckIns = async (
 };
 
 /**
+ * "Send to my group" from the alert detail screen. Pushes a public alert
+ * (by id) to every OTHER member of one of the sender's groups, with an
+ * optional short note. Recipients are chosen exactly as a check-in's are
+ * (every member of the circle minus the sender; sendPushNotificationToUser
+ * then applies the per-user device-token and deletion rules).
+ *
+ * Nothing is written to the database: this is a referral to an alert that
+ * already exists, not a check-in, and never carries a location.
+ */
+export const shareHazardWithCircle = async (
+  userId: string,
+  hazardId: string,
+  input: { circleId: string; message?: string | undefined },
+) => {
+  // Sharing an alert into a group you are not in is a refusal, not a
+  // "no circle yet" lookup miss, so the helper's 404 becomes a 403 here.
+  let membership: Awaited<ReturnType<typeof requireMembership>>;
+  try {
+    membership = await requireMembership(userId, input.circleId);
+  } catch (error) {
+    if (error instanceof HttpError && error.statusCode === 404) {
+      throw new HttpError(403, "You are not a member of this circle");
+    }
+    throw error;
+  }
+
+  // Visible alerts only: an accepted hazard, or one from an official
+  // source (sourceId set; ingestion writes those as accepted anyway). A
+  // pending or rejected community report cannot be pushed to a group.
+  const hazard = await prisma.hazard.findFirst({
+    where: {
+      id: hazardId,
+      OR: [{ reviewStatus: "accepted" }, { sourceId: { not: null } }],
+    },
+    select: { id: true, title: true },
+  });
+  if (!hazard) throw new HttpError(404, "That alert does not exist");
+
+  const sender = await prisma.familyMember.findUnique({
+    where: { id: membership.id },
+    select: memberIdentitySelect,
+  });
+  const senderName =
+    sender?.nickname || sender?.user.name || membership.nickname || "A family member";
+
+  const note = input.message?.trim();
+  const recipientUserIds = await getCircleUserIds(membership.circleId, [
+    membership.id,
+  ]);
+
+  const payload = {
+    notificationType: PushNotificationType.familyHazardShare,
+    hazardId: hazard.id,
+    circleId: membership.circleId,
+  };
+
+  await notifyUsers({
+    userIds: recipientUserIds,
+    title: `${senderName} sent you an alert`,
+    body: note ? `${hazard.title}\n${note}` : hazard.title,
+    data: payload,
+    type: PushNotificationType.familyHazardShare,
+    socketEvent: SocketEvent.familyHazardShare,
+    socketData: {
+      ...payload,
+      hazardTitle: hazard.title,
+      senderMemberId: membership.id,
+      senderName,
+      ...(note && { message: note }),
+    },
+  });
+
+  return { sent: recipientUserIds.length };
+};
+
+/**
  * The alert a check-in was made from, by title, so the circle can read
  * "near <alert>" and open it. Looked up here because the link is an id
  * without a foreign key; an alert since removed simply has no title.
@@ -1865,29 +1941,75 @@ const scheduledCheckInInclude = {
   member: { select: memberIdentitySelect },
 } as const;
 
+const isUsableTimeZone = (tz: string): boolean => {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Whole-hour Etc zone for a UTC offset in minutes. Etc zones carry the
+ * inverted POSIX sign: UTC+8 is "Etc/GMT-8", UTC-5 is "Etc/GMT+5".
+ */
+const etcZoneForHours = (hours: number): string => {
+  if (hours === 0) return "Etc/GMT";
+  return `Etc/GMT${hours < 0 ? "+" : "-"}${Math.abs(hours)}`;
+};
+
+/**
+ * Resolves a phone's UTC offset (minutes east of UTC) to a time zone the
+ * scheduler can evaluate with Intl. Whole hours map to an Etc zone; other
+ * offsets (e.g. +09:30, +05:45) use a fixed-offset zone string when the
+ * runtime accepts one, otherwise the nearest whole-hour Etc zone.
+ * Returns undefined when the offset is not usable.
+ */
+export const zoneFromOffset = (
+  utcOffsetMinutes: number | undefined,
+): string | undefined => {
+  if (
+    utcOffsetMinutes === undefined ||
+    !Number.isInteger(utcOffsetMinutes) ||
+    Math.abs(utcOffsetMinutes) > 840
+  ) {
+    return undefined;
+  }
+  if (utcOffsetMinutes % 60 === 0) {
+    return etcZoneForHours(utcOffsetMinutes / 60);
+  }
+  const abs = Math.abs(utcOffsetMinutes);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(abs % 60).padStart(2, "0");
+  const fixed = `${utcOffsetMinutes < 0 ? "-" : "+"}${hh}:${mm}`;
+  if (isUsableTimeZone(fixed)) return fixed;
+  return etcZoneForHours(Math.round(utcOffsetMinutes / 60));
+};
+
 export const createScheduledCheckIn = async (
   userId: string,
   input: {
     timeOfDay: string;
     timezone?: string | undefined;
+    utcOffsetMinutes?: number | undefined;
     mode?: FamilyScheduledCheckInMode | undefined;
   },
   circleId?: string,
 ) => {
   const membership = await requireMembership(userId, circleId);
 
-  // The time zone is required: a scheduled check-in is a local time and the
-  // server never guesses the zone (no Brisbane default).
-  const tz = input.timezone?.trim();
+  // A scheduled check-in is a local time and the server never guesses the
+  // zone (no Brisbane default): the client sends an IANA zone or, failing
+  // that, the phone's UTC offset.
+  const tz = input.timezone?.trim() || zoneFromOffset(input.utcOffsetMinutes);
   if (!tz) {
     throw new HttpError(
       400,
       "timezone is required for a scheduled check-in (an IANA zone such as Australia/Perth)",
     );
   }
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-  } catch {
+  if (!isUsableTimeZone(tz)) {
     throw new HttpError(400, `Invalid timezone: ${tz}`);
   }
 

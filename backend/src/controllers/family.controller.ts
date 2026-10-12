@@ -5,6 +5,7 @@ import type {
   CreateFamilyPlaceInput,
   FamilyCheckInInput,
   FamilyCheckInRequestInput,
+  FamilyHazardShareInput,
   FamilyLocationPingInput,
   FamilyScheduledCheckInInput,
   ExtendFamilyJourneyInput,
@@ -529,6 +530,26 @@ export const checkInController = async (
     }
 
     res.status(201).json(checkIn);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /family/hazards/:hazardId/share - "Send to my group" on an alert. */
+export const shareHazardController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUserId(res);
+    const { hazardId } = req.params;
+    if (!hazardId || typeof hazardId !== "string") {
+      throw new HttpError(400, "hazardId is required");
+    }
+    const input: FamilyHazardShareInput = req.body;
+    const result = await familyService.shareHazardWithCircle(userId, hazardId, input);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

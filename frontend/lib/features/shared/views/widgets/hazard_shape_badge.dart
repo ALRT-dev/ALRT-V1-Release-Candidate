@@ -11,6 +11,11 @@ import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 ///
 /// Zero new assets: both the shapes and the band colours already exist in
 /// the marker system, this just draws them together.
+///
+/// [outline] drops the band entirely: the shape is drawn as a dark grey
+/// stroke with no fill, which is how the Map key and the Filters sheet
+/// show "who is speaking" without suggesting any seriousness (product
+/// owner, 12 Oct 2026). Cards keep the filled variant.
 class HazardShapeBadge extends StatelessWidget {
   const HazardShapeBadge({
     super.key,
@@ -20,6 +25,7 @@ class HazardShapeBadge extends StatelessWidget {
     this.isGlobalHumanitarian = false,
     this.isAlrtIntel = false,
     this.size = 30,
+    this.outline = false,
   });
 
   /// Alerts carried by the Australian Warning System (triangle).
@@ -43,8 +49,40 @@ class HazardShapeBadge extends StatelessWidget {
   /// Outer square edge. 30 in the feed, 24 on the widget's alert state.
   final double size;
 
+  /// Draw the shape as a dark grey outline on no wash, ignoring [band].
+  final bool outline;
+
+  /// The stroke colour of an outlined shape: dark grey, never a band hex.
+  static const outlineInk = Color(0xFF3A3A42);
+
+  /// A bare source shape as a dark grey outline, no fill and no wash, for
+  /// legends. Lucide glyphs are stroked at 2 px on a 24 px grid, so the
+  /// icon itself is the outline.
+  static Widget outlineGlyph({
+    required final IconData icon,
+    final double size = 22,
+  }) {
+    return Icon(icon, size: size, color: outlineInk);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final icon = AlertCardStyle.systemShapeIcon(
+      isAws: isAws,
+      isOfficial: isOfficial,
+      isGlobalHumanitarian: isGlobalHumanitarian,
+      isAlrtIntel: isAlrtIntel,
+    );
+    final glyphSize = (size * 17 / 30).spMin;
+
+    if (outline) {
+      return SizedBox(
+        width: size.spMin,
+        height: size.spMin,
+        child: Center(child: outlineGlyph(icon: icon, size: glyphSize)),
+      );
+    }
+
     final tint = AlertCardStyle.bandShapeColor(band);
     // The glyph takes the band's dark stop, not the bright band hex, which
     // has too little contrast against its own wash.
@@ -58,16 +96,7 @@ class HazardShapeBadge extends StatelessWidget {
         color: tint.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10.spMin),
       ),
-      child: Icon(
-        AlertCardStyle.systemShapeIcon(
-          isAws: isAws,
-          isOfficial: isOfficial,
-          isGlobalHumanitarian: isGlobalHumanitarian,
-          isAlrtIntel: isAlrtIntel,
-        ),
-        size: (size * 17 / 30).spMin,
-        color: ink,
-      ),
+      child: Icon(icon, size: glyphSize, color: ink),
     );
   }
 }

@@ -26,14 +26,10 @@ import 'package:hazard_app/features/family/views/screens/family_sos_resolved_scr
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
 import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
-import 'package:hazard_app/features/family/views/widgets/family_check_in_requests_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
-import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_group_actions.dart';
-import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
-import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
 import 'package:hazard_app/features/family/views/widgets/family_leave_confirm_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_details_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_list_item.dart';
@@ -41,13 +37,20 @@ import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
+import 'package:hazard_app/features/subscription/models/access_models.dart';
+import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-/// The family hub: status banner, one-tap "I'm Safe", check-in requests and
-/// the member list. Embedded as the Family tab body.
+/// The family hub (approved Family board, 12 Oct 2026 mockup): the state
+/// header, the one Check in button, Ask / Journey / Daily, the SOS card,
+/// the member list and the "More" card. Embedded as the Family tab body.
+/// FamilySosStrip renders above it, in home.
 class FamilyHubScreen extends ConsumerStatefulWidget {
   const FamilyHubScreen({super.key});
 
@@ -58,7 +61,17 @@ class FamilyHubScreen extends ConsumerStatefulWidget {
       _FamilyHubScreenState();
 }
 
+/// How this group is paid for, as the header says it.
+enum _Coverage { notCovered, groupPlan, ownPlan }
+
 class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
+  /// The "MEMBERS" label takes the V3.1 prototype's brighter section-label
+  /// orange (board exception to the #B84500 default).
+  static const _membersLabelOrange = Color(0xFFFF6B01);
+
+  /// The peach notice card for a group with no plan: AppColors cream.
+  static const _noticeCream = Color(0xFFFFF1E8);
+
   @override
   Widget build(BuildContext context) {
     _listenToActionErrors();
@@ -79,6 +92,13 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         .watch(providerOfFamily.select((s) => s.sharedJourneys))
         .where((j) => j.isActive)
         .toList();
+    // Who is covered and how: GET /api/access, never decided on the phone.
+    // Null while it loads or when ALRT cannot be reached.
+    final access = ref.watch(providerOfAccess).asData?.value;
+    final coverage = _coverageOf(circle, access);
+
+    final roll = CheckInRoll.of(circle);
+    final isAskedOfMe = roll.isAskedOf(circle.myMemberId);
 
     return Scaffold(
       // The prototype's lavender page in light mode; the app's dark
@@ -92,7 +112,13 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            _headerBuilder(circle),
+            _headerBuilder(
+              circle,
+              coverage: coverage,
+              access: access,
+              isAskedOfMe: isAskedOfMe,
+              isSosActive: activeSosEvents.isNotEmpty,
+            ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.all(20.spMin),
@@ -111,16 +137,42 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                       _sharedJourneyCardBuilder(journey),
                       SizedBox(height: 12.spMin),
                     ],
+                    if (coverage == _Coverage.notCovered) ...[
+                      _coverageNoticeBuilder(circle, access),
+                      SizedBox(height: 12.spMin),
+                    ],
                     _checkInRequestBannerBuilder(circle, checkInState),
+                    if (isAskedOfMe) ...[
+                      _askedOfMeCardBuilder(circle),
+                      SizedBox(height: 12.spMin),
+                    ],
                     _checkInCardBuilder(circle, checkInState),
-                    SizedBox(height: 10.spMin),
+                    SizedBox(height: 12.spMin),
                     _quickTilesRowBuilder(),
+                    SizedBox(height: 12.spMin),
+                    _sosCardBuilder(),
                     SizedBox(height: 22.spMin),
-                    _membersSectionBuilder(circle, memberIdsNearAlert),
-                    SizedBox(height: 14.spMin),
+                    _membersSectionBuilder(
+                      circle,
+                      roll,
+                      memberIdsNearAlert: memberIdsNearAlert,
+                      activeSosEvents: activeSosEvents,
+                    ),
+                    SizedBox(height: 12.spMin),
                     _bottomActionsBuilder(circle),
-                    SizedBox(height: 20.spMin),
-                    _sosHistorySectionBuilder(circle),
+                    SizedBox(height: 10.spMin),
+                    Text(
+                      'A location sent to your group is one moment, sent on '
+                      'purpose. It expires after an hour.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        height: 1.4,
+                        color: context.onSurfaceMuted,
+                      ),
+                    ),
+                    SizedBox(height: 22.spMin),
+                    _moreSectionBuilder(circle, coverage: coverage, access: access),
                     SizedBox(height: 120.spMin),
                   ],
                 ),
@@ -131,6 +183,378 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       ),
     );
   }
+
+  // ── Header ─────────────────────────────────────────────────────────────
+
+  /// Where this group's cover comes from, from GET /api/access. A live
+  /// Family/Group plan covers everyone in it; otherwise my own ALRT +
+  /// covers me; otherwise nothing does yet. Null access = unknown.
+  _Coverage? _coverageOf(
+    final FamilyCircle circle,
+    final AccessSummary? access,
+  ) {
+    if (access == null) return null;
+    final group = access.groupById(circle.id);
+    if (group != null && group.isSponsoredAndLive) return _Coverage.groupPlan;
+    if (access.personal.isIndividual) return _Coverage.ownPlan;
+    return _Coverage.notCovered;
+  }
+
+  /// "Covered by ALRT + Family" / "Using your own ALRT +" / "Not covered
+  /// yet", or null while coverage is unknown (never guessed).
+  String? _coverageLine(
+    final FamilyCircle circle,
+    final _Coverage? coverage,
+    final AccessSummary? access,
+  ) => switch (coverage) {
+    null => null,
+    _Coverage.notCovered => 'Not covered yet',
+    _Coverage.ownPlan => 'Using your own ALRT +',
+    _Coverage.groupPlan =>
+      'Covered by '
+          '${_planName(access?.groupById(circle.id)?.sponsorship?.tier)}',
+  };
+
+  /// Plan names as the UI says them (never "Individual").
+  static String _planName(final PlanTier? tier) => switch (tier) {
+    PlanTier.group20 => 'ALRT + Group 20',
+    PlanTier.group50 => 'ALRT + Group 50',
+    PlanTier.family => 'ALRT + Family',
+    PlanTier.individual || null => 'ALRT +',
+  };
+
+  /// The state header: group name with the switch-group chevron, the
+  /// overflow menu, and ONE line of facts ("4 people · you host · Covered
+  /// by ALRT + Family"). Indigo at rest, teal while a check-in is asked of
+  /// me, red while any SOS is live. The Reconnecting pill shows only while
+  /// the socket is down: a dead connection is never silent, and a live one
+  /// needs no badge.
+  Widget _headerBuilder(
+    final FamilyCircle circle, {
+    required final _Coverage? coverage,
+    required final AccessSummary? access,
+    required final bool isAskedOfMe,
+    required final bool isSosActive,
+  }) {
+    final Gradient base;
+    final Gradient highlight;
+    if (isSosActive) {
+      base = FamilyColors.sosHeaderGradient;
+      highlight = FamilyColors.headerHighlight;
+    } else if (isAskedOfMe) {
+      base = FamilyColors.tealHeaderGradient;
+      highlight = FamilyColors.tealHeaderHighlight;
+    } else {
+      base = FamilyColors.headerGradient;
+      highlight = FamilyColors.headerHighlight;
+    }
+
+    final isOwner = circle.me?.role == FamilyRole.owner;
+    final host = circle.members
+        .where((m) => m.role == FamilyRole.owner)
+        .map((m) => m.name)
+        .firstOrNull;
+    final coverageText = _coverageLine(circle, coverage, access);
+    final subLine = [
+      peopleLine(circle.members.length),
+      if (isOwner)
+        'you host'
+      else if (host != null && host.isNotEmpty)
+        'hosted by $host',
+      if (coverageText != null) coverageText,
+    ].join(' · ');
+
+    return SliverToBoxAdapter(
+      child: DecoratedBox(
+        decoration: BoxDecoration(gradient: base),
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: highlight),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20.spMin, 0, 16.spMin, 18.spMin),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 10.spMin),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => showChooseCircleSheet(context, ref),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  circle.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26.spMin,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.15,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 4.spMin),
+                              Icon(
+                                LucideIcons.chevronDown,
+                                size: 22.spMin,
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8.spMin),
+                      _overflowMenuBuilder(circle),
+                    ],
+                  ),
+                  SizedBox(height: 6.spMin),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          subLine,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.spMin,
+                            color: Colors.white.withValues(alpha: 0.8),
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                      _reconnectingPillBuilder(),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Amber "Reconnecting" while live updates are down (the hub refreshes
+  /// itself every 30 s meanwhile, see FamilyProvider). Nothing while the
+  /// socket is up.
+  Widget _reconnectingPillBuilder() {
+    return Consumer(
+      builder: (context, ref, _) {
+        final isLive = ref.watch(providerOfLiveConnection);
+        if (isLive) return const SizedBox.shrink();
+        return Semantics(
+          label: 'Live updates reconnecting',
+          child: Container(
+            margin: EdgeInsets.only(left: 8.spMin),
+            padding: EdgeInsets.symmetric(
+              horizontal: 8.spMin,
+              vertical: 4.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(10.spMin),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6.spMin,
+                  height: 6.spMin,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFBBF24),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                SizedBox(width: 5.spMin),
+                Text(
+                  'Reconnecting',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10.5.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// The 36 px outlined-white rounded square that opens the group menu.
+  Widget _overflowMenuBuilder(final FamilyCircle circle) {
+    final isOwner = circle.me?.role == FamilyRole.owner;
+    return PopupMenuButton<String>(
+      padding: EdgeInsets.zero,
+      tooltip: 'Group menu',
+      color: context.surfaceCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14.spMin),
+      ),
+      onSelected: (value) {
+        switch (value) {
+          case 'sharing':
+            context.push(FamilySharingLevelScreen.route);
+          case 'profile':
+            context.push(FamilyCircleProfileScreen.route);
+          case 'circleSettings':
+            context.push(FamilyGroupSettingsScreen.route);
+          case 'switchGroups':
+            context.push(FamilySwitchGroupScreen.route);
+          case 'transferHosting':
+            _showTransferHostingSheet(circle);
+          case 'stepBackAsHost':
+            _confirmStepBackAsHost(circle);
+          case 'leave':
+            _confirmLeaveOrDelete(isOwner: isOwner);
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'switchGroups',
+          child: Text('Add, join or switch groups'),
+        ),
+        const PopupMenuItem(value: 'sharing', child: Text('My sharing level')),
+        const PopupMenuItem(value: 'profile', child: Text('My group profile')),
+        // One destination for name, rules, picture and beacon colour.
+        // Members can open it too: they see the group's settings without
+        // the controls, instead of a menu that hides where they live.
+        const PopupMenuItem(
+          value: 'circleSettings',
+          child: Text('Group settings'),
+        ),
+        if (isOwner)
+          const PopupMenuItem(
+            value: 'transferHosting',
+            child: Text('Transfer hosting'),
+          ),
+        // Leaving without naming a successor starts a 7-day host-transition
+        // window instead of deleting the group - a real, separate choice
+        // from "Delete group" below, only offered when there's someone
+        // left to keep the group running for.
+        if (isOwner && circle.members.length > 1)
+          const PopupMenuItem(
+            value: 'stepBackAsHost',
+            child: Text('Step back as host'),
+          ),
+        PopupMenuItem(
+          value: 'leave',
+          child: Text(
+            isOwner ? 'Delete group' : 'Leave group',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      ],
+      child: Container(
+        width: 36.spMin,
+        height: 36.spMin,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10.spMin),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.7),
+            width: 1.5,
+          ),
+        ),
+        child: Icon(
+          LucideIcons.ellipsisVertical,
+          color: Colors.white,
+          size: 18.spMin,
+        ),
+      ),
+    );
+  }
+
+  // ── Coverage ───────────────────────────────────────────────────────────
+
+  /// The peach notice for a group nobody is paying for yet. Connection
+  /// features are gated by the backend (402/409/422), never here; this
+  /// just says so before the first refusal.
+  Widget _coverageNoticeBuilder(
+    final FamilyCircle circle,
+    final AccessSummary? access,
+  ) {
+    return Container(
+      padding: EdgeInsets.all(14.spMin),
+      decoration: BoxDecoration(
+        color: _noticeCream,
+        borderRadius: BorderRadius.circular(16.spMin),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Check in, Check on, SOS and Journey need ALRT + for each '
+            'person, or one plan covering the group.',
+            style: TextStyle(
+              fontSize: 13.spMin,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+              color: AppColors.sectionLabel,
+            ),
+          ),
+          SizedBox(height: 6.spMin),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openPlanAndCover(circle, access),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Plan and cover',
+                  style: TextStyle(
+                    fontSize: 13.5.spMin,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.sectionLabel,
+                  ),
+                ),
+                Icon(
+                  LucideIcons.chevronRight,
+                  size: 16.spMin,
+                  color: AppColors.sectionLabel,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// "Plan and cover": the plan screen when something is already in force
+  /// (manage), the group paywall pre-set to this group when I host an
+  /// unfunded group (the "connection features in an unfunded group"
+  /// paywall moment), otherwise the one ALRT + choice screen.
+  void _openPlanAndCover(
+    final FamilyCircle circle,
+    final AccessSummary? access,
+  ) {
+    final group = access?.groupById(circle.id);
+    final hasAnyPlan =
+        (access?.personal.isIndividual ?? false) ||
+        (group?.isSponsoredAndLive ?? false);
+    if (hasAnyPlan) {
+      context.push(AlrtPlusManageScreen.route);
+      return;
+    }
+    if (circle.me?.role == FamilyRole.owner) {
+      context.push(
+        AlrtPlusGroupPaywallScreen.route,
+        extra: AlrtPlusGroupPaywallArgs(circleId: circle.id),
+      );
+      return;
+    }
+    context.push(AlrtPlusChooseScreen.route);
+  }
+
+  // ── Banners kept from the previous hub ────────────────────────────────
 
   /// The amber strip that says this circle needs a new host and opens the
   /// ways forward. Never implies SOS, check-ins or journeys have stopped -
@@ -281,372 +705,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       case 'close':
         _confirmLeaveOrDelete(isOwner: true);
     }
-  }
-
-  /// The way out of the chip row: every group on one page, with its beacon
-  /// and what it costs in seats.
-  /// Whether live updates are arriving right now, said out loud. A dropped
-  /// connection used to be invisible: the screen simply stopped changing
-  /// and looked broken. Green "Live" while the socket is up; amber
-  /// "Reconnecting" while it is down (and the hub refreshes itself every
-  /// 30 s in the meantime, see FamilyProvider).
-  Widget _livePillBuilder() {
-    return Consumer(
-      builder: (context, ref, _) {
-        final isLive = ref.watch(providerOfLiveConnection);
-        final dot = isLive ? const Color(0xFF6EE7A0) : const Color(0xFFFBBF24);
-        return Semantics(
-          label: isLive
-              ? 'Live updates connected'
-              : 'Live updates reconnecting',
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 8.spMin,
-              vertical: 4.spMin,
-            ),
-            decoration: BoxDecoration(
-              color: isLive
-                  ? FamilyColors.safeGreen.withValues(alpha: 0.35)
-                  : Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(10.spMin),
-              border: isLive
-                  ? null
-                  : Border.all(color: Colors.white.withValues(alpha: 0.55)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6.spMin,
-                  height: 6.spMin,
-                  decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-                ),
-                SizedBox(width: 5.spMin),
-                Text(
-                  isLive ? 'Live' : 'Reconnecting',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10.5.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// The approved hub header, kept calm: the circle's picture and name
-  /// (tap for "Choose a circle"), the members as a small avatar stack, the
-  /// live pill and the menu, then one seat line with a bar. No status card,
-  /// no buttons: what needs answering shows up as the ask card and the
-  /// members' chips below, and the ways in and across live in the sheet.
-  Widget _headerBuilder(final FamilyCircle circle) {
-    // State-dependent gradient: SOS red, asked teal, idle indigo.
-    final isSosActive = ref.watch(
-      providerOfFamily.select((s) => s.activeSosEvents.isNotEmpty),
-    );
-    final isAskedOfMe = !isSosActive &&
-        (() {
-          final roll = CheckInRoll.of(circle);
-          return roll.notYet.any((m) => m.id == circle.myMemberId);
-        })();
-    final Gradient? headerGradient = isSosActive
-        ? FamilyColors.sosHeaderGradient
-        : isAskedOfMe
-            ? FamilyColors.tealHeaderGradient
-            : null; // default indigo
-
-    return SliverToBoxAdapter(
-      child: FamilyHeaderSurface(
-        gradient: headerGradient,
-        padding: EdgeInsets.fromLTRB(20.spMin, 0, 16.spMin, 18.spMin),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 10.spMin),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => showChooseCircleSheet(context, ref),
-                      child: Row(
-                        children: [
-                          FamilyGroupAvatar(
-                            name: circle.name,
-                            photoUrl: circle.photoUrl,
-                            themeColorHex: circle.themeColor,
-                            size: 40.spMin,
-                            borderColor: Colors.white.withValues(alpha: 0.45),
-                            borderWidth: 1.8,
-                          ),
-                          SizedBox(width: 10.spMin),
-                          Flexible(
-                            child: Text(
-                              circle.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22.spMin,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 4.spMin),
-                          Icon(
-                            LucideIcons.chevronDown,
-                            size: 20.spMin,
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8.spMin),
-                  _avatarStackBuilder(circle),
-                  _overflowMenuBuilder(circle),
-                ],
-              ),
-              SizedBox(height: 12.spMin),
-              _seatLineBuilder(circle),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Up to three members as overlapping circles, then "+N". Tapping it
-  /// scrolls nowhere: the list is right below.
-  Widget _avatarStackBuilder(final FamilyCircle circle) {
-    final members = circle.members;
-    final shown = members.take(2).toList();
-    final extra = members.length - shown.length;
-    final size = 30.0;
-    final step = 21.spMin;
-    final width = step * (shown.length + (extra > 0 ? 1 : 0)) + 9.spMin;
-    return SizedBox(
-      width: width,
-      height: size.spMin,
-      child: Stack(
-        children: [
-          for (final (index, member) in shown.indexed)
-            Positioned(
-              left: step * index,
-              child: Container(
-                padding: EdgeInsets.all(1.5.spMin),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: FamilyMemberAvatar(
-                  member: member,
-                  size: size - 3,
-                  showStatusDot: false,
-                ),
-              ),
-            ),
-          if (extra > 0)
-            Positioned(
-              left: step * shown.length,
-              child: Container(
-                width: size.spMin,
-                height: size.spMin,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: Text(
-                  '+$extra',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.spMin,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Who hosts and how many people are here, plus the live pill. Billing
-  /// mechanics (plans, capacity, who pays) live on My plans, not on the
-  /// connection screen (master spec §11).
-  Widget _seatLineBuilder(final FamilyCircle circle) {
-    final isOwner = circle.me?.role == FamilyRole.owner;
-    final host = circle.members
-        .where((m) => m.role == FamilyRole.owner)
-        .map((m) => m.name)
-        .firstOrNull;
-    final line = isOwner
-        ? '${peopleLine(circle.members.length)} · you host'
-        : '${peopleLine(circle.members.length)} · ${hostedByLine(host)}';
-    return Row(
-      children: [
-        Icon(LucideIcons.users, size: 14.spMin, color: Colors.white),
-        SizedBox(width: 6.spMin),
-        Expanded(
-          child: Text(
-            line,
-            style: TextStyle(
-              fontSize: 12.5.spMin,
-              fontWeight: FontWeight.w700,
-              color: Colors.white.withValues(alpha: 0.9),
-            ),
-          ),
-        ),
-        _livePillBuilder(),
-      ],
-    );
-  }
-
-  /// The two ways to grow the circle, at the end of the list where the
-  /// approved design puts them: hosts add or join, everyone else joins or
-  /// switches. Same flows as the "Choose a circle" sheet, nothing extra.
-  Widget _bottomActionsBuilder(final FamilyCircle circle) {
-    final isOwner = circle.me?.role == FamilyRole.owner;
-    Widget button(
-      final IconData icon,
-      final String label,
-      final VoidCallback onTap,
-    ) {
-      return Expanded(
-        child: SizedBox(
-          height: 48.spMin,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: FamilyColors.indigoDark,
-              backgroundColor: context.surfaceCard,
-              side: BorderSide(
-                color: FamilyColors.indigo.withValues(alpha: 0.35),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14.spMin),
-              ),
-            ),
-            onPressed: onTap,
-            icon: Icon(icon, size: 18.spMin),
-            label: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w800),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      spacing: 10.spMin,
-      children: [
-        if (isOwner)
-          button(
-            LucideIcons.userPlus,
-            'Add a person',
-            () => context.push(FamilyInviteScreen.route),
-          ),
-        button(
-          LucideIcons.qrCode,
-          'Join with code',
-          () => showJoinGroupSheet(context, ref),
-        ),
-        if (!isOwner)
-          button(
-            LucideIcons.arrowLeftRight,
-            'Switch circle',
-            () => showChooseCircleSheet(context, ref),
-          ),
-      ],
-    );
-  }
-
-  Widget _overflowMenuBuilder(final FamilyCircle circle) {
-    final isOwner = circle.me?.role == FamilyRole.owner;
-    return PopupMenuButton<String>(
-      icon: Icon(
-        LucideIcons.ellipsisVertical,
-        color: Colors.white,
-        size: 22.spMin,
-      ),
-      color: context.surfaceCard,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14.spMin),
-      ),
-      onSelected: (value) {
-        switch (value) {
-          case 'places':
-            context.push(FamilyPlacesScreen.route);
-          case 'sharing':
-            context.push(FamilySharingLevelScreen.route);
-          case 'profile':
-            context.push(FamilyCircleProfileScreen.route);
-          case 'circleSettings':
-            context.push(FamilyGroupSettingsScreen.route);
-          case 'switchGroups':
-            context.push(FamilySwitchGroupScreen.route);
-          case 'sosLists':
-            context.push(FamilySosListsScreen.route);
-          case 'transferHosting':
-            _showTransferHostingSheet(circle);
-          case 'stepBackAsHost':
-            _confirmStepBackAsHost(circle);
-          case 'leave':
-            _confirmLeaveOrDelete(isOwner: isOwner);
-        }
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'switchGroups',
-          child: Text('Add, join or switch circles'),
-        ),
-        const PopupMenuItem(
-          value: 'sosLists',
-          child: Text('Who your SOS reaches'),
-        ),
-        const PopupMenuItem(value: 'places', child: Text('Places')),
-        const PopupMenuItem(value: 'sharing', child: Text('My sharing level')),
-        const PopupMenuItem(value: 'profile', child: Text('My circle profile')),
-        // One destination for name, rules, picture and beacon colour.
-        // Members can open it too: they see the circle's settings without
-        // the controls, instead of a menu that hides where they live.
-        const PopupMenuItem(
-          value: 'circleSettings',
-          child: Text('Circle settings'),
-        ),
-        if (isOwner)
-          const PopupMenuItem(
-            value: 'transferHosting',
-            child: Text('Transfer hosting'),
-          ),
-        // Leaving without naming a successor starts a 7-day host-transition
-        // window instead of deleting the circle - a real, separate choice
-        // from "Delete circle" below, only offered when there's someone
-        // left to keep the circle running for.
-        if (isOwner && circle.members.length > 1)
-          const PopupMenuItem(
-            value: 'stepBackAsHost',
-            child: Text('Step back as host'),
-          ),
-        PopupMenuItem(
-          value: 'leave',
-          child: Text(
-            isOwner ? 'Delete circle' : 'Leave circle',
-            style: const TextStyle(color: Colors.red),
-          ),
-        ),
-      ],
-    );
   }
 
   /// Owner-only sheet (§29 TRANSFER): hand the circle to an eligible member.
@@ -903,40 +961,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     return parts.join(' · ');
   }
 
-  /// Retained SOS history: every stood-down SOS in this circle (last 30
-  /// days), with who acknowledged it. Tapping opens the after-event record.
-  /// The server never returns locations for these - who and when only.
-  Widget _sosHistorySectionBuilder(final FamilyCircle circle) {
-    final history = ref.watch(providerOfFamily.select((s) => s.sosHistory));
-    if (history.isEmpty) return const SizedBox.shrink();
-    final shown = history.take(3).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionLabelBuilder('Past SOS', count: history.length),
-        SizedBox(height: 10.spMin),
-        _cardBuilder(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final (index, sos) in shown.indexed) ...[
-                if (index > 0)
-                  Divider(
-                    height: 1,
-                    indent: 56.spMin,
-                    color: const Color(0xFFF0F0F2),
-                  ),
-                _sosHistoryRowBuilder(circle, sos),
-              ],
-            ],
-          ),
-        ),
-        SizedBox(height: 20.spMin),
-      ],
-    );
-  }
-
   Widget _sosHistoryRowBuilder(
     final FamilyCircle circle,
     final FamilySosEvent sos,
@@ -1012,11 +1036,806 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// The one section label on this screen: indigo, uppercase, letter-spaced,
-  /// with an optional count so a section says how much is in it.
-  Widget _sectionLabelBuilder(final String title, {final int? count}) {
+
+  // ── Check in ───────────────────────────────────────────────────────────
+
+  /// Every check-in from this screen - answering someone's ask or a
+  /// spontaneous one - goes through the same consent sheet first (locked
+  /// rule: location leaves a phone only by the owner's action). "Just
+  /// check in" is the primary button; sharing a snapshot is the deliberate
+  /// extra step; "I need help" is a needsHelp check-in without location;
+  /// dismissing the sheet sends nothing.
+  Future<void> _checkInWithConsent(
+    final BuildContext context,
+    final WidgetRef ref, {
+    final String? requesterName,
+  }) async {
+    final choice = await showCheckInConsentSheet(
+      context,
+      requesterName: requesterName,
+      sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
+      offerNeedHelp: true,
+    );
+    if (choice == null || !context.mounted) return;
+    await ref
+        .read(providerOfFamily.notifier)
+        .checkIn(
+          status: choice == CheckInConsentChoice.needHelp
+              ? FamilyCheckInStatus.needsHelp
+              : FamilyCheckInStatus.safe,
+          shareLocation: choice == CheckInConsentChoice.checkInAndShareLocation,
+        );
+  }
+
+  /// "<Name> asked you to check in": the card the person ASKED sees, above
+  /// the Check in button, with the ask's time and note. Check in opens the
+  /// consent sheet; See who has opens the roll call.
+  Widget _askedOfMeCardBuilder(final FamilyCircle circle) {
+    final request =
+        circle.checkInRequestOwedByMe ?? circle.latestCheckInRequest;
+    if (request == null) return const SizedBox.shrink();
+    final who = request.requestedBy?.displayName ??
+        circle.members
+            .where((m) => m.id == request.requestedById)
+            .map((m) => m.name)
+            .firstOrNull ??
+        'Someone';
+    final askedAt = request.createdAt;
+    final message = request.message ?? '';
+    final detail = [
+      if (askedAt != null) timeago.format(askedAt),
+      if (message.isNotEmpty) '"$message"',
+    ].join(' · ');
+
+    // The 4 px orange left edge is a strip inside the clipped card, not a
+    // one-sided Border: a BoxDecoration refuses a radius with a border
+    // whose sides differ in colour.
+    return Container(
+      decoration: BoxDecoration(
+        color: context.surfaceCard,
+        borderRadius: BorderRadius.circular(16.spMin),
+        boxShadow: const [
+          BoxShadow(
+            color: FamilyColors.v31CardShadow,
+            blurRadius: 18.0,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(width: 4.spMin, color: AppColors.orange),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(14.spMin),
+              child: _askedOfMeBodyBuilder(circle, who, detail),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _askedOfMeBodyBuilder(
+    final FamilyCircle circle,
+    final String who,
+    final String detail,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$who asked you to check in',
+          style: TextStyle(
+            fontSize: 15.spMin,
+            fontWeight: FontWeight.w800,
+            color: context.onSurface,
+          ),
+        ),
+        if (detail.isNotEmpty) ...[
+          SizedBox(height: 4.spMin),
+          Text(
+            detail,
+            style: TextStyle(
+              fontSize: 12.5.spMin,
+              color: context.onSurfaceMuted,
+            ),
+          ),
+        ],
+        SizedBox(height: 12.spMin),
+        Wrap(
+          spacing: 8.spMin,
+          runSpacing: 8.spMin,
+          children: [
+            _pillActionBuilder(
+              label: 'Check in',
+              filled: true,
+              onTap: () => _answerAsks(circle),
+            ),
+            _pillActionBuilder(
+              label: 'See who has',
+              filled: false,
+              onTap: () => context.push(FamilyCheckInRollCallScreen.route),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Indigo filled pill, or the grey outlined one.
+  Widget _pillActionBuilder({
+    required final String label,
+    required final bool filled,
+    required final VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 10.spMin),
+        decoration: BoxDecoration(
+          color: filled ? FamilyColors.indigo : context.surfaceCard,
+          borderRadius: BorderRadius.circular(20.spMin),
+          border: filled
+              ? null
+              : Border.all(color: context.outline, width: 1.2),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13.5.spMin,
+            fontWeight: FontWeight.w800,
+            color: filled ? Colors.white : context.onSurfaceMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The white card with the one Check in button (indigo gradient, 54 px,
+  /// approved board) and the caption that says location is optional,
+  /// because the consent sheet comes next and nothing is sent until it is
+  /// answered.
+  Widget _checkInCardBuilder(
+    final FamilyCircle circle,
+    final FamilyActionState checkInState,
+  ) {
+    return Container(
+      padding: EdgeInsets.all(16.spMin),
+      decoration: BoxDecoration(
+        color: context.surfaceCard,
+        borderRadius: BorderRadius.circular(18.spMin),
+        boxShadow: const [
+          BoxShadow(
+            color: FamilyColors.v31CardShadow,
+            blurRadius: 18.0,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: FamilyColors.headerGradient,
+              borderRadius: BorderRadius.circular(16.spMin),
+              boxShadow: [
+                BoxShadow(
+                  color: FamilyColors.indigo.withValues(alpha: 0.25),
+                  blurRadius: 14.0,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: SizedBox(
+              height: 54.spMin,
+              width: double.infinity,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.spMin),
+                  ),
+                ),
+                onPressed:
+                    checkInState.isLoading ? null : () => _answerAsks(circle),
+                icon: checkInState.isLoading
+                    ? SizedBox(
+                        width: 18.spMin,
+                        height: 18.spMin,
+                        child: const CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Icon(LucideIcons.check, size: 20.spMin),
+                label: Text(
+                  'Check in',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16.spMin,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 10.spMin),
+          Text(
+            'Tells your group you are okay. Sharing your location is '
+            'optional.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.spMin,
+              height: 1.4,
+              color: context.onSurfaceMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Ask / Journey / Daily ──────────────────────────────────────────────
+
+  /// Three white tiles: Ask (asks OTHERS to check in; the one control that
+  /// checks YOU in is the button above), Journey, and Daily (scheduled
+  /// check-ins).
+  Widget _quickTilesRowBuilder() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final journey = ref.watch(
+          providerOfFamily.select((s) => s.activeJourney),
+        );
+        final scheduledCount = ref.watch(
+          providerOfFamily.select((s) => s.scheduledCheckIns.length),
+        );
+        final isSharing = journey != null && journey.isActive;
+
+        return Row(
+          spacing: 10.spMin,
+          children: [
+            Expanded(
+              child: _quickTileBuilder(
+                icon: LucideIcons.bell,
+                label: 'Ask',
+                // Everyone, or exactly the people you pick: the sheet names
+                // who will be asked before anything is sent, and the
+                // tracker card above shows the answers as they land.
+                onTap: () => showFamilyAskCheckInSheet(context, ref),
+              ),
+            ),
+            Expanded(
+              child: _quickTileBuilder(
+                icon: LucideIcons.navigation,
+                label: isSharing
+                    ? '${journey.remaining.inMinutes} min'
+                    : 'Journey',
+                isLit: isSharing,
+                onTap: () => context.push(FamilyJourneyScreen.route),
+              ),
+            ),
+            Expanded(
+              child: _quickTileBuilder(
+                icon: LucideIcons.clock,
+                label: scheduledCount == 0 ? 'Daily' : '$scheduledCount daily',
+                isLit: scheduledCount > 0,
+                // Lands on the check-in times, not on the nickname field.
+                onTap: () => context.push(
+                  FamilyCircleProfileScreen.route,
+                  extra: const FamilyCircleProfileArgs(
+                    section: FamilyProfileSection.dailyCheckIn,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _quickTileBuilder({
+    required final IconData icon,
+    required final String label,
+    required final VoidCallback onTap,
+    final bool isLit = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 80.spMin,
+        padding: EdgeInsets.symmetric(horizontal: 4.spMin),
+        decoration: BoxDecoration(
+          color: context.surfaceCard,
+          borderRadius: BorderRadius.circular(16.spMin),
+          border: isLit
+              ? Border.all(color: FamilyColors.indigo, width: 1.5)
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: context.cardShadow,
+              blurRadius: 10.0,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 24.spMin, color: context.onSurface),
+            SizedBox(height: 8.spMin),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13.spMin,
+                fontWeight: FontWeight.w600,
+                color: context.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── SOS ────────────────────────────────────────────────────────────────
+
+  /// The full-width SOS card. Tapping opens the SOS screen, where the
+  /// 3-second hold, the recipients and the location choice live.
+  Widget _sosCardBuilder() {
+    return GestureDetector(
+      onTap: () => context.push(FamilySosScreen.route),
+      child: Container(
+        padding: EdgeInsets.all(14.spMin),
+        decoration: BoxDecoration(
+          gradient: FamilyColors.sosHeaderGradient,
+          borderRadius: BorderRadius.circular(18.spMin),
+          boxShadow: [
+            BoxShadow(
+              color: FamilyColors.sosRed.withValues(alpha: 0.3),
+              blurRadius: 18.0,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44.spMin,
+              height: 44.spMin,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(12.spMin),
+              ),
+              child: Icon(
+                LucideIcons.siren,
+                size: 22.spMin,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 12.spMin),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'SOS',
+                    style: TextStyle(
+                      fontSize: 16.spMin,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 3.spMin),
+                  Text(
+                    'Hold 3 seconds. Reaches the people you chose. Runs for '
+                    '1 hour, you can extend it. ALRT never contacts '
+                    'emergency services.',
+                    style: TextStyle(
+                      fontSize: 12.5.spMin,
+                      height: 1.35,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 6.spMin),
+            Icon(LucideIcons.chevronRight, color: Colors.white, size: 20.spMin),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Members ────────────────────────────────────────────────────────────
+
+  /// The member list, one row per person, every row read from the same
+  /// CheckInRoll as the header and footer. Waiting members first (only
+  /// while an ask is open), then everyone else, then who has checked in.
+  Widget _membersSectionBuilder(
+    final FamilyCircle circle,
+    final CheckInRoll roll, {
+    required final Set<String> memberIdsNearAlert,
+    required final List<FamilySosEvent> activeSosEvents,
+  }) {
+    final isOwner = circle.me?.role == FamilyRole.owner;
+    // Guests never request locations, so they never see the affordance.
+    final iAmGuest = circle.me?.role == FamilyRole.guest;
+
+    Widget rowFor(final FamilyMember member) {
+      final isMe = member.id == circle.myMemberId;
+      final isNearAlert = memberIdsNearAlert.contains(member.id);
+      final liveSos = activeSosEvents
+          .where((sos) => sos.memberId == member.id)
+          .firstOrNull;
+      // "Waiting" and the teal ring only for a real, open ask; without one
+      // a quiet member is simply not checked in today (never "waiting").
+      final isAsked = roll.isAskedOf(member.id);
+      final bool? hasAnswered = roll.hasAnswered(member)
+          ? true
+          : isAsked
+              ? false
+              : null;
+      final canAsk = !isMe && !isAsked && hasAnswered != true && liveSos == null;
+      final canRequest = !iAmGuest && !isMe;
+
+      final Color? ringColor;
+      if (liveSos != null) {
+        ringColor = FamilyColors.sosRed;
+      } else if (isAsked) {
+        ringColor = FamilyColors.teal;
+      } else {
+        ringColor = null;
+      }
+
+      return FamilyMemberListItem(
+        member: member,
+        isMe: isMe,
+        isNearAlert: isNearAlert,
+        hasAnswered: hasAnswered,
+        askedAt: isAsked ? roll.askedAt : null,
+        liveSos: liveSos,
+        ringColor: ringColor,
+        // Every action on a person - ask, request, and the host's remove -
+        // sits in one visible sheet, permission-checked here. Nothing is
+        // long-press-only.
+        onTap: () => showFamilyMemberDetailsSheet(
+          context,
+          member: member,
+          isMe: isMe,
+          isNearAlert: isNearAlert,
+          hasAnswered: hasAnswered,
+          askedAt: isAsked ? roll.askedAt : null,
+          lastCheckIn: ref
+              .read(providerOfFamily)
+              .recentCheckIns
+              .where((c) => c.memberId == member.id)
+              .firstOrNull,
+          onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
+          onRequestLocation: canRequest
+              ? () => _requestLocationSnapshot(member)
+              : null,
+          onChangeMySharing: isMe
+              ? () => context.push(FamilySharingLevelScreen.route)
+              : null,
+          onRemove: isOwner && !isMe
+              ? () => _confirmRemoveMember(member)
+              : null,
+        ),
+        onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
+      );
+    }
+
+    final ordered = [...roll.notYet, ...roll.notAsked, ...roll.checkedIn];
+    final long = ordered.length > 6;
+    final visible = long ? ordered.take(5).toList() : ordered;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'MEMBERS',
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: _membersLabelOrange,
+                ),
+              ),
+            ),
+            if (long)
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: FamilyColors.indigo,
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () =>
+                    context.push(FamilyCheckInRollCallScreen.route),
+                child: Text(
+                  'View all',
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        SizedBox(height: 10.spMin),
+        _cardBuilder(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (final (index, member) in visible.indexed) ...[
+                if (index > 0)
+                  Divider(
+                    height: 1,
+                    indent: 68.spMin,
+                    color: context.outline.withValues(alpha: 0.5),
+                  ),
+                rowFor(member),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The two ways to grow the group, under the list: hosts add a person
+  /// or join another group; everyone else joins or switches. Same flows as
+  /// the "Choose a group" sheet, nothing extra.
+  Widget _bottomActionsBuilder(final FamilyCircle circle) {
+    final isOwner = circle.me?.role == FamilyRole.owner;
+    Widget button(
+      final IconData icon,
+      final String label,
+      final VoidCallback onTap,
+    ) {
+      return Expanded(
+        child: SizedBox(
+          height: 48.spMin,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: FamilyColors.indigoDark,
+              backgroundColor: context.surfaceCard,
+              side: BorderSide(
+                color: FamilyColors.indigo.withValues(alpha: 0.35),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14.spMin),
+              ),
+            ),
+            onPressed: onTap,
+            icon: Icon(icon, size: 18.spMin),
+            label: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      spacing: 10.spMin,
+      children: [
+        if (isOwner)
+          button(
+            LucideIcons.userPlus,
+            'Add a person',
+            () => context.push(FamilyInviteScreen.route),
+          ),
+        button(
+          LucideIcons.qrCode,
+          'Join with code',
+          () => showJoinGroupSheet(context, ref),
+        ),
+        if (!isOwner)
+          button(
+            LucideIcons.arrowLeftRight,
+            'Switch group',
+            () => showChooseCircleSheet(context, ref),
+          ),
+      ],
+    );
+  }
+
+  // ── More ───────────────────────────────────────────────────────────────
+
+  /// The grouped "More" card: who my SOS reaches, places, plan and cover,
+  /// past SOS. These replace the inline sections and menu rows they used
+  /// to be.
+  Widget _moreSectionBuilder(
+    final FamilyCircle circle, {
+    required final _Coverage? coverage,
+    required final AccessSummary? access,
+  }) {
+    final historyCount = ref.watch(
+      providerOfFamily.select((s) => s.sosHistory.length),
+    );
+    final rows = <Widget>[
+      _moreRowBuilder(
+        icon: LucideIcons.shieldAlert,
+        label: 'Who my SOS reaches',
+        onTap: () => context.push(FamilySosListsScreen.route),
+      ),
+      _moreRowBuilder(
+        icon: LucideIcons.mapPin,
+        label: 'Family places',
+        onTap: () => context.push(FamilyPlacesScreen.route),
+      ),
+      _moreRowBuilder(
+        icon: LucideIcons.star,
+        label: 'Plan and cover',
+        detail: _coverageLine(circle, coverage, access),
+        onTap: () => _openPlanAndCover(circle, access),
+      ),
+      _moreRowBuilder(
+        icon: LucideIcons.history,
+        label: 'Past SOS',
+        detail: historyCount == 0 ? null : '$historyCount',
+        onTap: () => _showSosHistorySheet(circle),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabelBuilder('More'),
+        SizedBox(height: 10.spMin),
+        _cardBuilder(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (final (index, row) in rows.indexed) ...[
+                if (index > 0)
+                  Divider(
+                    height: 1,
+                    indent: 56.spMin,
+                    color: context.outline.withValues(alpha: 0.5),
+                  ),
+                row,
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _moreRowBuilder({
+    required final IconData icon,
+    required final String label,
+    required final VoidCallback onTap,
+    final String? detail,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: EdgeInsets.symmetric(horizontal: 14.spMin),
+      leading: Container(
+        width: 32.spMin,
+        height: 32.spMin,
+        decoration: BoxDecoration(
+          color: FamilyColors.indigoLight,
+          borderRadius: BorderRadius.circular(10.spMin),
+        ),
+        child: Icon(icon, size: 16.spMin, color: FamilyColors.indigo),
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontSize: 14.5.spMin,
+          fontWeight: FontWeight.w700,
+          color: context.onSurface,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (detail != null)
+            Text(
+              detail,
+              style: TextStyle(
+                fontSize: 12.5.spMin,
+                color: context.onSurfaceMuted,
+              ),
+            ),
+          Icon(
+            LucideIcons.chevronRight,
+            size: 20.spMin,
+            color: AppColors.grey,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Retained SOS history: every stood-down SOS in this group (last 30
+  /// days), with who acknowledged it. Tapping a row opens the after-event
+  /// record. The server never returns locations for these - who and when
+  /// only.
+  void _showSosHistorySheet(final FamilyCircle circle) {
+    final history = ref.read(providerOfFamily).sosHistory;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.surfaceCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.spMin)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(0, 20.spMin, 0, 12.spMin),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.spMin),
+                child: Text(
+                  history.isEmpty
+                      ? 'Past SOS'
+                      : 'Past SOS · ${history.length}',
+                  style: TextStyle(
+                    fontSize: 17.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: context.onSurface,
+                  ),
+                ),
+              ),
+              SizedBox(height: 8.spMin),
+              if (history.isEmpty)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(20.spMin, 4.spMin, 20.spMin, 8.spMin),
+                  child: Text(
+                    'No SOS has run in this group in the last 30 days.',
+                    style: TextStyle(
+                      fontSize: 13.spMin,
+                      color: context.onSurfaceMuted,
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: history.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      indent: 56.spMin,
+                      color: context.outline.withValues(alpha: 0.5),
+                    ),
+                    itemBuilder: (_, index) =>
+                        _sosHistoryRowBuilder(circle, history[index]),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Section labels on this screen (More): quiet uppercase, letter-spaced.
+  Widget _sectionLabelBuilder(final String title) {
     return Text(
-      count == null ? title.toUpperCase() : '${title.toUpperCase()} · $count',
+      title.toUpperCase(),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -1049,29 +1868,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       ),
       child: child,
     );
-  }
-
-  /// Every check-in from this screen - answering someone's ask or a
-  /// spontaneous "I'm Safe" - goes through the same consent sheet first
-  /// (locked rule: location leaves a phone only by the owner's action).
-  /// "Just check in" is the primary button; sharing a snapshot is the
-  /// deliberate extra step, and dismissing the sheet sends nothing.
-  Future<void> _checkInWithConsent(
-    final BuildContext context,
-    final WidgetRef ref, {
-    final String? requesterName,
-  }) async {
-    final choice = await showCheckInConsentSheet(
-      context,
-      requesterName: requesterName,
-      sharingLevel: ref.read(providerOfFamily).circle?.me?.sharingLevel,
-    );
-    if (choice == null || !context.mounted) return;
-    await ref
-        .read(providerOfFamily.notifier)
-        .checkIn(
-          shareLocation: choice == CheckInConsentChoice.checkInAndShareLocation,
-        );
   }
 
   /// Someone asked for a check-in - or you did. The two sides read
@@ -1343,599 +2139,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     requesterName: _askersStillOwedAnAnswer(circle),
   );
 
-  /// The white card that holds the one Check in button. With asks open it
-  /// leads with who is waiting (faces, names, how long ago, "View N
-  /// requests"); with none it is the plain invitation. Either way the
-  /// caption says location is optional, because the consent sheet comes
-  /// next and nothing is sent until it is answered.
-  Widget _checkInCardBuilder(
-    final FamilyCircle circle,
-    final FamilyActionState checkInState,
-  ) {
-    final asks = circle.checkInRequestsOwedByMe;
-    final askers = circle.namesOwedMyCheckIn;
-    final newest = asks.firstOrNull?.createdAt;
-    final viewLabel = viewRequestsLabel(asks.length);
-    final askerMembers = [
-      for (final ask in asks)
-        circle.members.where((m) => m.id == ask.requestedById).firstOrNull,
-    ].nonNulls.toList();
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 12.spMin),
-      decoration: BoxDecoration(
-        color: context.surfaceCard,
-        borderRadius: BorderRadius.circular(18.spMin),
-        boxShadow: const [
-          BoxShadow(
-            color: FamilyColors.v31CardShadow,
-            blurRadius: 18.0,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (asks.isNotEmpty) ...[
-            if (askerMembers.isNotEmpty) ...[
-              Center(
-                child: _askerFacesBuilder(
-                  askerMembers,
-                  extra: asks.length - askerMembers.length,
-                ),
-              ),
-              SizedBox(height: 10.spMin),
-            ],
-          ],
-          Text(
-            checkInCardTitle(askers),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 17.spMin,
-              fontWeight: FontWeight.w800,
-              color: context.onSurface,
-              height: 1.2,
-            ),
-          ),
-          if (asks.isNotEmpty) ...[
-            SizedBox(height: 4.spMin),
-            Text(
-              [
-                if (newest != null) timeago.format(newest),
-                'In ${circle.name}',
-              ].join(' · '),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5.spMin,
-                color: context.onSurfaceMuted,
-              ),
-            ),
-            if (viewLabel != null)
-              Center(
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 12.spMin),
-                    minimumSize: Size(0, 32.spMin),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  onPressed: () => showCheckInRequestsSheet(
-                    context,
-                    onCheckIn: () => _answerAsks(circle),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        viewLabel,
-                        style: TextStyle(
-                          fontSize: 13.5.spMin,
-                          fontWeight: FontWeight.w700,
-                          color: FamilyColors.indigo,
-                        ),
-                      ),
-                      Icon(
-                        LucideIcons.chevronRight,
-                        size: 16.spMin,
-                        color: FamilyColors.indigo,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-          SizedBox(
-            height: asks.isNotEmpty && viewLabel != null ? 4.spMin : 12.spMin,
-          ),
-          _imSafeButtonBuilder(circle, checkInState),
-          SizedBox(height: 8.spMin),
-          Text(
-            'Location sharing is optional',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11.5.spMin,
-              color: context.onSurfaceMuted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// The askers' faces, overlapping, then "+N" for any not in the list.
-  Widget _askerFacesBuilder(
-    final List<FamilyMember> members, {
-    required final int extra,
-  }) {
-    final shown = members.take(3).toList();
-    final more = extra + (members.length - shown.length);
-    final size = 44.0;
-    final step = 32.spMin;
-    final width = step * (shown.length + (more > 0 ? 1 : 0)) + 12.spMin;
-    return SizedBox(
-      width: width,
-      height: size.spMin,
-      child: Stack(
-        children: [
-          for (final (index, member) in shown.indexed)
-            Positioned(
-              left: step * index,
-              child: Container(
-                padding: EdgeInsets.all(2.spMin),
-                decoration: BoxDecoration(
-                  color: context.surfaceCard,
-                  shape: BoxShape.circle,
-                ),
-                child: FamilyMemberAvatar(
-                  member: member,
-                  size: size - 4,
-                  showStatusDot: false,
-                ),
-              ),
-            ),
-          if (more > 0)
-            Positioned(
-              left: step * shown.length,
-              child: Container(
-                width: size.spMin,
-                height: size.spMin,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: FamilyColors.indigoLight,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: context.surfaceCard, width: 2),
-                ),
-                child: Text(
-                  '+$more',
-                  style: TextStyle(
-                    color: FamilyColors.indigo,
-                    fontSize: 13.spMin,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// The one action that matters most, and the only one that looks like it.
-  ///
-  /// Four identical outlined pills stacked down the page gave every action
-  /// the same weight, so nothing led. "I'm Safe" now carries the green
-  /// gradient and its own glow, and everything else drops to a compact tile.
-  Widget _imSafeButtonBuilder(
-    final FamilyCircle circle,
-    final FamilyActionState checkInState,
-  ) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        // The approved mockup's bright green with DARK green text and icon:
-        // dark ink on this gradient measures 7.6:1 at the light end and
-        // 5.7:1 at the dark end (WCAG AA is 4.5:1). White text on the
-        // previous mint→emerald pair measured 1.9:1 and 3.8:1, and dark
-        // text on that pair's emerald end only 3.3:1, so the dark end is
-        // the mockup's #22C887 rather than #059669. The button stays
-        // bright; only the ink changed.
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [FamilyColors.safeBright, FamilyColors.safeBrightDeep],
-        ),
-        borderRadius: BorderRadius.circular(16.spMin),
-        boxShadow: [
-          BoxShadow(
-            color: FamilyColors.safeBright.withValues(alpha: 0.25),
-            blurRadius: 14.0,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        height: 50.spMin,
-        width: double.infinity,
-        child: TextButton.icon(
-          style: TextButton.styleFrom(
-            foregroundColor: FamilyColors.safeInk,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16.spMin),
-            ),
-          ),
-          onPressed: checkInState.isLoading ? null : () => _answerAsks(circle),
-          icon: checkInState.isLoading
-              ? SizedBox(
-                  width: 18.spMin,
-                  height: 18.spMin,
-                  child: const CircularProgressIndicator(
-                    color: FamilyColors.safeInk,
-                    strokeWidth: 2,
-                  ),
-                )
-              : Icon(LucideIcons.check, size: 20.spMin),
-          label: Text(
-            imSafeLabel(requesterNames: circle.namesOwedMyCheckIn),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w800),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// The supporting actions, as a row of compact tiles.
-  ///
-  /// SOS used to sit at the very bottom of the page as an outlined button,
-  /// below the whole member list. It is the most urgent thing here, so it
-  /// takes the red gradient and comes up to the top with the others.
-  Widget _quickTilesRowBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final journey = ref.watch(
-          providerOfFamily.select((s) => s.activeJourney),
-        );
-        final scheduledCount = ref.watch(
-          providerOfFamily.select((s) => s.scheduledCheckIns.length),
-        );
-        final isSharing = journey != null && journey.isActive;
-
-        final tiles = <Widget>[
-          _quickTileBuilder(
-            icon: LucideIcons.bellRing,
-            // "Ask": this tile asks OTHERS to check in. The one control
-            // that checks YOU in is the big green button above it.
-            label: 'Ask',
-            tint: const Color(0xFFE8F4FF),
-            // 1D7FE0 on the tint is ~4.6:1, the old 4DA8FF was ~2.6:1.
-            ink: const Color(0xFF1D7FE0),
-            // Everyone, or exactly the people you pick: the sheet names
-            // who will be asked before anything is sent, and the
-            // tracker card above shows the answers as they land.
-            onTap: () => showFamilyAskCheckInSheet(context, ref),
-          ),
-          _quickTileBuilder(
-            icon: LucideIcons.navigation,
-            label: isSharing ? '${journey.remaining.inMinutes} min' : 'Journey',
-            tint: const Color(0xFFF5E9FA),
-            ink: FamilyColors.v31Indigo,
-            isLit: isSharing,
-            onTap: () => context.push(FamilyJourneyScreen.route),
-          ),
-          _quickTileBuilder(
-            icon: LucideIcons.clock,
-            label: scheduledCount == 0 ? 'Daily' : '$scheduledCount daily',
-            tint: const Color(0xFFFFF3E8),
-            ink: const Color(0xFFE05A00),
-            isLit: scheduledCount > 0,
-            // Lands on the check-in times, not on the nickname field.
-            onTap: () => context.push(
-              FamilyCircleProfileScreen.route,
-              extra: const FamilyCircleProfileArgs(
-                section: FamilyProfileSection.dailyCheckIn,
-              ),
-            ),
-          ),
-          _sosTileBuilder(),
-        ];
-
-        // Four across up to a modest text scale; two rows of two past it,
-        // so "Check-in" and "Journey" never clip at the large text sizes
-        // the app allows.
-        final stacked = useStackedQuickTiles(
-          MediaQuery.textScalerOf(context).scale(1.0),
-        );
-        if (!stacked) {
-          return Row(
-            spacing: 8.spMin,
-            children: [for (final tile in tiles) Expanded(child: tile)],
-          );
-        }
-        return Column(
-          spacing: 8.spMin,
-          children: [
-            Row(
-              spacing: 8.spMin,
-              children: [
-                Expanded(child: tiles[0]),
-                Expanded(child: tiles[1]),
-              ],
-            ),
-            Row(
-              spacing: 8.spMin,
-              children: [
-                Expanded(child: tiles[2]),
-                Expanded(child: tiles[3]),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _quickTileBuilder({
-    required final IconData icon,
-    required final String label,
-    required final Color tint,
-    required final Color ink,
-    required final VoidCallback onTap,
-    final bool isLit = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14.spMin, horizontal: 4.spMin),
-        decoration: BoxDecoration(
-          color: context.surfaceCard,
-          borderRadius: BorderRadius.circular(16.spMin),
-          border: isLit ? Border.all(color: ink, width: 1.5) : null,
-          boxShadow: [
-            BoxShadow(
-              color: context.cardShadow,
-              blurRadius: 10.0,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 34.spMin,
-              height: 34.spMin,
-              decoration: BoxDecoration(
-                color: tint,
-                borderRadius: BorderRadius.circular(11.spMin),
-              ),
-              child: Icon(icon, size: 18.spMin, color: ink),
-            ),
-            SizedBox(height: 7.spMin),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11.spMin,
-                fontWeight: FontWeight.w800,
-                color: context.onSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sosTileBuilder() {
-    return GestureDetector(
-      onTap: () => context.push(FamilySosScreen.route),
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14.spMin, horizontal: 4.spMin),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFF4B3E), Color(0xFFE01B0F), Color(0xFFB80000)],
-            stops: [0.0, 0.55, 1.0],
-          ),
-          borderRadius: BorderRadius.circular(16.spMin),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFE01B0F).withValues(alpha: 0.45),
-              blurRadius: 18.0,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 34.spMin,
-              height: 34.spMin,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.24),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Icon(
-                LucideIcons.siren,
-                size: 17.spMin,
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(height: 7.spMin),
-            Text(
-              'SOS',
-              style: TextStyle(
-                fontSize: 11.spMin,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// The member list, split by state instead of one flat list: who still
-  /// owes a check-in sits on top with an Ask button per row, who has
-  /// answered sits below. Both halves read from the same CheckInRoll as
-  /// the header. With nobody outstanding it is one plain "Members" card.
-  Widget _membersSectionBuilder(
-    final FamilyCircle circle,
-    final Set<String> memberIdsNearAlert,
-  ) {
-    final isOwner = circle.me?.role == FamilyRole.owner;
-    // Guests never request locations, so they never see the affordance.
-    final iAmGuest = circle.me?.role == FamilyRole.guest;
-    final roll = CheckInRoll.of(circle);
-    final isSosActive = ref.watch(
-      providerOfFamily.select((s) => s.activeSosEvents.isNotEmpty),
-    );
-
-    Widget rowFor(final FamilyMember member) {
-      final isMe = member.id == circle.myMemberId;
-      final isNearAlert = memberIdsNearAlert.contains(member.id);
-      // Null for someone a targeted ask left out: they are not "waiting".
-      final hasAnswered = roll.answerFor(member);
-      final canAsk = !isMe && hasAnswered != true;
-      final canRequest = !iAmGuest && !isMe;
-
-      // Ring colour: red while SOS is live, teal while asked and
-      // unanswered, nothing otherwise.
-      final Color? ringColor;
-      if (isSosActive) {
-        ringColor = FamilyColors.sosRed;
-      } else if (hasAnswered == false) {
-        ringColor = FamilyColors.teal;
-      } else {
-        ringColor = null;
-      }
-
-      return FamilyMemberListItem(
-        member: member,
-        isMe: isMe,
-        isNearAlert: isNearAlert,
-        hasAnswered: hasAnswered,
-        askedAt: roll.askedAt,
-        ringColor: ringColor,
-        // Every action on a person - ask, request, and the host's remove -
-        // sits in one visible sheet, permission-checked here. Nothing is
-        // long-press-only any more.
-        onTap: () => showFamilyMemberDetailsSheet(
-          context,
-          member: member,
-          isMe: isMe,
-          isNearAlert: isNearAlert,
-          hasAnswered: hasAnswered,
-          askedAt: roll.askedAt,
-          lastCheckIn: ref
-              .read(providerOfFamily)
-              .recentCheckIns
-              .where((c) => c.memberId == member.id)
-              .firstOrNull,
-          onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
-          onRequestLocation: canRequest
-              ? () => _requestLocationSnapshot(member)
-              : null,
-          onChangeMySharing: isMe
-              ? () => context.push(FamilySharingLevelScreen.route)
-              : null,
-          onRemove: isOwner && !isMe
-              ? () => _confirmRemoveMember(member)
-              : null,
-        ),
-        onAskToCheckIn: canAsk ? () => _askMemberToCheckIn(member) : null,
-      );
-    }
-
-    Widget card(final List<FamilyMember> members) {
-      return _cardBuilder(
-        padding: EdgeInsets.zero,
-        child: Column(
-          children: [
-            for (final (index, member) in members.indexed) ...[
-              if (index > 0)
-                Divider(
-                  height: 1,
-                  indent: 70.spMin,
-                  color: context.outline.withValues(alpha: 0.5),
-                ),
-              rowFor(member),
-            ],
-          ],
-        ),
-      );
-    }
-
-    // Waiting members first, then everyone who has checked in: one list,
-    // the chips say who is which (approved design), no second heading.
-    final ordered = [...roll.notYet, ...roll.notAsked, ...roll.checkedIn];
-    final long = ordered.length > 6;
-    final visible = long ? ordered.take(5).toList() : ordered;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Members',
-                style: TextStyle(
-                  fontSize: 16.spMin,
-                  fontWeight: FontWeight.w800,
-                  color: context.onSurface,
-                ),
-              ),
-            ),
-            if (long)
-              TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor: FamilyColors.indigo,
-                  visualDensity: VisualDensity.compact,
-                ),
-                onPressed: () =>
-                    context.push(FamilyCheckInRollCallScreen.route),
-                child: Text(
-                  'View all',
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            if (!iAmGuest && circle.members.length > 1)
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  foregroundColor: FamilyColors.indigo,
-                  padding: EdgeInsets.symmetric(horizontal: 8.spMin),
-                  visualDensity: VisualDensity.compact,
-                ),
-                onPressed: () => _requestEveryoneLocation(circle),
-                icon: Icon(LucideIcons.mapPin, size: 16.spMin),
-                label: Text(
-                  'Request location',
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        SizedBox(height: 10.spMin),
-        card(visible),
-      ],
-    );
-  }
-
   /// "Ask" on one row: a check-in request to THAT person only. Nobody
   /// else is notified or sees it as owed.
   Future<void> _askMemberToCheckIn(final FamilyMember member) async {
@@ -1956,31 +2159,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     if (sent) {
       context.showSuccessToast(
         message: '${member.name} has been asked to share a one-time snapshot.',
-      );
-    }
-  }
-
-  /// Asks the whole group at once - each member still gets their own
-  /// request and their own consent prompt, this only sends every ask in
-  /// one tap instead of one per member.
-  Future<void> _requestEveryoneLocation(final FamilyCircle circle) async {
-    final memberIds = circle.members
-        .where((member) => member.id != circle.myMemberId)
-        .map((member) => member.id)
-        .toList();
-    if (memberIds.isEmpty) return;
-
-    final failed = await ref
-        .read(providerOfFamily.notifier)
-        .requestMembersLocation(memberIds: memberIds);
-    if (!mounted) return;
-
-    final askedCount = memberIds.length - failed.length;
-    if (askedCount > 0) {
-      context.showSuccessToast(
-        message: askedCount == memberIds.length
-            ? 'Everyone has been asked to share a one-time snapshot.'
-            : '$askedCount of ${memberIds.length} have been asked to share a one-time snapshot.',
       );
     }
   }

@@ -156,6 +156,76 @@ void main() {
     expect(roll.everyoneAccountedFor, isTrue);
   });
 
+  group('isAskedOf (footer, header band, Waiting pill)', () {
+    test('no ask and not checked in today is silence, not an ask', () {
+      final roll = CheckInRoll.of(
+        circle([member('me'), member('Tom')]),
+        now: now,
+      );
+      // Both sit in notYet on the plain reading, yet nobody asked.
+      expect(roll.notYet.map((m) => m.id), ['me', 'Tom']);
+      expect(roll.isAskedOf('me'), isFalse);
+      expect(roll.isAskedOf('Tom'), isFalse);
+    });
+
+    test('a fresh ask aimed at me is asked of me', () {
+      final roll = CheckInRoll.of(
+        circle(
+          [member('me'), member('Tom'), member('Amy')],
+          ask: FamilyCheckInRequest(
+            id: 'r1',
+            circleId: 'c1',
+            requestedById: 'Tom',
+            targetMemberIds: const ['me'],
+            createdAt: now.subtract(const Duration(minutes: 5)),
+          ),
+        ),
+        now: now,
+      );
+      expect(roll.isAskedOf('me'), isTrue);
+      // The asker is never asked of themself; Amy was left out.
+      expect(roll.isAskedOf('Tom'), isFalse);
+      expect(roll.isAskedOf('Amy'), isFalse);
+    });
+
+    test('an ask I have answered is no longer asked of me', () {
+      final askedAt = now.subtract(const Duration(minutes: 10));
+      final roll = CheckInRoll.of(
+        circle(
+          [
+            member('me', last: now.subtract(const Duration(minutes: 2))),
+            member('Tom'),
+          ],
+          ask: FamilyCheckInRequest(
+            id: 'r1',
+            circleId: 'c1',
+            requestedById: 'Tom',
+            createdAt: askedAt,
+          ),
+        ),
+        now: now,
+      );
+      expect(roll.isAskedOf('me'), isFalse);
+      expect(roll.hasAnswered(roll.checkedIn.first), isTrue);
+    });
+
+    test('an ask older than a day is not asked of anyone', () {
+      final roll = CheckInRoll.of(
+        circle(
+          [member('me'), member('Tom')],
+          ask: FamilyCheckInRequest(
+            id: 'r1',
+            circleId: 'c1',
+            requestedById: 'Tom',
+            createdAt: now.subtract(const Duration(hours: 30)),
+          ),
+        ),
+        now: now,
+      );
+      expect(roll.isAskedOf('me'), isFalse);
+    });
+  });
+
   test('waitingOnLabel names people, never a bare count', () {
     expect(waitingOnLabel([]), 'Everyone is accounted for');
     expect(waitingOnLabel(['Amy']), 'Waiting on Amy');

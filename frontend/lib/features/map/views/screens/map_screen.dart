@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/map_display_settings_provider.dart';
+import 'package:hazard_app/features/map/views/widgets/map_finish_setup_strip.dart';
 import 'package:hazard_app/features/map/views/widgets/map_hazard_info_window.dart';
 import 'package:hazard_app/features/map/views/widgets/map_rail.dart';
 import 'package:hazard_app/features/map/views/widgets/map_searchbar.dart';
@@ -202,6 +203,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     return const SizedBox();
                   },
                 ),
+                // "Finish setting up" sits under the bottom cards, just
+                // above the footer. It hides itself when all four steps
+                // are done and while a route is planned or navigated.
+                const MapFinishSetupStrip(),
               ],
             ),
           ),

@@ -13,7 +13,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// by the on-device safety profile. Zero AI at render. The tint is the
 /// cohort's permanent identity; rows without a topic icon render the tint
 /// block alone (always legal per the anchor rules). Renders nothing when no
-/// ticked cohort has a line for this hazard — never a substitute line.
+/// ticked cohort has a line for this hazard - never a substitute line.
 class ForYouCard extends ConsumerStatefulWidget {
   const ForYouCard({
     super.key,
@@ -72,7 +72,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
     // Standard: maximum three lines visible at once; further matches
     // collapse behind the "Guidance for other groups" expander. Whether
     // that expander/toggle row exists at all depends only on whether there
-    // IS more than the cap — not on the current expand state, or "Show
+    // IS more than the cap - not on the current expand state, or "Show
     // less" would have nowhere to render once expanded.
     const maxVisibleLines = 3;
     final hasMore = matched.length > maxVisibleLines;
@@ -83,11 +83,14 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
     final showVisitorExplainer =
         widget.isAws && ticked.contains(SafetyCohort.visitor);
 
+    // Approved Detail board (12 Oct 2026): the brand-gradient strip, the
+    // left-bordered rows with their cohort tag pills, and a footer that
+    // says whose words these are. The card sits flush with its siblings.
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 8.spMin),
+      margin: EdgeInsets.only(bottom: 16.spMin),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14.spMin),
+        borderRadius: BorderRadius.circular(18.spMin),
         border: Border.all(color: const Color(0xFFFFD9B8), width: 1.5),
       ),
       clipBehavior: Clip.antiAlias,
@@ -97,34 +100,36 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(
-              horizontal: 13.spMin,
-              vertical: 8.spMin,
+              horizontal: 14.spMin,
+              vertical: 9.spMin,
             ),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFFFF8C00), Color(0xFFFF6B01)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0xFFFF6B00), Color(0xFFFF0004)],
               ),
             ),
             child: Row(
               children: [
-                Text(
-                  'FOR YOU',
-                  style: TextStyle(
-                    fontSize: 10.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: Colors.white,
+                Expanded(
+                  child: Text(
+                    'FOR YOU',
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-                SizedBox(width: 8.spMin),
-                Icon(LucideIcons.lock, size: 10.spMin, color: Colors.white),
+                Icon(LucideIcons.lock, size: 11.spMin, color: Colors.white),
                 SizedBox(width: 4.spMin),
                 Text(
-                  'STAYS ON YOUR PHONE',
+                  'stays on your phone',
                   style: TextStyle(
-                    fontSize: 10.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
+                    fontSize: 11.spMin,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
@@ -193,8 +198,24 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
                 ),
               ),
             ),
-          SizedBox(height: 4.spMin),
+          _footerBuilder(),
         ],
+      ),
+    );
+  }
+
+  /// Whose words these are. The For You lines are ALRT's general guidance
+  /// for a household, never the agency's warning, and the card says so.
+  Widget _footerBuilder() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(14.spMin, 10.spMin, 14.spMin, 12.spMin),
+      child: Text(
+        'General guidance from ALRT, not part of the official warning.',
+        style: TextStyle(
+          fontSize: 11.spMin,
+          height: 1.4,
+          color: const Color(0xFF6B6875),
+        ),
       ),
     );
   }
@@ -205,7 +226,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
   Widget _setupPromptBuilder(final BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: EdgeInsets.only(top: 12.spMin),
+      margin: EdgeInsets.only(bottom: 16.spMin),
       padding: EdgeInsets.all(13.spMin),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F8),
@@ -259,7 +280,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
 
   Widget _visitorExplainerBuilder() {
     return Container(
-      margin: EdgeInsets.fromLTRB(11.spMin, 9.spMin, 13.spMin, 0),
+      margin: EdgeInsets.fromLTRB(14.spMin, 10.spMin, 14.spMin, 0),
       padding: EdgeInsets.all(10.spMin),
       decoration: BoxDecoration(
         color: const Color(0xFFEAF3FE),
@@ -292,7 +313,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
 
   Widget _lineBuilder(final SafetyCohort cohort, final String line) {
     return Container(
-      margin: EdgeInsets.fromLTRB(11.spMin, 9.spMin, 13.spMin, 0),
+      margin: EdgeInsets.fromLTRB(14.spMin, 10.spMin, 14.spMin, 0),
       padding: EdgeInsets.only(left: 10.spMin),
       decoration: BoxDecoration(
         border: Border(

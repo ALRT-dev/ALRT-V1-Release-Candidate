@@ -31,6 +31,7 @@ import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
+import 'package:hazard_app/features/learn/views/screens/learn_topic_guides_screen.dart';
 import 'package:hazard_app/features/learn/views/screens/learn_topics_screen.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
@@ -253,6 +254,12 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: LearnTopicGuidesScreen.route,
+          builder: (context, state) => LearnTopicGuidesScreen(
+            args: state.extra as LearnTopicGuidesScreenArgs,
+          ),
+        ),
+        GoRoute(
           path: FamilyCircleProfileScreen.route,
           builder: (context, state) => FamilyCircleProfileScreen(
             args: state.extra as FamilyCircleProfileArgs?,
@@ -373,7 +380,7 @@ class AppRouter {
             return const DeletedAccountInfoScreen();
           },
         ),
-        // Ready – Plan & Drill
+        // Ready - Plan & Drill
         GoRoute(
           path: PlanListScreen.route,
           builder: (context, state) => const PlanListScreen(),

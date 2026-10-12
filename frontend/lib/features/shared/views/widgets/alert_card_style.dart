@@ -56,7 +56,7 @@ abstract final class AlertCardStyle {
   }
 
   // ── Pre-coloured severity sets (shape-severity/, locked hexes) ─────────
-  // Diamond/shield render at the band hex; the shield carries colour only —
+  // Diamond/shield render at the band hex; the shield carries colour only -
   // the band word is never written next to it. Community circles take the
   // category colour instead, never a band hex.
 
@@ -96,7 +96,7 @@ abstract final class AlertCardStyle {
   /// not write the advice, does not paraphrase it, and does not judge how
   /// dangerous something is. It used to say things like "Emergency services
   /// say act immediately" and "the air outside is bad enough to affect
-  /// anyone" — words no agency actually said, attributed to them.
+  /// anyone" - words no agency actually said, attributed to them.
   ///
   /// Only AWS alerts carry a level word, and only because the source
   /// publishes that word itself; every other source is described without
@@ -184,7 +184,7 @@ abstract final class AlertCardStyle {
     colors: [AppColors.watchAndAct, Color(0xFFB8560E)],
   );
 
-  /// Official expanded-card header, coloured by severity — the top of the
+  /// Official expanded-card header, coloured by severity - the top of the
   /// alert must designate the level: Advice/MONITOR yellow, Watch and
   /// Act/ACTION orange, Emergency/CRITICAL red, info grey.
   static LinearGradient officialHeaderGradientFor({
@@ -243,6 +243,53 @@ abstract final class AlertCardStyle {
 
   /// The dark "In plain terms" surface (cards and the expanded alert).
   static const plainTermsBackground = Color(0xFF23252B);
+
+  /// The bold "In plain terms" lead on the dark surface (approved Feed and
+  /// Detail boards, 12 Oct 2026). No colon follows it.
+  static const plainTermsLeadInk = Color(0xFFF2A67C);
+
+  // ── Approved Feed/Detail card chrome (12 Oct 2026 boards) ──────────────
+
+  /// Card corner radius, feed card and detail header alike.
+  static const cardRadius = 18.0;
+
+  /// The one quiet card shadow: 0 1 3 at 6% black.
+  static const cardShadow = BoxShadow(
+    color: Color(0x0F000000),
+    blurRadius: 3,
+    offset: Offset(0, 1),
+  );
+
+  /// Band-strip height on the feed card (official and AWS only).
+  static const feedBandStripHeight = 5.0;
+
+  /// Band-strip height on the detail header (official and AWS only).
+  static const detailBandStripHeight = 6.0;
+
+  /// Row-1 label inks, dark enough to read as text on white where the
+  /// band hexes themselves are not.
+  static const labelInkCritical = Color(0xFFB3141F);
+  static const labelInkAction = Color(0xFF9A4A00);
+  static const labelInkMonitor = Color(0xFF6B5400);
+
+  /// OFFICIAL and ALRT ASSESSMENT label ink.
+  static const labelInkNeutral = Color(0xFF3A3A42);
+
+  /// COMMUNITY · UNVERIFIED label ink (the V3 label orange).
+  static const labelInkCommunity = Color(0xFFB84500);
+
+  /// Secondary meta text: "ago", source line, distance.
+  static const metaInk = Color(0xFF5C5C66);
+
+  /// The label ink for an AWS band word, by band.
+  static Color bandLabelInk(final HazardSeverityBand? band) {
+    return switch (band) {
+      HazardSeverityBand.critical => labelInkCritical,
+      HazardSeverityBand.action => labelInkAction,
+      HazardSeverityBand.monitor => labelInkMonitor,
+      HazardSeverityBand.info || null => labelInkNeutral,
+    };
+  }
 
   /// Community/user-report expanded-card header band.
   static const communityHeaderGradient = LinearGradient(

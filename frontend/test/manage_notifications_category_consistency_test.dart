@@ -226,7 +226,11 @@ Widget _wrap(final Widget child, {required final ProviderContainer container}) {
     container: container,
     child: ScreenUtilInit(
       designSize: const Size(375, 812),
-      builder: (context, _) => MaterialApp(home: Scaffold(body: child)),
+      // The list no longer scrolls itself (the Notifications screen owns
+      // the one scroll), so the harness supplies the scroll view.
+      builder: (context, _) => MaterialApp(
+        home: Scaffold(body: SingleChildScrollView(child: child)),
+      ),
     ),
   );
 }
@@ -446,5 +450,128 @@ void main() {
         );
       },
     );
+  });
+
+  group('Notification level', () {
+    const allOn = PushNotificationSettings(
+      awsEmergency: true,
+      awsWatchAndAct: true,
+      awsAdvice: true,
+      officialNonAws: true,
+      userReported: true,
+    );
+
+    test('is derived from the type flags', () {
+      expect(
+        notificationLevelOf(allOn),
+        NotificationLevel.officialAndCommunity,
+      );
+      expect(
+        notificationLevelOf(allOn.copyWith(userReported: false)),
+        NotificationLevel.officialOnly,
+      );
+      expect(
+        notificationLevelOf(const PushNotificationSettings(awsEmergency: true)),
+        NotificationLevel.quiet,
+      );
+      // A hand-tuned mix reads as the nearest level, never as "none".
+      expect(
+        notificationLevelOf(
+          const PushNotificationSettings(awsEmergency: true, awsAdvice: true),
+        ),
+        NotificationLevel.officialOnly,
+      );
+      expect(
+        notificationLevelOf(
+          const PushNotificationSettings(awsEmergency: true, userReported: true),
+        ),
+        NotificationLevel.officialAndCommunity,
+      );
+    });
+
+    test('a level writes every type flag and keeps Emergency on and the '
+        'categories as they are', () {
+      const start = PushNotificationSettings(
+        subscribedCategoryIds: {'healthAndAir'},
+      );
+      final quiet = settingsForLevel(start, NotificationLevel.quiet);
+      expect(quiet.awsEmergency, isTrue);
+      expect(quiet.awsWatchAndAct, isFalse);
+      expect(quiet.awsAdvice, isFalse);
+      expect(quiet.officialNonAws, isFalse);
+      expect(quiet.userReported, isFalse);
+      expect(quiet.subscribedCategoryIds, {'healthAndAir'});
+
+      final official = settingsForLevel(start, NotificationLevel.officialOnly);
+      expect(official.awsEmergency, isTrue);
+      expect(official.awsWatchAndAct, isTrue);
+      expect(official.awsAdvice, isTrue);
+      expect(official.officialNonAws, isTrue);
+      expect(official.userReported, isFalse);
+
+      final all = settingsForLevel(
+        start,
+        NotificationLevel.officialAndCommunity,
+      );
+      expect(all.userReported, isTrue);
+      expect(all.awsEmergency, isTrue);
+    });
+
+    testWidgets('tapping a level card saves the matching flags once, and '
+        'Emergency Warning shows as always on', (tester) async {
+      final userRepository = _FakeUserRepository(
+        allOn.copyWith(subscribedCategoryIds: {'healthAndAir'}),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          providerOfHazardRepository.overrideWithValue(
+            _FakeHazardRepository(_sampleCategories()),
+          ),
+          providerOfUserRepository.overrideWithValue(userRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container
+          .read(providerOfMainCategories.notifier)
+          .getAllMainHazardCategories();
+
+      await tester.pumpWidget(
+        _wrap(const ManagePushNotificationsList(), container: container),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('LEVEL'), findsOneWidget);
+      expect(find.text('TYPES'), findsOneWidget);
+      expect(find.text('CATEGORIES'), findsOneWidget);
+      await tester.ensureVisible(find.text('Always on'));
+      expect(find.text('Always on'), findsOneWidget);
+      expect(userRepository.savedSettings, isEmpty);
+
+      await tester.ensureVisible(find.text('Keep it quiet'));
+      await tester.tap(find.text('Keep it quiet'));
+      await tester.pumpAndSettle();
+      expect(userRepository.savedSettings, hasLength(1));
+      final saved = userRepository.savedSettings.single;
+      expect(saved.awsEmergency, isTrue);
+      expect(saved.awsWatchAndAct, isFalse);
+      expect(saved.awsAdvice, isFalse);
+      expect(saved.officialNonAws, isFalse);
+      expect(saved.userReported, isFalse);
+      expect(saved.subscribedCategoryIds, {'healthAndAir'});
+
+      // Tapping the level already in force saves nothing.
+      await tester.tap(find.text('Keep it quiet'));
+      await tester.pumpAndSettle();
+      expect(userRepository.savedSettings, hasLength(1));
+
+      // A type switch fine-tunes from there and still forces Emergency on.
+      await tester.ensureVisible(find.text('Community reports'));
+      await tester.tap(find.text('Community reports'));
+      await tester.pumpAndSettle();
+      expect(userRepository.savedSettings, hasLength(2));
+      expect(userRepository.savedSettings.last.userReported, isTrue);
+      expect(userRepository.savedSettings.last.awsEmergency, isTrue);
+      expect(find.text('Official and community'), findsOneWidget);
+    });
   });
 }

@@ -522,13 +522,19 @@ class _CreateUpdateReportScreenState
 
   /// "How would you describe it?": severity is declared by the reporter,
   /// pre-selected from the chips, never imposed.
+  ///
+  /// The three cards are exactly equal: IntrinsicHeight stretches every
+  /// card to the tallest one, Expanded gives each the same width.
   Widget _severityWordingBuilder() {
-    return Row(
-      spacing: 8.spMin,
-      children: [
-        for (final wording in ReportSeverityWording.values)
-          Expanded(child: _wordingItemBuilder(wording)),
-      ],
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8.spMin,
+        children: [
+          for (final wording in ReportSeverityWording.values)
+            Expanded(child: _wordingItemBuilder(wording)),
+        ],
+      ),
     );
   }
 
@@ -541,43 +547,34 @@ class _CreateUpdateReportScreenState
         _pickedWording = isSelected ? null : wording;
       }),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 10.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 12.spMin),
         decoration: BoxDecoration(
-          color: isSelected
-              ? _labelColor.withValues(alpha: 0.16)
-              : AppColors.white,
+          color: isSelected ? const Color(0xFFFAF9F7) : AppColors.white,
           borderRadius: BorderRadius.circular(12.spMin),
           border: Border.all(
-            color: isSelected ? _labelColor : const Color(0xFFE8E4EE),
-            width: 1.5,
+            color: isSelected ? AppColors.ink : AppColors.lightGrey,
+            width: isSelected ? 2.0 : 1.5,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: _labelColor.withValues(alpha: 0.28),
-                    blurRadius: 12.0,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               wording.label,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 15.5.spMin,
+                fontSize: 15.spMin,
                 fontWeight: FontWeight.w700,
-                color: isSelected ? _labelColor : AppColors.black,
+                color: AppColors.black,
               ),
             ),
-            2.hSizedBox,
+            3.hSizedBox,
             Text(
               wording.sub,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 13.spMin,
-                color: AppColors.mediumGrey,
+                fontSize: 12.spMin,
+                color: AppColors.grey,
               ),
             ),
           ],

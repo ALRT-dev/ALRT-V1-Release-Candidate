@@ -149,11 +149,12 @@ void main() {
       );
       await _open(tester);
 
-      expect(
-        find.text('Up to 6 people · your current plan'),
-        findsOneWidget,
-      );
-      expect(find.text('Up to 20 people · upgrade'), findsOneWidget);
+      // The size tiles: Family is the plan in force, Group 20 and Group 50
+      // are both upgrades from it.
+      expect(find.text('Your current plan'), findsOneWidget);
+      expect(find.text('Upgrade'), findsNWidgets(2));
+      expect(find.text('up to 6'), findsOneWidget);
+      expect(find.text('up to 20'), findsOneWidget);
       expect(find.text(r'Upgrade for $24.99 AUD/month'), findsOneWidget);
       expect(find.textContaining('prorated difference'), findsOneWidget);
       expect(find.textContaining('No free trial.'), findsOneWidget);

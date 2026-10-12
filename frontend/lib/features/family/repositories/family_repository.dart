@@ -104,7 +104,7 @@ abstract class FamilyRepository {
     required final String memberId,
   });
 
-  /// Selected members, or the whole group — pass every member id wanted.
+  /// Selected members, or the whole group - pass every member id wanted.
   /// Returns the ids that failed their own checks (e.g. sharing off)
   /// alongside the ones that succeeded, rather than failing the whole ask.
   Future<Either<List<String>, AppError>> createFamilyLocationRequestsBulk({
@@ -142,6 +142,16 @@ abstract class FamilyRepository {
     final List<String>? memberIds,
   });
 
+  /// Sends an alert to one circle: everyone in it gets the alert and the
+  /// sender's optional one-line [note]. POST /api/family/hazards/:id/share.
+  /// A 404 comes back as an [AppError] with code '404', which the caller
+  /// treats as "route not deployed yet" and falls back to a check-in.
+  Future<Either<void, AppError>> shareHazardWithCircle({
+    required final String circleId,
+    required final String hazardId,
+    final String? note,
+  });
+
   Future<Either<void, AppError>> cancelFamilyCheckInRequest({
     required final String requestId,
   });
@@ -154,6 +164,7 @@ abstract class FamilyRepository {
   createFamilyScheduledCheckIn({
     required final String timeOfDay,
     final FamilyScheduledCheckInMode? mode,
+    final int? utcOffsetMinutes,
   });
 
   Future<Either<List<FamilyScheduledCheckIn>, AppError>>
@@ -754,6 +765,27 @@ class FamilyRepositoryImpl implements FamilyRepository {
   }
 
   @override
+  Future<Either<void, AppError>> shareHazardWithCircle({
+    required String circleId,
+    required String hazardId,
+    String? note,
+  }) {
+    return runAsyncCall(
+      name: 'shareHazardWithCircle',
+      future: () async {
+        final trimmed = note?.trim();
+        await _restClient.shareHazardWithFamilyCircle(
+          hazardId: hazardId,
+          circleId: circleId,
+          message: (trimmed == null || trimmed.isEmpty) ? null : trimmed,
+        );
+        return const Success(null);
+      },
+      onError: Failure.new,
+    );
+  }
+
+  @override
   Future<Either<void, AppError>> cancelFamilyCheckInRequest({
     required String requestId,
   }) {
@@ -789,6 +821,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
   createFamilyScheduledCheckIn({
     required String timeOfDay,
     FamilyScheduledCheckInMode? mode,
+    int? utcOffsetMinutes,
   }) {
     return runAsyncCall(
       name: 'createFamilyScheduledCheckIn',
@@ -796,6 +829,7 @@ class FamilyRepositoryImpl implements FamilyRepository {
         final result = await _restClient.createFamilyScheduledCheckIn(
           timeOfDay: timeOfDay,
           mode: mode?.name,
+          utcOffsetMinutes: utcOffsetMinutes,
           circleId: _circleId,
         );
         return Success(result);

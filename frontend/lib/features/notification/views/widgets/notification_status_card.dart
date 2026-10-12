@@ -9,13 +9,23 @@ import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// Which half of the device-status story a [NotificationStatusCard] draws:
+/// the permission status (top of the Notifications screen) or the test
+/// push (bottom of it). Both read the same permission state.
+enum NotificationStatusCardPart { status, testPush }
+
 /// Whether this phone can receive ALRT notifications, in plain words, with
 /// the one route to the phone's own settings when it cannot, and a
 /// clearly labelled test that sends a push to THIS account's phones only.
 /// It never turns anything on by itself, never touches silent mode or Do
 /// Not Disturb, and never sends a real alert.
 class NotificationStatusCard extends ConsumerStatefulWidget {
-  const NotificationStatusCard({super.key});
+  const NotificationStatusCard({
+    super.key,
+    this.part = NotificationStatusCardPart.status,
+  });
+
+  final NotificationStatusCardPart part;
 
   @override
   ConsumerState<NotificationStatusCard> createState() =>
@@ -102,16 +112,25 @@ class _NotificationStatusCardState extends ConsumerState<NotificationStatusCard>
 
   @override
   Widget build(BuildContext context) {
+    return switch (widget.part) {
+      NotificationStatusCardPart.status => _buildStatus(),
+      NotificationStatusCardPart.testPush => _buildTestPush(),
+    };
+  }
+
+  BoxDecoration _decoration() => BoxDecoration(
+    color: _allowed ? const Color(0xFFEEF8F1) : const Color(0xFFFFF4E5),
+    borderRadius: BorderRadius.circular(14.spMin),
+    border: Border.all(
+      color: _allowed ? const Color(0xFFBFE3CC) : const Color(0xFFF5D6A8),
+    ),
+  );
+
+  Widget _buildStatus() {
     return Container(
       margin: EdgeInsets.fromLTRB(16.spMin, 12.spMin, 16.spMin, 4.spMin),
       padding: EdgeInsets.all(14.spMin),
-      decoration: BoxDecoration(
-        color: _allowed ? const Color(0xFFEEF8F1) : const Color(0xFFFFF4E5),
-        borderRadius: BorderRadius.circular(14.spMin),
-        border: Border.all(
-          color: _allowed ? const Color(0xFFBFE3CC) : const Color(0xFFF5D6A8),
-        ),
-      ),
+      decoration: _decoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -155,24 +174,51 @@ class _NotificationStatusCardState extends ConsumerState<NotificationStatusCard>
               color: AppColors.grey,
             ),
           ),
-          SizedBox(height: 8.spMin),
-          Wrap(
-            spacing: 8.spMin,
-            children: [
-              if (!_allowed)
-                TextButton.icon(
-                  onPressed: () => AppSettings.openAppSettings(
-                    type: AppSettingsType.notification,
-                  ),
-                  icon: Icon(LucideIcons.settings, size: 16.spMin),
-                  label: const Text('Open phone settings'),
+          if (!_allowed) ...[
+            SizedBox(height: 8.spMin),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => AppSettings.openAppSettings(
+                  type: AppSettingsType.notification,
                 ),
-              TextButton.icon(
-                onPressed: _allowed && !_sending ? _sendTest : null,
-                icon: Icon(LucideIcons.send, size: 16.spMin),
-                label: Text(_sending ? 'Sending…' : 'Send a test notification'),
+                icon: Icon(LucideIcons.settings, size: 16.spMin),
+                label: const Text('Open phone settings'),
               ),
-            ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// The test push, kept at the bottom of the screen: it sends to THIS
+  /// account's phones only and is disabled until the phone allows
+  /// notifications.
+  Widget _buildTestPush() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(16.spMin, 4.spMin, 16.spMin, 12.spMin),
+      padding: EdgeInsets.all(14.spMin),
+      decoration: _decoration(),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _allowed
+                  ? 'Check that a push arrives on this phone.'
+                  : 'Allow notifications first to send a test.',
+              style: TextStyle(
+                fontSize: 12.5.spMin,
+                height: 1.4,
+                color: AppColors.black,
+              ),
+            ),
+          ),
+          SizedBox(width: 8.spMin),
+          TextButton.icon(
+            onPressed: _allowed && !_sending ? _sendTest : null,
+            icon: Icon(LucideIcons.send, size: 16.spMin),
+            label: Text(_sending ? 'Sending…' : 'Send a test notification'),
           ),
         ],
       ),
