@@ -383,9 +383,7 @@ class _FamilySosReceiverScreenState
                   : 'SOS live')
             : (isResolved ? '$name ended their SOS.' : name));
     final liveUntil = sosLiveUntil(sos);
-    final minutesLeft = liveUntil == null
-        ? null
-        : liveUntil.difference(DateTime.now()).inMinutes;
+    final minutesLeft = liveUntil?.difference(DateTime.now()).inMinutes;
     final locationChoice = switch (sos.locationMode ??
         (sos.isLive ? 'live' : null)) {
       'none' => 'No location',

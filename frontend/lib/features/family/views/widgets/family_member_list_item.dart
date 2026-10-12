@@ -9,7 +9,7 @@ import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// A member row for the family hub (approved Family board, 12 Oct 2026):
-/// a 40 px initial avatar in the member's colour, "<Name> (you) · host",
+/// a 40 px initial avatar in the member's colour, "`<Name>` (you) · host",
 /// one factual state line, and one pill or button on the right.
 ///
 /// The pill is factual only: "Checked in", "Waiting" ONLY while an ask is

@@ -11,6 +11,7 @@ import 'package:hazard_app/features/notification/views/widgets/all_location_subs
 import 'package:hazard_app/features/notification/views/widgets/manage_push_notifications_list.dart';
 import 'package:hazard_app/features/notification/views/widgets/notification_status_card.dart';
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
+import 'package:hazard_app/features/profile/providers/states/my_location_subscriptions_provider_state.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';

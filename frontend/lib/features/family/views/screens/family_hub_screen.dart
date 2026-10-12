@@ -1067,7 +1067,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         );
   }
 
-  /// "<Name> asked you to check in": the card the person ASKED sees, above
+  /// "`<Name>` asked you to check in": the card the person ASKED sees, above
   /// the Check in button, with the ask's time and note. Check in opens the
   /// consent sheet; See who has opens the roll call.
   Widget _askedOfMeCardBuilder(final FamilyCircle circle) {

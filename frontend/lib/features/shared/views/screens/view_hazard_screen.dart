@@ -22,6 +22,7 @@ import 'package:hazard_app/features/shared/enums/alrt_media_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/enums/video_priority_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:hazard_app/features/shared/providers/states/view_hazard_provider_state.dart';
 import 'package:hazard_app/features/shared/extensions/date_time_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
@@ -491,7 +492,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   }
 
   /// Official and AWS: shape glyph, the label (only the Australian Warning
-  /// System writes a level word), and "<source> · <ago>" on the right.
+  /// System writes a level word), and "source · ago" on the right.
   Widget _officialSourceRow(final Hazard hazard) {
     final isAws = hazard.isAwsCompliant ?? false;
     final severityTitle = hazard.severityTitle;
@@ -563,7 +564,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   }
 
   /// Community: the category disc in a rounded square, the category name
-  /// in the V3 label orange, "Unverified · <ago>", and the corroboration
+  /// in the V3 label orange, "Unverified · ago", and the corroboration
   /// pill on the right ("Confirmed by ×N" is independent community
   /// reports, never official verification).
   Widget _communitySourceRow(final Hazard hazard) {
@@ -767,7 +768,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// One location line: "<place> · 8.4 km from you", with "Updated <ago>"
+  /// One location line: "place · 8.4 km from you", with "Updated ago"
   /// trailing when the alert has been touched since it was posted.
   Widget _buildLocationLine(final Hazard hazard) {
     return Consumer(
