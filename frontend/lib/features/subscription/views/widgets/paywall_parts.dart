@@ -651,14 +651,18 @@ class PlanChoiceCard extends StatelessWidget {
                           ),
                           if (priceLine != null && priceLine!.isNotEmpty) ...[
                             SizedBox(width: 8.spMin),
-                            Text(
+                            Flexible(
+                              child: Text(
                               priceLine!,
                               textAlign: TextAlign.right,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 11.5.spMin,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white.withValues(alpha: 0.95),
                               ),
+                            ),
                             ),
                           ],
                         ],
