@@ -1,4 +1,5 @@
-import { HazardSeverity, type Hazard } from "@prisma/client";
+import { HazardSeverity, HazardSeverityBand, SourcePushPolicy, type Hazard } from "@prisma/client";
+import { decideSourcePush } from "../utils/source_registry.util.js";
 import { firebaseAdmin } from "../utils/firebase_admin_client.util.js";
 import prisma from "../utils/prisma_client.util.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
@@ -534,9 +535,51 @@ export const sendPushNotificationToUser = async ({
  */
 export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
   try {
+    const source = hazard.sourceId
+      ? await prisma.hazardSource.findUnique({
+          where: { id: hazard.sourceId },
+          select: { pushPolicy: true, severitySystem: true },
+        })
+      : null;
+
+    const fallbackPolicy =
+      source?.severitySystem === "gdacsColour"
+        ? SourcePushPolicy.greenExempt
+        : source?.severitySystem === "advisory"
+          ? SourcePushPolicy.advisoryOnly
+          : hazard.reportedById
+            ? SourcePushPolicy.afterConfirmation
+            : hazard.isAwsCompliant
+              ? SourcePushPolicy.everyLevel
+              : SourcePushPolicy.bandThreshold;
+    const policy = source?.pushPolicy ?? fallbackPolicy;
+    const corroborationCount =
+      policy === SourcePushPolicy.afterConfirmation
+        ? await prisma.hazardCorroboration.count({
+            where: { hazardId: hazard.id },
+          })
+        : 0;
+    const decision = decideSourcePush({
+      policy,
+      severityBand: hazard.severityBand ?? HazardSeverityBand.info,
+      reportedById: hazard.reportedById,
+      corroborationCount,
+      severitySystem: source?.severitySystem,
+      title: hazard.title,
+    });
+
+    if (!decision.send) {
+      console.info(
+        "Push suppressed by source policy:",
+        { hazardId: hazard.id, sourceId: hazard.sourceId, policy },
+      );
+      return;
+    }
+
     const userTokens = await getUserPushNotificationTokensSubscribedToHazard(
       hazard
     );
+    if (userTokens.length === 0) return;
 
     await sendPushNotificationToTokens({
       tokens: userTokens,
@@ -544,6 +587,7 @@ export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
       body: getNotificationBodyForNewHazard(hazard),
       data: pushSafeHazard(hazard),
       type: PushNotificationType.viewHazard,
+      urgent: decision.urgent,
       collapseKey: hazardCollapseKey(hazard.id),
     });
   } catch (error) {
