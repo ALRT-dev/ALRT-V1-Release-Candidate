@@ -340,7 +340,7 @@ abstract class FamilyCheckIn with _$FamilyCheckIn {
     final String? requestId,
     final String? hazardId,
 
-    /// The alert this check-in was made from ("near <alert>"), named by
+    /// The alert this check-in was made from ("near `<alert>`"), named by
     /// the server from [hazardId]; null when the alert no longer exists.
     final FamilyCheckInAlert? hazard,
     final FamilyMemberSnippet? member,

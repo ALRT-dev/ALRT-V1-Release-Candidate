@@ -364,39 +364,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  Widget _buildEditButton() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isExpired = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isExpired ?? false,
-          ),
-        );
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          padding: EdgeInsets.all(16.spMin),
-          child: Icon(
-            LucideIcons.pencil,
-            color: isExpired
-                ? AppColors.grey.withValues(alpha: 0.5)
-                : AppColors.black,
-            size: 20.spMin,
-          ),
-        ).onPressed(() => _handleEditHazard());
-      },
-    );
-  }
-
   Widget _buildDeleteButton() {
     return Container(
       decoration: BoxDecoration(
@@ -1015,7 +982,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         sublabel: hasCircle
                             ? (circleCount > 1
                                 ? '$circleName · tap to change'
-                                : circleName!)
+                                : circleName)
                             : 'Loading...',
                         loading: isSending,
                         onTap: hasCircle

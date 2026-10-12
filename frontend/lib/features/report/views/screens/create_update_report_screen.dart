@@ -52,9 +52,6 @@ const _labelColor = Color(0xFFFF6B01);
 const _iconTint = Color(0xFFFFF3E8);
 const _cardShadow = Color(0x0D1E142D);
 
-/// The chip treatment the prototype gives secondary actions.
-const _chipFill = Color(0xFFF0F2F5);
-
 class CreateUpdateReportScreenArgs {
   CreateUpdateReportScreenArgs({this.hazardToUpdate});
 
