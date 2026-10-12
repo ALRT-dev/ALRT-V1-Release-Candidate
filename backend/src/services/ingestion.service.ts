@@ -437,7 +437,9 @@ export const syncHazardsFromDifferentSources = async ({
       where: {
         adapterKey: { in: ["geojson", "rss"] },
         feedUrl: { not: null },
-        lifecycleStatus: { notIn: ["suspended", "retired"] },
+        // Registry-backed adapters only publish after an operator explicitly activates the source.
+        // Monitoring sources remain configured but are not ingested into public alerts.
+        lifecycleStatus: "active",
       },
     });
     const registeredExternalSources: ExternalSource[] = registeredSources
