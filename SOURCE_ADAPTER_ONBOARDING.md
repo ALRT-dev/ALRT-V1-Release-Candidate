@@ -15,7 +15,7 @@ Built-in sources continue to use their dedicated parsers. A registry source ID c
 
 1. In Admin → Sources, choose **Add source**.
 2. Supply a stable ID, publisher name, publisher website, feed URL, adapter and jurisdiction.
-3. The source is created in **monitoring** status. Registry-backed adapters only ingest rows whose lifecycle status is explicitly **active**.
+3. The source is created in **monitoring** status. Registry-backed adapters only ingest rows whose lifecycle status is explicitly **active**. The backend rejects activation unless a feed URL, format, last-reviewed date, future next-review date and licence record or licensing notes are present.
 4. Verify the publisher terms/licence, feed schema, event identity, locations, category/severity outcomes and attribution in TEST.
 5. Configure the source's review date and health ownership. Promote to active only after review.
 6. Monitor source health and app surfaces after activation. Suspend a source immediately if it is stale, malformed or misclassified.
