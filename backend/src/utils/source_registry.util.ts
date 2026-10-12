@@ -169,10 +169,7 @@ export const decideSourcePush = (params: {
       };
     case SourcePushPolicy.greenExempt:
       return {
-        send: !(
-          params.severitySystem === HazardSeveritySystem.gdacsColour &&
-          /^\s*GDACS\s+Green\b/i.test(params.title ?? "")
-        ),
+        send: !/^\s*GDACS\s+Green\b/i.test(params.title ?? ""),
         urgent: false,
       };
     case SourcePushPolicy.advisoryOnly:
