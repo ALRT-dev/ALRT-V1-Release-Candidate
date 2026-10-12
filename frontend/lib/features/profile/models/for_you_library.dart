@@ -44,6 +44,11 @@ abstract final class ForYouLibrary {
     for (final entry in _titleKeywords) {
       if (entry.$1.any(name.contains)) return entry.$2;
     }
+    // A burning car is a traffic incident, not a bushfire: it has no
+    // reviewed guidance, so it shows nothing (never another hazard's).
+    if (name.contains('vehicle')) return null;
+    // Planned and prescribed burns matter to a profile through their smoke.
+    if (name.contains('burn')) return 'smoke';
     if (name.contains('fire') && name.contains('smoke')) return 'smoke';
     if (name.contains('fire')) return 'bushfire';
     if (name.contains('smoke')) return 'smoke';
@@ -65,7 +70,10 @@ abstract final class ForYouLibrary {
     (['earthquake', 'tremor', 'aftershock'], 'earthquake'),
     (['grass fire', 'grassfire'], 'grass_fire'),
     (['bushfire', 'bush fire'], 'bushfire'),
-    (['structure fire', 'building fire', 'house fire'], 'structure_fire'),
+    (
+      ['structure fire', 'structural fire', 'building fire', 'house fire'],
+      'structure_fire',
+    ),
     (['dust storm', 'dust'], 'dust_storm'),
     (['heatwave', 'extreme heat', 'heat wave'], 'heatwave'),
     (['cold snap', 'black ice', 'frost', 'extreme cold'], 'cold_snap'),
