@@ -76,6 +76,12 @@ describe("source push policy", () => {
       title: "GDACS Green alert",
     }).send).toBe(false);
     expect(decideSourcePush({
+      policy: "greenExempt" as any,
+      severityBand: "info" as any,
+      severitySystem: "gdacsColour" as any,
+      title: "Flooding near Green Valley",
+    }).send).toBe(true);
+    expect(decideSourcePush({
       policy: "advisoryOnly" as any,
       severityBand: "critical" as any,
     })).toEqual({ send: true, urgent: false });
