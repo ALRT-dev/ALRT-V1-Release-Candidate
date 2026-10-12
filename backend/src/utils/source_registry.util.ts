@@ -171,7 +171,7 @@ export const decideSourcePush = (params: {
       return {
         send: !(
           params.severitySystem === HazardSeveritySystem.gdacsColour &&
-          /\bgreen\b/i.test(params.title ?? "")
+          /^\s*GDACS\s+Green\b/i.test(params.title ?? "")
         ),
         urgent: false,
       };
