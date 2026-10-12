@@ -7,6 +7,7 @@ import 'package:hazard_app/features/onboarding/views/widgets/gradient_button.dar
 import 'package:hazard_app/features/onboarding/views/widgets/onboarding_page.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
 import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
 import 'package:hazard_app/others/app_colors.dart';
@@ -37,13 +38,12 @@ class OnboardingAlrtPlusScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Hidden when billing is disabled server-side or ALRT + is already
-    // held; an unreachable backend (null) still shows it, since the plan
-    // screens handle every refusal themselves.
-    final billingEnabled =
-        ref.watch(providerOfAccess).asData?.value?.billingEnabled ?? true;
+    // Hidden only when ALRT + is already held. It is NOT hidden when the
+    // backend reports billing off (TEST): the plan screens handle every
+    // refusal themselves, and hiding the way in made paid sign-up
+    // impossible to test.
     final hasAlrtPlus = ref.watch(providerOfAlrtPlus).asData?.value ?? false;
-    final showPlansLink = billingEnabled && !hasAlrtPlus;
+    final showPlansLink = !hasAlrtPlus;
 
     return OnboardingPage(
       step: _step,
@@ -69,22 +69,27 @@ class OnboardingAlrtPlusScreen extends ConsumerWidget {
           ),
         ),
         24.hSizedBox,
-        const _PlanCard(
+        _PlanCard(
           identity: PlanIdentity.individual,
           title: 'For myself',
           body: 'Unlimited places, 10 questions a day, any groups',
+          onTap: showPlansLink
+              ? () => context.push(AlrtPlusPaywallScreen.route)
+              : null,
         ),
         12.hSizedBox,
-        const _PlanCard(
+        _PlanCard(
           identity: PlanIdentity.family,
           title: 'Cover a group of up to 6',
           body: 'Check in, Check on, SOS and Journey for everyone in it',
+          onTap: () => context.push(AlrtPlusChooseScreen.route),
         ),
         12.hSizedBox,
-        const _PlanCard(
+        _PlanCard(
           identity: PlanIdentity.group,
           title: 'Cover 20 or 50 people',
           body: 'Same, for a team, a street or a club',
+          onTap: () => context.push(AlrtPlusChooseScreen.route),
         ),
         16.hSizedBox,
         Text(
@@ -121,22 +126,31 @@ class _PlanCard extends StatelessWidget {
     required this.identity,
     required this.title,
     required this.body,
+    this.onTap,
   });
 
   final PlanIdentity identity;
   final String title;
   final String body;
 
+  /// Opens the plan's sign-up. Null leaves the card as information only.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Semantics(
+      button: onTap != null,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14.spMin),
+        child: Ink(
       padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(14.spMin),
         border: Border.all(color: AppColors.lightGrey, width: 1),
       ),
-      child: Column(
+      child: Row(children: [Expanded(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -178,6 +192,11 @@ class _PlanCard extends StatelessWidget {
             ),
           ),
         ],
+      )),
+      if (onTap != null)
+        Icon(Icons.chevron_right_rounded, color: AppColors.mediumGrey, size: 24.spMin),
+      ]),
+        ),
       ),
     );
   }

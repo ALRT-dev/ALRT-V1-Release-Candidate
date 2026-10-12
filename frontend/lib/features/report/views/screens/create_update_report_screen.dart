@@ -456,31 +456,22 @@ class _CreateUpdateReportScreenState
       onTap: () => _handleChipTap(chip),
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 8.spMin),
+        // Selected looks like the severity choice below it (product owner
+        // 12 Oct 2026): a dark outline on a soft white, never an orange fill.
         decoration: BoxDecoration(
-          color: isSelected
-              ? _labelColor.withValues(alpha: 0.16)
-              : AppColors.white,
+          color: isSelected ? const Color(0xFFFAF9F7) : AppColors.white,
           borderRadius: BorderRadius.circular(11.spMin),
           border: Border.all(
-            color: isSelected ? _labelColor : const Color(0xFFE8E4EE),
-            width: 1.5,
+            color: isSelected ? AppColors.ink : const Color(0xFFE8E4EE),
+            width: isSelected ? 2.0 : 1.5,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: _labelColor.withValues(alpha: 0.28),
-                    blurRadius: 12.0,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
         ),
         child: Text(
           chip.label,
           style: TextStyle(
             fontSize: 15.spMin,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? _labelColor : AppColors.black,
+            color: AppColors.black,
           ),
         ),
       ),
