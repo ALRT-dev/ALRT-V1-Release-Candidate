@@ -4,6 +4,7 @@ import { sendSocketEventToUsers } from "./socket.service.js";
 import { SocketEvent } from "../models/socket_event_types.js";
 import { sendPushNotificationAboutNewHazard, sendPushNotificationToUser } from "./notification.service.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
+import { COMMUNITY_PUSH_CONFIRMATION_THRESHOLD } from "../utils/source_registry.util.js";
 
 /**
  * Badges — Points & Badge Logic v1.1 section 3.
@@ -45,7 +46,7 @@ export type BadgeDefinition = {
  * production note at the top of the v1.1 document). The badges keep the
  * document's own bar.
  */
-export const CORROBORATED_THRESHOLD = 3;
+export const CORROBORATED_THRESHOLD = COMMUNITY_PUSH_CONFIRMATION_THRESHOLD;
 
 /** Wide corroboration, per v1.1: the +10 event, once per report. */
 export const WIDELY_CORROBORATED_THRESHOLD = 9;
