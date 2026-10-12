@@ -426,7 +426,16 @@ jobs:
       # minutes on a change that didn't pass its own suite. Runs the
       # whole of frontend/test/, not just new files.
       - name: Run flutter test
-        run: flutter test --reporter expanded 2>&1
+        run: |
+          set +e
+          flutter test --reporter expanded > /tmp/test-output.txt 2>&1
+          code=$?
+          tail -n 5 /tmp/test-output.txt
+          if [ "$code" -ne 0 ]; then
+            # Annotate each failing test (raw logs are not readable here).
+            grep -E '\[E\]|Error:|Expected:|Actual:|Failed to load|Some tests failed' /tmp/test-output.txt | head -40 | while read -r line; do echo "::error title=flutter test::$line"; done
+          fi
+          exit $code
 
       # Same dev flavour/app id as android-apk.yml - only DEV_BASE_URL
       # and (when billing_mode=test_store) RevenueCat differ, via the
