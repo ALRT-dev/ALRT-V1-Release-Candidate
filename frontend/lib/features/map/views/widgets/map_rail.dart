@@ -6,11 +6,10 @@ import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
-import 'package:hazard_app/features/map/views/screens/map_screen.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
+import 'package:hazard_app/features/map/views/widgets/map_details_sheet.dart';
 import 'package:hazard_app/features/map/views/widgets/map_key_sheet.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
-import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -68,7 +67,8 @@ class _MapRailState extends ConsumerState<MapRail> {
     );
   }
 
-  /// Filters, alerts list and map key in one white block with hairline
+  /// Map layers (map type, with a way into the ALRT Filters), alerts list and
+  /// map key in one white block with hairline
   /// dividers inset 10 px from each side.
   Widget _stackedBlockBuilder() {
     return Container(
@@ -85,8 +85,8 @@ class _MapRailState extends ConsumerState<MapRail> {
           _railButtonBuilder(
             icon: LucideIcons.layers,
             iconColor: _inkColor,
-            semanticLabel: 'Filters',
-            onPressed: _handleFiltersTap,
+            semanticLabel: 'Map layers',
+            onPressed: () => showMapDetailsSheet(context: context),
           ),
           _dividerBuilder(),
           _railButtonBuilder(
@@ -157,16 +157,6 @@ class _MapRailState extends ConsumerState<MapRail> {
           ),
         ),
       ).onPressed(onPressed),
-    );
-  }
-
-  /// Opens the shared ALRT Filters sheet for the map, reloading the map's
-  /// alerts when the filters change.
-  void _handleFiltersTap() {
-    showHazardFiltersBottomSheet(
-      context: context,
-      filtersKey: MapScreen.filtersKey,
-      onFiltersUpdated: () => ref.read(providerOfMap.notifier).getMapHazards(),
     );
   }
 

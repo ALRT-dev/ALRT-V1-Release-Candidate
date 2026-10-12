@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/map/providers/map_display_settings_provider.dart';
+import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/map/views/screens/map_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -116,6 +117,8 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
         showHazardFiltersBottomSheet(
           context: context,
           filtersKey: MapScreen.filtersKey,
+          onFiltersUpdated: () =>
+              ref.read(providerOfMap.notifier).getMapHazards(),
         );
       },
       child: Container(
