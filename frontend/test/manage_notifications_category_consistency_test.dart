@@ -229,7 +229,11 @@ Widget _wrap(final Widget child, {required final ProviderContainer container}) {
       // The list no longer scrolls itself (the Notifications screen owns
       // the one scroll), so the harness supplies the scroll view.
       builder: (context, _) => MaterialApp(
-        home: Scaffold(body: SingleChildScrollView(child: child)),
+        home: Scaffold(
+          body: child is ManagePushNotificationsList
+              ? SingleChildScrollView(child: child)
+              : child,
+        ),
       ),
     ),
   );
