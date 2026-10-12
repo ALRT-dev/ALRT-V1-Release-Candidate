@@ -569,7 +569,7 @@ export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
       severityBand: hazard.severityBand ?? HazardSeverityBand.info,
       reportedById: hazard.reportedById,
       corroborationCount,
-      severitySystem: source?.severitySystem,
+      ...(source ? { severitySystem: source.severitySystem } : {}),
       title: hazard.title,
     });
 
