@@ -956,14 +956,20 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
                   children: [
                     Icon(LucideIcons.siren, color: Colors.white, size: 22.spMin),
                     SizedBox(width: 10.spMin),
-                    Text(
-                      _holdController.isAnimating
-                          ? 'Keep holding to send'
-                          : 'Hold for 3 seconds to send',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17.spMin,
-                        fontWeight: FontWeight.w800,
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _holdController.isAnimating
+                              ? 'Keep holding to send'
+                              : 'Hold for 3 seconds to send',
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17.spMin,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ),
                   ],
