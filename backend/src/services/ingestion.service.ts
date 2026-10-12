@@ -462,11 +462,25 @@ export const syncHazardsFromDifferentSources = async ({
         const parseFunction: ExternalSource["parseFunction"] =
           adapterKey === "geojson"
             ? (responseData: any) => {
+                if (
+                  !responseData ||
+                  responseData.type !== "FeatureCollection" ||
+                  !Array.isArray(responseData.features)
+                ) {
+                  throw new Error(
+                    "Registry source " + source.id + " did not return a GeoJSON FeatureCollection; feed withheld.",
+                  );
+                }
                 const parsed = parseGeoJsonToHazards({
                   data: responseData,
                   availableCategories,
                   idPrefix: source.id,
                 });
+                if (responseData.features.length > 0 && parsed.length === 0) {
+                  throw new Error(
+                    "Registry source " + source.id + " returned features but no usable alert locations; feed withheld.",
+                  );
+                }
                 // Never publish generic-feed events that fell through to the
                 // catch-all "other" category. Fail the feed visibly so its
                 // mapping can be corrected instead of misrepresenting it.
