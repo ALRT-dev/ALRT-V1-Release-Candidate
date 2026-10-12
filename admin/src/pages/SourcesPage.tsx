@@ -3,7 +3,7 @@ import { useApiQuery } from "../hooks/useApiQuery";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePageForFilters } from "../hooks/usePageForFilters";
 import { Pagination } from "../components/Pagination";
-import { listHazardSources, updateHazardSource } from "../api/resources";
+import { createHazardSource, listHazardSources, updateHazardSource } from "../api/resources";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
@@ -29,6 +29,22 @@ export const SourcesPage = () => {
   const [advisoryDraft, setAdvisoryDraft] = useState("");
   const [configDraft, setConfigDraft] = useState<Partial<AdminHazardSource>>({});
   const [saving, setSaving] = useState(false);
+  const [creatingSource, setCreatingSource] = useState(false);
+  const [creatingSaving, setCreatingSaving] = useState(false);
+  const [createDraft, setCreateDraft] = useState({
+    id: "",
+    name: "",
+    url: "",
+    feedUrl: "",
+    adapterKey: "geojson",
+    format: "GeoJSON",
+    country: "Australia",
+    region: "",
+    sourceType: "official",
+    authorityLevel: "official",
+    accessMethod: "public-feed",
+    scheduleMinutes: 15,
+  });
 
   const fetcher = useCallback(
     () =>
@@ -80,6 +96,59 @@ export const SourcesPage = () => {
     }
   };
 
+  const saveNewSource = async () => {
+    const draft = {
+      id: createDraft.id.trim(),
+      name: createDraft.name.trim(),
+      url: createDraft.url.trim(),
+      feedUrl: createDraft.feedUrl.trim(),
+    };
+    if (!draft.id || !draft.name || !draft.url || !draft.feedUrl) {
+      notifyError("Enter a source ID, publisher name, publisher URL and feed URL.");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(draft.id)) {
+      notifyError("Source ID can contain only letters, numbers, underscores and hyphens.");
+      return;
+    }
+    setCreatingSaving(true);
+    try {
+      await createHazardSource({
+        ...draft,
+        adapterKey: createDraft.adapterKey,
+        format: createDraft.format,
+        country: createDraft.country.trim() || undefined,
+        region: createDraft.region.trim() || undefined,
+        sourceType: createDraft.sourceType,
+        authorityLevel: createDraft.authorityLevel,
+        accessMethod: createDraft.accessMethod,
+        scheduleMinutes: createDraft.scheduleMinutes,
+        lifecycleStatus: "monitoring",
+      });
+      notifySuccess("Source created in monitoring status. It will not be ingested until explicitly activated.");
+      setCreatingSource(false);
+      setCreateDraft({
+        id: "",
+        name: "",
+        url: "",
+        feedUrl: "",
+        adapterKey: "geojson",
+        format: "GeoJSON",
+        country: "Australia",
+        region: "",
+        sourceType: "official",
+        authorityLevel: "official",
+        accessMethod: "public-feed",
+        scheduleMinutes: 15,
+      });
+      refetch();
+    } catch (err) {
+      notifyError(err instanceof ApiError ? err.message : "Source creation failed.");
+    } finally {
+      setCreatingSaving(false);
+    }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -95,11 +164,11 @@ export const SourcesPage = () => {
 
       <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
         Source lifecycle, review dates, licensing terms and health are recorded
-        on each source. Suspending or retiring a source stops it being
-        ingested. Feed URL, adapter and schedule are recorded for reference;
-        the ingestion code still decides which feeds run. Secret values are
-        never entered here; use a secret reference only. Every change is
-        recorded in the Audit Log.
+        on each source. Registry-backed ingestion currently supports GeoJSON and
+        RSS adapters. New sources start in monitoring and do not publish until
+        explicitly activated. Validate the feed, category mapping, attribution
+        and licence in TEST before activation. Secret values are never entered
+        here; use a secret reference only. Every change is recorded in the Audit Log.
       </div>
 
       <div className="toolbar">
@@ -109,6 +178,11 @@ export const SourcesPage = () => {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
+        {canWrite && (
+          <button type="button" className="btn btn-primary" onClick={() => setCreatingSource(true)}>
+            Add source
+          </button>
+        )}
       </div>
 
       {loading && <LoadingState label="Loading sources..." />}
@@ -302,6 +376,84 @@ export const SourcesPage = () => {
                 onClick={() => void saveEdit()}
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {creatingSource && (
+        <div className="modal-backdrop" onClick={() => setCreatingSource(false)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <h2>Add an alert source</h2>
+            <p>
+              Supported generic adapters: GeoJSON FeatureCollection and RSS/Atom.
+              The source starts in monitoring and is not ingested until an admin
+              activates it after testing and licence review.
+            </p>
+            <div className="field-grid">
+              <div className="field">
+                <label htmlFor="new-source-id">Stable source ID</label>
+                <input id="new-source-id" required value={createDraft.id}
+                  placeholder="e.g. wa-flood-feed"
+                  onChange={(event) => setCreateDraft((current) => ({ ...current, id: event.target.value }))} />
+              </div>
+              <div className="field">
+                <label htmlFor="new-source-name">Publisher / source name</label>
+                <input id="new-source-name" required value={createDraft.name}
+                  onChange={(event) => setCreateDraft((current) => ({ ...current, name: event.target.value }))} />
+              </div>
+              <div className="field">
+                <label htmlFor="new-source-url">Publisher website URL</label>
+                <input id="new-source-url" type="url" required value={createDraft.url}
+                  placeholder="https://agency.gov.au"
+                  onChange={(event) => setCreateDraft((current) => ({ ...current, url: event.target.value }))} />
+              </div>
+              <div className="field">
+                <label htmlFor="new-source-feed">Feed URL</label>
+                <input id="new-source-feed" type="url" required value={createDraft.feedUrl}
+                  placeholder="https://agency.gov.au/feed"
+                  onChange={(event) => setCreateDraft((current) => ({ ...current, feedUrl: event.target.value }))} />
+              </div>
+              <div className="field">
+                <label htmlFor="new-source-adapter">Feed format / adapter</label>
+                <select id="new-source-adapter" value={createDraft.adapterKey}
+                  onChange={(event) => setCreateDraft((current) => ({
+                    ...current,
+                    adapterKey: event.target.value,
+                    format: event.target.value === "rss" ? "RSS/Atom" : "GeoJSON",
+                  }))}>
+                  <option value="geojson">GeoJSON FeatureCollection</option>
+                  <option value="rss">RSS / Atom</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="new-source-country">Country</label>
+                <input id="new-source-country" value={createDraft.country}
+                  onChange={(event) => setCreateDraft((current) => ({ ...current, country: event.target.value }))} />
+              </div>
+              <div className="field">
+                <label htmlFor="new-source-region">Region / jurisdiction</label>
+                <input id="new-source-region" value={createDraft.region}
+                  onChange={(event) => setCreateDraft((current) => ({ ...current, region: event.target.value }))} />
+              </div>
+              <div className="field">
+                <label htmlFor="new-source-schedule">Fetch interval (minutes)</label>
+                <input id="new-source-schedule" type="number" min="1" max="10080"
+                  value={createDraft.scheduleMinutes}
+                  onChange={(event) => setCreateDraft((current) => ({
+                    ...current,
+                    scheduleMinutes: Math.max(1, Math.min(10080, Number(event.target.value) || 15)),
+                  }))} />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn" onClick={() => setCreatingSource(false)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" disabled={creatingSaving}
+                onClick={() => void saveNewSource()}>
+                {creatingSaving ? "Creating..." : "Create in monitoring"}
               </button>
             </div>
           </div>
