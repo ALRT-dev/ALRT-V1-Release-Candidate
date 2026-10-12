@@ -33,8 +33,10 @@ void main() {
     );
     expect(roll.askedAt, isNull);
     expect(roll.checkedIn.map((m) => m.id), ['me', 'Tom']);
-    expect(roll.notYet.map((m) => m.id), ['Amy', 'Ben']);
-    expect(roll.everyoneAccountedFor, isFalse);
+    // Nobody asked, so nobody is owed anything.
+    expect(roll.notYet, isEmpty);
+    expect(roll.notAsked.map((m) => m.id), ['Amy', 'Ben']);
+    expect(roll.everyoneAccountedFor, isTrue);
   });
 
   test('with a fresh ask, only a check-in AFTER the ask counts', () {
@@ -162,8 +164,9 @@ void main() {
         circle([member('me'), member('Tom')]),
         now: now,
       );
-      // Both sit in notYet on the plain reading, yet nobody asked.
-      expect(roll.notYet.map((m) => m.id), ['me', 'Tom']);
+      // With no ask nobody is owed anything.
+      expect(roll.notYet, isEmpty);
+      expect(roll.notAsked.map((m) => m.id), ['me', 'Tom']);
       expect(roll.isAskedOf('me'), isFalse);
       expect(roll.isAskedOf('Tom'), isFalse);
     });

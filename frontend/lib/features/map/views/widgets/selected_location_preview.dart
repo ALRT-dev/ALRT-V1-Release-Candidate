@@ -6,6 +6,7 @@ import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/map_search_text_editing_controller_provider.dart';
 import 'package:hazard_app/features/map/providers/places_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
+import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/views/widgets/button.dart';
 import 'package:hazard_app/features/shared/views/widgets/round_button.dart';
 import 'package:hazard_app/others/app_colors.dart';
@@ -158,18 +159,31 @@ class _SelectedLocationPreviewState
     ref.read(providerOfMapSearchTextEditingController).clear();
   }
 
-  /// Gets the directions to the selected location.
-  void _getDirections() {
+  /// Gets the directions to the selected location. A failure is always
+  /// said out loud (it used to fail silently, which read as a dead button).
+  Future<void> _getDirections() async {
     final selectedLocation = ref.read(providerOfMap).selectedLocation;
     if (selectedLocation == null) return;
 
     final currentUserLocation = ref.read(providerOfLocation).location;
 
-    ref
+    await ref
         .read(providerOfMap.notifier)
         .getRoutePlan(
           origin: currentUserLocation,
           destination: selectedLocation,
         );
+    if (!mounted) return;
+    final failure = ref.read(providerOfMap).getRouteState.maybeWhen(
+      error: (error) => error.message,
+      orElse: () => null,
+    );
+    if (failure != null) {
+      context.showErrorToast(
+        message: failure.isEmpty
+            ? 'Directions could not be loaded. Please try again.'
+            : 'Directions could not be loaded: $failure',
+      );
+    }
   }
 }

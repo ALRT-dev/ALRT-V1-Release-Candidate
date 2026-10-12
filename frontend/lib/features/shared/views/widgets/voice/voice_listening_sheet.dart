@@ -176,53 +176,64 @@ class _VoiceListeningSheetState extends State<VoiceListeningSheet>
         mainAxisSize: MainAxisSize.min,
         children: [
           _waveBuilder(),
-          SizedBox(height: 6.spMin),
-          Text(
-            _transcript.isEmpty ? 'Listening…' : '"$_transcript"',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15.spMin,
-              fontWeight: FontWeight.w800,
-              color: _transcript.isEmpty
-                  ? Colors.white.withValues(alpha: 0.4)
-                  : Colors.white,
-              letterSpacing: -0.3,
+          SizedBox(height: 10.spMin),
+          // A long dictation scrolls inside its own box instead of pushing
+          // the sheet off the screen, and the text follows the phone's
+          // text size (capped so the sheet still fits).
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.28,
+            ),
+            child: SingleChildScrollView(
+              reverse: true,
+              child: Text(
+                _transcript.isEmpty ? 'Listening…' : '"$_transcript"',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18.spMin,
+                  fontWeight: FontWeight.w800,
+                  color: _transcript.isEmpty
+                      ? Colors.white.withValues(alpha: 0.55)
+                      : Colors.white,
+                  height: 1.3,
+                ),
+              ),
             ),
           ),
           if (widget.detectIntent && _transcript.isNotEmpty) ...[
-            SizedBox(height: 6.spMin),
+            SizedBox(height: 8.spMin),
             Text(
               VoiceListeningSheet.detectIntentOf(_transcript) ==
                       VoiceIntent.report
                   ? '\u2192 Post an ALRT'
                   : '\u2192 Search locations',
               style: TextStyle(
-                fontSize: 11.spMin,
+                fontSize: 13.spMin,
                 fontWeight: FontWeight.w800,
                 color: const Color(0xFFFF8C00),
               ),
             ),
           ],
-          SizedBox(height: 8.spMin),
+          SizedBox(height: 10.spMin),
           Text(
-            'Listening · recognised on this phone · nothing is recorded or sent\n'
-            'Releases the moment you stop speaking',
+            'Recognised on this phone. Nothing is recorded or sent. '
+            'It finishes when you stop speaking.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 9.5.spMin,
-              color: Colors.white.withValues(alpha: 0.5),
-              height: 1.6,
+              fontSize: 12.spMin,
+              color: Colors.white.withValues(alpha: 0.7),
+              height: 1.45,
             ),
           ),
           SizedBox(height: 14.spMin),
           SizedBox(
-            width: 120.spMin,
-            height: 38.spMin,
+            width: 140.spMin,
+            height: 44.spMin,
             child: OutlinedButton(
               onPressed: _cancel,
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
                 backgroundColor: Colors.white.withValues(alpha: 0.08),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.spMin),
@@ -231,7 +242,7 @@ class _VoiceListeningSheetState extends State<VoiceListeningSheet>
               child: Text(
                 'Cancel',
                 style: TextStyle(
-                  fontSize: 11.spMin,
+                  fontSize: 14.spMin,
                   fontWeight: FontWeight.w800,
                 ),
               ),

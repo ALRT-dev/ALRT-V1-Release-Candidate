@@ -37,6 +37,11 @@ class MapFinishSetupStrip extends ConsumerWidget {
       providerOfMap.select((value) => value.currentRoutePlan != null),
     );
     if (isRouting) return const SizedBox.shrink();
+    // A picked place has its own card at the bottom; keep the floor clear.
+    final hasPickedPlace = ref.watch(
+      providerOfMap.select((value) => value.selectedLocation != null),
+    );
+    if (hasPickedPlace) return const SizedBox.shrink();
 
     final savedPlace = ref.watch(
       providerOfMyLocationSubscriptions.select(

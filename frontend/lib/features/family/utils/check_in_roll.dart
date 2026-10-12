@@ -5,7 +5,8 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 ///
 /// "Answered" means: checked in since the latest ask, when there is an
 /// ask younger than a day; otherwise simply checked in within the last
-/// day. The person who ASKED is never in the waiting list - they are not
+/// day. With no ask nobody is "still owed": [notYet] is empty and the
+/// people who have not checked in today are [notAsked]. The person who ASKED is never in the waiting list - they are not
 /// waiting on themself (two-phone QA 2026-08-06). A targeted ask is owed
 /// only by the people it named: nobody else is ever "waiting", they are
 /// [notAsked] unless they checked in today anyway.
@@ -94,8 +95,10 @@ class CheckInRoll {
         // Left out of a targeted ask: never owed, whatever their day.
         (checkedInToday ? checkedIn : notAsked).add(member);
       } else {
-        // No ask: the plain "checked in today" reading.
-        (checkedInToday ? checkedIn : notYet).add(member);
+        // No ask: nobody is owed anything (product owner, 12 Oct 2026).
+        // Having ALRT + or sending a check-in to someone is not a task
+        // for the others; only a real ask makes someone "waiting".
+        (checkedInToday ? checkedIn : notAsked).add(member);
       }
     }
     return CheckInRoll(

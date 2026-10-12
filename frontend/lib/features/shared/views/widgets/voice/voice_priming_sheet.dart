@@ -84,7 +84,7 @@ class VoicePrimingSheet extends StatelessWidget {
               'it. Speech is recognised on your phone. ALRT never records, '
               'stores or sends audio, and there is no wake word.',
               style: TextStyle(
-                fontSize: 10.5.spMin,
+                fontSize: 12.spMin,
                 color: const Color(0xFF7EE0B8),
                 height: 1.6,
               ),

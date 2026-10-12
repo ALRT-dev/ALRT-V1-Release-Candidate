@@ -597,7 +597,9 @@ export const listCirclesForUser = async (userId: string) => {
         m.circleId,
         (checkedInByCircle.get(m.circleId) ?? 0) + 1,
       );
-    } else if (!ask || asked) {
+    } else if (ask && asked) {
+      // Nobody is ever "waiting" without a real ask (product owner,
+      // 12 Oct 2026): silence is not an outstanding task.
       waitingOnByCircle.set(m.circleId, [
         ...(waitingOnByCircle.get(m.circleId) ?? []),
         name,
