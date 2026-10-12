@@ -6,7 +6,7 @@
 // pass under `dart test` or `flutter test` on a developer machine.
 
 import 'dart:io';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('R-06 – encrypted token storage', () {
