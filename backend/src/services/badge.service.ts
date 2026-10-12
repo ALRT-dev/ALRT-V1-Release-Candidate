@@ -278,9 +278,10 @@ export const recordCorroboration = async (params: {
 
     // Community reports must not notify the surrounding area on acceptance.
     // Send the first area push only when the report reaches the standard's
-    // three independent nearby confirmations. Subsequent confirmations do not
-    // create repeat pushes for the same event.
-    if (total === CORROBORATED_THRESHOLD) {
+    // three independent nearby confirmations. Retry the idempotent push path
+    // at >= threshold so concurrent confirmations cannot skip the threshold
+    // event; recipient claims prevent duplicate pushes.
+    if (total >= CORROBORATED_THRESHOLD) {
       const confirmedHazard = await prisma.hazard.findFirst({
         where: {
           id: params.hazardId,
