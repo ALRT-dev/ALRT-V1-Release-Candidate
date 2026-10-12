@@ -538,21 +538,26 @@ export const sendPushNotificationAboutNewHazard = async (hazard: Hazard) => {
     const source = hazard.sourceId
       ? await prisma.hazardSource.findUnique({
           where: { id: hazard.sourceId },
-          select: { pushPolicy: true, severitySystem: true },
+          select: { id: true, pushPolicy: true, severitySystem: true },
         })
       : null;
 
     const fallbackPolicy =
+      source?.id === "gdacsGlobal" ||
       source?.severitySystem === "gdacsColour"
         ? SourcePushPolicy.greenExempt
-        : source?.severitySystem === "advisory"
+        : source?.id === "alrtIntel" ||
+            source?.severitySystem === "advisory"
           ? SourcePushPolicy.advisoryOnly
-          : hazard.reportedById
-            ? SourcePushPolicy.afterConfirmation
-            : hazard.isAwsCompliant
-              ? SourcePushPolicy.everyLevel
-              : SourcePushPolicy.bandThreshold;
-    const policy = source?.pushPolicy ?? fallbackPolicy;
+          : SourcePushPolicy.bandThreshold;
+    // System-level rules cannot be weakened by a stale/misconfigured registry
+    // row: community reports always wait for confirmation and AWS pushes at
+    // every native warning level. Other sources use their configured policy.
+    const policy = hazard.reportedById
+      ? SourcePushPolicy.afterConfirmation
+      : hazard.isAwsCompliant
+        ? SourcePushPolicy.everyLevel
+        : source?.pushPolicy ?? fallbackPolicy;
     const corroborationCount =
       policy === SourcePushPolicy.afterConfirmation
         ? await prisma.hazardCorroboration.count({
