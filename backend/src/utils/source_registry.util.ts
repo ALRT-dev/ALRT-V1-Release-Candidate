@@ -125,6 +125,9 @@ export const capInternalBand = (
   return current > ceiling ? maxInternalBand : band;
 };
 
+/** Community alerts require three independent nearby confirmations before push. */
+export const COMMUNITY_PUSH_CONFIRMATION_THRESHOLD = 3;
+
 /** Result of applying the source registry's push policy to one alert event. */
 export interface SourcePushDecision {
   send: boolean;
@@ -164,7 +167,7 @@ export const decideSourcePush = (params: {
       return {
         send:
           Boolean(params.reportedById) &&
-          (params.corroborationCount ?? 0) >= 3,
+          (params.corroborationCount ?? 0) >= COMMUNITY_PUSH_CONFIRMATION_THRESHOLD,
         urgent: false,
       };
     case SourcePushPolicy.greenExempt:
