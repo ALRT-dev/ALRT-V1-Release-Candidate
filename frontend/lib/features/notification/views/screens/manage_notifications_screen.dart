@@ -143,7 +143,7 @@ class _ManageNotificationsScreenState
             ),
             SizedBox(height: 2.spMin),
             Text(
-              'Pick who you hear from, then how serious.',
+              'Pick who you hear from, then which colours.',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

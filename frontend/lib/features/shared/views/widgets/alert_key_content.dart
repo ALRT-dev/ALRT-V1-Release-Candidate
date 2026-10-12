@@ -69,7 +69,7 @@ class AlertKeyContent extends ConsumerWidget {
           subtitle: 'Named sources. Never restates a warning',
         ),
         SizedBox(height: 16.spMin),
-        _labelBuilder('HOW SERIOUS'),
+        _labelBuilder('COLOUR SHOWS SEVERITY'),
         SizedBox(height: 10.spMin),
         _seriousnessBuilder(),
         SizedBox(height: 16.spMin),
@@ -215,7 +215,7 @@ class AlertKeyContent extends ConsumerWidget {
         ),
         SizedBox(height: 8.spMin),
         Text(
-          'Colour shows how serious it is. Official alerts use the same '
+          'Colour shows severity. Official alerts use the same '
           'colours; only AWS writes its level in words.',
           style: TextStyle(
             fontSize: 11.spMin,
