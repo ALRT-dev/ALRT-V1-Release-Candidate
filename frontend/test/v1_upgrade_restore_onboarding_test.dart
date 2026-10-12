@@ -398,10 +398,12 @@ void main() {
       );
       await _open(tester);
       expect(find.text('ALRT is free to use'), findsOneWidget);
-      expect(find.text(kChooseForMyselfTitle), findsOneWidget);
-      expect(find.text(kChooseCoverGroupTitle), findsOneWidget);
+      // This onboarding step intentionally explains the free tier only.
+      // Plan choice and purchase flows belong to the separate ALRT + chooser.
+      expect(find.text(kChooseForMyselfTitle), findsNothing);
+      expect(find.text(kChooseCoverGroupTitle), findsNothing);
       expect(find.textContaining('Create or join a group in Family first'),
-          findsOneWidget);
+          findsNothing);
       await tester.tap(find.text(kContinueFree));
       await tester.pumpAndSettle();
       expect(done, 1);
