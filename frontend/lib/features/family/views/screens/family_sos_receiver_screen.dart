@@ -526,9 +526,13 @@ class _FamilySosReceiverScreenState
           ),
         ),
         onPressed: _hostEnding ? null : () => _confirmHostEnd(sos, name),
-        child: Text(
-          _hostEnding ? 'Ending SOS…' : 'End this SOS as host',
-          style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            _hostEnding ? 'Ending SOS…' : 'End this SOS as host',
+            maxLines: 1,
+            style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
+          ),
         ),
       ),
     );
