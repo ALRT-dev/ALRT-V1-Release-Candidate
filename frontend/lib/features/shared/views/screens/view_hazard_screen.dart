@@ -1442,6 +1442,55 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
+  /// A muted card for an official section the source left empty.
+  Widget _buildEmptySectionCard({
+    required final String label,
+    required final String body,
+  }) {
+    final color = AppColors.orange200;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16.spMin),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16.spMin),
+        border: Border(
+          left: BorderSide(color: color.withValues(alpha: 0.6), width: 4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowColorLight,
+            blurRadius: 2.0,
+            offset: Offset.zero,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10.5.spMin,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+            ),
+          ),
+          8.hSizedBox,
+          Text(
+            body,
+            style: TextStyle(
+              fontSize: 13.5.spMin,
+              height: 1.45,
+              color: AppColors.mediumGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWhatToDoSection() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1456,7 +1505,21 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         final shouldShow = (callsToAction?.isNotEmpty ?? false);
 
-        if (!shouldShow) return const SizedBox.shrink();
+        if (!shouldShow) {
+          // An official alert always shows the section, so it is clear
+          // the advice is the agency's to give and none was published.
+          // Community reports have no advice section at all.
+          if (isUserReported ||
+              ref.watch(provider.select((value) => value.hazard == null))) {
+            return const SizedBox.shrink();
+          }
+          return _buildEmptySectionCard(
+            label: 'WHAT TO DO',
+            body: 'The issuing agency has not published advice for this '
+                'alert. We never write advice for them. Check their '
+                'source below for updates.',
+          );
+        }
 
         final color = AppColors.orange200;
 

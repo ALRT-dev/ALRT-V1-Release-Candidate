@@ -555,14 +555,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('LEVEL'), findsOneWidget);
-      expect(find.text('SEVERITY'), findsOneWidget);
+      expect(find.text('COLOUR SHOWS SEVERITY'), findsOneWidget);
       expect(find.text('CATEGORIES'), findsOneWidget);
       await tester.ensureVisible(find.text('Always on'));
       expect(find.text('Always on'), findsOneWidget);
       expect(userRepository.savedSettings, isEmpty);
 
-      await tester.ensureVisible(find.text('Emergency only'));
-      await tester.tap(find.text('Emergency only'));
+      await tester.ensureVisible(find.text('Keep it quiet'));
+      await tester.tap(find.text('Keep it quiet'));
       await tester.pumpAndSettle();
       expect(userRepository.savedSettings, hasLength(1));
       final saved = userRepository.savedSettings.single;
@@ -574,7 +574,7 @@ void main() {
       expect(saved.subscribedCategoryIds, {'healthAndAir'});
 
       // Tapping the level already in force saves nothing.
-      await tester.tap(find.text('Emergency only'));
+      await tester.tap(find.text('Keep it quiet'));
       await tester.pumpAndSettle();
       expect(userRepository.savedSettings, hasLength(1));
 

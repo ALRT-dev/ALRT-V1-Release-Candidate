@@ -244,13 +244,13 @@ class _HazardFiltersBottomsheetContentState
           subtitle: 'Emergency warnings are always on.',
           child: Column(
             children: [
-              choice('Official only', NotificationLevel.officialOnly),
+              choice('Official warnings only', NotificationLevel.officialOnly),
               choice(
                 'Official and community',
                 NotificationLevel.officialAndCommunity,
               ),
               choice('Community only', NotificationLevel.communityOnly),
-              choice('Emergency only', NotificationLevel.quiet),
+              choice('Keep it quiet', NotificationLevel.quiet),
               4.hSizedBox,
               _switchBuilder(
                 icon: LucideIcons.shield,

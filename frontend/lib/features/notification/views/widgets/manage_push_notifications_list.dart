@@ -217,7 +217,7 @@ class _ManagePushNotificationsListState
           child: Column(
             children: [
               _levelCard(
-                title: 'Official only',
+                title: 'Official warnings only',
                 description:
                     'Emergency, Watch and Act, Advice and other official '
                     'alerts. No community reports.',
@@ -242,8 +242,8 @@ class _ManagePushNotificationsListState
               ),
               10.hSizedBox,
               _levelCard(
-                title: 'Emergency only',
-                description: 'Emergency warnings and nothing else.',
+                title: 'Keep it quiet',
+                description: 'Emergency warnings only. Nothing else.',
                 selected: level == NotificationLevel.quiet,
                 onTap: () => pick(NotificationLevel.quiet),
               ),
@@ -361,7 +361,7 @@ class _ManagePushNotificationsListState
         final notifier = ref.read(providerOfManageNotifications.notifier);
 
         return _sectionContainerBuilder(
-          title: 'Severity',
+          title: 'Colour shows severity',
           subtitle: 'Colour shows severity. Pick the lowest you want to hear '
               'about. Red is always on.',
           child: SeverityLine(
