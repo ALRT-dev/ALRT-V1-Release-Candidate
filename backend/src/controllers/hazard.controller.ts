@@ -678,7 +678,7 @@ export const createHazard = async (
       sendPushNotificationToUser({
         userId: userId!,
         title: "ALRT Approved! 🎉",
-        body: "Your alert is now live - community notified",
+        body: "Your report is live. Nearby users can view it; notifications follow confirmation.",
         data: hazard,
         type: PushNotificationType.viewHazard,
       });
