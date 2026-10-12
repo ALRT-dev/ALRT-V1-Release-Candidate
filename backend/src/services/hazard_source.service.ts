@@ -131,14 +131,14 @@ const isGenericRegistryAdapter = (adapterKey?: string | null): boolean =>
   adapterKey === "geojson" || adapterKey === "rss";
 
 const validateRegistrySourceActivation = (params: {
-  adapterKey?: string | null;
-  lifecycleStatus?: string | null;
-  feedUrl?: string | null;
-  format?: string | null;
-  licenseId?: string | null;
-  licensingNotes?: string | null;
-  lastReviewedAt?: Date | null;
-  expiryReviewAt?: Date | null;
+  adapterKey?: string | null | undefined;
+  lifecycleStatus?: string | null | undefined;
+  feedUrl?: string | null | undefined;
+  format?: string | null | undefined;
+  licenseId?: string | null | undefined;
+  licensingNotes?: string | null | undefined;
+  lastReviewedAt?: Date | null | undefined;
+  expiryReviewAt?: Date | null | undefined;
 }): void => {
   if (!isGenericRegistryAdapter(params.adapterKey) || params.lifecycleStatus !== "active") {
     return;
