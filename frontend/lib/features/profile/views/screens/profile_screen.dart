@@ -771,13 +771,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         // isAlrtPlusTestUnlocked requires appFlavor == 'dev' AND the
         // ALRT_PLUS_TEST_UNLOCK env flag, so it is structurally false in
         // a normal production (release-flavor) build.
-        if (isAlrtPlusTestUnlocked)
+        if (appFlavor == 'dev') ...[
+          _buildRow(
+            icon: LucideIcons.lock,
+            title: isAlrtPlusTestUnlocked
+                ? 'Test mode: ALRT + unlocked'
+                : 'Test mode: real paywalls',
+            subtitle: isAlrtPlusTestUnlocked
+                ? 'QA build only. Tap to turn the real paywalls on.'
+                : 'QA build only. Tap to unlock ALRT + for testing.',
+            onTap: _toggleTestMode,
+          ),
           _buildRow(
             icon: LucideIcons.eye,
             title: 'Preview ALRT + plans',
-            subtitle: 'QA build only. Gates are unlocked for testing.',
+            subtitle: 'QA build only. See the plans and prices.',
             onTap: () => context.push(AlrtPlusChooseScreen.route),
           ),
+        ],
       ],
     );
   }
@@ -1088,6 +1099,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       extra: const MyHazardsScreenArgs(
         initialTab: MyHazardsTab.accepted,
       ),
+    );
+  }
+
+  /// Flips between "ALRT + unlocked" and the real paywalls (dev builds
+  /// only), then re-reads everything that depends on it.
+  Future<void> _toggleTestMode() async {
+    await AlrtPlusTestSwitch.set(unlocked: !isAlrtPlusTestUnlocked);
+    if (!mounted) return;
+    ref
+      ..invalidate(providerOfAlrtPlus)
+      ..invalidate(providerOfAccess)
+      ..invalidate(providerOfAlrtPlusBillingIssue)
+      ..invalidate(providerOfExpiredAlrtPlus);
+    setState(() {});
+    context.showSuccessToast(
+      message: isAlrtPlusTestUnlocked
+          ? 'ALRT + is unlocked for testing.'
+          : 'Real paywalls are on.',
     );
   }
 

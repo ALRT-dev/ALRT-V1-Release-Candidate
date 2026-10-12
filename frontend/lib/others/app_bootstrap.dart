@@ -1,3 +1,4 @@
+import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +35,7 @@ class AppBootstrap {
       _initializeGoogleFonts(),
       _initializeHomeWidget(),
       _initializeMapsAvailability(),
+      AlrtPlusTestSwitch.load(),
     ]);
 
     StartupTrace.mark('bootstrap: plugins ready, starting app');

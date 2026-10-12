@@ -5,6 +5,7 @@ import 'package:hazard_app/features/subscription/repositories/access_repository.
 import 'package:hazard_app/features/subscription/services/revenuecat_service.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final providerOfRevenueCat = Provider<RevenueCatService>(
   (ref) => RevenueCatService(),
@@ -23,7 +24,41 @@ const kFreeSavedLocationsLimit = 1;
 /// APK is built --release too, so kReleaseMode cannot tell them apart.
 bool get isAlrtPlusTestUnlocked =>
     appFlavor == 'dev' &&
-    const String.fromEnvironment('ALRT_PLUS_TEST_UNLOCK') == 'true';
+    (AlrtPlusTestSwitch.override ??
+        const String.fromEnvironment('ALRT_PLUS_TEST_UNLOCK') == 'true');
+
+/// The tester's own switch for the dev flavour: ALRT + unlocked (paywalls
+/// hidden) or the real paywalls and store purchases. One build serves both,
+/// so nothing needs rebuilding to test either. Remembered on the phone;
+/// null means "use what the build was made with". Never read outside the
+/// dev flavour (isAlrtPlusTestUnlocked checks appFlavor first).
+class AlrtPlusTestSwitch {
+  AlrtPlusTestSwitch._();
+
+  static const _key = 'alrt_plus_test_unlock_override';
+  static bool? override;
+
+  /// Reads the saved choice. Called once before the app starts.
+  static Future<void> load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      override = prefs.getBool(_key);
+    } catch (_) {
+      override = null;
+    }
+  }
+
+  /// Saves the tester's choice.
+  static Future<void> set({required final bool unlocked}) async {
+    override = unlocked;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_key, unlocked);
+    } catch (_) {
+      // Memory only this session; the switch still works.
+    }
+  }
+}
 
 /// The access the backend computed for the signed-in person: personal
 /// plan and each group's coverage, separately (GET /api/access). Null

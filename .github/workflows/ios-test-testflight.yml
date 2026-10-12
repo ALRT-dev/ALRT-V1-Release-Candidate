@@ -283,11 +283,14 @@ jobs:
           # A Secret set from Windows can carry a byte-order mark or CR/LF; Google keys
           # only ever contain letters, digits, - and _, so keep just those.
           GOOGLE_MAPS_API_KEY_IOS="$(printf '%s' "$GOOGLE_MAPS_API_KEY_IOS" | LC_ALL=C tr -cd 'A-Za-z0-9_-')"
+          # One build for both modes: the sandbox key goes in whenever the
+          # Secret exists (blank otherwise), ALRT + starts unlocked, and the
+          # tester flips "Test mode" on the Me tab to see the real paywalls.
+          # platform_sandbox starts with the real paywalls already on.
+          REVENUECAT_APPLE_VALUE="$REVENUECAT_API_KEY_APPLE"
           if [ "${{ inputs.billing_mode }}" = "platform_sandbox" ]; then
-            REVENUECAT_APPLE_VALUE="$REVENUECAT_API_KEY_APPLE"
             TEST_UNLOCK_VALUE="false"
           else
-            REVENUECAT_APPLE_VALUE=""
             TEST_UNLOCK_VALUE="true"
           fi
           {
