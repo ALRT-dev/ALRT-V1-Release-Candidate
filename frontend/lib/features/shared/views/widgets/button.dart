@@ -263,9 +263,16 @@ class Button extends StatelessWidget {
               width: iconAndTextSpacing.spMin,
             ),
         if (value != null)
-          Text(
-            '$value',
-            style: valueStyle,
+          Flexible(
+
+            child: FittedBox(
+
+              fit: BoxFit.scaleDown,
+
+              child: Text('$value', maxLines: 1, style: valueStyle),
+
+            ),
+
           ),
         if (!isIconLeft)
           if (value != null)
@@ -325,9 +332,16 @@ class Button extends StatelessWidget {
                   width: 10.spMin,
                 ),
             if (value != null)
-              Text(
-                '$value',
-                style: valueStyle,
+              Flexible(
+
+                child: FittedBox(
+
+                  fit: BoxFit.scaleDown,
+
+                  child: Text('$value', maxLines: 1, style: valueStyle),
+
+                ),
+
               ),
             if (!isIconLeft)
               if (value != null)
