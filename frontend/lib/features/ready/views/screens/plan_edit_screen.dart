@@ -170,7 +170,8 @@ class _PlanEditScreenState extends ConsumerState<PlanEditScreen> {
                         await ref
                             .read(providerOfReady.notifier)
                             .deletePlan(widget.planId!);
-                        if (mounted) context.pop();
+                        if (!context.mounted) return;
+                        context.pop();
                       }
                     },
             ),

@@ -156,7 +156,10 @@ class _HazardSearchAppBarState extends ConsumerState<HazardSearchAppBar> {
                       'assets/icons/search.svg',
                       width: 25.spMin,
                       height: 25.spMin,
-                      color: AppColors.grey.withValues(alpha: 0.6),
+                      colorFilter: ColorFilter.mode(
+                        AppColors.grey.withValues(alpha: 0.6),
+                        BlendMode.srcIn,
+                      ),
                     ).pL(15.0),
                   ],
                 ),

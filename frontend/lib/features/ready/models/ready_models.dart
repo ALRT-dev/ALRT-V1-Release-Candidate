@@ -2,6 +2,7 @@
 ///
 /// These avoid freezed/codegen so the build can run without build_runner.
 /// JSON parsing is manual — the backend returns camelCase keys.
+library;
 
 class ReadySummary {
   const ReadySummary({
