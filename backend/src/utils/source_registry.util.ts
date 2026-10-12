@@ -124,3 +124,60 @@ export const capInternalBand = (
   if (current < 0 || ceiling < 0) return band;
   return current > ceiling ? maxInternalBand : band;
 };
+
+/** Result of applying the source registry's push policy to one alert event. */
+export interface SourcePushDecision {
+  send: boolean;
+  /** Critical/urgent delivery is reserved for genuinely critical events. */
+  urgent: boolean;
+}
+
+/**
+ * Enforces the notification floor from the classification standard:
+ * official non-AWS sources push only Action/Critical; community reports wait
+ * for three independent nearby confirmations; GDACS Green is suppressed; and
+ * ALRT Intel advisories are quiet (non-urgent). AWS sources may notify at all
+ * levels because their native warning level is authoritative.
+ */
+export const decideSourcePush = (params: {
+  policy: SourcePushPolicy;
+  severityBand: HazardSeverityBand;
+  reportedById?: string | null;
+  corroborationCount?: number;
+  severitySystem?: HazardSeveritySystem | null;
+  title?: string | null;
+}): SourcePushDecision => {
+  switch (params.policy) {
+    case SourcePushPolicy.everyLevel:
+      return {
+        send: true,
+        urgent: params.severityBand === HazardSeverityBand.critical,
+      };
+    case SourcePushPolicy.bandThreshold:
+      return {
+        send:
+          params.severityBand === HazardSeverityBand.action ||
+          params.severityBand === HazardSeverityBand.critical,
+        urgent: params.severityBand === HazardSeverityBand.critical,
+      };
+    case SourcePushPolicy.afterConfirmation:
+      return {
+        send:
+          Boolean(params.reportedById) &&
+          (params.corroborationCount ?? 0) >= 3,
+        urgent: false,
+      };
+    case SourcePushPolicy.greenExempt:
+      return {
+        send: !(
+          params.severitySystem === HazardSeveritySystem.gdacsColour &&
+          /\\bgreen\\b/i.test(params.title ?? "")
+        ),
+        urgent: false,
+      };
+    case SourcePushPolicy.advisoryOnly:
+      return { send: true, urgent: false };
+    default:
+      return { send: false, urgent: false };
+  }
+};
