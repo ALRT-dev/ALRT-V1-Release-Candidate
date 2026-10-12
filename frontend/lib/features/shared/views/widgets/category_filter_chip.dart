@@ -29,6 +29,7 @@ class CategoryFilterChip extends StatelessWidget {
     required this.isSelected,
     this.onToggle,
     this.isCompact = false,
+    this.iconOnly = false,
   });
 
   /// The category the chip stands for.
@@ -46,9 +47,43 @@ class CategoryFilterChip extends StatelessWidget {
   /// outline are untouched: it is the same chip, not a second design.
   final bool isCompact;
 
+  /// Draws only the category's glyph in a rounded square (filters), with
+  /// the name kept for screen readers and long-press.
+  final bool iconOnly;
+
   @override
   Widget build(BuildContext context) {
     final color = categoryChipColor(category);
+
+    if (iconOnly) {
+      final tile = Tooltip(
+        message: category.name ?? 'Category',
+        child: Semantics(
+          label: category.name ?? 'Category',
+          selected: isSelected,
+          button: onToggle != null,
+          child: Container(
+            width: 52.spMin,
+            height: 52.spMin,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: isSelected ? 0.14 : 0.05),
+              borderRadius: BorderRadius.circular(16.spMin),
+              border: Border.all(
+                color: isSelected ? color : color.withValues(alpha: 0.45),
+                width: (isSelected ? 2 : 1.2).spMin,
+              ),
+            ),
+            child: CategoryGlyph(category: category, size: 28.spMin),
+          ),
+        ),
+      );
+      final faded = onToggle != null && !isSelected
+          ? Opacity(opacity: 0.45, child: tile)
+          : tile;
+      if (onToggle == null) return faded;
+      return faded.onPressed(() => onToggle!(!isSelected));
+    }
 
     final chip = Container(
       padding: EdgeInsets.symmetric(

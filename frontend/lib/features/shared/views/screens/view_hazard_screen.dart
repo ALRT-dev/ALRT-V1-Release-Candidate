@@ -1032,7 +1032,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 ),
               ),
               Container(
-                padding: EdgeInsets.all(16.spMin),
+                padding: EdgeInsets.all(12.spMin),
                 decoration: BoxDecoration(
                   gradient: FamilyColors.headerGradient,
                   borderRadius:
@@ -1084,21 +1084,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ],
                       ),
                     ),
-                    12.hSizedBox,
+                    10.hSizedBox,
+                    // One compact row: Check in, Send to group, Share.
                     Row(
                       children: [
-                        Expanded(
-                          child: _groupButton(
-                            label: 'Send to my group',
-                            icon: LucideIcons.send,
-                            filled: true,
-                            loading: isSending,
-                            onTap: isSending
-                                ? null
-                                : () => _sendAlertToGroup(hazard),
-                          ),
-                        ),
-                        10.wSizedBox,
                         Expanded(
                           child: _groupButton(
                             label: _checkInSent ? 'Checked in' : 'Check in',
@@ -1110,28 +1099,34 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                                 : () => _sendCheckIn(hazard),
                           ),
                         ),
+                        8.wSizedBox,
+                        Expanded(
+                          child: _groupButton(
+                            label: 'Send to group',
+                            icon: LucideIcons.send,
+                            filled: true,
+                            loading: isSending,
+                            onTap: isSending
+                                ? null
+                                : () => _sendAlertToGroup(hazard),
+                          ),
+                        ),
+                        if (canShare) ...[
+                          8.wSizedBox,
+                          Expanded(
+                            child: _groupButton(
+                              label: 'Share',
+                              icon: LucideIcons.share2,
+                              onTap: () => shareAlert(
+                                ref: ref,
+                                hazard: hazard,
+                                from: 'detail',
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                    10.hSizedBox,
-                    Text(
-                      'Send delivers this alert and a one-line note to '
-                      'everyone in the group. Check in tells them you are '
-                      'okay, near this alert.',
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        height: 1.4,
-                        color: AppColors.white.withValues(alpha: 0.85),
-                      ),
-                    ),
-                    if (canShare) ...[
-                      12.hSizedBox,
-                      _groupButton(
-                        label: 'Share a link',
-                        icon: LucideIcons.share2,
-                        onTap: () =>
-                            shareAlert(ref: ref, hazard: hazard, from: 'detail'),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -1142,8 +1137,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// A 44 px button on the indigo card: white with indigo ink when
-  /// [filled], otherwise translucent white with white ink.
+  /// A compact tile on the indigo card: icon over a short label. White
+  /// with indigo ink when [filled], otherwise translucent white.
   Widget _groupButton({
     required final String label,
     required final IconData icon,
@@ -1158,7 +1153,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     return Opacity(
       opacity: enabled || loading ? 1.0 : 0.6,
       child: Container(
-        height: 44.spMin,
+        height: 56.spMin,
         decoration: BoxDecoration(
           color: filled
               ? AppColors.white
@@ -1181,24 +1176,29 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         color: ink,
                       ),
                     )
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(icon, size: 16.spMin, color: ink),
-                        8.wSizedBox,
-                        Flexible(
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 14.spMin,
-                              fontWeight: FontWeight.w700,
-                              color: ink,
+                  : Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4.spMin),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 18.spMin, color: ink),
+                          3.hSizedBox,
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 12.spMin,
+                                  fontWeight: FontWeight.w700,
+                                  color: ink,
+                                ),
+                                maxLines: 1,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
             ),
           ),

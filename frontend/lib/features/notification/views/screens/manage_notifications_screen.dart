@@ -143,7 +143,7 @@ class _ManageNotificationsScreenState
             ),
             SizedBox(height: 2.spMin),
             Text(
-              'Your level sets these. Change any switch to fine-tune.',
+              'Pick who you hear from, then how serious.',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

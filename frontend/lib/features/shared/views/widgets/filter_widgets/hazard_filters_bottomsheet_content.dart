@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
+import 'package:hazard_app/features/notification/views/widgets/manage_push_notifications_list.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -148,8 +150,8 @@ class _HazardFiltersBottomsheetContentState
           Padding(
             padding: EdgeInsets.only(right: 8.spMin),
             child: Text(
-              'What shows on the map and in Alerts. Emergency Warnings are '
-              'never hidden.',
+              'What shows on the map and in Alerts. Emergency warnings are '
+              'always on.',
               style: TextStyle(
                 fontSize: 15.spMin,
                 height: 1.4,
@@ -162,80 +164,101 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
-  /// The four sources, each behind its outline shape (product owner, 12 Oct
-  /// 2026): triangle, diamond, circle, shield. The square is gone; global
-  /// feeds show as Official.
+  /// Who you hear from: the same four choices as Notifications, so one
+  /// filter is learned once. Emergency warnings are never hidden. ALRT
+  /// Assessment keeps its own switch underneath.
   Widget _whoIsSpeakingSection() {
     return Consumer(
       builder: (context, ref, child) {
-        final awsAdvice = ref.watch(
-          _filtersProvider.select((value) => value.awsAdvice),
+        final f = ref.watch(_filtersProvider);
+        final settings = PushNotificationSettings(
+          awsEmergency: true,
+          awsWatchAndAct: f.awsWatchAndAct,
+          awsAdvice: f.awsAdvice,
+          officialNonAws: f.officialNonAws,
+          userReported: f.userReported,
         );
-        final awsWatchAndAct = ref.watch(
-          _filtersProvider.select((value) => value.awsWatchAndAct),
-        );
-        final officialAlerts = ref.watch(
-          _filtersProvider.select((value) => value.officialNonAws),
-        );
-        final userAlerts = ref.watch(
-          _filtersProvider.select((value) => value.userReported),
-        );
-        final alrtAssessment = ref.watch(
-          _filtersProvider.select((value) => value.alrtIntel),
-        );
+        final level = notificationLevelOf(settings);
+        final notifier = ref.read(_filtersProvider.notifier);
+
+        void pick(final NotificationLevel chosen) {
+          final next = settingsForLevel(settings, chosen);
+          notifier
+            ..updateAwsAdvice(next.awsAdvice)
+            ..updateAwsWatchAndAct(next.awsWatchAndAct)
+            ..updateOfficialNonAws(next.officialNonAws)
+            ..updateUserReported(next.userReported);
+          widget.onFiltersUpdated?.call();
+        }
+
+        Widget choice(
+          final String title,
+          final NotificationLevel value,
+        ) {
+          final selected = level == value;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => pick(value),
+            child: Container(
+              margin: EdgeInsets.only(bottom: 8.spMin),
+              padding: EdgeInsets.symmetric(
+                horizontal: 14.spMin,
+                vertical: 12.spMin,
+              ),
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.green.withValues(alpha: 0.10)
+                    : AppColors.extraLightGrey,
+                borderRadius: BorderRadius.circular(14.spMin),
+                border: Border.all(
+                  color: selected ? AppColors.green : AppColors.lightGrey,
+                  width: selected ? 1.5 : 1.0,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    selected
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: selected ? AppColors.green : AppColors.lightGrey,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
         return _sectionContainerBuilder(
-          title: 'Who is speaking',
-          subtitle: 'Shape says who. The same sources as the map.',
+          title: 'Show',
+          subtitle: 'Emergency warnings are always on.',
           child: Column(
             children: [
-              // AWS has no switch of its own on the server: its yellow and
-              // orange levels are the two switches below, and red never
-              // hides. This row flips both of those together.
-              _switchBuilder(
-                icon: LucideIcons.triangle,
-                title: 'AWS warnings',
-                subtitle: 'Emergency Warnings always show',
-                isEnabled: awsAdvice || awsWatchAndAct,
-                onToggle: (value) {
-                  final notifier = ref.read(_filtersProvider.notifier);
-                  notifier.updateAwsAdvice(value);
-                  notifier.updateAwsWatchAndAct(value);
-                  widget.onFiltersUpdated?.call();
-                },
+              choice('Official only', NotificationLevel.officialOnly),
+              choice(
+                'Official and community',
+                NotificationLevel.officialAndCommunity,
               ),
-              10.hSizedBox,
-              _switchBuilder(
-                icon: LucideIcons.diamond,
-                title: 'Official sources',
-                subtitle: 'State agencies, services and global feeds',
-                isEnabled: officialAlerts,
-                onToggle: (value) {
-                  ref
-                      .read(_filtersProvider.notifier)
-                      .updateOfficialNonAws(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-              10.hSizedBox,
-              _switchBuilder(
-                icon: LucideIcons.circle,
-                title: 'Community reports',
-                subtitle: 'From people nearby. Always Unverified',
-                isEnabled: userAlerts,
-                onToggle: (value) {
-                  ref.read(_filtersProvider.notifier).updateUserReported(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-              10.hSizedBox,
+              choice('Community only', NotificationLevel.communityOnly),
+              choice('Emergency only', NotificationLevel.quiet),
+              4.hSizedBox,
               _switchBuilder(
                 icon: LucideIcons.shield,
                 title: 'ALRT Assessment',
                 subtitle: 'Named sources. Never restates a warning',
-                isEnabled: alrtAssessment,
+                isEnabled: f.alrtIntel,
                 onToggle: (value) {
-                  ref.read(_filtersProvider.notifier).updateAlrtIntel(value);
+                  notifier.updateAlrtIntel(value);
                   widget.onFiltersUpdated?.call();
                 },
               ),
@@ -293,8 +316,7 @@ class _HazardFiltersBottomsheetContentState
         );
         return _sectionContainerBuilder(
           title: 'Categories',
-          subtitle:
-              'One category shown on every alert. Tap to toggle visibility.',
+          subtitle: 'Tap an icon to show or hide that kind of alert.',
           child: Wrap(
             spacing: 10.spMin,
             runSpacing: 10.spMin,
@@ -302,6 +324,7 @@ class _HazardFiltersBottomsheetContentState
                 .map(
                   (category) => CategoryFilterChip(
                     category: category,
+                    iconOnly: true,
                     isSelected: selectedCategories.contains(category.id),
                     onToggle: (value) {
                       ref

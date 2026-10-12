@@ -46,7 +46,7 @@ class HomeTabbar extends ConsumerStatefulWidget {
 class _HomeTabbarState extends ConsumerState<HomeTabbar> {
   /// Frosted light background: translucent white so the map bleeds
   /// through, with a backdrop blur applied in the build method.
-  static const _pillColor = Color(0xE6F5F5F7);
+  static const _pillColor = Color(0xCCF5F5F7);
   static const _activeCircleColor = AppColors.orange;
 
   /// The active tile tint for ordinary tabs; Family picks its own.
@@ -123,11 +123,12 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
     required final Widget label,
   }) {
     return Container(
+      width: 58.spMin,
       height: 58.spMin,
       margin: EdgeInsets.symmetric(horizontal: 1.spMin),
       decoration: BoxDecoration(
         color: tint,
-        borderRadius: BorderRadius.circular(14.spMin),
+        borderRadius: BorderRadius.circular(18.spMin),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

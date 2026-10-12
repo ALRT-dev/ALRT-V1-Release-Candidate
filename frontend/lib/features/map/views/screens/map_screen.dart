@@ -1,6 +1,7 @@
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/home/widgets/home_tabbar.dart';
 import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -47,6 +48,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The map fills the page under the floating footer; the cards, the
+    // Google logo and the finish-setup strip sit above it.
+    final footerClearance = MediaQuery.of(context).padding.bottom +
+        HomeTabbar.height -
+        20.0;
     return Scaffold(
       body: Stack(
         children: [
@@ -72,7 +78,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   myLocationButtonEnabled: false,
                   compassEnabled: false,
                   zoomControlsEnabled: false,
-                  padding: EdgeInsets.only(bottom: 22.spMin, left: 8.spMin),
+                  padding: EdgeInsets.only(
+                    bottom: footerClearance + 22.spMin,
+                    left: 8.spMin,
+                  ),
                   buildingsEnabled: ref.watch(
                     providerOfMap.select(
                       (value) =>
@@ -99,7 +108,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 )
               : const MapUnavailable(),
           Positioned.fill(
-            child: _overlayedContentsBuilder(),
+            child: Padding(
+              padding: EdgeInsets.only(bottom: footerClearance),
+              child: _overlayedContentsBuilder(),
+            ),
           ),
           const MapHazardInfoWindow(),
         ],

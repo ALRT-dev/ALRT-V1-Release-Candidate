@@ -154,11 +154,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _listenToTheMessageRecievedFromThePushNotification();
     _listenToNotificationPrimingRequests();
 
+    // The map runs the whole page, under the floating footer; every other
+    // tab keeps its content clear of the footer.
+    final onMap = ref.watch(providerOfHomeTab) == HomeTab.map;
+
     return Scaffold(
       body: Stack(
         children: [
           SafeArea(
             top: false,
+            bottom: !onMap,
             child: _withSosStrip(
               TabBarView(
                 controller: _tabController,
@@ -172,7 +177,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const ProfileScreen(),
                 ],
               ),
-            ).pB(HomeTabbar.height - 20.0),
+            ).pB(onMap ? 0.0 : HomeTabbar.height - 20.0),
           ),
           Positioned(
             bottom: 0,
