@@ -140,10 +140,10 @@ class _OnboardingLegalScreenState extends ConsumerState<OnboardingLegalScreen>
                     _buildHeader(),
                     24.hSizedBox,
                     ProgressBar(
-                      currentStep: OnboardingStep.legal.index + 1,
+                      currentStep: OnboardingStep.thingsToKnow.index + 1,
                       totalSteps: OnboardingStep.values.length - 1,
                       label:
-                          'Step ${OnboardingStep.legal.index + 1} of ${OnboardingStep.values.length - 1}',
+                          'Step ${OnboardingStep.thingsToKnow.index + 1} of ${OnboardingStep.values.length - 1}',
                     ),
                     32.hSizedBox,
                     _buildLockIcon(),
@@ -472,7 +472,7 @@ class _OnboardingLegalScreenState extends ConsumerState<OnboardingLegalScreen>
 
     result.when(
       (onboardingResponse) {
-        context.push(OnboardingStep.legal.nextStep.route);
+        context.push(OnboardingStep.thingsToKnow.nextStep.route);
       },
       (error) {
         context.showErrorToast(
