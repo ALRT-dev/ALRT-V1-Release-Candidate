@@ -444,6 +444,9 @@ export const syncHazardsFromDifferentSources = async ({
         },
       })
     ).filter((source) => {
+      // An explicit sourceIds request is a manual/targeted sync and bypasses
+      // cadence throttling. Scheduled full syncs honour each registry interval.
+      if (sourceIds?.includes(source.id)) return true;
       // scheduleMinutes is enforced at the scheduler's global tick cadence.
       // A feed cannot run more often than the scheduled ingestion job itself.
       const intervalMs = Math.max(1, source.scheduleMinutes ?? 15) * 60_000;
