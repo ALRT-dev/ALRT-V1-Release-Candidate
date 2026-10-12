@@ -1,8 +1,8 @@
 import prisma from "../utils/prisma_client.util.js";
-import { XpEventType } from "@prisma/client";
+import { HazardReviewStatus, XpEventType } from "@prisma/client";
 import { sendSocketEventToUsers } from "./socket.service.js";
 import { SocketEvent } from "../models/socket_event_types.js";
-import { sendPushNotificationToUser } from "./notification.service.js";
+import { sendPushNotificationAboutNewHazard, sendPushNotificationToUser } from "./notification.service.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
 
 /**
@@ -275,6 +275,23 @@ export const recordCorroboration = async (params: {
     const total = await prisma.hazardCorroboration.count({
       where: { hazardId: params.hazardId },
     });
+
+    // Community reports must not notify the surrounding area on acceptance.
+    // Send the first area push only when the report reaches the standard's
+    // three independent nearby confirmations. Subsequent confirmations do not
+    // create repeat pushes for the same event.
+    if (total === CORROBORATED_THRESHOLD) {
+      const confirmedHazard = await prisma.hazard.findFirst({
+        where: {
+          id: params.hazardId,
+          reviewStatus: HazardReviewStatus.accepted,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+      });
+      if (confirmedHazard) {
+        await sendPushNotificationAboutNewHazard(confirmedHazard);
+      }
+    }
 
     // Every new confirmation can push a badge over its line.
     await evaluateBadges(params.reporterUserId);
