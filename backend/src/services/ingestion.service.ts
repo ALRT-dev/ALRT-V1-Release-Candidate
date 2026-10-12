@@ -83,7 +83,8 @@ export enum ExternalSourceId {
 
 // Configuration for hazard sources
 interface ExternalSource {
-  id: ExternalSourceId;
+  /** Stable registry ID; built-in IDs remain typed by ExternalSourceId. */
+  id: string;
 
   apiUrl?: string | undefined;
   apiUrls?: string[] | undefined;
@@ -145,7 +146,7 @@ export const syncHazardsFromDifferentSources = async ({
       { name: "Newcastle", lat: -32.9283, lon: 151.7817 },
     ];
 
-    const externalSources: ExternalSource[] = [
+    const builtInExternalSources: ExternalSource[] = [
       {
         id: ExternalSourceId.rfs,
         apiUrl: "https://www.rfs.nsw.gov.au/feeds/majorIncidents.json",
@@ -425,6 +426,69 @@ export const syncHazardsFromDifferentSources = async ({
         : true,
     );
 
+    // Registry-backed generic adapters allow an administrator to onboard
+    // compatible GeoJSON or RSS feeds without editing this file. Built-in
+    // adapters take precedence; a registry row cannot shadow an existing
+    // built-in source ID. Unknown adapter keys are deliberately not executed.
+    const builtInSourceIds = new Set(
+      builtInExternalSources.map((sourceConfig) => sourceConfig.id),
+    );
+    const registeredSources = await prisma.hazardSource.findMany({
+      where: {
+        adapterKey: { in: ["geojson", "rss"] },
+        feedUrl: { not: null },
+        lifecycleStatus: { notIn: ["suspended", "retired"] },
+      },
+    });
+    const registeredExternalSources: ExternalSource[] = registeredSources
+      .filter(
+        (source) =>
+          !builtInSourceIds.has(source.id) &&
+          (!sourceIds || sourceIds.length === 0 || sourceIds.includes(source.id)),
+      )
+      .map((source) => {
+        const feedUrl = source.feedUrl!;
+        const adapterKey = source.adapterKey;
+        const parseFunction: ExternalSource["parseFunction"] =
+          adapterKey === "geojson"
+            ? (responseData: any) => {
+                const parsed = parseGeoJsonToHazards({
+                  data: responseData,
+                  availableCategories,
+                  idPrefix: source.id,
+                });
+                // Never publish generic-feed events that fell through to the
+                // catch-all "other" category. Fail the feed visibly so its
+                // mapping can be corrected instead of misrepresenting it.
+                const unmapped = parsed.filter(
+                  (hazard) =>
+                    !hazard.category || hazard.category.id === "other",
+                );
+                if (unmapped.length > 0) {
+                  throw new Error(
+                    `Registry source ${source.id} produced ${unmapped.length} event(s) with no recognized category; feed withheld.`,
+                  );
+                }
+                return parsed;
+              }
+            : () =>
+                parseRSSFeedToHazards({
+                  url: feedUrl,
+                  idPrefix: source.id,
+                  availableCategories,
+                });
+        return {
+          id: source.id,
+          apiUrl: feedUrl,
+          parseFunction,
+        };
+      });
+
+    const externalSources: ExternalSource[] = [
+      ...builtInExternalSources,
+      ...registeredExternalSources,
+    ];
+
     // Step 1: Fetch all hazards from all sources simultaneously
     console.log(
       `---------------------------------------> Fetching hazards from ${externalSources.length} sources...`,
@@ -458,10 +522,7 @@ export const syncHazardsFromDifferentSources = async ({
     }
 
     // // Step 2: Process all hazards together with summarizeAndPostHazards
-    const severityBandFilters = new Map<
-      ExternalSourceId,
-      HazardSeverityBand[]
-    >();
+    const severityBandFilters = new Map<string, HazardSeverityBand[]>();
     externalSources.forEach((source) => {
       if (source.severityBandFilter) {
         severityBandFilters.set(
@@ -512,7 +573,7 @@ export const summarizeAndPostHazards = async ({
 }: {
   hazardDatas: HazardDataWithRelations[];
   syncOption: SyncHazardsFromExternalSourceOption;
-  severityBandFilters: Map<ExternalSourceId, HazardSeverityBand[]>;
+  severityBandFilters: Map<string, HazardSeverityBand[]>;
   calledFromWebhook?: boolean;
 }): Promise<Hazard[]> => {
   try {
@@ -535,7 +596,7 @@ export const summarizeAndPostHazards = async ({
         });
 
         // Check if this source has severity band filtering configured
-        const sourceId = hazardData.source?.id as ExternalSourceId;
+        const sourceId = hazardData.source?.id;
         const minimumSeverityBands = sourceId
           ? severityBandFilters.get(sourceId)
           : undefined;
