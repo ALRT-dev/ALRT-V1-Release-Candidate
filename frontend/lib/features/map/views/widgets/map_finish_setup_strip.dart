@@ -102,36 +102,44 @@ class MapFinishSetupStrip extends ConsumerWidget {
           padding: EdgeInsets.symmetric(horizontal: 20.spMin),
           child: Row(
             children: [
-              _cardBuilder(
-                icon: LucideIcons.mapPin,
-                label: 'Save a place',
-                done: savedPlace,
-                onTap: () => context.push(
-                  ManageNotificationsScreen.route,
-                  extra: const ManageNotificationsScreenArgs(initialTab: 1),
+              // Finished steps drop out; only the open ones are shown.
+              if (!savedPlace) ...[
+                _cardBuilder(
+                  icon: LucideIcons.mapPin,
+                  label: 'Save a place',
+                  done: false,
+                  onTap: () => context.push(
+                    ManageNotificationsScreen.route,
+                    extra: const ManageNotificationsScreenArgs(initialTab: 1),
+                  ),
                 ),
-              ),
-              SizedBox(width: 10.spMin),
-              _cardBuilder(
-                icon: LucideIcons.shield,
-                label: 'Safety profile',
-                done: safetyProfile,
-                onTap: () => context.push(SafetyProfileScreen.route),
-              ),
-              SizedBox(width: 10.spMin),
-              _cardBuilder(
-                icon: LucideIcons.volume2,
-                label: 'Sound and vibration',
-                done: accessibleAlerts,
-                onTap: () => context.push(AccessibleAlertsScreen.route),
-              ),
-              SizedBox(width: 10.spMin),
-              _cardBuilder(
-                icon: LucideIcons.layoutGrid,
-                label: 'Add a widget',
-                done: widgetAdded,
-                onTap: () => context.push(AddWidgetScreen.route),
-              ),
+                SizedBox(width: 10.spMin),
+              ],
+              if (!safetyProfile) ...[
+                _cardBuilder(
+                  icon: LucideIcons.shield,
+                  label: 'Safety profile',
+                  done: false,
+                  onTap: () => context.push(SafetyProfileScreen.route),
+                ),
+                SizedBox(width: 10.spMin),
+              ],
+              if (!accessibleAlerts) ...[
+                _cardBuilder(
+                  icon: LucideIcons.volume2,
+                  label: 'Sound and vibration',
+                  done: false,
+                  onTap: () => context.push(AccessibleAlertsScreen.route),
+                ),
+                SizedBox(width: 10.spMin),
+              ],
+              if (!widgetAdded)
+                _cardBuilder(
+                  icon: LucideIcons.layoutGrid,
+                  label: 'Add a widget',
+                  done: false,
+                  onTap: () => context.push(AddWidgetScreen.route),
+                ),
             ],
           ),
         ),

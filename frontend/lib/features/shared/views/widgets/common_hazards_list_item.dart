@@ -105,7 +105,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
     final radius = BorderRadius.circular(AlertCardStyle.cardRadius.spMin);
 
     return InkWell(
-      onTap: widget.isInfoWindow ? null : _gotoViewHazard,
+      onTap: _gotoViewHazard,
       borderRadius: radius,
       child: Container(
         decoration: BoxDecoration(
@@ -134,17 +134,15 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _sourceRowBuilder(),
-                    // "In plain terms" is mandatory on every official card
-                    // (locked rule), the same deterministic line the detail
-                    // screen shows. Community reports get no line at all.
-                    if (!isUserReported) ...[
-                      10.hSizedBox,
-                      _plainTermsBuilder(),
-                    ],
                     10.hSizedBox,
                     _titleBuilder(),
+                    if (!isUserReported) ...[
+                      6.hSizedBox,
+                      _summaryBuilder(),
+                    ],
                     6.hSizedBox,
                     _metaRowBuilder(),
+                    if (!isUserReported) _tapForMoreBuilder(),
                     if (widget.showTrustMeter &&
                         isUserReported &&
                         !widget.isInfoWindow)
@@ -281,58 +279,65 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
     );
   }
 
-  /// "In plain terms" on the dark surface - mandatory on every official
-  /// card (locked rule). Same deterministic line as the detail screen.
-  Widget _plainTermsBuilder() {
+  /// The agency's own summary, as given (its description), two lines. Only
+  /// when the source gave none do we fall back to the neutral line that
+  /// names who reported what. Severity is never touched here.
+  Widget _summaryBuilder() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
 
-        final plainTerms = AlertCardStyle.plainTermsOf(
-          isOfficial: !hazard.isUserReported,
-          isAws: hazard.isAwsCompliant ?? false,
-          severity: hazard.severity,
-          band: hazard.severityBand,
-          categoryName: hazard.category?.name,
-          sourceName: hazard.source?.name,
-          locationName: hazard.locationName,
-        );
-        if (plainTerms == null) return const SizedBox.shrink();
+        final given = hazard.description?.trim() ?? '';
+        final text = given.isNotEmpty
+            ? given
+            : AlertCardStyle.plainTermsOf(
+                isOfficial: !hazard.isUserReported,
+                isAws: hazard.isAwsCompliant ?? false,
+                severity: hazard.severity,
+                band: hazard.severityBand,
+                categoryName: hazard.category?.name,
+                sourceName: hazard.source?.name,
+                locationName: hazard.locationName,
+              );
+        if (text == null || text.isEmpty) return const SizedBox.shrink();
 
-        return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AlertCardStyle.plainTermsBackground,
-            borderRadius: BorderRadius.circular(10.spMin),
+        return Text(
+          text,
+          style: TextStyle(
+            fontSize: 12.5.spMin,
+            height: 1.4,
+            color: AppColors.black.withValues(alpha: 0.85),
           ),
-          padding: EdgeInsets.symmetric(
-            horizontal: 11.spMin,
-            vertical: 8.spMin,
-          ),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: 'In plain terms ',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AlertCardStyle.plainTermsLeadInk,
-                  ),
-                ),
-                TextSpan(text: plainTerms),
-              ],
-            ),
-            style: TextStyle(
-              fontSize: 11.5.spMin,
-              height: 1.45,
-              color: Colors.white,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         );
       },
+    );
+  }
+
+  /// A small "Tap for more" with an arrow, so it is clear the card opens.
+  Widget _tapForMoreBuilder() {
+    return Padding(
+      padding: EdgeInsets.only(top: 8.spMin),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Tap for more',
+            style: TextStyle(
+              fontSize: 11.5.spMin,
+              fontWeight: FontWeight.w600,
+              color: AppColors.mediumGrey,
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 20.spMin,
+            color: AppColors.ink,
+          ),
+        ],
+      ),
     );
   }
 

@@ -34,7 +34,7 @@ class HomeTabbar extends ConsumerStatefulWidget {
   final TabController tabController;
 
   /// Total vertical space the floating pill occupies (pill + bottom gap).
-  static const double height = 80.0;
+  static const double height = 86.0;
 
   /// Indigo accent for the Family destination.
   static const familyIndigo = FamilyColors.indigo;
@@ -76,7 +76,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
           child: BackdropFilter(
             filter: _frostedFilter,
             child: Container(
-              height: 62.spMin,
+              height: 68.spMin,
               decoration: BoxDecoration(
                 color: _pillColor,
                 borderRadius: BorderRadius.circular(18.spMin),
@@ -115,7 +115,7 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
 
   static final _frostedFilter = ImageFilter.blur(sigmaX: 20, sigmaY: 20);
 
-  /// The 50 px radius-14 tile every slot sits in. [tint] is the active
+  /// The 58 px radius-14 tile (room around the icon and label) every slot sits in. [tint] is the active
   /// background, or null for a slot at rest.
   Widget _tileBuilder({
     required final Color? tint,
@@ -123,8 +123,8 @@ class _HomeTabbarState extends ConsumerState<HomeTabbar> {
     required final Widget label,
   }) {
     return Container(
-      height: 50.spMin,
-      margin: EdgeInsets.symmetric(horizontal: 2.spMin),
+      height: 58.spMin,
+      margin: EdgeInsets.symmetric(horizontal: 1.spMin),
       decoration: BoxDecoration(
         color: tint,
         borderRadius: BorderRadius.circular(14.spMin),

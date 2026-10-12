@@ -136,8 +136,19 @@ class MapService {
         .toList();
 
     if (allRoutes.isEmpty) {
-      return const Failure(
-        AppError(message: 'No routes found between these locations.'),
+      // If Google refused every call (key, API not enabled), say so
+      // instead of pretending there is simply no road.
+      final reasons = result
+          .map((either) => either.whenFailure((e) => e.message))
+          .whereType<String>()
+          .where((m) => m.trim().isNotEmpty)
+          .toSet();
+      return Failure(
+        AppError(
+          message: reasons.isEmpty
+              ? 'No routes found between these locations.'
+              : 'No routes found. ${reasons.first}',
+        ),
       );
     }
 

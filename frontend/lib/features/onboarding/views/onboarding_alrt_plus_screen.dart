@@ -11,10 +11,11 @@ import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_
 import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
-/// Onboarding step 4 (board Onb4): ALRT is free; ALRT + is optional.
+/// Onboarding step 4 (board Onb4): ALRT is free; ALRT + is optional but
+/// offered first, as the lead button, with Free one clear tap below.
 ///
 /// No prices here (they come from the store, on the plan screens) and no
-/// purchase flow: the one link opens the ALRT + chooser, and it is hidden
+/// purchase flow: "Get ALRT +" opens the ALRT + chooser, and it is hidden
 /// when the backend says billing is off or the person already has ALRT +.
 class OnboardingAlrtPlusScreen extends ConsumerWidget {
   const OnboardingAlrtPlusScreen({super.key, this.onDone});
@@ -97,27 +98,18 @@ class OnboardingAlrtPlusScreen extends ConsumerWidget {
         ),
         const Spacer(),
         24.hSizedBox,
+        if (showPlansLink) ...[
+          GradientButton(
+            title: 'Get ALRT +',
+            onPressed: () => context.push(AlrtPlusChooseScreen.route),
+          ),
+          10.hSizedBox,
+        ],
         GradientButton(
           title: 'Continue with ALRT Free',
           dark: true,
           onPressed: () => _next(context),
         ),
-        if (showPlansLink) ...[
-          6.hSizedBox,
-          Center(
-            child: TextButton(
-              onPressed: () => context.push(AlrtPlusChooseScreen.route),
-              child: Text(
-                'See ALRT + plans',
-                style: TextStyle(
-                  fontSize: 14.spMin,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.ink,
-                ),
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }

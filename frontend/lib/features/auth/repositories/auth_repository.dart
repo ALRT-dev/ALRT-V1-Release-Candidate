@@ -74,7 +74,19 @@ class AuthRepositoryImpl implements AuthRepository {
     return runAsyncCall(
       name: 'signInWithGoogle',
       future: () async {
-        final account = await _googleSignIn.authenticate();
+        final GoogleSignInAccount account;
+        try {
+          account = await _googleSignIn.authenticate();
+        } on GoogleSignInException catch (e) {
+          // Never show the raw exception text. Backing out of the Google
+          // sheet is not an error, just say so.
+          final text = e.toString().toLowerCase();
+          throw AppError(
+            message: text.contains('cancel')
+                ? 'Sign-in cancelled'
+                : 'Google sign-in did not finish. Please try again.',
+          );
+        }
 
         final googleAuth = account.authentication;
         if (googleAuth.idToken == null) {

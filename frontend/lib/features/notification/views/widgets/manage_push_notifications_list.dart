@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
@@ -328,7 +329,7 @@ class _ManagePushNotificationsListState
 
         return _sectionContainerBuilder(
           title: 'Types',
-          subtitle: 'Which alerts can send you a push.',
+          subtitle: 'Colour shows severity. Emergency warnings are always on.',
           child: Column(
             children: [
               // The four bands mirror how alerts render on the front screen
@@ -341,21 +342,15 @@ class _ManagePushNotificationsListState
                 color: AlertCardStyle.bandCritical,
               ),
               10.hSizedBox,
-              _filterToggleCard(
-                title: 'Watch and Act (AWS)',
-                description: 'Conditions are changing. Prepare.',
-                isEnabled: settings.awsWatchAndAct,
-                onToggle: (value) =>
-                    save(settings.copyWith(awsWatchAndAct: value)),
-                color: AlertCardStyle.bandAction,
-              ),
-              10.hSizedBox,
-              _filterToggleCard(
-                title: 'Advice (AWS)',
-                description: 'Stay informed. Watch conditions.',
-                isEnabled: settings.awsAdvice,
-                onToggle: (value) => save(settings.copyWith(awsAdvice: value)),
-                color: AlertCardStyle.bandMonitor,
+              SeverityLine(
+                advice: settings.awsAdvice,
+                watchAndAct: settings.awsWatchAndAct,
+                onChanged: (advice, watchAndAct) => save(
+                  settings.copyWith(
+                    awsAdvice: advice,
+                    awsWatchAndAct: watchAndAct,
+                  ),
+                ),
               ),
               10.hSizedBox,
               _filterToggleCard(

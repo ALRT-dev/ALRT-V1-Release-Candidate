@@ -70,7 +70,7 @@ class _OnboardingAlertLevelScreenState
     _AlertLevelOption(
       preference: PushNotificationPreference.quiet,
       label: 'Keep it quiet',
-      description: 'Only the most serious official warnings, as they happen.',
+      description: 'Only emergency warnings, as they happen.',
     ),
   ];
 

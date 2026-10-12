@@ -53,6 +53,9 @@ class _OnboardingWelcomeScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Short screens (small phones, large text sizes) shrink the logo and
+    // gaps so the Get started button stays on screen.
+    final compact = MediaQuery.of(context).size.height < 760;
     return FadeTransition(
       opacity: _fadeIn,
       child: SlideTransition(
@@ -65,11 +68,11 @@ class _OnboardingWelcomeScreenState
             Center(
               child: Image.asset(
                 'assets/logos/alrt_logo.png',
-                width: 96.spMin,
+                width: (compact ? 64 : 96).spMin,
                 filterQuality: FilterQuality.high,
               ),
             ),
-            24.hSizedBox,
+            (compact ? 12 : 24).hSizedBox,
             Text(
               'Welcome to ALRT',
               style: TextStyle(
@@ -91,7 +94,7 @@ class _OnboardingWelcomeScreenState
               ),
               textAlign: TextAlign.center,
             ),
-            32.hSizedBox,
+            (compact ? 16 : 32).hSizedBox,
             const _FeatureRow(
               icon: LucideIcons.bell,
               title: 'Warnings near the places you choose',
@@ -100,8 +103,9 @@ class _OnboardingWelcomeScreenState
             18.hSizedBox,
             const _FeatureRow(
               icon: LucideIcons.shieldCheck,
-              title: 'What to do, from the people in charge',
-              body: 'Official advice word for word, never invented',
+              title: 'What we know and what to do',
+              body: 'A plain summary of what is happening, then the '
+                  'official advice word for word from the people in charge',
             ),
             18.hSizedBox,
             const _FeatureRow(
@@ -110,7 +114,7 @@ class _OnboardingWelcomeScreenState
               body: 'Check in with one tap. Nobody is tracked.',
             ),
             const Spacer(),
-            32.hSizedBox,
+            (compact ? 16 : 32).hSizedBox,
             GradientButton(
               title: 'Get started',
               onPressed: _onGetStarted,

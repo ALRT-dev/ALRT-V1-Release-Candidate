@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
@@ -261,57 +262,22 @@ class _HazardFiltersBottomsheetContentState
         );
 
         return _sectionContainerBuilder(
-          title: 'How serious',
-          subtitle: 'Colour says how serious. One colour, one meaning.',
+          title: 'Colour shows severity',
+          subtitle: 'Emergency warnings (red) are always on.',
           spacing: 6.0,
-          child: Column(
-            children: [
-              _colourRowBuilder(
-                swatch: AppColors.info,
-                title: 'Grey',
-                subtitle: 'Official, lowest level',
-                isEnabled: null,
-              ),
-              _dividerBuilder(),
-              _colourRowBuilder(
-                swatch: AppColors.advice,
-                title: 'Yellow',
-                subtitle: 'AWS Advice and official equivalents',
-                isEnabled: awsAdvice,
-                onToggle: (value) {
-                  ref.read(_filtersProvider.notifier).updateAwsAdvice(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-              _dividerBuilder(),
-              _colourRowBuilder(
-                swatch: AppColors.watchAndAct,
-                title: 'Orange',
-                subtitle: 'AWS Watch and Act and official equivalents',
-                isEnabled: awsWatchAndAct,
-                onToggle: (value) {
-                  ref
-                      .read(_filtersProvider.notifier)
-                      .updateAwsWatchAndAct(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-              _dividerBuilder(),
-              _colourRowBuilder(
-                swatch: AppColors.emergency,
-                title: 'Red',
-                subtitle: 'AWS Emergency Warning and official equivalents',
-                isEnabled: null,
-              ),
-            ],
+          child: SeverityLine(
+            advice: awsAdvice,
+            watchAndAct: awsWatchAndAct,
+            onChanged: (advice, watchAndAct) {
+              ref.read(_filtersProvider.notifier)
+                ..updateAwsAdvice(advice)
+                ..updateAwsWatchAndAct(watchAndAct);
+              widget.onFiltersUpdated?.call();
+            },
           ),
         );
       },
     );
-  }
-
-  Widget _dividerBuilder() {
-    return const Divider(color: AppColors.extraLightGrey, height: 0.0);
   }
 
   Widget _categoriesSection() {
@@ -405,84 +371,6 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
-  /// One colour row: a 14 px rounded swatch, the colour's name, what it
-  /// covers, and either a switch or the "Always on" pill ([isEnabled]
-  /// null) for a colour that cannot be hidden.
-  Widget _colourRowBuilder({
-    required final Color swatch,
-    required final String title,
-    required final String subtitle,
-    required final bool? isEnabled,
-    final ValueChanged<bool>? onToggle,
-  }) {
-    final row = Row(
-      children: [
-        Container(
-          width: 14.spMin,
-          height: 14.spMin,
-          decoration: BoxDecoration(
-            color: swatch,
-            borderRadius: BorderRadius.circular(4.spMin),
-          ),
-        ),
-        12.wSizedBox,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16.spMin,
-                  color: AppColors.black,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              2.hSizedBox,
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  color: AppColors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-        8.wSizedBox,
-        if (isEnabled == null || onToggle == null)
-          _alwaysOnPillBuilder()
-        else
-          _togglerBuilder(
-            isEnabled: isEnabled,
-            onToggle: onToggle,
-            activeColor: _toggleOn,
-          ),
-      ],
-    ).pY(12.0);
-    if (isEnabled == null || onToggle == null) return row;
-    return row.onPressed(() => onToggle(!isEnabled));
-  }
-
-  Widget _alwaysOnPillBuilder() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 5.spMin),
-      decoration: BoxDecoration(
-        color: _toggleOn.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        'Always on',
-        style: TextStyle(
-          fontSize: 12.spMin,
-          fontWeight: FontWeight.w700,
-          color: _toggleOn,
-        ),
-      ),
-    );
-  }
-
-  /// One source row: its outline shape, the name, one line, and a switch.
   Widget _switchBuilder({
     required final IconData icon,
     required final String title,
