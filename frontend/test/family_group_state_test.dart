@@ -91,7 +91,8 @@ void main() {
       openCircle: open,
       now: now,
     );
-    expect(state.label, '2 of 3 · waiting on Amy');
+    // No ask is open, so nobody is waiting on anyone.
+    expect(state.label, '2 of 3 checked in');
   });
 
   test('a tile for a group that is not open reads its CheckInRoll, so a '
