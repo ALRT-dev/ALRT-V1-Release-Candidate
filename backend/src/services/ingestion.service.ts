@@ -441,6 +441,10 @@ export const syncHazardsFromDifferentSources = async ({
           // Registry-backed adapters only publish after an operator explicitly activates the source.
           // Monitoring sources remain configured but are not ingested into public alerts.
           lifecycleStatus: "active",
+          format: { not: null },
+          lastReviewedAt: { not: null, lte: new Date() },
+          expiryReviewAt: { gt: new Date() },
+          OR: [{ licenseId: { not: null } }, { licensingNotes: { not: null } }],
         },
       })
     ).filter((source) => {
