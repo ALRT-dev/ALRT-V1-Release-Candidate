@@ -2263,29 +2263,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// Handle edit hazard action.
-  void _handleEditHazard() {
-    final isExpired = ref.read(
-      provider.select(
-        (value) => value.hazard?.isExpired == true,
-      ),
-    );
-    if (isExpired) {
-      context.showErrorToast(
-        message:
-            'Cannot edit an expired alert. You can delete this and create a new one.',
-      );
-      return;
-    }
-
-    context.push(
-      CreateUpdateReportScreen.updateRoute,
-      extra: CreateUpdateReportScreenArgs(
-        hazardToUpdate: widget.args.hazard,
-      ),
-    );
-  }
-
   /// Handle delete hazard action.
   void _handleDeleteHazard() {
     showConfirmationSheet(
