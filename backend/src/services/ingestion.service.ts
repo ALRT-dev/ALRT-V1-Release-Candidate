@@ -433,14 +433,22 @@ export const syncHazardsFromDifferentSources = async ({
     const builtInSourceIds = new Set(
       builtInExternalSources.map((sourceConfig) => sourceConfig.id),
     );
-    const registeredSources = await prisma.hazardSource.findMany({
-      where: {
-        adapterKey: { in: ["geojson", "rss"] },
-        feedUrl: { not: null },
-        // Registry-backed adapters only publish after an operator explicitly activates the source.
-        // Monitoring sources remain configured but are not ingested into public alerts.
-        lifecycleStatus: "active",
-      },
+    const registeredSources = (
+      await prisma.hazardSource.findMany({
+        where: {
+          adapterKey: { in: ["geojson", "rss"] },
+          feedUrl: { not: null },
+          // Registry-backed adapters only publish after an operator explicitly activates the source.
+          // Monitoring sources remain configured but are not ingested into public alerts.
+          lifecycleStatus: "active",
+        },
+      })
+    ).filter((source) => {
+      // scheduleMinutes is enforced at the scheduler's global tick cadence.
+      // A feed cannot run more often than the scheduled ingestion job itself.
+      const intervalMs = Math.max(1, source.scheduleMinutes ?? 15) * 60_000;
+      const lastCheck = source.lastHealthCheck?.getTime();
+      return !lastCheck || Date.now() - lastCheck >= intervalMs;
     });
     const registeredExternalSources: ExternalSource[] = registeredSources
       .filter(
