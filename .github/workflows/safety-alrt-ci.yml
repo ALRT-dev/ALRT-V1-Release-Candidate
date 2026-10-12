@@ -2,7 +2,7 @@ name: Safety ALRT CI
 
 on:
   pull_request:
-    branches: [main, test]
+    branches: ["**"]
   push:
     branches: [main, test, "codex/**"]
   workflow_dispatch:
