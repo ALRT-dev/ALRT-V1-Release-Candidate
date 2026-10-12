@@ -126,8 +126,21 @@ export const listHazardSources = (params: { page?: number; pageSize?: number; se
 // the disposable "test-dummy" source that TEST-only test alerts and the
 // n8n test workflow attach to. A plain POST, same as any real admin
 // creating a real source.
-export const createHazardSource = (data: { id: string; name: string; url: string }) =>
-  apiPost<AdminHazardSource>("/api/admin/hazard-sources", data);
+export const createHazardSource = (data: {
+  id: string;
+  name: string;
+  url: string;
+  feedUrl?: string;
+  adapterKey?: string;
+  format?: string;
+  country?: string;
+  region?: string;
+  sourceType?: string;
+  authorityLevel?: string;
+  accessMethod?: string;
+  scheduleMinutes?: number;
+  lifecycleStatus?: AdminHazardSource["lifecycleStatus"];
+}) => apiPost<AdminHazardSource>("/api/admin/hazard-sources", data);
 
 export const listAuditLog = (
   params: { page?: number; pageSize?: number; targetType?: string; targetId?: string } = {},
