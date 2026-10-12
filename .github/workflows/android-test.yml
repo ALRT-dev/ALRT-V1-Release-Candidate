@@ -434,7 +434,7 @@ jobs:
           if [ "$code" -ne 0 ]; then
             # Annotate each failing test (raw logs are not readable here).
             grep -E '\[E\]|Error:|Expected:|Actual:|Failed to load|Some tests failed' /tmp/test-output.txt | head -40 | while read -r line; do echo "::error title=flutter test::$line"; done
-            grep -E 'overflowed by|relevant error-causing|\.dart:[0-9]+:[0-9]+|The following|Expected|Actual|Which' /tmp/test-output.txt | grep -v 'package:flutter/\|dart:async\|package:test' | sort | uniq -c | sort -rn | head -40 | cut -c1-300 | while read -r line; do echo "::warning title=first failure::$line"; done
+            grep -m1 -A28 'overflowed by' /tmp/test-output.txt | grep -v '^\s*$' | cut -c1-260 | while read -r line; do echo "::warning title=first failure::$line"; done; grep -B3 -A25 -m1 'The following assertion was thrown:' /tmp/test-output.txt | grep -v '^\s*$' | cut -c1-260 | while read -r line; do echo "::warning title=first failure::$line"; done
           fi
           exit $code
 
