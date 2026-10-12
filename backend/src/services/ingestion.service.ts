@@ -471,12 +471,23 @@ export const syncHazardsFromDifferentSources = async ({
                 }
                 return parsed;
               }
-            : () =>
-                parseRSSFeedToHazards({
+            : async () => {
+                const parsed = await parseRSSFeedToHazards({
                   url: feedUrl,
                   idPrefix: source.id,
                   availableCategories,
                 });
+                const unmapped = parsed.filter(
+                  (hazard) =>
+                    !hazard.category || hazard.category.id === "other",
+                );
+                if (unmapped.length > 0) {
+                  throw new Error(
+                    "Registry source " + source.id + " produced " + unmapped.length + " event(s) with no recognized category; feed withheld.",
+                  );
+                }
+                return parsed;
+              };
         return {
           id: source.id,
           apiUrl: feedUrl,
