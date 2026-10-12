@@ -870,7 +870,7 @@ class HazardService {
           );
           final file = cacheResult.when((f) => f, (_) => null);
           if (file != null) {
-            return file.readAsBytes();
+            return await file.readAsBytes();
           }
         } catch (_) {}
 

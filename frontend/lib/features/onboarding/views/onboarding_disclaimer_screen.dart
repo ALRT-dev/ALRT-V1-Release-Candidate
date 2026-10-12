@@ -133,10 +133,10 @@ class _OnboardingDisclaimerScreenState
               _buildHeader(),
               24.hSizedBox,
               ProgressBar(
-                currentStep: OnboardingStep.disclaimer.index + 1,
+                currentStep: OnboardingStep.welcome.index + 1,
                 totalSteps: OnboardingStep.values.length - 1,
                 label:
-                    'Step ${OnboardingStep.disclaimer.index + 1} of ${OnboardingStep.values.length - 1}',
+                    'Step ${OnboardingStep.welcome.index + 1} of ${OnboardingStep.values.length - 1}',
               ),
               40.hSizedBox,
               _buildShieldIcon(),
@@ -358,7 +358,7 @@ class _OnboardingDisclaimerScreenState
 
     result.when(
       (onboardingResponse) {
-        context.push(OnboardingStep.disclaimer.nextStep.route);
+        context.push(OnboardingStep.welcome.nextStep.route);
       },
       (error) {
         context.showErrorToast(

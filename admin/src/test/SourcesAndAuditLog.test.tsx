@@ -123,6 +123,46 @@ describe("SourcesPage registry governance", () => {
   });
 });
 
+describe("SourcesPage onboarding", () => {
+  it("creates a generic source in monitoring rather than activating it immediately", async () => {
+    const { calls } = installMockFetch([
+      {
+        match: (url: string, method: string) =>
+          url.includes("/api/admin/hazard-sources") && method === "GET",
+        respond: () => ({ status: 200, body: [source] }),
+      },
+      {
+        match: (url: string, method: string) =>
+          url.includes("/api/admin/hazard-sources") && method === "POST",
+        respond: () => ({ status: 201, body: source }),
+      },
+      meRoute,
+    ]);
+
+    renderWith(<SourcesPage />);
+    await waitFor(() => expect(screen.getByText("NSW Rural Fire Service")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: /add source/i }));
+
+    await userEvent.type(screen.getByLabelText("Stable source ID"), "test-river-feed");
+    await userEvent.type(screen.getByLabelText("Publisher / source name"), "Test River Agency");
+    await userEvent.type(screen.getByLabelText("Publisher website URL"), "https://agency.example");
+    await userEvent.type(screen.getByLabelText("Feed URL"), "https://agency.example/feed.json");
+    await userEvent.selectOptions(screen.getByLabelText("Feed format / adapter"), "geojson");
+    await userEvent.type(screen.getByLabelText("Region / jurisdiction"), "Western Australia");
+    await userEvent.click(screen.getByRole("button", { name: "Create in monitoring" }));
+
+    await waitFor(() => expect(calls.some((call) => call.method === "POST")).toBe(true));
+    const post = calls.find((call) => call.method === "POST");
+    expect(post?.body).toMatchObject({
+      id: "test-river-feed",
+      name: "Test River Agency",
+      feedUrl: "https://agency.example/feed.json",
+      adapterKey: "geojson",
+      lifecycleStatus: "monitoring",
+    });
+  });
+});
+
 describe("AuditLogPage", () => {
   it("lists who changed which source setting", async () => {
     installMockFetch([

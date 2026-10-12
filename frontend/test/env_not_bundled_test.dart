@@ -5,13 +5,25 @@
 /// 2. No Dart source imports flutter_dotenv (the package that reads assets).
 /// 3. env.dart uses compile-time String.fromEnvironment, not dotenv.env.
 /// 4. Every CI workflow passes --dart-define-from-file to flutter build.
+library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+Directory _findFrontendDir() {
+  // CI runs flutter test from frontend/, while developers may invoke it from
+  // the repository root. Resolve by locating the actual Flutter pubspec.
+  final cwd = Directory.current;
+  if (File('${cwd.path}/pubspec.yaml').existsSync()) return cwd;
+  final nested = Directory('${cwd.path}/frontend');
+  if (File('${nested.path}/pubspec.yaml').existsSync()) return nested;
+  final scriptParent = File.fromUri(Platform.script).parent.parent;
+  if (File('${scriptParent.path}/pubspec.yaml').existsSync()) return scriptParent;
+  throw StateError('Could not locate frontend/pubspec.yaml from ${cwd.path}');
+}
+
 void main() {
-  final frontendDir =
-      Directory.fromUri(Platform.script.resolve('../'));
+  final frontendDir = _findFrontendDir();
 
   group('R-05: .env not bundled as Flutter asset', () {
     test('pubspec.yaml does not list .env as an asset', () {

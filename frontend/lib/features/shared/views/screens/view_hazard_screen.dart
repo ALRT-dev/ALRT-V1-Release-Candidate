@@ -14,7 +14,6 @@ import 'package:hazard_app/features/learn/views/widgets/guide_strip_card.dart';
 import 'package:hazard_app/features/shared/enums/hazard_vote_types.dart';
 import 'package:hazard_app/features/shared/providers/hazard_item_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
-import 'package:hazard_app/features/report/views/screens/create_update_report_screen.dart';
 import 'package:hazard_app/features/shared/enums/ai_confidence_types.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
@@ -361,39 +360,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // The poster can delete it and post a new one.
         Expanded(child: _buildDeleteButton()),
       ],
-    );
-  }
-
-  Widget _buildEditButton() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isExpired = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isExpired ?? false,
-          ),
-        );
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          padding: EdgeInsets.all(16.spMin),
-          child: Icon(
-            LucideIcons.pencil,
-            color: isExpired
-                ? AppColors.grey.withValues(alpha: 0.5)
-                : AppColors.black,
-            size: 20.spMin,
-          ),
-        ).onPressed(() => _handleEditHazard());
-      },
     );
   }
 
@@ -1015,7 +981,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         sublabel: hasCircle
                             ? (circleCount > 1
                                 ? '$circleName · tap to change'
-                                : circleName!)
+                                : circleName)
                             : 'Loading...',
                         loading: isSending,
                         onTap: hasCircle
@@ -2293,29 +2259,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   void _handleError(final AppError error) {
     context.showErrorToast(
       message: error.message,
-    );
-  }
-
-  /// Handle edit hazard action.
-  void _handleEditHazard() {
-    final isExpired = ref.read(
-      provider.select(
-        (value) => value.hazard?.isExpired == true,
-      ),
-    );
-    if (isExpired) {
-      context.showErrorToast(
-        message:
-            'Cannot edit an expired alert. You can delete this and create a new one.',
-      );
-      return;
-    }
-
-    context.push(
-      CreateUpdateReportScreen.updateRoute,
-      extra: CreateUpdateReportScreenArgs(
-        hazardToUpdate: widget.args.hazard,
-      ),
     );
   }
 

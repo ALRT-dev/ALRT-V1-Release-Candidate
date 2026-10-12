@@ -6,7 +6,7 @@
 // pass under `dart test` or `flutter test` on a developer machine.
 
 import 'dart:io';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('R-06 – encrypted token storage', () {
@@ -25,10 +25,14 @@ void main() {
         reason: 'SecureTokenStorage must delegate to FlutterSecureStorage',
       );
       expect(
-        content.contains('encryptedSharedPreferences: true'),
+        content.contains('migrateOnAlgorithmChange: true'),
         isTrue,
-        reason:
-            'Android must use EncryptedSharedPreferences for Keystore-backed storage',
+        reason: 'Android must migrate legacy secure-storage data to the current cipher',
+      );
+      expect(
+        content.contains('migrateWithBackup: true'),
+        isTrue,
+        reason: 'Android must keep a recovery backup while migrating encrypted tokens',
       );
     });
 

@@ -1,0 +1,101 @@
+name: Safety ALRT CI
+
+on:
+  pull_request:
+    branches: [main, test]
+  push:
+    branches: [main, test]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safety-alrt-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests and typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/alrt_ci?schema=public
+      JWT_ACCESS_SECRET: ci-only-access-secret-not-for-deployment
+      JWT_ACCESS_EXP_M: "15"
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-deployment
+      JWT_REFRESH_EXP_D: "30"
+      ADMIN_JWT_ACCESS_SECRET: ci-only-admin-access-secret-not-for-deployment
+      ADMIN_JWT_ACCESS_EXP_M: "15"
+      ADMIN_JWT_REFRESH_SECRET: ci-only-admin-refresh-secret-not-for-deployment
+      ADMIN_JWT_REFRESH_EXP_D: "30"
+      SUPER_ADMIN_EMAIL: ci-admin@example.invalid
+      SUPER_ADMIN_PASSWORD: ci-only-password-not-for-deployment
+      SUPER_ADMIN_NAME: CI
+      GOOGLE_OAUTH_CLIENT_ID_WEB: ci-web.apps.example.invalid
+      GOOGLE_OAUTH_CLIENT_ID_IOS: ci-ios.apps.example.invalid
+      GOOGLE_OAUTH_CLIENT_ID_ANDROID: ci-android.apps.example.invalid
+      APPLE_OAUTH_AUDIENCE: com.safetyalrt.alrt.dev
+      OPENAI_API_KEY: ci-not-a-real-key
+      AWS_S3_REGION: ap-southeast-2
+      AWS_S3_BUCKET_NAME: alrt-ci-unused
+      AWS_BEDROCK_REGION: ap-southeast-2
+      NSW_TRANSPORT_API_KEY: ci-unused
+      WAQI_API_TOKEN: ci-unused
+      GOOGLE_MAPS_API_KEY: AIza000000000000000000000000000000000
+      SIGHTENGINE_API_USER: ci-unused
+      SIGHTENGINE_API_SECRET: ci-unused
+      SIGHTENGINE_WORKFLOW_ID: ci-unused
+      SMTP_HOST: localhost
+      SMTP_PORT: "2525"
+      SMTP_USER: ci-unused
+      SMTP_PASSWORD: ci-unused
+      EMAIL_FROM_ADDRESS: ci@example.invalid
+      EMAIL_SUPPORT_ADDRESS: ci-support@example.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate --schema prisma/schema.prisma
+      - run: npm test
+      - run: npm run build
+
+  admin:
+    name: Admin tests and production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  flutter:
+    name: Flutter analysis and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

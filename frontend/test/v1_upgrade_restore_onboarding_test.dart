@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -96,9 +95,6 @@ Future<void> _open(WidgetTester tester) async {
 }
 
 void main() {
-  setUpAll(() {
-    dotenv.loadFromString(envString: 'ALRT_PLUS_TEST_UNLOCK=false\n');
-  });
   setUp(() {
     final view =
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
@@ -402,10 +398,12 @@ void main() {
       );
       await _open(tester);
       expect(find.text('ALRT is free to use'), findsOneWidget);
-      expect(find.text(kChooseForMyselfTitle), findsOneWidget);
-      expect(find.text(kChooseCoverGroupTitle), findsOneWidget);
+      // This onboarding step intentionally explains the free tier only.
+      // Plan choice and purchase flows belong to the separate ALRT + chooser.
+      expect(find.text(kChooseForMyselfTitle), findsNothing);
+      expect(find.text(kChooseCoverGroupTitle), findsNothing);
       expect(find.textContaining('Create or join a group in Family first'),
-          findsOneWidget);
+          findsNothing);
       await tester.tap(find.text(kContinueFree));
       await tester.pumpAndSettle();
       expect(done, 1);

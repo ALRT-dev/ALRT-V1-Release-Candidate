@@ -137,7 +137,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           child: Text(
             'I already have an account',
             style: TextStyle(
-              color: AppColors.darkGrey,
+              color: AppColors.mediumGrey,
               fontSize: 15.spMin,
               fontWeight: FontWeight.w500,
             ),
@@ -154,7 +154,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         Text(
           'Sign in to continue',
           style: TextStyle(
-            color: AppColors.darkGrey,
+            color: AppColors.mediumGrey,
             fontSize: 16.spMin,
             fontWeight: FontWeight.w600,
           ),

@@ -126,6 +126,48 @@ export interface UpdateHazardSourceLicenseData {
   backgroundColor?: string | null | undefined;
 }
 
+/** Generic registry adapters must be reviewed before they can publish. */
+const isGenericRegistryAdapter = (adapterKey?: string | null): boolean =>
+  adapterKey === "geojson" || adapterKey === "rss";
+
+const validateRegistrySourceActivation = (params: {
+  adapterKey?: string | null | undefined;
+  lifecycleStatus?: string | null | undefined;
+  feedUrl?: string | null | undefined;
+  format?: string | null | undefined;
+  licenseId?: string | null | undefined;
+  licensingNotes?: string | null | undefined;
+  lastReviewedAt?: Date | null | undefined;
+  expiryReviewAt?: Date | null | undefined;
+}): void => {
+  if (!isGenericRegistryAdapter(params.adapterKey) || params.lifecycleStatus !== "active") {
+    return;
+  }
+
+  const missing: string[] = [];
+  if (!params.feedUrl?.trim()) missing.push("feed URL");
+  if (!params.format?.trim()) missing.push("feed format");
+  if (!params.lastReviewedAt) missing.push("last-reviewed date");
+  if (!params.expiryReviewAt) missing.push("next review date");
+  if (!params.licenseId && !params.licensingNotes?.trim()) {
+    missing.push("licence record or licensing notes");
+  }
+  if (missing.length > 0) {
+    throw new HttpError(
+      400,
+      "Cannot activate this registry source until these fields are recorded: " + missing.join(", ") + ".",
+    );
+  }
+
+  const now = Date.now();
+  if (params.lastReviewedAt && params.lastReviewedAt.getTime() > now) {
+    throw new HttpError(400, "Last-reviewed date cannot be in the future.");
+  }
+  if (params.expiryReviewAt && params.expiryReviewAt.getTime() <= now) {
+    throw new HttpError(400, "The next review date must be in the future.");
+  }
+};
+
 /**
  * Get hazard sources with pagination and search
  */
@@ -218,6 +260,20 @@ export const createHazardSource = async (data: CreateHazardSourceData) => {
     }
   }
 
+  const lifecycleStatus: HazardSourceLifecycleStatus | undefined =
+    data.lifecycleStatus ??
+    (isGenericRegistryAdapter(data.adapterKey) ? "monitoring" : undefined);
+  validateRegistrySourceActivation({
+    adapterKey: data.adapterKey,
+    lifecycleStatus,
+    feedUrl: data.feedUrl,
+    format: data.format,
+    licenseId: data.licenseId,
+    licensingNotes: data.licensingNotes,
+    lastReviewedAt: data.lastReviewedAt,
+    expiryReviewAt: data.expiryReviewAt,
+  });
+
   // If licenseId is provided, verify it exists
   if (data.licenseId) {
     const license = await prisma.hazardSourceLicense.findUnique({
@@ -259,7 +315,7 @@ export const createHazardSource = async (data: CreateHazardSourceData) => {
       ...(data.warningTypes && { warningTypes: data.warningTypes }),
       ...(data.sourceNativeSeverity && { sourceNativeSeverity: data.sourceNativeSeverity }),
       ...(data.sourceNativeSymbol && { sourceNativeSymbol: data.sourceNativeSymbol }),
-      ...(data.lifecycleStatus && { lifecycleStatus: data.lifecycleStatus }),
+      ...(lifecycleStatus && { lifecycleStatus }),
       ...(data.healthStatus && { healthStatus: data.healthStatus }),
       ...(data.lastReviewedAt && { lastReviewedAt: data.lastReviewedAt }),
       ...(data.expiryReviewAt && { expiryReviewAt: data.expiryReviewAt }),
@@ -303,6 +359,19 @@ export const updateHazardSource = async (
   if (!existingSource) {
     throw new HttpError(404, "Hazard source not found");
   }
+
+  const nextAdapterKey = data.adapterKey !== undefined ? data.adapterKey : existingSource.adapterKey;
+  const nextLifecycleStatus = data.lifecycleStatus ?? existingSource.lifecycleStatus;
+  validateRegistrySourceActivation({
+    adapterKey: nextAdapterKey,
+    lifecycleStatus: nextLifecycleStatus,
+    feedUrl: data.feedUrl !== undefined ? data.feedUrl : existingSource.feedUrl,
+    format: data.format !== undefined ? data.format : existingSource.format,
+    licenseId: data.licenseId !== undefined ? data.licenseId : existingSource.licenseId,
+    licensingNotes: data.licensingNotes !== undefined ? data.licensingNotes : existingSource.licensingNotes,
+    lastReviewedAt: data.lastReviewedAt !== undefined ? data.lastReviewedAt : existingSource.lastReviewedAt,
+    expiryReviewAt: data.expiryReviewAt !== undefined ? data.expiryReviewAt : existingSource.expiryReviewAt,
+  });
 
   // If licenseId is provided, verify it exists
   if (data.licenseId) {

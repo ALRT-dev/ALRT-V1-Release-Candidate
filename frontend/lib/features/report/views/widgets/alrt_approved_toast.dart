@@ -186,7 +186,7 @@ class _AlrtApprovedToastState extends State<AlrtApprovedToast>
                                   ),
                                   2.hSizedBox,
                                   Text(
-                                    'Your alert is now live - community notified',
+                                    'Your report is live. Nearby users can view it; notifications follow confirmation.',
                                     style: TextStyle(
                                       fontSize: 11.spMin,
                                       fontWeight: FontWeight.w500,

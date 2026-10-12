@@ -72,7 +72,7 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
   final DateTime? askedAt;
 
   /// This member's most recent check-in, when the hub has it: carries the
-  /// alert it was made from ("near <alert>") and any message.
+  /// alert it was made from ("near `<alert>`") and any message.
   final FamilyCheckIn? lastCheckIn;
   final VoidCallback? onAskToCheckIn;
   final VoidCallback? onRequestLocation;

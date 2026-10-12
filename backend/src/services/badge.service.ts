@@ -1,9 +1,10 @@
 import prisma from "../utils/prisma_client.util.js";
-import { XpEventType } from "@prisma/client";
+import { HazardReviewStatus, XpEventType } from "@prisma/client";
 import { sendSocketEventToUsers } from "./socket.service.js";
 import { SocketEvent } from "../models/socket_event_types.js";
-import { sendPushNotificationToUser } from "./notification.service.js";
+import { sendPushNotificationAboutNewHazard, sendPushNotificationToUser } from "./notification.service.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
+import { COMMUNITY_PUSH_CONFIRMATION_THRESHOLD } from "../utils/source_registry.util.js";
 
 /**
  * Badges — Points & Badge Logic v1.1 section 3.
@@ -45,7 +46,7 @@ export type BadgeDefinition = {
  * production note at the top of the v1.1 document). The badges keep the
  * document's own bar.
  */
-export const CORROBORATED_THRESHOLD = 3;
+export const CORROBORATED_THRESHOLD = COMMUNITY_PUSH_CONFIRMATION_THRESHOLD;
 
 /** Wide corroboration, per v1.1: the +10 event, once per report. */
 export const WIDELY_CORROBORATED_THRESHOLD = 9;
@@ -275,6 +276,24 @@ export const recordCorroboration = async (params: {
     const total = await prisma.hazardCorroboration.count({
       where: { hazardId: params.hazardId },
     });
+
+    // Community reports must not notify the surrounding area on acceptance.
+    // Send the first area push only when the report reaches the standard's
+    // three independent nearby confirmations. Retry the idempotent push path
+    // at >= threshold so concurrent confirmations cannot skip the threshold
+    // event; recipient claims prevent duplicate pushes.
+    if (total >= CORROBORATED_THRESHOLD) {
+      const confirmedHazard = await prisma.hazard.findFirst({
+        where: {
+          id: params.hazardId,
+          reviewStatus: HazardReviewStatus.accepted,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+      });
+      if (confirmedHazard) {
+        await sendPushNotificationAboutNewHazard(confirmedHazard);
+      }
+    }
 
     // Every new confirmation can push a badge over its line.
     await evaluateBadges(params.reporterUserId);

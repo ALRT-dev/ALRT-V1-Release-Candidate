@@ -128,6 +128,10 @@ class _FakeUserRepository implements UserRepository {
   }) => throw UnimplementedError();
 
   @override
+  Future<Either<void, AppError>> deleteUserProfilePicture() =>
+      throw UnimplementedError();
+
+  @override
   Future<Either<LocationSubscription, AppError>> subscribeToLocation({
     required final double northeastLat,
     required final double northeastLng,

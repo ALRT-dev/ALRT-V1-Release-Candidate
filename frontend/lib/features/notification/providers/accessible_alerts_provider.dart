@@ -40,9 +40,8 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
     return AccessibleAlertsSettings(
       strongVibration:
           _explicitVibration ?? cohorts.contains(SafetyCohort.deaf),
-      // Nothing is read aloud automatically. Anyone who wants an alert
-      // spoken taps Listen at the bottom of it.
-      readAloud: false,
+      // Read aloud is opt-in and defaults to off. Individual alerts still require Listen.
+      readAloud: _explicitReadAloud ?? false,
     );
   }
 

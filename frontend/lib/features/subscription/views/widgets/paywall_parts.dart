@@ -196,15 +196,20 @@ class PaywallCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: padding ?? EdgeInsets.all(14.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18.spMin),
-        border: Border.all(color: kPaywallLine),
+        side: BorderSide(color: kPaywallLine),
       ),
-      child: child,
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: double.infinity,
+        child: Padding(
+          padding: padding ?? EdgeInsets.all(14.spMin),
+          child: child,
+        ),
+      ),
     );
   }
 }

@@ -10,7 +10,6 @@ import 'package:hazard_app/features/report/providers/report_rate_limit_provider.
 import 'package:hazard_app/features/report/views/widgets/duplicate_report_sheet.dart';
 import 'package:hazard_app/features/report/views/widgets/report_rate_limit_sheet.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
-import 'package:hazard_app/features/map/models/alrt_location_model.dart';
 import 'package:hazard_app/features/profile/views/screens/how_points_work_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/my_hazards_screen.dart';
 import 'package:hazard_app/features/report/providers/create_update_report_provider.dart';
@@ -23,7 +22,6 @@ import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
-import 'package:hazard_app/features/shared/repositories/hazard_repository.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/media_service.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
@@ -52,9 +50,6 @@ const _labelColor = Color(0xFFFF6B01);
 /// itself. Flat hairline borders were the other half of the cheap look.
 const _iconTint = Color(0xFFFFF3E8);
 const _cardShadow = Color(0x0D1E142D);
-
-/// The chip treatment the prototype gives secondary actions.
-const _chipFill = Color(0xFFF0F2F5);
 
 class CreateUpdateReportScreenArgs {
   CreateUpdateReportScreenArgs({this.hazardToUpdate});
@@ -1738,22 +1733,6 @@ class _CreateUpdateReportScreenState
   /// Updates the title in the state.
   void _updateTitle(final String title) {
     ref.read(providerOfCreateReport.notifier).updateTitle(title);
-  }
-
-  /// Updates the location in the state. Picking the TEST-only Scarborough
-  /// fallback also labels the report, so it can never be submitted looking
-  /// like a real one even if the tester never touches the title field -
-  /// only when the title is still empty, so it never overwrites something
-  /// the tester already typed.
-  void _updateLocation(final AlrtLocation location) {
-    ref.read(providerOfCreateReport.notifier).updateLocation(location);
-
-    if (location == testScarboroughLocation &&
-        _titleController.text.trim().isEmpty) {
-      const testTitle = 'TEST — DO NOT USE — Community test report';
-      _titleController.text = testTitle;
-      _updateTitle(testTitle);
-    }
   }
 
   /// Updates the description in the state.
