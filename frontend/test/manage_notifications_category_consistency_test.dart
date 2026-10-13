@@ -22,6 +22,7 @@ import 'package:hazard_app/features/shared/repositories/hazard_repository.dart';
 import 'package:hazard_app/features/shared/repositories/user_repository.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
+import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/hazard_filters_bottomsheet_content.dart';
 
 /// A [HazardRepository] that only serves the parent-category list this test
@@ -221,6 +222,21 @@ List<(String, Color, bool)> _renderedChips(final WidgetTester tester) {
       .toList();
 }
 
+/// The ordered (name, colour) pair every category tile in the ALRT
+/// Filters sheet renders. The sheet draws a two-column grid of
+/// [CategoryGlyph] tiles (14 Oct 2026), not [CategoryFilterChip]s.
+List<(String, Color)> _renderedFilterTiles(final WidgetTester tester) {
+  return tester
+      .widgetList<CategoryGlyph>(find.byType(CategoryGlyph))
+      .map(
+        (final glyph) => (
+          glyph.category.name ?? '',
+          categoryChipColor(glyph.category),
+        ),
+      )
+      .toList();
+}
+
 Widget _wrap(final Widget child, {required final ProviderContainer container}) {
   return UncontrolledProviderScope(
     container: container,
@@ -283,7 +299,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final feedChips = _renderedChips(tester);
+        final feedChips = _renderedFilterTiles(tester);
 
         expect(
           notificationsChips.map((c) => (c.$1, c.$2)),
