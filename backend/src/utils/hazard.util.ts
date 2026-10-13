@@ -10,6 +10,10 @@ import type {
   SortSetting,
 } from "../models/hazard_search_params_interface.js";
 import type { SeverityKeywords } from "../models/severity_keywords_interface.js";
+import {
+  withAlwaysOnExemptionSql,
+  withAlwaysOnExemptionWhere,
+} from "./official_warning.util.js";
 
 /**
  * Builds the where clause for querying hazards based on various filters.
@@ -45,11 +49,20 @@ export const buildHazardsWhereClause = (
     subscriptions,
     showExpired,
     isAwsCompliant,
+    isAdminRequest,
     matchCategoryIdsWithSubCategoriesAlso = true, // Default to true to maintain existing behavior
   } = params;
 
   // Build the where clause for filtering hazards
   const andConditions: Prisma.HazardWhereInput[] = [];
+  // Conditions a user chose (category, per-type toggles). Official warnings
+  // are always on, so for a user-facing list these are combined as
+  // (gated) OR always-on instead of being plain ANDs. Counting queries
+  // (matchCategoryIdsWithSubCategoriesAlso=false) and admin lists keep the
+  // plain behaviour.
+  const gatedConditions: Prisma.HazardWhereInput[] = [];
+  const exemptOfficialWarnings =
+    matchCategoryIdsWithSubCategoriesAlso && !isAdminRequest;
 
   // Apply search string filter if provided
   if (searchString) {
@@ -79,7 +92,7 @@ export const buildHazardsWhereClause = (
 
     if (matchCategoryIdsWithSubCategoriesAlso) {
       // Include hierarchical category filtering with joins
-      andConditions.push({
+      gatedConditions.push({
         OR: [
           // Match hazards with categories that are directly in the list
           {
@@ -99,7 +112,7 @@ export const buildHazardsWhereClause = (
       });
     } else {
       // Simple category filtering without hierarchical search (for groupBy operations)
-      andConditions.push({
+      gatedConditions.push({
         categoryId: {
           in: categoryIdArray,
         },
@@ -160,10 +173,21 @@ export const buildHazardsWhereClause = (
 
   // If any filter conditions exist, add them as OR conditions
   if (filterConditions.length > 0) {
-    andConditions.push({
+    gatedConditions.push({
       OR: filterConditions,
     });
   }
+
+  // Official warnings are always on: lift the category filter and the
+  // per-type toggles for AWS Emergency Warnings and official critical
+  // alerts. Everything else (location, block, review status, expiry,
+  // explicit severity / source filters) stays ANDed.
+  andConditions.push(
+    ...(withAlwaysOnExemptionWhere(
+      gatedConditions,
+      exemptOfficialWarnings,
+    ) as Prisma.HazardWhereInput[]),
+  );
 
   // Apply reportedById filter if provided
   if (reportedById) {
@@ -552,6 +576,9 @@ export const buildHazardsWhereClauseRaw = (
   } = params;
 
   const whereConditions: string[] = [];
+  // Category filter and per-type toggles; official warnings are always on,
+  // so these combine as (gated) OR always-on (see official_warning.util.ts).
+  const gatedSql: string[] = [];
   const queryParams: any[] = [];
   let paramIndex = 1;
 
@@ -590,7 +617,7 @@ export const buildHazardsWhereClauseRaw = (
       .join(",");
 
     // Optimized: Use EXISTS with proper parameter handling
-    whereConditions.push(`(
+    gatedSql.push(`(
       h."categoryId" IN (${directPlaceholders})
       OR EXISTS (
         SELECT 1 FROM "HazardCategory" hc_parent
@@ -666,8 +693,11 @@ export const buildHazardsWhereClauseRaw = (
 
   // If any filter conditions exist, add them as OR conditions
   if (filterConditions.length > 0) {
-    whereConditions.push(`(${filterConditions.join(" OR ")})`);
+    gatedSql.push(`(${filterConditions.join(" OR ")})`);
   }
+  whereConditions.push(
+    ...withAlwaysOnExemptionSql(gatedSql, !isAdminRequest),
+  );
 
   // Admin list sent userReported=false explicitly: official hazards only.
   // (Absent means both, which is why this is a separate flag.)

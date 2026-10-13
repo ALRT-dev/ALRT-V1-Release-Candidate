@@ -66,7 +66,9 @@ export type UpdateOwnLocationSubscriptionRadiusInput = z.infer<
 >;
 
 export const updateNotificationSettingsSchema = z.object({
-  awsEmergency: z.boolean(),
+  // AWS Emergency Warnings are always on: a client may send false, the
+  // stored and returned value is always true.
+  awsEmergency: z.boolean().transform(() => true),
 
   awsWatchAndAct: z.boolean(),
 

@@ -718,6 +718,11 @@ export const summarizeAndPostHazards = async ({
             id: hazardData.id,
             title: hazardData.title,
             description: hazardData.description,
+            // A level change on the same id is an escalation, not a
+            // re-send: it must be allowed to push again.
+            severity: hazardData.severity ?? null,
+            severityBand: hazardData.severityBand ?? null,
+            isAwsCompliant: hazardData.isAwsCompliant ?? false,
           });
           const alreadyNotified = isUpdate
             ? await wasContentNotified(notifiedHash)
