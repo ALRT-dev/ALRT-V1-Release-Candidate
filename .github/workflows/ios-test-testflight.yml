@@ -397,43 +397,23 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
 
-      - name: Configure Xcode to use the installed dev profile
+      - name: Make installed TEST profiles available to Xcode 26
         if: ${{ !inputs.simulator_smoke }}
         run: |
           OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
           NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
           mkdir -p "$NEW"
-          PROFILE_NAME=""
           for PROFILE in "$OLD"/*.mobileprovision; do
             [ -f "$PROFILE" ] || continue
             DECODED="$(mktemp)"
             if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
               APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
-              if [[ "$APP_ID" == *".com.safetyalrt.alrt.dev" ]]; then
-                PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED")"
+              if [[ "$APP_ID" == "JR89M7CYPR.com.safetyalrt.alrt.dev" || "$APP_ID" == "JR89M7CYPR.com.safetyalrt.alrt.dev.AlrtWidget" ]]; then
                 cp -f "$PROFILE" "$NEW/"
-                rm -f "$DECODED"
-                break
               fi
             fi
             rm -f "$DECODED"
           done
-          if [ -z "$PROFILE_NAME" ]; then
-            echo "::error::No installed provisioning profile found for com.safetyalrt.alrt.dev"
-            exit 1
-          fi
-          python3 - "$PROFILE_NAME" ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI-dev.plist <<'PY'
-          import pathlib
-          import sys
-
-          profile_name, *paths = sys.argv[1:]
-          expected_name = "match AppStore com.safetyalrt.alrt.dev"
-          files = [(pathlib.Path(path), pathlib.Path(path).read_text()) for path in paths]
-          if any(expected_name not in contents for _, contents in files):
-              raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
-          for path, contents in files:
-              path.write_text(contents.replace(expected_name, profile_name))
-          PY
 
       - name: Select Xcode 26 (App Store Connect requires the iOS 26 SDK)
         run: |
@@ -456,11 +436,11 @@ jobs:
           rm -f Podfile.lock
           pod repo update
 
-      # Diagnostic only: the same TEST app, built for the Simulator (no
+      # The same TEST app, built for the Simulator (no
       # signing), launched on this runner for 90 seconds. Prints whether it
       # stayed running, its console and error log, and any crash report, and
       # keeps a screenshot. Nothing is signed or uploaded.
-      - name: Simulator launch test (diagnostic, no upload)
+      - name: Simulator launch test (no upload)
         if: ${{ inputs.simulator_smoke }}
         run: |
           set -x
@@ -471,6 +451,10 @@ jobs:
             --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }}
           APP="$(ls -d build/ios/iphonesimulator/*.app | head -1)"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          WIDGET="$APP/PlugIns/AlrtWidget.appex"
+          test -d "$WIDGET" || { echo "::error::The widget extension was not embedded"; exit 1; }
+          WIDGET_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$WIDGET/Info.plist")"
+          test "$WIDGET_ID" = "com.safetyalrt.alrt.dev.AlrtWidget" || { echo "::error::Wrong widget identity"; exit 1; }
           UDID="$(xcrun simctl list devices available -j | python3 -c '
           import json,sys
           d=json.load(sys.stdin)["devices"]
@@ -485,12 +469,14 @@ jobs:
             > "$RUNNER_TEMP/sim/errors.log" 2>&1 &
           LOGPID=$!
           xcrun simctl launch --console-pty "$UDID" com.safetyalrt.alrt.dev > "$RUNNER_TEMP/sim/console.log" 2>&1 &
-          for t in 15 30 60 90; do
+          SMOKE_FAILED=0
+          for t in 15 30 45 60 75 90; do
             sleep 15
-            if xcrun simctl spawn "$UDID" launchctl list | grep -q "com.safetyalrt.alrt.dev"; then
+            if xcrun simctl spawn "$UDID" launchctl list | awk '$1 ~ /^[0-9]+$/ && $1 > 0 && $3 ~ /^UIKitApplication:com[.]safetyalrt[.]alrt[.]dev(\[|$)/ { found=1 } END { exit !found }'; then
               echo "== still running at about ${t}s"
             else
               echo "== NOT RUNNING at about ${t}s (exited or crashed)"
+              SMOKE_FAILED=1
             fi
           done
           xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/sim/screen.png" || true
@@ -501,6 +487,7 @@ jobs:
           for f in $(ls -t ~/Library/Logs/DiagnosticReports/*Runner* ~/Library/Logs/DiagnosticReports/*ALRT* 2>/dev/null | head -3); do
             echo "--- $f"; head -150 "$f"; cp "$f" "$RUNNER_TEMP/sim/" || true
           done
+          test "$SMOKE_FAILED" = 0 || { echo "::error::ALRT Dev exited during the simulator launch test"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.simulator_smoke && always() }}
