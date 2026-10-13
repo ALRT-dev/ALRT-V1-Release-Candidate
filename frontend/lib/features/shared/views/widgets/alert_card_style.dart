@@ -49,7 +49,7 @@ abstract final class AlertCardStyle {
     final bool isAlrtIntel = false,
   }) {
     if (isAlrtIntel) return LucideIcons.shield;
-    if (isGlobalHumanitarian) return LucideIcons.square;
+    if (isGlobalHumanitarian) return LucideIcons.diamond;
     if (isAws) return LucideIcons.triangleAlert;
     if (isOfficial) return LucideIcons.diamond;
     return LucideIcons.circle;

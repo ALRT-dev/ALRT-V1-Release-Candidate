@@ -31,6 +31,9 @@ _Hazard _$HazardFromJson(Map<String, dynamic> json) => _Hazard(
       ? null
       : HazardSource.fromJson(json['source'] as Map<String, dynamic>),
   aiSummary: json['aiSummary'] as String?,
+  contentDetails: json['contentDetails'] as Map<String, dynamic>?,
+  nativeWarningLevel: json['nativeWarningLevel'] as String?,
+  jurisdictionCountry: json['jurisdictionCountry'] as String?,
   aiConfidence: $enumDecodeNullable(
     _$AIConfidenceEnumMap,
     json['aiConfidence'],
@@ -102,6 +105,9 @@ Map<String, dynamic> _$HazardToJson(_Hazard instance) => <String, dynamic>{
   'fireStatus': ?_$FireStatusEnumMap[instance.fireStatus],
   'source': ?instance.source?.toJson(),
   'aiSummary': ?instance.aiSummary,
+  'contentDetails': ?instance.contentDetails,
+  'nativeWarningLevel': ?instance.nativeWarningLevel,
+  'jurisdictionCountry': ?instance.jurisdictionCountry,
   'aiConfidence': ?_$AIConfidenceEnumMap[instance.aiConfidence],
   'callsToAction': ?instance.callsToAction,
   'isAwsCompliant': ?instance.isAwsCompliant,

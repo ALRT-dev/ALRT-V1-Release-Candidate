@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -854,10 +855,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         // What we know: the SOURCE's own description, verbatim. Not our
         // words and not an AI summary.
-        _buildOfficialDescriptionSection(),
-
-        // What To Do Section (verbatim from source)
-        _buildWhatToDoSection(),
+        Consumer(builder: (context, ref, child) {
+          final hazard = ref.watch(provider.select((value) => value.hazard));
+          if (hazard?.contentDetails != null) {
+            return AgencyContentSections(content: hazard!.contentDetails!, sourceName: hazard.source?.name);
+          }
+          return Column(children: [_buildOfficialDescriptionSection(), _buildWhatToDoSection()]);
+        }),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
@@ -877,6 +881,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               provider.select((value) => value.hazard?.title),
             );
             return ForYouCard(
+              publishedRows: ref.watch(provider.select((value) => value.hazard?.publishedProfileGuidance)),
               categoryName: categoryName,
               parentCategoryName: parentCategoryName,
               title: title,

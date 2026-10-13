@@ -31,8 +31,11 @@ bool hazardIsInMapBounds(Hazard hazard, LatLngBounds bounds) {
 /// is selected, so a preset/report filed under a child category (e.g.
 /// "bushfire") is still shown when only the parent ("weatherAndEnvironment")
 /// is selected, and vice versa.
-bool hazardMatchesMapFilters(Hazard hazard, HazardFiltersProviderState filters) {
-  // Official warnings are always visible: an AWS Emergency Warning and any
+bool hazardMatchesMapFilters(
+  Hazard hazard,
+  HazardFiltersProviderState filters,
+) {
+  // Official warnings are always visible: all active AWS levels and any
   // official (not user-reported) critical-band alert match regardless of the
   // category selection and of the source switches.
   if (_isAlwaysVisibleOfficialWarning(hazard)) return true;
@@ -77,12 +80,17 @@ bool hazardMatchesMapFilters(Hazard hazard, HazardFiltersProviderState filters) 
   return filters.allowsHazard(hazard);
 }
 
-/// AWS emergency warnings and official critical-band alerts are never hidden
+/// Active AWS warnings and official critical-band alerts are never hidden
 /// by a filter. User-reported alerts are not official, so they stay filterable.
 bool _isAlwaysVisibleOfficialWarning(Hazard hazard) {
   if (hazard.isUserReported) return false;
   if (hazard.isAwsCompliant == true &&
-      hazard.severity == HazardSeverity.emergency) {
+      hazard.severityBand != HazardSeverityBand.info &&
+      const {
+        HazardSeverity.advice,
+        HazardSeverity.watchAndAct,
+        HazardSeverity.emergency,
+      }.contains(hazard.severity)) {
     return true;
   }
   return hazard.severityBand == HazardSeverityBand.critical;

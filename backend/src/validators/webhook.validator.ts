@@ -3,6 +3,10 @@ import { FireStatus, HazardSeverityBand } from "@prisma/client";
 import { SyncHazardsFromExternalSourceOption } from "../enums/sync_hazards_from_external_source_option_types.js";
 
 export const createHazardWebhookBodySchema = z.object({
+  nativeWarningLevel: z.string().trim().min(1).max(150).optional(),
+  jurisdictionCountry: z.string().regex(/^[A-Z]{2}$/).optional(),
+  // Raw agency instruction fields, including all conditions. Never upstream AI advice.
+  sourceInstructions: z.array(z.string().trim().min(1).max(50000)).max(40).optional(),
   id: z
     .string()
     .min(1, "Invalid id provided")
@@ -18,7 +22,7 @@ export const createHazardWebhookBodySchema = z.object({
   description: z
     .string()
     .min(1, "Description cannot be empty")
-    .max(5000, "Description must be at most 5000 characters"),
+    .max(50000, "Description must be at most 50000 characters"),
 
   aiSummary: z
     .string()

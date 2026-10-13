@@ -35,6 +35,8 @@ export const testWebhookBody = (now: Date = new Date()) => ({
       latitude: -31.9523,
       longitude: 115.8613,
       sourceId: TEST_SOURCE_ID,
+      jurisdictionCountry: "AU",
+      sourceInstructions: [],
       occurredAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
     },

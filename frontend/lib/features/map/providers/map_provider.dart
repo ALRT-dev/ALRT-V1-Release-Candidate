@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:hazard_app/features/shared/utils/template_marker.dart';
 import 'dart:math' hide log;
 import 'dart:developer';
 
@@ -2045,6 +2046,8 @@ class MapProvider extends StateNotifier<MapProviderState> {
     final Hazard hazard,
     final Map<String, BitmapDescriptor> markerBitmaps,
   ) async {
+    final configured = await templateMarker(hazard);
+    if (configured != null) return configured;
     if (hazard.isAlrtIntel) {
       final shield = await _getIntelShieldBitmap(hazard);
       if (shield != null) return shield;
