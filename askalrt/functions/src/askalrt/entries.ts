@@ -180,6 +180,6 @@ export const KNOWLEDGE_BASE: readonly KnowledgeEntry[] = [
     triggers: ["what number do i call", "emergency services", "who do i call in an emergency"],
     keywords: ["emergency", "call", "help"],
     answer:
-      "If you are in danger, call your local emergency services now. In Australia that is 000, in Europe 112, and in the US or Canada 911. ALRT is a helper, it does not contact emergency services for you.",
+      "If you are in danger, call your local emergency number now. ALRT is a helper, it does not contact emergency services for you.",
   },
 ];
