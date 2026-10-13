@@ -165,9 +165,10 @@ describe("scheduled check-in validator", () => {
 });
 
 describe("Ask ALRT copy never hard-codes 000", () => {
-  it("system prompt points to the local emergency number, with 112 as the global fallback", () => {
+  it("system prompt points to the local emergency number and names no number as a fallback", () => {
     expect(ASK_ALRT_SYSTEM_PROMPT).not.toMatch(/\b000\b/);
-    expect(ASK_ALRT_SYSTEM_PROMPT).toContain("112 works on most mobiles worldwide");
+    expect(ASK_ALRT_SYSTEM_PROMPT).toContain("call their local emergency number and, when travelling");
+    expect(ASK_ALRT_SYSTEM_PROMPT).not.toContain("112 works on most mobiles");
   });
 
   it("seed entries never say 000", () => {
