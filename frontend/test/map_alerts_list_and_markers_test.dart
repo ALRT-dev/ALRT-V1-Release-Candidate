@@ -42,6 +42,22 @@ void main() {
           'Their advice is in this alert.');
     });
 
+    test('keeps the title preposition and names bucket categories', () {
+      final line = AlertCardStyle.plainTermsOf(
+        isOfficial: true,
+        isAws: false,
+        categoryName: 'Security & Crime',
+        sourceName: 'WA Police',
+        title: 'Police operation in Northbridge',
+        hasAdvice: true,
+      );
+      expect(
+        line,
+        'WA Police has reported a security and crime alert in Northbridge. '
+        'Their advice is in this alert.',
+      );
+    });
+
     test('takes the last place phrase in a title', () {
       expect(
         AlertCardStyle.placeFromTitle('Burn-off in progress at Gingin'),

@@ -126,13 +126,20 @@ abstract final class AlertCardStyle {
     // ("an outage", "a bushfire"). A place name the source shouted in
     // capitals is brought back to title case; it is not our emphasis.
     final rawWhat = (categoryName ?? '').trim().toLowerCase();
-    final what = rawWhat == 'other' ? 'alert' : rawWhat;
+    // A broad bucket name ("Security & Crime") is not a thing that
+    // happened, so it reads as "a security and crime alert".
+    final what = rawWhat == 'other'
+        ? 'alert'
+        : rawWhat.contains('&')
+            ? '${rawWhat.replaceAll('&', 'and').replaceAll(RegExp(r'\s+'), ' ')} alert'
+            : rawWhat;
     // The place: the agency's own title names it ("Vehicle Fire at Salter
     // Point") far better than the feed's region code ("METRO SOUTH EAST"),
     // so the title's place wins when it has one.
-    final titlePlace = placeFromTitle(title);
-    final where = titlePlace ?? _calmCase((locationName ?? '').trim());
-    final preposition = titlePlace != null ? 'at' : 'near';
+    final fromTitle = _placeAndPreposition(title);
+    final where = fromTitle?.$2 ?? _calmCase((locationName ?? '').trim());
+    // Keep the agency's own word: "at Salter Point", "in Northbridge".
+    final preposition = fromTitle?.$1 ?? 'near';
     final article = what.isEmpty
         ? ''
         : 'aeiou'.contains(what[0])
@@ -170,30 +177,34 @@ abstract final class AlertCardStyle {
   /// The place named at the end of an agency title, as in "Vehicle Fire at
   /// Salter Point" or "Grass fire near Gingin", or null when the title has
   /// no such phrase. Shouted titles are brought back to title case.
-  static String? placeFromTitle(final String? title) {
+  static String? placeFromTitle(final String? title) =>
+      _placeAndPreposition(title)?.$2;
+
+  /// The title's place with the word the agency put before it.
+  static (String, String)? _placeAndPreposition(final String? title) {
     final t = title?.trim();
     if (t == null || t.isEmpty) return null;
     final lower = t.toLowerCase();
     // The LAST " at " / " near " / " in " wins, so "Burn-off in progress
     // at Gingin" gives Gingin, not "progress at Gingin".
     var cut = -1;
-    var width = 0;
-    for (final word in const [' at ', ' near ', ' in ']) {
-      final i = lower.lastIndexOf(word);
+    var word = '';
+    for (final candidate in const [' at ', ' near ', ' in ']) {
+      final i = lower.lastIndexOf(candidate);
       if (i > cut) {
         cut = i;
-        width = word.length;
+        word = candidate;
       }
     }
     if (cut < 0) return null;
-    final place = t.substring(cut + width).trim();
+    final place = t.substring(cut + word.length).trim();
     // A place name, not the rest of a sentence.
     if (place.isEmpty ||
         place.length > 40 ||
         !RegExp(r"^[A-Za-z][A-Za-z' .-]*$").hasMatch(place)) {
       return null;
     }
-    return _calmCase(place);
+    return (word.trim(), _calmCase(place));
   }
 
   /// Title-cases a string only when it is entirely upper case (a shouted
