@@ -659,43 +659,64 @@ class _CreateUpdateReportScreenState
             width: isSelected ? 2.0 : 1.5,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        // The tick sits in the corner, not beside the word, so it never
+        // takes width from the label: "Dangerous" broke as "Dangero / us"
+        // on a 3-up row (phone review, 14 Oct 2026). The word itself
+        // shrinks to fit rather than wrapping mid-word.
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isSelected) ...[
-                  Icon(
-                    LucideIcons.check,
-                    size: 14.spMin,
-                    color: AppColors.ink,
-                  ),
-                  4.wSizedBox,
-                ],
-                Flexible(
-                  child: Text(
-                    wording.label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.black,
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      wording.label,
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            3.hSizedBox,
-            Text(
-              wording.sub,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.spMin,
-                color: AppColors.mediumGrey,
+                  3.hSizedBox,
+                  Text(
+                    wording.sub,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      height: 1.25,
+                      color: AppColors.mediumGrey,
+                    ),
+                  ),
+                ],
               ),
             ),
+            if (isSelected)
+              Positioned(
+                top: -10.spMin,
+                right: -4.spMin,
+                child: Container(
+                  width: 18.spMin,
+                  height: 18.spMin,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: AppColors.ink,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    LucideIcons.check,
+                    size: 11.spMin,
+                    color: AppColors.white,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
