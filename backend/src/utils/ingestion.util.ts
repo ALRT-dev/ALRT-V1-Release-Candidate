@@ -29,6 +29,7 @@ import {
   getSeverityBandFromSmartravellerLevel,
   getSeverityBandFromUVIndex,
   getSeverityFromDescription,
+  isInfoOverride,
 } from "./ingestion.severity.util.js";
 import {
   awsCompliantCategoryIds,
@@ -128,23 +129,31 @@ export function parseGeoJsonToHazards({
           ? properties.subCategoryA
           : null;
 
-      const { severity, severityBand, category, fireStatus, isAwsCompliant } =
-        getHazardAttributesFromDescription(description, availableCategories);
-
-      let finalCategory = category;
-      // If mainCategory or subCategory is provided, try to refine the category from them
+      // Refine the category from mainCategory/subCategoryA FIRST, so that
+      // isAwsCompliant, severity and band are all computed against the
+      // final category, not the pre-refinement text guess.
+      let refinedCategory: HazardCategory | undefined;
       if (mainCategory || subCategory) {
-        const mainSubCatDesc = `${mainCategory}${
-          subCategory ? ` - ${subCategory}` : ""
-        }`;
+        const mainSubCatDesc = [mainCategory, subCategory]
+          .filter(Boolean)
+          .join(" - ");
         const obtainedCategory = getCategoryFromDescription(
           mainSubCatDesc,
           availableCategories,
         );
         if (obtainedCategory && obtainedCategory.id !== MainCategoryId.other) {
-          finalCategory = obtainedCategory;
+          refinedCategory = obtainedCategory;
         }
       }
+
+      const { severity, severityBand, category, fireStatus, isAwsCompliant } =
+        getHazardAttributesFromDescription(
+          description,
+          availableCategories,
+          undefined,
+          refinedCategory ? { category: refinedCategory } : undefined,
+        );
+      const finalCategory = category;
 
       const hazard: HazardDataWithRelations = {
         ...(hazardId && { id: hazardId }),
@@ -1532,10 +1541,24 @@ function createWAHazardFromWarning({
   const link =
     warning.id && `https://emergency.wa.gov.au/warnings/${warning.id}`;
 
+  // The official level comes from warningType only. The category is
+  // classified from everything the agency wrote (warningType + title +
+  // content + the feed item's own description), because warningType alone
+  // ("Emergency Warning") says nothing about the hazard.
+  const categoryText = [
+    warning.warningType,
+    warning.title,
+    warning.content,
+    typeof item.description === "string" ? item.description : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
   const { severity, severityBand, category, isAwsCompliant } =
     getHazardAttributesFromDescription(
-      warning.warningType,
+      description,
       availableCategories,
+      undefined,
+      { severityText: warning.warningType, categoryText },
     );
   const { fireStatus } = getHazardAttributesFromDescription(
     description,
@@ -3525,6 +3548,14 @@ export const getHazardAttributesFromDescription = (
   description: string,
   availableCategories: (HazardCategory & { parent: HazardCategory | null })[],
   fallbackCategoryId?: string,
+  options?: {
+    /** Use this category instead of deriving one from the text. */
+    category?: HazardCategory;
+    /** Text used only to derive the category (default: description). */
+    categoryText?: string;
+    /** Text the official level is read from (default: description). */
+    severityText?: string;
+  },
 ): {
   severity: HazardSeverity;
   severityBand: HazardSeverityBand;
@@ -3532,23 +3563,34 @@ export const getHazardAttributesFromDescription = (
   fireStatus: FireStatus | null;
   isAwsCompliant: boolean;
 } => {
-  const severity = getSeverityFromDescription(description);
-  const category = getCategoryFromDescription(
-    description,
-    availableCategories,
-    fallbackCategoryId,
+  const severity = getSeverityFromDescription(
+    options?.severityText ?? description,
   );
+  const category =
+    options?.category ??
+    getCategoryFromDescription(
+      options?.categoryText ?? description,
+      availableCategories,
+      fallbackCategoryId,
+    );
   const fireStatus = getFireStatusFromDescription(description);
+  // isAwsCompliant keeps its meaning: an AWS level on an AWS hazard category.
   const isAwsCompliant =
     awsCompliantSeverities.includes(severity) &&
     awsCompliantCategoryIds.includes(category.id);
 
-  let severityBand: HazardSeverityBand = HazardSeverityBand.info;
-  if (isAwsCompliant) {
-    // AWS compliant - derive severity band from severity
+  // The source's own warning level is never lost. Whenever the source
+  // supplies an official level (Advice, Watch and Act, Emergency Warning),
+  // the band comes from that level whatever the category (planned burn,
+  // structure fire, crash...). Only drills, tests and resolved incidents
+  // override it, down to info (Rule Zero: severity is assigned in code).
+  let severityBand: HazardSeverityBand;
+  if (isInfoOverride(description)) {
+    severityBand = HazardSeverityBand.info;
+  } else if (awsCompliantSeverities.includes(severity)) {
     severityBand = getSeverityBandFromAWSCompliantSeverity(severity);
   } else {
-    // Non AWS compliant - derive severity band from description
+    // No official level: derive the band from the description phrases.
     severityBand = getSeverityBandFromDescription(description);
   }
 

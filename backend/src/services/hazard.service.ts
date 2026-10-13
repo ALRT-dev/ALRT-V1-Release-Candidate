@@ -38,6 +38,7 @@ import { config } from "../utils/config.js";
 import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
 import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
+import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import {
   SOURCE_REGISTRY_DEFAULTS,
   type SourceSystemKey,
@@ -689,8 +690,16 @@ export const summarizeHazard = async ({
     contentHash,
   );
   if (cachedSummary) {
-    console.log("AI summary cache hit, skipping model call:", title);
-    return cachedSummary;
+    // A cache entry written before validation existed may be malformed.
+    const validCached = validateAISummary(cachedSummary);
+    if (validCached.ok) {
+      console.log("AI summary cache hit, skipping model call:", title);
+      return validCached.value;
+    }
+    console.warn(
+      `Ignoring invalid cached AI summary (${validCached.reason}):`,
+      title,
+    );
   }
 
   const { model, content: systemPromptContent } = await getAIPromptForHazard({
@@ -717,10 +726,23 @@ Standardize the following hazard report using the rules and templates in the sys
   });
 
   try {
-    const aiSummary = JSON.parse(content) as AISummaryResponse;
-    await cacheAISummary(contentHash, aiSummary);
-    return aiSummary;
+    const parsed: unknown = JSON.parse(content);
+    // Post-AI validation: the model output is untrusted. Anything that is
+    // not the exact shape (and length limits) we store is rejected, and the
+    // caller's existing raw-source fallback is used instead. Nothing invalid
+    // is cached or written to the database (callsToAction must be string[]).
+    const checked = validateAISummary(parsed);
+    if (!checked.ok) {
+      console.error(`AI summary failed validation: ${checked.reason}`);
+      throw new HttpError(
+        500,
+        `AI summarization failed: invalid content (${checked.reason})`,
+      );
+    }
+    await cacheAISummary(contentHash, checked.value);
+    return checked.value;
   } catch (parseError) {
+    if (parseError instanceof HttpError) throw parseError;
     console.error("Failed to parse AI summary response:", parseError);
     throw new HttpError(
       500,

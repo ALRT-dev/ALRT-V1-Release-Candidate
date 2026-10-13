@@ -794,7 +794,11 @@ export const summarizeAndPostHazards = async ({
             title: summarized.title || hazardData.title,
             aiSummary: hazardData.aiSummary || summarized.summary,
             aiConfidence: summarized.confidence,
-            callsToAction: hazardData.callsToAction || summarized.callsToAction,
+            callsToAction: Array.isArray(hazardData.callsToAction)
+              ? hazardData.callsToAction
+              : Array.isArray(summarized.callsToAction)
+                ? summarized.callsToAction
+                : [],
             reviewStatus: HazardReviewStatus.accepted,
             reviewedAt: new Date(),
             confidenceScore,

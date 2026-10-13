@@ -10,9 +10,48 @@ export const severityKeywords = {
   [HazardSeverity.advice]: ["advice"],
   [HazardSeverity.unknown]: ["not applicable"],
 
-  // Always keep info last to avoid false positives (e.g., "information" in "emergency warning")
-  [HazardSeverity.info]: ["info", "information"],
+  // Always keep info last. Matching is by whole phrase (see
+  // getSeverityFromDescription): "info" never matches inside "information",
+  // and a bare "information" (as in "for more information") is not a level.
+  [HazardSeverity.info]: ["info", "information only", "information message"],
 };
+
+/**
+ * "advice" is an official AWS level only when it is used as the level, not
+ * as a common noun. These phrases ("follow official advice", "travel
+ * advice", "advice from police") must never be read as the Advice level.
+ */
+const adviceNounPatterns: RegExp[] = [
+  /\b(?:official|general|further|travel|safety|medical|expert|professional|legal|health|more|any|this|that|the|our|their|your|local)\s+advice\b/g,
+  /\badvice\s+(?:from|on|about|regarding|for|as to|is available|can be found|and (?:information|support|assistance))\b/g,
+  /\b(?:follow|seek|take|heed|get|obtain|listen to)\s+(?:[a-z]+\s+){0,2}advice\b/g,
+];
+
+const phraseRegexCache = new Map<string, RegExp>();
+
+/**
+ * Whole-phrase matcher: the phrase must start and end on a word boundary
+ * and its spaces match any run of whitespace. No colon exclusion: a level
+ * phrase followed by a colon ("Emergency Warning: Bush Fire at X") is
+ * exactly how agencies publish the level.
+ */
+const phraseRegex = (phrase: string): RegExp => {
+  const key = phrase.toLowerCase();
+  let re = phraseRegexCache.get(key);
+  if (!re) {
+    const escaped = key
+      .trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\s+/g, "\\s+");
+    re = new RegExp(`(?<![\\w])${escaped}(?![\\w])`, "i");
+    phraseRegexCache.set(key, re);
+  }
+  return re;
+};
+
+/** True when the text contains the phrase as a whole phrase. */
+export const containsPhrase = (text: string, phrase: string): boolean =>
+  phraseRegex(phrase).test(text);
 
 /**
  * Keywords associated with each hazard severity band.
@@ -20,6 +59,7 @@ export const severityKeywords = {
  */
 export const severityBandKeywords = {
   [HazardSeverityBand.critical]: [
+    "emergency warning",
     "life-threatening",
     "life threatening",
     "life-threatening conditions",
@@ -169,11 +209,14 @@ export const getSeverityFromDescription = (
 ): HazardSeverity => {
   const desc = description.toLowerCase();
   for (const [severity, keywords] of Object.entries(severityKeywords)) {
+    // "advice" the noun is not the Advice level: blank out those phrases
+    // before looking for the level.
+    const text =
+      severity === HazardSeverity.advice
+        ? adviceNounPatterns.reduce((t, p) => t.replace(p, " "), desc)
+        : desc;
     for (const keyword of keywords) {
-      if (
-        desc.includes(keyword.toLowerCase()) &&
-        !desc.includes(`${keyword.toLowerCase()}:`)
-      ) {
+      if (containsPhrase(text, keyword)) {
         return severity as HazardSeverity;
       }
     }
@@ -277,10 +320,7 @@ export const getSeverityBandFromDescription = (
 
   for (const [severityBand, keywords] of Object.entries(severityBandKeywords)) {
     for (const keyword of keywords) {
-      if (
-        desc.includes(keyword.toLowerCase()) &&
-        !desc.includes(`${keyword.toLowerCase()}:`)
-      ) {
+      if (containsPhrase(desc, keyword)) {
         return severityBand as HazardSeverityBand;
       }
     }

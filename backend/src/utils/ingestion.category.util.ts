@@ -352,10 +352,41 @@ export const getCategoryFromDescription = (
   }
 
   // Final fallback to "other" category
-  categoryLog(
-    "---> ✅ No fallback category found, defaulting to 'other' category\n"
+  const otherCategory =
+    parentCategories.find((cat) => cat.id === "other") ??
+    availableCategories?.find((cat) => cat.id === "other");
+  if (otherCategory) {
+    categoryLog(
+      "---> ✅ No fallback category found, defaulting to 'other' category\n"
+    );
+    return otherCategory;
+  }
+
+  // The "other" category is missing from the loaded categories (seed gap or
+  // an empty/partial category list). Never throw here: a throw would abort
+  // the whole ingestion run. Never hide it either: log loudly and return a
+  // clearly marked placeholder that carries the standard "other" id so the
+  // hazard is still stored and the gap is visible in the logs.
+  console.error(
+    `[category] CRITICAL: no 'other' category among ${
+      availableCategories?.length ?? 0
+    } available categories; using placeholder 'other' for: "${description.slice(
+      0,
+      120
+    )}"`
   );
-  return parentCategories.find((cat) => cat.id === "other")!;
+  const now = new Date();
+  return {
+    id: "other",
+    name: "Other",
+    description: "Placeholder: the 'other' category is missing from the database",
+    color: null,
+    keywords: [],
+    isFireRelated: false,
+    parentId: null,
+    createdAt: now,
+    updatedAt: now,
+  };
 };
 
 /**
