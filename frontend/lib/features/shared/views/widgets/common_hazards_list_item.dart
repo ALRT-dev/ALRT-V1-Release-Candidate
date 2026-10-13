@@ -299,6 +299,8 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                 categoryName: hazard.category?.name,
                 sourceName: hazard.source?.name,
                 locationName: hazard.locationName,
+                title: hazard.title,
+                hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
               );
         if (text == null || text.isEmpty) return const SizedBox.shrink();
 

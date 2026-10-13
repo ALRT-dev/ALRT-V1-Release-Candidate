@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
-import 'package:hazard_app/features/notification/views/widgets/hazard_notifications_list.dart';
+import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/notification/views/widgets/map_area_alerts_list.dart';
 import 'package:hazard_app/features/notification/views/widgets/notifications_appbar.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
@@ -18,15 +18,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onInit());
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -35,9 +27,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: () => ref
-            .read(providerOfNotificationsFeed.notifier)
-            .getNotificationsFeedHazards(silent: true),
+        onRefresh: () => ref.read(providerOfMap.notifier).getMapHazards(),
         child: CustomScrollView(
           controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
@@ -47,29 +37,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             // header on the light page colour.
             const NotificationsAppBar(),
             14.hSizedBox.sliverBox,
-            HazardNotificationsList(),
+            // The alerts in the map's current view, most serious first
+            // (product owner, 14 Oct 2026). Same list the map rail opens.
+            const MapAreaAlertsList(),
             30.hSizedBox.sliverBox,
           ],
         ),
       ),
     ).keyboardDismisser(context);
-  }
-
-  void _onInit() {
-    // Removes expired hazards from the notifications feed upon initialization.
-    ref.read(providerOfNotificationsFeed.notifier).removeExpiredHazards();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      _loadMoreNotifications();
-    }
-  }
-
-  void _loadMoreNotifications() {
-    ref
-        .read(providerOfNotificationsFeed.notifier)
-        .getNextNotificationsFeedHazards();
   }
 }

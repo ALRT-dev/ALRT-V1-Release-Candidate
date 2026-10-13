@@ -109,6 +109,8 @@ abstract final class AlertCardStyle {
     final String? categoryName,
     final String? sourceName,
     final String? locationName,
+    final String? title,
+    final bool? hasAdvice,
   }) {
     if (!isOfficial) return null;
 
@@ -125,7 +127,12 @@ abstract final class AlertCardStyle {
     // capitals is brought back to title case; it is not our emphasis.
     final rawWhat = (categoryName ?? '').trim().toLowerCase();
     final what = rawWhat == 'other' ? 'alert' : rawWhat;
-    final where = _calmCase((locationName ?? '').trim());
+    // The place: the agency's own title names it ("Vehicle Fire at Salter
+    // Point") far better than the feed's region code ("METRO SOUTH EAST"),
+    // so the title's place wins when it has one.
+    final titlePlace = placeFromTitle(title);
+    final where = titlePlace ?? _calmCase((locationName ?? '').trim());
+    final preposition = titlePlace != null ? 'at' : 'near';
     final article = what.isEmpty
         ? ''
         : 'aeiou'.contains(what[0])
@@ -135,7 +142,13 @@ abstract final class AlertCardStyle {
         ? 'this'
         : where.isEmpty
             ? '$article $what'
-            : '$article $what near $where';
+            : '$article $what $preposition $where';
+
+    // Never promise advice that is not there: when the agency published
+    // none, say so, matching the What to do section below it.
+    final adviceLine = hasAdvice == false
+        ? 'They have not published advice yet.'
+        : 'Their advice is in this alert.';
 
     // The source's own level word, verbatim, never reworded. Only AWS
     // publishes one.
@@ -149,10 +162,38 @@ abstract final class AlertCardStyle {
         : null;
 
     if (level != null) {
-      return '$who has issued a $level for $subject. '
-          'Their advice is in this alert.';
+      return '$who has issued a $level for $subject. $adviceLine';
     }
-    return '$who has reported $subject. Their advice is in this alert.';
+    return '$who has reported $subject. $adviceLine';
+  }
+
+  /// The place named at the end of an agency title, as in "Vehicle Fire at
+  /// Salter Point" or "Grass fire near Gingin", or null when the title has
+  /// no such phrase. Shouted titles are brought back to title case.
+  static String? placeFromTitle(final String? title) {
+    final t = title?.trim();
+    if (t == null || t.isEmpty) return null;
+    final lower = t.toLowerCase();
+    // The LAST " at " / " near " / " in " wins, so "Burn-off in progress
+    // at Gingin" gives Gingin, not "progress at Gingin".
+    var cut = -1;
+    var width = 0;
+    for (final word in const [' at ', ' near ', ' in ']) {
+      final i = lower.lastIndexOf(word);
+      if (i > cut) {
+        cut = i;
+        width = word.length;
+      }
+    }
+    if (cut < 0) return null;
+    final place = t.substring(cut + width).trim();
+    // A place name, not the rest of a sentence.
+    if (place.isEmpty ||
+        place.length > 40 ||
+        !RegExp(r"^[A-Za-z][A-Za-z' .-]*$").hasMatch(place)) {
+      return null;
+    }
+    return _calmCase(place);
   }
 
   /// Title-cases a string only when it is entirely upper case (a shouted

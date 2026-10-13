@@ -240,20 +240,24 @@ abstract class Hazard with _$Hazard {
       }
     }
 
-    // V3 shaped pin: shape × band.
     final band = severityBand ?? HazardSeverityBand.info;
-    final shapeKey = 'shape_${effectiveMapShape.name}_${band.name}';
-    final shapeBitmap = bitmapMap[shapeKey];
-    if (shapeBitmap != null) return shapeBitmap;
 
-    // Fallback to the old category-image system.
-    if (isUserReported) {
-      return bitmapMap['${categoryId}_user'];
+    // Official alerts wear the category artwork, as the live app does: the
+    // band-coloured diamond (or national AWS triangle) with the hazard
+    // pictogram inside. The plain shape × band pin carried no pictogram and
+    // drew every official alert as the same grey triangle or diamond
+    // (product owner, 14 Oct 2026: "match prod").
+    if (!isUserReported) {
+      final artwork = bitmapMap[
+          '${categoryId}_${band.name}${isAwsCompliant == true ? '_aws' : '_non_aws'}'];
+      if (artwork != null) return artwork;
+    } else {
+      final userArtwork = bitmapMap['${categoryId}_user'];
+      if (userArtwork != null) return userArtwork;
     }
-    final severityBandName = band.name;
-    final severityKey =
-        '${categoryId}_$severityBandName${isAwsCompliant == true ? '_aws' : '_non_aws'}';
-    return bitmapMap[severityKey];
+
+    // Last resort only: a bare shape × band pin when no artwork resolved.
+    return bitmapMap['shape_${effectiveMapShape.name}_${band.name}'];
   }
 
   /// The color associated with the hazard's severity band.
@@ -348,19 +352,22 @@ abstract class Hazard with _$Hazard {
   Map<String, String>? get publishedProfileGuidance {
     if (contentDetails == null) return null;
     final rows = contentDetails?['profileGuidance'];
+    // No guidance list published at all (the template carries other
+    // content only) is not an EMPTY published library: returning {} here
+    // hid For You on every templated alert, the setup prompt included.
+    // Only a published, empty list means "show nothing".
+    if (rows is! List) return null;
     final result = <String, String>{};
-    if (rows is List) {
-      for (final row in rows) {
-        if (row is! Map ||
-            row['text'] is! String ||
-            row['profileTags'] is! List) {
-          continue;
-        }
-        for (final tag in row['profileTags'] as List) {
-          if (tag is String) {
-            final text = row['text'] as String;
-            result.update(tag, (existing) => '$existing\n\n$text', ifAbsent: () => text);
-          }
+    for (final row in rows) {
+      if (row is! Map ||
+          row['text'] is! String ||
+          row['profileTags'] is! List) {
+        continue;
+      }
+      for (final tag in row['profileTags'] as List) {
+        if (tag is String) {
+          final text = row['text'] as String;
+          result.update(tag, (existing) => '$existing\n\n$text', ifAbsent: () => text);
         }
       }
     }

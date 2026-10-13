@@ -9,7 +9,9 @@ import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/views/widgets/base_bottomsheet_v2.dart';
+import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
+import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -150,8 +152,7 @@ class _HazardFiltersBottomsheetContentState
           Padding(
             padding: EdgeInsets.only(right: 8.spMin),
             child: Text(
-              'What shows on the map and in Alerts. Emergency warnings are '
-              'always on.',
+              'What shows on the map and in Alerts.',
               style: TextStyle(
                 fontSize: 15.spMin,
                 height: 1.4,
@@ -194,46 +195,55 @@ class _HazardFiltersBottomsheetContentState
         Widget choice(
           final String title,
           final NotificationLevel value,
+          final List<IconData> icons,
         ) {
           final selected = level == value;
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => pick(value),
-            child: Container(
-              margin: EdgeInsets.only(bottom: 8.spMin),
-              padding: EdgeInsets.symmetric(
-                horizontal: 14.spMin,
-                vertical: 12.spMin,
-              ),
-              decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.green.withValues(alpha: 0.10)
-                    : AppColors.extraLightGrey,
-                borderRadius: BorderRadius.circular(14.spMin),
-                border: Border.all(
-                  color: selected ? AppColors.green : AppColors.lightGrey,
-                  width: selected ? 1.5 : 1.0,
+          return Semantics(
+            button: true,
+            selected: selected,
+            label: title,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => pick(value),
+              child: Container(
+                margin: EdgeInsets.only(bottom: 8.spMin),
+                constraints: BoxConstraints(minHeight: 52.spMin),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 14.spMin,
+                  vertical: 10.spMin,
                 ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15.spMin,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.black,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.green.withValues(alpha: 0.10)
+                      : AppColors.extraLightGrey,
+                  borderRadius: BorderRadius.circular(14.spMin),
+                  border: Border.all(
+                    color: selected ? AppColors.green : AppColors.lightGrey,
+                    width: selected ? 1.5 : 1.0,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    _levelIconsBuilder(icons),
+                    12.wSizedBox,
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15.spMin,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.black,
+                        ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    selected
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    color: selected ? AppColors.green : AppColors.lightGrey,
-                  ),
-                ],
+                    Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: selected ? AppColors.green : AppColors.lightGrey,
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -241,16 +251,34 @@ class _HazardFiltersBottomsheetContentState
 
         return _sectionContainerBuilder(
           title: 'Show',
-          subtitle: 'Emergency warnings are always on.',
+          subtitle: 'Pick what else appears with them.',
           child: Column(
             children: [
-              choice('Official warnings only', NotificationLevel.officialOnly),
+              // Emergency warnings can never be switched off, so they sit
+              // on top as a row that is always ticked and locked: people
+              // see the guarantee instead of reading about it.
+              _alwaysOnRowBuilder(),
+              8.hSizedBox,
               choice(
-                'Official and community',
-                NotificationLevel.officialAndCommunity,
+                'Official warnings only',
+                NotificationLevel.officialOnly,
+                _officialShapes,
               ),
-              choice('Community only', NotificationLevel.communityOnly),
-              choice('Keep it quiet', NotificationLevel.quiet),
+              choice(
+                'All alerts',
+                NotificationLevel.officialAndCommunity,
+                [..._officialShapes, LucideIcons.circle],
+              ),
+              choice(
+                'Community only',
+                NotificationLevel.communityOnly,
+                const [LucideIcons.circle],
+              ),
+              choice(
+                'Keep it quiet',
+                NotificationLevel.quiet,
+                const [LucideIcons.bellOff],
+              ),
               4.hSizedBox,
               _switchBuilder(
                 icon: LucideIcons.shield,
@@ -266,6 +294,104 @@ class _HazardFiltersBottomsheetContentState
           ),
         );
       },
+    );
+  }
+
+  /// The official source shapes as they appear on the map: the AWS
+  /// triangle and the official diamond.
+  static const _officialShapes = [
+    LucideIcons.triangleAlert,
+    LucideIcons.diamond,
+  ];
+
+  /// A fixed-width slot of dark grey outline shapes, so every option's
+  /// title lines up whether it shows one shape or three.
+  Widget _levelIconsBuilder(final List<IconData> icons) {
+    return SizedBox(
+      width: 58.spMin,
+      child: Row(
+        spacing: 2.spMin,
+        children: [
+          for (final icon in icons)
+            HazardShapeBadge.outlineGlyph(icon: icon, size: 17.spMin),
+        ],
+      ),
+    );
+  }
+
+  /// "Emergency warnings: always on", ticked and locked. Not tappable.
+  Widget _alwaysOnRowBuilder() {
+    return Semantics(
+      label: 'Emergency warnings, always on',
+      child: Container(
+        constraints: BoxConstraints(minHeight: 52.spMin),
+        padding: EdgeInsets.symmetric(
+          horizontal: 14.spMin,
+          vertical: 10.spMin,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.emergency.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14.spMin),
+          border: Border.all(
+            color: AppColors.emergency.withValues(alpha: 0.55),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 58.spMin,
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.triangleAlert,
+                    size: 19.spMin,
+                    color: AppColors.emergency,
+                  ),
+                ],
+              ),
+            ),
+            12.wSizedBox,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Emergency warnings',
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  2.hSizedBox,
+                  Text(
+                    // Matches hazard_visibility_util: every active AWS
+                    // level and every official critical alert bypass the
+                    // filters below.
+                    'Always on, with every Advice, Watch and Act and '
+                    'Emergency Warning. You cannot switch these off.',
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      color: AppColors.mediumGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              LucideIcons.lock,
+              size: 15.spMin,
+              color: AppColors.mediumGrey,
+            ),
+            6.wSizedBox,
+            Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.emergency,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -314,30 +440,91 @@ class _HazardFiltersBottomsheetContentState
         final selectedCategories = ref.watch(
           _filtersProvider.select((value) => value.selectedCategoryIds),
         );
+        // A uniform two-column grid: every tile the same size, the
+        // category disc and its name, so the set reads as one tidy block
+        // instead of a ragged row of icons (product owner, 14 Oct 2026).
         return _sectionContainerBuilder(
           title: 'Categories',
-          subtitle: 'Tap an icon to show or hide that kind of alert.',
-          child: Wrap(
-            spacing: 10.spMin,
-            runSpacing: 10.spMin,
-            children: categories
-                .map(
-                  (category) => CategoryFilterChip(
-                    category: category,
-                    iconOnly: true,
-                    isSelected: selectedCategories.contains(category.id),
-                    onToggle: (value) {
-                      ref
-                          .read(_filtersProvider.notifier)
-                          .toggleCategory(category.id);
-                      widget.onFiltersUpdated?.call();
-                    },
-                  ),
-                )
-                .toList(),
+          subtitle: 'Tap to show or hide that kind of alert.',
+          spacing: 14.0,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final gap = 8.spMin;
+              final tileWidth = (constraints.maxWidth - gap) / 2;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: categories.map((category) {
+                  final selected = selectedCategories.contains(category.id);
+                  return SizedBox(
+                    width: tileWidth,
+                    child: _categoryTileBuilder(
+                      category: category,
+                      isSelected: selected,
+                      onTap: () {
+                        ref
+                            .read(_filtersProvider.notifier)
+                            .toggleCategory(category.id);
+                        widget.onFiltersUpdated?.call();
+                      },
+                    ),
+                  );
+                }).toList(),
+              );
+            },
           ),
         );
       },
+    );
+  }
+
+  Widget _categoryTileBuilder({
+    required final HazardCategory category,
+    required final bool isSelected,
+    required final VoidCallback onTap,
+  }) {
+    final color = categoryChipColor(category);
+    final name = category.name ?? 'Category';
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: name,
+      child: Opacity(
+        opacity: isSelected ? 1.0 : 0.5,
+        child: Container(
+          height: 52.spMin,
+          padding: EdgeInsets.symmetric(horizontal: 10.spMin),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.10)
+                : AppColors.extraLightGrey,
+            borderRadius: BorderRadius.circular(14.spMin),
+            border: Border.all(
+              color: isSelected ? color : AppColors.lightGrey,
+              width: isSelected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              CategoryGlyph(category: category, size: 28.spMin),
+              8.wSizedBox,
+              Expanded(
+                child: Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ).onPressed(onTap),
     );
   }
 

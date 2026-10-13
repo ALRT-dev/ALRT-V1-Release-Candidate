@@ -665,6 +665,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           categoryName: hazard.category?.name,
           sourceName: hazard.source?.name,
           locationName: hazard.locationName,
+          title: hazard.title,
+          hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
         );
         if (plainTerms == null) return const SizedBox.shrink();
 
@@ -971,13 +973,15 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       categoryName: hazard.category?.name,
       sourceName: hazard.source?.name,
       locationName: hazard.locationName,
+      title: hazard.title,
+      hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
     );
     final text = [
       hazard.isUserReported
           ? 'Community report, unverified.'
           : 'Official alert from ${hazard.source?.name ?? 'an official source'}.',
       hazard.title ?? '',
-      if (plainTerms != null) 'In plain terms: $plainTerms.',
+      if (plainTerms != null) 'In plain terms: $plainTerms',
       hazard.description ?? '',
     ].where((line) => line.trim().isNotEmpty).join(' ');
 

@@ -15,6 +15,18 @@ explicit instruction from the product owner in the current session.
   AWS artwork and current community artwork are protected. Category pill colours
   remain independent of severity.
 
+- Map markers and the Alerts tab (product owner, 14 Oct 2026, "match
+  prod"): official pins wear the category artwork (band-coloured diamond
+  or AWS triangle with the hazard pictogram); the bare shape x band pin
+  and template-coloured shapes are fallbacks only. Count bubbles are black
+  with a white number, orange or red only when an official Action or
+  Critical alert is inside; AWS Watch and Act / Emergency Warning are never
+  grouped; overlapping pins group (34 px) at street zoom and fan out from
+  zoom 17. The Alerts tab is the list of the alerts in the map's current
+  view, most serious first, and the rail's list button opens it. Map
+  details holds only the map type and one row of alert levels; the rail's
+  info button is the key. The Filters sheet shows a locked, ticked
+  "Emergency warnings" row and calls the middle level "All alerts".
 - Published `contentDetails` separates source facts, affected area, native level,
   agency instructions and labelled ALRT suggestions. For You matches all published
   generic rows against local profile choices; never send profile selections to

@@ -227,7 +227,7 @@ class _ManagePushNotificationsListState
               ),
               10.hSizedBox,
               _levelCard(
-                title: 'Official and community',
+                title: 'All alerts',
                 description:
                     'Everything official, plus reports from people nearby.',
                 selected: level == NotificationLevel.officialAndCommunity,

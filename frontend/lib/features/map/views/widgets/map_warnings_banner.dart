@@ -41,9 +41,12 @@ class MapWarningsBanner extends ConsumerWidget {
   }
 
   static String labelFor(final int count) {
-    if (count == 0) return 'No warnings near you right now';
-    if (count == 1) return '1 warning near you. See what to do';
-    return '$count warnings near you. See what to do';
+    // The count is of the alerts in the map's current view, so the copy
+    // says "in this area", not "near you", and stays short enough to fit a
+    // narrow phone on one line.
+    if (count == 0) return 'No warnings in this area right now';
+    if (count == 1) return '1 warning in this area';
+    return '$count warnings in this area';
   }
 
   @override
@@ -57,7 +60,9 @@ class MapWarningsBanner extends ConsumerWidget {
       label: labelFor(count),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.94),
+          // Opaque: at 94% the map's own labels showed through and ran
+          // into the text and chevron on the right.
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12.spMin),
           boxShadow: [
             BoxShadow(

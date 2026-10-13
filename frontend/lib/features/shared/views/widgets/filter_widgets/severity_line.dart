@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
 /// One horizontal line in the four alert colours. Tapping a segment picks
@@ -33,6 +34,14 @@ class SeverityLine extends StatelessWidget {
     AppColors.emergency,
   ];
 
+  /// Screen-reader names only; the line itself shows no words.
+  static const _semanticNames = [
+    'Show grey and above',
+    'Show yellow and above',
+    'Show orange and above',
+    'Red, always shown',
+  ];
+
   /// Index of the lowest segment currently shown.
   int get _lowest {
     if (advice) return 0;
@@ -60,33 +69,56 @@ class SeverityLine extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Each colour is a full-height tile (44 pt tap target, product
+          // owner 14 Oct 2026: the thin bars were too hard to hit). The
+          // lowest colour shown carries a tick; red carries a lock because
+          // it can never be hidden.
           Row(
             children: [
               for (var i = 0; i < _colours.length; i++)
                 Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _select(i),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10.spMin),
+                  child: Semantics(
+                    button: i != _colours.length - 1,
+                    selected: i == lowest,
+                    label: _semanticNames[i],
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _select(i),
                       child: Container(
-                        height: 12.spMin,
-                        margin: EdgeInsets.symmetric(horizontal: 1.5.spMin),
+                        height: 44.spMin,
+                        margin: EdgeInsets.symmetric(horizontal: 3.spMin),
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: i >= lowest
                               ? _colours[i]
-                              : _colours[i].withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(6.spMin),
-                          border: i == lowest && lowest > 1
+                              : _colours[i].withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(12.spMin),
+                          border: i == lowest
                               ? Border.all(color: AppColors.ink, width: 2)
                               : null,
                         ),
+                        child: i == _colours.length - 1
+                            ? Icon(
+                                Icons.lock_rounded,
+                                size: 16.spMin,
+                                color: AppColors.white,
+                              )
+                            : i == lowest
+                                ? Icon(
+                                    Icons.check_rounded,
+                                    size: 18.spMin,
+                                    color: i == 1
+                                        ? AppColors.ink
+                                        : AppColors.white,
+                                  )
+                                : null,
                       ),
                     ),
                   ),
                 ),
             ],
           ),
+          6.hSizedBox,
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

@@ -92,6 +92,15 @@ class _CreateUpdateReportScreenState
   final _descriptionController = TextEditingController();
   final _descriptionFocusNode = FocusNode();
 
+  /// The details box when it sits under "What can you see?" ("Something
+  /// else" picked), used to scroll it into view without overshooting.
+  final _inlineDetailsKey = GlobalKey();
+
+  /// Whether "Something else" is picked: the details box then moves up
+  /// under the chips, so writing it never jumps the page to Submit.
+  bool get _somethingElsePicked =>
+      _selectedChipIds.any((id) => id.endsWith('_other'));
+
   /// "What can you see?": selected observation chip ids (locked taxonomy).
   final Set<String> _selectedChipIds = {};
 
@@ -242,18 +251,30 @@ class _CreateUpdateReportScreenState
                 _sectionBuilder(
                   label: 'What can you see?',
                   helper: 'tap any, this is an observation not a diagnosis',
-                  child: _chipsBuilder(),
+                  child: _somethingElsePicked
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _chipsBuilder(),
+                            12.hSizedBox,
+                            _inlineSomethingElseBuilder(),
+                          ],
+                        )
+                      : _chipsBuilder(),
                 ),
                 _sectionBuilder(
                   label: 'How would you describe it?',
                   helper: 'auto-set from what you picked, tap to change',
                   child: _severityWordingBuilder(),
                 ),
-                _sectionBuilder(
-                  label: 'Add details',
-                  helper: 'optional',
-                  child: _descriptionBuilder(),
-                ),
+                // With "Something else" picked the details box is already
+                // open under the chips; one box, never two.
+                if (!_somethingElsePicked)
+                  _sectionBuilder(
+                    label: 'Add details',
+                    helper: 'optional',
+                    child: _descriptionBuilder(),
+                  ),
                 // Photo/video is switched off for the V1 release (privacy and
                 // moderation risk). Build with --dart-define=ALRT_REPORT_MEDIA=true
                 // to bring it back; the backend flag must match.
@@ -504,9 +525,79 @@ class _CreateUpdateReportScreenState
     });
 
     // "Something else" asks for words instead of adding taxonomy data.
-    if (chip.isOther && _selectedChipIds.contains(chip.id)) {
-      _descriptionFocusNode.requestFocus();
+    // The box opens right under the chips; it is focused only after it
+    // has been built, then scrolled into the top third of the screen, so
+    // the keyboard never pushes the page down to Submit and the severity
+    // choice stays one scroll below (product owner, 14 Oct 2026).
+    if (chip.isOther) {
+      if (_selectedChipIds.contains(chip.id)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _descriptionFocusNode.requestFocus();
+          Future.delayed(const Duration(milliseconds: 320), () {
+            final box = _inlineDetailsKey.currentContext;
+            if (!mounted || box == null || !box.mounted) return;
+            Scrollable.ensureVisible(
+              box,
+              alignment: 0.2,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+            );
+          });
+        });
+      } else {
+        _descriptionFocusNode.unfocus();
+      }
     }
+  }
+
+  /// The details box as it appears under the chips for "Something else",
+  /// with a Done button so the keyboard can be closed without a stray tap
+  /// landing on something else.
+  Widget _inlineSomethingElseBuilder() {
+    return Column(
+      key: _inlineDetailsKey,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _inputBuilder(
+          hintText: 'Tell us what you can see…',
+          controller: _descriptionController,
+          focusNode: _descriptionFocusNode,
+          minLines: 3,
+          maxLines: 8,
+          textCapitalization: TextCapitalization.sentences,
+          keyboardType: TextInputType.multiline,
+          contentPadding: EdgeInsets.all(14.spMin),
+          borderRadius: 14.0,
+          onChanged: (value) {
+            _updateDescription(value.trim());
+            setState(() {});
+          },
+        ),
+        ListenableBuilder(
+          listenable: _descriptionFocusNode,
+          builder: (context, child) {
+            if (!_descriptionFocusNode.hasFocus) {
+              return const SizedBox.shrink();
+            }
+            return Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => _descriptionFocusNode.unfocus(),
+                child: Text(
+                  'Done',
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
   }
 
   /// Highest severityDefault across the selected chips (spec A.3), or null

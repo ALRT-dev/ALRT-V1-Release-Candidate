@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hazard_app/features/shared/utils/template_marker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -68,9 +69,15 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
       providerOfHazardMarkerBitmaps.select((value) => value.markerBitmaps),
     );
 
-    final bitmapDescriptor = await templateMarker(widget.hazard) ?? widget.hazard.getMarkerBitmapDescriptor(
-      markerBitmaps,
-    );
+    // Same order as the main map: the category artwork first, a bare
+    // template shape only when no artwork resolved.
+    final band = widget.hazard.severityBand ?? HazardSeverityBand.info;
+    final bareShape = markerBitmaps[
+        'shape_${widget.hazard.effectiveMapShape.name}_${band.name}'];
+    final artwork = widget.hazard.getMarkerBitmapDescriptor(markerBitmaps);
+    final bitmapDescriptor = artwork != null && !identical(artwork, bareShape)
+        ? artwork
+        : await templateMarker(widget.hazard) ?? artwork;
 
     if (!mounted || generation != _markerGeneration) return;
 
