@@ -144,6 +144,9 @@ class NotificationService {
       useStrongVibration: () =>
           _ref.read(providerOfAccessibleAlerts).strongVibration,
     );
+    // Wait for the saved switch and safety profile, then make the Android
+    // urgent channel match the effective value (ON creates it, OFF removes it).
+    unawaited(_ref.read(providerOfAccessibleAlerts.notifier).ensureLoaded());
     _foregroundMessageStreamSub = _notificationRepository
         .onForegroundPushNotificationMessage()
         .listen((message) {

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -228,7 +230,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   /// The white rail on the right edge, 280 logical px from the top of the
-  /// screen (prototype board "Main", 9 Oct 2026). Hidden while a route is
+  /// screen, clamped on short phones (prototype board "Main", 9 Oct 2026). Hidden while a route is
   /// being planned; navigation mode has its own overlay.
   Widget _railBuilder() {
     return Consumer(
@@ -242,9 +244,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           return const SizedBox.shrink();
         }
 
+        // 280 on a normal phone. On a short one the rail would run into the
+        // finish-setup strip and the footer, so the top is pulled up until
+        // the rail (about 270) plus the strip and footer (about 90 more)
+        // fit; it never rises above the search bar.
+        final media = MediaQuery.of(context);
+        final footerClearance =
+            media.padding.bottom + HomeTabbar.height - 20.0;
+        final maxTop = media.size.height -
+            footerClearance -
+            270.spMin -
+            90.spMin;
+        final minTop = media.padding.top + 96.spMin;
+        final railTop = math.max(minTop, math.min(280.spMin, maxTop));
+
         return Positioned(
           right: 16.spMin,
-          top: 280.spMin,
+          top: railTop,
           child: const MapRail(),
         );
       },

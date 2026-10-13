@@ -452,10 +452,16 @@ class _CreateUpdateReportScreenState
   Widget _chipItemBuilder(final ReportChip chip) {
     final isSelected = _selectedChipIds.contains(chip.id);
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: chip.label,
+      excludeSemantics: true,
       onTap: () => _handleChipTap(chip),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 8.spMin),
+        constraints: BoxConstraints(minHeight: 48.spMin),
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 16.spMin),
         // Selected looks like the severity choice below it (product owner
         // 12 Oct 2026): a dark outline on a soft white, never an orange fill.
         decoration: BoxDecoration(
@@ -466,16 +472,25 @@ class _CreateUpdateReportScreenState
             width: isSelected ? 2.0 : 1.5,
           ),
         ),
-        child: Text(
-          chip.label,
-          style: TextStyle(
-            fontSize: 15.spMin,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: AppColors.black,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              Icon(LucideIcons.check, size: 14.spMin, color: AppColors.ink),
+              6.wSizedBox,
+            ],
+            Text(
+              chip.label,
+              style: TextStyle(
+                fontSize: 15.spMin,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: AppColors.black,
+              ),
+            ),
+          ],
         ),
       ),
-    );
+    ).onPressed(() => _handleChipTap(chip));
   }
 
   void _handleChipTap(final ReportChip chip) {
@@ -531,14 +546,20 @@ class _CreateUpdateReportScreenState
 
   Widget _wordingItemBuilder(final ReportSeverityWording wording) {
     final isSelected = _pickedWording == wording;
+    void handleTap() => setState(() {
+      _wordingTouched = true;
+      _pickedWording = isSelected ? null : wording;
+    });
 
-    return GestureDetector(
-      onTap: () => setState(() {
-        _wordingTouched = true;
-        _pickedWording = isSelected ? null : wording;
-      }),
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '${wording.label}, ${wording.sub}',
+      excludeSemantics: true,
+      onTap: handleTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 12.spMin),
+        constraints: BoxConstraints(minHeight: 64.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 16.spMin),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFFAF9F7) : AppColors.white,
           borderRadius: BorderRadius.circular(12.spMin),
@@ -550,14 +571,30 @@ class _CreateUpdateReportScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              wording.label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15.spMin,
-                fontWeight: FontWeight.w700,
-                color: AppColors.black,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isSelected) ...[
+                  Icon(
+                    LucideIcons.check,
+                    size: 14.spMin,
+                    color: AppColors.ink,
+                  ),
+                  4.wSizedBox,
+                ],
+                Flexible(
+                  child: Text(
+                    wording.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ),
+              ],
             ),
             3.hSizedBox,
             Text(
@@ -565,13 +602,13 @@ class _CreateUpdateReportScreenState
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.spMin,
-                color: AppColors.grey,
+                color: AppColors.mediumGrey,
               ),
             ),
           ],
         ),
       ),
-    );
+    ).onPressed(handleTap);
   }
 
   /// Compact category pills (V3.1 mock): coloured dot + name, everything

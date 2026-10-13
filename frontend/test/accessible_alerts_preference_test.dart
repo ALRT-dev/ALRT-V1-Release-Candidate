@@ -85,4 +85,17 @@ void main() {
     sub.close();
     c.dispose();
   });
+
+  test('ensureLoaded waits for the saved switch and the safety profile', () async {
+    SharedPreferences.setMockInitialValues({
+      'safety_profile_cohorts': [SafetyCohort.deaf.id],
+    });
+    final c = ProviderContainer();
+    final sub = c.listen(providerOfAccessibleAlerts, (_, __) {});
+    await c.read(providerOfAccessibleAlerts.notifier).ensureLoaded();
+    // Deaf cohort default: strong vibration is on once everything has loaded.
+    expect(c.read(providerOfAccessibleAlerts).strongVibration, isTrue);
+    sub.close();
+    c.dispose();
+  });
 }

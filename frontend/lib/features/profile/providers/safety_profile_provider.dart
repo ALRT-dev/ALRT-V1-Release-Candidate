@@ -23,6 +23,7 @@ class SafetyProfileNotifier extends Notifier<Set<SafetyCohort>> {
       for (final cohort in SafetyCohort.values)
         if (ids.contains(cohort.id)) cohort,
     };
+    ref.read(providerOfSafetyProfileLoaded.notifier).markLoaded();
   }
 
   Future<void> toggle(final SafetyCohort cohort) async {
@@ -40,4 +41,20 @@ class SafetyProfileNotifier extends Notifier<Set<SafetyCohort>> {
 final providerOfSafetyProfile =
     NotifierProvider<SafetyProfileNotifier, Set<SafetyCohort>>(
   SafetyProfileNotifier.new,
+);
+
+/// True once [SafetyProfileNotifier] has read the device preferences. Until
+/// then its state is the empty placeholder `{}`, which is not the same as
+/// "no cohort ticked", so anything that would nag or act on an empty profile
+/// must wait for this.
+class SafetyProfileLoadedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void markLoaded() => state = true;
+}
+
+final providerOfSafetyProfileLoaded =
+    NotifierProvider<SafetyProfileLoadedNotifier, bool>(
+  SafetyProfileLoadedNotifier.new,
 );
