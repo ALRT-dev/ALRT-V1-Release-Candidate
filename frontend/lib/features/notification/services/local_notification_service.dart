@@ -126,8 +126,13 @@ class LocalNotificationService {
       ),
     );
     // The urgent channel exists only while strong vibration is on: see
-    // applyStrongVibrationChannel for why.
-    await applyStrongVibrationChannel(_useStrongVibration?.call() ?? false);
+    // applyStrongVibrationChannel for why. The setting is not loaded yet at
+    // this point (preferences and the safety profile read asynchronously),
+    // so initialize never deletes the channel; the accessible-alerts
+    // provider applies the real value once it has loaded and on every change.
+    if (_useStrongVibration?.call() ?? false) {
+      await applyStrongVibrationChannel(true);
+    }
 
     _initialized = true;
   }

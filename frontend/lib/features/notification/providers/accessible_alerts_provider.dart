@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hazard_app/features/profile/models/safety_cohort.dart';
 import 'package:hazard_app/features/profile/providers/safety_profile_provider.dart';
@@ -30,42 +32,72 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
   static const _readAloudKey = 'accessible_alerts_read_aloud';
 
   bool? _explicitVibration;
-  bool _loaded = false;
+  bool _prefsLoaded = false;
+  Future<void>? _loading;
+
+  /// The last value the Android urgent channel was set to, or null when the
+  /// channel state is unknown (nothing applied yet, or the test button has
+  /// created it as a side effect).
+  bool? _appliedChannel;
 
   @override
   AccessibleAlertsSettings build() {
     final cohorts = ref.watch(providerOfSafetyProfile);
-    if (!_loaded) _load();
-    return AccessibleAlertsSettings(
+    final profileLoaded = ref.watch(providerOfSafetyProfileLoaded);
+    _loading ??= _load();
+    final settings = AccessibleAlertsSettings(
       strongVibration:
           _explicitVibration ?? cohorts.contains(SafetyCohort.deaf),
       // Nothing is read aloud automatically. Anyone who wants an alert
       // spoken taps Listen at the bottom of it.
       readAloud: false,
     );
+    // The urgent channel follows the effective value, but only once both
+    // the saved switch and the safety profile are read: before that the
+    // value is a placeholder and would delete a channel the user wants.
+    if (_prefsLoaded && profileLoaded) {
+      unawaited(_applyChannel(settings.strongVibration));
+    }
+    return settings;
+  }
+
+  /// Completes once the saved switch has been read and the urgent channel
+  /// matches the effective setting (the safety profile is waited for too).
+  Future<void> ensureLoaded() async {
+    await (_loading ??= _load());
+    var waited = 0;
+    while (!ref.read(providerOfSafetyProfileLoaded) && waited < 50) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      waited++;
+    }
+    await _applyChannel(state.strongVibration);
   }
 
   Future<void> _load() async {
-    _loaded = true;
     final prefs = await SharedPreferences.getInstance();
     _explicitVibration = prefs.getBool(_vibrationKey);
+    _prefsLoaded = true;
     _recompute();
   }
 
   Future<void> setStrongVibration(final bool value) async {
     _explicitVibration = value;
+    _prefsLoaded = true;
     _recompute();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_vibrationKey, value);
-    // The Android channel must follow the switch, or background pushes
-    // keep the old behaviour (see applyStrongVibrationChannel).
-    await LocalNotificationService.instance.applyStrongVibrationChannel(value);
   }
 
   /// Posts a test notification on the urgent channel; false when the
   /// system blocks ALRT notifications.
-  Future<bool> testStrongVibration() =>
-      LocalNotificationService.instance.showStrongVibrationTest();
+  Future<bool> testStrongVibration() async {
+    final shown = await LocalNotificationService.instance
+        .showStrongVibrationTest();
+    // The test creates the urgent channel as a side effect, so the channel
+    // state is unknown again: the next recompute re-applies the setting.
+    _appliedChannel = null;
+    return shown;
+  }
 
   Future<void> setReadAloud(final bool value) async {
     // Stored for a future read-aloud setting; nothing reads it back yet.
@@ -75,12 +107,27 @@ class AccessibleAlertsNotifier extends Notifier<AccessibleAlertsSettings> {
 
   void _recompute() {
     final cohorts = ref.read(providerOfSafetyProfile);
-    state = AccessibleAlertsSettings(
+    final settings = AccessibleAlertsSettings(
       strongVibration:
           _explicitVibration ?? cohorts.contains(SafetyCohort.deaf),
       // No switch in Notifications. Read-aloud is on only when the safety
       // profile says Vision impairment; everyone else uses Listen.
       readAloud: false,
+    );
+    state = settings;
+    if (_prefsLoaded && ref.read(providerOfSafetyProfileLoaded)) {
+      unawaited(_applyChannel(settings.strongVibration));
+    }
+  }
+
+  /// Creates or removes the Android urgent channel (long vibration pattern)
+  /// so it matches [enabled], once per change. ON always has the channel,
+  /// OFF never does (see LocalNotificationService.applyStrongVibrationChannel).
+  Future<void> _applyChannel(final bool enabled) async {
+    if (_appliedChannel == enabled) return;
+    _appliedChannel = enabled;
+    await LocalNotificationService.instance.applyStrongVibrationChannel(
+      enabled,
     );
   }
 }

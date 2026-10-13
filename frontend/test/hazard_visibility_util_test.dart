@@ -101,7 +101,7 @@ void main() {
       expect(hazardMatchesMapFilters(hazard, blocked), isFalse);
     });
 
-    test('an AWS-compliant critical hazard requires awsEmergency to be on', () {
+    test('an AWS-compliant critical hazard is always visible, even with awsEmergency off', () {
       final hazard = Hazard(
         categoryId: 'bushfire',
         category: const HazardCategory(id: 'bushfire', parentId: 'weatherAndEnvironment'),
@@ -113,7 +113,72 @@ void main() {
       const allowed = HazardFiltersProviderState(awsEmergency: true);
       const blocked = HazardFiltersProviderState(awsEmergency: false);
       expect(hazardMatchesMapFilters(hazard, allowed), isTrue);
-      expect(hazardMatchesMapFilters(hazard, blocked), isFalse);
+      expect(hazardMatchesMapFilters(hazard, blocked), isTrue);
+    });
+  });
+
+  group('hazardMatchesMapFilters - official warnings are always visible', () {
+    Hazard aws({HazardSeverity? severity, HazardSeverityBand? band, String category = 'bushfire'}) =>
+        Hazard(
+          categoryId: category,
+          latitude: _scarboroughLat,
+          longitude: _scarboroughLng,
+          isAwsCompliant: true,
+          severity: severity,
+          severityBand: band,
+        );
+
+    test('an AWS Emergency Warning ignores the category selection', () {
+      final hazard = aws(severity: HazardSeverity.emergency);
+      const filters = HazardFiltersProviderState(
+        selectedCategoryIds: {'securityAndCrime'},
+        awsEmergency: false,
+      );
+      expect(hazardMatchesMapFilters(hazard, filters), isTrue);
+    });
+
+    test('an official critical alert survives Official off and a category mismatch', () {
+      final hazard = Hazard(
+        categoryId: 'bushfire',
+        latitude: _scarboroughLat,
+        longitude: _scarboroughLng,
+        isAwsCompliant: false,
+        severityBand: HazardSeverityBand.critical,
+      );
+      const filters = HazardFiltersProviderState(
+        selectedCategoryIds: {'securityAndCrime'},
+        officialNonAws: false,
+      );
+      expect(hazardMatchesMapFilters(hazard, filters), isTrue);
+    });
+
+    test('a non-critical official alert is still hidden by Official off', () {
+      final hazard = Hazard(
+        categoryId: 'bushfire',
+        latitude: _scarboroughLat,
+        longitude: _scarboroughLng,
+        isAwsCompliant: false,
+        severityBand: HazardSeverityBand.action,
+      );
+      expect(
+        hazardMatchesMapFilters(hazard, const HazardFiltersProviderState(officialNonAws: false)),
+        isFalse,
+      );
+    });
+
+    test('an AWS Watch and Act still follows its switch and the category', () {
+      final hazard = aws(severity: HazardSeverity.watchAndAct);
+      expect(
+        hazardMatchesMapFilters(hazard, const HazardFiltersProviderState(awsWatchAndAct: false)),
+        isFalse,
+      );
+      expect(
+        hazardMatchesMapFilters(
+          hazard,
+          const HazardFiltersProviderState(selectedCategoryIds: {'securityAndCrime'}),
+        ),
+        isFalse,
+      );
     });
   });
 
