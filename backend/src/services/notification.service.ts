@@ -13,6 +13,19 @@ import {
 import { SOURCE_REGISTRY_DEFAULTS } from "../utils/source_registry.util.js";
 import { getCacheClient } from "../utils/cache_client.util.js";
 import { pausedSavedPlaceIds } from "./location_subscription.service.js";
+import {
+  buildPushSettingsUserWhere,
+  isAwsEmergencyWarning,
+} from "../utils/official_warning.util.js";
+import {
+  PUSH_BODY_MAX_CHARS,
+  boundPushPayload,
+  hazardPushEventKey,
+  roundCoordinate,
+  truncateText,
+} from "../utils/push_payload.util.js";
+
+export { hazardPushEventKey };
 
 /**
  * A function to get user push notification tokens of a specific user by their user ID.
@@ -71,13 +84,8 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
       southwestLat,
       southwestLng,
       reportedById,
-      isAwsCompliant,
-      severity,
       categoryId,
     } = hazard;
-
-    const isUserReported = reportedById !== null;
-    const isOfficialNonAws = !isAwsCompliant && !isUserReported;
 
     // Determine the hazard's bounding box
     let hazardNortheastLat: number;
@@ -102,29 +110,6 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
         "Hazard does not have valid coordinates or bounding box to send notifications"
       );
       return [];
-    }
-
-    // Determine which notification setting field applies to this hazard
-    let notificationFilter:
-      | { awsEmergency: true }
-      | { awsWatchAndAct: true }
-      | { awsAdvice: true }
-      | { officialNonAws: true }
-      | { userReported: true };
-
-    if (isUserReported) {
-      notificationFilter = { userReported: true };
-    } else if (isOfficialNonAws) {
-      notificationFilter = { officialNonAws: true };
-    } else if (isAwsCompliant && severity === HazardSeverity.emergency) {
-      notificationFilter = { awsEmergency: true };
-    } else if (isAwsCompliant && severity === HazardSeverity.watchAndAct) {
-      notificationFilter = { awsWatchAndAct: true };
-    } else if (isAwsCompliant && severity === HazardSeverity.advice) {
-      notificationFilter = { awsAdvice: true };
-    } else {
-      // Fallback for AWS info/unknown - use awsAdvice
-      notificationFilter = { awsAdvice: true };
     }
 
     // Get the hazard's parent category ID if it exists (for subcategories)
@@ -166,12 +151,11 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
           ...(reportedById && {
             blocksMade: { none: { blockedId: reportedById } },
           }),
-          pushNotificationSettings: {
-            some: {
-              ...notificationFilter,
-              subscribedCategoryIds: { has: categoryIdToCheck },
-            },
-          },
+          // Official warnings are always on: an AWS Emergency Warning and
+          // any official critical alert ignore the per-type switches and
+          // the category list. Location, block and deletion rules above
+          // and below still apply.
+          ...buildPushSettingsUserWhere(hazard, categoryIdToCheck),
         },
       },
       select: {
@@ -204,8 +188,7 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
     // An Emergency Warning is never rate-limited away: the cooldown exists
     // to stop a flood of low-band pushes, not to drop the one that says
     // leave now (phone QA 2026-09-09 review).
-    const exemptFromCooldown =
-      hazard.isAwsCompliant && hazard.severity === HazardSeverity.emergency;
+    const exemptFromCooldown = isAwsEmergencyWarning(hazard);
     const usersUnderCooldown = await Promise.all(
       [...uniqueUsers.values()].map(async (user) => ({
         user,
@@ -252,13 +235,6 @@ const getUserPushNotificationTokensSubscribedToHazard = async (
  */
 const HAZARD_PUSH_CLAIM_TTL_S = 48 * 60 * 60;
 const localHazardPushClaims = new Map<string, number>();
-
-export const hazardPushEventKey = (hazard: {
-  createdAt?: Date | string | null;
-}): string => {
-  const at = hazard.createdAt ? new Date(hazard.createdAt) : null;
-  return at && !isNaN(at.getTime()) ? `created:${at.toISOString()}` : "created";
-};
 
 export const claimHazardPushRecipients = async (
   hazardId: string,
@@ -344,13 +320,22 @@ export const pushSafeHazard = (hazard: Hazard): Record<string, unknown> => {
   // Keep only a marker that a person reported it (the app uses it for the
   // "community report" label); no id, name or scores go into a push.
   const reporter = (hazard as Record<string, any>).reportedBy;
-  return {
+  const full: Record<string, unknown> = {
     ...safe,
     reportedById: hazard.reportedById ? "community" : null,
     ...(reporter
       ? { reportedBy: { reportsStatus: reporter.reportsStatus } }
       : {}),
   };
+  // Official alerts are public data, so they may carry a coarse position
+  // (2 decimals, about 1 km). A community report never does.
+  if (!hazard.reportedById) {
+    if (hazard.latitude != null) full.latitude = roundCoordinate(hazard.latitude);
+    if (hazard.longitude != null) full.longitude = roundCoordinate(hazard.longitude);
+  }
+  // FCM / APNs cap a message near 4 KB; a long description must never stop
+  // the push. The app opens by id and refetches (see push_payload.util.ts).
+  return boundPushPayload(full);
 };
 
 /** FCM tokens Firebase reported dead on the last send; removed from UserDevice. */
@@ -425,7 +410,8 @@ const sendPushNotificationToTokens = async ({
         body,
       },
       data: {
-        payload: JSON.stringify(data),
+        // Final size guard for every payload kind (FCM / APNs ~4 KB).
+        payload: JSON.stringify(boundPushPayload(data as Record<string, unknown>)),
         notificationType: type.toString(),
         urgent: isUrgent ? "1" : "0",
       },
@@ -655,5 +641,8 @@ export const getNotificationTitleForNewHazard = (hazard: Hazard): string => {
  */
 const getNotificationBodyForNewHazard = (hazard: Hazard): string => {
   const { aiSummary, description } = hazard;
-  return aiSummary || description || "New hazard reported.";
+  return truncateText(
+    aiSummary || description || "New hazard reported.",
+    PUSH_BODY_MAX_CHARS,
+  );
 };

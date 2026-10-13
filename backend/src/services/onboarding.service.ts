@@ -141,7 +141,8 @@ export const setPushNotificationPreference = async ({
   const mainCategoryIds = await getAllMainHazardCategoryIds();
 
   const settings: PushNotificationSettings = {
-    awsEmergency: enableOfficial,
+    // AWS Emergency Warnings are always on, whatever the choice.
+    awsEmergency: true,
     awsWatchAndAct: enableOfficial,
     awsAdvice: enableOfficial,
     officialNonAws: enableOfficial,

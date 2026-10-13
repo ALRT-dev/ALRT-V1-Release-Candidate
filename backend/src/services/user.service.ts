@@ -13,6 +13,7 @@ import type { PushNotificationSettings } from "../models/push_notification_setti
 import { notifyCircle } from "./family.service.js";
 import { PushNotificationType } from "../models/push_notification_types.js";
 import { SocketEvent } from "../models/socket_event_types.js";
+import { withAwsEmergencyAlwaysOn } from "../utils/official_warning.util.js";
 
 /** Grace period in days before account is permanently deleted */
 const DELETION_GRACE_PERIOD_DAYS = 30;
@@ -105,7 +106,7 @@ export const getUserPushNotificationSettings = async (
   const settings = await prisma.userPushNotificationSetting.findUnique({
     where: { userId },
   });
-  if (settings) return settings;
+  if (settings) return withAwsEmergencyAlwaysOn(settings);
 
   // No row yet (an account that never finished onboarding, or was created
   // through the API). The old answer was "everything off", which the app
@@ -137,16 +138,19 @@ export const updateUserPushNotificationSettings = async (
   userId: string,
   settings: PushNotificationSettings
 ): Promise<PushNotificationSettings> => {
-  return await prisma.userPushNotificationSetting.upsert({
+  // Every write path ends here: AWS Emergency Warnings are always on.
+  const forced = withAwsEmergencyAlwaysOn(settings);
+  const saved = await prisma.userPushNotificationSetting.upsert({
     where: { userId },
     create: {
       userId,
-      ...settings,
+      ...forced,
     },
     update: {
-      ...settings,
+      ...forced,
     },
   });
+  return withAwsEmergencyAlwaysOn(saved);
 };
 
 /**
