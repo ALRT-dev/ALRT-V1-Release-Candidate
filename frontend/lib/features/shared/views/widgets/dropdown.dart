@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -50,7 +52,13 @@ class AlrtDropdown extends ConsumerStatefulWidget {
     this.dropdownWidth,
     this.buttonAlignment = Alignment.topLeft,
     this.dropdownAlignment = Alignment.topLeft,
+    this.fitAboveKeyboard = false,
   });
+
+  /// When true the menu is never taller than the room between its top edge
+  /// and the keyboard (or the bottom of the screen), so results are never
+  /// hidden behind the keyboard. [dropdownHeight] stays the maximum.
+  final bool fitAboveKeyboard;
 
   /// The button widget that triggers the dropdown.
   final Widget Function(BuildContext, bool) button;
@@ -188,7 +196,7 @@ class _AlrtDropdownState extends ConsumerState<AlrtDropdown> {
                     color: AppColors.transparent,
                     child: Container(
                       width: widget.dropdownWidth ?? buttonSize.width,
-                      height: widget.dropdownHeight,
+                      height: _menuHeight(context),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(14.spMin),
@@ -216,6 +224,19 @@ class _AlrtDropdownState extends ConsumerState<AlrtDropdown> {
     setState(() {
       _isOpen = true;
     });
+  }
+
+  double _menuHeight(final BuildContext overlayContext) {
+    if (!widget.fitAboveKeyboard) return widget.dropdownHeight;
+    final media = MediaQuery.of(overlayContext);
+    final box = _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return widget.dropdownHeight;
+    final menuTop = box.localToGlobal(Offset.zero).dy + 57.spMin;
+    final bottomLimit = media.size.height -
+        math.max(media.viewInsets.bottom, media.padding.bottom) -
+        12.spMin;
+    final room = bottomLimit - menuTop;
+    return room.clamp(120.0, widget.dropdownHeight).toDouble();
   }
 
   void _closeDropdown() {

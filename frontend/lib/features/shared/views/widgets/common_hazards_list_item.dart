@@ -216,14 +216,15 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
 
         final category = hazard.category;
         final Widget glyph = isUserReported && category != null
-            ? CategoryGlyph(category: category, size: 22.spMin)
+            ? CategoryGlyph(category: category, size: 26.spMin)
             : SourceShapeGlyph(
                 isAws: isAws,
                 isOfficial: isOfficial,
                 isGlobalHumanitarian: hazard.isGlobalHumanitarian,
                 isAlrtIntel: hazard.isAlrtIntel,
                 color: hazard.color,
-                size: 14.spMin,
+                // Was 14: too small to read (phone review, 14 Oct 2026).
+                size: 20.spMin,
               );
 
         return Row(
@@ -300,7 +301,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                 sourceName: hazard.source?.name,
                 locationName: hazard.locationName,
                 title: hazard.title,
-                hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
+                hasAdvice: AlertCardStyle.agencyActions(hazard.callsToAction).isNotEmpty,
               );
         if (text == null || text.isEmpty) return const SizedBox.shrink();
 

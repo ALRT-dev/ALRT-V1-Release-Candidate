@@ -157,8 +157,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // The map runs the whole page, under the floating footer; every other
     // tab keeps its content clear of the footer.
     final onMap = ref.watch(providerOfHomeTab) == HomeTab.map;
+    // While the keyboard is up the footer steps aside instead of riding up
+    // on top of it, and the map never resizes: resizing the map's platform
+    // view squashed the map into the top third and clipped the search bar
+    // (phone review, 14 Oct 2026). Other tabs still resize so their fields
+    // stay above the keyboard.
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final showFooter = !keyboardOpen;
 
     return Scaffold(
+      resizeToAvoidBottomInset: !onMap,
       body: Stack(
         children: [
           SafeArea(
@@ -177,14 +185,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const ProfileScreen(),
                 ],
               ),
-            ).pB(onMap ? 0.0 : HomeTabbar.height - 20.0),
+            ).pB(onMap || !showFooter ? 0.0 : HomeTabbar.height - 20.0),
           ),
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: HomeTabbar(
-              tabController: _tabController,
+            child: Visibility(
+              visible: showFooter,
+              maintainState: true,
+              child: HomeTabbar(
+                tabController: _tabController,
+              ),
             ),
           ),
         ],

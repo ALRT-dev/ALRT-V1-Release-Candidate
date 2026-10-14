@@ -9,7 +9,9 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
+import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
@@ -534,7 +536,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           isGlobalHumanitarian: hazard.isGlobalHumanitarian,
           isAlrtIntel: hazard.isAlrtIntel,
           color: hazard.color,
-          size: 14.spMin,
+          // 14 read as a speck next to the source (phone review, 14 Oct).
+          size: 20.spMin,
         ),
         8.wSizedBox,
         Expanded(
@@ -552,11 +555,19 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         ),
         if (right.isNotEmpty) ...[
           8.wSizedBox,
-          Text(
-            right,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              color: AlertCardStyle.metaInk,
+          // A long agency name ("Department of Fire and Emergency Services
+          // WA · 6 hours ago") ran off the right edge; it now wraps.
+          Flexible(
+            flex: 3,
+            child: Text(
+              right,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12.spMin,
+                color: AlertCardStyle.metaInk,
+              ),
             ),
           ),
         ],
@@ -666,7 +677,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           sourceName: hazard.source?.name,
           locationName: hazard.locationName,
           title: hazard.title,
-          hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
+          hasAdvice: AlertCardStyle.agencyActions(hazard.callsToAction).isNotEmpty,
         );
         if (plainTerms == null) return const SizedBox.shrink();
 
@@ -974,7 +985,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       sourceName: hazard.source?.name,
       locationName: hazard.locationName,
       title: hazard.title,
-      hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
+      hasAdvice: AlertCardStyle.agencyActions(hazard.callsToAction).isNotEmpty,
     );
     final text = [
       hazard.isUserReported
@@ -994,9 +1005,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   // ── Tell your people ───────────────────────────────────────────────────
 
-  /// TELL YOUR PEOPLE (approved Detail board): the indigo group card with
-  /// "Send to my group", "Check in" and "Share a link". Nothing is shown
-  /// when the user has no group.
+  /// TELL YOUR PEOPLE on the indigo group card. Reworked after the 14 Oct
+  /// 2026 phone review, where three equal tiles under a small grey group
+  /// line left nothing reading as the main action. Now: who the group is
+  /// (faces and name, "Change" when there is more than one group), one
+  /// clear primary "Send this alert to {group}", then Check in and Share
+  /// as secondary actions. Nothing is shown when the user has no group.
   Widget _buildTellYourPeopleSection() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1008,8 +1022,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         );
         if (circleName == null) return const SizedBox.shrink();
 
-        final memberCount = ref.watch(
-          providerOfFamily.select((s) => s.circle?.members.length ?? 0),
+        final members = ref.watch(
+          providerOfFamily.select(
+            (s) => s.circle?.members ?? const <FamilyMember>[],
+          ),
         );
         final circleCount = ref.watch(
           providerOfFamily.select((s) => s.circles.length),
@@ -1019,15 +1035,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         );
         final canShare = isAlertShareable(hazard);
         final canPickGroup = circleCount > 1;
-        final peopleLine =
-            '$circleName · $memberCount ${memberCount == 1 ? 'person' : 'people'}';
+        final memberCount = members.length;
+        final countLine =
+            '$memberCount ${memberCount == 1 ? 'person' : 'people'}';
+        final faces = members.take(4).toList();
 
         return Padding(
           padding: EdgeInsets.only(top: 16.spMin),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // V3 section label
               Padding(
                 padding: EdgeInsets.only(bottom: 10.spMin),
                 child: Text(
@@ -1041,7 +1058,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 ),
               ),
               Container(
-                padding: EdgeInsets.all(12.spMin),
+                padding: EdgeInsets.fromLTRB(
+                  16.spMin,
+                  14.spMin,
+                  16.spMin,
+                  16.spMin,
+                ),
                 decoration: BoxDecoration(
                   gradient: FamilyColors.headerGradient,
                   borderRadius:
@@ -1057,48 +1079,89 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Group line. More than one group: tap to change.
-                    InkWell(
-                      onTap: canPickGroup
-                          ? () => showChooseCircleSheet(context, ref)
-                          : null,
-                      borderRadius: BorderRadius.circular(8.spMin),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              peopleLine,
-                              style: TextStyle(
-                                fontSize: 13.spMin,
-                                color: AppColors.white.withValues(alpha: 0.85),
+                    // Who: faces, group name, how many.
+                    Row(
+                      children: [
+                        if (faces.isNotEmpty) ...[
+                          _facesStack(faces),
+                          10.wSizedBox,
+                        ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                circleName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16.spMin,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.white,
+                                ),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              2.hSizedBox,
+                              Text(
+                                countLine,
+                                style: TextStyle(
+                                  fontSize: 12.5.spMin,
+                                  color:
+                                      AppColors.white.withValues(alpha: 0.75),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (canPickGroup)
+                          Semantics(
+                            button: true,
+                            label: 'Change group',
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.spMin,
+                                vertical: 7.spMin,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.white.withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(20.spMin),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Change',
+                                    style: TextStyle(
+                                      fontSize: 12.5.spMin,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.white,
+                                    ),
+                                  ),
+                                  2.wSizedBox,
+                                  Icon(
+                                    LucideIcons.chevronDown,
+                                    size: 14.spMin,
+                                    color: AppColors.white,
+                                  ),
+                                ],
+                              ),
+                            ).onPressed(
+                              () => showChooseCircleSheet(context, ref),
                             ),
                           ),
-                          if (canPickGroup) ...[
-                            Text(
-                              'tap to change',
-                              style: TextStyle(
-                                fontSize: 12.spMin,
-                                color: AppColors.white.withValues(alpha: 0.85),
-                              ),
-                            ),
-                            Icon(
-                              LucideIcons.chevronRight,
-                              size: 14.spMin,
-                              color: AppColors.white.withValues(alpha: 0.85),
-                            ),
-                          ],
-                        ],
-                      ),
+                      ],
+                    ),
+                    14.hSizedBox,
+                    // The main action, full width, impossible to miss.
+                    _groupPrimaryButton(
+                      label: 'Send this alert to $circleName',
+                      loading: isSending,
+                      onTap: isSending ? null : () => _sendAlertToGroup(hazard),
                     ),
                     10.hSizedBox,
-                    // One compact row: Check in, Send to group, Share.
                     Row(
                       children: [
                         Expanded(
-                          child: _groupButton(
+                          child: _groupSecondaryButton(
                             label: _checkInSent ? 'Checked in' : 'Check in',
                             icon: _checkInSent
                                 ? LucideIcons.circleCheck
@@ -1108,23 +1171,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                                 : () => _sendCheckIn(hazard),
                           ),
                         ),
-                        8.wSizedBox,
-                        Expanded(
-                          child: _groupButton(
-                            label: 'Send to group',
-                            icon: LucideIcons.send,
-                            filled: true,
-                            loading: isSending,
-                            onTap: isSending
-                                ? null
-                                : () => _sendAlertToGroup(hazard),
-                          ),
-                        ),
                         if (canShare) ...[
-                          8.wSizedBox,
+                          10.wSizedBox,
                           Expanded(
-                            child: _groupButton(
-                              label: 'Share',
+                            child: _groupSecondaryButton(
+                              label: 'Share link',
                               icon: LucideIcons.share2,
                               onTap: () => shareAlert(
                                 ref: ref,
@@ -1146,69 +1197,135 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// A compact tile on the indigo card: icon over a short label. White
-  /// with indigo ink when [filled], otherwise translucent white.
-  Widget _groupButton({
+  /// Up to four overlapping member faces.
+  Widget _facesStack(final List<FamilyMember> faces) {
+    final size = 32.spMin;
+    final step = size * 0.62;
+    return SizedBox(
+      width: size + step * (faces.length - 1),
+      height: size,
+      child: Stack(
+        children: [
+          for (var i = 0; i < faces.length; i++)
+            Positioned(
+              left: step * i,
+              child: Container(
+                padding: const EdgeInsets.all(1.5),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1E1780),
+                  shape: BoxShape.circle,
+                ),
+                child: FamilyMemberAvatar(
+                  member: faces[i],
+                  size: size - 3,
+                  showStatusDot: false,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// White, full width, indigo ink: the one primary action on the card.
+  Widget _groupPrimaryButton({
     required final String label,
-    required final IconData icon,
-    final bool filled = false,
     final bool loading = false,
     final VoidCallback? onTap,
   }) {
-    const filledInk = Color(0xFF3229C4);
-    final ink = filled ? filledInk : AppColors.white;
-    final enabled = onTap != null;
-
+    const ink = Color(0xFF3229C4);
     return Opacity(
-      opacity: enabled || loading ? 1.0 : 0.6,
-      child: Container(
-        height: 56.spMin,
-        decoration: BoxDecoration(
-          color: filled
-              ? AppColors.white
-              : AppColors.white.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(12.spMin),
-        ),
-        child: Material(
-          color: AppColors.transparent,
-          borderRadius: BorderRadius.circular(12.spMin),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
+      opacity: onTap != null || loading ? 1.0 : 0.6,
+      child: Material(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14.spMin),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 50.spMin,
+            width: double.infinity,
             child: Center(
               child: loading
                   ? SizedBox(
-                      width: 18.spMin,
-                      height: 18.spMin,
-                      child: CircularProgressIndicator(
+                      width: 20.spMin,
+                      height: 20.spMin,
+                      child: const CircularProgressIndicator(
                         strokeWidth: 2,
                         color: ink,
                       ),
                     )
                   : Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4.spMin),
-                      child: Column(
+                      padding: EdgeInsets.symmetric(horizontal: 14.spMin),
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(icon, size: 18.spMin, color: ink),
-                          3.hSizedBox,
+                          Icon(LucideIcons.send, size: 18.spMin, color: ink),
+                          8.wSizedBox,
                           Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                label,
-                                style: TextStyle(
-                                  fontSize: 12.spMin,
-                                  fontWeight: FontWeight.w700,
-                                  color: ink,
-                                ),
-                                maxLines: 1,
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 15.spMin,
+                                fontWeight: FontWeight.w800,
+                                color: ink,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Translucent white pill, icon beside the label.
+  Widget _groupSecondaryButton({
+    required final String label,
+    required final IconData icon,
+    final VoidCallback? onTap,
+  }) {
+    return Opacity(
+      opacity: onTap != null ? 1.0 : 0.65,
+      child: Material(
+        color: AppColors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12.spMin),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            height: 44.spMin,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12.spMin),
+              border: Border.all(
+                color: AppColors.white.withValues(alpha: 0.22),
+              ),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 17.spMin, color: AppColors.white),
+                  7.wSizedBox,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1503,8 +1620,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   Widget _buildWhatToDoSection() {
     return Consumer(
       builder: (context, ref, child) {
-        final callsToAction = ref.watch(
-          provider.select((value) => value.hazard?.callsToAction),
+        final callsToAction = AlertCardStyle.agencyActions(
+          ref.watch(provider.select((value) => value.hazard?.callsToAction)),
         );
         final isUserReported = ref.watch(
           provider.select(
@@ -1512,7 +1629,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           ),
         );
 
-        final shouldShow = (callsToAction?.isNotEmpty ?? false);
+        final shouldShow = callsToAction.isNotEmpty;
 
         if (!shouldShow) {
           // An official alert always shows the section, so it is clear
@@ -1586,7 +1703,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ),
                       ),
                       12.spMin.hSizedBox,
-                      ...callsToAction!.asMap().entries.map((entry) {
+                      ...callsToAction.asMap().entries.map((entry) {
                         final index = entry.key;
                         final action = entry.value;
                         return Padding(

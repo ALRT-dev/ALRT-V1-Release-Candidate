@@ -828,9 +828,24 @@ class HazardService {
     final w = image.width;
     final h = image.height;
     if (w != null && h != null && w > 0 && h > 0) {
-      return Size(w.toDouble(), h.toDouble());
+      return _readableOnMap(Size(w.toDouble(), h.toDouble()));
     }
-    return defaultSize;
+    return _readableOnMap(defaultSize);
+  }
+
+  /// Map pins take their size from the image width/height set per category
+  /// in the admin portal, and several were set small enough that the
+  /// pictogram could not be read or tapped (phone review, 14 Oct 2026).
+  /// The longer side is held between 44 (the tap-target minimum) and 64,
+  /// keeping the image's own proportions.
+  static Size _readableOnMap(final Size size) {
+    const minSide = 44.0;
+    const maxSide = 64.0;
+    final longest = size.longestSide;
+    if (longest <= 0) return const Size(minSide, minSide);
+    final target = longest.clamp(minSide, maxSide);
+    final k = target / longest;
+    return Size(size.width * k, size.height * k);
   }
 
   /// First matching [imageType] in category → parent chain with valid width/height, else [defaultSize].
@@ -849,10 +864,10 @@ class HazardService {
       final w = slot.width;
       final h = slot.height;
       if (w != null && h != null && w > 0 && h > 0) {
-        return Size(w.toDouble(), h.toDouble());
+        return _readableOnMap(Size(w.toDouble(), h.toDouble()));
       }
     }
-    return defaultSize;
+    return _readableOnMap(defaultSize);
   }
 
   Future<Uint8List?> _downloadImageBytes(

@@ -89,6 +89,23 @@ abstract final class AlertCardStyle {
     };
   }
 
+  /// The agency's own instructions from an alert, without the generic
+  /// filler older TEST records carry ("If you are near the area, be ready
+  /// to follow ... instructions"). That line was written by the old
+  /// pipeline, not the agency, so it is never shown under WHAT TO DO and
+  /// never counts as published advice (phone review, 14 Oct 2026).
+  static List<String> agencyActions(final List<String>? callsToAction) {
+    if (callsToAction == null) return const [];
+    final filler = RegExp(
+      r'^\s*(if you are (near|in|around) (the|this) area,?\s*)?be ready to follow\b.*instructions\.?\s*$',
+      caseSensitive: false,
+    );
+    return [
+      for (final a in callsToAction)
+        if (a.trim().isNotEmpty && !filler.hasMatch(a)) a,
+    ];
+  }
+
   /// The "In plain terms" line.
   ///
   /// Locked rule (product owner, 2026-08-05): this states only WHAT HAS
@@ -126,16 +143,22 @@ abstract final class AlertCardStyle {
     // ("an outage", "a bushfire"). A place name the source shouted in
     // capitals is brought back to title case; it is not our emphasis.
     final rawWhat = (categoryName ?? '').trim().toLowerCase();
-    // A broad bucket name ("Security & Crime") is not a thing that
-    // happened, so it reads as "a security and crime alert".
-    final what = rawWhat == 'other'
-        ? 'alert'
-        : rawWhat.contains('&')
-            ? '${rawWhat.replaceAll('&', 'and').replaceAll(RegExp(r'\s+'), ' ')} alert'
-            : rawWhat;
+    // A broad bucket name ("Other", "Security & Crime") is not a thing that
+    // happened. The agency's own title usually names it ("Active Alarm in
+    // Metro Central", "Police operation in Northbridge"), so those words
+    // are used; only with no usable title does it read as "an alert" or
+    // "a security and crime alert" (phone review, 14 Oct 2026).
+    final isBucket = rawWhat.isEmpty || rawWhat == 'other' || rawWhat.contains('&');
+    final titleHazard = isBucket ? _hazardFromTitle(title) : null;
+    final what = titleHazard ??
+        (rawWhat == 'other'
+            ? 'alert'
+            : rawWhat.contains('&')
+                ? '${rawWhat.replaceAll('&', 'and').replaceAll(RegExp(r'\s+'), ' ')} alert'
+                : rawWhat);
     // The place: the agency's own title names it ("Vehicle Fire at Salter
-    // Point") far better than the feed's region code ("METRO SOUTH EAST"),
-    // so the title's place wins when it has one.
+    // Point", "Road Crash – Warwick") far better than the feed's region
+    // code ("METRO SOUTH EAST"), so the title's place wins when it has one.
     final fromTitle = _placeAndPreposition(title);
     final where = fromTitle?.$2 ?? _calmCase((locationName ?? '').trim());
     // Keep the agency's own word: "at Salter Point", "in Northbridge".
@@ -180,10 +203,58 @@ abstract final class AlertCardStyle {
   static String? placeFromTitle(final String? title) =>
       _placeAndPreposition(title)?.$2;
 
+  /// Splits a "Hazard – Place" title (DFES writes "Road Crash – Warwick",
+  /// "Bushfire – Dandaragan") into its two halves, or null.
+  static (String, String)? _dashParts(final String? title) {
+    final t = title?.trim();
+    if (t == null || t.isEmpty) return null;
+    final m = RegExp(r'^(.+?)\s+[\u2013\u2014-]\s+(.+)$').firstMatch(t);
+    if (m == null) return null;
+    return (m.group(1)!.trim(), m.group(2)!.trim());
+  }
+
+  /// The hazard words of an agency title, lower-cased ("active alarm",
+  /// "road crash", "police operation"), or null when the title has no
+  /// place phrase to split it at.
+  static String? _hazardFromTitle(final String? title) {
+    final t = title?.trim();
+    if (t == null || t.isEmpty) return null;
+    String? hazard;
+    final dash = _dashParts(t);
+    if (dash != null) {
+      hazard = dash.$1;
+    } else {
+      final lower = t.toLowerCase();
+      var cut = -1;
+      for (final candidate in const [' at ', ' near ', ' in ']) {
+        final i = lower.lastIndexOf(candidate);
+        if (i > cut) cut = i;
+      }
+      if (cut > 0) hazard = t.substring(0, cut);
+    }
+    hazard = hazard?.trim();
+    if (hazard == null ||
+        hazard.isEmpty ||
+        hazard.length > 40 ||
+        !RegExp(r"^[A-Za-z][A-Za-z' /-]*$").hasMatch(hazard)) {
+      return null;
+    }
+    return hazard.toLowerCase();
+  }
+
   /// The title's place with the word the agency put before it.
   static (String, String)? _placeAndPreposition(final String? title) {
     final t = title?.trim();
     if (t == null || t.isEmpty) return null;
+    // "Road Crash – Warwick": the place is everything after the dash.
+    final dash = _dashParts(t);
+    if (dash != null) {
+      final place = dash.$2;
+      if (place.length <= 40 &&
+          RegExp(r"^[A-Za-z][A-Za-z' .,-]*$").hasMatch(place)) {
+        return ('in', _calmCase(place));
+      }
+    }
     final lower = t.toLowerCase();
     // The LAST " at " / " near " / " in " wins, so "Burn-off in progress
     // at Gingin" gives Gingin, not "progress at Gingin".
@@ -201,7 +272,7 @@ abstract final class AlertCardStyle {
     // A place name, not the rest of a sentence.
     if (place.isEmpty ||
         place.length > 40 ||
-        !RegExp(r"^[A-Za-z][A-Za-z' .-]*$").hasMatch(place)) {
+        !RegExp(r"^[A-Za-z][A-Za-z' .,-]*$").hasMatch(place)) {
       return null;
     }
     return (word.trim(), _calmCase(place));

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:hazard_app/features/shared/utils/community_disc_marker.dart';
 import 'package:hazard_app/features/shared/utils/template_marker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -75,9 +76,15 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
     final bareShape = markerBitmaps[
         'shape_${widget.hazard.effectiveMapShape.name}_${band.name}'];
     final artwork = widget.hazard.getMarkerBitmapDescriptor(markerBitmaps);
-    final bitmapDescriptor = artwork != null && !identical(artwork, bareShape)
-        ? artwork
-        : await templateMarker(widget.hazard) ?? artwork;
+    // Community reports wear their category disc here too, as on the main
+    // map (this used to fall through to a plain grey circle).
+    final disc = widget.hazard.isUserReported
+        ? await communityDiscMarker(widget.hazard)
+        : null;
+    final bitmapDescriptor = disc ??
+        (artwork != null && !identical(artwork, bareShape)
+            ? artwork
+            : await templateMarker(widget.hazard) ?? artwork);
 
     if (!mounted || generation != _markerGeneration) return;
 

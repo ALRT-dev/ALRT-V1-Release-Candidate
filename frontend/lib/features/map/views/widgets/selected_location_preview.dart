@@ -179,10 +179,16 @@ class _SelectedLocationPreviewState
       orElse: () => null,
     );
     if (failure != null) {
+      // Never put Google's raw error ("Routes API error: 403 ...") in front
+      // of people; it goes to the log for us instead.
+      debugPrint('[directions] $failure');
+      final noRoad = failure.startsWith(
+        'No routes found between these locations',
+      );
       context.showErrorToast(
-        message: failure.isEmpty
-            ? 'Directions could not be loaded. Please try again.'
-            : 'Directions could not be loaded: $failure',
+        message: noRoad
+            ? "We couldn't find a route to this place."
+            : "Directions aren't available right now. Please try again later.",
       );
     }
   }

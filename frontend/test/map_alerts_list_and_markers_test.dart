@@ -53,7 +53,7 @@ void main() {
       );
       expect(
         line,
-        'WA Police has reported a security and crime alert in Northbridge. '
+        'WA Police has reported a police operation in Northbridge. '
         'Their advice is in this alert.',
       );
     });
