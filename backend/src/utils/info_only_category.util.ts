@@ -13,10 +13,23 @@ export const INFO_ONLY_CATEGORY_IDS: ReadonlySet<string> = new Set([
   "fireAlarm",
 ]);
 
+/** Residual smoke from a fire already out or managed is information only. */
+export const SMOKE_RESIDUAL_WORDS = [
+  "residual smoke", "smouldering", "smoldering", "smoke may be visible",
+  "smoke visible", "smoke from", "lingering smoke", "burning off",
+];
+export const isResidualSmoke = (description: string): boolean => {
+  const d = description.toLowerCase();
+  return SMOKE_RESIDUAL_WORDS.some((w) => d.includes(w));
+};
+
 export const capForInfoOnlyCategory = <T extends { severityBand?: HazardSeverityBand | undefined; severity?: HazardSeverity | undefined }>(
   categoryId: string | null | undefined,
   values: T,
+  description?: string,
 ): T =>
-  categoryId && INFO_ONLY_CATEGORY_IDS.has(categoryId)
+  categoryId &&
+  (INFO_ONLY_CATEGORY_IDS.has(categoryId) ||
+    (categoryId === "otherFire" && !!description && isResidualSmoke(description)))
     ? { ...values, severityBand: "info" as HazardSeverityBand, severity: "info" as HazardSeverity }
     : values;

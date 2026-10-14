@@ -231,10 +231,11 @@ const processSingleHazard = async (
   category = category || attributes.category;
 
   // Information-only categories never rise above Info.
-  const capped = capForInfoOnlyCategory(category?.id, {
-    severity,
-    severityBand,
-  });
+  const capped = capForInfoOnlyCategory(
+    category?.id,
+    { severity, severityBand },
+    description,
+  );
 
   // Step 5: Convert webhook data to HazardDataWithRelations format
   const hazardDataWithRelations: HazardDataWithRelations = {

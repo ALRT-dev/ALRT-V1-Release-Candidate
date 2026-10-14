@@ -1,4 +1,5 @@
 import { FireStatus, type HazardCategory } from "@prisma/client";
+import { SMOKE_RESIDUAL_WORDS } from "./info_only_category.util.js";
 import { MainCategoryId } from "../services/hazard_category.service.js";
 
 /**
@@ -112,7 +113,7 @@ const mainCategoriesLookupOrder: string[] = [
  * @param availableCategories - List of available hazard categories with their keywords.
  * @returns The matched HazardCategory or the "other" category if no match is found.
  */
-export const getCategoryFromDescription = (
+const getCategoryFromDescriptionBase = (
   description: string,
   availableCategories: (HazardCategory & { parent: HazardCategory | null })[],
   fallbackCategoryId: string = "other"
@@ -388,6 +389,40 @@ export const getCategoryFromDescription = (
     updatedAt: now,
   };
 };
+
+/**
+ * Smoke routing (owner ruling 2026-10-14). Smoke is two different things:
+ * health advice about smoke in the air belongs with Air Quality, while
+ * residual smoke from a fire that is already out or being managed is only
+ * information, so it becomes Other Fire (which is capped at Info).
+ */
+const SMOKE_HEALTH_WORDS = [
+  "health", "air quality", "asthma", "breathing", "sensitive groups",
+  "lung", "respiratory", "heart condition", "smoke haze", "hazardous smoke",
+];
+
+export const getCategoryFromDescription = (
+  description: string,
+  availableCategories: (HazardCategory & { parent: HazardCategory | null })[],
+  fallbackCategoryId: string = "other"
+): HazardCategory => {
+  const base = getCategoryFromDescriptionBase(
+    description,
+    availableCategories,
+    fallbackCategoryId
+  );
+  if (base.id !== "smoke" && base.id !== "smokePlume") return base;
+  const desc = description.toLowerCase();
+  const find = (id: string) => availableCategories.find((c) => c.id === id);
+  if (SMOKE_HEALTH_WORDS.some((w) => desc.includes(w))) {
+    return find("airQualityAlert") ?? base;
+  }
+  if (SMOKE_RESIDUAL_WORDS.some((w) => desc.includes(w))) {
+    return find("otherFire") ?? base;
+  }
+  return base;
+};
+
 
 /**
  * Determine fire status based on description keywords.
