@@ -401,16 +401,11 @@ const SMOKE_HEALTH_WORDS = [
   "lung", "respiratory", "heart condition", "smoke haze", "hazardous smoke",
 ];
 
-export const getCategoryFromDescription = (
+export const routeSmokeCategory = (
+  base: HazardCategory,
   description: string,
-  availableCategories: (HazardCategory & { parent: HazardCategory | null })[],
-  fallbackCategoryId: string = "other"
+  availableCategories: (HazardCategory & { parent: HazardCategory | null })[]
 ): HazardCategory => {
-  const base = getCategoryFromDescriptionBase(
-    description,
-    availableCategories,
-    fallbackCategoryId
-  );
   if (base.id !== "smoke" && base.id !== "smokePlume") return base;
   const desc = description.toLowerCase();
   const find = (id: string) => availableCategories.find((c) => c.id === id);
@@ -421,6 +416,40 @@ export const getCategoryFromDescription = (
     return find("otherFire") ?? base;
   }
   return base;
+};
+
+export const getCategoryFromDescription = (
+  description: string,
+  availableCategories: (HazardCategory & { parent: HazardCategory | null })[],
+  fallbackCategoryId: string = "other"
+): HazardCategory => {
+  const base = getCategoryFromDescriptionBase(
+    description,
+    availableCategories,
+    fallbackCategoryId
+  );
+  return routeSmokeCategory(base, description, availableCategories);
+};
+
+/**
+ * The headline names the hazard, so it is read first. Body text often
+ * mentions other things (a smoke alert that tells people to switch off
+ * air-conditioners or expect power cuts), and those words must not
+ * override what the agency titled the alert. Returns null when the title
+ * alone does not identify a category, so the caller can use the full text.
+ */
+export const getCategoryFromTitleFirst = (
+  title: string,
+  fullText: string,
+  availableCategories: (HazardCategory & { parent: HazardCategory | null })[]
+): HazardCategory | null => {
+  const fromTitle = getCategoryFromDescriptionBase(
+    title,
+    availableCategories,
+    "other"
+  );
+  if (!fromTitle || fromTitle.id === "other") return null;
+  return routeSmokeCategory(fromTitle, fullText, availableCategories);
 };
 
 

@@ -376,7 +376,7 @@ class HazardService {
     categories.add(HazardCategory(id: 'other'));
 
     final scheduledKeys = <String>{};
-    const defaultSize = Size(40, 40);
+    const defaultSize = Size(32, 32);
 
     final parentCategoryIds = categories
         .map((cat) => cat.parentId)
@@ -678,7 +678,7 @@ class HazardService {
     // event picture and the band colour in one image, so a pin shows what
     // happened as well as how urgent it is. Only allow-listed artwork is
     // loaded; anything else falls back to the plain source shape below.
-    const eventPinSize = Size(44, 44);
+    const eventPinSize = Size(32, 32);
     final eventImageSize = Size(
       (eventPinSize.width * dpr).ceilToDouble(),
       (eventPinSize.height * dpr).ceilToDouble(),
@@ -758,7 +758,7 @@ class HazardService {
     required final HazardCategory category,
     required final HazardSeverityBand severityBand,
     final bool isAwsCompliant = false,
-    final Size size = const Size(40, 40),
+    final Size size = const Size(32, 32),
   }) async {
     final imageType = _categoryImageTypeForSeverityBand(
       severityBand,
@@ -776,7 +776,7 @@ class HazardService {
   /// User-report marker: own [CategoryImageType.user], then parent chain, then [other_info].
   Future<BitmapDescriptor> getBitmapDescriptorForCategoryUserMarker({
     required final HazardCategory category,
-    final Size size = const Size(40, 40),
+    final Size size = const Size(32, 32),
   }) async {
     return _bitmapDescriptorFromCategoryImageChain(
       category: category,
