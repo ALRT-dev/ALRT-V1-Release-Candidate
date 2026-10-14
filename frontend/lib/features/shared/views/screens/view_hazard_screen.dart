@@ -665,6 +665,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           categoryName: hazard.category?.name,
           sourceName: hazard.source?.name,
           locationName: hazard.locationName,
+          hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
         );
         if (plainTerms == null) return const SizedBox.shrink();
 
@@ -967,6 +968,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       categoryName: hazard.category?.name,
       sourceName: hazard.source?.name,
       locationName: hazard.locationName,
+      hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
     );
     final text = [
       hazard.isUserReported

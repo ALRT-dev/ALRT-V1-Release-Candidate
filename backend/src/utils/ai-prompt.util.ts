@@ -385,6 +385,9 @@ Generate “summary” using the following rules:
   - Plain English.
   - States the hazard + alert level (if provided in the description) + location.
   - Present tense.
+  - If the source gives only an incident type and a place, say exactly that
+    and nothing more. Never say or imply that advice exists ("their advice is
+    in this alert") unless the source actually gives advice.
   - Include the specific facts the official source gives (what, where, status,
     time, area affected). Use the agency's own words for these when it states them.`;
 
