@@ -1,10 +1,10 @@
 /// Bundled event pictograms (bushfire, flood, crash...) that are allowed on
 /// the map pin.
 ///
-/// Only artwork whose frame colour matches the locked band hex is listed
-/// (checked 14 Oct 2026); variants with a wrong or monochrome colour are left
-/// out, so those events fall back to the plain source shape rather than
-/// showing the wrong urgency. AWS artwork is used exactly as supplied.
+/// The supplied artwork is used exactly as drawn, never recoloured (master
+/// data rule R03): Info dark, Monitor yellow, Action orange, Critical red.
+/// Gaps are filled with generated icons in the same four frame colours.
+/// AWS artwork is used exactly as supplied.
 abstract final class EventIconAssets {
   static const Set<String> names = {
     'aws/bushfire_action',
