@@ -527,6 +527,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       if (sourceName != null && sourceName.isNotEmpty) sourceName,
       if (postedAt != null) postedAt.timeAgo,
     ].join(' · ');
+    final labelText = Text(
+      label,
+      style: TextStyle(
+        fontSize: 12.spMin,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.4,
+        color: labelInk,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
 
     return Row(
       children: [
@@ -540,25 +551,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           size: 20.spMin,
         ),
         8.wSizedBox,
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-              color: labelInk,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        // The label is a short fixed word ("OFFICIAL", "EMERGENCY WARNING")
+        // and is always shown whole; the source line takes the rest. A
+        // flex split here gave the label a quarter of the row whatever
+        // the source used, cutting "EMERGENCY WARNING" short.
+        if (right.isEmpty) Expanded(child: labelText) else labelText,
         if (right.isNotEmpty) ...[
-          8.wSizedBox,
+          12.wSizedBox,
           // A long agency name ("Department of Fire and Emergency Services
           // WA · 6 hours ago") ran off the right edge; it now wraps.
-          Flexible(
-            flex: 3,
+          Expanded(
             child: Text(
               right,
               maxLines: 2,
@@ -1199,7 +1201,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   /// Up to four overlapping member faces.
   Widget _facesStack(final List<FamilyMember> faces) {
-    final size = 32.spMin;
+    // FamilyMemberAvatar scales its own size, so it takes design units;
+    // the layout here uses the scaled size. Passing a scaled size to the
+    // avatar scaled it twice and the faces overflowed this box.
+    const designSize = 32.0;
+    const ring = 1.5;
+    final size = designSize.spMin;
     final step = size * 0.62;
     return SizedBox(
       width: size + step * (faces.length - 1),
@@ -1210,14 +1217,14 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             Positioned(
               left: step * i,
               child: Container(
-                padding: const EdgeInsets.all(1.5),
+                padding: EdgeInsets.all(ring.spMin),
                 decoration: const BoxDecoration(
                   color: Color(0xFF1E1780),
                   shape: BoxShape.circle,
                 ),
                 child: FamilyMemberAvatar(
                   member: faces[i],
-                  size: size - 3,
+                  size: designSize - ring * 2,
                   showStatusDot: false,
                 ),
               ),

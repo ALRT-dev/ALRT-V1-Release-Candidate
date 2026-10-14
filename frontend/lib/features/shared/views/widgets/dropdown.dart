@@ -236,7 +236,10 @@ class _AlrtDropdownState extends ConsumerState<AlrtDropdown> {
         math.max(media.viewInsets.bottom, media.padding.bottom) -
         12.spMin;
     final room = bottomLimit - menuTop;
-    return room.clamp(120.0, widget.dropdownHeight).toDouble();
+    // Never below a usable floor, but never above the maximum either (a
+    // floor above the maximum would make clamp throw).
+    final floor = math.min(120.0, widget.dropdownHeight);
+    return room.clamp(floor, widget.dropdownHeight).toDouble();
   }
 
   void _closeDropdown() {

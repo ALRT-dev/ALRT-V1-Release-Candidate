@@ -212,9 +212,9 @@ abstract final class ForYouLibrary {
           'feet. Arranging to move before water is anywhere near, not '
           'during, may help.',
       SafetyCohort.medical:
-          'Keeping medication dry in a sealed bag you can grab may '
-          'help, and asking for help with heavy work like sandbags '
-          'rather than doing it alone.',
+          'Keeping medication dry in a sealed bag you can grab, and asking '
+          'for help with heavy work like sandbags rather than doing it '
+          'alone, may help.',
       SafetyCohort.deaf:
           'Rising water at night gives little visual warning. Keeping '
           'vibration alerts on while you sleep, and checking levels before '
@@ -246,8 +246,8 @@ abstract final class ForYouLibrary {
           'arrives may help.',
       SafetyCohort.mobility:
           'Sheltering and evacuating are harder in high wind. Registering '
-          'early with local emergency services if you may need evacuation '
-          'help may help.',
+          'early with local emergency services, if you may need evacuation '
+          'assistance, may help.',
       SafetyCohort.medical:
           'Power loss can affect medical equipment and routines. Charging '
           'devices, stocking medication and planning for outages before the '

@@ -87,7 +87,6 @@ class _MapSearchResultsListState
                 minHeight: 2.5,
                 backgroundColor: Colors.transparent,
                 color: Color(0xFFE8622A), // footer active orange
-
               ),
             ),
           ),
