@@ -42,6 +42,28 @@ abstract final class AlertTextUtil {
     return points;
   }
 
+  /// What we know for a community report: what was reported, what the
+  /// reporter wrote (if anything), and that it is unverified. Always 1 to
+  /// [maxPoints] points, never empty.
+  static List<String> communityPoints(
+    final String? title,
+    final String? description,
+  ) {
+    final out = <String>[];
+    final t = (title ?? '').trim();
+    out.add(
+      t.isEmpty
+          ? 'A community member has reported an incident nearby.'
+          : 'A community member has reported: $t.'.replaceAll('..', '.'),
+    );
+    final d = (description ?? '').trim();
+    if (d.isNotEmpty && d.toLowerCase() != t.toLowerCase()) {
+      out.add(d.length > 160 ? '${d.substring(0, 157).trim()}...' : d);
+    }
+    out.add('This report is unverified and has not been confirmed by an official source.');
+    return out.take(maxPoints).toList();
+  }
+
   /// The first [maxPoints] instructions. The agency's order is kept.
   static List<String> capActions(final List<String> actions) {
     final cleaned = actions

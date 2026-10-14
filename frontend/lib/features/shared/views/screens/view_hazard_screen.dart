@@ -1506,8 +1506,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // Only the advice the agency actually gave (up to three points, in
         // its own words). Nothing is added. Assumed or "worth considering"
         // guidance lives in For You, chosen from the person's safety profile.
-        final callsToAction = (allActions == null && isUserReported)
-            ? null
+        // A community report carries no instruction of its own, so it shows
+        // one standing line that points at the emergency services.
+        final callsToAction = isUserReported
+            ? <String>[AlertTextUtil.followAgencyLine(null)]
             : AlertTextUtil.capActions(allActions ?? const <String>[]);
 
         final shouldShow = (callsToAction?.isNotEmpty ?? false);
@@ -1644,15 +1646,19 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             (value) => value.hazard?.isUserReported ?? false,
           ),
         );
-        if (isUserReported) return const SizedBox.shrink();
-
         final description = ref.watch(
           provider.select((value) => value.hazard?.description),
         );
+        final reportTitle = ref.watch(
+          provider.select((value) => value.hazard?.title),
+        );
 
         // Facts only: the agency's own instructions and road notes have
-        // their own sections, so they are cut from here.
-        final points = AlertTextUtil.whatWeKnowPoints(description);
+        // their own sections, so they are cut from here. A community report
+        // always gets at least one point, even with nothing written.
+        final points = isUserReported
+            ? AlertTextUtil.communityPoints(reportTitle, description)
+            : AlertTextUtil.whatWeKnowPoints(description);
         if (points.isEmpty) return const SizedBox.shrink();
 
         // Paired with WHAT TO DO, to the pixel. This used to be a blue

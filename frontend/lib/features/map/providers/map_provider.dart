@@ -2078,7 +2078,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
     if (cached != null) return cached;
 
     try {
-      const size = 28.0;
+      const size = 32.0;
       // Room for the ring so the disc is not clipped at the bitmap edge.
       const canvas = size + 4.0;
       final widget = Center(

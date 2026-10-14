@@ -43,6 +43,14 @@ void main() {
       expect(AlertTextUtil.capActions([]), isEmpty);
     });
 
+    test('community report always has at least one what-we-know point', () {
+      final none = AlertTextUtil.communityPoints('Smell of gas', null);
+      expect(none.length, 2);
+      expect(none.first, 'A community member has reported: Smell of gas.');
+      expect(AlertTextUtil.communityPoints(null, null).isNotEmpty, isTrue);
+      expect(AlertTextUtil.communityPoints('A', 'Strong smell near the park').length, 3);
+    });
+
     test('fallback line names the agency and never says no advice', () {
       final line = AlertTextUtil.followAgencyLine('DFES');
       expect(line, 'If you are near the area, be ready to follow DFES instructions.');
