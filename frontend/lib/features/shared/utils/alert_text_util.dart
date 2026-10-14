@@ -8,6 +8,9 @@ abstract final class AlertTextUtil {
   /// Most points either section shows.
   static const int maxPoints = 3;
 
+  /// What to do always carries at least two points (owner, 14 Oct 2026).
+  static const int minActions = 2;
+
   /// A line that starts the agency's own instruction or logistics block.
   /// Everything from here on belongs to another section, so it is cut.
   static final RegExp _sectionHeading = RegExp(
@@ -54,6 +57,28 @@ abstract final class AlertTextUtil {
   }
 
   /// Shown when the agency gave no instruction. Never says "no advice".
+  /// "Check [agency] for updates." The second standing point: it points at
+  /// the agency, it is not ALRT's own advice.
+  static String checkUpdatesLine(final String? agencyName) {
+    final name = (agencyName ?? '').trim();
+    return name.isEmpty
+        ? 'Check official sources for updates.'
+        : 'Check $name for updates.';
+  }
+
+  /// The agency's instructions, capped at [maxPoints] and padded to at least
+  /// [minActions] with standing lines that point at the agency (never ALRT
+  /// advice). Order is kept; padding is added after the agency's own points.
+  static List<String> actionsWithMinimum(
+    final List<String>? actions,
+    final String? agencyName,
+  ) {
+    final out = capActions(actions ?? const <String>[]);
+    if (out.isEmpty) out.add(followAgencyLine(agencyName));
+    if (out.length < minActions) out.add(checkUpdatesLine(agencyName));
+    return out;
+  }
+
   static String followAgencyLine(final String? agencyName) {
     final name = (agencyName ?? '').trim();
     return name.isEmpty

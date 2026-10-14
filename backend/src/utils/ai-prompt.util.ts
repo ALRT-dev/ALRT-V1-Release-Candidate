@@ -426,7 +426,7 @@ Always respond with **valid JSON** in this format:
   {
     "title": "string" (≤80 chars),
     "summary": "string" (one clear sentence),
-    "callsToAction": "array", (2–4 dot points),
+    "callsToAction": "array", (2–3 dot points),
     "confidence": "high|medium|low",
   }`;
 

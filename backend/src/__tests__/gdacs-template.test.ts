@@ -13,9 +13,9 @@ describe("GDACS template", () => {
     expect(parseGdacsLevel("no level here")).toBeNull();
     expect(parseGdacsHazard("Tropical Cyclone ABC")).toBe("tropical cyclone");
   });
-  it("builds level-keyed content with 1 to 3 points", () => {
+  it("builds level-keyed content with 2 to 3 points", () => {
     const g = getDeterministicGdacsContent({ title: "Green earthquake alert", description: "M5.1", locationName: "Lima" })!;
-    expect(g.callsToAction).toHaveLength(1);
+    expect(g.callsToAction.length).toBeGreaterThanOrEqual(2);
     expect(g.summary).toContain("low humanitarian impact");
     const r = getDeterministicGdacsContent({ title: "Red alert tropical cyclone", description: "", locationName: null })!;
     expect(r.callsToAction.length).toBeLessThanOrEqual(3);

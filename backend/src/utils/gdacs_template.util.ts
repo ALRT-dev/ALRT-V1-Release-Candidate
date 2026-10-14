@@ -8,7 +8,7 @@ import type { AISummaryResponse } from "../models/ai_summary_response_interface.
  * keyed on the level and the disaster type, so it is reviewed once and
  * rendered every time.
  *
- * Owner rulings applied (2026-10-14): plain English, 1 to 3 points, no
+ * Owner rulings applied (2026-10-14): plain English, 2 to 3 points, no
  * ALRT-authored advice (only the standing wording from standard section 7),
  * no emergency phone numbers, no all-clear, "a good idea" never "advisable".
  * If the level or disaster type cannot be read from the text this returns
@@ -44,6 +44,7 @@ const IMPACT: Record<GdacsLevel, { phrase: string; meaning: string }> = {
 const ACTIONS: Record<GdacsLevel, string[]> = {
   Green: [
     "No action is indicated for most people. Those with connections to the area can stay informed through GDACS.",
+    "Check GDACS for updates.",
   ],
   Orange: [
     "Local authority guidance is the reliable reference for anyone in the affected area.",

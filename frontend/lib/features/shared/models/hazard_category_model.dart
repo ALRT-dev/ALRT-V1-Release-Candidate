@@ -74,9 +74,25 @@ abstract class HazardCategory with _$HazardCategory {
     return null;
   }
 
-  factory HazardCategory.fromJson(Map<String, dynamic> json) =>
-      _$HazardCategoryFromJson(json);
+  factory HazardCategory.fromJson(Map<String, dynamic> json) {
+    final category = _$HazardCategoryFromJson(json);
+    final shown = categoryPillNames[category.id];
+    return shown == null ? category : category.copyWith(name: shown);
+  }
 }
+
+/// The seven category pill names exactly as the alert master data lists them
+/// (Category Map sheet, owner 14 Oct 2026), keyed by the stable category id so
+/// the server's seeded names cannot drift the pills.
+const Map<String, String> categoryPillNames = {
+  'weatherAndEnvironment': 'Weather & Environment',
+  'healthAndAir': 'Health & Air',
+  'trafficAndTransport': 'Transport & Traffic',
+  'utilitiesAndInfrastructure': 'Utilities & Infrastructure',
+  'securityAndCrime': 'Safety & Crime',
+  'communityInfo': 'Community / Information',
+  'other': 'Other',
+};
 
 class ColorConverter implements JsonConverter<Color?, String?> {
   const ColorConverter();

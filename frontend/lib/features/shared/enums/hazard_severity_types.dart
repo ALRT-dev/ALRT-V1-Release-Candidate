@@ -12,10 +12,13 @@ enum HazardSeverity {
   String get titleAws {
     return switch (this) {
       HazardSeverity.unknown => 'Unknown',
-      HazardSeverity.info => 'Info',
+      // The Australian Warning System has three levels only: Advice, Watch
+      // and Act, Emergency Warning. There is no Info level, so an AWS alert
+      // that scans as Info is written as Advice (owner, 14 Oct 2026).
+      HazardSeverity.info => 'Advice',
       HazardSeverity.advice => 'Advice',
       HazardSeverity.watchAndAct => 'Watch and Act',
-      HazardSeverity.emergency => 'Emergency',
+      HazardSeverity.emergency => 'Emergency Warning',
     };
   }
 

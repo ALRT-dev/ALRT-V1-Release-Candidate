@@ -1033,18 +1033,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 ),
               ),
               Container(
-                padding: EdgeInsets.all(12.spMin),
+                padding: EdgeInsets.all(14.spMin),
                 decoration: BoxDecoration(
                   gradient: FamilyColors.headerGradient,
                   borderRadius:
                       BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
-                  boxShadow: [
-                    BoxShadow(
-                      color: FamilyColors.indigo.withValues(alpha: 0.25),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1057,12 +1050,19 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                       borderRadius: BorderRadius.circular(8.spMin),
                       child: Row(
                         children: [
+                          Icon(
+                            LucideIcons.users,
+                            size: 15.spMin,
+                            color: AppColors.white.withValues(alpha: 0.9),
+                          ),
+                          8.wSizedBox,
                           Expanded(
                             child: Text(
                               peopleLine,
                               style: TextStyle(
-                                fontSize: 13.spMin,
-                                color: AppColors.white.withValues(alpha: 0.85),
+                                fontSize: 14.spMin,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.white,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1085,7 +1085,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ],
                       ),
                     ),
-                    10.hSizedBox,
+                    14.hSizedBox,
                     // One compact row: Check in, Send to group, Share.
                     Row(
                       children: [
@@ -1158,7 +1158,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         decoration: BoxDecoration(
           color: filled
               ? AppColors.white
-              : AppColors.white.withValues(alpha: 0.16),
+              : AppColors.white.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(12.spMin),
         ),
         child: Material(
@@ -1498,14 +1498,22 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final allActions = ref.watch(
           provider.select((value) => value.hazard?.callsToAction),
         );
-        final callsToAction = allActions == null
-            ? null
-            : AlertTextUtil.capActions(allActions);
         final isUserReported = ref.watch(
           provider.select(
             (value) => value.hazard?.isUserReported ?? false,
           ),
         );
+        final agencyName = ref.watch(
+          provider.select((value) => value.hazard?.source?.name),
+        );
+        // Official alerts always show two or three points: the agency's own,
+        // padded with lines that point at the agency. Community reports
+        // carry no advice section at all.
+        final callsToAction = (allActions == null && isUserReported)
+            ? null
+            : (isUserReported
+                  ? AlertTextUtil.capActions(allActions ?? const <String>[])
+                  : AlertTextUtil.actionsWithMinimum(allActions, agencyName));
 
         final shouldShow = (callsToAction?.isNotEmpty ?? false);
 

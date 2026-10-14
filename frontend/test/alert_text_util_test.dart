@@ -38,6 +38,18 @@ void main() {
       expect(out, ['a', 'b', 'c']);
     });
 
+    test('always at least two points, padded with lines that point at the agency', () {
+      expect(AlertTextUtil.actionsWithMinimum(null, 'DFES'), [
+        'If you are near the area, be ready to follow DFES instructions.',
+        'Check DFES for updates.',
+      ]);
+      expect(AlertTextUtil.actionsWithMinimum(['Leave now.'], 'DFES'), [
+        'Leave now.',
+        'Check DFES for updates.',
+      ]);
+      expect(AlertTextUtil.actionsWithMinimum(['a', 'b', 'c', 'd'], 'DFES').length, 3);
+    });
+
     test('fallback line names the agency and never says no advice', () {
       final line = AlertTextUtil.followAgencyLine('DFES');
       expect(line, 'If you are near the area, be ready to follow DFES instructions.');
