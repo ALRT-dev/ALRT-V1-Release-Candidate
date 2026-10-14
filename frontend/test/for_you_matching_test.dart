@@ -140,4 +140,39 @@ void main() {
       }
     });
   });
+
+  group('shark, crocodile, landslide and tornado have their own guidance', () {
+    test('titles find the new hazards', () {
+      expect(bucket(title: 'Shark sighting near beach'), 'shark');
+      expect(bucket(title: 'Crocodile warning at boat ramp'), 'crocodile');
+      expect(bucket(title: 'Landslide closes road'), 'landslide');
+      expect(bucket(title: 'Tornado warning'), 'tornado');
+    });
+
+    test('every hazard has a line for all nine groups', () {
+      for (final entry in ForYouLibrary.rows.entries) {
+        expect(
+          entry.value.keys.toSet(),
+          SafetyCohort.values.toSet(),
+          reason: '${entry.key} is missing a group',
+        );
+      }
+    });
+
+    test('no line uses the retired wording or a phone number', () {
+      final banned = RegExp(
+        r'advisable|all clear|\bnever\b|\balways\b|\bsafe(ly|st)?\b|\b000\b|\b112\b|\b911\b',
+        caseSensitive: false,
+      );
+      for (final entry in ForYouLibrary.rows.entries) {
+        for (final line in entry.value.entries) {
+          expect(
+            banned.hasMatch(line.value),
+            isFalse,
+            reason: '${entry.key} / ${line.key.name}: ${line.value}',
+          );
+        }
+      }
+    });
+  });
 }

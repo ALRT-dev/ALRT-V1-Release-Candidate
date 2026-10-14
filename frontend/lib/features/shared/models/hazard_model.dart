@@ -16,6 +16,7 @@ import 'package:hazard_app/features/shared/models/category_image_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
 import 'package:hazard_app/features/shared/models/s3_media_model.dart';
+import 'package:hazard_app/features/shared/utils/event_icon_assets.dart';
 
 part 'hazard_model.freezed.dart';
 part 'hazard_model.g.dart';
@@ -223,8 +224,27 @@ abstract class Hazard with _$Hazard {
       }
     }
 
-    // V3 shaped pin: shape × band.
     final band = severityBand ?? HazardSeverityBand.info;
+
+    // Event pictogram (bushfire, flood, crash...) on the source frame, in the
+    // band colour. Own category first, then its parent. Falls through to the
+    // plain shape pin when there is no picture for this event and band.
+    if (!isUserReported) {
+      final eventIds = <String>[
+        if (categoryId != null) categoryId!,
+        if (category?.parentId != null) category!.parentId!,
+      ];
+      for (final id in eventIds) {
+        final eventBitmap = bitmapMap[EventIconAssets.lookupKey(
+          isAws: isAwsCompliant == true,
+          categoryId: id,
+          bandName: band.name,
+        )];
+        if (eventBitmap != null) return eventBitmap;
+      }
+    }
+
+    // V3 shaped pin: shape × band.
     final shapeKey = 'shape_${effectiveMapShape.name}_${band.name}';
     final shapeBitmap = bitmapMap[shapeKey];
     if (shapeBitmap != null) return shapeBitmap;

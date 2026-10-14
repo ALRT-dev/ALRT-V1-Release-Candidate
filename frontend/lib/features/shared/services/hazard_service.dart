@@ -29,6 +29,7 @@ import 'package:hazard_app/features/shared/repositories/hazard_repository.dart';
 import 'package:hazard_app/features/shared/services/cache_manager_service.dart';
 import 'package:hazard_app/features/shared/services/media_service.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
+import 'package:hazard_app/features/shared/utils/event_icon_assets.dart';
 import 'package:hazard_app/features/shared/utils/hazard_util.dart';
 
 /// Limits concurrent async tasks to prevent network/socket saturation.
@@ -670,6 +671,38 @@ class HazardService {
         bitmapMap[key] = bitmap;
       }
     }
+
+    // ── Phase 3.5: bundled event pictograms ──
+    // The event artwork (bushfire, flood, crash...) that ships with the app.
+    // It carries the source frame (AWS triangle or official diamond), the
+    // event picture and the band colour in one image, so a pin shows what
+    // happened as well as how urgent it is. Only allow-listed artwork is
+    // loaded; anything else falls back to the plain source shape below.
+    const eventPinSize = Size(44, 44);
+    final eventFutures = <Future<void>>[];
+    for (final name in EventIconAssets.names) {
+      eventFutures.add(() async {
+        try {
+          final imageSize = Size(
+            (eventPinSize.width * dpr).ceilToDouble(),
+            (eventPinSize.height * dpr).ceilToDouble(),
+          );
+          final descriptor = await Image.asset(
+            'assets/images/hazards/$name.png',
+            width: eventPinSize.width,
+            height: eventPinSize.height,
+            fit: BoxFit.contain,
+          ).toBitmapDescriptor(
+            logicalSize: eventPinSize,
+            imageSize: imageSize,
+          );
+          bitmapMap[EventIconAssets.bitmapKey(name)] = descriptor;
+        } catch (_) {
+          // A missing picture falls back to the plain shape pin.
+        }
+      }());
+    }
+    await Future.wait(eventFutures);
 
     // ── Phase 4: Generate shaped pins (shape × band) ──
     // 5 shapes × 4 bands = 20 bitmaps, keyed as `shape_{shapeName}_{bandName}`.
