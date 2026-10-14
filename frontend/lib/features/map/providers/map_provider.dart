@@ -2059,16 +2059,16 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// Cache of community category discs, one per category.
   final Map<String, BitmapDescriptor> _communityDiscBitmapCache = {};
 
-  /// Draws (and caches) the community pin: the category disc (product
-  /// owner, 12 Oct 2026), a 30 px circle in the category colour with a
-  /// 2.5 px white ring and the category's white glyph, the same picture
-  /// [CategoryGlyph] draws on the chips and the cards. A community report
-  /// wears its category, never a band colour.
+  /// Draws (and caches) the community pin in the Post an ALRT page's own
+  /// style (product owner, 14 Oct 2026, replacing the retired circle): a
+  /// soft orange tinted rounded square with the category's line icon in
+  /// the brand orange, on a white ring so it holds on any map tile. A
+  /// community report wears its category, never a band colour.
   Future<BitmapDescriptor?> _getCommunityDiscBitmap(final Hazard hazard) async {
     final category = hazard.category;
     if (category == null) return null;
     // A child category (say "bushfire") has no glyph of its own; the
-    // parent's glyph and colour are the ones the chips show.
+    // parent's glyph is the one the chips show.
     final parent = category.parent;
     final drawn = CategoryGlyph.iconFor(category.name) == null && parent != null
         ? parent
@@ -2078,15 +2078,23 @@ class MapProvider extends StateNotifier<MapProviderState> {
     if (cached != null) return cached;
 
     try {
-      const size = 30.0;
-      // Room for the ring so the disc is not clipped at the bitmap edge.
-      const canvas = size + 4.0;
+      const size = 32.0;
+      // Room for the ring so the badge is not clipped at the bitmap edge.
+      const canvas = size + 6.0;
+      final icon = CategoryGlyph.iconFor(drawn.name) ?? LucideIcons.mapPin;
       final widget = Center(
-        child: CategoryGlyph(
-          category: drawn,
-          size: size,
-          borderColor: AppColors.white,
-          borderWidth: 2.5,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF3E8),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.white, width: 2.5),
+            boxShadow: const [
+              BoxShadow(color: Color(0x33000000), blurRadius: 3),
+            ],
+          ),
+          child: Icon(icon, size: 17, color: const Color(0xFFFF6B01)),
         ),
       );
       final bitmap = await widget.toBitmapDescriptor(
