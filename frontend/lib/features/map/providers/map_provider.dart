@@ -51,6 +51,7 @@ import 'package:hazard_app/features/shared/providers/hazard_item_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/hazard_service.dart';
 import 'package:hazard_app/features/shared/utils/location_helper.dart';
+import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:widget_to_marker/widget_to_marker.dart';
 import 'package:hazard_app/features/shared/providers/community_safety_provider.dart';
@@ -2058,33 +2059,44 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// Cache of community category discs, one per category.
   final Map<String, BitmapDescriptor> _communityDiscBitmapCache = {};
 
-  /// Draws (and caches) the community pin from the supplied community
-  /// artwork (product owner, 14 Oct 2026): one circle per category group,
-  /// each in its own category colour, loaded from the bundled
-  /// `{group}_user.png`. A community report wears its category group, never
-  /// a band colour, so it can never be mistaken for an official alert.
+  /// Draws (and caches) the community pin: the category disc (product
+  /// owner, 12 Oct 2026), a 30 px circle in the category colour with a
+  /// 2.5 px white ring and the category's white glyph, the same picture
+  /// [CategoryGlyph] draws on the chips and the cards. A community report
+  /// wears its category, never a band colour.
   Future<BitmapDescriptor?> _getCommunityDiscBitmap(final Hazard hazard) async {
     final category = hazard.category;
     if (category == null) return null;
-    final group = category.parent?.id ?? category.id;
-    final cached = _communityDiscBitmapCache[group];
+    // A child category (say "bushfire") has no glyph of its own; the
+    // parent's glyph and colour are the ones the chips show.
+    final parent = category.parent;
+    final drawn = CategoryGlyph.iconFor(category.name) == null && parent != null
+        ? parent
+        : category;
+    final cacheKey = drawn.id;
+    final cached = _communityDiscBitmapCache[cacheKey];
     if (cached != null) return cached;
 
     try {
-      const size = 40.0;
-      final bitmap = await Image.asset(
-        'assets/images/hazards/non_aws/${group}_user.png',
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-      ).toBitmapDescriptor(
-        logicalSize: const Size(size, size),
-        imageSize: const Size(size * 2.5, size * 2.5),
+      const size = 30.0;
+      // Room for the ring so the disc is not clipped at the bitmap edge.
+      const canvas = size + 4.0;
+      final widget = Center(
+        child: CategoryGlyph(
+          category: drawn,
+          size: size,
+          borderColor: AppColors.white,
+          borderWidth: 2.5,
+        ),
       );
-      _communityDiscBitmapCache[group] = bitmap;
+      final bitmap = await widget.toBitmapDescriptor(
+        logicalSize: const Size(canvas, canvas),
+        imageSize: const Size(canvas * 2.5, canvas * 2.5),
+      );
+      _communityDiscBitmapCache[cacheKey] = bitmap;
       return bitmap;
     } catch (_) {
-      // A missing picture falls back to the pin set, never a missing marker.
+      // A failed disc falls back to the pin set, never a missing marker.
       return null;
     }
   }
