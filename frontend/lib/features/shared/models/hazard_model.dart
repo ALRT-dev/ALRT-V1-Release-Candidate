@@ -226,6 +226,14 @@ abstract class Hazard with _$Hazard {
 
     final band = severityBand ?? HazardSeverityBand.info;
 
+    // GDACS: a diamond in the GDACS level colour (green, orange, red).
+    if (source?.id == 'gdacsGlobal') {
+      final name = EventIconAssets.gdacsName(title);
+      final gdacsBitmap =
+          name == null ? null : bitmapMap[EventIconAssets.bitmapKey(name)];
+      if (gdacsBitmap != null) return gdacsBitmap;
+    }
+
     // Event pictogram (bushfire, flood, crash...) on the source frame, in the
     // band colour. Own category first, then its parent. Falls through to the
     // plain shape pin when there is no picture for this event and band.

@@ -16,6 +16,33 @@ abstract final class EventIconAssets {
     'aws/tsunami_action',
     'aws/tsunami_critical',
     'aws/tsunami_monitor',
+    'gdacs/cyclone_green',
+    'gdacs/cyclone_orange',
+    'gdacs/cyclone_red',
+    'gdacs/drought_green',
+    'gdacs/drought_orange',
+    'gdacs/drought_red',
+    'gdacs/earthquake_green',
+    'gdacs/earthquake_orange',
+    'gdacs/earthquake_red',
+    'gdacs/flood_green',
+    'gdacs/flood_orange',
+    'gdacs/flood_red',
+    'gdacs/heat_green',
+    'gdacs/heat_orange',
+    'gdacs/heat_red',
+    'gdacs/snow_green',
+    'gdacs/snow_orange',
+    'gdacs/snow_red',
+    'gdacs/tsunami_green',
+    'gdacs/tsunami_orange',
+    'gdacs/tsunami_red',
+    'gdacs/volcano_green',
+    'gdacs/volcano_orange',
+    'gdacs/volcano_red',
+    'gdacs/wildfire_green',
+    'gdacs/wildfire_orange',
+    'gdacs/wildfire_red',
     'aws/bushfire_action',
     'aws/bushfire_critical',
     'aws/bushfire_monitor',
@@ -529,6 +556,26 @@ abstract final class EventIconAssets {
     'non_aws/weatherAndEnvironment_info',
     'non_aws/weatherAndEnvironment_monitor',
   };
+
+  /// GDACS pictogram (diamond in the GDACS level colour) for a title such as
+  /// "Orange earthquake alert in Japan". Null when hazard or level is unclear.
+  static String? gdacsName(final String? title) {
+    final t = (title ?? '').toLowerCase();
+    final level = RegExp(r'\b(green|orange|red)\b').firstMatch(t)?.group(1);
+    if (level == null) return null;
+    const words = {
+      'cyclone': 'cyclone', 'hurricane': 'cyclone', 'typhoon': 'cyclone',
+      'tropical storm': 'cyclone', 'earthquake': 'earthquake', 'quake': 'earthquake',
+      'drought': 'drought', 'flood': 'flood', 'volcano': 'volcano',
+      'volcanic': 'volcano', 'heat': 'heat', 'snow': 'snow', 'cold': 'snow',
+      'tsunami': 'tsunami', 'wildfire': 'wildfire', 'forest fire': 'wildfire',
+      'fire': 'wildfire',
+    };
+    for (final e in words.entries) {
+      if (t.contains(e.key)) return 'gdacs/${e.value}_$level';
+    }
+    return null;
+  }
 
   /// The bitmap map key for a bundled asset such as `aws/bushfire_action`.
   static String bitmapKey(final String name) =>
