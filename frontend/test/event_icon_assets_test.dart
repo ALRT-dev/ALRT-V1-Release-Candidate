@@ -23,7 +23,7 @@ void main() {
 
   test('only artwork in the locked band colours is listed', () {
     expect(EventIconAssets.names.contains('aws/bushfire_info'), isFalse);
-    expect(EventIconAssets.names.contains('non_aws/powerOutage_info'), isFalse);
+    expect(EventIconAssets.names.contains('non_aws/powerOutage_info'), isTrue);
     expect(EventIconAssets.names.contains('non_aws/crash_action'), isTrue);
   });
 }

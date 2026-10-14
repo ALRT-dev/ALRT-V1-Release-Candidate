@@ -679,30 +679,37 @@ class HazardService {
     // happened as well as how urgent it is. Only allow-listed artwork is
     // loaded; anything else falls back to the plain source shape below.
     const eventPinSize = Size(44, 44);
-    final eventFutures = <Future<void>>[];
-    for (final name in EventIconAssets.names) {
-      eventFutures.add(() async {
-        try {
-          final imageSize = Size(
-            (eventPinSize.width * dpr).ceilToDouble(),
-            (eventPinSize.height * dpr).ceilToDouble(),
-          );
-          final descriptor = await Image.asset(
-            'assets/images/hazards/$name.png',
-            width: eventPinSize.width,
-            height: eventPinSize.height,
-            fit: BoxFit.contain,
-          ).toBitmapDescriptor(
-            logicalSize: eventPinSize,
-            imageSize: imageSize,
-          );
-          bitmapMap[EventIconAssets.bitmapKey(name)] = descriptor;
-        } catch (_) {
-          // A missing picture falls back to the plain shape pin.
-        }
-      }());
+    final eventImageSize = Size(
+      (eventPinSize.width * dpr).ceilToDouble(),
+      (eventPinSize.height * dpr).ceilToDouble(),
+    );
+    Future<void> loadEventPin(final String name) async {
+      try {
+        final descriptor = await Image.asset(
+          'assets/images/hazards/$name.png',
+          width: eventPinSize.width,
+          height: eventPinSize.height,
+          fit: BoxFit.contain,
+        ).toBitmapDescriptor(
+          logicalSize: eventPinSize,
+          imageSize: eventImageSize,
+        );
+        bitmapMap[EventIconAssets.bitmapKey(name)] = descriptor;
+      } catch (_) {
+        // A missing picture falls back to the plain shape pin.
+      }
     }
-    await Future.wait(eventFutures);
+
+    // About 490 small images: render them in batches so a phone is never
+    // asked to build hundreds of bitmaps at the same moment.
+    const eventBatch = 40;
+    final eventNames = EventIconAssets.names.toList();
+    for (var i = 0; i < eventNames.length; i += eventBatch) {
+      final end = i + eventBatch > eventNames.length
+          ? eventNames.length
+          : i + eventBatch;
+      await Future.wait(eventNames.sublist(i, end).map(loadEventPin));
+    }
 
     // ── Phase 4: Generate shaped pins (shape × band) ──
     // 5 shapes × 4 bands = 20 bitmaps, keyed as `shape_{shapeName}_{bandName}`.
