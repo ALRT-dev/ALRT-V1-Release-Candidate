@@ -10,7 +10,7 @@ explicit instruction from the product owner in the current session.
   diamond, global-humanitarian shape, community badge, ALRT
   shield. Community (14 Oct 2026): the circle is retired; a community
   report wears the Post an ALRT page's soft orange tinted rounded-square
-  badge with a brand orange line icon. The shield never writes the band word and never restates or
+  badge with a line icon, coloured by severity in the four band colours. The shield never writes the band word and never restates or
   overrides an official warning. The square is GDACS-style events rated for
   international humanitarian response; it carries the source's own scale
   verbatim (Red/Orange/Green describes likelihood of international aid, not

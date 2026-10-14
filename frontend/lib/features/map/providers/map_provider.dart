@@ -2061,9 +2061,9 @@ class MapProvider extends StateNotifier<MapProviderState> {
 
   /// Draws (and caches) the community pin in the Post an ALRT page's own
   /// style (product owner, 14 Oct 2026, replacing the retired circle): a
-  /// soft orange tinted rounded square with the category's line icon in
-  /// the brand orange, on a white ring so it holds on any map tile. A
-  /// community report wears its category, never a band colour.
+  /// soft tinted rounded square with the category's line icon. The tint,
+  /// ring and icon take the four severity colours (Info grey, Monitor
+  /// yellow, Action orange, Critical red), like every other marker.
   Future<BitmapDescriptor?> _getCommunityDiscBitmap(final Hazard hazard) async {
     final category = hazard.category;
     if (category == null) return null;
@@ -2073,11 +2073,13 @@ class MapProvider extends StateNotifier<MapProviderState> {
     final drawn = CategoryGlyph.iconFor(category.name) == null && parent != null
         ? parent
         : category;
-    final cacheKey = drawn.id;
+    final band = hazard.severityBand ?? HazardSeverityBand.info;
+    final cacheKey = '${drawn.id}_${band.name}';
     final cached = _communityDiscBitmapCache[cacheKey];
     if (cached != null) return cached;
 
     try {
+      final tint = band.colorNonAws;
       const size = 32.0;
       // Room for the ring so the badge is not clipped at the bitmap edge.
       const canvas = size + 6.0;
@@ -2087,14 +2089,17 @@ class MapProvider extends StateNotifier<MapProviderState> {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF3E8),
+            color: Color.alphaBlend(
+              tint.withValues(alpha: 0.16),
+              AppColors.white,
+            ),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.white, width: 2.5),
+            border: Border.all(color: tint, width: 2.5),
             boxShadow: const [
               BoxShadow(color: Color(0x33000000), blurRadius: 3),
             ],
           ),
-          child: Icon(icon, size: 17, color: const Color(0xFFFF6B01)),
+          child: Icon(icon, size: 17, color: tint),
         ),
       );
       final bitmap = await widget.toBitmapDescriptor(
