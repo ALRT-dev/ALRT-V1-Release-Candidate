@@ -72,6 +72,7 @@ vi.mock("../utils/config.js", () => ({ config: { env: "test", ai: {} } }));
 vi.mock("../services/hazard_category.service.js", () => ({ MainCategoryId: {}, SubCategoryId: {} }));
 vi.mock("../services/ingestion.service.js", () => ({ ExternalSourceId: {} }));
 vi.mock("../utils/air_quality_template.util.js", () => ({ getDeterministicAirQualityContent: vi.fn() }));
+vi.mock("../utils/gdacs_template.util.js", () => ({ getDeterministicGdacsContent: vi.fn() }));
 
 // xpPoints.controller dependencies
 vi.mock("../services/xp_ledger.service.js", () => ({ getXpSummary: vi.fn() }));

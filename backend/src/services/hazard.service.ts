@@ -38,6 +38,7 @@ import { config } from "../utils/config.js";
 import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
 import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
+import { getDeterministicGdacsContent } from "../utils/gdacs_template.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import {
   SOURCE_REGISTRY_DEFAULTS,
@@ -675,6 +676,18 @@ export const summarizeHazard = async ({
       description,
       severityBand,
     });
+  }
+
+  // GDACS is a pass-through source: level and hazard come straight from the
+  // feed text, so the card is a template (no model call). Falls through to the
+  // normal path if the level or hazard cannot be read.
+  if (source.id === "gdacsGlobal") {
+    const gdacsContent = getDeterministicGdacsContent({
+      title,
+      description,
+      locationName,
+    });
+    if (gdacsContent) return gdacsContent;
   }
 
   const contentHash = hazardContentHash({

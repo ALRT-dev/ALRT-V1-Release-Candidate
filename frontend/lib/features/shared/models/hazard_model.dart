@@ -238,7 +238,13 @@ abstract class Hazard with _$Hazard {
         final eventBitmap = bitmapMap[EventIconAssets.lookupKey(
           isAws: isAwsCompliant == true,
           categoryId: id,
-          bandName: band.name,
+          // AWS has three levels only (Advice, Watch and Act, Emergency
+          // Warning), so an Info band on an AWS alert shows the Advice
+          // (yellow) picture. There is no AWS Info triangle.
+          bandName: (isAwsCompliant == true &&
+                  band == HazardSeverityBand.info)
+              ? HazardSeverityBand.monitor.name
+              : band.name,
         )];
         if (eventBitmap != null) return eventBitmap;
       }
