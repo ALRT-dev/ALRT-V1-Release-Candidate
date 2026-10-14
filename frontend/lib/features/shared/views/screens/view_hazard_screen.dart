@@ -1514,7 +1514,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             ? <String>[AlertTextUtil.followAgencyLine(null)]
             : AlertTextUtil.capActions(allActions ?? const <String>[]);
 
-        final shouldShow = (callsToAction?.isNotEmpty ?? false);
+        final shouldShow = callsToAction.isNotEmpty;
 
         if (!shouldShow) {
           // An official alert always shows the section, so it is clear
@@ -1590,7 +1590,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ),
                       ),
                       12.spMin.hSizedBox,
-                      ...callsToAction!.asMap().entries.map((entry) {
+                      ...callsToAction.asMap().entries.map((entry) {
                         final index = entry.key;
                         final action = entry.value;
                         return Padding(
