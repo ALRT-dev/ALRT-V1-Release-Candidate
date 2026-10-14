@@ -94,10 +94,10 @@ export const awsCompliantCategoryIds: string[] = [
  */
 const mainCategoriesLookupOrder: string[] = [
   MainCategoryId.securityAndCrime,
+  MainCategoryId.healthAndAir,
   MainCategoryId.weatherAndEnvironment,
   MainCategoryId.trafficAndTransport,
   MainCategoryId.utilitiesAndInfrastructure,
-  MainCategoryId.healthAndAir,
   MainCategoryId.communityInfo,
   MainCategoryId.other,
 ];
