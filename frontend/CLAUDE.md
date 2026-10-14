@@ -8,9 +8,9 @@ explicit instruction from the product owner in the current session.
 - Band colours: Info #8A93A0, Monitor #F5C518, Action #F07E1B, Critical #DA1F2D.
 - Shapes carry the SOURCE system, five of them: AWS triangle, official
   diamond, global-humanitarian shape, community badge, ALRT
-  shield. Community (14 Oct 2026): the circle is retired; a community
-  report wears the Post an ALRT page's soft orange tinted rounded-square
-  badge with a line icon, coloured by severity in the four band colours. The shield never writes the band word and never restates or
+  shield. Community (14 Oct 2026): a community report wears the supplied
+  `{group}_user.png` circle in its category group colour, never a band
+  colour. The shield never writes the band word and never restates or
   overrides an official warning. The square is GDACS-style events rated for
   international humanitarian response; it carries the source's own scale
   verbatim (Red/Orange/Green describes likelihood of international aid, not

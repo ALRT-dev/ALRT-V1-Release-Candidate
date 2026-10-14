@@ -51,7 +51,6 @@ import 'package:hazard_app/features/shared/providers/hazard_item_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/hazard_service.dart';
 import 'package:hazard_app/features/shared/utils/location_helper.dart';
-import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:widget_to_marker/widget_to_marker.dart';
 import 'package:hazard_app/features/shared/providers/community_safety_provider.dart';
@@ -2059,57 +2058,33 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// Cache of community category discs, one per category.
   final Map<String, BitmapDescriptor> _communityDiscBitmapCache = {};
 
-  /// Draws (and caches) the community pin in the Post an ALRT page's own
-  /// style (product owner, 14 Oct 2026, replacing the retired circle): a
-  /// soft tinted rounded square with the category's line icon. The tint,
-  /// ring and icon take the four severity colours (Info grey, Monitor
-  /// yellow, Action orange, Critical red), like every other marker.
+  /// Draws (and caches) the community pin from the supplied community
+  /// artwork (product owner, 14 Oct 2026): one circle per category group,
+  /// each in its own category colour, loaded from the bundled
+  /// `{group}_user.png`. A community report wears its category group, never
+  /// a band colour, so it can never be mistaken for an official alert.
   Future<BitmapDescriptor?> _getCommunityDiscBitmap(final Hazard hazard) async {
     final category = hazard.category;
     if (category == null) return null;
-    // A child category (say "bushfire") has no glyph of its own; the
-    // parent's glyph is the one the chips show.
-    final parent = category.parent;
-    final drawn = CategoryGlyph.iconFor(category.name) == null && parent != null
-        ? parent
-        : category;
-    final band = hazard.severityBand ?? HazardSeverityBand.info;
-    final cacheKey = '${drawn.id}_${band.name}';
-    final cached = _communityDiscBitmapCache[cacheKey];
+    final group = category.parent?.id ?? category.id;
+    final cached = _communityDiscBitmapCache[group];
     if (cached != null) return cached;
 
     try {
-      final tint = band.colorNonAws;
-      const size = 32.0;
-      // Room for the ring so the badge is not clipped at the bitmap edge.
-      const canvas = size + 6.0;
-      final icon = CategoryGlyph.iconFor(drawn.name) ?? LucideIcons.mapPin;
-      final widget = Center(
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: Color.alphaBlend(
-              tint.withValues(alpha: 0.16),
-              AppColors.white,
-            ),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: tint, width: 2.5),
-            boxShadow: const [
-              BoxShadow(color: Color(0x33000000), blurRadius: 3),
-            ],
-          ),
-          child: Icon(icon, size: 17, color: tint),
-        ),
+      const size = 40.0;
+      final bitmap = await Image.asset(
+        'assets/images/hazards/non_aws/${group}_user.png',
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+      ).toBitmapDescriptor(
+        logicalSize: const Size(size, size),
+        imageSize: const Size(size * 2.5, size * 2.5),
       );
-      final bitmap = await widget.toBitmapDescriptor(
-        logicalSize: const Size(canvas, canvas),
-        imageSize: const Size(canvas * 2.5, canvas * 2.5),
-      );
-      _communityDiscBitmapCache[cacheKey] = bitmap;
+      _communityDiscBitmapCache[group] = bitmap;
       return bitmap;
     } catch (_) {
-      // A failed disc falls back to the pin set, never a missing marker.
+      // A missing picture falls back to the pin set, never a missing marker.
       return null;
     }
   }
