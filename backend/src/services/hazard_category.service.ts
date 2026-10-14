@@ -77,21 +77,6 @@ export const populateInitialCategories = async () => {
         subCategories: {
           connectOrCreate: [
             {
-              where: { id: "rescueRoad" },
-              create: {
-                id: "rescueRoad",
-                name: "Rescue (Road)",
-                description:
-                  "Rescue operations for trapped individuals on roads",
-                keywords: [
-                  "road rescue",
-                  "vehicle rescue",
-                  "car rescue",
-                  "truck rescue",
-                ],
-              },
-            },
-            {
               where: { id: "rescueMarine" },
               create: {
                 id: "rescueMarine",
@@ -672,6 +657,21 @@ export const populateInitialCategories = async () => {
         color: "#86DF9D",
         subCategories: {
           connectOrCreate: [
+            {
+              where: { id: "rescueRoad" },
+              create: {
+                id: "rescueRoad",
+                name: "Rescue (Road)",
+                description:
+                  "Rescue operations for trapped individuals on roads",
+                keywords: [
+                  "road rescue",
+                  "vehicle rescue",
+                  "car rescue",
+                  "truck rescue",
+                ],
+              },
+            },
             {
               where: { id: "crash" },
               create: {

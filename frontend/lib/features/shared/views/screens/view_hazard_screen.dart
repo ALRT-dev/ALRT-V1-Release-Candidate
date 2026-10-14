@@ -1503,9 +1503,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             (value) => value.hazard?.isUserReported ?? false,
           ),
         );
-        final agencyName = ref.watch(
-          provider.select((value) => value.hazard?.source?.name),
-        );
         // Only the advice the agency actually gave (up to three points, in
         // its own words). Nothing is added. Assumed or "worth considering"
         // guidance lives in For You, chosen from the person's safety profile.
@@ -1530,7 +1527,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 provider.select((value) => value.hazard?.source?.name),
               ),
             ),
-          );        }
+          );
+        }
 
         final color = AppColors.orange200;
 
