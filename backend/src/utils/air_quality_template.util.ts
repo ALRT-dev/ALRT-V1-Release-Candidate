@@ -49,19 +49,21 @@ const SUMMARY_BY_BAND: Record<
         : `Air quality near ${stationName} is unhealthy for everyone, as reported by WAQI.`,
 };
 
+/**
+ * ALRT is not a health authority, so no ALRT-authored health directives
+ * (owner decision 2026-10-14, option b): one generic pointer to the state
+ * air quality service, the fixed health close, and for the Critical band
+ * only the standing "call your local emergency number" line (no digits).
+ */
+const CHECK_UPDATES_LINE = "Check your state air quality service for updates.";
+
 const CALLS_TO_ACTION_BY_BAND: Record<HazardSeverityBand, string[]> = {
   [HazardSeverityBand.info]: [],
-  [HazardSeverityBand.monitor]: [
-    "Staying across official air quality updates is advisable.",
-    MANDATORY_HEALTH_CLOSE,
-  ],
-  [HazardSeverityBand.action]: [
-    "Limit outdoor activities if you have breathing conditions. Monitor updates from health authorities.",
-    MANDATORY_HEALTH_CLOSE,
-  ],
+  [HazardSeverityBand.monitor]: [CHECK_UPDATES_LINE, MANDATORY_HEALTH_CLOSE],
+  [HazardSeverityBand.action]: [CHECK_UPDATES_LINE, MANDATORY_HEALTH_CLOSE],
   [HazardSeverityBand.critical]: [
-    "Avoid outdoor activities. Stay indoors with windows closed. Seek medical help if breathing worsens.",
-    "Stay indoors immediately. Do not go outside. Call your local emergency number if you have severe breathing difficulty or chest pain.",
+    CHECK_UPDATES_LINE,
+    "If you have severe breathing difficulty or chest pain, call your local emergency number.",
     MANDATORY_HEALTH_CLOSE,
   ],
 };
