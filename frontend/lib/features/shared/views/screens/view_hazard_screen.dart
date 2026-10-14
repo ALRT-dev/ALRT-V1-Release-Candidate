@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
@@ -1494,9 +1495,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   Widget _buildWhatToDoSection() {
     return Consumer(
       builder: (context, ref, child) {
-        final callsToAction = ref.watch(
+        final allActions = ref.watch(
           provider.select((value) => value.hazard?.callsToAction),
         );
+        final callsToAction = allActions == null
+            ? null
+            : AlertTextUtil.capActions(allActions);
         final isUserReported = ref.watch(
           provider.select(
             (value) => value.hazard?.isUserReported ?? false,
@@ -1515,11 +1519,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           }
           return _buildEmptySectionCard(
             label: 'WHAT TO DO',
-            body: 'The issuing agency has not published advice for this '
-                'alert. We never write advice for them. Check their '
-                'source below for updates.',
-          );
-        }
+            body: AlertTextUtil.followAgencyLine(
+              ref.watch(
+                provider.select((value) => value.hazard?.source?.name),
+              ),
+            ),
+          );        }
 
         final color = AppColors.orange200;
 
@@ -1641,7 +1646,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           provider.select((value) => value.hazard?.description),
         );
 
-        if (description?.isEmpty ?? true) return const SizedBox.shrink();
+        // Facts only: the agency's own instructions and road notes have
+        // their own sections, so they are cut from here.
+        final points = AlertTextUtil.whatWeKnowPoints(description);
+        if (points.isEmpty) return const SizedBox.shrink();
 
         // Paired with WHAT TO DO, to the pixel. This used to be a blue
         // card with a blue bar and a sentence-case heading: blue is the
@@ -1695,14 +1703,39 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ),
                       ),
                       12.spMin.hSizedBox,
-                      Text(
-                        description!,
-                        style: TextStyle(
-                          color: AppColors.black.withValues(alpha: 0.9),
-                          fontSize: 14.spMin,
-                          height: 1.5,
+                      for (var i = 0; i < points.length; i++)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            bottom: i < points.length - 1 ? 8.spMin : 0,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '\u2022 ',
+                                style: TextStyle(
+                                  color: AppColors.black.withValues(
+                                    alpha: 0.9,
+                                  ),
+                                  fontSize: 14.spMin,
+                                  height: 1.5,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  points[i],
+                                  style: TextStyle(
+                                    color: AppColors.black.withValues(
+                                      alpha: 0.9,
+                                    ),
+                                    fontSize: 14.spMin,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
