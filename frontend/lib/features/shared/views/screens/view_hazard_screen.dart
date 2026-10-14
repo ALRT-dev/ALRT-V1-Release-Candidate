@@ -1506,14 +1506,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final agencyName = ref.watch(
           provider.select((value) => value.hazard?.source?.name),
         );
-        // Official alerts always show two or three points: the agency's own,
-        // padded with lines that point at the agency. Community reports
-        // carry no advice section at all.
+        // Only the advice the agency actually gave (up to three points, in
+        // its own words). Nothing is added. Assumed or "worth considering"
+        // guidance lives in For You, chosen from the person's safety profile.
         final callsToAction = (allActions == null && isUserReported)
             ? null
-            : (isUserReported
-                  ? AlertTextUtil.capActions(allActions ?? const <String>[])
-                  : AlertTextUtil.actionsWithMinimum(allActions, agencyName));
+            : AlertTextUtil.capActions(allActions ?? const <String>[]);
 
         final shouldShow = (callsToAction?.isNotEmpty ?? false);
 

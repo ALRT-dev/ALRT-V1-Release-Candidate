@@ -432,7 +432,7 @@ Always respond with **valid JSON** in this format:
   {
     "title": "string" (≤80 chars),
     "summary": "string" (one clear sentence),
-    "callsToAction": "array", (2–3 dot points),
+    "callsToAction": "array", (up to 3 dot points, only what the source gives),
     "confidence": "high|medium|low",
   }`;
 
