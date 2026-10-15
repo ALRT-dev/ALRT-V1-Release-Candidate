@@ -148,6 +148,12 @@ describe("editable alert templates", () => {
     settings.nativeLevelMappings = [{ level: "Emergency Warning", band: "info" }];
     expect(chooseTemplateBand(settings, { isAws: false, severity: "emergency", nativeLevel: "Emergency Warning", description: "Emergency Warning for Example Town", fallback: "critical" }).band).toBe("critical");
   });
+  it('preserves an explicit native AWS label above a weaker text inference',()=>{
+    const settings=defaultTemplatePack().defaults;
+    expect(chooseTemplateBand(settings,{isAws:true,severity:'advice',nativeLevel:'Watch and Act',description:'The agency is advising residents to stay indoors.',fallback:'monitor'}).band).toBe('action');
+    expect(chooseTemplateBand(settings,{isAws:false,severity:'unknown',nativeLevel:'Emergency Warning',description:'Official warning for the named area.',fallback:'info'}).band).toBe('critical');
+    expect(chooseTemplateBand(settings,{isAws:true,severity:'emergency',nativeLevel:'Advice',description:'Emergency Warning appears in the source too.',fallback:'critical'}).band).toBe('critical');
+  });
   it("does not let editable phrases or mappings raise information-only categories", () => {
     const settings = defaultTemplatePack().defaults;
     settings.severityPhrases = [{ phrase: "extreme heat", band: "critical" }];

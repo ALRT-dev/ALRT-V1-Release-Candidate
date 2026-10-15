@@ -44,9 +44,9 @@ The product owner authorised TEST changes and deployment, and later clarified pu
 - Registry: reserved alertTemplatesV1 key within Configuration.aiPrompts, preserving unrelated configuration.
 - Additive migration: 20261013210000_hazard_content_details adds contentDetails, nativeWarningLevel, jurisdictionCountry and sourceContentHash to Hazard.
 - Build-only local serviceAccountKey.json is an ignored fixture, not a deployment credential. It must never enter the release image.
-- Template and widget changes are pushed in 0341147 and 0b92317. No production writes, template backend deployment or PR have been performed by this implementation. Other work has updated TEST; it must be preserved.
+- Template, widget and upstream integration changes are pushed in 0341147, 0b92317, a62f4cb, 3989b01 and 43b645b. TEST backend deployment and the additive migration succeeded on 15 October. No production writes or public store submission have been made. The shared TEST checkout remains b15bdf9; deployed images are built separately from reviewed revisions.
 
-## TEST rollout still to execute
+## TEST rollout checklist
 
 1. Re-verify account 488658242173 with profile alrt-test immediately before deployment. Never use production account 082258816984 for this TEST deployment.
 2. Inspect the current TEST instance and checkout before changing them. Record running revision/image and take a database/configuration backup with a checked restore path.
@@ -63,4 +63,12 @@ Restore the previous published template through version history for prompt/routi
 
 ## Verification boundaries
 
-Automated checks use mocks and synthetic examples. They do not prove that every production source, every private n8n workflow, or every deployed model response conforms. Remote migration, live-model examples, TEST publication and physical-device rendering remain pending. The earlier production audit remains relevant for workflow-specific defects that have not been changed in production.
+Automated checks use mocks and synthetic examples. They do not prove that every production source, every private n8n workflow, or every deployed model response conforms. Remote migration and reviewed backend updates succeeded. Live previews at 43b645b extracted nine real stored examples and one synthetic example without fallback. A native-level preview mapping issue found in those checks is covered by the next fix. Signed-in Admin behavior, TEST n8n coverage and physical-device rendering remain to be verified. The earlier production audit remains relevant for workflow-specific defects that have not been changed in production.
+
+## Live-source review, 15 October 2026
+
+- AI selection now uses explicit source block IDs, validated against the exact server-built list. Closed metadata records can produce short factual points. Prose with conditions or uncertainty remains intact; long warnings can therefore still have long factual points and need further readability review.
+- Ordinary enquiry numbers are retained. They must never be transformed into emergency-call instructions. A named emergency number and its numeric annotation are replaced together when the source has no configured exception.
+- The ingestion processing identity has a renderer version and raw source digest. Unchanged-source rendering refreshes are quiet, including after template changes; genuine source/native-level/instruction changes remain notification candidates. Decisions are carried per input, including colliding IDs in one batch.
+- TEST has 22 prompts and 19 sources. All 152 default source/band/AWS routes resolved. The registry contains 12 reviewed starter entries and 243 older unapproved guidance drafts. It has no TEST webhook API keys or recent webhook calls; a separate TEST n8n connection is not yet evidenced.
+- Android TEST build 38696937645 at a62f4cb succeeded with billing bypass. Apple Dev build 38697481822 stopped because com.safetyalrt.alrt.dev.AlrtWidget is not registered with Apple; group.com.safetyalrt.alrt.dev must be shared with the Dev app. No widget TestFlight upload is claimed.

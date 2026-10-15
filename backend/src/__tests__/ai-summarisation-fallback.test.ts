@@ -357,6 +357,14 @@ describe("summarizeAndPostHazards – AI fallback (R-03)", () => {
     expect(prisma.hazard.upsert).toHaveBeenCalledTimes(2);
     expect(sendPushNotificationAboutNewHazard).toHaveBeenCalledOnce();
   });
+  it('stores the official severity label and band together for a native warning',async()=>{
+    vi.mocked(getTemplateRegistry).mockResolvedValue({published:{version:1,pack:defaultTemplatePack()}} as any);
+    vi.mocked(summarizeHazard).mockRejectedValue(new Error('Use source fallback'));
+    await summarizeAndPostHazards({hazardDatas:[makeHazardData({severity:'advice',severityBand:'monitor',nativeWarningLevel:'Watch and Act',description:'Watch and Act. Monitor official advice.'}) as any],syncOption:SyncHazardsFromExternalSourceOption.ignoreExisting,severityBandFilters:new Map()});
+    const data=(prisma.hazard.create as any).mock.calls[0][0].data;
+    expect(data.severityBand).toBe('action');
+    expect(data.severity).toBe('watchAndAct');
+  });
 
   it("still uses AI data when summarisation succeeds", async () => {
     // AI works normally

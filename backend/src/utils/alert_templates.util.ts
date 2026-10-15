@@ -224,6 +224,7 @@ export function chooseTemplateBand(
   if (isInfoOverride(input.description))
     return {
       band: "info" as TemplateBand,
+      severity: 'info' as const,
       reason: "Source text marks a test, drill or resolved incident.",
     };
   const aws: Record<string, TemplateBand> = {
@@ -231,9 +232,15 @@ export function chooseTemplateBand(
     watchAndAct: "action",
     emergency: "critical",
   };
-  if (input.severity && aws[input.severity])
+  const nativeAws: Record<string, TemplateBand> = {
+    advice: 'monitor', 'watch and act': 'action', 'watch & act': 'action', 'emergency warning': 'critical',
+  };
+  const officialBands = [input.severity ? aws[input.severity] : undefined, nativeAws[input.nativeLevel?.trim().toLowerCase() ?? '']]
+    .filter((band): band is TemplateBand => !!band).sort((a,b)=>bands.indexOf(b)-bands.indexOf(a));
+  if (officialBands[0])
     return {
-      band: aws[input.severity]!,
+      band: officialBands[0],
+      severity: ({info:'info',monitor:'advice',action:'watchAndAct',critical:'emergency'} as const)[officialBands[0]],
       reason: "Preserved official warning level independently of icon shape.",
     };
   const capped = capForInfoOnlyCategory(input.categoryId, { severityBand: "critical" as TemplateBand }, input.description, input.nativeLevel);
