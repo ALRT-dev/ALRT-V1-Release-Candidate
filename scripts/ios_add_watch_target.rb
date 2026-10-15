@@ -43,17 +43,13 @@ watch.build_configurations.each do |c|
   s['CODE_SIGN_IDENTITY'] = 'iPhone Distribution' if c.name.start_with?('Release')
 end
 
-runner.add_dependency(watch)
-embed = runner.new_copy_files_build_phase('Embed Watch Content')
-embed.dst_subfolder_spec = '16'
-embed.dst_path = '$(CONTENTS_FOLDER_PATH)/Watch'
-bf = embed.add_file_reference(watch.product_reference, true)
-bf.settings = { 'ATTRIBUTES' => %w[RemoveHeadersOnCopy] }
-
-phases = runner.build_phases
-phases.delete(embed)
-idx = phases.index { |p| p.respond_to?(:name) && p.name == 'Thin Binary' } || phases.length
-phases.insert(idx, embed)
+# NOT embedded in Runner yet, on purpose. `flutter build ios` / `flutter build
+# ipa` pass `-sdk iphoneos|iphonesimulator` to xcodebuild, which forces every
+# dependent target onto the iOS SDK, so an embedded watchOS app fails to
+# compile ("'Scene' is only available in iOS 14.0"). Embedding needs the
+# release workflow to archive with `xcodebuild archive -destination
+# generic/platform=iOS` instead, plus a signing profile for the watch app
+# (see docs/WIDGETS_AND_WATCHES.md).
 
 proj.save
-puts "Added AlrtWatch; Runner phases: #{runner.build_phases.map { |p| p.respond_to?(:name) && p.name ? p.name : p.isa }.join(' | ')}"
+puts "Added AlrtWatch (not embedded in Runner)."
