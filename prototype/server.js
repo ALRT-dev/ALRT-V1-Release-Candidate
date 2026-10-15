@@ -41,6 +41,7 @@ function seed() {
 }
 seed();
 
+const GAZ_ALL = [{ placeId: 'p_scarb', name: 'Scarborough', address: 'Scarborough WA 6019', lat: 45, lng: 80 }, { placeId: 'p_sbr', name: 'Scarborough Beach Road', address: 'Scarborough Beach Rd, Scarborough WA', lat: 46, lng: 78 }, { placeId: 'p_trigg', name: 'Trigg', address: 'Trigg WA 6029', lat: 42, lng: 74 }, { placeId: 'p_karr', name: 'Karrinyup', address: 'Karrinyup WA 6018', lat: 38, lng: 62 }, { placeId: 'p_stir', name: 'Stirling', address: 'Stirling WA 6021', lat: 22, lng: 42 }, { placeId: 'p_joon', name: 'Joondalup', address: 'Joondalup WA 6027', lat: 20, lng: 30 }, { placeId: 'p_neer', name: 'Neerabup', address: 'Neerabup WA 6031', lat: 10, lng: 20 }, { placeId: 'p_wann', name: 'Wanneroo', address: 'Wanneroo WA 6065', lat: 14, lng: 26 }, { placeId: 'p_perth', name: 'Perth CBD', address: 'Perth WA 6000', lat: 60, lng: 50 }, { placeId: 'p_frem', name: 'Fremantle', address: 'Fremantle WA 6160', lat: 85, lng: 35 }, { placeId: 'p_tood', name: 'Toodyay', address: 'Toodyay WA 6566', lat: 30, lng: 70 }, { placeId: 'p_hills', name: 'Perth Hills', address: 'Kalamunda WA 6076', lat: 70, lng: 55 }, { placeId: 'p_mand', name: 'Mandurah', address: 'Mandurah WA 6210', lat: 95, lng: 20 }, { placeId: 'p_wyong', name: 'Wyong', address: 'Wyong NSW 2259', lat: 55, lng: 30 }];
 const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
 const err = (res, code, errCode, message, extra = {}) => json(res, code, { error: { code: errCode, message }, code: errCode, message, ...extra });
 const body = (req) => new Promise((ok) => { let d = ''; req.on('data', (c) => (d += c)); req.on('end', () => { try { ok(d ? JSON.parse(d) : {}); } catch { ok({}); } }); });
@@ -206,13 +207,13 @@ async function api(req, res, url) {
     const list = (S.places[u.id] ||= []);
     const limit = plan(u).plan === 'individual' || !S.billingEnabled ? Infinity : R.plans.free.savedPlaces;
     if (list.length >= limit) return err(res, 402, 'SAVED_PLACE_LIMIT', 'Free includes 1 saved place. ALRT + has no limit.', { limit: R.plans.free.savedPlaces });
-    const pl = { id: uid('pl_'), name: b.name || 'Saved place', radiusKm: b.radiusKm || 10 }; list.push(pl); award(u, 0, 'place'); return json(res, 201, pl);
+    const g = b.placeId ? GAZ_ALL.find((x) => x.placeId === b.placeId) : null; const pl = { id: uid('pl_'), name: b.name || (g && g.name) || 'Saved place', address: b.address || (g && g.address) || '', lat: b.lat ?? (g ? g.lat : null), lng: b.lng ?? (g ? g.lng : null), radiusKm: +b.radiusKm || 5 }; list.push(pl); award(u, 0, 'place'); return json(res, 201, pl);
   }
   if (p === '/user/unsubscribe' && m === 'POST') { S.places[u.id] = (S.places[u.id] || []).filter((x) => x.id !== b.id); return json(res, 200, { ok: true }); }
 
   // ---- alerts
   if (p === '/alert/geo' || p === '/hazard') {
-    if (m === 'GET') return json(res, 200, S.hazards.filter((h) => h.status === 'live' && (h.source !== 'community' || h.confirmations >= 1 || h.authorId === u.id)).map(hazardView));
+    if (m === 'GET') { const norm = (x) => (' ' + x.toLowerCase() + ' ').replace(/ rd /g, ' road ').replace(/ hwy /g, ' highway ').replace(/ fwy /g, ' freeway ').replace(/ st /g, ' street ').replace(/[,.]/g, ' '); const toks = norm(url.searchParams.get('q') || '').split(/\s+/).filter((t) => t.length >= 3); return json(res, 200, S.hazards.filter((h) => h.status === 'live' && (h.source !== 'community' || h.confirmations >= 1 || h.authorId === u.id) && (!toks.length || toks.every((t) => norm(h.title + ' ' + (h.locationName || '') + ' ' + (h.agency || '') + ' ' + (h.level || '')).includes(t)))).map(hazardView)); }
     if (m === 'POST') {
       if (!b.category) return err(res, 400, 'BAD_REQUEST', 'Choose a category');
       const times = (S.reportTimes[u.id] ||= []).filter((t0) => t0 > now() - 86400000); S.reportTimes[u.id] = times;
@@ -280,11 +281,28 @@ async function api(req, res, url) {
     if (/what is (an? )?(emergency warning|watch and act|advice)|what does unverified mean|how do points work/.test(q)) return json(res, 200, { answer: 'Emergency Warning is the highest AWS level: you are in danger and need to act immediately. Watch and Act: conditions are changing, start taking action. Advice: an incident has started, stay informed. Community reports are always Unverified.', source: 'library', usedAI: false, remainingToday: Math.max(0, lim - used) });
     if (S.billingEnabled && used >= lim) return err(res, 429, 'ask_limit', `Free includes ${R.plans.free.askPerDay} questions a day. ALRT + includes ${R.plans.individual.askPerDay}.`, { used, limit: lim });
     S.asks[u.id] = used + 1;
-    return json(res, 200, { answer: `Plain terms: ${(b.question || '').slice(0, 60)}. Based on official sources near you. ALRT is not an emergency service. In danger? Call your local emergency number.`, source: 'ai', usedAI: true, remaining: Math.max(0, lim - used - 1), remainingToday: Math.max(0, lim - used - 1) });
+    const basis = S.hazards.filter((h) => h.status === 'live' && h.source !== 'community' && h.source !== 'global').sort((a, b2) => ['critical', 'action', 'monitor', 'info'].indexOf(a.band) - ['critical', 'action', 'monitor', 'info'].indexOf(b2.band)).slice(0, 2);
+    const lead = basis[0]; const ans = lead ? `${lead.plain || lead.body || lead.title} The nearest official source is ${lead.agency || 'the issuing agency'}, ${Math.round((now() - lead.createdAt) / 60000)} minutes ago. ${/leave|evacuat|go/.test(q) ? 'If you are in the warning area, leave now by the safest route; do not wait to see what happens.' : /safe|okay|ok/.test(q) ? 'Outside the warning area you are not in immediate danger. Keep alerts on and check Ready for what to do next.' : 'Keep ALRT open; this answer updates as the official warning changes.'}` : `Nothing official is near you right now. ${(b.question || '').slice(0, 80)}`;
+    return json(res, 200, { answer: ans + ' ALRT is not an emergency service. In danger? Call your local emergency number.', source: 'ai', usedAI: true, basedOn: basis.map((h) => ({ id: h.id, title: h.title, agency: h.agency, minutesAgo: Math.round((now() - h.createdAt) / 60000), level: h.level || null })), remaining: Math.max(0, lim - used - 1), remainingToday: Math.max(0, lim - used - 1) });
   }
 
   const gc = p.match(/^\/guide\/([^/]+)\/complete$/);
   if (gc && m === 'POST') { u.guides = u.guides || {}; if (!u.guides[gc[1]]) { u.guides[gc[1]] = 1; award(u, R.points.guideComplete, 'guide'); } return json(res, 200, { ok: true });}
+  // ---- maps: geocode and places (mirrors /api/maps/geocode, /places/autocomplete, /places/details; the real backend proxies Google, no key ships in the app)
+  const GAZ = GAZ_ALL;
+  const gazMatch = (q) => { const t = (q || '').toLowerCase().trim(); return t ? GAZ.filter((g) => (g.name + ' ' + g.address).toLowerCase().includes(t)) : GAZ.slice(0, 5); };
+  if (p === '/maps/places/autocomplete') return json(res, 200, { predictions: gazMatch(url.searchParams.get('q') || url.searchParams.get('input')).slice(0, 6).map((g) => ({ placeId: g.placeId, description: g.name + ', ' + g.address, mainText: g.name, secondaryText: g.address })) });
+  if (p === '/maps/places/details') { const g = GAZ.find((x) => x.placeId === url.searchParams.get('placeId')); if (!g) return err(res, 404, 'NOT_FOUND', 'No such place'); return json(res, 200, g); }
+  if (p === '/maps/geocode') { const g = gazMatch(url.searchParams.get('q') || url.searchParams.get('address'))[0]; if (!g) return err(res, 404, 'NOT_FOUND', 'Nothing found'); return json(res, 200, g); }
+  // alerts per saved place (mirrors GET /api/hazards/hazards-with-subscription-id): the server works out what touches each place
+  const gridKm = (a, b2) => Math.hypot((a.lat || 0) - (b2.lat || 0), (a.lng || 0) - (b2.lng || 0));
+  if (p === '/hazard/hazards-with-subscription-id') {
+    const live = S.hazards.filter((h) => h.status === 'live' && h.source !== 'global'); const out = {};
+    const meLoc = { lat: u.lat ?? 45, lng: u.lng ?? 80 }; out.me = live.filter((h) => gridKm(h, meLoc) <= (u.ownRadiusKm || 5) * 2.2).map(hazardView);
+    (S.places[u.id] || []).forEach((pl) => { out[pl.id] = live.filter((h) => pl.lat != null && gridKm(h, pl) <= (pl.radiusKm || 5) * 2.2).map(hazardView); });
+    return json(res, 200, out);
+  }
+  if (p === '/user/own-location-subscription-radius' && m === 'PUT') { u.ownRadiusKm = +b.radiusKm || 5; return json(res, 200, { radiusKm: u.ownRadiusKm }); }
   // ---- maps: routes and trips (Sarah 9 Oct: alerts pop up en route while travelling). Real app proxies Google Routes through /api/maps; the mock scores each option by the hazards it crosses.
   if (p === '/maps/routes' && m === 'POST') {
     const hz = S.hazards.filter((h) => h.status === 'live');

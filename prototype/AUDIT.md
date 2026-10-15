@@ -2,12 +2,12 @@
 
 Branch `claude/ui-prototype-8oct` (from `claude/compassionate-franklin-512so7` @ 495a764). Only the `prototype/` folder was added. No app, backend, migration, workflow or config file in the repo was changed. Nothing deployed.
 
-Run it: `node prototype/server.js` then open http://localhost:4173. Audit: `python3 prototype/audit.py` (246 checks, drives the real UI in Chromium against the mock backend, writes `audit-results.json`).
+Run it: `node prototype/server.js` then open http://localhost:4173. Audit: `python3 prototype/audit.py` (259 checks, drives the real UI in Chromium against the mock backend, writes `audit-results.json`).
 
-Result at commit: **246 / 246 passed** against the canvas-faithful build with both 9 Oct rounds of rulings (9 Oct 2026).
+Result at commit: **259 / 259 passed** (16 Oct 2026).
 
 ## 9 Oct 2026: the screens are the approved boards
-`build_screens.py` turns the 28 phone boards on the Claude Design canvas (Splash, Onb1 to Onb5, Main, Places, Feed, Offline, Community, Detail, Ex1 to Ex3, Report, Posted, Profile, Ready, Learn, Safety, FamilyEmpty, Family, Plan, Drill, Choose, Paywall, GroupPaywall) into `public/boards.js`. The prototype renders that markup unchanged and binds live data into it (`public/ui.js`): alert cards, pins, members, plan prices, points, settings. Every link on a board (`href="X.dc.html"`) became in-app navigation. The 66 sheets and screens the canvas did not draw (`public/screens.js`) use the boards' own header, card, label, chip and button styles. `screenmap.py` captures all 94 screens with their outgoing links into `screens/map.json`; the same is published as the ALRT Screen Map page.
+`build_screens.py` turns the 28 phone boards on the Claude Design canvas (Splash, Onb1 to Onb5, Main, Places, Feed, Offline, Community, Detail, Ex1 to Ex3, Report, Posted, Profile, Ready, Learn, Safety, FamilyEmpty, Family, Plan, Drill, Choose, Paywall, GroupPaywall) into `public/boards.js`. The prototype renders that markup unchanged and binds live data into it (`public/ui.js`): alert cards, pins, members, plan prices, points, settings. Every link on a board (`href="X.dc.html"`) became in-app navigation. The 66 sheets and screens the canvas did not draw (`public/screens.js`) use the boards' own header, card, label, chip and button styles. `screenmap.py` captures all 101 screens with their outgoing links into `screens/map.json`; the same is published as the ALRT Screen Map page.
 
 Decisions follow `rules.json` -> `decisionsApplied` and `decisions` (Sarah's rulings, 8 and 9 Oct): SOS 4 hour cap, sender or host can end an SOS, library and emergency-number answers never count, community push after the first confirmation (Dangerous at once within 2 km), streaks retired, Safety Profile in Me and Ready, navigation kept and free with routes through the backend, voice hidden, Keep it quiet level kept, tiers Family 6 / Group 20 / Group 50, frosted canvas footer with an Instagram-style alternative on a dev toggle.
 
@@ -25,6 +25,14 @@ Decisions follow `rules.json` -> `decisionsApplied` and `decisions` (Sarah's rul
 - Widgets screen uses the Improved tiles from the Widgets board (Emergency Warning, three Near you states, Family, Family SOS).
 - Family circle in the footer: red with a dot while an SOS is live, amber while a check-in is asked of you, indigo when idle.
 - Profile and group photos: upload, preview and remove. Served only to circle members. `hazardView` strips author name and photo so nothing reaches the broader map.
+
+## 16 Oct 2026
+- Search: the Main search bar opens a search sheet. Typing or speaking searches alerts (`GET /hazard?q=`) and places (`GET /maps/places/autocomplete`) through the backend; a place can be shown on the map (view alerts anywhere, reports still post from where you are) or saved. Before typing it lists your places and the alerts near you now.
+- Speak to search: listening state with level bars, the recognised words, Search for this, Try again. Fills the search only; Ask ALRT stays its own button.
+- Ask ALRT: a thread. Three suggested questions (one built from the nearest warning), the answer card names the official sources it is based on, library and emergency-number answers are marked not counted, quota pill in the header.
+- Places: autocomplete under the search field, saved places carry their address and 'N alerts now' from `GET /hazard/hazards-with-subscription-id`, Edit opens a sheet with the radius (2/5/10/25 km), the alerts inside it, and Remove. My location has its own radius edit.
+- Select location: live place search; used for family places and for viewing alerts anywhere; never a report location.
+- Delete account: a second confirmation sheet before `DELETE /user/account`.
 
 ## 9 Oct 2026, third round
 - Filters: the International feeds row is gone. Who is speaking lists AWS, Official, Community and ALRT Assessment.

@@ -128,7 +128,7 @@
     "via": ""
    },
    {
-    "to": "tab",
+    "to": "search",
     "via": ""
    },
    {
@@ -210,7 +210,7 @@
     "via": ""
    },
    {
-    "to": "tab",
+    "to": "search",
     "via": ""
    },
    {
@@ -292,7 +292,7 @@
     "via": ""
    },
    {
-    "to": "tab",
+    "to": "search",
     "via": ""
    },
    {
@@ -366,7 +366,7 @@
  {
   "screen": "AskALRT",
   "board": "sheet",
-  "note": "",
+  "note": "Suggested questions and the quota",
   "file": "map/AskALRT.png",
   "links": [
    {
@@ -374,7 +374,7 @@
     "via": ""
    },
    {
-    "to": "tab",
+    "to": "search",
     "via": ""
    },
    {
@@ -446,6 +446,88 @@
   "area": "Map and alerts"
  },
  {
+  "screen": "AskALRT-Answer",
+  "board": "sheet",
+  "note": "Answer with the official sources it is based on",
+  "file": "map/AskALRT-Answer.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "search",
+    "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/AskALRT-Answer.jpg",
+  "area": "Map and alerts"
+ },
+ {
   "screen": "VoiceSearch",
   "board": "sheet",
   "note": "Voice to text for search, separate from Ask ALRT",
@@ -456,7 +538,7 @@
     "via": ""
    },
    {
-    "to": "tab",
+    "to": "search",
     "via": ""
    },
    {
@@ -538,7 +620,7 @@
     "via": ""
    },
    {
-    "to": "tab",
+    "to": "search",
     "via": ""
    },
    {
@@ -610,6 +692,170 @@
   "area": "Map and alerts"
  },
  {
+  "screen": "Search",
+  "board": "sheet",
+  "note": "Typed search: your places and alerts near you",
+  "file": "map/Search.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "search",
+    "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/Search.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "SearchResults",
+  "board": "sheet",
+  "note": "Alerts and places from the backend for what was typed",
+  "file": "map/SearchResults.png",
+  "links": [
+   {
+    "to": "Alert detail",
+    "via": ""
+   },
+   {
+    "to": "search",
+    "via": ""
+   },
+   {
+    "to": "voice",
+    "via": "Speak to search"
+   },
+   {
+    "to": "Ask ALRT sheet",
+    "via": "Ask ALRT"
+   },
+   {
+    "to": "Feed",
+    "via": "4 warnings near you. See what to do"
+   },
+   {
+    "to": "Filters sheet",
+    "via": "Map layers"
+   },
+   {
+    "to": "Feed",
+    "via": "List view"
+   },
+   {
+    "to": "Map key sheet",
+    "via": "Map key"
+   },
+   {
+    "to": "tab",
+    "via": "Check a route"
+   },
+   {
+    "to": "Places",
+    "via": "Save a place"
+   },
+   {
+    "to": "Safety",
+    "via": "Safety profile"
+   },
+   {
+    "to": "accessible",
+    "via": "Sound and vibration"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/SearchResults.jpg",
+  "area": "Map and alerts"
+ },
+ {
   "screen": "Places",
   "board": "Places",
   "note": "",
@@ -618,6 +864,10 @@
    {
     "to": "tab",
     "via": ""
+   },
+   {
+    "to": "placeedit",
+    "via": "Edit"
    },
    {
     "to": "Paywall",
@@ -652,6 +902,168 @@
   "area": "Map and alerts"
  },
  {
+  "screen": "PlacesSearch",
+  "board": "Places",
+  "note": "Autocomplete through the backend",
+  "file": "map/PlacesSearch.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": ""
+   },
+   {
+    "to": "placepick",
+    "via": "Scarborough"
+   },
+   {
+    "to": "placepick",
+    "via": "Scarborough Beach Road"
+   },
+   {
+    "to": "placeedit",
+    "via": "Edit"
+   },
+   {
+    "to": "Paywall",
+    "via": "See ALRT +"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/PlacesSearch.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "PlacesSaved",
+  "board": "Places",
+  "note": "A saved place with its address and alerts now",
+  "file": "map/PlacesSaved.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": ""
+   },
+   {
+    "to": "placepick",
+    "via": "Scarborough"
+   },
+   {
+    "to": "placepick",
+    "via": "Scarborough Beach Road"
+   },
+   {
+    "to": "placeedit",
+    "via": "Edit"
+   },
+   {
+    "to": "Paywall",
+    "via": "See ALRT +"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/PlacesSaved.jpg",
+  "area": "Map and alerts"
+ },
+ {
+  "screen": "PlaceEdit",
+  "board": "sheet",
+  "note": "Radius, alerts inside it, remove",
+  "file": "map/PlaceEdit.png",
+  "links": [
+   {
+    "to": "tab",
+    "via": ""
+   },
+   {
+    "to": "placepick",
+    "via": "Scarborough"
+   },
+   {
+    "to": "placepick",
+    "via": "Scarborough Beach Road"
+   },
+   {
+    "to": "placeedit",
+    "via": "Edit"
+   },
+   {
+    "to": "Paywall",
+    "via": "See ALRT +"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/PlaceEdit.jpg",
+  "area": "Map and alerts"
+ },
+ {
   "screen": "Refusal-SavedPlace",
   "board": "sheet",
   "note": "AccessRefusalSheet SAVED_PLACE_LIMIT",
@@ -660,6 +1072,10 @@
    {
     "to": "tab",
     "via": ""
+   },
+   {
+    "to": "placeedit",
+    "via": "Edit"
    },
    {
     "to": "Paywall",
@@ -4684,7 +5100,7 @@
     "via": "Back"
    },
    {
-    "to": "deleted",
+    "to": "sheet",
     "via": "Delete my account"
    },
    {
@@ -4720,6 +5136,52 @@
   "area": "Me"
  },
  {
+  "screen": "DeleteConfirm",
+  "board": "sheet",
+  "note": "Second confirmation before deletion",
+  "file": "map/DeleteConfirm.png",
+  "links": [
+   {
+    "to": "Profile",
+    "via": "Back"
+   },
+   {
+    "to": "sheet",
+    "via": "Delete my account"
+   },
+   {
+    "to": "tab",
+    "via": "Keep my account"
+   },
+   {
+    "to": "Main",
+    "via": "Map"
+   },
+   {
+    "to": "Feed",
+    "via": "Alerts"
+   },
+   {
+    "to": "Report",
+    "via": "Report"
+   },
+   {
+    "to": "Ready",
+    "via": "Ready"
+   },
+   {
+    "to": "Family",
+    "via": "Family"
+   },
+   {
+    "to": "Profile",
+    "via": "S"
+   }
+  ],
+  "jpg": "mapjpg/DeleteConfirm.jpg",
+  "area": "Me"
+ },
+ {
   "screen": "AccountDeleted",
   "board": "new",
   "note": "",
@@ -4748,7 +5210,7 @@
     "via": ""
    },
    {
-    "to": "tab",
+    "to": "search",
     "via": ""
    },
    {
@@ -4815,7 +5277,7 @@
     "via": ""
    },
    {
-    "to": "tab",
+    "to": "search",
     "via": ""
    },
    {

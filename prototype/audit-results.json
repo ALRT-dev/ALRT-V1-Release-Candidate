@@ -1,6 +1,6 @@
 {
-  "passed": 246,
-  "total": 246,
+  "passed": 259,
+  "total": 259,
   "results": [
     {
       "check": "Splash is white with the icon",
@@ -129,6 +129,11 @@
     },
     {
       "check": "Voice to text fills the search, not Ask ALRT",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Spoken search opens results for what was said",
       "pass": true,
       "detail": ""
     },
@@ -400,12 +405,12 @@
     {
       "check": "Push after first confirmation: \"Community report | title\", Unverified",
       "pass": true,
-      "detail": "[{'id': 'n_shyu5op', 'userId': 'u_qqmknm0', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
+      "detail": "[{'id': 'n_mw3hw2f', 'userId': 'u_q7gktap', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
     },
     {
       "check": "Dangerous report pushes at once, within 2 km (decided)",
       "pass": true,
-      "detail": "[{'id': 'n_a81it9g', 'userId': 'u_qqmknm0', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1791534227"
+      "detail": "[{'id': 'n_i2hug7a', 'userId': 'u_q7gktap', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1792105958"
     },
     {
       "check": "Reporter gets ALRT Approved push",
@@ -421,6 +426,21 @@
       "check": "Report rate limit 3 per hour -> 429",
       "pass": true,
       "detail": "[429, 429, 429]"
+    },
+    {
+      "check": "Wording scan clean: Search",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Search sheet: your places and alerts near you before typing",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Typed search returns alerts and places from the backend",
+      "pass": true,
+      "detail": ""
     },
     {
       "check": "Wording scan clean: Places",
@@ -478,6 +498,31 @@
       "detail": ""
     },
     {
+      "check": "Place search autocompletes through the backend",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Picked place saved with its address and alert count",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Edit place sheet: name, radius, alerts inside, remove",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Radius saved",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "My location edit: radius only, no remove",
+      "pass": true,
+      "detail": ""
+    },
+    {
       "check": "Upsell block hidden once on ALRT +",
       "pass": true,
       "detail": ""
@@ -499,6 +544,16 @@
     },
     {
       "check": "Wording scan clean: Ask",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Ask ALRT opens with suggested questions and the quota",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Suggested question answered with its official sources",
       "pass": true,
       "detail": ""
     },
@@ -700,7 +755,7 @@
     {
       "check": "Group covered, capacity from plan",
       "pass": true,
-      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794129275342, 'coveredBy': 'you', 'youPay': True}"
+      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794701012408, 'coveredBy': 'you', 'youPay': True}"
     },
     {
       "check": "Family header shows coverage",
@@ -895,7 +950,7 @@
     {
       "check": "Live journey allowed after host allows it",
       "pass": true,
-      "detail": "{'status': 201, 'data': {'id': 'j_7vr5l7i', 'circleId': 'c_a12mfnd', 'userId': 'u_kmqz95w', 'createdAt': 1791540965472, 'endsAt': 1791541865472, 'live': True, 'points': [], 'status': 'active', 'dest':"
+      "detail": "{'status': 201, 'data': {'id': 'j_6rq06rw', 'circleId': 'c_6ljrs45', 'userId': 'u_bx89h5e', 'createdAt': 1792112702744, 'endsAt': 1792113602744, 'live': True, 'points': [], 'status': 'active', 'dest':"
     },
     {
       "check": "Wording scan clean: Family places",
@@ -1199,6 +1254,16 @@
     },
     {
       "check": "Wording scan clean: Delete account",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Delete asks for confirmation first (9 Oct)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "No keeps the account",
       "pass": true,
       "detail": ""
     },

@@ -11,7 +11,8 @@ function go(name) {
 }
 async function loadFamily() { await refresh(); const c = circ(); if (c) { st.ciReqs = (await api('/family/check-in/requests?circleId=' + c.circleId)).data; st.locReqs = (await api('/family/location-requests/pending')).data; st.sharedJ = (await api('/family/journeys/shared')).data; st.sosLists = (await api('/family/sos-lists')).data; } }
 async function refresh() {
-  const [pr, ac, hz, ci, so, nf, jr, pl] = await Promise.all([api('/user/profile'), api('/access'), api('/alert/geo'), api('/family/circles'), api('/family/sos/active'), api('/notification/feed'), api('/family/journeys/me'), api('/user/location-subscriptions')]);
+  const [pr, ac, hz, ci, so, nf, jr, pl, pa] = await Promise.all([api('/user/profile'), api('/access'), api('/alert/geo'), api('/family/circles'), api('/family/sos/active'), api('/notification/feed'), api('/family/journeys/me'), api('/user/location-subscriptions'), api('/hazard/hazards-with-subscription-id')]);
+  if (pa.ok) st.placeAlerts = pa.data;
   if (pr.status === 401) { st.token = ''; st.user = null; return; }
   if (pr.ok) st.user = pr.data;
   if (ac.ok) st.access = ac.data;
@@ -67,9 +68,20 @@ const A = {
   // alerts
   async open(e) { const h = st.hazards.find((x) => x.id === e.dataset.id); if (!h) return; st.detail = h.id; st.screen = 'main'; st.tab = h.source === 'community' ? 'Community' : (h.board && window.BOARDS[h.board]) ? h.board : 'Detail'; await api('/hazard/' + h.id + '/view', { method: 'POST', body: {} }); },
   openfilters() { st.sheet = 'filters'; }, mapkey() { st.sheet = 'mapkey'; },
-  voice() { st.voiceHeard = ''; st.sheet = 'voice'; setTimeout(() => { if (st.sheet === 'voice') { st.voiceHeard = 'Scarborough Beach Road'; draw(); } }, 900); },
+  voice() { st.voiceHeard = ''; st.sheet = 'voice'; setTimeout(() => { if (st.sheet === 'voice' && !st.voiceHeard) { st.voiceHeard = 'Scarborough Beach Road'; draw(); } }, 900); },
   voicedone() { st.voiceHeard = st.voiceHeard || 'Scarborough Beach Road'; },
-  voiceuse() { st.voiceText = st.voiceHeard; st.sheet = null; st.screen = 'main'; st.tab = 'Places'; toast('Searching for ' + st.voiceHeard); },
+  async voiceuse() { st.searchQ = st.voiceHeard; st.voiceText = st.voiceHeard; st.screen = 'main'; st.tab = 'Main'; st.sheet = 'search'; await A.searchrun(); },
+  // typed search: alerts and places, both from the backend
+  search() { st.sheet = 'search'; st.searchRes = null; if (st.searchQ) A.searchrun().then(() => draw()); },
+  async searchrun() { const q = (st.searchQ || '').trim(); if (!q) { st.searchRes = null; return; } const [hz, pl] = await Promise.all([api('/hazard?q=' + encodeURIComponent(q)), api('/maps/places/autocomplete?q=' + encodeURIComponent(q))]); st.searchRes = { hazards: hz.ok ? hz.data : [], places: pl.ok ? pl.data.predictions : [] }; },
+  searchtype(e) { st.searchQ = e.value; clearTimeout(st._st); st._st = setTimeout(async () => { await A.searchrun(); const inp = $('#sq'); const pos = inp && inp.selectionStart; draw(true); const inp2 = $('#sq'); if (inp2 && document.activeElement !== inp2) { inp2.focus(); try { inp2.setSelectionRange(pos, pos); } catch {} } }, 180); },
+  async searchplace(e) { const r = await api('/maps/places/details?placeId=' + e.dataset.pid); if (!r.ok) return refusal(r.data); st.viewLoc = r.data.name; st.sheet = null; st.tab = 'Main'; toast('Showing alerts around ' + r.data.name + '. Reports still post from where you are.'); },
+  async placepick(e) { const r = await api('/user/subscribe-location', { body: { placeId: e.dataset.pid, radiusKm: 5 } }); if (r.status === 402) return refusal(r.data, 'place'); if (!r.ok) return refusal(r.data); st.sheet = null; toast(`ALRT will keep an eye on ${r.data.name} even when you're away.`); await refresh(); st.tab = 'Places'; },
+  placetype(e) { st.placeQ = e.value; clearTimeout(st._pt); st._pt = setTimeout(async () => { const r = st.placeQ.trim() ? await api('/maps/places/autocomplete?q=' + encodeURIComponent(st.placeQ)) : null; st.placeRes = r && r.ok ? r.data.predictions : []; const pos = $('#pn')?.selectionStart; draw(true); const inp2 = $('#pn'); if (inp2 && document.activeElement !== inp2) { inp2.focus(); try { inp2.setSelectionRange(pos, pos); } catch {} } }, 180); },
+  placeedit(e) { st.placeEdit = e.dataset.id; st.placeRadius = null; st.sheet = 'placeedit'; },
+  placeradius(e) { st.placeRadius = +e.dataset.km; },
+  async placesave() { const isMe = st.placeEdit === 'me'; const rad = st.placeRadius; if (isMe) { if (rad) await api('/user/own-location-subscription-radius', { method: 'PUT', body: { radiusKm: rad } }); } else { const p0 = (st.places || []).find((x) => x.id === st.placeEdit); const name = $('#pname')?.value || p0.name; if (p0 && (rad && rad !== p0.radiusKm || name !== p0.name)) { await api('/user/unsubscribe', { body: { id: p0.id } }); const r = await api('/user/subscribe-location', { body: { name, address: p0.address, lat: p0.lat, lng: p0.lng, radiusKm: rad || p0.radiusKm } }); if (!r.ok) return refusal(r.data, 'place'); } } st.sheet = null; st.placeEdit = null; await refresh(); toast('Saved'); },
+  async placeremove(e) { await api('/user/unsubscribe', { body: { id: e.dataset.id } }); st.sheet = null; st.placeEdit = null; await refresh(); toast('Place removed'); },
   routepick(e) { st.route.pick = +e.dataset.i; },
   filt(e) { const arr = st.filters[e.dataset.k]; const i = arr.indexOf(e.dataset.v); i >= 0 ? arr.splice(i, 1) : arr.push(e.dataset.v); try { localStorage.setItem('alrt_filters', JSON.stringify(st.filters)); } catch {} },
   filtreset() { st.filters = { sources: ['aws', 'official', 'community', 'global', 'intel'], bands: Object.keys(R.bands), cats: Object.keys(R.categories) }; try { localStorage.setItem('alrt_filters', JSON.stringify(st.filters)); } catch {} },
@@ -82,11 +94,14 @@ const A = {
   flagsheet() { st.sheet = 'flagblock'; st.flagReason = 'misleading'; }, flagr(e) { st.flagReason = e.dataset.r; },
   async flag() { const r = await api('/hazard/' + st.detail + '/flag', { body: { reason: st.flagReason } }); st.sheet = null; toast(r.ok ? 'Thanks. This report has been sent for review.' : r.data.message); await refresh(); if (!st.hazards.find((x) => x.id === st.detail)) st.tab = 'Feed'; },
   async block() { const r = await api('/user/blocked', { body: { hazardId: st.detail } }); st.sheet = null; toast(r.ok ? 'Blocked. You will not see their reports.' : r.data.message); },
-  async ask() { st.sheet = 'ask'; st.askAns = ''; const r = await api('/ask-alrt/allowance'); if (r.ok) st.ask = { remaining: r.data.remaining, limit: r.data.limit }; },
-  async askgo() { st.askQ = $('#aq')?.value || ''; const r = await api('/ask-alrt', { body: { question: st.askQ || 'What is happening near me?' } }); if (r.status === 429 && r.data.code === 'ask_limit') return refusal({ code: 'ASK_LIMIT' }, 'ask'); if (!r.ok) return refusal(r.data); st.askAns = r.data.answer; st.askSrc = r.data.source || 'ai'; const a = await api('/ask-alrt/allowance'); st.ask = { remaining: a.data.remaining, limit: a.data.limit }; },
-  async addplace() { const name = $('#pn')?.value || 'Home'; const r = await api('/user/subscribe-location', { body: { name } }); if (r.status === 402) return refusal(r.data, 'place'); if (!r.ok) return refusal(r.data); toast(`ALRT will keep an eye on ${name} even when you're away.`); await refresh(); },
+  async ask() { st.sheet = 'ask'; st.askAns = ''; st.askQ = ''; const r = await api('/ask-alrt/allowance'); if (r.ok) st.ask = { remaining: r.data.remaining, limit: r.data.limit }; },
+  async askchip(e) { st.askQ = e.dataset.q; await A.askgo(); },
+  async askgo() { const typed = $('#aq')?.value; const q = (typed && typed.trim()) || st.askQ || 'What is happening near me?'; const r = await api('/ask-alrt', { body: { question: q } }); if (r.status === 429 && r.data.code === 'ask_limit') return refusal({ code: 'ASK_LIMIT' }, 'ask'); if (!r.ok) return refusal(r.data); st.askAns = r.data.answer; st.askSrc = r.data.source || 'ai'; (st.askThread ||= []).push({ q, a: r.data.answer, source: r.data.source || 'ai', basedOn: r.data.basedOn || [], at: Date.now() }); st.askQ = ''; const a = await api('/ask-alrt/allowance'); st.ask = { remaining: a.data.remaining, limit: a.data.limit }; },
+  async addplace() { const name = ($('#pn')?.value || '').trim() || 'Home'; const top = (st.placeRes || [])[0]; const r = await api('/user/subscribe-location', { body: top && top.mainText.toLowerCase() === name.toLowerCase() ? { placeId: top.placeId, name, radiusKm: 5 } : { name, radiusKm: 5 } }); if (r.status === 402) return refusal(r.data, 'place'); if (!r.ok) return refusal(r.data); st.placeQ = ''; st.placeRes = []; toast(`ALRT will keep an eye on ${name} even when you're away.`); await refresh(); },
   async unsub(e) { await api('/user/unsubscribe', { body: { id: e.dataset.id } }); await refresh(); },
-  locpick(e) { st.loc = e.dataset.n === 'Scarborough WA' ? 'Scarborough' : e.dataset.n; st.screen = 'main'; st.tab = st.locBack || 'Main'; },
+  locpick(e) { st.loc = e.dataset.n === 'Scarborough WA' ? 'Scarborough' : e.dataset.n; if (!st.locBack || st.locBack === 'Main') st.viewLoc = e.dataset.n === 'Your location' || e.dataset.n === 'Scarborough WA' ? null : e.dataset.n; st.locQ = ''; st.locRes = []; st.screen = 'main'; st.tab = st.locBack || 'Main'; },
+  loctype(e) { st.locQ = e.value; clearTimeout(st._lt); st._lt = setTimeout(async () => { const r = st.locQ.trim() ? await api('/maps/places/autocomplete?q=' + encodeURIComponent(st.locQ)) : null; st.locRes = r && r.ok ? r.data.predictions : []; const pos = $('#lq')?.selectionStart; draw(true); const i2 = $('#lq'); if (i2 && document.activeElement !== i2) { i2.focus(); try { i2.setSelectionRange(pos, pos); } catch {} } }, 180); },
+  viewme() { st.viewLoc = null; st.loc = 'Scarborough'; toast('Back to where you are'); },
   routemode(e) { (st.route ||= {}).mode = e.dataset.m; },
   async routego() { const from = $('#rfrom')?.value || 'Your location', to = $('#rto')?.value || 'Perth CBD'; const r = await api('/maps/routes', { body: { from, to, mode: st.route?.mode || 'Drive' } }); if (!r.ok) return refusal(r.data); st.route = { ...(st.route || {}), from, to, pick: 0, options: r.data.options }; },
   // Sarah 9 Oct: alerts pop up en route while travelling. Start a trip on the chosen option; the Travelling screen polls what is ahead.
@@ -218,7 +233,7 @@ const A = {
   async unblock(e) { await api('/user/blocked/' + e.dataset.id, { method: 'DELETE', body: {} }); st.blockedList = (await api('/user/blocked')).data.blocked; },
   suptype(e) { st.supType = e.dataset.k; },
   async supsend() { const r = await api('/support', { body: { requestType: st.supType || 'support', details: $('#supd').value } }); if (!r.ok) return toast(r.data.message); st.supSent = true; },
-  async delacct() { await api('/user/account', { method: 'DELETE', body: {} }); await refresh(); st.tab = 'deleted'; },
+  async delacct() { st.sheet = null; await api('/user/account', { method: 'DELETE', body: {} }); await refresh(); st.tab = 'deleted'; },
   async setlang(e) { await api('/user/profile', { method: 'PUT', body: { language: e.dataset.k } }); await refresh(); st.sheet = null; },
   logoutsheet() { st.sheet = 'logout'; },
   async photosave() { let dataUrl = st.pendingPhoto || st.user?.photo || null; st.pendingPhoto = null; const r = await api('/user/profile-picture', { method: 'PUT', body: { dataUrl, name: $('#pname')?.value } }); if (!r.ok) return toast(r.data.message); st.sheet = null; await refresh(); toast('Saved. Your group members can see it; the map never does.'); },
@@ -262,6 +277,7 @@ document.addEventListener('pointerdown', (e) => {
 const cancelHold = () => { clearTimeout(holdT); const f = $('#holdfill'); if (f) { f.style.transition = 'none'; f.style.width = '0'; } };
 document.addEventListener('pointerup', cancelHold); document.addEventListener('pointercancel', cancelHold);
 
+document.addEventListener('input', (ev) => { const t = ev.target; if (!(t instanceof HTMLInputElement) || !t.dataset.live) return; const f = A[t.dataset.live]; if (f) f(t); });
 document.addEventListener('change', async (ev) => {
   const t = ev.target; if (!(t instanceof HTMLInputElement) || t.type !== 'file' || !t.files[0]) return;
   const dataUrl = await new Promise((ok) => { const rd = new FileReader(); rd.onload = () => ok(rd.result); rd.readAsDataURL(t.files[0]); });

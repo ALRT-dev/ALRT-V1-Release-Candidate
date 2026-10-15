@@ -64,7 +64,7 @@ with sync_playwright() as p:
     check('Map board with pins bound to live alerts', has('map') and len(pg.query_selector_all('[data-testid^=pin-]')) >= 3)
     check('Map banner counts warnings from live data', re.search(r'\d warnings? near you', text()) is not None)
     check('Mic (voice to text) and Ask ALRT are separate buttons', has('mic-btn') and has('ask-btn'))
-    click('mic-btn'); settle(1300); check('Voice to text fills the search, not Ask ALRT', 'Scarborough Beach Road' in pg.inner_text('[data-testid=voice-text]') and 'Ask ALRT is a different button' in text()); pg.evaluate("A.close(); draw()")
+    click('mic-btn'); settle(1300); check('Voice to text fills the search, not Ask ALRT', 'Scarborough Beach Road' in pg.inner_text('[data-testid=voice-text]') and 'Ask ALRT is a different button' in text() and has('voice-retry')); click('voice-use'); settle(700); check('Spoken search opens results for what was said', has('search-input') and pg.input_value('[data-testid=search-input]') == 'Scarborough Beach Road' and (has('search-alerts') or has('search-place'))); pg.evaluate("A.close(); draw()")
     pg.evaluate("A.mapkey(); draw()"); settle(300); scan('Map key')
     outl = pg.evaluate("[...document.querySelectorAll('[data-testid=sheet] svg[data-outline] *')].every(e=>e.getAttribute('fill')==='none' && e.getAttribute('stroke')==='#3A3A42')")
     check('Map key shapes are outlines only, dark grey, no colour', outl and pg.evaluate("document.querySelectorAll('[data-testid=sheet] svg[data-outline]').length") == 5)
@@ -154,7 +154,9 @@ with sync_playwright() as p:
     check('Report rate limit 3 per hour -> 429', 429 in rv, rv)
 
     # ================= Places (Places board) + saved place gate =================
-    goto_tab('alerts'); click('places-btn'); settle(500); scan('Places')
+    goto_tab('alerts'); click('search-btn'); settle(300); pg.fill('[data-testid=search-input]', ''); settle(500); scan('Search'); check('Search sheet: your places and alerts near you before typing', has('search-input') and has('places-btn') and 'near you now' in text().lower())
+    pg.fill('[data-testid=search-input]', 'Scarborough'); settle(600); check('Typed search returns alerts and places from the backend', has('search-alerts') and has('search-place') and 'Scarborough' in text())
+    pg.fill('[data-testid=search-input]', ''); settle(500); click('places-btn'); settle(500); scan('Places')
     pg.fill('[data-testid=place-name]', 'Home'); click('add-place'); settle(600); check('First saved place allowed on Free', 'Home' in text())
     pg.fill('[data-testid=place-name]', 'Work'); click('add-place'); settle(600)
     check('Second saved place refused SAVED_PLACE_LIMIT with the board copy', has('refusal-cta') and 'One saved place on ALRT Free' in text())
@@ -164,7 +166,10 @@ with sync_playwright() as p:
     click('buy'); settle(1500)
     wh = api('/__state', 'GET', None, False)['data']['webhookLog']; check('Purchase reaches the backend through the RevenueCat webhook', any(w['type'] == 'INITIAL_PURCHASE' for w in wh))
     acc = api('/access')['data']; check('Access reflects ALRT + trial', acc['personal']['plan'] == 'individual' and acc['personal']['isTrial'])
-    goto_tab('alerts'); click('places-btn'); settle(500); pg.fill('[data-testid=place-name]', 'Work'); click('add-place'); settle(600); check('Second place allowed after upgrade', 'Work' in text())
+    goto_tab('alerts'); click('search-btn'); settle(300); click('places-btn'); settle(500); pg.fill('[data-testid=place-name]', 'Work'); click('add-place'); settle(600); check('Second place allowed after upgrade', 'Work' in text())
+    pg.fill('[data-testid=place-name]', 'Trig'); settle(600); check('Place search autocompletes through the backend', has('place-result') and 'Trigg' in text()); pg.click('[data-testid=place-result] >> nth=0'); settle(700); check('Picked place saved with its address and alert count', 'Trigg WA 6029' in text() and 'alerts now' in text())
+    pg.click('[data-testid=edit-place] >> nth=0'); settle(300); check('Edit place sheet: name, radius, alerts inside, remove', has('place-edit-name') and has('radius-10') and 'inside' in text() and has('place-remove')); click('radius-10'); settle(200); click('place-save'); settle(800); check('Radius saved', '10 km' in text() or 'Saved' in text())
+    click('edit-me'); settle(300); check('My location edit: radius only, no remove', has('radius-2') and not has('place-remove')); pg.evaluate("A.close(); draw()"); settle(200)
     check('Upsell block hidden once on ALRT +', not has('see-plus'))
     check('ALRT + allows 10 Ask a day', api('/ask-alrt/allowance')['data']['limit'] == R['plans']['individual']['askPerDay'])
 
@@ -173,7 +178,9 @@ with sync_playwright() as p:
     check('Free: 3 AI questions then 429 ask_limit', res == [200, 200, 200, 429], res)
     lib = asu(u3['token'], '/ask-alrt', {'question': 'What is an Emergency Warning?'}); em = asu(u3['token'], '/ask-alrt', {'question': 'What is the emergency number?'})
     check('Library and emergency-number answers never count, even at the cap (R03)', lib['status'] == 200 and lib['data']['source'] == 'library' and em['status'] == 200 and em['data']['source'] == 'emergency_lookup', (lib['status'], em['status']))
-    goto_tab('alerts'); click('ask-btn'); settle(400); scan('Ask'); pg.fill('[data-testid=ask-input]', 'What does Watch and Act mean?'); click('ask-go'); settle(500); check('Ask ALRT answers and shows remaining', has('ask-answer') and 'left today' in text()); pg.evaluate("A.close(); draw()"); settle(200)
+    goto_tab('alerts'); click('ask-btn'); settle(400); scan('Ask'); check('Ask ALRT opens with suggested questions and the quota', 'left today' in text() and pg.evaluate("document.querySelectorAll('[data-act=askchip]').length") == 3)
+    pg.click('[data-act=askchip] >> nth=0'); settle(600); check('Suggested question answered with its official sources', has('ask-thread') and 'Based on' in text())
+    pg.fill('[data-testid=ask-input]', 'What does Watch and Act mean?'); click('ask-go'); settle(500); check('Ask ALRT answers and shows remaining', has('ask-answer') and 'left today' in text()); pg.evaluate("A.close(); draw()"); settle(200)
 
     # ================= Family (FamilyEmpty, Family boards) =================
     goto_tab('family'); check('FamilyEmpty board: create and join free', has('family-empty') and 'Creating and joining a group is free' in text()); scan('FamilyEmpty')
@@ -356,7 +363,7 @@ with sync_playwright() as p:
     pg.click('[data-dev=billing]'); settle(800); check('Billing off reflected in /api/access', api('/access')['data']['billingEnabled'] is False); pg.click('[data-dev=billing]'); settle(400)
 
     # ================= Account deletion, forced update, sign out =================
-    goto_tab('me'); click('delete-open'); settle(300); scan('Delete account'); click('del-confirm'); settle(900); check('Deletion scheduled: 30 day recovery screen', 'days left' in text()); click('recover'); settle(800)
+    goto_tab('me'); click('delete-open'); settle(300); scan('Delete account'); click('del-confirm'); settle(300); check('Delete asks for confirmation first (9 Oct)', has('del-yes') and has('del-no') and 'Are you sure' in text()); click('del-no'); settle(200); check('No keeps the account', not has('del-yes') and 'Delete my account' in text()); click('del-confirm'); settle(300); click('del-yes'); settle(900); check('Deletion scheduled: 30 day recovery screen', 'days left' in text()); click('recover'); settle(800)
     check('Account recovered', api('/user/account/deletion-status')['data']['isScheduledForDeletion'] is False)
     pg.click('[data-dev=forceupdate]'); settle(300); check('Forced update screen, local emergency number wording', has('forceupdate') and 'local emergency number' in text()); pg.click('[data-dev=forceupdate]'); settle(300)
     goto_tab('me'); click('signout'); settle(300); click('logout-go'); settle(700); check('Sign out returns to Splash', has('have-account'))
