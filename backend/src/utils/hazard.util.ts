@@ -320,11 +320,30 @@ export const buildHazardsWhereClause = (
     });
   }
 
-  // Filter hazards that fall within geographic bounds if provided
-  if (northeastLat && northeastLng && southwestLat && southwestLng) {
-    const geoConditions: Prisma.HazardWhereInput[] = [
+  // Filter hazards that fall within geographic bounds if provided.
+  // A viewport that crosses the antimeridian arrives with
+  // southwestLng > northeastLng and is split into its two real halves, the
+  // same way the PostGIS path below does it. Compared against null, not
+  // truthiness, so longitude 0 and latitude 0 are kept.
+  if (
+    northeastLat != null &&
+    northeastLng != null &&
+    southwestLat != null &&
+    southwestLng != null
+  ) {
+    const lngHalves: [number, number][] =
+      southwestLng > northeastLng
+        ? [
+            [southwestLng, 180],
+            [-180, northeastLng],
+          ]
+        : [[southwestLng, northeastLng]];
+
+    const geoConditions: Prisma.HazardWhereInput[] = [];
+
+    for (const [westLng, eastLng] of lngHalves) {
       // Check point-based hazards
-      {
+      geoConditions.push({
         AND: [
           { latitude: { not: null } },
           { longitude: { not: null } },
@@ -336,31 +355,31 @@ export const buildHazardsWhereClause = (
           },
           {
             longitude: {
-              gte: southwestLng,
-              lte: northeastLng,
+              gte: westLng,
+              lte: eastLng,
             },
           },
         ],
-      },
-    ];
+      });
 
-    // Only include bounding box check if ignoreHazardLatLngBounds is false
-    if (!ignoreHazardLatLngBounds) {
-      geoConditions.push(
-        // Check bounding box hazards (intersection)
-        {
-          AND: [
-            { northeastLat: { not: null } },
-            { northeastLng: { not: null } },
-            { southwestLat: { not: null } },
-            { southwestLng: { not: null } },
-            { northeastLat: { gte: southwestLat } },
-            { northeastLng: { gte: southwestLng } },
-            { southwestLat: { lte: northeastLat } },
-            { southwestLng: { lte: northeastLng } },
-          ],
-        },
-      );
+      // Only include bounding box check if ignoreHazardLatLngBounds is false
+      if (!ignoreHazardLatLngBounds) {
+        geoConditions.push(
+          // Check bounding box hazards (intersection)
+          {
+            AND: [
+              { northeastLat: { not: null } },
+              { northeastLng: { not: null } },
+              { southwestLat: { not: null } },
+              { southwestLng: { not: null } },
+              { northeastLat: { gte: southwestLat } },
+              { northeastLng: { gte: westLng } },
+              { southwestLat: { lte: northeastLat } },
+              { southwestLng: { lte: eastLng } },
+            ],
+          },
+        );
+      }
     }
 
     andConditions.push({
@@ -782,46 +801,62 @@ export const buildHazardsWhereClauseRaw = (
   }
 
   // Apply geographic bounds filter if provided - Using PostGIS for dramatic performance improvement
-  if (northeastLat && northeastLng && southwestLat && southwestLng) {
-    // Create bounding box polygon using PostGIS
-    let boundsCondition: string;
+  //
+  // The viewport can cross the antimeridian: zoom out far enough from
+  // Australia and the east edge passes 180 and comes back as a negative
+  // longitude, so southwestLng > northeastLng. ST_MakeEnvelope with
+  // xmin > xmax is an inverted, empty box, so the map and the Alerts list
+  // both went blank on zoom out. A wrapped viewport is therefore split into
+  // its two real halves, east of southwestLng and west of northeastLng.
+  // Bounds are compared against null, not truthiness: longitude 0 (the prime
+  // meridian) and latitude 0 (the equator) are valid coordinates.
+  if (
+    northeastLat != null &&
+    northeastLng != null &&
+    southwestLat != null &&
+    southwestLng != null
+  ) {
+    const wrapsAntimeridian = southwestLng > northeastLng;
 
-    if (ignoreHazardLatLngBounds) {
-      // Only check point-based hazards
-      boundsCondition = `(
-        h.latitude IS NOT NULL AND h.longitude IS NOT NULL AND 
-        ST_Intersects(
-          ST_MakeEnvelope($${paramIndex}, $${paramIndex + 1}, $${
-            paramIndex + 2
-          }, $${paramIndex + 3}, 4326),
-          h."geom"
-        )
-      )`;
-    } else {
-      // Check both point-based and bounding box hazards
-      boundsCondition = `(
-        (h.latitude IS NOT NULL AND h.longitude IS NOT NULL AND 
+    // Each half is [west, east]; an unwrapped viewport is just the one box.
+    const lngHalves: [number, number][] = wrapsAntimeridian
+      ? [
+          [southwestLng, 180],
+          [-180, northeastLng],
+        ]
+      : [[southwestLng, northeastLng]];
+
+    const halfConditions = lngHalves.map(([westLng, eastLng]) => {
+      const west = paramIndex;
+      const south = paramIndex + 1;
+      const east = paramIndex + 2;
+      const north = paramIndex + 3;
+      queryParams.push(westLng, southwestLat, eastLng, northeastLat);
+      paramIndex += 4;
+
+      const pointCondition = `(h.latitude IS NOT NULL AND h.longitude IS NOT NULL AND
          ST_Intersects(
-           ST_MakeEnvelope($${paramIndex}, $${paramIndex + 1}, $${
-             paramIndex + 2
-           }, $${paramIndex + 3}, 4326),
+           ST_MakeEnvelope($${west}, $${south}, $${east}, $${north}, 4326),
            h."geom"
-         ))
-        OR
-        (h."northeastLat" IS NOT NULL AND h."southwestLat" IS NOT NULL AND 
-         h."northeastLng" IS NOT NULL AND h."southwestLng" IS NOT NULL AND
-         h."northeastLat" >= $${paramIndex + 1} AND h."southwestLat" <= $${
-           paramIndex + 3
-         } AND
-         h."northeastLng" >= $${paramIndex} AND h."southwestLng" <= $${
-           paramIndex + 2
-         })
-      )`;
-    }
+         ))`;
 
-    whereConditions.push(boundsCondition);
-    queryParams.push(southwestLng, southwestLat, northeastLng, northeastLat);
-    paramIndex += 4;
+      if (ignoreHazardLatLngBounds) {
+        // Only check point-based hazards
+        return `(${pointCondition})`;
+      }
+
+      // Check both point-based and bounding box hazards
+      return `(
+        ${pointCondition}
+        OR
+        (h."northeastLat" IS NOT NULL AND h."southwestLat" IS NOT NULL AND
+         h."northeastLng" IS NOT NULL AND h."southwestLng" IS NOT NULL AND
+         h."northeastLat" >= $${south} AND h."southwestLat" <= $${north} AND
+         h."northeastLng" >= $${west} AND h."southwestLng" <= $${east})
+      )`;
+    });
+
+    whereConditions.push(`(${halfConditions.join(" OR ")})`);
   } else if (subscriptions && subscriptions.length > 0) {
     // Apply subscription bounds using PostGIS
     const subscriptionConditions = subscriptions.map(() => {

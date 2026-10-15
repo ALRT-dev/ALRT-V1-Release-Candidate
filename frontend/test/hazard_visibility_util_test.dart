@@ -58,6 +58,48 @@ void main() {
       final bounds = _boundsAround(_scarboroughLat, _scarboroughLng);
       expect(hazardIsInMapBounds(hazard, bounds), isFalse);
     });
+
+    // Zooming out from Perth pushes the east edge past 180, so it comes
+    // back as a negative longitude and south-west > north-east. The map and
+    // the Alerts list used to go blank at that zoom.
+    test('a wrapped viewport still contains a hazard east of the seam', () {
+      final hazard = _bushfireHazard();
+      final wrapped = LatLngBounds(
+        southwest: const LatLng(-60.0, 15.0),
+        northeast: const LatLng(20.0, -144.0),
+      );
+      expect(hazardIsInMapBounds(hazard, wrapped), isTrue);
+    });
+
+    test('a wrapped viewport contains a hazard west of the seam', () {
+      // Honolulu, on the far side of the antimeridian from Perth.
+      final hazard = _bushfireHazard(lat: 21.3069, lng: -157.8583);
+      final wrapped = LatLngBounds(
+        southwest: const LatLng(-60.0, 15.0),
+        northeast: const LatLng(40.0, -144.0),
+      );
+      expect(hazardIsInMapBounds(hazard, wrapped), isTrue);
+    });
+
+    test('a wrapped viewport excludes a hazard in the gap it does not cover', () {
+      // Sao Paulo sits in the untouched wedge between -144 and 15.
+      final hazard = _bushfireHazard(lat: -23.5505, lng: -46.6333);
+      final wrapped = LatLngBounds(
+        southwest: const LatLng(-60.0, 15.0),
+        northeast: const LatLng(20.0, -144.0),
+      );
+      expect(hazardIsInMapBounds(hazard, wrapped), isFalse);
+    });
+
+    test('a wrapped viewport still respects latitude', () {
+      // Right longitude, far too far north.
+      final hazard = _bushfireHazard(lat: 64.0, lng: 115.0);
+      final wrapped = LatLngBounds(
+        southwest: const LatLng(-60.0, 15.0),
+        northeast: const LatLng(20.0, -144.0),
+      );
+      expect(hazardIsInMapBounds(hazard, wrapped), isFalse);
+    });
   });
 
   group('hazardMatchesMapFilters - parent/child category matching', () {
