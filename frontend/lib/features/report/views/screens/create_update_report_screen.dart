@@ -559,7 +559,11 @@ class _CreateUpdateReportScreenState
       label: '${wording.label}, ${wording.sub}',
       excludeSemantics: true,
       onTap: handleTap,
-      child: Container(
+      child: Stack(
+       clipBehavior: Clip.none,
+       fit: StackFit.passthrough,
+       children: [
+      Container(
         constraints: BoxConstraints(minHeight: 80.spMin),
         padding: EdgeInsets.symmetric(horizontal: 6.spMin, vertical: 18.spMin),
         decoration: BoxDecoration(
@@ -603,18 +607,26 @@ class _CreateUpdateReportScreenState
                 ),
               ],
             ),
-            if (isSelected)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Icon(
-                  LucideIcons.check,
-                  size: 14.spMin,
-                  color: AppColors.ink,
-                ),
-              ),
           ],
         ),
+      ),
+      // The tick is a dark round badge on the card's top right corner
+      // (owner, 15 Oct 2026), so it never takes room from the words.
+      if (isSelected)
+        Positioned(
+          top: -8.spMin,
+          right: -4.spMin,
+          child: Container(
+            width: 20.spMin,
+            height: 20.spMin,
+            decoration: const BoxDecoration(
+              color: AppColors.ink,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(LucideIcons.check, size: 13.spMin, color: AppColors.white),
+          ),
+        ),
+       ],
       ),
     ).onPressed(handleTap);
   }

@@ -80,10 +80,18 @@ class SeverityLine extends StatelessWidget {
                               ? _colours[i]
                               : _colours[i].withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(14.spMin),
-                          border: i == lowest && lowest > 1
+                          border: i == lowest
                               ? Border.all(color: AppColors.ink, width: 2)
                               : null,
                         ),
+                        // A tick on the lowest colour shown, a padlock on
+                        // red because it can never be switched off.
+                        alignment: Alignment.center,
+                        child: i == _colours.length - 1
+                            ? Icon(Icons.lock, size: 16.spMin, color: AppColors.white)
+                            : i == lowest
+                                ? Icon(Icons.check, size: 18.spMin, color: AppColors.white)
+                                : null,
                       ),
                     ),
                   ),

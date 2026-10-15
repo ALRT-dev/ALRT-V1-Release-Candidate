@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/map/providers/map_display_settings_provider.dart';
+import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/show_choice.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -29,9 +32,9 @@ Future<void> showMapDetailsSheet({
 }
 
 /// How much of the screen the sheet takes when it opens, and its bounds.
-const kMapDetailsSheetInitialSize = 0.34;
-const kMapDetailsSheetMinSize = 0.28;
-const kMapDetailsSheetMaxSize = 0.5;
+const kMapDetailsSheetInitialSize = 0.52;
+const kMapDetailsSheetMinSize = 0.4;
+const kMapDetailsSheetMaxSize = 0.7;
 
 class MapDetailsSheet extends ConsumerStatefulWidget {
   const MapDetailsSheet({super.key});
@@ -69,7 +72,7 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
             Center(child: _dragHandleBuilder()),
             12.hSizedBox,
             Text(
-              'Map type',
+              'Map details',
               style: TextStyle(
                 fontSize: 17.spMin,
                 fontWeight: FontWeight.w800,
@@ -83,7 +86,17 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _mapTypesBuilder().pT(14.0),
+                    _labelBuilder('MAP TYPE').pT(14.0),
+                    _mapTypesBuilder().pT(8.0),
+                    _labelBuilder('WHICH ALERTS SHOW').pT(18.0),
+                    _showChoicesBuilder().pT(8.0),
+                    Text(
+                      'Emergency warnings are always on.',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        color: AppColors.mediumGrey,
+                      ),
+                    ).pT(10.0),
                     12.hSizedBox,
                   ],
                 ),
@@ -104,6 +117,92 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
         color: AppColors.black.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(999),
       ),
+    );
+  }
+
+  Widget _labelBuilder(final String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11.spMin,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.0,
+        color: AppColors.black.withValues(alpha: 0.5),
+      ),
+    );
+  }
+
+  /// The same four choices as the Filters sheet, one tap each.
+  Widget _showChoicesBuilder() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final f = ref.watch(providerOfHazardFiltersForMap);
+        final switches = HazardFilterSwitches(
+          awsWatchAndAct: f.awsWatchAndAct,
+          awsAdvice: f.awsAdvice,
+          officialNonAws: f.officialNonAws,
+          userReported: f.userReported,
+        );
+        final current = ShowChoice.of(switches);
+        return Row(
+          spacing: 8.spMin,
+          children: [
+            for (final choice in ShowChoice.values)
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 12.spMin),
+                  decoration: BoxDecoration(
+                    color: _tileColor,
+                    borderRadius: BorderRadius.circular(14.spMin),
+                    border: Border.all(
+                      color: current == choice
+                          ? _accentColor
+                          : AppColors.black.withValues(alpha: 0.08),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    spacing: 6.spMin,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (final icon in choice.shapes)
+                            Icon(
+                              icon,
+                              size: 16.spMin,
+                              color: current == choice
+                                  ? _accentColor
+                                  : AppColors.black.withValues(alpha: 0.65),
+                            ),
+                        ],
+                      ),
+                      Text(
+                        choice.shortTitle,
+                        style: TextStyle(
+                          fontSize: 11.5.spMin,
+                          fontWeight: current == choice
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: current == choice
+                              ? AppColors.black
+                              : AppColors.black.withValues(alpha: 0.65),
+                        ),
+                      ),
+                    ],
+                  ),
+                ).onPressed(() {
+                  choice.apply(
+                    ref.read(providerOfHazardFiltersForMap.notifier),
+                    switches,
+                  );
+                  ref.read(providerOfMap.notifier).getMapHazards();
+                  ref.read(providerOfMap.notifier).getRoutePlanHazardsToAvoid();
+                }),
+              ),
+          ],
+        );
+      },
     );
   }
 

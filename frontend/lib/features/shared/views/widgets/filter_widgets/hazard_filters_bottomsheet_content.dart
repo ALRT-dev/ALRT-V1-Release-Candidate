@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
-import 'package:hazard_app/features/notification/views/widgets/manage_push_notifications_list.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/show_choice.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
@@ -164,76 +163,116 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
-  /// Who you hear from: the same three choices as Notifications, so one
-  /// filter is learned once. Emergency warnings are never hidden. ALRT
-  /// Assessment keeps its own switch underneath.
+  /// Which alerts show: the same four choices as the Map details sheet.
+  /// Emergency warnings sit above them, locked on. ALRT Assessment keeps
+  /// its own switch underneath.
   Widget _whoIsSpeakingSection() {
     return Consumer(
       builder: (context, ref, child) {
         final f = ref.watch(_filtersProvider);
-        final settings = PushNotificationSettings(
-          awsEmergency: true,
+        final switches = HazardFilterSwitches(
           awsWatchAndAct: f.awsWatchAndAct,
           awsAdvice: f.awsAdvice,
           officialNonAws: f.officialNonAws,
           userReported: f.userReported,
         );
-        final level = notificationLevelOf(settings);
+        final current = ShowChoice.of(switches);
         final notifier = ref.read(_filtersProvider.notifier);
 
-        void pick(final NotificationLevel chosen) {
-          final next = settingsForLevel(settings, chosen);
-          notifier
-            ..updateAwsAdvice(next.awsAdvice)
-            ..updateAwsWatchAndAct(next.awsWatchAndAct)
-            ..updateOfficialNonAws(next.officialNonAws)
-            ..updateUserReported(next.userReported);
-          widget.onFiltersUpdated?.call();
-        }
+        Widget glyphs(final List<IconData> shapes) => SizedBox(
+              width: 64.spMin,
+              child: Row(
+                children: [
+                  for (final icon in shapes)
+                    Padding(
+                      padding: EdgeInsets.only(right: 4.spMin),
+                      child: Icon(icon, size: 18.spMin, color: AppColors.ink),
+                    ),
+                ],
+              ),
+            );
 
-        // "Show all" is everything: official, community, ALRT Assessment,
-        // global feeds and every category (owner, 15 Oct 2026). It is
-        // ticked only when all of that is on, so each row ticks honestly.
-        final everyCategoryOn = f.allCategoryIds.isNotEmpty &&
-            f.selectedCategoryIds.length >= f.allCategoryIds.length;
-        final showAll = level == NotificationLevel.officialAndCommunity &&
-            f.alrtIntel &&
-            f.globalHumanitarian &&
-            everyCategoryOn;
-
-        void pickShowAll() {
-          pick(NotificationLevel.officialAndCommunity);
-          notifier
-            ..updateAlrtIntel(true)
-            ..updateGlobalHumanitarian(true)
-            ..updateSelectedCategories(Set<String>.from(f.allCategoryIds));
-          widget.onFiltersUpdated?.call();
-        }
-
-        Widget choice(
-          final String title,
-          final NotificationLevel value, {
-          final bool? isSelected,
-          final VoidCallback? onPick,
-        }) {
-          // "Community only" is no longer offered (owner, 12 Oct 2026: one
-          // simple three-choice filter everywhere); an older saved
-          // community-only state reads as Official and community.
-          final shown = level == NotificationLevel.communityOnly
-              ? NotificationLevel.officialAndCommunity
-              : level;
-          final selected = isSelected ??
-              (shown == value &&
-                  !(value == NotificationLevel.officialAndCommunity &&
-                      showAll));
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onPick ?? () => pick(value),
-            child: Container(
+        Widget emergencyRow() => Container(
               margin: EdgeInsets.only(bottom: 8.spMin),
               padding: EdgeInsets.symmetric(
                 horizontal: 14.spMin,
                 vertical: 12.spMin,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.emergency.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14.spMin),
+                border: Border.all(
+                  color: AppColors.emergency.withValues(alpha: 0.45),
+                ),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 64.spMin,
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      size: 20.spMin,
+                      color: AppColors.emergency,
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Emergency warnings',
+                          style: TextStyle(
+                            fontSize: 15.spMin,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.black,
+                          ),
+                        ),
+                        2.hSizedBox,
+                        Text(
+                          'Always on, with every Advice, Watch and Act and '
+                          'Emergency Warning. You cannot switch these off.',
+                          style: TextStyle(
+                            fontSize: 12.spMin,
+                            height: 1.35,
+                            color: AppColors.mediumGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  8.wSizedBox,
+                  Icon(Icons.lock_outline, size: 16.spMin, color: AppColors.grey),
+                  6.wSizedBox,
+                  Container(
+                    width: 24.spMin,
+                    height: 24.spMin,
+                    decoration: const BoxDecoration(
+                      color: AppColors.emergency,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check,
+                      size: 16.spMin,
+                      color: AppColors.white,
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+        Widget choice(final ShowChoice value) {
+          final selected = current == value;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              value.apply(notifier, switches);
+              widget.onFiltersUpdated?.call();
+            },
+            child: Container(
+              margin: EdgeInsets.only(bottom: 8.spMin),
+              padding: EdgeInsets.symmetric(
+                horizontal: 14.spMin,
+                vertical: 14.spMin,
               ),
               decoration: BoxDecoration(
                 color: selected
@@ -247,21 +286,30 @@ class _HazardFiltersBottomsheetContentState
               ),
               child: Row(
                 children: [
+                  glyphs(value.shapes),
                   Expanded(
                     child: Text(
-                      title,
+                      value.title,
                       style: TextStyle(
                         fontSize: 15.spMin,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.black,
                       ),
                     ),
                   ),
-                  Icon(
-                    selected
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    color: selected ? AppColors.green : AppColors.lightGrey,
+                  Container(
+                    width: 24.spMin,
+                    height: 24.spMin,
+                    decoration: BoxDecoration(
+                      color: selected ? AppColors.green : AppColors.transparent,
+                      shape: BoxShape.circle,
+                      border: selected
+                          ? null
+                          : Border.all(color: AppColors.lightGrey, width: 1.5),
+                    ),
+                    child: selected
+                        ? Icon(Icons.check, size: 16.spMin, color: AppColors.white)
+                        : null,
                   ),
                 ],
               ),
@@ -271,21 +319,11 @@ class _HazardFiltersBottomsheetContentState
 
         return _sectionContainerBuilder(
           title: 'Show',
-          subtitle: 'Emergency warnings are always on.',
+          subtitle: 'Pick what else appears with them.',
           child: Column(
             children: [
-              choice('Official warnings only', NotificationLevel.officialOnly),
-              choice(
-                'Official and community',
-                NotificationLevel.officialAndCommunity,
-              ),
-              choice('Keep it quiet', NotificationLevel.quiet),
-              choice(
-                'Show all',
-                NotificationLevel.officialAndCommunity,
-                isSelected: showAll,
-                onPick: pickShowAll,
-              ),
+              emergencyRow(),
+              for (final value in ShowChoice.values) choice(value),
               4.hSizedBox,
               _switchBuilder(
                 icon: LucideIcons.shield,
