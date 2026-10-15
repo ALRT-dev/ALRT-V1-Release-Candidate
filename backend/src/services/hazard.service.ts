@@ -38,6 +38,7 @@ import { config } from "../utils/config.js";
 import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
 import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
+import { getDeterministicDfesContent } from "../utils/dfes_template.util.js";
 import { getDeterministicGdacsContent } from "../utils/gdacs_template.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import { getTemplateRegistry, getReleasePrompt, type TemplateRelease } from './alert_templates.service.js';
@@ -686,6 +687,9 @@ export const summarizeHazard = async ({
   // templates keyed by band. severityBand is already the deterministic,
   // Node-computed value (getSeverityBandFromAQI, run in ingestion before
   // this function is ever called), so no model call is needed or made.
+  // Only for the air quality source itself: a DFES "Smoke Alert" is filed
+  // under this category but must keep DFES's own words, not an invented
+  // "as reported by WAQI" station line (owner, 15 Oct 2026).
   if (category.id === SubCategoryId.airQualityAlert && source.id === "waqi") {
     const value=getDeterministicAirQualityContent({
       title,
@@ -698,6 +702,13 @@ export const summarizeHazard = async ({
     const {settings}=resolveTemplate(published.pack,{country,sourceId:source.id});
     const guidance=selectLibraryGuidance(published.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand});
     return {...value,callsToAction:guidance.alrtSuggestions.map(x=>`ALRT suggests: ${x}`),contentDetails:{schemaVersion:1,templateVersion:published.version,facts:[value.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:null,officialActions:[],...guidance,evidence:[],presentation:{band:severityBand,bandColor:settings.bandColors[severityBand],iconCategoryId:settings.iconCategoryId??category.id,agencyArtwork:false}}};
+  }
+
+  // WA DFES warnings: the agency's facts and its own instructions, word for
+  // word, no model call (a failed call used to leave raw text and no advice).
+  if (source.id === "waDfes") {
+    const dfesContent = getDeterministicDfesContent({ title, description });
+    if (dfesContent) return dfesContent;
   }
 
   // GDACS is a pass-through source: level and hazard come straight from the

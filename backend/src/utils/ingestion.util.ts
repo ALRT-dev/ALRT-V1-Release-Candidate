@@ -932,11 +932,21 @@ export async function parseWAIncidentsToHazards({
         `${ExternalSourceId.waDfes}-${incidentInfo.incidentNumber}`);
 
     // Determine category and severity from incident type and description
-    const { category, fireStatus, isAwsCompliant } =
-      getHazardAttributesFromDescription(
-        incidentInfo.incidentType || fullDescription,
-        availableCategories,
-      );
+    const attrs = getHazardAttributesFromDescription(
+      incidentInfo.incidentType || fullDescription,
+      availableCategories,
+    );
+    const { fireStatus, isAwsCompliant } = attrs;
+    let { category } = attrs;
+    // A bare "Fire" incident type ("Fire in Trigg") matched no category and
+    // fell to Other, which draws the generic "!" icon. It is a fire.
+    if (
+      category.id === "other" &&
+      /\bfire\b/i.test(incidentInfo.incidentType || "")
+    ) {
+      category =
+        availableCategories.find((c) => c.id === "otherFire") ?? category;
+    }
 
     const hazard: HazardDataWithRelations = {
       ...(hazardId && { id: hazardId }),
