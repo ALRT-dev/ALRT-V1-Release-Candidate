@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/category_grid_picker.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
+import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
 import 'package:hazard_app/features/notification/providers/manage_notifications_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
-import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/providers/states/main_categories_provider_state.dart';
-import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -45,15 +45,15 @@ enum NotificationLevel {
 /// Warning is on, "official and community" when community reports are
 /// on, else "official only".
 NotificationLevel notificationLevelOf(final PushNotificationSettings settings) {
-  final onlyEmergency = settings.awsEmergency &&
+  final onlyEmergency =
+      settings.awsEmergency &&
       !settings.awsWatchAndAct &&
       !settings.awsAdvice &&
       !settings.officialNonAws &&
       !settings.userReported;
   if (onlyEmergency) return NotificationLevel.quiet;
-  final anyOfficial = settings.awsWatchAndAct ||
-      settings.awsAdvice ||
-      settings.officialNonAws;
+  final anyOfficial =
+      settings.awsWatchAndAct || settings.awsAdvice || settings.officialNonAws;
   if (settings.userReported && !anyOfficial) {
     return NotificationLevel.communityOnly;
   }
@@ -62,40 +62,40 @@ NotificationLevel notificationLevelOf(final PushNotificationSettings settings) {
 }
 
 /// [current] with the type flags set for [level]. Categories are left as
-/// they are; Emergency Warning (AWS) is always on.
+/// they are; active AWS warnings at all three levels are always on.
 PushNotificationSettings settingsForLevel(
   final PushNotificationSettings current,
   final NotificationLevel level,
 ) {
   return switch (level) {
     NotificationLevel.quiet => current.copyWith(
-        awsEmergency: true,
-        awsWatchAndAct: false,
-        awsAdvice: false,
-        officialNonAws: false,
-        userReported: false,
-      ),
+      awsEmergency: true,
+      awsWatchAndAct: false,
+      awsAdvice: false,
+      officialNonAws: false,
+      userReported: false,
+    ),
     NotificationLevel.communityOnly => current.copyWith(
-        awsEmergency: true,
-        awsWatchAndAct: false,
-        awsAdvice: false,
-        officialNonAws: false,
-        userReported: true,
-      ),
+      awsEmergency: true,
+      awsWatchAndAct: false,
+      awsAdvice: false,
+      officialNonAws: false,
+      userReported: true,
+    ),
     NotificationLevel.officialOnly => current.copyWith(
-        awsEmergency: true,
-        awsWatchAndAct: true,
-        awsAdvice: true,
-        officialNonAws: true,
-        userReported: false,
-      ),
+      awsEmergency: true,
+      awsWatchAndAct: true,
+      awsAdvice: true,
+      officialNonAws: true,
+      userReported: false,
+    ),
     NotificationLevel.officialAndCommunity => current.copyWith(
-        awsEmergency: true,
-        awsWatchAndAct: true,
-        awsAdvice: true,
-        officialNonAws: true,
-        userReported: true,
-      ),
+      awsEmergency: true,
+      awsWatchAndAct: true,
+      awsAdvice: true,
+      officialNonAws: true,
+      userReported: true,
+    ),
   };
 }
 
@@ -137,7 +137,6 @@ class _ManagePushNotificationsListState
     required final String title,
     required final String subtitle,
     required final Widget child,
-    final Widget? trailing,
   }) {
     return Container(
       padding: EdgeInsets.all(18.spMin),
@@ -157,21 +156,14 @@ class _ManagePushNotificationsListState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10.5.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: _sectionLabelColor,
-                  ),
-                ),
-              ),
-              if (trailing != null) trailing,
-            ],
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10.5.spMin,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: _sectionLabelColor,
+            ),
           ),
           5.hSizedBox,
           Text(
@@ -213,49 +205,65 @@ class _ManagePushNotificationsListState
 
         return _sectionContainerBuilder(
           title: 'Level',
-          subtitle: 'Emergency warnings are always on, whatever you pick.',
+          subtitle:
+              'AWS Advice, Watch and Act and Emergency Warnings, plus other official emergency warnings, are always on for your area.',
           child: Column(
             children: [
+              // "All alerts" first so the everything choice is obvious,
+              // and each option carries the same shapes as the map and
+              // the Filters sheet (product owner, 15 Oct 2026).
               _levelCard(
-                title: 'Official warnings only',
+                title: 'All alerts',
                 description:
-                    'Emergency, Watch and Act, Advice and other official '
-                    'alerts. No community reports.',
-                selected: level == NotificationLevel.officialOnly,
-                onTap: () => pick(NotificationLevel.officialOnly),
-              ),
-              10.hSizedBox,
-              _levelCard(
-                title: 'Official and community',
-                description:
-                    'Everything official, plus reports from people nearby.',
+                    'Official alerts and reports from people nearby.',
+                icons: const [
+                  LucideIcons.triangleAlert,
+                  LucideIcons.diamond,
+                  LucideIcons.circle,
+                ],
                 selected: level == NotificationLevel.officialAndCommunity,
                 onTap: () => pick(NotificationLevel.officialAndCommunity),
               ),
               10.hSizedBox,
               _levelCard(
+                title: 'Official warnings only',
+                description: 'From agencies only. No community reports.',
+                icons: const [
+                  LucideIcons.triangleAlert,
+                  LucideIcons.diamond,
+                ],
+                selected: level == NotificationLevel.officialOnly,
+                onTap: () => pick(NotificationLevel.officialOnly),
+              ),
+              10.hSizedBox,
+              _levelCard(
                 title: 'Community only',
-                description: 'Reports from people nearby, plus emergency '
-                    'warnings.',
+                description:
+                    'Reports from people nearby, plus emergency warnings.',
+                icons: const [LucideIcons.circle],
                 selected: level == NotificationLevel.communityOnly,
                 onTap: () => pick(NotificationLevel.communityOnly),
               ),
               10.hSizedBox,
               _levelCard(
                 title: 'Keep it quiet',
-                description: 'Emergency warnings only. Nothing else.',
+                description: 'Emergency warnings only.',
+                icons: const [LucideIcons.bellOff],
                 selected: level == NotificationLevel.quiet,
                 onTap: () => pick(NotificationLevel.quiet),
               ),
               12.hSizedBox,
               Row(
                 children: [
-                  const Icon(Icons.lock_outline_rounded,
-                      size: 16, color: AppColors.grey),
+                  const Icon(
+                    Icons.lock_outline_rounded,
+                    size: 16,
+                    color: AppColors.grey,
+                  ),
                   6.wSizedBox,
                   Expanded(
                     child: Text(
-                      'Emergency warnings',
+                      'Active AWS and official emergency warnings',
                       style: TextStyle(
                         fontSize: 13.spMin,
                         color: AppColors.grey,
@@ -279,6 +287,7 @@ class _ManagePushNotificationsListState
     required final String description,
     required final bool selected,
     required final VoidCallback onTap,
+    final List<IconData> icons = const [],
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -295,6 +304,19 @@ class _ManagePushNotificationsListState
         ),
         child: Row(
           children: [
+            if (icons.isNotEmpty) ...[
+              SizedBox(
+                width: 58.spMin,
+                child: Row(
+                  spacing: 2.spMin,
+                  children: [
+                    for (final icon in icons)
+                      HazardShapeBadge.outlineGlyph(icon: icon, size: 17.spMin),
+                  ],
+                ),
+              ),
+              SizedBox(width: 10.spMin),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,19 +384,19 @@ class _ManagePushNotificationsListState
 
         return _sectionContainerBuilder(
           title: 'Colour shows severity',
-          subtitle: 'Colour shows severity. Pick the lowest you want to hear '
-              'about. Red is always on.',
+          subtitle: 'Choose which colours you get notified about. '
+              'Red emergency warnings are always on.',
           child: SeverityLine(
             advice: settings.awsAdvice,
             watchAndAct: settings.awsWatchAndAct,
             onChanged: (advice, watchAndAct) =>
                 notifier.updatePushNotificationSettings(
-              settings.copyWith(
-                awsEmergency: true,
-                awsAdvice: advice,
-                awsWatchAndAct: watchAndAct,
-              ),
-            ),
+                  settings.copyWith(
+                    awsEmergency: true,
+                    awsAdvice: advice,
+                    awsWatchAndAct: watchAndAct,
+                  ),
+                ),
           ),
         );
       },
@@ -400,49 +422,6 @@ class _ManagePushNotificationsListState
     );
   }
 
-  Widget _customToggleSwitch({
-    required bool isEnabled,
-    required ValueChanged<bool> onToggle,
-    required Color activeColor,
-  }) {
-    return GestureDetector(
-      onTap: () => onToggle(!isEnabled),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 48.spMin,
-        height: 26.spMin,
-        decoration: BoxDecoration(
-          color: isEnabled ? activeColor : Colors.grey.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(13.r),
-        ),
-        child: Stack(
-          children: [
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              left: isEnabled ? 24.spMin : 2.spMin,
-              top: 2.spMin,
-              child: Container(
-                width: 22.spMin,
-                height: 22.spMin,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(11.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------
   // CATEGORIES
   // ---------------------------------------------------------------
@@ -453,12 +432,6 @@ class _ManagePushNotificationsListState
         final categoriesState = ref.watch(
           providerOfMainCategories.select(
             (value) => value.getMainCategoriesState,
-          ),
-        );
-
-        final isAnyCategoryEnabled = ref.watch(
-          providerOfManageNotifications.select(
-            (s) => s.pushNotificationSettings.subscribedCategoryIds.isNotEmpty,
           ),
         );
 
@@ -487,57 +460,27 @@ class _ManagePushNotificationsListState
               providerOfManageNotifications.notifier,
             );
 
+            final selectedIds = ref.watch(
+              providerOfManageNotifications.select(
+                (s) => s.pushNotificationSettings.subscribedCategoryIds,
+              ),
+            );
+
             return _sectionContainerBuilder(
               title: 'Categories',
-              subtitle: 'Which hazard categories reach you. Tap to toggle.',
-              trailing: _customToggleSwitch(
-                isEnabled: isAnyCategoryEnabled,
-                onToggle: (_) {
-                  if (isAnyCategoryEnabled) {
-                    filterProvider.updateSelectedCategories({});
-                  } else {
-                    filterProvider.updateSelectedCategories(
-                      cats.map((e) => e.id).toSet(),
-                    );
-                  }
-                },
-                activeColor: AppColors.green,
-              ),
-              // Same pill as the ALRT feed filter, so a category reads
-              // identically wherever it is offered (it draws its glyph).
-              child: Wrap(
-                spacing: 10.spMin,
-                runSpacing: 10.spMin,
-                children: cats
-                    .map((category) => _categoryChipBuilder(category))
-                    .toList(),
+              subtitle: 'Choose the kinds of alerts you get notified about.',
+              child: CategoryGridPicker(
+                categories: cats,
+                selectedIds: selectedIds.toSet(),
+                onToggle: (category) =>
+                    filterProvider.toggleCategory(category.id),
+                onSelectAll: () => filterProvider.updateSelectedCategories(
+                  cats.map((e) => e.id).toSet(),
+                ),
               ),
             );
           },
           error: (error) => const SizedBox.shrink(),
-        );
-      },
-    );
-  }
-
-  Widget _categoryChipBuilder(final HazardCategory category) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isSelected = ref.watch(
-          providerOfManageNotifications.select(
-            (s) => s.pushNotificationSettings.subscribedCategoryIds.contains(
-              category.id,
-            ),
-          ),
-        );
-
-        return CategoryFilterChip(
-          category: category,
-          iconOnly: true,
-          isSelected: isSelected,
-          onToggle: (value) => ref
-              .read(providerOfManageNotifications.notifier)
-              .toggleCategory(category.id),
         );
       },
     );

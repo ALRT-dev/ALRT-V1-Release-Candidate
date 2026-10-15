@@ -637,7 +637,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           iconBackground: _alertsIconBg,
           icon: LucideIcons.bell,
           title: 'Notifications',
-          subtitle: 'Official and community · sound and vibration inside',
+          subtitle: 'What you hear about, sound and vibration',
           onTap: () => context.push(
             ManageNotificationsScreen.route,
             extra: const ManageNotificationsScreenArgs(initialTab: 0),

@@ -62,7 +62,7 @@ class _OnboardingAlertLevelScreenState
     ),
     _AlertLevelOption(
       preference: PushNotificationPreference.all,
-      label: 'Official and community',
+      label: 'All alerts',
       description:
           'The same, plus reports from people nearby once neighbours have '
           'confirmed them.',

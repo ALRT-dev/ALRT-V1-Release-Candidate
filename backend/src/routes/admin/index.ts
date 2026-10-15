@@ -10,6 +10,7 @@ import adminWebhookApiKeyRouter from "./webhook_api_key.route.js";
 import adminStatsRouter from "./stats.route.js";
 import adminAskAlrtRouter from "./ask_alrt.route.js";
 import adminAuditLogRouter from "./audit_log.route.js";
+import alertTemplatesRouter from './alert_templates.route.js';
 
 const adminRouter = Router();
 
@@ -21,6 +22,7 @@ adminRouter.use("/categories", adminHazardCategoryRouter);
 adminRouter.use("/hazards", adminHazardRouter);
 adminRouter.use("/hazard-sources", adminHazardSourceRouter);
 adminRouter.use("/ai-prompts", adminAIPromptRouter);
+adminRouter.use('/alert-templates',alertTemplatesRouter);
 adminRouter.use("/configurations", adminConfigurationRouter);
 adminRouter.use("/webhook-api-keys", adminWebhookApiKeyRouter);
 adminRouter.use("/audit-log", adminAuditLogRouter);

@@ -61,6 +61,10 @@ class PlacesProvider extends StateNotifier<PlacesProviderState> {
       showOnlyCities: showOnlyCities,
     );
     if (!mounted) return;
+    // A slower reply for an older query ("scar") must never replace the
+    // results for what is in the box now ("scarb"); that is what made the
+    // list flick back and forth while typing (phone review, 14 Oct 2026).
+    if (state.searchString != searchString) return;
 
     result.when(
       (places) {

@@ -1,4 +1,5 @@
 import type { AdminHazard } from "../api/types";
+import { AlertContentSections } from './AlertContentSections';
 import { ReviewStatusBadge, SeverityBadge, BooleanBadge } from "./StatusBadge";
 
 /** Human label for who reviewed a hazard: the reviewing admin's name and
@@ -45,13 +46,14 @@ export const HazardDetailModal = ({
         </div>
 
         <p>{hazard.description}</p>
-        {hazard.aiSummary && (
+        {hazard.contentDetails&&<AlertContentSections content={hazard.contentDetails}/>}
+        {!hazard.contentDetails&&hazard.aiSummary && (
           <div className="field">
             <label>AI summary</label>
             <p style={{ margin: 0 }}>{hazard.aiSummary}</p>
           </div>
         )}
-        {hazard.callsToAction.length > 0 && (
+        {!hazard.contentDetails&&hazard.callsToAction.length > 0 && (
           <div className="field">
             <label>Calls to action</label>
             <ul style={{ margin: 0, paddingLeft: 18 }}>

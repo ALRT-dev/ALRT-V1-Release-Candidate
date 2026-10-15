@@ -216,14 +216,15 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
 
         final category = hazard.category;
         final Widget glyph = isUserReported && category != null
-            ? CategoryGlyph(category: category, size: 22.spMin)
+            ? CategoryGlyph(category: category, size: 26.spMin)
             : SourceShapeGlyph(
                 isAws: isAws,
                 isOfficial: isOfficial,
                 isGlobalHumanitarian: hazard.isGlobalHumanitarian,
                 isAlrtIntel: hazard.isAlrtIntel,
                 color: hazard.color,
-                size: 14.spMin,
+                // Was 14: too small to read (phone review, 14 Oct 2026).
+                size: 20.spMin,
               );
 
         return Row(
@@ -288,7 +289,11 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
 
-        final given = hazard.description?.trim() ?? '';
+        // Cleaned source facts, never the raw feed fields.
+        final given = AlertCardStyle.factLines(
+          hazard.description,
+          title: hazard.title,
+        ).take(2).join('\n');
         final text = given.isNotEmpty
             ? given
             : AlertCardStyle.plainTermsOf(
@@ -299,7 +304,8 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                 categoryName: hazard.category?.name,
                 sourceName: hazard.source?.name,
                 locationName: hazard.locationName,
-                hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
+                title: hazard.title,
+                hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
               );
         if (text == null || text.isEmpty) return const SizedBox.shrink();
 
@@ -389,9 +395,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         );
         final distanceText = distance == null
             ? null
-            : distance < 1000
-            ? '${distance.toStringAsFixed(0)} m away'
-            : '${(distance / 1000).toStringAsFixed(1)} km away';
+            : '${AlertCardStyle.distanceLabel(distance)} away';
 
         final fragments = <String>[];
         if (hazard.isUserReported) {

@@ -10,8 +10,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// THE key: who is speaking (the shapes), how serious (the colours) and
 /// the category chips community reports wear.
 ///
-/// One widget, rendered everywhere a key appears (the Map details sheet
-/// and the Map key sheet), so the key cannot disagree with itself again.
+/// One widget, rendered everywhere a key appears (the Map key sheet behind
+/// the rail's info button), so the key cannot disagree with itself again.
 /// [isDark] only flips the surface colours; every word, every shape and
 /// every colour swatch is identical on both.
 ///
@@ -73,6 +73,14 @@ class AlertKeyContent extends ConsumerWidget {
         SizedBox(height: 10.spMin),
         _seriousnessBuilder(),
         SizedBox(height: 16.spMin),
+        // How the pins themselves read (product owner, 14 Oct 2026: the
+        // info button is the key, so it explains the actual markers).
+        _labelBuilder('ON THE MAP'),
+        SizedBox(height: 10.spMin),
+        _pinExamplesBuilder(),
+        SizedBox(height: 10.spMin),
+        _groupsBuilder(),
+        SizedBox(height: 16.spMin),
         _labelBuilder('COMMUNITY REPORTS WEAR THEIR CATEGORY'),
         SizedBox(height: 10.spMin),
         Wrap(
@@ -82,6 +90,89 @@ class AlertKeyContent extends ConsumerWidget {
             for (final category in categories)
               CategoryFilterChip(category: category, isSelected: true),
           ],
+        ),
+      ],
+    );
+  }
+
+  /// Real pin artwork: the picture inside says what happened, the
+  /// outline colour says how serious.
+  Widget _pinExamplesBuilder() {
+    const examples = [
+      ('assets/images/hazards/non_aws/crash_action.png', 'Crash'),
+      ('assets/images/hazards/non_aws/trafficAndTransport_action.png', 'Transport'),
+      ('assets/images/hazards/non_aws/securityAndCrime_monitor.png', 'Security'),
+      ('assets/images/hazards/non_aws/communityInfo_info.png', 'Events'),
+      ('assets/images/hazards/aws/bushfire_action.png', 'Bushfire'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (final (asset, label) in examples)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(asset, width: 34.spMin, height: 34.spMin),
+                  SizedBox(height: 4.spMin),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 10.5.spMin, color: _softInk),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        SizedBox(height: 8.spMin),
+        Text(
+          'The picture inside a pin says what happened. The outline '
+          'colour says how serious.',
+          style: TextStyle(fontSize: 11.spMin, height: 1.4, color: _softInk),
+        ),
+      ],
+    );
+  }
+
+  /// The count bubbles: black for a group, orange or red when a serious
+  /// warning is inside it.
+  Widget _groupsBuilder() {
+    Widget bubble(final Color color, final String count) {
+      return Container(
+        width: 26.spMin,
+        height: 26.spMin,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.white, width: 2),
+        ),
+        child: Text(
+          count,
+          style: TextStyle(
+            fontSize: 11.spMin,
+            fontWeight: FontWeight.w700,
+            color: AppColors.white,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        bubble(const Color(0xFF111114), '4'),
+        SizedBox(width: 4.spMin),
+        bubble(AppColors.watchAndAct, '8'),
+        SizedBox(width: 4.spMin),
+        bubble(AppColors.emergency, '3'),
+        SizedBox(width: 10.spMin),
+        Expanded(
+          child: Text(
+            'A number is a group of alerts. Orange or red means a serious '
+            'warning is inside. Tap to zoom in.',
+            style: TextStyle(fontSize: 11.spMin, height: 1.4, color: _softInk),
+          ),
         ),
       ],
     );

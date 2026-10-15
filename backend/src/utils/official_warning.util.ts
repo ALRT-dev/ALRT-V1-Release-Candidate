@@ -1,9 +1,10 @@
 /**
  * Official warnings are always on (product owner rule).
  *
- * An official AWS Emergency Warning, and any other verified official alert
+ * An active official AWS warning at any level, and any other official alert
  * at the critical band, reaches the user whatever category filter or
- * notification toggle they have. Location / radius, block and privacy rules
+ * notification toggle they have. Info lifecycle updates are not active warnings.
+ * Location / radius, block and privacy rules
  * still apply: this only lifts the category and the per-type toggles.
  *
  * Kept free of Prisma client and Firebase imports so the same predicate and
@@ -22,25 +23,30 @@ export interface OfficialWarningFields {
 export const isAwsEmergencyWarning = (h: OfficialWarningFields): boolean =>
   h.isAwsCompliant === true && h.severity === "emergency";
 
+/** All three native AWS warning levels bypass optional filters. */
+export const isActiveAwsWarning = (h: OfficialWarningFields): boolean =>
+  !h.reportedById && h.isAwsCompliant === true && h.severityBand !== "info" &&
+  ["advice", "watchAndAct", "emergency"].includes(h.severity ?? "");
+
 /** Official (not user-reported) alert at the critical band. */
 export const isOfficialCritical = (h: OfficialWarningFields): boolean =>
   !h.reportedById && h.severityBand === "critical";
 
 /** True when the hazard may never be hidden by a category filter or toggle. */
 export const isAlwaysOnOfficialWarning = (h: OfficialWarningFields): boolean =>
-  isAwsEmergencyWarning(h) || isOfficialCritical(h);
+  isActiveAwsWarning(h) || isOfficialCritical(h);
 
 /** Prisma where input for the always-on set (hazard list queries). */
 export const ALWAYS_ON_OFFICIAL_WHERE = {
   OR: [
-    { AND: [{ isAwsCompliant: true }, { severity: "emergency" as const }] },
+    { AND: [{ reportedById: null }, { isAwsCompliant: true }, { severity: { in: ["advice", "watchAndAct", "emergency"] } }, { OR: [{ severityBand: null }, { severityBand: { not: "info" } }] }] },
     { AND: [{ reportedById: null }, { severityBand: "critical" as const }] },
   ],
 };
 
 /** Raw SQL for the always-on set against the `h` hazard alias. No params. */
 export const ALWAYS_ON_OFFICIAL_SQL =
-  `((h."isAwsCompliant" = true AND h.severity = 'emergency'::"HazardSeverity")` +
+  `((h."reportedById" IS NULL AND h."isAwsCompliant" = true AND h.severity IN ('advice'::"HazardSeverity", 'watchAndAct'::"HazardSeverity", 'emergency'::"HazardSeverity") AND (h."severityBand" IS NULL OR h."severityBand" != 'info'::"HazardSeverityBand"))` +
   ` OR (h."reportedById" IS NULL AND h."severityBand" = 'critical'::"HazardSeverityBand"))`;
 
 /**

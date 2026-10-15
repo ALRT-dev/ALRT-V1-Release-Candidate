@@ -150,8 +150,7 @@ class _HazardFiltersBottomsheetContentState
           Padding(
             padding: EdgeInsets.only(right: 8.spMin),
             child: Text(
-              'What shows on the map and in Alerts. Emergency warnings are '
-              'always on.',
+              'What shows on the map and in Alerts.',
               style: TextStyle(
                 fontSize: 15.spMin,
                 height: 1.4,
@@ -212,7 +211,8 @@ class _HazardFiltersBottomsheetContentState
 
         Widget choice(
           final String title,
-          final NotificationLevel value, {
+          final NotificationLevel value,
+          final List<IconData> icons, {
           final bool? isSelected,
           final VoidCallback? onPick,
         }) {
@@ -247,6 +247,8 @@ class _HazardFiltersBottomsheetContentState
               ),
               child: Row(
                 children: [
+                  _levelIconsBuilder(icons),
+                  12.wSizedBox,
                   Expanded(
                     child: Text(
                       title,
@@ -271,18 +273,33 @@ class _HazardFiltersBottomsheetContentState
 
         return _sectionContainerBuilder(
           title: 'Show',
-          subtitle: 'Emergency warnings are always on.',
+          subtitle: 'Pick what else appears with them.',
           child: Column(
             children: [
-              choice('Official warnings only', NotificationLevel.officialOnly),
+              // Emergency warnings can never be switched off, so they sit
+              // on top as a row that is always ticked and locked (owner,
+              // 14 Oct 2026): people see the guarantee, not just read it.
+              _alwaysOnRowBuilder(),
+              8.hSizedBox,
+              choice(
+                'Official warnings only',
+                NotificationLevel.officialOnly,
+                _officialShapes,
+              ),
               choice(
                 'Official and community',
                 NotificationLevel.officialAndCommunity,
+                [..._officialShapes, LucideIcons.circle],
               ),
-              choice('Keep it quiet', NotificationLevel.quiet),
+              choice(
+                'Keep it quiet',
+                NotificationLevel.quiet,
+                const [LucideIcons.bellOff],
+              ),
               choice(
                 'Show all',
                 NotificationLevel.officialAndCommunity,
+                [..._officialShapes, LucideIcons.circle, LucideIcons.shield],
                 isSelected: showAll,
                 onPick: pickShowAll,
               ),
@@ -301,6 +318,104 @@ class _HazardFiltersBottomsheetContentState
           ),
         );
       },
+    );
+  }
+
+  /// The official source shapes as they appear on the map: the AWS
+  /// triangle and the official diamond.
+  static const _officialShapes = [
+    LucideIcons.triangleAlert,
+    LucideIcons.diamond,
+  ];
+
+  /// A fixed-width slot of dark grey outline shapes, so every option's
+  /// title lines up whether it shows one shape or four.
+  Widget _levelIconsBuilder(final List<IconData> icons) {
+    return SizedBox(
+      width: 72.spMin,
+      child: Row(
+        spacing: 2.spMin,
+        children: [
+          for (final icon in icons)
+            HazardShapeBadge.outlineGlyph(icon: icon, size: 16.spMin),
+        ],
+      ),
+    );
+  }
+
+  /// "Emergency warnings: always on", ticked and locked. Not tappable.
+  Widget _alwaysOnRowBuilder() {
+    return Semantics(
+      label: 'Emergency warnings, always on',
+      child: Container(
+        constraints: BoxConstraints(minHeight: 52.spMin),
+        padding: EdgeInsets.symmetric(
+          horizontal: 14.spMin,
+          vertical: 10.spMin,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.emergency.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14.spMin),
+          border: Border.all(
+            color: AppColors.emergency.withValues(alpha: 0.55),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 72.spMin,
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.triangleAlert,
+                    size: 19.spMin,
+                    color: AppColors.emergency,
+                  ),
+                ],
+              ),
+            ),
+            12.wSizedBox,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Emergency warnings',
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  2.hSizedBox,
+                  Text(
+                    // Matches hazard_visibility_util: every active AWS
+                    // level and every official critical alert bypass the
+                    // choices below.
+                    'Always on, with every Advice, Watch and Act and '
+                    'Emergency Warning. You cannot switch these off.',
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      color: AppColors.mediumGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              LucideIcons.lock,
+              size: 15.spMin,
+              color: AppColors.mediumGrey,
+            ),
+            6.wSizedBox,
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.emergency,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

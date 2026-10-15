@@ -75,6 +75,8 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
   Widget build(BuildContext context) {
     return AlrtDropdown(
       controller: _dropdownController,
+      fitAboveKeyboard: true,
+      dropdownHeight: 360,
       button: (context, isOpen) => Consumer(
         builder: (context, ref, child) {
           final isSearchActive = ref.watch(
@@ -264,12 +266,14 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
       _dropdownController.open();
     }
 
+    // Keep the previous results on screen while the next query runs; the
+    // menu shows a thin progress line rather than blanking to a spinner.
     ref.read(providerOfPlacesForMap.notifier)
       ..updateSearchString(value.trim())
       ..updateGetPlacesToLoading();
     EasyDebounce.debounce(
       'map-search',
-      const Duration(milliseconds: 500),
+      const Duration(milliseconds: 280),
       () {
         if (!mounted) return;
         ref.read(providerOfPlacesForMap.notifier).getPlaces();

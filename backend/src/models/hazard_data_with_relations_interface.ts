@@ -6,4 +6,6 @@ export type HazardDataWithRelations = Omit<
 > & {
   category?: HazardCategory | null;
   source?: HazardSource | null;
+  /** Transient verbatim agency instruction fields. Never sent to Prisma directly. */
+  sourceInstructionBlocks?: string[];
 };

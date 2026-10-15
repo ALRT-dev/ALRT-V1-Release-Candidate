@@ -1,51 +1,30 @@
-# iOS — adding the AlrtWidget extension in Xcode
+# ALRT iPhone widgets
 
-The Swift sources, `Info.plist`, and `AlrtWidget.entitlements` are already in
-`ios/AlrtWidget/`. They only need to be attached to a WidgetKit target — that
-step must be done in Xcode (it edits `project.pbxproj`, which should not be
-hand-written).
+Runner.xcodeproj now contains the AlrtWidget extension target. Runner embeds it, and the target compiles both existing widgets. Do not create a second extension in Xcode.
 
-## Steps
+## Local configuration
 
-1. Open `ios/Runner.xcworkspace` in Xcode.
-2. **File ▸ New ▸ Target… ▸ Widget Extension.**
-   - Product name: **AlrtWidget**
-   - Uncheck "Include Configuration App Intent" and "Include Live Activity".
-   - Embed in: **Runner**. When asked to activate the scheme, click Activate.
-3. Xcode generates a starter `AlrtWidget.swift` + `Info.plist` in a new group.
-   **Delete** the generated `.swift` and `Info.plist` (move to trash), then in
-   the Project Navigator **Add Files to "Runner"…** and add the four files that
-   already exist in `ios/AlrtWidget/`:
-   - `AlrtAlertsWidget.swift`
-   - `AlrtFamilyWidget.swift`
-   - `AlrtWidgetBundle.swift`  (declares both widgets — holds the `@main`)
-   - `Info.plist`  (set it as the target's Info.plist under Build Settings ▸
-     Packaging ▸ Info.plist File if not already)
-   - `AlrtWidget.entitlements`
-   Make sure each is a member of the **AlrtWidget** target only (check the File
-   Inspector ▸ Target Membership).
-4. **App Group** — both targets must share it:
-   - Select the **Runner** target ▸ Signing & Capabilities ▸ + Capability ▸
-     **App Groups** ▸ add `group.com.safetyalrt.alrt`.
-   - Select the **AlrtWidget** target ▸ same steps ▸ add the same group.
-   (`Runner.entitlements` already lists the group; `AlrtWidget.entitlements`
-   too. Set AlrtWidget ▸ Build Settings ▸ Code Signing Entitlements to
-   `AlrtWidget/AlrtWidget.entitlements`.)
-5. Set the AlrtWidget target's **Deployment Target** to match Runner and pick
-   the same Team for signing.
-6. `cd ios && pod install` (the `home_widget` pod is pulled in once
-   `flutter pub get` has run at the project root).
-7. Build & run on a device/simulator, then long-press the home screen ▸ + ▸
-   search "Nearby Alerts" to add the widget.
+From frontend/ios, run `bundle exec ruby scripts/configure_widgets.rb` if the project target needs to be repaired. This uses Xcodeproj, is repeatable, and does not contact Apple. The source configuration tests are in scripts/test_configure_widgets.rb (Ruby with xcodeproj and minitest).
 
-## Notes
-- The widget reads from `UserDefaults(suiteName: "group.com.safetyalrt.alrt")`,
-  key `alrt_widget_payload`. The Flutter side writes it via `HomeWidgetService`.
-- The **dev** flavor (`com.safetyalrt.alrt.dev`, the TEST build) uses the
-  separate App Group `group.com.safetyalrt.alrt.dev`: `Runner-dev.entitlements`
-  and `AlrtWidget-dev.entitlements` carry it, `AlrtWidgetConfig.appGroup`
-  derives it from the bundle id at runtime, and `HomeWidgetKeys.appGroupId`
-  derives it from the Flutter flavour. When adding the AlrtWidget target, set
-  its dev build configurations' Code Signing Entitlements to
-  `AlrtWidget/AlrtWidget-dev.entitlements`, and register BOTH App Groups in the
-  Apple Developer Portal (the `.dev` group on the `.dev` App IDs only).
+| Configuration | Extension bundle ID | App Group |
+| --- | --- | --- |
+| dev | com.safetyalrt.alrt.dev.AlrtWidget | group.com.safetyalrt.alrt.dev |
+| prod | com.safetyalrt.alrt.AlrtWidget | group.com.safetyalrt.alrt |
+
+The deployment target is iOS 15.6, matching Runner. Widget version and build number come from Flutter's generated settings, matching the containing app. The extension does not link Flutter or its CocoaPods dependencies.
+
+## Signing and device checks
+
+Each extension needs its own Apple App ID and provisioning profile. The App Group must be enabled for both its extension and its containing app. Dev and production stay separate. Configuring the local target does not register App IDs or prove signing is ready.
+
+The TEST simulator workflow checks that the dev extension is embedded and the host app stays running. A signed archive and an installed TestFlight build are still required to verify the profiles, shared data, widget gallery and taps on a device.
+
+On the device, add Nearby Alerts and Family status from the home screen widget gallery. Check refresh, alert severity, family status, opening the correct screen, logout and stale data. No cloud build alone proves these interactions.
+
+## Data contract
+
+- Alert JSON key: alrt_widget_payload.
+- Family JSON key: alrt_family_widget_payload.
+- Widget kinds: AlrtAlertsWidget and AlrtFamilyWidget.
+- App Group comes from the dev/prod flavour on both Dart and Swift sides.
+- Taps use alrtwidget://open?screen=alerts or screen=family.

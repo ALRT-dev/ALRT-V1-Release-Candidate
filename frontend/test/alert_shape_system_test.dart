@@ -6,7 +6,7 @@ import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// The five source-system shapes are the app's whole visual grammar, so they
+/// The current source-system shapes are the app's whole visual grammar, so they
 /// are pinned here: a wrong glyph is a wrong claim about who issued an alert.
 void main() {
   group('systemShapeIcon', () {
@@ -31,7 +31,7 @@ void main() {
       );
     });
 
-    test('global humanitarian is the rounded square, beating AWS/official',
+    test('legacy global humanitarian uses the official diamond',
         () {
       expect(
         AlertCardStyle.systemShapeIcon(
@@ -39,7 +39,7 @@ void main() {
           isOfficial: true,
           isGlobalHumanitarian: true,
         ),
-        LucideIcons.square,
+        LucideIcons.diamond,
       );
     });
 
