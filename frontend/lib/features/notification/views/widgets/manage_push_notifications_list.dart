@@ -226,7 +226,9 @@ class _ManagePushNotificationsListState
               ),
               10.hSizedBox,
               _levelCard(
-                title: 'Official and community',
+                // One set of words everywhere: the Filters sheet and the
+                // Map details sheet say "All alerts" too (owner, 15 Oct 2026).
+                title: 'All alerts',
                 description:
                     'Everything official, plus reports from people nearby.',
                 selected: level == NotificationLevel.officialAndCommunity,
