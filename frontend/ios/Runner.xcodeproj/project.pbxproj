@@ -11,15 +11,27 @@
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		553521054D66CC9AE571D00C /* AlrtAlertsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D70A0914A1C8B4671D3CE44 /* AlrtAlertsWidget.swift */; };
+		6381021D33E01F942208AC32 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 470C68C308C22F6921B007C6 /* Foundation.framework */; };
 		638F0AEE15CD651F348F006F /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B429FC8602160B382A02BBF2 /* Pods_RunnerTests.framework */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
+		95DE023E0174A4DD41E15C39 /* AlrtFamilyWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FE0DF3F66F4FB367B036EBF /* AlrtFamilyWidget.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		B958FA5E5C3113C39F7690D7 /* AlrtWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3917C6C0E5EDBD424E26E148 /* AlrtWidgetBundle.swift */; };
 		D51B556A000268FA58272A91 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 888D080746C24E8E147D1D83 /* GoogleService-Info.plist */; };
+		EB599C5EC30BC813F78BF3FD /* AlrtWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6E7C6AAEB45359BB0C07C9CF /* AlrtWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		0912F33CEEFA6A93407FCB0E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0BCE052CAA2434BDEC9CB57B;
+			remoteInfo = AlrtWidget;
+		};
 		331C8085294A63A400263BE5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
@@ -40,18 +52,24 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BB3AD4C46DAFE29AA6359858 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				EB599C5EC30BC813F78BF3FD /* AlrtWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		4AD4DEA683BA8FA71D62DEE3 /* Profile-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Profile-prod.xcconfig; path = Flutter/Profile-prod.xcconfig; sourceTree = "<group>"; };
-		41CE474B80FE44D9D28F4BBA /* Release-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release-prod.xcconfig; path = Flutter/Release-prod.xcconfig; sourceTree = "<group>"; };
-		A6EF1E5EDB0FC43962BBC8D8 /* Debug-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Debug-prod.xcconfig; path = Flutter/Debug-prod.xcconfig; sourceTree = "<group>"; };
-		D0EA8105712F90EA0F1A6432 /* Profile-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Profile-dev.xcconfig; path = Flutter/Profile-dev.xcconfig; sourceTree = "<group>"; };
-		500B103FB5CBEFBFBB655720 /* Release-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release-dev.xcconfig; path = Flutter/Release-dev.xcconfig; sourceTree = "<group>"; };
-		4C62807FAF6464A64926EC71 /* Debug-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Debug-dev.xcconfig; path = Flutter/Debug-dev.xcconfig; sourceTree = "<group>"; };
 		035A7FF8D63782E270A4DA22 /* Pods-Runner.debug-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug-dev.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
+		18EADC46DFA05DF9F1BE5D4D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1940DF7C2E9A755500CF6761 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		1AEA5BE5C52135752A622B39 /* Pods-RunnerTests.release-prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release-prod.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release-prod.xcconfig"; sourceTree = "<group>"; };
 		2D46F676BB43981C49608071 /* Pods-RunnerTests.profile-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile-dev.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile-dev.xcconfig"; sourceTree = "<group>"; };
@@ -59,15 +77,26 @@
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		363D0D1D1B70FC7F62E44560 /* Pods-RunnerTests.debug-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug-dev.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug-dev.xcconfig"; sourceTree = "<group>"; };
+		3917C6C0E5EDBD424E26E148 /* AlrtWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlrtWidgetBundle.swift; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		41CE474B80FE44D9D28F4BBA /* Release-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Release-prod.xcconfig"; path = "Flutter/Release-prod.xcconfig"; sourceTree = "<group>"; };
+		470C68C308C22F6921B007C6 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		4AD4DEA683BA8FA71D62DEE3 /* Profile-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Profile-prod.xcconfig"; path = "Flutter/Profile-prod.xcconfig"; sourceTree = "<group>"; };
+		4C62807FAF6464A64926EC71 /* Debug-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Debug-dev.xcconfig"; path = "Flutter/Debug-dev.xcconfig"; sourceTree = "<group>"; };
 		4FBC03BA59B02F328C326DB3 /* Pods-Runner.release-prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release-prod.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release-prod.xcconfig"; sourceTree = "<group>"; };
+		500B103FB5CBEFBFBB655720 /* Release-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Release-dev.xcconfig"; path = "Flutter/Release-dev.xcconfig"; sourceTree = "<group>"; };
 		609D5F42FD860C11C0483EE2 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		62BCA256EE32C4C7A49F567A /* Widget.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Widget.xcconfig; sourceTree = "<group>"; };
+		6E7C6AAEB45359BB0C07C9CF /* AlrtWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlrtWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FE0DF3F66F4FB367B036EBF /* AlrtFamilyWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlrtFamilyWidget.swift; sourceTree = "<group>"; };
+		7358E4FDB80493A4C0B31840 /* AlrtWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = AlrtWidget.entitlements; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		867536DC2B4C05040B194D36 /* Pods-RunnerTests.release-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release-dev.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release-dev.xcconfig"; sourceTree = "<group>"; };
 		882AC467F2667B4C91947652 /* Pods-Runner.debug-prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug-prod.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug-prod.xcconfig"; sourceTree = "<group>"; };
 		888D080746C24E8E147D1D83 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		8D70A0914A1C8B4671D3CE44 /* AlrtAlertsWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlrtAlertsWidget.swift; sourceTree = "<group>"; };
 		8E7C3A2C7026F11C847BBCDF /* Pods-RunnerTests.debug-prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug-prod.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug-prod.xcconfig"; sourceTree = "<group>"; };
 		92ABB9796A09743A2E3ABDA9 /* Pods-RunnerTests.profile-prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile-prod.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile-prod.xcconfig"; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
@@ -77,9 +106,12 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A6EF1E5EDB0FC43962BBC8D8 /* Debug-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Debug-prod.xcconfig"; path = "Flutter/Debug-prod.xcconfig"; sourceTree = "<group>"; };
 		B22A365F1757B76D17BE040A /* Pods-Runner.release-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release-dev.xcconfig"; sourceTree = "<group>"; };
 		B429FC8602160B382A02BBF2 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B7835FB59B7D74C830BF262F /* Pods-Runner.profile-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-dev.xcconfig"; sourceTree = "<group>"; };
+		C337D3B37C35E1B2EE8D978D /* AlrtWidget-dev.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = "AlrtWidget-dev.entitlements"; sourceTree = "<group>"; };
+		D0EA8105712F90EA0F1A6432 /* Profile-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Profile-dev.xcconfig"; path = "Flutter/Profile-dev.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,9 +131,32 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9CAF0D1C135D2E6AFF2221F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6381021D33E01F942208AC32 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2759EFCCC299F45279BA1E70 /* AlrtWidget */ = {
+			isa = PBXGroup;
+			children = (
+				8D70A0914A1C8B4671D3CE44 /* AlrtAlertsWidget.swift */,
+				6FE0DF3F66F4FB367B036EBF /* AlrtFamilyWidget.swift */,
+				3917C6C0E5EDBD424E26E148 /* AlrtWidgetBundle.swift */,
+				18EADC46DFA05DF9F1BE5D4D /* Info.plist */,
+				7358E4FDB80493A4C0B31840 /* AlrtWidget.entitlements */,
+				C337D3B37C35E1B2EE8D978D /* AlrtWidget-dev.entitlements */,
+				62BCA256EE32C4C7A49F567A /* Widget.xcconfig */,
+			);
+			name = AlrtWidget;
+			path = AlrtWidget;
+			sourceTree = "<group>";
+		};
 		331C8082294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -110,11 +165,20 @@
 			path = RunnerTests;
 			sourceTree = "<group>";
 		};
+		5E30FACB07D77EC49C11A9B2 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				470C68C308C22F6921B007C6 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		615E1D46330E15F7D5F71318 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				609D5F42FD860C11C0483EE2 /* Pods_Runner.framework */,
 				B429FC8602160B382A02BBF2 /* Pods_RunnerTests.framework */,
+				5E30FACB07D77EC49C11A9B2 /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -146,6 +210,7 @@
 				9C95F0A4C27E88947A77831C /* Pods */,
 				888D080746C24E8E147D1D83 /* GoogleService-Info.plist */,
 				615E1D46330E15F7D5F71318 /* Frameworks */,
+				2759EFCCC299F45279BA1E70 /* AlrtWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -154,6 +219,7 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+				6E7C6AAEB45359BB0C07C9CF /* AlrtWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -196,6 +262,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		0BCE052CAA2434BDEC9CB57B /* AlrtWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DEE519EB21273DF28F493310 /* Build configuration list for PBXNativeTarget "AlrtWidget" */;
+			buildPhases = (
+				282F53AC22C2A34C912F5C6F /* Sources */,
+				9CAF0D1C135D2E6AFF2221F8 /* Frameworks */,
+				D6C2C29A7B6BE0F56DCE8693 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AlrtWidget;
+			productName = AlrtWidget;
+			productReference = 6E7C6AAEB45359BB0C07C9CF /* AlrtWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		331C8080294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
@@ -225,6 +308,7 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				BB3AD4C46DAFE29AA6359858 /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				BEEB50D06DA8A30D801867E9 /* [CP] Embed Pods Frameworks */,
 				0BB5060832C4BE95A0668326 /* [CP] Copy Pods Resources */,
@@ -232,6 +316,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				45628F6B8E1DFC9327B3C364 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
@@ -273,6 +358,7 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
+				0BCE052CAA2434BDEC9CB57B /* AlrtWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -294,6 +380,13 @@
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				D51B556A000268FA58272A91 /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6C2C29A7B6BE0F56DCE8693 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -412,6 +505,16 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		282F53AC22C2A34C912F5C6F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				553521054D66CC9AE571D00C /* AlrtAlertsWidget.swift in Sources */,
+				95DE023E0174A4DD41E15C39 /* AlrtFamilyWidget.swift in Sources */,
+				B958FA5E5C3113C39F7690D7 /* AlrtWidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		331C807D294A63A400263BE5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -437,6 +540,12 @@
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
+		45628F6B8E1DFC9327B3C364 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = AlrtWidget;
+			target = 0BCE052CAA2434BDEC9CB57B /* AlrtWidget */;
+			targetProxy = 0912F33CEEFA6A93407FCB0E /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -459,6 +568,35 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		01AE6356D858CE6A51105946 /* Release-dev */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "AlrtWidget/AlrtWidget-dev.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.dev.AlrtWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.dev.AlrtWidget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Release-dev";
+		};
 		19A190152E7D2FF400B7BF3A /* Debug-dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -526,13 +664,13 @@
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-dev";
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = Runner/Runner-dev.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Runner/Runner-dev.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = JR89M7CYPR;
 				ENABLE_BITCODE = NO;
-				INFOPLIST_FILE = Runner/Info-dev.plist;
+				INFOPLIST_FILE = "Runner/Info-dev.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -629,13 +767,13 @@
 				APP_DISPLAY_NAME = "[Dev] ALRT";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-dev";
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = Runner/Runner-dev.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Runner/Runner-dev.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = JR89M7CYPR;
 				ENABLE_BITCODE = NO;
-				INFOPLIST_FILE = Runner/Info-dev.plist;
+				INFOPLIST_FILE = "Runner/Info-dev.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -727,13 +865,13 @@
 				APP_DISPLAY_NAME = "[Dev] ALRT";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-dev";
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = Runner/Runner-dev.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Runner/Runner-dev.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = JR89M7CYPR;
 				ENABLE_BITCODE = NO;
-				INFOPLIST_FILE = Runner/Info-dev.plist;
+				INFOPLIST_FILE = "Runner/Info-dev.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -895,6 +1033,117 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
 			};
 			name = "Profile-prod";
+		};
+		3E87F14D05E21B44D2A37450 /* Profile-prod */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = AlrtWidget/AlrtWidget.entitlements;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.AlrtWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.AlrtWidget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Profile-prod";
+		};
+		444533D2E36BEB6CDECB03FD /* Release-prod */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = AlrtWidget/AlrtWidget.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.AlrtWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.AlrtWidget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Release-prod";
+		};
+		8F55D92724F4CAEADCB1C90B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = AlrtWidget/AlrtWidget.entitlements;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.AlrtWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.AlrtWidget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9132513EAA9D6FFE6126AF6D /* Debug-dev */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "AlrtWidget/AlrtWidget-dev.entitlements";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.dev.AlrtWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.dev.AlrtWidget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "Debug-dev";
 		};
 		97C147031CF9000F007C117D /* Debug-prod */ = {
 			isa = XCBuildConfiguration;
@@ -1068,6 +1317,90 @@
 			};
 			name = "Release-prod";
 		};
+		BB9DE80A4E077C7298A674DD /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = AlrtWidget/AlrtWidget.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.AlrtWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.AlrtWidget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		BF5F4EC82BE5E3F7B87D69E2 /* Profile-dev */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "AlrtWidget/AlrtWidget-dev.entitlements";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.dev.AlrtWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.dev.AlrtWidget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Profile-dev";
+		};
+		C3ED2966768C391F74396456 /* Debug-prod */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = AlrtWidget/AlrtWidget.entitlements;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.AlrtWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.AlrtWidget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "Debug-prod";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1109,6 +1442,21 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = "Release-prod";
+		};
+		DEE519EB21273DF28F493310 /* Build configuration list for PBXNativeTarget "AlrtWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB9DE80A4E077C7298A674DD /* Release */,
+				8F55D92724F4CAEADCB1C90B /* Debug */,
+				C3ED2966768C391F74396456 /* Debug-prod */,
+				9132513EAA9D6FFE6126AF6D /* Debug-dev */,
+				444533D2E36BEB6CDECB03FD /* Release-prod */,
+				01AE6356D858CE6A51105946 /* Release-dev */,
+				3E87F14D05E21B44D2A37450 /* Profile-prod */,
+				BF5F4EC82BE5E3F7B87D69E2 /* Profile-dev */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
