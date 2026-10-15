@@ -289,7 +289,11 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
 
-        final given = hazard.description?.trim() ?? '';
+        // Cleaned source facts, never the raw feed fields.
+        final given = AlertCardStyle.factLines(
+          hazard.description,
+          title: hazard.title,
+        ).take(2).join('\n');
         final text = given.isNotEmpty
             ? given
             : AlertCardStyle.plainTermsOf(
@@ -301,7 +305,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                 sourceName: hazard.source?.name,
                 locationName: hazard.locationName,
                 title: hazard.title,
-                hasAdvice: AlertCardStyle.agencyActions(hazard.callsToAction).isNotEmpty,
+                hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
               );
         if (text == null || text.isEmpty) return const SizedBox.shrink();
 
@@ -391,9 +395,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         );
         final distanceText = distance == null
             ? null
-            : distance < 1000
-            ? '${distance.toStringAsFixed(0)} m away'
-            : '${(distance / 1000).toStringAsFixed(1)} km away';
+            : '${AlertCardStyle.distanceLabel(distance)} away';
 
         final fragments = <String>[];
         if (hazard.isUserReported) {

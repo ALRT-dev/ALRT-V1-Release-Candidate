@@ -15,6 +15,7 @@ import {
   cleanupGeocodingCache,
   convertHazardDataWithRelationsToCreateInput,
   parseWAQIToHazards,
+  enrichWaqiDominantPollutants,
   parseUVIndexAndPollenToHazards,
   getGeocodingCacheSize,
   parseWAWarningsToHazards,
@@ -252,11 +253,15 @@ export const syncHazardsFromDifferentSources = async ({
             HazardSeverityBand.critical,
           ],
         },
-        parseFunction: (responseData: any) => {
+        parseFunction: async (responseData: any) => {
           if (!responseData.data || responseData.data.length === 0) {
             console.log("No WAQI data found for Australia.");
             return [];
           }
+          await enrichWaqiDominantPollutants(
+            responseData.data,
+            config.waqiApi.apiToken,
+          );
 
           const airQualityAlertCategory = availableCategories.find(
             (cat) => cat.id === "airQualityAlert",

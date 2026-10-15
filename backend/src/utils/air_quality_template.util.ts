@@ -97,9 +97,14 @@ export const getDeterministicAirQualityContent = ({
 }): AISummaryResponse => {
   const aqiValue = parseAqiValueFromDescription(description);
   const stationName = parseStationNameFromDescription(description, title);
+  // Say what is driving the reading when the station feed named it.
+  const pollutant = /Main pollutant:\s*(.+)/.exec(description)?.[1]?.trim();
+  const base = SUMMARY_BY_BAND[severityBand]({ stationName, aqiValue });
   return {
     title,
-    summary: SUMMARY_BY_BAND[severityBand]({ stationName, aqiValue }),
+    summary: pollutant
+      ? `${base} The main pollutant is ${pollutant}.`
+      : base,
     callsToAction: CALLS_TO_ACTION_BY_BAND[severityBand],
     confidence: "high",
   };

@@ -88,4 +88,55 @@ void main() {
       );
     });
   });
+
+  group('facts are the source facts, cleaned', () {
+    test('drops Not Applicable, calms shouted values', () {
+      expect(
+        AlertCardStyle.factLines(
+          'ALERT LEVEL: Not Applicable\nLOCATION: BRICKWORKS PLANT, WALLGROVE RD, EASTERN CREEK',
+          title: 'Fire alarm at Brickworks Plant, Wallgrove Rd',
+        ),
+        ['Location: Brickworks Plant, Wallgrove Rd, Eastern Creek'],
+      );
+    });
+
+    test('drops coordinates and lines that repeat the title or each other', () {
+      expect(
+        AlertCardStyle.factLines(
+          '• CHANGED TRAFFIC CONDITIONS Oversize vehicle\n'
+          '• Incident Kind: Planned\n'
+          '• Main Category: CHANGED TRAFFIC CONDITIONS\n'
+          '• Coordinates: -21.9, 148.0',
+          title: 'Oversize vehicle',
+        ),
+        [
+          'Changed traffic conditions: Oversize vehicle',
+          'Incident kind: Planned',
+        ],
+      );
+      expect(
+        AlertCardStyle.factLines(
+          'Incident Type: Road Crash\nLocation: Wanneroo',
+          title: 'Road Crash – Wanneroo',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('far distances fit on the card', () {
+      expect(AlertCardStyle.distanceLabel(3273500), '3,274 km');
+      expect(AlertCardStyle.distanceLabel(14200), '14.2 km');
+      expect(AlertCardStyle.distanceLabel(459), '459 m');
+    });
+
+    test('ALRT suggestions are not the agency advice', () {
+      expect(
+        AlertCardStyle.hasAgencyAdvice([
+          'ALRT suggests: Consider checking local health advice.',
+          'This is general information. A health professional can help.',
+        ]),
+        isFalse,
+      );
+    });
+  });
 }

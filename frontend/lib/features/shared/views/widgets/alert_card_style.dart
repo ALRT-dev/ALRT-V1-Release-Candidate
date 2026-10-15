@@ -89,6 +89,135 @@ abstract final class AlertCardStyle {
     };
   }
 
+  /// "8.4 km", "820 m", "3,274 km": tenths only under 100 km, so a far
+  /// alert's distance fits beside the source name on the compact card
+  /// ("3273.5 km a..." was cut off, phone review 15 Oct 2026).
+  static String distanceLabel(final double metres) {
+    if (metres < 1000) return '${metres.toStringAsFixed(0)} m';
+    final km = metres / 1000;
+    if (km < 100) return '${km.toStringAsFixed(1)} km';
+    final whole = km.round().toString();
+    final grouped = whole.replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (_) => ',',
+    );
+    return '$grouped km';
+  }
+
+  /// The source's facts as clean lines for WHAT WE KNOW and the compact
+  /// card. Feeds hand us raw fields ("ALERT LEVEL: Not Applicable",
+  /// "LOCATION: BRICKWORKS PLANT, WALLGROVE RD", "Coordinates: -21.9,
+  /// 148.0", "Main Category: CHANGED TRAFFIC CONDITIONS" after a line that
+  /// already said it). This keeps the source's facts and words, and only:
+  /// drops empty values ("Not Applicable", "Unknown"), machine fields
+  /// (coordinates, timestamps the card already shows), lines that just
+  /// repeat the title or an earlier line; and brings shouted capitals back
+  /// to normal case. It never adds a fact (phone review, 15 Oct 2026).
+  static List<String> factLines(final String? description, {final String? title}) {
+    final raw = (description ?? '').split(RegExp(r'\r?\n'));
+    final titleLower = (title ?? '').toLowerCase();
+    final out = <String>[];
+    final seen = <String>[];
+    for (var line in raw) {
+      line = line.replaceFirst(RegExp(r'^\s*[•\-\*·]+\s*'), '').trim();
+      if (line.isEmpty) continue;
+
+      String? key;
+      String value = line;
+      final m = RegExp(r'^([A-Za-z][A-Za-z /&()]{1,40}):\s*(.*)$').firstMatch(line);
+      if (m != null) {
+        key = m.group(1)!.trim();
+        value = m.group(2)!.trim();
+      }
+      final keyLower = key?.toLowerCase() ?? '';
+      final valueLower = value.toLowerCase();
+
+      if (value.isEmpty || _emptyValues.contains(valueLower)) continue;
+      if (_machineKeys.contains(keyLower)) continue;
+      // Repeats the title ("Wandandian Expo", "Incident Type: Road Crash"
+      // under "Road Crash - Warwick").
+      if (titleLower.isNotEmpty &&
+          valueLower.length >= 4 &&
+          titleLower.contains(valueLower)) {
+        continue;
+      }
+      // Repeats an earlier line.
+      if (seen.any((e) => e.contains(valueLower))) continue;
+      seen.add(line.toLowerCase());
+
+      final calmValue = _calmShouted(value);
+      out.add(key == null ? calmValue : '${_sentenceCaseKey(key)}: $calmValue');
+    }
+    return out;
+  }
+
+  static const _emptyValues = {
+    'not applicable', 'n/a', 'na', 'unknown', 'none', 'null', '-', 'tbc',
+    'not specified', 'not available',
+  };
+
+  static const _machineKeys = {
+    'coordinates', 'coordinate', 'lat', 'lon', 'lng', 'latitude',
+    'longitude', 'last updated', 'updated', 'published', 'id', 'uid',
+    'station time',
+  };
+
+  static const _keepUpper = {
+    'NSW', 'WA', 'QLD', 'VIC', 'SA', 'NT', 'ACT', 'TAS', 'AQI', 'UV',
+    'PM2.5', 'PM10', 'CBD', 'M1', 'M2', 'M4', 'M5', 'M7', 'M31', 'SES',
+    'RFS', 'DFES', 'BOM', 'AWS', 'LGA', 'UK', 'US', 'NZ',
+  };
+
+  /// "ALERT LEVEL" -> "Alert level"; "Incident Kind" -> "Incident kind".
+  static String _sentenceCaseKey(final String key) {
+    final words = key.split(RegExp(r'\s+'));
+    return [
+      for (var i = 0; i < words.length; i++)
+        _keepUpper.contains(words[i].toUpperCase()) && words[i].length <= 4
+            ? words[i].toUpperCase()
+            : i == 0
+                ? words[i][0].toUpperCase() + words[i].substring(1).toLowerCase()
+                : words[i].toLowerCase(),
+    ].join(' ');
+  }
+
+  /// Brings runs of shouted words back to normal case: a fully shouted
+  /// value becomes Title Case ("BRICKWORKS PLANT, WALLGROVE RD" ->
+  /// "Brickworks Plant, Wallgrove Rd"); a shouted lead-in before ordinary
+  /// words becomes a label ("CHANGED TRAFFIC CONDITIONS Oversize vehicle"
+  /// -> "Changed traffic conditions: Oversize vehicle").
+  static String _calmShouted(final String value) {
+    bool shouted(final String w) =>
+        RegExp(r'[A-Z]').hasMatch(w) && w == w.toUpperCase() && w.length > 1;
+    final words = value.split(' ');
+    final shoutedCount = words.where(shouted).length;
+    if (shoutedCount < 2) return value;
+
+    String titleWord(final String w) {
+      final core = w.replaceAll(RegExp(r'[^A-Za-z0-9.]'), '');
+      if (_keepUpper.contains(core.toUpperCase())) return w;
+      final lower = w.toLowerCase();
+      final i = lower.indexOf(RegExp(r'[a-z]'));
+      if (i < 0) return w;
+      return lower.substring(0, i) + lower[i].toUpperCase() + lower.substring(i + 1);
+    }
+
+    if (words.every((w) => !RegExp(r'[a-z]').hasMatch(w))) {
+      return words.map(titleWord).join(' ');
+    }
+    // Shouted lead-in followed by normal words.
+    var n = 0;
+    while (n < words.length && !RegExp(r'[a-z]').hasMatch(words[n])) {
+      n++;
+    }
+    if (n >= 2 && n < words.length) {
+      final lead = words.take(n).join(' ').toLowerCase();
+      final rest = words.skip(n).join(' ');
+      return '${lead[0].toUpperCase()}${lead.substring(1)}: $rest';
+    }
+    return value;
+  }
+
   /// The agency's own instructions from an alert, without the generic
   /// filler older TEST records carry ("If you are near the area, be ready
   /// to follow ... instructions"). That line was written by the old
@@ -104,6 +233,18 @@ abstract final class AlertCardStyle {
       for (final a in callsToAction)
         if (a.trim().isNotEmpty && !filler.hasMatch(a)) a,
     ];
+  }
+
+  /// Whether any of [callsToAction] is the AGENCY's advice. ALRT's own
+  /// labelled suggestions ("ALRT suggests: ...") and the general health
+  /// close are not, so "In plain terms" must not say "Their advice is in
+  /// this alert" for them (WAQI publishes no advice at all).
+  static bool hasAgencyAdvice(final List<String>? callsToAction) {
+    final alrtOwn = RegExp(
+      r'^\s*(alrt suggests|this is general information|this information is general)',
+      caseSensitive: false,
+    );
+    return agencyActions(callsToAction).any((a) => !alrtOwn.hasMatch(a));
   }
 
   /// The "In plain terms" line.

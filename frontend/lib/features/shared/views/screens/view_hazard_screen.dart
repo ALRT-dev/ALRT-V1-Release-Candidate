@@ -679,7 +679,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           sourceName: hazard.source?.name,
           locationName: hazard.locationName,
           title: hazard.title,
-          hasAdvice: AlertCardStyle.agencyActions(hazard.callsToAction).isNotEmpty,
+          hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
         );
         if (plainTerms == null) return const SizedBox.shrink();
 
@@ -800,9 +800,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         );
         final distanceText = distance == null
             ? null
-            : distance < 1000
-            ? '${distance.toStringAsFixed(0)} m from you'
-            : '${(distance / 1000).toStringAsFixed(1)} km from you';
+            : '${AlertCardStyle.distanceLabel(distance)} from you';
 
         final place = hazard.locationName?.trim();
         final updatedAt = hazard.updatedAt;
@@ -987,7 +985,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       sourceName: hazard.source?.name,
       locationName: hazard.locationName,
       title: hazard.title,
-      hasAdvice: AlertCardStyle.agencyActions(hazard.callsToAction).isNotEmpty,
+      hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
     );
     final text = [
       hazard.isUserReported
@@ -1773,8 +1771,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final description = ref.watch(
           provider.select((value) => value.hazard?.description),
         );
+        final title = ref.watch(provider.select((value) => value.hazard?.title));
+        final facts = AlertCardStyle.factLines(description, title: title);
 
-        if (description?.isEmpty ?? true) return const SizedBox.shrink();
+        if (facts.isEmpty) return const SizedBox.shrink();
 
         // Paired with WHAT TO DO, to the pixel. This used to be a blue
         // card with a blue bar and a sentence-case heading: blue is the
@@ -1828,14 +1828,18 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ),
                       ),
                       12.spMin.hSizedBox,
-                      Text(
-                        description!,
-                        style: TextStyle(
-                          color: AppColors.black.withValues(alpha: 0.9),
-                          fontSize: 14.spMin,
-                          height: 1.5,
+                      for (final fact in facts)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 6.spMin),
+                          child: Text(
+                            '\u2022 $fact',
+                            style: TextStyle(
+                              color: AppColors.black.withValues(alpha: 0.9),
+                              fontSize: 14.spMin,
+                              height: 1.5,
+                            ),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),

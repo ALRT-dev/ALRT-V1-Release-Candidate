@@ -206,6 +206,69 @@ export function parseGeoJsonToHazards({
  * const hazards = parseWAQIToHazards(waqiData, categoryId);
  * ```
  */
+/**
+ * WAQI's own category names for its (US EPA based) index, as published on
+ * aqicn.org. Passed through attributed to WAQI, never as ALRT's rating and
+ * never mapped onto an Australian state index.
+ */
+export const waqiRatingFor = (aqi: number): string | null => {
+  if (!Number.isFinite(aqi) || aqi < 0) return null;
+  if (aqi <= 50) return "Good";
+  if (aqi <= 100) return "Moderate";
+  if (aqi <= 150) return "Unhealthy for sensitive groups";
+  if (aqi <= 200) return "Unhealthy";
+  if (aqi <= 300) return "Very unhealthy";
+  return "Hazardous";
+};
+
+const WAQI_POLLUTANTS: Record<string, string> = {
+  pm25: "fine particles (PM2.5)",
+  pm10: "coarse particles (PM10)",
+  o3: "ozone (O3)",
+  no2: "nitrogen dioxide (NO2)",
+  so2: "sulphur dioxide (SO2)",
+  co: "carbon monoxide (CO)",
+};
+
+/** Plain name for WAQI's `dominentpol` code, or null when absent/unknown. */
+export const describeWaqiPollutant = (code?: string | null): string | null => {
+  if (!code) return null;
+  return WAQI_POLLUTANTS[code.trim().toLowerCase()] ?? null;
+};
+
+/**
+ * The map/bounds feed carries only the AQI number. For the few stations
+ * high enough to become alerts, read each station's feed once to learn
+ * which pollutant is driving the reading. Best effort: a failed or slow
+ * lookup leaves the station without a pollutant line, never drops it.
+ */
+export const enrichWaqiDominantPollutants = async <
+  T extends { uid: number; aqi: string; dominentpol?: string | undefined },
+>(
+  data: T[],
+  token: string,
+  minimumAqi = 101,
+): Promise<T[]> => {
+  const targets = data.filter((d) => parseInt(d.aqi, 10) >= minimumAqi).slice(0, 25);
+  await Promise.all(
+    targets.map(async (d) => {
+      try {
+        const res = await fetch(
+          `https://api.waqi.info/feed/@${d.uid}/?token=${encodeURIComponent(token)}`,
+          { signal: AbortSignal.timeout(8000) },
+        );
+        if (!res.ok) return;
+        const body = (await res.json()) as { status?: string; data?: { dominentpol?: unknown } };
+        const pol = body?.status === "ok" ? body.data?.dominentpol : undefined;
+        if (typeof pol === "string" && pol.length > 0) d.dominentpol = pol;
+      } catch {
+        // Keep the station; it simply has no pollutant line.
+      }
+    }),
+  );
+  return data;
+};
+
 export function parseWAQIToHazards({
   data,
   category,
@@ -219,6 +282,8 @@ export function parseWAQIToHazards({
       name: string;
       time: string;
     };
+    /** Added by enrichWaqiDominantPollutants from the station feed. */
+    dominentpol?: string | undefined;
   }>;
   category: HazardCategory;
 }): HazardDataWithRelations[] {
@@ -232,12 +297,21 @@ export function parseWAQIToHazards({
 
       const title = `Air Quality Alert - ${item.station.name}`;
 
-      // Build comprehensive description
+      // What the reader needs to know WHY the alert is there: the reading,
+      // WAQI's own rating for it, and (when WAQI's station feed names it)
+      // the pollutant driving it. Coordinates and the raw timestamp were
+      // shown as "facts" and explained nothing (phone review, 15 Oct 2026).
+      // "AQI: <n>" stays first on its line: parseAqiValueFromDescription
+      // reads it.
+      const rating = waqiRatingFor(aqiValue);
+      const pollutant = describeWaqiPollutant(item.dominentpol);
       const descriptionParts: string[] = [
         `Station: ${item.station.name}`,
-        `AQI: ${aqiValue}`,
-        `Coordinates: ${item.lat}, ${item.lon}`,
-        `Last Updated: ${item.station.time}`,
+        rating
+          ? `AQI: ${aqiValue}, which WAQI rates "${rating}"`
+          : `AQI: ${aqiValue}`,
+        ...(pollutant ? [`Main pollutant: ${pollutant}`] : []),
+        `Measured: ${item.station.time}`,
       ];
 
       const description = descriptionParts.join("\n");
