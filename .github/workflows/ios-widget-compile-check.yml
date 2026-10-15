@@ -1,0 +1,37 @@
+# Compile check for the iPhone home-screen widget Swift sources. Builds only
+# frontend/ios/AlrtWidget/*.swift for the iOS simulator with swiftc. No
+# signing, no certificates, no secrets, no upload; touches nothing in App
+# Store Connect. Runs on pushes to the branch that carries it, or by hand.
+name: iOS Widget Compile Check
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/ios-widget-compile, claude/ios-widget-target]
+    paths:
+      - "frontend/ios/AlrtWidget/**"
+      - ".github/workflows/ios-widget-compile-check.yml"
+      - "frontend/ios/Runner.xcodeproj/**"
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          [ -n "$XC" ] || XC="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+      - name: Compile widget sources (simulator, no signing)
+        working-directory: frontend/ios
+        run: |
+          SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          mkdir -p "$RUNNER_TEMP/out"
+          xcrun swiftc -sdk "$SDK" -target arm64-apple-ios16.0-simulator \
+            -parse-as-library -application-extension -module-name AlrtWidget \
+            -emit-module -emit-library -o "$RUNNER_TEMP/out/libAlrtWidget.dylib" \
+            AlrtWidget/*.swift
+          ls -l "$RUNNER_TEMP/out"
+          echo "Widget sources compile."
