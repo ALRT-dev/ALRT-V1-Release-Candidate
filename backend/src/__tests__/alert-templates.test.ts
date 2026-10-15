@@ -42,7 +42,7 @@ describe("editable alert templates", () => {
     const result = resolveTemplate(pack, { country: "au", sourceId: "roads" });
     expect(result.settings.language).toBe("en-AU");
     expect(result.settings.additionalInstructions).toBe("Keep road names.");
-    expect(result.settings.bandColors.critical).toBe("#DA1F2D");
+    expect(result.settings.bandColors.critical).toBe("#D6001C");
     expect(result.applied).toEqual([
       "Shared default",
       "Australia",

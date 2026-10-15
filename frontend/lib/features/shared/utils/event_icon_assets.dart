@@ -427,6 +427,10 @@ abstract final class EventIconAssets {
     'non_aws/sewerOverflow_critical',
     'non_aws/sewerOverflow_info',
     'non_aws/sewerOverflow_monitor',
+    'non_aws/oceanHazard_action',
+    'non_aws/oceanHazard_critical',
+    'non_aws/oceanHazard_info',
+    'non_aws/oceanHazard_monitor',
     'non_aws/snakeSighting_action',
     'non_aws/snakeSighting_critical',
     'non_aws/snakeSighting_info',
@@ -564,6 +568,15 @@ abstract final class EventIconAssets {
   /// Category id -> icon set chosen in the admin portal (iconKey). Filled as
   /// categories are read from the server; empty means every default.
   static final Map<String, String> overrides = <String, String>{};
+
+  /// Bundled defaults where a category's own picture is not the one to show
+  /// (owner, 16 Oct 2026): ocean condition alerts (surf, coastal hazards,
+  /// large waves, rips, rocks) wear the yellow exclamation diamond. An admin
+  /// iconKey in [overrides] still wins.
+  static const Map<String, String> defaults = <String, String>{
+    'coastalHazard': 'oceanHazard',
+    'hazardousSurf': 'oceanHazard',
+  };
 
   /// GDACS pictogram (diamond in the GDACS level colour) for a title such as
   /// "Orange earthquake alert in Japan". Null when hazard or level is unclear.

@@ -254,6 +254,8 @@ abstract class Hazard with _$Hazard {
         // The admin portal's chosen icon for this category comes next.
         if (categoryId != null && EventIconAssets.overrides[categoryId] != null)
           EventIconAssets.overrides[categoryId]!,
+        if (categoryId != null && EventIconAssets.defaults[categoryId] != null)
+          EventIconAssets.defaults[categoryId]!,
         if (categoryId != null) categoryId!,
         if (category?.parentId != null) category!.parentId!,
       ];

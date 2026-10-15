@@ -5,12 +5,13 @@ explicit instruction from the product owner in the current session.
 
 ## Design system
 
-- Band colours: Info #8A93A0, Monitor #FBE032, Action #F07E1B, Critical #DA1F2D.
-  Monitor was #F5C518 until 16 Oct 2026 (owner: the Advice triangles looked
-  dull); #FBE032 is the yellow sampled from the official AWS icons on
-  australianwarningsystem.com.au and already used by the supplied diamond
-  artwork. Orange and red stay as locked (the national icons sample as
-  #FF7900 and #D6001C; not changed, owner asked about yellow only).
+- Band colours: Info #8A93A0, Monitor #FBE032, Action #FF7900, Critical #D6001C.
+  Owner, 16 Oct 2026: the AWS warning colours are the ones the Australian
+  Warning System designates. AIDR publishes no hex values, so these are
+  sampled from the official level icons on australianwarningsystem.com.au
+  (yellow #FBE032, orange #FF7900, red #D6001C). They replace #F5C518,
+  #F07E1B and #DA1F2D everywhere a band is drawn: AppColors, the bundled
+  pin artwork, the backend template defaults. GDACS keeps its own scale.
 - Shapes carry the SOURCE system: AWS triangle, official diamond, current
   community disc artwork, ALRT shield. The square is retired (product-owner
   instruction, confirmed 13 October 2026). Humanitarian events use a diamond

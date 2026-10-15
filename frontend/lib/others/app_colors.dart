@@ -57,13 +57,13 @@ class AppColors {
   static const searchGlow = Color(0xFFFF6B01);
 
   // The locked band hexes (product rules, design system): Info #8A93A0,
-  // Monitor #FBE032, Action #F07E1B, Critical #DA1F2D. These four aliases
+  // Monitor #FBE032, Action #FF7900, Critical #D6001C. These four aliases
   // are how severity is coloured everywhere: pins, clusters, cards, app
   // bars, filters and both keys. They used to point at the generic
   // yellow/orange/red above, which predate the locked palette, so the map
   // and the Map details legend disagreed about the same alert.
   static const info = Color(0xFF8A93A0);
   static const advice = Color(0xFFFBE032);
-  static const watchAndAct = Color(0xFFF07E1B);
-  static const emergency = Color(0xFFDA1F2D);
+  static const watchAndAct = Color(0xFFFF7900);
+  static const emergency = Color(0xFFD6001C);
 }

@@ -67,6 +67,7 @@ export const ICON_KEYS: { key: string; label: string }[] = [
   { key: "mobileOutage", label: "Mobile Outage" },
   { key: "networkOutage", label: "Network Outage" },
   { key: "obstruction", label: "Obstruction" },
+  { key: "oceanHazard", label: "Ocean Hazard (yellow exclamation)" },
   { key: "other", label: "Other" },
   { key: "otherFire", label: "Other Fire" },
   { key: "outbreak", label: "Outbreak" },

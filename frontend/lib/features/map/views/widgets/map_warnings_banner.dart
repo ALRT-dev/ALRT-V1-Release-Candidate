@@ -22,7 +22,7 @@ class MapWarningsBanner extends ConsumerWidget {
 
   static const _textColor = Color(0xFF1C1C1E);
   static const _chevronColor = Color(0xFF5C5C66);
-  static const _warningDotColor = Color(0xFFDA1F2D);
+  static const _warningDotColor = AppColors.emergency;
   static const _clearDotColor = Color(0xFF16A34A);
 
   /// Counts the loaded hazards that are warnings. Kept static and pure so
