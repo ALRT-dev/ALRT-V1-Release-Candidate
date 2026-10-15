@@ -20,7 +20,7 @@ export const initialGuidance = (): GuidanceEntry[] => {
       ...base,
       id: "transport-preparation",
       categoryIds: ["trafficAndTransport"],
-      text: "Consider allowing extra time and checking the transport operator or road authority for closures before setting out.",
+      text: "If you are travelling around the area, consider your route and allow extra time. Check official sources for updates.",
     },
     {
       ...base,

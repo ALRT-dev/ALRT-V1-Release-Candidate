@@ -156,8 +156,12 @@ Tests/drills/resolved incidents are Info. Source-authorised emergency phone word
 be retained only with an explicit source-specific exception. Otherwise use "your local
 emergency number" while preserving road, route, date and measurement numbers.
 
-Approved library suggestions use non-directive wording and a separate ALRT label. They
-are used when extraction finds no agency instructions; an extraction failure does not
+Approved library suggestions use non-directive wording ("Consider ...", or a plain safety
+statement such as "Driving through flood water is dangerous. Consider your route before
+driving.") with NO "ALRT suggests:" prefix (product owner, 16 Oct 2026); the app labels
+them with a footer under What to do ("General guidance from ALRT, not part of the official
+warning"), telling them from agency lines by the "{agency} advises:" lead. They are used
+when extraction finds no agency instructions; an extraction failure does not
 guess that advice was absent. For You receives generic reviewed rows; personal selections
 stay on the phone. No square is produced. Required AWS and current community artwork stay.
 Source instruction content and native-level-only updates must change sourceContentHash.

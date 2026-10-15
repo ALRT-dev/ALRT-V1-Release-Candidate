@@ -18,9 +18,6 @@ import type { AISummaryResponse } from "../models/ai_summary_response_interface.
  * library. These statements are never attributed to WAQI as instructions.
  */
 
-const MANDATORY_HEALTH_CLOSE =
-  "This is general information. A health professional can help with personal health concerns.";
-
 /**
  * The summary is the source's statement, in the source's own rating words
  * and never a number (product owner, 16 Oct 2026; purge list, pack file
@@ -44,19 +41,24 @@ const summaryFor = ({
 }): string =>
   `World Air Quality Index reports that air quality near ${stationName} is ${rating}.`;
 
+/**
+ * ALRT's own practical lines, no prefix (product owner, 16 Oct 2026):
+ * "Consider ..." wording, or a plain safety statement. The app labels
+ * them as general guidance from ALRT under the block.
+ */
 const CALLS_TO_ACTION_BY_BAND: Record<HazardSeverityBand, string[]> = {
   [HazardSeverityBand.info]: [],
   [HazardSeverityBand.monitor]: [
-    "Staying across official air quality updates is advisable.",
-    MANDATORY_HEALTH_CLOSE,
+    "Consider keeping an eye on official air quality updates if you are sensitive to air pollution.",
   ],
   [HazardSeverityBand.action]: [
-    "ALRT suggests: Consider checking local health advice before strenuous outdoor activity, particularly if a breathing condition applies.",
-    MANDATORY_HEALTH_CLOSE,
+    "Polluted air affects people with heart or lung conditions, older adults and children first. Consider limiting long or strenuous time outdoors.",
+    "If you have a breathing condition, consider keeping your usual medication within reach and following your care plan.",
   ],
   [HazardSeverityBand.critical]: [
-    "ALRT suggests: Consider reducing exposure to polluted air and checking local health advice. Any official fire or evacuation directions take priority.",
-    MANDATORY_HEALTH_CLOSE,
+    "Polluted air at this level can affect anyone. Consider staying indoors with windows closed and limiting time outside.",
+    "Any official fire or evacuation directions take priority over this.",
+    "If breathing becomes difficult, a health professional can help.",
   ],
 };
 

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/profile/models/for_you_library.dart';
+import 'package:hazard_app/features/shared/utils/general_guidance.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 
 /// Phone review, 14 Oct 2026 (afternoon): prompts on the alert detail.
@@ -129,14 +130,16 @@ void main() {
       expect(AlertCardStyle.distanceLabel(459), '459 m');
     });
 
-    test('ALRT suggestions are not the agency advice', () {
-      expect(
-        AlertCardStyle.hasAgencyAdvice([
-          'ALRT suggests: Consider checking local health advice.',
-          'This is general information. A health professional can help.',
-        ]),
-        isFalse,
-      );
+    test('ALRT guidance is not the agency advice', () {
+      const alrt = [
+        'Consider checking local health advice.',
+        'Driving through flood water is dangerous. Consider your route before driving.',
+      ];
+      expect(AlertCardStyle.hasAgencyAdvice(alrt), isFalse);
+      expect(AlertCardStyle.hasAlrtGuidance(alrt), isTrue);
+      const agency = ['NSW SES advises: do not drive through flood water.'];
+      expect(AlertCardStyle.hasAgencyAdvice(agency), isTrue);
+      expect(AlertCardStyle.hasAlrtGuidance(agency), isFalse);
     });
   });
 
@@ -160,6 +163,26 @@ void main() {
           'Main pollutant: fine particles (PM2.5)',
           'What this means: People with heart or lung conditions may notice effects.',
         ]),
+      );
+    });
+  });
+
+  group('general guidance when the agency gave none', () {
+    test('a road crash gets travel guidance and the check-sources line', () {
+      final lines = GeneralGuidance.forAlert(
+        title: 'Road Crash – Wanneroo',
+        categoryName: 'Crash',
+        parentCategoryName: 'Traffic & Transport',
+      );
+      expect(lines.first, contains('consider your route'));
+      expect(lines.last, 'Check official sources for updates.');
+      expect(lines.any((l) => l.contains('ALRT suggests')), isFalse);
+    });
+
+    test('a flood warns about flood water', () {
+      expect(
+        GeneralGuidance.forAlert(title: 'Flood Watch', categoryName: 'Flood').first,
+        startsWith('Driving through flood water is dangerous.'),
       );
     });
   });

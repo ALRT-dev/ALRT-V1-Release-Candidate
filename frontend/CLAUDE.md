@@ -40,6 +40,18 @@ explicit instruction from the product owner in the current session.
   alert's pin artwork at the right of the title and "Tap for more" on
   every card. Map details' map-type tiles are painted thumbnails, not
   line icons (product owner, 15 and 16 Oct 2026).
+- What to do (product owner, 16 Oct 2026): agency instructions first, each
+  led by "{Agency} advises:". When the agency published none, ALRT's
+  general guidance for that kind of alert (GeneralGuidance, mirroring the
+  backend template library: "Consider ..." lines or a plain safety
+  statement, always ending "Check official sources for updates.") with
+  no "ALRT suggests:" prefix; the block carries the footer "General
+  guidance from ALRT, not part of the official warning." whenever an
+  ALRT line is shown. The "has not published advice" note is gone.
+  Air quality cards never show an index number: the source's own rating
+  words, the main pollutant, and a "What this means" line (who may notice
+  effects; never a reassurance such as "most people are unlikely to be
+  affected" unless an agency said it).
 - Published `contentDetails` separates source facts, affected area, native level,
   agency instructions and labelled ALRT suggestions. For You matches all published
   generic rows against local profile choices; never send profile selections to

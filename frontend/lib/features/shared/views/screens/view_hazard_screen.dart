@@ -40,6 +40,7 @@ import 'package:hazard_app/features/shared/providers/view_hazard_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/share_alert.dart';
+import 'package:hazard_app/features/shared/utils/general_guidance.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.dart';
@@ -1573,82 +1574,23 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// A muted card for an official section the source left empty.
-  Widget _buildEmptySectionCard({
-    required final String label,
-    required final String body,
-  }) {
-    final color = AppColors.orange200;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16.spMin),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border(
-          left: BorderSide(color: color.withValues(alpha: 0.6), width: 4),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColorLight,
-            blurRadius: 2.0,
-            offset: Offset.zero,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10.5.spMin,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-            ),
-          ),
-          8.hSizedBox,
-          Text(
-            body,
-            style: TextStyle(
-              fontSize: 13.5.spMin,
-              height: 1.45,
-              color: AppColors.mediumGrey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildWhatToDoSection() {
     return Consumer(
       builder: (context, ref, child) {
-        final callsToAction = AlertCardStyle.agencyActions(
-          ref.watch(provider.select((value) => value.hazard?.callsToAction)),
-        );
-        final isUserReported = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isUserReported ?? false,
-          ),
-        );
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        final isUserReported = hazard?.isUserReported ?? false;
+        // Community reports have no advice section at all.
+        if (hazard == null || isUserReported) return const SizedBox.shrink();
 
-        final shouldShow = callsToAction.isNotEmpty;
-
-        if (!shouldShow) {
-          // An official alert always shows the section, so it is clear
-          // the advice is the agency's to give and none was published.
-          // Community reports have no advice section at all.
-          if (isUserReported ||
-              ref.watch(provider.select((value) => value.hazard == null))) {
-            return const SizedBox.shrink();
-          }
-          return _buildEmptySectionCard(
-            label: 'WHAT TO DO',
-            body: 'The issuing agency has not published advice for this '
-                'alert. We never write advice for them. Check their '
-                'source below for updates.',
+        var callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction);
+        if (callsToAction.isEmpty) {
+          // The agency published no instructions: ALRT's general guidance
+          // for this kind of alert, labelled as such below (product owner,
+          // 16 Oct 2026; replaces the "has not published advice" note).
+          callsToAction = GeneralGuidance.forAlert(
+            title: hazard.title,
+            categoryName: hazard.category?.name,
+            parentCategoryName: hazard.category?.parent?.name,
           );
         }
 
@@ -1735,6 +1677,21 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                           ),
                         );
                       }),
+                      // ALRT's own lines carry no prefix, so the block says
+                      // whose words they are (product owner, 16 Oct 2026).
+                      if (AlertCardStyle.hasAlrtGuidance(callsToAction))
+                        Padding(
+                          padding: EdgeInsets.only(top: 10.spMin),
+                          child: Text(
+                            'General guidance from ALRT, not part of the '
+                            'official warning.',
+                            style: TextStyle(
+                              fontSize: 11.5.spMin,
+                              color: AppColors.mediumGrey,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
                       // Deep link into the matching safety guide, if any.
                       Consumer(
                         builder: (context, ref, child) {
