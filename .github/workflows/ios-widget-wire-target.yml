@@ -5,6 +5,11 @@
 name: iOS Widget Wire Target
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/ios-widget-compile]
+    paths:
+      - "scripts/ios_add_widget_target.rb"
+      - ".github/workflows/ios-widget-wire-target.yml"
 permissions:
   contents: write
 jobs:
