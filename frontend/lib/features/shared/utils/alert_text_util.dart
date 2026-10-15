@@ -77,6 +77,15 @@ abstract final class AlertTextUtil {
 
   /// Shown only when the agency gave no instruction. Points at the agency;
   /// it is never ALRT's own advice and never says "no advice".
+  /// What we know always shows. When the source published nothing beyond
+  /// the headline, this one honest line stands in. It adds no facts.
+  static String noDetailsLine(final String? agencyName) {
+    final name = (agencyName ?? '').trim();
+    return name.isEmpty
+        ? 'The source has not published further details yet.'
+        : '$name has not published further details yet.';
+  }
+
   static String followAgencyLine(final String? agencyName) {
     final name = (agencyName ?? '').trim();
     return name.isEmpty

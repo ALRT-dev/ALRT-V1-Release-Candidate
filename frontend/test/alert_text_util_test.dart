@@ -56,5 +56,16 @@ void main() {
       expect(line, 'If you are near the area, be ready to follow DFES instructions.');
       expect(line.toLowerCase().contains('no advice'), isFalse);
     });
+
+    test('what we know always has a line, even with no details', () {
+      expect(
+        AlertTextUtil.noDetailsLine('DFES'),
+        'DFES has not published further details yet.',
+      );
+      expect(
+        AlertTextUtil.noDetailsLine(null),
+        'The source has not published further details yet.',
+      );
+    });
   });
 }

@@ -1658,10 +1658,22 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // Facts only: the agency's own instructions and road notes have
         // their own sections, so they are cut from here. A community report
         // always gets at least one point, even with nothing written.
-        final points = isUserReported
+        // The section always shows (owner, 15 Oct 2026): an official alert
+        // with nothing beyond its headline gets one honest line instead of
+        // no section at all.
+        final hasHazard = ref.watch(
+          provider.select((value) => value.hazard != null),
+        );
+        if (!hasHazard) return const SizedBox.shrink();
+        final sourceName = ref.watch(
+          provider.select((value) => value.hazard?.source?.name),
+        );
+        final found = isUserReported
             ? AlertTextUtil.communityPoints(reportTitle, description)
             : AlertTextUtil.whatWeKnowPoints(description);
-        if (points.isEmpty) return const SizedBox.shrink();
+        final points = found.isEmpty
+            ? <String>[AlertTextUtil.noDetailsLine(sourceName)]
+            : found;
 
         // Paired with WHAT TO DO, to the pixel. This used to be a blue
         // card with a blue bar and a sentence-case heading: blue is the
