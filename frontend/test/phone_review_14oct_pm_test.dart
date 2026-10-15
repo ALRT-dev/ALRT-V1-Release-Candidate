@@ -118,7 +118,7 @@ void main() {
       expect(
         AlertCardStyle.factLines(
           'Incident Type: Road Crash\nLocation: Wanneroo',
-          title: 'Road Crash – Wanneroo',
+          title: 'Road Crash - Wanneroo',
         ),
         isEmpty,
       );
@@ -170,13 +170,23 @@ void main() {
   group('general guidance when the agency gave none', () {
     test('a road crash gets travel guidance and the check-sources line', () {
       final lines = GeneralGuidance.forAlert(
-        title: 'Road Crash – Wanneroo',
+        title: 'Road Crash - Wanneroo',
         categoryName: 'Crash',
         parentCategoryName: 'Traffic & Transport',
       );
       expect(lines.first, contains('consider your route'));
       expect(lines.last, 'Check official sources for updates.');
       expect(lines.any((l) => l.contains('ALRT suggests')), isFalse);
+    });
+
+    test('keywords match whole words, so a train is not rain', () {
+      final lines = GeneralGuidance.forAlert(
+        title: 'Train delays - Fremantle line',
+        categoryName: 'Rail',
+        parentCategoryName: 'Traffic & Transport',
+      );
+      expect(lines.first, contains('consider your route'));
+      expect(lines.any((l) => l.contains('flood water')), isFalse);
     });
 
     test('a flood warns about flood water', () {

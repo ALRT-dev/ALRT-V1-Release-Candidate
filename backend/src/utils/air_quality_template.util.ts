@@ -1,5 +1,6 @@
 import { HazardSeverityBand } from "@prisma/client";
 import type { AISummaryResponse } from "../models/ai_summary_response_interface.js";
+import { waqiRatingFor } from "./waqi_rating.util.js";
 
 /**
  * Deterministic, zero-AI content for Air Quality Alert category hazards
@@ -23,7 +24,8 @@ import type { AISummaryResponse } from "../models/ai_summary_response_interface.
  * and never a number (product owner, 16 Oct 2026; purge list, pack file
  * 03): "World Air Quality Index reports that air quality near {station}
  * is {rating}." The rating comes from the description line the parser
- * wrote; the band is the fallback when that line is missing.
+ * wrote; for an older record without that line it is WAQI's rating for
+ * the machine "AQI: n" field, and the band is the last fallback.
  */
 const RATING_BY_BAND: Record<HazardSeverityBand, string> = {
   [HazardSeverityBand.info]: "good",
@@ -100,7 +102,12 @@ export const getDeterministicAirQualityContent = ({
   const ratingLine = /Air quality:\s*(.+?)\s*\(World Air Quality Index rating\)/.exec(
     description,
   )?.[1]?.trim();
-  const rating = (ratingLine ?? RATING_BY_BAND[severityBand]).toLowerCase();
+  const aqiValue = parseAqiValueFromDescription(description);
+  const rating = (
+    ratingLine ??
+    (aqiValue !== null ? waqiRatingFor(aqiValue) : null) ??
+    RATING_BY_BAND[severityBand]
+  ).toLowerCase();
   return {
     title,
     summary: summaryFor({ stationName, rating }),

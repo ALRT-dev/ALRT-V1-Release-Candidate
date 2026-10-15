@@ -24,7 +24,10 @@ abstract final class GeneralGuidance {
         .join(' ');
     final all = '$t $names';
 
-    if (_any(all, ['bushfire', 'grass fire', 'grassfire', 'burn', 'smoke'])) {
+    if (_any(all, [
+      'bushfire', 'grass fire', 'grassfire', 'burning', 'burn off',
+      'burn-off', 'hazard reduction', 'smoke',
+    ])) {
       return const [
         'Smoke can travel a long way from a fire. If you can smell smoke, '
             'consider keeping windows and doors closed.',
@@ -82,6 +85,12 @@ abstract final class GeneralGuidance {
     ];
   }
 
+  /// A needle matches at the start of a word only, so "rain" does not
+  /// match "train", "air" does not match "repair" and "road" does not
+  /// match "Broadmeadows"; "utilit" still matches "utilities" and "info"
+  /// still matches "information".
   static bool _any(final String haystack, final List<String> needles) =>
-      needles.any(haystack.contains);
+      needles.any(
+        (n) => RegExp('\\b${RegExp.escape(n)}').hasMatch(haystack),
+      );
 }

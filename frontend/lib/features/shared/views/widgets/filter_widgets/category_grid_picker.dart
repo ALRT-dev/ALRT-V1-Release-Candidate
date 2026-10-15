@@ -75,13 +75,28 @@ class CategoryGridPicker extends StatelessWidget {
                   isSelected: !allOn && selectedIds.contains(category.id),
                   onTap: allOn
                       ? () => (onSelectOnly ?? onToggle)(category)
-                      : () => onToggle(category),
+                      : () => _toggle(category),
                 ),
               ),
           ],
         );
       },
     );
+  }
+
+  /// Switch one tile while All is off. Where an empty selection is not a
+  /// choice (Filters: empty means everything), switching the last lit
+  /// tile off goes back to All, so the tiles never show nothing selected
+  /// while everything is in fact shown.
+  void _toggle(final HazardCategory category) {
+    final wouldEmpty = !allowNone &&
+        selectedIds.length == 1 &&
+        selectedIds.contains(category.id);
+    if (wouldEmpty) {
+      onSelectAll();
+      return;
+    }
+    onToggle(category);
   }
 
   Widget _allTile({required final bool allOn}) {
