@@ -10,6 +10,8 @@ import android.os.Bundle
 import android.telephony.TelephonyManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
@@ -17,6 +19,8 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val CHANNEL = "com.safetyalrt.alrt/widget_pinning"
         const val SIM_CHANNEL = "com.safetyalrt.alrt/sim"
+        const val WATCH_CHANNEL = "com.safetyalrt.alrt/watch"
+        const val WATCH_PATH = "/alrt/nearby"
         const val EXTRA_PIN_WIDGET = "pin_widget"
     }
 
@@ -34,6 +38,18 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WATCH_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "push" -> {
+                        val payload = call.argument<String>("payload")
+                        if (payload == null) result.success(false)
+                        else pushToWatch(payload, result)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         // The SIM's country, for picking the local emergency number. It is
         // the only signal that follows the ground rather than the owner:
         // an Australian phone in Spain should offer 112, not 000.
@@ -44,6 +60,26 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /**
+     * Hands the same JSON the home-screen widget draws from to a paired Wear
+     * OS watch. Read-only: the watch shows it and can only open the phone app.
+     * A phone with no watch, or no Play services, answers false and nothing
+     * else happens.
+     */
+    private fun pushToWatch(payload: String, result: MethodChannel.Result) {
+        try {
+            val request = PutDataMapRequest.create(WATCH_PATH).apply {
+                dataMap.putString("payload", payload)
+                dataMap.putLong("sentAtMillis", System.currentTimeMillis())
+            }.asPutDataRequest().setUrgent()
+            Wearable.getDataClient(this).putDataItem(request)
+                .addOnSuccessListener { result.success(true) }
+                .addOnFailureListener { result.success(false) }
+        } catch (e: Exception) {
+            result.success(false)
+        }
     }
 
     /**
