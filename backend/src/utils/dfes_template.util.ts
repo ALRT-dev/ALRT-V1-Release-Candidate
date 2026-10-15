@@ -20,6 +20,16 @@ const STOP_HEADING =
   /^(road closures?( and conditions)?|keep up to date|extra information|animal welfare|what (emergency services|firefighters) are doing|bushfire behaviour|cyclone details|more information|end)\s*:?\s*$/i;
 const BULLET = /^[•·*-]\s*/;
 
+/** The incident adapter's closed metadata format contains no instruction field.
+ * Unknown/free-text lines must use the full extraction/fallback path instead.
+ */
+export const parseDfesIncident = (description: string): string[] | null => {
+  const lines = description.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  if (!/^Incident Type:\s*\S/i.test(lines[0] ?? "")) return null;
+  if (lines.some(x => !/^(Incident Type|Location|Local government area|Region|Reported|Source):\s*\S/i.test(x))) return null;
+  return lines.filter(x => /^(Incident Type|Location|Local government area):/i.test(x)).slice(0, 3);
+};
+
 export const parseDfesWarning = (
   description: string,
 ): { facts: string[]; actions: string[] } | null => {

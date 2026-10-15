@@ -18,6 +18,7 @@ import {
   resolveTemplate,
   chooseTemplateBand,
   templateCountry,
+  selectLibraryGuidance,
 } from "../../utils/alert_templates.util.js";
 import prisma from "../../utils/prisma_client.util.js";
 import { HttpError } from "../../models/http_error.js";
@@ -25,6 +26,7 @@ import { getHazardAttributesFromDescription } from "../../utils/ingestion.util.j
 import { getSeverityBandFromAQI } from "../../utils/ingestion.severity.util.js";
 import { parseAqiValueFromDescription } from "../../utils/air_quality_template.util.js";
 import { summarizeHazard } from "../../services/hazard.service.js";
+import { previewExtraction } from "../../utils/preview_extraction.util.js";
 
 const router = Router();
 router.use(requireAdminAuth);
@@ -184,7 +186,7 @@ router.post(
       };
       const output =
         input.extract && !suppressed
-          ? await summarizeHazard({
+          ? await previewExtraction(() => summarizeHazard({
               title: input.title,
               description: input.description,
               category,
@@ -196,6 +198,13 @@ router.post(
             jurisdictionCountry:input.jurisdictionCountry,
             nativeWarningLevel:input.nativeWarningLevel,
             sourceActions: input.sourceInstructions ?? [],
+            }), {
+              sourceText: [input.title, input.description, ...(input.sourceInstructions ?? [])].join('\n\n'),
+              sourceTitle: input.title, sourceDescription: input.description,
+              sourceActions: input.sourceInstructions ?? [], nativeWarningLevel: input.nativeWarningLevel,
+              agency: source.name, allowAgencyNumbers: resolved.settings.allowAgencyNumbers, templateVersion: 0,
+              ...selectLibraryGuidance(input.pack, {categoryId: category.id, parentCategoryId: category.parentId,
+                country: templateCountry(input.jurisdictionCountry, source), band: decision.band}),
             })
           : null;
       res.json({

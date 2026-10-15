@@ -39,4 +39,14 @@ describe("published source templates", () => {
   it("only uses the WAQI adapter for WAQI, never a health-agency smoke warning", () => {
     expect(getSourceTemplateContent({ ...base, sourceId: "waDfes", description: "Smoke is affecting Example" })).toBeNull();
   });
+  it("renders structured DFES incident fields without a model inventing advice", () => {
+    const description = "Incident Type: Burn Off\nLocation: Example\nLocal government area: Example Shire\nRegion: Great Southern\nReported: Thu, 15 Oct 2026 12:57:32 +0800\nSource: Department of Fire and Emergency Services WA incident feed";
+    const result = getSourceTemplateContent({ ...base, sourceId: "waDfes", categoryId: "plannedBurn", severityBand: "info", release, description })!;
+    expect(result.contentDetails?.facts).toEqual(["Incident Type: Burn Off", "Location: Example", "Local government area: Example Shire"]);
+    expect(result.contentDetails?.officialActions).toEqual([]);
+    expect(result.contentDetails?.nativeLevel).toBeNull();
+  });
+  it("never drops extra unrecognised lines from an incident feed", () => {
+    expect(getSourceTemplateContent({ ...base, sourceId: "waDfes", description: "Incident Type: Fire\nLocation: Example\nIf you are east of the road, leave now." })).toBeNull();
+  });
 });

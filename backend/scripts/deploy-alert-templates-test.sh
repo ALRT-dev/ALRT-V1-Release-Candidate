@@ -8,6 +8,8 @@ export LC_ALL=C
 PIN=${1:?reviewed commit required}
 PREVIOUS_HEAD=${2:?observed checkout HEAD required}
 PREVIOUS_IMAGE=${3:?observed running image ID required}
+MODE=${4:---apply-template-migration}
+[[ "$MODE" == --apply-template-migration || "$MODE" == --code-only ]]
 [[ "$PIN" =~ ^[a-f0-9]{40}$ && "$PREVIOUS_HEAD" =~ ^[a-f0-9]{40}$ && "$PREVIOUS_IMAGE" =~ ^sha256:[a-f0-9]{64}$ ]]
 REPO=/opt/alrt-test/repo
 MIGRATION=20261013210000_hazard_content_details
@@ -62,8 +64,15 @@ find "$RUN/backend/prisma/migrations" -mindepth 1 -maxdepth 1 -type d -printf '%
 comm -23 "$RUN/ledger-before.txt" "$RUN/image-migrations.txt" > "$RUN/missing-from-image.txt"
 test ! -s "$RUN/missing-from-image.txt"
 comm -13 "$RUN/ledger-before.txt" "$RUN/image-migrations.txt" > "$RUN/pending.txt"
-test "$(cat "$RUN/pending.txt")" = "$MIGRATION"
-test "$(printf 'select count(*) from information_schema.columns where table_name = '\''Hazard'\'' and column_name in ('\''contentDetails'\'','\''nativeWarningLevel'\'','\''jurisdictionCountry'\'','\''sourceContentHash'\'');' | psql_db "$APPDB")" = 0
+COLUMNS=$(printf 'select count(*) from information_schema.columns where table_name = '\''Hazard'\'' and column_name in ('\''contentDetails'\'','\''nativeWarningLevel'\'','\''jurisdictionCountry'\'','\''sourceContentHash'\'');' | psql_db "$APPDB")
+if [[ "$MODE" == --apply-template-migration ]]; then
+  test "$(cat "$RUN/pending.txt")" = "$MIGRATION"
+  test "$COLUMNS" = 0
+else
+  test ! -s "$RUN/pending.txt"
+  test "$COLUMNS" = 4
+  grep -qx "$MIGRATION" "$RUN/ledger-before.txt"
+fi
 # Custom archive, then actual restore to an absent scratch database. Existing
 # backups and application data are never overwritten by this verification.
 SCRATCH="alrt_template_restore_$(date -u +%Y%m%d%H%M%S)_$$"

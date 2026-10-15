@@ -41,4 +41,13 @@ describe('alert template editor',()=>{
   it('does not let a moderator save or invoke model previews',async()=>{
     mocks.write=false;show();expect(await screen.findByRole('button',{name:'Save draft'})).toBeDisabled();expect(screen.getByRole('button',{name:'Preview extracted alert'})).toBeDisabled();
   });
+  it('clearly labels the source-only fallback',async()=>{
+    mocks.preview.mockResolvedValue({previewOnly:true,suppressed:false,band:'info',reason:'Source classification',applied:['Shared default'],isAws:false,settings:pack().defaults,output:{title:'Agency update',summary:'Original source text.',callsToAction:[],confidence:'low',extractionFallback:true}});
+    show();const user=userEvent.setup();await screen.findByRole('button',{name:'Preview extracted alert'});
+    await user.selectOptions(screen.getAllByRole('combobox').find(x=>x.querySelector('option[value=""]')?.textContent==='Choose a source')!,'agency');
+    await user.selectOptions(screen.getByRole('combobox',{name:'Category'}),'smoke');
+    await user.click(screen.getByRole('button',{name:'Preview extracted alert'}));
+    expect(await screen.findByText('Source extraction could not be verified. Showing the original agency text.')).toBeInTheDocument();
+    expect(screen.getByText('Original source text.')).toBeInTheDocument();
+  });
 });

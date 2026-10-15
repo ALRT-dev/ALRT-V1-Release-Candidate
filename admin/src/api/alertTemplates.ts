@@ -88,6 +88,7 @@ export type TemplatePreview = {
     summary: string;
     callsToAction: string[];
     confidence: string;
+    extractionFallback?: boolean;
     contentDetails?: AlertContent;
   } | null;
 };

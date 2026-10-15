@@ -2,7 +2,7 @@ import type { HazardSeverityBand } from "@prisma/client";
 import type { AISummaryResponse } from "../models/ai_summary_response_interface.js";
 import type { TemplateRelease } from "../services/alert_templates.service.js";
 import { getDeterministicAirQualityContent } from "./air_quality_template.util.js";
-import { getDeterministicDfesContent, parseDfesWarning } from "./dfes_template.util.js";
+import { getDeterministicDfesContent, parseDfesWarning, parseDfesIncident } from "./dfes_template.util.js";
 import { getDeterministicGdacsContent, parseGdacsLevel } from "./gdacs_template.util.js";
 import { resolveTemplate, selectLibraryGuidance } from "./alert_templates.util.js";
 import { removeUnattributedNumbers } from "./agency_extraction.util.js";
@@ -24,6 +24,13 @@ export function getSourceTemplateContent(input: {
   } else if (isDfes) {
     value = getDeterministicDfesContent(input);
     facts = parseDfesWarning(input.description)?.facts ?? [];
+    if (!value) {
+      const incident = parseDfesIncident(input.description);
+      if (incident) {
+        facts = incident;
+        value = { title: input.title, summary: facts.map(x => `• ${x}`).join("\n"), callsToAction: [], confidence: "high" };
+      }
+    }
     nativeLevel ??= /^\s*Warning Type:\s*(.+)$/im.exec(input.description)?.[1]?.trim() ?? null;
   } else if (input.sourceId === "gdacsGlobal") {
     value = getDeterministicGdacsContent(input);
@@ -38,8 +45,10 @@ export function getSourceTemplateContent(input: {
   value = { ...value, title: clean(value.title), summary: clean(value.summary), callsToAction: [...new Set([...value.callsToAction, ...(isDfes ? input.sourceActions ?? [] : [])])].map(clean) };
   if (!input.release || !settings) return value;
   const guidance = selectLibraryGuidance(input.release.pack, { categoryId: input.categoryId, parentCategoryId: input.parentCategoryId ?? null, country: input.country ?? null, band: input.severityBand });
+  const suggestions = isDfes ? (value.callsToAction.length ? [] : guidance.alrtSuggestions) : value.callsToAction;
   return {
     ...value,
+    callsToAction: isDfes && !value.callsToAction.length ? suggestions.map(x => `ALRT suggests: ${x}`) : value.callsToAction,
     contentDetails: {
       schemaVersion: 1, templateVersion: input.release.version,
       facts: facts.length ? facts.map(clean) : [value.summary],
@@ -47,7 +56,7 @@ export function getSourceTemplateContent(input: {
       nativeLevel: nativeLevel ? clean(nativeLevel) : null,
       officialActions: isDfes ? value.callsToAction : [],
       // Reviewed standing lines are ALRT wording, not instructions from WAQI/GDACS.
-      alrtSuggestions: isDfes ? [] : value.callsToAction,
+      alrtSuggestions: suggestions,
       profileGuidance: guidance.profileGuidance,
       evidence: isDfes ? facts : [],
       presentation: { band: input.severityBand, bandColor: settings.bandColors[input.severityBand], iconCategoryId: input.isAwsCompliant ? input.categoryId : settings.iconCategoryId ?? input.categoryId, agencyArtwork: input.isAwsCompliant },

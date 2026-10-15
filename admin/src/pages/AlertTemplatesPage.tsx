@@ -724,6 +724,7 @@ export function AlertTemplatesPage() {
                 {preview.output && (
                   <>
                     <h2>{preview.output.title}</h2>
+                    {preview.output.extractionFallback && <p role="status">Source extraction could not be verified. Showing the original agency text.</p>}
                     {preview.output.contentDetails ? (
                       <AlertContentSections
                         content={preview.output.contentDetails}
