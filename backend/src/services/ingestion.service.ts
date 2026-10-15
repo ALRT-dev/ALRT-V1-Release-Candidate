@@ -32,6 +32,7 @@ import prisma from "../utils/prisma_client.util.js";
 import { getTemplateRegistry, type TemplateRelease } from './alert_templates.service.js';
 import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
 import { agencyExtractionFallback } from '../utils/agency_extraction.util.js';
+import { sourceRenderHash, isSourceRenderRefresh } from '../utils/source_render_version.util.js';
 import { isAlwaysOnOfficialWarning } from '../utils/official_warning.util.js';
 import { summarizeHazard } from "./hazard.service.js";
 import { sendPushNotificationAboutNewHazard } from "./notification.service.js";
@@ -529,6 +530,7 @@ export const summarizeAndPostHazards = async ({
     const hazardsToProcess: Array<{
       hazardData: HazardDataWithRelations;
       isUpdate: boolean;
+      renderRefresh?: boolean;
     }> = [];
 
     let templateRelease: TemplateRelease | null = null;
@@ -542,7 +544,7 @@ export const summarizeAndPostHazards = async ({
       }
 
       try {
-        hazardData.sourceContentHash = hazardContentHash({
+        const sourceParts = {
           title: hazardData.title, description: hazardData.description,
           instructions: hazardData.sourceInstructionBlocks ?? [],
           nativeLevel: hazardData.nativeWarningLevel ?? null,
@@ -552,10 +554,17 @@ export const summarizeAndPostHazards = async ({
           locationName: hazardData.locationName ?? null,
           latitude: hazardData.latitude ?? null, longitude: hazardData.longitude ?? null,
           templateVersion: templateRelease?.version ?? 0,
-        });
+        };
+        const renderedDigest = hazardContentHash(sourceParts);
+        const {severity:_severity,band:_band,templateVersion:_version,...rawParts} = sourceParts;
+        const rawDigest = hazardContentHash({...rawParts,sourceId:hazardData.source?.id??null,categoryId:hazardData.category?.id??null});
+        hazardData.sourceContentHash = sourceRenderHash(renderedDigest,rawDigest);
         const existing = await prisma.hazard.findUnique({
           where: { id: hazardData.id },
         });
+        const previousVersion = (existing?.contentDetails as {templateVersion?:number} | null)?.templateVersion ?? 0;
+        const legacyDigest = hazardContentHash({...sourceParts,severity:existing?.severity??sourceParts.severity,band:existing?.severityBand??sourceParts.band,templateVersion:previousVersion});
+        const renderRefresh = existing?.sourceId === (hazardData.source?.id??null) && existing?.categoryId === hazardData.category?.id && isSourceRenderRefresh(existing?.sourceContentHash,rawDigest,legacyDigest);
 
         // Check if this source has severity band filtering configured
         const sourceId = hazardData.source?.id as ExternalSourceId;
@@ -642,6 +651,7 @@ export const summarizeAndPostHazards = async ({
             hazardsToProcess.push({
               hazardData,
               isUpdate: true,
+              renderRefresh,
             });
           } else if (
             syncOption === SyncHazardsFromExternalSourceOption.deleteExisting
@@ -671,6 +681,7 @@ export const summarizeAndPostHazards = async ({
             hazardsToProcess.push({
               hazardData,
               isUpdate: true,
+              renderRefresh,
             });
           }
         } else {
@@ -701,9 +712,10 @@ export const summarizeAndPostHazards = async ({
     const geocodedHazards: Array<{
       hazardData: HazardDataWithRelations;
       isUpdate: boolean;
+      renderRefresh: boolean;
     }> = [];
 
-    for (const { hazardData, isUpdate } of hazardsToProcess) {
+    for (const { hazardData, isUpdate, renderRefresh = false } of hazardsToProcess) {
       try {
         const populatedHazard = await populateHazardWithGeocoding(hazardData);
 
@@ -718,6 +730,7 @@ export const summarizeAndPostHazards = async ({
         geocodedHazards.push({
           hazardData: populatedHazard,
           isUpdate,
+          renderRefresh,
         });
       } catch (error) {
         console.log("Error during geocoding:", error);
@@ -732,7 +745,7 @@ export const summarizeAndPostHazards = async ({
     // Step 3: Process each hazard individually (summarize -> post) with rate limiting
     const createdHazards = await processBatchWithRateLimit(
       geocodedHazards,
-      async ({ hazardData, isUpdate }) => {
+      async ({ hazardData, isUpdate, renderRefresh }) => {
         try {
           // Colliding-ID sources alternate a row between a handful of contents
           // and pollers re-send unchanged feeds, so notify per (id, content)
@@ -945,7 +958,7 @@ export const summarizeAndPostHazards = async ({
           // Send "new hazard" notifications when we created the row or did a genuine update.
           // When we lost a race (P2002), we only updated – skip to avoid duplicate notifications.
           // Updates whose content already triggered a notification stay silent.
-          if (actuallyCreated || (isUpdate && !alreadyNotified)) {
+          if (actuallyCreated || (isUpdate && !renderRefresh && !alreadyNotified)) {
             sendPushNotificationAboutNewHazard(createdHazard);
             sendSocketEventAboutHazardToSubscribers({
               hazard: createdHazard,

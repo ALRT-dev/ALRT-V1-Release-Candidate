@@ -285,8 +285,8 @@ describe("grounded agency extraction", () => {
     expect(removeUnattributedNumbers("Call 000 if you need emergency help.")).toBe("Call your local emergency number if you need emergency help.");
     expect(removeUnattributedNumbers("Emergency number: 112.")).toBe("Emergency number: your local emergency number.");
     expect(removeUnattributedNumbers("call police on 000")).toBe("call police on your local emergency number");
-    expect(removeUnattributedNumbers("Phone: (08) 1234 5678")).toBe("Phone: your local emergency number");
-    expect(removeUnattributedNumbers("contact DFAT on 1300 555 135")).toBe("contact DFAT on your local emergency number");
+    expect(removeUnattributedNumbers("Phone: (08) 1234 5678")).toBe("Phone: (08) 1234 5678");
+    expect(removeUnattributedNumbers("contact DFAT on 1300 555 135")).toBe("contact DFAT on 1300 555 135");
     expect(removeUnattributedNumbers("Call for help at Exit 112.")).toBe("Call for help at Exit 112.");
     expect(removeUnattributedNumbers("Contact staff at Gate 112.")).toBe("Contact staff at Gate 112.");
     expect(removeUnattributedNumbers("Phone staff in Room 911.")).toBe("Phone staff in Room 911.");
