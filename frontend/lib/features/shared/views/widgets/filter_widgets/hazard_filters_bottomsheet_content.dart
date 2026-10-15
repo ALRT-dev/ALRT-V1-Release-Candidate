@@ -218,8 +218,7 @@ class _HazardFiltersBottomsheetContentState
 
         return _sectionContainerBuilder(
           title: 'Show',
-          subtitle: 'Emergency warnings from official sources are always on. '
-              'Choose what else shows.',
+          subtitle: 'Choose what else shows.',
           child: Column(
             children: [
               _alwaysOnRowBuilder(),
@@ -337,7 +336,7 @@ class _HazardFiltersBottomsheetContentState
   /// "Emergency warnings: always on", ticked and locked. Not tappable.
   Widget _alwaysOnRowBuilder() {
     return Semantics(
-      label: 'Emergency warnings, always on',
+      label: 'Official Emergency Warnings, always on',
       child: Container(
         constraints: BoxConstraints(minHeight: 52.spMin),
         padding: EdgeInsets.symmetric(
@@ -359,7 +358,7 @@ class _HazardFiltersBottomsheetContentState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Emergency warnings',
+                    'Official Emergency Warnings',
                     style: TextStyle(
                       fontSize: 15.spMin,
                       fontWeight: FontWeight.w700,
@@ -371,7 +370,7 @@ class _HazardFiltersBottomsheetContentState
                     // Matches hazard_visibility_util: every active AWS
                     // level and every official critical alert bypass the
                     // filters below.
-                    'From official sources. Always on, cannot be switched off.',
+                    'Always on, cannot be switched off.',
                     style: TextStyle(
                       fontSize: 12.spMin,
                       color: AppColors.mediumGrey,
@@ -382,12 +381,7 @@ class _HazardFiltersBottomsheetContentState
             ),
             Icon(
               LucideIcons.lock,
-              size: 15.spMin,
-              color: AppColors.mediumGrey,
-            ),
-            6.wSizedBox,
-            Icon(
-              Icons.check_circle_rounded,
+              size: 18.spMin,
               color: AppColors.emergency,
             ),
           ],
@@ -459,6 +453,12 @@ class _HazardFiltersBottomsheetContentState
                   .updateSelectedCategories(
                     categories.map((c) => c.id).toSet(),
                   );
+              widget.onFiltersUpdated?.call();
+            },
+            onSelectOnly: (category) {
+              ref
+                  .read(_filtersProvider.notifier)
+                  .updateSelectedCategories({category.id});
               widget.onFiltersUpdated?.call();
             },
           ),

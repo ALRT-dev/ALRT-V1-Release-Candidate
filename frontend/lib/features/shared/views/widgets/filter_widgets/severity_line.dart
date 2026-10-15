@@ -74,8 +74,7 @@ class SeverityLine extends StatelessWidget {
         children: [
           // Each colour is a full-height segment (48 pt tap target: the
           // thin bars were too hard to hit, product owner 14 and 15 Oct
-          // 2026). The lowest colour shown carries a tick; red carries a
-          // lock because it can never be hidden.
+          // 2026).
           Row(
             children: [
               for (var i = 0; i < _colours.length; i++)
@@ -100,21 +99,17 @@ class SeverityLine extends StatelessWidget {
                               ? Border.all(color: AppColors.ink, width: 2)
                               : null,
                         ),
+                        // Red carries the lock because it can never be
+                        // hidden; the chosen segment is told by its dark
+                        // border, with no tick (product owner, 16 Oct
+                        // 2026). Colours below the chosen one sit dull.
                         child: i == _colours.length - 1
                             ? Icon(
                                 Icons.lock_rounded,
                                 size: 18.spMin,
                                 color: AppColors.white,
                               )
-                            : i == lowest
-                                ? Icon(
-                                    Icons.check_rounded,
-                                    size: 18.spMin,
-                                    color: i == 1
-                                        ? AppColors.ink
-                                        : AppColors.white,
-                                  )
-                                : null,
+                            : null,
                       ),
                     ),
                   ),

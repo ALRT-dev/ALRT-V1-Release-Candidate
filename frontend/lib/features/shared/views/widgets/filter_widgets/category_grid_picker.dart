@@ -10,12 +10,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// The category picker shared by the Filters sheet and the Notifications
 /// screen: an "All categories" tile first, then every category as an equal
-/// tile with its disc AND its name (product owner, 15 Oct 2026: an "all"
-/// choice on both, and icons alone were hard to understand).
+/// tile with its disc AND its name (product owner, 15 and 16 Oct 2026).
 ///
-/// "All categories" turns every category on. When everything is already
-/// on it is shown ticked; tapping a single category then switches just
-/// that one off.
+/// "All categories" is on by default and shows ticked while every
+/// category is selected; the category tiles then sit dull, because all of
+/// them are included. Tapping one category while All is on narrows the
+/// selection to that category alone, which lights up. Tapping All again
+/// selects everything; tapping it while on clears the selection only
+/// where [allowNone] permits (Notifications: unsubscribed from every
+/// category is a real choice; Filters: an empty selection means
+/// everything, so All stays on).
 class CategoryGridPicker extends StatelessWidget {
   const CategoryGridPicker({
     super.key,
@@ -23,12 +27,27 @@ class CategoryGridPicker extends StatelessWidget {
     required this.selectedIds,
     required this.onToggle,
     required this.onSelectAll,
+    this.onSelectOnly,
+    this.onClearAll,
+    this.allowNone = false,
   });
 
   final List<HazardCategory> categories;
   final Set<String> selectedIds;
+
+  /// Switch one category on or off (used while All is off).
   final void Function(HazardCategory category) onToggle;
+
+  /// Select every category.
   final VoidCallback onSelectAll;
+
+  /// Narrow to one category (used when a tile is tapped while All is on).
+  /// Falls back to [onToggle] when null.
+  final void Function(HazardCategory category)? onSelectOnly;
+
+  /// Clear the selection (All tapped while on). Only used if [allowNone].
+  final VoidCallback? onClearAll;
+  final bool allowNone;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +70,12 @@ class CategoryGridPicker extends StatelessWidget {
                 width: tileWidth,
                 child: _categoryTile(
                   category: category,
-                  isSelected: selectedIds.contains(category.id),
+                  // While All is on every tile is included but sits dull;
+                  // a tile lights only when picked on its own.
+                  isSelected: !allOn && selectedIds.contains(category.id),
+                  onTap: allOn
+                      ? () => (onSelectOnly ?? onToggle)(category)
+                      : () => onToggle(category),
                 ),
               ),
           ],
@@ -100,13 +124,20 @@ class CategoryGridPicker extends StatelessWidget {
             ),
           ],
         ),
-      ).onPressed(onSelectAll),
+      ).onPressed(() {
+        if (allOn) {
+          if (allowNone) onClearAll?.call();
+          return;
+        }
+        onSelectAll();
+      }),
     );
   }
 
   Widget _categoryTile({
     required final HazardCategory category,
     required final bool isSelected,
+    required final VoidCallback onTap,
   }) {
     final color = categoryChipColor(category);
     final name = category.name ?? 'Category';
@@ -149,7 +180,7 @@ class CategoryGridPicker extends StatelessWidget {
             ],
           ),
         ),
-      ).onPressed(() => onToggle(category)),
+      ).onPressed(onTap),
     );
   }
 }

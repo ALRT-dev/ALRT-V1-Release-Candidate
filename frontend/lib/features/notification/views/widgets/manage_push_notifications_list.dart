@@ -205,8 +205,7 @@ class _ManagePushNotificationsListState
         return _sectionContainerBuilder(
           title: 'Level',
           subtitle:
-              'Emergency warnings from official sources are always on for '
-              'your area. Pick what else you hear about.',
+              'Pick what else you hear about.',
           child: Column(
             children: [
               // Emergency warnings can never be switched off, so they sit
@@ -257,7 +256,7 @@ class _ManagePushNotificationsListState
   /// tappable. Matches the Filters sheet row to the pixel.
   Widget _alwaysOnRow() {
     return Semantics(
-      label: 'Emergency warnings from official sources, always on',
+      label: 'Official Emergency Warnings, always on',
       child: Container(
         constraints: BoxConstraints(minHeight: 56.spMin),
         padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
@@ -276,7 +275,7 @@ class _ManagePushNotificationsListState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Emergency warnings',
+                    'Official Emergency Warnings',
                     style: TextStyle(
                       fontSize: 15.spMin,
                       fontWeight: FontWeight.w700,
@@ -286,7 +285,7 @@ class _ManagePushNotificationsListState
                   ),
                   3.hSizedBox,
                   Text(
-                    'From official sources. Always on, cannot be switched off.',
+                    'Always on, cannot be switched off.',
                     style: TextStyle(
                       fontSize: 12.5.spMin,
                       color: AppColors.grey,
@@ -297,13 +296,13 @@ class _ManagePushNotificationsListState
               ),
             ),
             SizedBox(width: 10.spMin),
+            // The lock alone says it: no tick and no pill, because it is
+            // never a choice (product owner, 16 Oct 2026).
             Icon(
               LucideIcons.lock,
-              size: 15.spMin,
-              color: AppColors.mediumGrey,
+              size: 18.spMin,
+              color: AppColors.emergency,
             ),
-            6.wSizedBox,
-            _alwaysOnPill(),
           ],
         ),
       ),
@@ -419,25 +418,6 @@ class _ManagePushNotificationsListState
     );
   }
 
-  Widget _alwaysOnPill() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 5.spMin),
-      decoration: BoxDecoration(
-        color: _selectedTile,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _selectedBorder),
-      ),
-      child: Text(
-        'Always on',
-        style: TextStyle(
-          fontSize: 11.spMin,
-          fontWeight: FontWeight.w800,
-          color: _selectedBorder,
-        ),
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------
   // CATEGORIES
   // ---------------------------------------------------------------
@@ -488,11 +468,15 @@ class _ManagePushNotificationsListState
               child: CategoryGridPicker(
                 categories: cats,
                 selectedIds: selectedIds.toSet(),
+                allowNone: true,
                 onToggle: (category) =>
                     filterProvider.toggleCategory(category.id),
                 onSelectAll: () => filterProvider.updateSelectedCategories(
                   cats.map((e) => e.id).toSet(),
                 ),
+                onSelectOnly: (category) =>
+                    filterProvider.updateSelectedCategories({category.id}),
+                onClearAll: () => filterProvider.updateSelectedCategories({}),
               ),
             );
           },
