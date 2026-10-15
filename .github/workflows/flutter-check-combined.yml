@@ -1,0 +1,58 @@
+# Analyse and test the Flutter app on the combined 15 Oct branch ONLY.
+# Builds nothing, signs nothing, publishes nothing: it never touches the
+# android-test-latest pre-release (the QR link) or TestFlight, so it can
+# run while the owner is testing another build. Delete this file when the
+# branch is merged.
+name: Flutter Check (combined branch, no publish)
+
+on:
+  push:
+    branches:
+      - claude/combined-15oct
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # Placeholder values only; nothing here reaches a build.
+      - name: Placeholder .env for asset bundling
+        run: |
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID=placeholder"
+            echo "GOOGLE_MAPS_API_KEY=placeholder"
+            echo "GOOGLE_MAPS_ANDROID_PACKAGE_NAME=com.safetyalrt.alrt.dev"
+          } > .env
+      - name: flutter analyze (errors fail, warnings listed)
+        run: |
+          set +e
+          flutter analyze --no-fatal-infos --no-fatal-warnings > /tmp/analyze.txt 2>&1
+          code=$?
+          grep -E "^\s*(error|warning) " /tmp/analyze.txt | head -60 | while read -r line; do echo "::warning title=analyze::$line"; done
+          grep -E "^\s*error " /tmp/analyze.txt | head -30 | while read -r line; do echo "::error title=analyze::$line"; done
+          tail -n 3 /tmp/analyze.txt
+          exit $code
+      - name: flutter test
+        if: always()
+        run: |
+          set +e
+          flutter test --reporter expanded > /tmp/test.txt 2>&1
+          code=$?
+          tail -n 5 /tmp/test.txt
+          if [ "$code" -ne 0 ]; then
+            grep -E '\[E\]|Error:|Expected:|Actual:|Failed to load|Some tests failed|error:' /tmp/test.txt | head -60 | while read -r line; do echo "::error title=flutter test::$line"; done
+          fi
+          exit $code
