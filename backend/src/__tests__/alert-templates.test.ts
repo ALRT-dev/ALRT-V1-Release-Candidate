@@ -11,6 +11,12 @@ import {
 import { parseAgencyExtraction, removeUnattributedNumbers } from "../utils/agency_extraction.util.js";
 
 describe("editable alert templates", () => {
+  it('keeps an explicit agency lifecycle above warning text and editable maps',()=>{
+    const settings=defaultTemplatePack().defaults;
+    for(const sourceLifecycle of ['test','resolved'] as const){
+      expect(chooseTemplateBand(settings,{isAws:true,severity:'emergency',nativeLevel:'Emergency Warning',description:'This is not a drill. Emergency Warning.',sourceLifecycle,fallback:'critical'})).toMatchObject({band:'info',severity:'info'});
+    }
+  });
   it("preserves all existing profile rows as drafts until category and wording review", () => {
     const pack = defaultTemplatePack();
     const drafts = pack.library.filter(x => x.id.startsWith("standing-"));

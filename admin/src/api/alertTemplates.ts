@@ -110,6 +110,7 @@ export const previewAlertTemplate = (data: {
   title: string;
   description: string;
   nativeWarningLevel: string | null;
+  sourceLifecycle?: 'active'|'test'|'resolved';
   jurisdictionCountry?:string|null;
   extract: boolean;
   sourceInstructions?: string[];

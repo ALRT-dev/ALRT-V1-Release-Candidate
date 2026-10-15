@@ -13,6 +13,7 @@ import type {
   Point,
 } from "geojson";
 import Parser from "rss-parser";
+import {readCFSCap,readCFSCapCancellations} from './cfs_cap.util.js';
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { GeocodeResult } from "@googlemaps/google-maps-services-js";
@@ -1730,6 +1731,40 @@ function createWAHazardFromItem({
  * const hazards = parseCFSFeedToHazards(cfsData, categoryId);
  * ```
  */
+export function parseCFSCapToHazards({xml,availableCategories,previousHazards=[]}:{xml:string;availableCategories:(HazardCategory & {parent:HazardCategory|null})[];previousHazards?:Omit<HazardDataWithRelations,'contentDetails'>[]}):HazardDataWithRelations[]{
+  const rows=new Map<string,HazardDataWithRelations>();
+  const cancellationRows=new Map<string,HazardDataWithRelations>();
+  for(const row of readCFSCap(xml)){
+    const {categoryText,sourceLifecycle,isCancellation,hasCancellationReferences,...fields}=row;
+    const attributes=getHazardAttributesFromDescription(row.description,availableCategories,undefined,{categoryText,severityText:row.nativeWarningLevel??''});
+    const hazard:HazardDataWithRelations={...fields,...attributes,
+      ...(sourceLifecycle?{sourceLifecycle}:{}),
+      ...(sourceLifecycle==='active'&&awsCompliantSeverities.includes(attributes.severity)?{severityBand:getSeverityBandFromAWSCompliantSeverity(attributes.severity)}:{}),
+      ...(sourceLifecycle&&sourceLifecycle!=='active'?{severity:HazardSeverity.info,severityBand:HazardSeverityBand.info}:{}),
+      callsToAction:row.sourceInstructionBlocks};
+    if(isCancellation&&hasCancellationReferences){cancellationRows.set(row.id,hazard);continue;}
+    const previous=rows.get(row.id);
+    if(!previous||new Date(previous.occurredAt!).getTime()<=row.occurredAt.getTime())rows.set(row.id,hazard);
+  }
+  for(const cancellation of readCFSCapCancellations(xml)){
+    const candidates=[rows.get(cancellation.id),previousHazards.find(x=>x.id===cancellation.id&&x.source?.id==='cfs')].filter((x):x is Omit<HazardDataWithRelations,'contentDetails'>=>!!x).sort((a,b)=>new Date(b.occurredAt!).getTime()-new Date(a.occurredAt!).getTime());
+    const previous=candidates[0];
+    if(!previous||!previous.category||new Date(previous.occurredAt!).getTime()>cancellation.referencedAt.getTime()||cancellation.referencedAt>cancellation.occurredAt)continue;
+    const supplied=cancellationRows.get(cancellation.messageId);
+    rows.set(cancellation.id,{
+      ...(supplied??{}),
+      id:cancellation.id,title:supplied?.title??previous.title,description:supplied?.description??'Incident is resolved. The source cancelled this alert.',
+      nativeWarningLevel:supplied?.nativeWarningLevel??previous.nativeWarningLevel??null,jurisdictionCountry:'AU',
+      category:previous.category,source:previous.source??null,sourceLifecycle:'resolved',
+      severity:HazardSeverity.info,severityBand:HazardSeverityBand.info,isAwsCompliant:previous.isAwsCompliant??false,
+      latitude:supplied?.latitude??previous.latitude??null,longitude:supplied?.longitude??previous.longitude??null,locationName:supplied?.locationName??previous.locationName??null,
+      northeastLat:supplied?.northeastLat??previous.northeastLat??null,northeastLng:supplied?.northeastLng??previous.northeastLng??null,southwestLat:supplied?.southwestLat??previous.southwestLat??null,southwestLng:supplied?.southwestLng??previous.southwestLng??null,
+      link:supplied?.link??previous.link??null,callsToAction:supplied?.sourceInstructionBlocks??[],sourceInstructionBlocks:supplied?.sourceInstructionBlocks??[],occurredAt:cancellation.occurredAt,expiresAt:cancellation.occurredAt,
+    });
+  }
+  return [...rows.values()];
+}
+
 export function parseCFSFeedToHazards({
   data,
   availableCategories,
@@ -3569,7 +3604,7 @@ const isValidURL = (str: string): boolean => {
 export const convertHazardDataWithRelationsToCreateInput = (
   hazardData: HazardDataWithRelations,
 ): Prisma.HazardCreateInput => {
-  const {sourceInstructionBlocks: _sourceInstructionBlocks, ...stored} = hazardData;
+  const {sourceInstructionBlocks: _sourceInstructionBlocks, sourceLifecycle: _sourceLifecycle, ...stored} = hazardData;
   return {
     ...stored,
     category: {

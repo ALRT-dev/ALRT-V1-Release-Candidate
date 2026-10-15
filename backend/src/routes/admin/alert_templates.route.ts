@@ -82,6 +82,7 @@ const previewSchema = z
     title: z.string().min(1).max(200),
     description: z.string().min(1).max(50000),
     nativeWarningLevel: z.string().max(150).nullable().optional(),
+    sourceLifecycle: z.enum(['active','test','resolved']).optional(),
     extract: z.boolean().default(false),
     jurisdictionCountry:z.string().regex(/^[A-Z]{2}$/).nullable().optional(),
     sourceInstructions: z.array(z.string().min(1).max(50000)).max(40).optional(),
@@ -136,7 +137,7 @@ router.post(
         input.description,
         categories,
         category.id,
-        { category },
+        { category, severityText: input.nativeWarningLevel ?? input.description },
       );
       const resolved = resolveTemplate(input.pack, {
       country: templateCountry(input.jurisdictionCountry,source),
@@ -147,6 +148,7 @@ router.post(
         isAws: attributes.isAwsCompliant,
         severity: attributes.severity,
         nativeLevel: input.nativeWarningLevel ?? null,
+        sourceLifecycle: input.sourceLifecycle,
         description: input.description,
         fallback: attributes.severityBand,
       });

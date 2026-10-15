@@ -1,6 +1,6 @@
 # ALRT editable alert templates: TEST implementation
 
-Date: 15 October 2026. Status: pushed; newer source/icon changes integrated and under final checks. Template changes are not yet deployed.
+Date: 15 October 2026. Status: templates deployed to TEST and version 1 published. CFS feed repair is undergoing final review for the next TEST update.
 
 The product owner authorised TEST changes and deployment, and later clarified public stores as the final destination. This deployment phase remains TEST-only. AWS TEST access is restored and account 488658242173 verified. The app/browser connector currently returns `Transport closed`; shell, GitHub and AWS work.
 
@@ -63,7 +63,7 @@ Restore the previous published template through version history for prompt/routi
 
 ## Verification boundaries
 
-Automated checks use mocks and synthetic examples. They do not prove that every production source, every private n8n workflow, or every deployed model response conforms. Remote migration and reviewed backend updates succeeded. Live previews at 43b645b extracted nine real stored examples and one synthetic example without fallback. A native-level preview mapping issue found in those checks is covered by the next fix. Signed-in Admin behavior, TEST n8n coverage and physical-device rendering remain to be verified. The earlier production audit remains relevant for workflow-specific defects that have not been changed in production.
+Automated checks use mocks and synthetic examples. They do not prove that every production source, every private n8n workflow, or every deployed model response conforms. Remote migration and reviewed backend updates succeeded. Live previews at 43b645b extracted nine real stored examples and one synthetic example without fallback. A native-level preview mapping issue found in those checks was fixed in deployed revision 5ecb74e. The first scheduled refresh after publication saved 371 alerts across 10 sources with templateVersion 1. Signed-in Admin behavior, TEST n8n coverage and physical-device rendering remain to be verified. The earlier production audit remains relevant for workflow-specific defects that have not been changed in production.
 
 ## Live-source review, 15 October 2026
 
@@ -72,3 +72,11 @@ Automated checks use mocks and synthetic examples. They do not prove that every 
 - The ingestion processing identity has a renderer version and raw source digest. Unchanged-source rendering refreshes are quiet, including after template changes; genuine source/native-level/instruction changes remain notification candidates. Decisions are carried per input, including colliding IDs in one batch.
 - TEST has 22 prompts and 19 sources. All 152 default source/band/AWS routes resolved. The registry contains 12 reviewed starter entries and 243 older unapproved guidance drafts. It has no TEST webhook API keys or recent webhook calls; a separate TEST n8n connection is not yet evidenced.
 - Android TEST build 38696937645 at a62f4cb succeeded with billing bypass. Apple Dev build 38697481822 stopped because com.safetyalrt.alrt.dev.AlrtWidget is not registered with Apple; group.com.safetyalrt.alrt.dev must be shared with the Dev app. No widget TestFlight upload is claimed.
+
+## Publication and CFS source repair
+
+- TEST template version 1 was published at 2026-10-15T09:48:48Z with one audit record, 8b24cda2-939a-4305-b936-282db6b089eb. Readback confirmed semantic equality and unchanged prompt records. The initial verification compared JSON property ordering; the transaction had already committed, and it was not repeated.
+- The old CFS JSON endpoint returns an HTML unavailable page with HTTP 200. The [official CFS feed page](https://www.cfs.sa.gov.au/warnings-restrictions/warnings/rss-feeds/) now links https://data.eso.sa.gov.au/feeds/prod/cap-au.xml. The new reader keeps CFS records separate from MFS records in that shared feed. The captured live sample had five CFS and four MFS incidents; all were burn offs. AWS warning and cancellation checks are synthetic, not observed live warning evidence.
+- The reader preserves native warning labels, complete instructions, area geometry and source timestamps. Multiple information sections retain their own area, level and validity context. The combined card uses the strongest explicit AWS level and combined coverage. Reference-only cancellations resolve existing CFS records; they do not invent a location or cancel another source's rows. Older cancellation times cannot replace newer source events.
+- Explicit test/resolved lifecycle takes precedence over warning text and template mappings. Admin preview includes a source incident status selector for this same rule. Test and exercise source IDs are separate from actual incident IDs.
+- An unrecognised or malformed feed fails source health rather than becoming an apparently healthy empty feed. The existing 15-minute scheduler is unchanged; more frequent CFS polling remains a source scheduling follow-up.

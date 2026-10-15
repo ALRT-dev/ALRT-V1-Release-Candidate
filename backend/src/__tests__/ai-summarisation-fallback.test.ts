@@ -127,7 +127,7 @@ vi.mock("../utils/ingestion.util.js", () => ({
   setCachedLocationExtraction: vi.fn(),
   parseGeoJsonToHazards: vi.fn().mockReturnValue([]),
   parseRSSFeedToHazards: vi.fn().mockReturnValue([]),
-  parseCFSFeedToHazards: vi.fn().mockReturnValue([]),
+  parseCFSCapToHazards: vi.fn().mockReturnValue([]),
   parseNTFireAndRescueToHazards: vi.fn().mockReturnValue([]),
   parseWAQIToHazards: vi.fn().mockReturnValue([]),
   parseUVIndexAndPollenToHazards: vi.fn().mockReturnValue([]),

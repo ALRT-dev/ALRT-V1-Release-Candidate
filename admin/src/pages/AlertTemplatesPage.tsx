@@ -69,6 +69,7 @@ export function AlertTemplatesPage() {
   const [librarySearch, setLibrarySearch] = useState("");
   const [jurisdictionCountry,setJurisdictionCountry]=useState('');
   const [sourceInstructions,setSourceInstructions]=useState('');
+  const [sourceLifecycle,setSourceLifecycle]=useState<''|'active'|'test'|'resolved'>('');
   const load = useCallback(async () => {
     setBusy(true);
     setError("");
@@ -217,6 +218,7 @@ export function AlertTemplatesPage() {
           title,
           description,
           nativeWarningLevel: nativeLevel.trim() || null,
+          ...(sourceLifecycle?{sourceLifecycle}:{}),
           jurisdictionCountry:jurisdictionCountry.trim()||null,
           sourceInstructions: sourceInstructions.trim() ? [sourceInstructions.trim()] : [],
           extract,
@@ -650,6 +652,15 @@ export function AlertTemplatesPage() {
                 }}
               />
             </label>
+            <label>Source incident status
+              <select value={sourceLifecycle} onChange={e=>{setSourceLifecycle(e.target.value as ''|'active'|'test'|'resolved');setPreview(null);}}>
+                <option value="">Not supplied</option>
+                <option value="active">Active (confirmed by source)</option>
+                <option value="test">Test or exercise</option>
+                <option value="resolved">Resolved or cancelled</option>
+              </select>
+            </label>
+            <p className="muted">Choose a status only when the source explicitly supplies it. Test and resolved incidents are Info.</p>
             <label>
               Source text
               <textarea

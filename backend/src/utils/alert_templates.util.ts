@@ -217,11 +217,12 @@ export function chooseTemplateBand(
     categoryId?: string | undefined;
     severity?: string | null;
     nativeLevel?: string | null;
+    sourceLifecycle?: 'active' | 'test' | 'resolved' | undefined;
     description: string;
     fallback: TemplateBand;
   },
 ) {
-  if (isInfoOverride(input.description))
+  if ((input.sourceLifecycle && input.sourceLifecycle!=='active') || (!input.sourceLifecycle && isInfoOverride(input.description)))
     return {
       band: "info" as TemplateBand,
       severity: 'info' as const,

@@ -7,7 +7,7 @@ import {
   type HazardCategory,
 } from "@prisma/client";
 import {
-  parseCFSFeedToHazards,
+  parseCFSCapToHazards,
   parseGeoJsonToHazards,
   parseNTFireAndRescueToHazards,
   parseRSSFeedToHazards,
@@ -33,6 +33,7 @@ import { getTemplateRegistry, type TemplateRelease } from './alert_templates.ser
 import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
 import { agencyExtractionFallback } from '../utils/agency_extraction.util.js';
 import { sourceRenderHash, isSourceRenderRefresh } from '../utils/source_render_version.util.js';
+import {CFS_CAP_URL,fetchCFSCap,readCFSCapCancellations} from '../utils/cfs_cap.util.js';
 import { isAlwaysOnOfficialWarning } from '../utils/official_warning.util.js';
 import { summarizeHazard } from "./hazard.service.js";
 import { sendPushNotificationAboutNewHazard } from "./notification.service.js";
@@ -206,13 +207,13 @@ export const syncHazardsFromDifferentSources = async ({
       },
       {
         id: ExternalSourceId.cfs,
-        apiUrl:
-          "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json",
-        parseFunction: (responseData: any) =>
-          parseCFSFeedToHazards({
-            data: responseData,
-            availableCategories,
-          }),
+        apiUrl: CFS_CAP_URL,
+        parseFunction: async () => {
+          const xml=await fetchCFSCap();
+          const cancellations=readCFSCapCancellations(xml);
+          const previousHazards=cancellations.length?await prisma.hazard.findMany({where:{sourceId:'cfs',id:{in:cancellations.map(x=>x.id)}},include:{category:true,source:true}}):[];
+          return parseCFSCapToHazards({xml,availableCategories,previousHazards});
+        },
       },
       {
         id: ExternalSourceId.viceFire,
@@ -540,13 +541,14 @@ export const summarizeAndPostHazards = async ({
       if (!hazardData.id) continue;
       if(templateRelease&&hazardData.source&&!(hazardData.category?.id==='airQualityAlert' && hazardData.source.id==='waqi')){
         const resolved=resolveTemplate(templateRelease.pack,{country:templateCountry(hazardData.jurisdictionCountry,hazardData.source),sourceId:hazardData.source.id});
-        const decision=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,categoryId:hazardData.category?.id,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info});
+        const decision=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,categoryId:hazardData.category?.id,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,sourceLifecycle:hazardData.sourceLifecycle,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info});
         hazardData.severityBand=decision.band;
         if ('severity' in decision) hazardData.severity=decision.severity;
       }
 
       try {
         const sourceParts = {
+          ...(hazardData.sourceLifecycle?{sourceLifecycle:hazardData.sourceLifecycle}:{}),
           title: hazardData.title, description: hazardData.description,
           instructions: hazardData.sourceInstructionBlocks ?? [],
           nativeLevel: hazardData.nativeWarningLevel ?? null,

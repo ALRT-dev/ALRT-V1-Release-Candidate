@@ -15,6 +15,15 @@ const state=()=>({revision:1,draft:pack(),published:null,history:[]});
 beforeEach(()=>{vi.clearAllMocks();mocks.write=true;mocks.get.mockResolvedValue({state:state(),sources});mocks.save.mockResolvedValue({...state(),revision:2});});
 const show=()=>render(<MemoryRouter><AlertTemplatesPage/></MemoryRouter>);
 describe('alert template editor',()=>{
+  it('sends the explicit source lifecycle to preview',async()=>{
+    mocks.preview.mockResolvedValue({previewOnly:true,suppressed:false,band:'info',reason:'Source lifecycle',applied:['Shared default'],isAws:false,settings:pack().defaults});
+    show();const user=userEvent.setup();await screen.findByRole('button',{name:'Check mapping'});
+    await user.selectOptions(screen.getAllByRole('combobox').find(x=>x.querySelector('option[value=""]')?.textContent==='Choose a source')!,'agency');
+    await user.selectOptions(screen.getByRole('combobox',{name:'Category'}),'smoke');
+    await user.selectOptions(screen.getByRole('combobox',{name:'Source incident status'}),'test');
+    await user.click(screen.getByRole('button',{name:'Check mapping'}));
+    await waitFor(()=>expect(mocks.preview).toHaveBeenCalledWith(expect.objectContaining({sourceLifecycle:'test'})));
+  });
   it('shows inherited country settings for a source override',async()=>{
     expect(editorSettings(pack(),pack().overrides[1],sources).language).toBe('en-NZ');
     show();const user=userEvent.setup();await screen.findByText('One shared template, with country and source changes where needed.');
