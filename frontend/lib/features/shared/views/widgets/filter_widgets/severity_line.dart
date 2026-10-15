@@ -68,15 +68,18 @@ class SeverityLine extends StatelessWidget {
                     behavior: HitTestBehavior.opaque,
                     onTap: () => _select(i),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10.spMin),
+                      // A real tap target, not a hairline (owner, 15 Oct
+                      // 2026: too thin and too hard to hit). Still one
+                      // horizontal row.
+                      padding: EdgeInsets.symmetric(vertical: 6.spMin),
                       child: Container(
-                        height: 12.spMin,
-                        margin: EdgeInsets.symmetric(horizontal: 1.5.spMin),
+                        height: 48.spMin,
+                        margin: EdgeInsets.symmetric(horizontal: 3.spMin),
                         decoration: BoxDecoration(
                           color: i >= lowest
                               ? _colours[i]
                               : _colours[i].withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(6.spMin),
+                          borderRadius: BorderRadius.circular(14.spMin),
                           border: i == lowest && lowest > 1
                               ? Border.all(color: AppColors.ink, width: 2)
                               : null,

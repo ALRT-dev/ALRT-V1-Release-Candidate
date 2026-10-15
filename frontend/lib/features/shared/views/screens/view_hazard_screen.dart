@@ -860,6 +860,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         // What To Do Section (verbatim from source)
         _buildWhatToDoSection(),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4.spMin),
+          child: Text(
+            AlertTextUtil.standingEmergencyLine,
+            style: TextStyle(
+              fontSize: 13.spMin,
+              height: 1.4,
+              color: AppColors.mediumGrey,
+            ),
+          ),
+        ),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(

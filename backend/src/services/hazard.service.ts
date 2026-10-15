@@ -38,6 +38,7 @@ import { config } from "../utils/config.js";
 import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
 import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
+import { getDeterministicDfesContent } from "../utils/dfes_template.util.js";
 import { getDeterministicGdacsContent } from "../utils/gdacs_template.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import {
@@ -670,12 +671,25 @@ export const summarizeHazard = async ({
   // templates keyed by band. severityBand is already the deterministic,
   // Node-computed value (getSeverityBandFromAQI, run in ingestion before
   // this function is ever called), so no model call is needed or made.
-  if (category.id === SubCategoryId.airQualityAlert) {
+  // Only for the air quality source itself: a DFES "Smoke Alert" is filed
+  // under this category but must keep DFES's own words, not an invented
+  // "as reported by WAQI" station line.
+  if (
+    category.id === SubCategoryId.airQualityAlert &&
+    source.id !== "waDfes"
+  ) {
     return getDeterministicAirQualityContent({
       title,
       description,
       severityBand,
     });
+  }
+
+  // WA DFES warnings: the agency's facts and its own instructions, word for
+  // word, no model call (a failed call used to leave raw text and no advice).
+  if (source.id === "waDfes") {
+    const dfesContent = getDeterministicDfesContent({ title, description });
+    if (dfesContent) return dfesContent;
   }
 
   // GDACS is a pass-through source: level and hazard come straight from the

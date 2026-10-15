@@ -86,6 +86,11 @@ abstract final class AlertTextUtil {
         : '$name has not published further details yet.';
   }
 
+  /// The one standing line on every alert (owner ruling): no number, no
+  /// agency, never a promise that ALRT contacts anyone.
+  static const String standingEmergencyLine =
+      'If you are experiencing an emergency, call your local emergency number.';
+
   static String followAgencyLine(final String? agencyName) {
     final name = (agencyName ?? '').trim();
     return name.isEmpty
