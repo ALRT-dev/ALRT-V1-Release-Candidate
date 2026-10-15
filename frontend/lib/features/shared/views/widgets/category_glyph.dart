@@ -40,7 +40,7 @@ class CategoryGlyph extends StatelessWidget {
       return LucideIcons.heartPulse;
     }
     if (name.contains('security') || name.contains('crime')) {
-      return LucideIcons.shieldAlert;
+      return LucideIcons.lock;
     }
     if (name.contains('traffic') || name.contains('transport')) {
       return LucideIcons.car;

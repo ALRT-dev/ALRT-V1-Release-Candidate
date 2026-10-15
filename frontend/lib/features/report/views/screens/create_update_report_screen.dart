@@ -503,10 +503,10 @@ class _CreateUpdateReportScreenState
       if (!_wordingTouched) _pickedWording = _preselectedWording();
     });
 
-    // "Something else" asks for words instead of adding taxonomy data.
-    if (chip.isOther && _selectedChipIds.contains(chip.id)) {
-      _descriptionFocusNode.requestFocus();
-    }
+    // "Something else" asks for words instead of adding taxonomy data. It
+    // used to focus the details field, which scrolled the form and opened
+    // the keyboard on every tap (owner, 15 Oct 2026). The tap now only
+    // marks the chip; the person scrolls to Add details when ready.
   }
 
   /// Highest severityDefault across the selected chips (spec A.3), or null
@@ -535,7 +535,9 @@ class _CreateUpdateReportScreenState
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 8.spMin,
+        // Closer together so each card is wider and taller to tap (owner,
+        // 15 Oct 2026), still one horizontal row.
+        spacing: 6.spMin,
         children: [
           for (final wording in ReportSeverityWording.values)
             Expanded(child: _wordingItemBuilder(wording)),
@@ -557,9 +559,13 @@ class _CreateUpdateReportScreenState
       label: '${wording.label}, ${wording.sub}',
       excludeSemantics: true,
       onTap: handleTap,
-      child: Container(
-        constraints: BoxConstraints(minHeight: 64.spMin),
-        padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 16.spMin),
+      child: Stack(
+       clipBehavior: Clip.none,
+       fit: StackFit.passthrough,
+       children: [
+      Container(
+        constraints: BoxConstraints(minHeight: 80.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 6.spMin, vertical: 18.spMin),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFFAF9F7) : AppColors.white,
           borderRadius: BorderRadius.circular(12.spMin),
@@ -568,24 +574,20 @@ class _CreateUpdateReportScreenState
             width: isSelected ? 2.0 : 1.5,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (isSelected) ...[
-                  Icon(
-                    LucideIcons.check,
-                    size: 14.spMin,
-                    color: AppColors.ink,
-                  ),
-                  4.wSizedBox,
-                ],
-                Flexible(
+                // One line, always. The tick sits in the corner so choosing
+                // a card never narrows the word and wraps it onto two rows.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
                   child: Text(
                     wording.label,
+                    maxLines: 1,
+                    softWrap: false,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15.spMin,
@@ -594,19 +596,37 @@ class _CreateUpdateReportScreenState
                     ),
                   ),
                 ),
+                3.hSizedBox,
+                Text(
+                  wording.sub,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.spMin,
+                    color: AppColors.mediumGrey,
+                  ),
+                ),
               ],
-            ),
-            3.hSizedBox,
-            Text(
-              wording.sub,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.spMin,
-                color: AppColors.mediumGrey,
-              ),
             ),
           ],
         ),
+      ),
+      // The tick is a dark round badge on the card's top right corner
+      // (owner, 15 Oct 2026), so it never takes room from the words.
+      if (isSelected)
+        Positioned(
+          top: -8.spMin,
+          right: -4.spMin,
+          child: Container(
+            width: 20.spMin,
+            height: 20.spMin,
+            decoration: const BoxDecoration(
+              color: AppColors.ink,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(LucideIcons.check, size: 13.spMin, color: AppColors.white),
+          ),
+        ),
+       ],
       ),
     ).onPressed(handleTap);
   }

@@ -1,8 +1,78 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
+import 'package:hazard_app/features/shared/utils/template_marker.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'published colours keep event pictograms instead of plain pins',
+    () async {
+      final hazard = Hazard(
+        categoryId: 'crash',
+        severityBand: HazardSeverityBand.action,
+        contentDetails: {
+          'presentation': {
+            'band': 'action',
+            'bandColor': '#123456',
+            'iconCategoryId': 'crash',
+          },
+        },
+      );
+      final marker = BitmapDescriptor.defaultMarkerWithHue(22);
+      final bitmaps = {'event_non_aws_crash_action': marker};
+      expect(await templateMarker(hazard, bitmaps), isNull);
+      expect(hazard.getMarkerBitmapDescriptor(bitmaps), marker);
+    },
+  );
+  test('a selected template icon uses the new event asset keys', () {
+    final hazard = Hazard(
+      categoryId: 'other',
+      severityBand: HazardSeverityBand.action,
+      contentDetails: {
+        'presentation': {
+          'band': 'action',
+          'bandColor': '#123456',
+          'iconCategoryId': 'crash',
+        },
+      },
+    );
+    final marker = BitmapDescriptor.defaultMarkerWithHue(22);
+    expect(
+      hazard.getMarkerBitmapDescriptor({'event_non_aws_crash_action': marker}),
+      marker,
+    );
+  });
+  test(
+    'GDACS keeps its native artwork and colour ahead of template overrides',
+    () {
+      final hazard = Hazard(
+        title: 'Green earthquake alert in Japan',
+        categoryId: 'earthquake',
+        source: const HazardSource(id: 'gdacsGlobal'),
+        severityBand: HazardSeverityBand.info,
+        contentDetails: {
+          'presentation': {
+            'band': 'info',
+            'bandColor': '#123456',
+            'iconCategoryId': 'crash',
+          },
+        },
+      );
+      final gdacs = BitmapDescriptor.defaultMarkerWithHue(120);
+      expect(hazard.templateBandColor, isNull);
+      expect(hazard.templateIconCategoryId, isNull);
+      expect(
+        hazard.getMarkerBitmapDescriptor({
+          'event_gdacs_earthquake_green': gdacs,
+          'crash_info_non_aws': BitmapDescriptor.defaultMarker,
+        }),
+        gdacs,
+      );
+    },
+  );
   final payload = <String, dynamic>{
     'schemaVersion': 1,
     'facts': ['An agency fact.'],

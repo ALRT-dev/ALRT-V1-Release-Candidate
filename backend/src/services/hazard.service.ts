@@ -37,7 +37,7 @@ import {
 import { config } from "../utils/config.js";
 import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
-import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
+import { getSourceTemplateContent } from "../utils/source_template_content.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import { getTemplateRegistry, getReleasePrompt, type TemplateRelease } from './alert_templates.service.js';
 import { resolveTemplate, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
@@ -680,28 +680,14 @@ export const summarizeHazard = async ({
     };
   }
 
-  // Health and Air Quality Standard (classification standard §10): AQI
-  // cards use zero AI — band, title, facts, and What To Do all come from
-  // templates keyed by band. severityBand is already the deterministic,
-  // Node-computed value (getSeverityBandFromAQI, run in ingestion before
-  // this function is ever called), so no model call is needed or made.
-  if (category.id === SubCategoryId.airQualityAlert && source.id === "waqi") {
-    const value=getDeterministicAirQualityContent({
-      title,
-      description,
-      severityBand,
-    });
-    const published=templateRelease===undefined?(await getTemplateRegistry()).published:templateRelease;
-    if(!published)return value;
-    const country=templateCountry(jurisdictionCountry,source);
-    const {settings}=resolveTemplate(published.pack,{country,sourceId:source.id});
-    const guidance=selectLibraryGuidance(published.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand});
-    return {...value,callsToAction:guidance.alrtSuggestions.map(x=>`ALRT suggests: ${x}`),contentDetails:{schemaVersion:1,templateVersion:published.version,facts:[value.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:null,officialActions:[],...guidance,evidence:[],presentation:{band:severityBand,bandColor:settings.bandColors[severityBand],iconCategoryId:settings.iconCategoryId??category.id,agencyArtwork:false}}};
-  }
-
   const release=templateRelease===undefined?(await getTemplateRegistry()).published:templateRelease;
   const country=templateCountry(jurisdictionCountry,source);
   const resolved=release?resolveTemplate(release.pack,{country,sourceId:source.id}):null;
+  const sourceContent = getSourceTemplateContent({title, description, locationName: locationName ?? null,
+    categoryId: category.id, parentCategoryId: category.parentId, sourceId: source.id, sourceName: source.name,
+    isAwsCompliant, severityBand, release, country, nativeWarningLevel: nativeWarningLevel ?? null, sourceActions});
+  if (sourceContent) return sourceContent;
+
   const prompt=release&&resolved?getReleasePrompt(release,{promptId:resolved.settings.promptId,sourceId:source.id,categoryId:category.id,isAws:isAwsCompliant,band:severityBand}):await getAIPromptForHazard({isAwsCompliant,severityBand,category,source});
   const sourceText=[title,description,locationName??'',nativeWarningLevel??'',...sourceActions].filter(Boolean).join('\n\n');
   const contentHash = hazardContentHash({

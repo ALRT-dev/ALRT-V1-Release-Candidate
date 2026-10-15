@@ -307,7 +307,12 @@ Generate “summary” using the following rules:
   - Always ONE clear sentence.
   - Plain English.
   - States the hazard + alert level (if provided in the description) + location.
-  - Present tense.`;
+  - Present tense.
+  - If the source gives only an incident type and a place, say exactly that
+    and nothing more. Never say or imply that advice exists ("their advice is
+    in this alert") unless the source actually gives advice.
+  - Include the specific facts the official source gives (what, where, status,
+    time, area affected). Use the agency's own words for these when it states them.`;
 
 const defaultCallToActionGuidelines = `
 CALL-TO-ACTION GUIDELINES:
@@ -315,6 +320,10 @@ Generate "callsToAction" using the following rules:
   - "callsToAction" may ONLY restate an instruction that the SOURCE description
     itself actually gives, prefixed with the issuing agency's name, e.g.
     "NSW SES advises: do not drive through floodwater."
+  - When the official source gives pertinent advice, include it, and use the
+    agency's own words as written whenever it says it. Shorten only by
+    dropping repeated or minor lines; never reword the meaning. Choose the
+    two or three most safety-relevant instructions, in the agency's order.
   - If the description contains no instruction, return an empty array: [].
     Do not invent one, and do not soften this into a generic safety tip —
     ALRT suggestions are selected separately from a reviewed library and labelled as suggestions.
@@ -349,7 +358,7 @@ Always respond with **valid JSON** in this format:
   {
     "title": "string" (≤80 chars),
     "summary": "string" (one clear sentence),
-    "callsToAction": "array", (2–4 dot points),
+    "callsToAction": "array", (up to 3 dot points, only what the source gives),
     "confidence": "high|medium|low",
   }`;
 

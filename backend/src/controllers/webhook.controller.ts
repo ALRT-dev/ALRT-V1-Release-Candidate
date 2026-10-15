@@ -8,6 +8,7 @@ import type {
 } from "../validators/webhook.validator.js";
 import { getHazardAttributesFromDescription } from "../utils/ingestion.util.js";
 import { getAllSubHazardCategories } from "../services/hazard_category.service.js";
+import { capForInfoOnlyCategory } from "../utils/info_only_category.util.js";
 import {
   summarizeAndPostHazards,
   ExternalSourceId,
@@ -230,14 +231,22 @@ const processSingleHazard = async (
   }
   category = category || attributes.category;
 
+  // Information-only categories never rise above Info.
+  const capped = capForInfoOnlyCategory(
+    category?.id,
+    { severity, severityBand },
+    description,
+    hazardData.nativeWarningLevel,
+  );
+
   // Step 5: Convert webhook data to HazardDataWithRelations format
   const hazardDataWithRelations: HazardDataWithRelations = {
     title: title || "",
     description,
     ...(aiSummary && { aiSummary }),
     ...(hazardData.sourceInstructions && {sourceInstructionBlocks: hazardData.sourceInstructions}),
-    severity,
-    severityBand: severityBand || HazardSeverityBand.info,
+    severity: capped.severity,
+    severityBand: capped.severityBand || HazardSeverityBand.info,
     ...(callsToAction && { callsToAction }),
     ...(fireStatus && { fireStatus }),
     ...(latitude !== undefined && { latitude }),

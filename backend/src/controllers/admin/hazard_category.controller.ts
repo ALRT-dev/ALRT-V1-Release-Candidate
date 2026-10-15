@@ -214,6 +214,7 @@ export const updateHazardCategoryForAdmin = async (
       keywords,
       isFireRelated,
       parentId,
+      iconKey,
       imageDimensions,
     }: UpdateHazardCategoryForAdminBody = req.body;
 
@@ -291,6 +292,7 @@ export const updateHazardCategoryForAdmin = async (
         ...(parentId !== undefined && { parentId }),
         ...(keywords && { keywords }),
         ...(isFireRelated !== undefined && { isFireRelated }),
+        ...(iconKey !== undefined && { iconKey: iconKey || null }),
       },
       include: {
         parent: true,

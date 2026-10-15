@@ -1,8 +1,8 @@
 # ALRT editable alert templates: TEST implementation
 
-Date: 13 October 2026. Status: implemented and checked locally. Not deployed.
+Date: 15 October 2026. Status: pushed; newer source/icon changes integrated and under final checks. Template changes are not yet deployed.
 
-The product owner authorised TEST changes and deployment. Production is outside this release. TEST publishing is blocked by an expired AWS SSO session; Windows is locked, so the authorised external Edge sign-in cannot be completed yet.
+The product owner authorised TEST changes and deployment, and later clarified public stores as the final destination. This deployment phase remains TEST-only. AWS TEST access is restored and account 488658242173 verified. The app/browser connector currently returns `Transport closed`; shell, GitHub and AWS work.
 
 ## What changed
 
@@ -44,11 +44,11 @@ The product owner authorised TEST changes and deployment. Production is outside 
 - Registry: reserved alertTemplatesV1 key within Configuration.aiPrompts, preserving unrelated configuration.
 - Additive migration: 20261013210000_hazard_content_details adds contentDetails, nativeWarningLevel, jurisdictionCountry and sourceContentHash to Hazard.
 - Build-only local serviceAccountKey.json is an ignored fixture, not a deployment credential. It must never enter the release image.
-- No production writes, remote deployment, push or PR were performed for this implementation.
+- Template and widget changes are pushed in 0341147 and 0b92317. No production writes, template backend deployment or PR have been performed by this implementation. Other work has updated TEST; it must be preserved.
 
 ## TEST rollout still to execute
 
-1. Complete AWS SSO after Windows is unlocked. Verify account 488658242173 with profile alrt-test. Never use the production account 082258816984 for this deployment.
+1. Re-verify account 488658242173 with profile alrt-test immediately before deployment. Never use production account 082258816984 for this TEST deployment.
 2. Inspect the current TEST instance and checkout before changing them. Record running revision/image and take a database/configuration backup with a checked restore path.
 3. Review the additive migration against TEST schema history. Deploy the backend from this reviewed branch without the local credential fixture. Check migrations and health before publishing configuration.
 4. Verify TEST Sources, category IDs and current prompt records. Preview representative real source items against the actual configured model. Review the starter guidance and activate only the intended mappings/library rows.

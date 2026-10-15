@@ -2046,7 +2046,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
     final Hazard hazard,
     final Map<String, BitmapDescriptor> markerBitmaps,
   ) async {
-    final configured = await templateMarker(hazard);
+    final configured = await templateMarker(hazard, markerBitmaps);
     if (configured != null) return configured;
     if (hazard.isAlrtIntel) {
       final shield = await _getIntelShieldBitmap(hazard);
@@ -2081,9 +2081,10 @@ class MapProvider extends StateNotifier<MapProviderState> {
     if (cached != null) return cached;
 
     try {
-      const size = 30.0;
-      // Room for the ring so the disc is not clipped at the bitmap edge.
-      const canvas = size + 4.0;
+      const size = 36.0;
+      // Room for the ring plus a transparent margin: the margin makes the
+      // tap target bigger than the disc itself.
+      const canvas = 46.0;
       final widget = Center(
         child: CategoryGlyph(
           category: drawn,
@@ -2159,7 +2160,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
     if (cached != null) return cached;
 
     try {
-      final size = cluster.count > 20 ? 46.0 : 40.0;
+      final size = cluster.count > 20 ? 44.0 : 38.0;
       final widget = Container(
         width: size,
         height: size,

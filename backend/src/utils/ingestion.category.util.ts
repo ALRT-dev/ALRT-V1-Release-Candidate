@@ -1,4 +1,5 @@
 import { FireStatus, type HazardCategory } from "@prisma/client";
+import { SMOKE_RESIDUAL_WORDS } from "./info_only_category.util.js";
 import { MainCategoryId } from "../services/hazard_category.service.js";
 
 /**
@@ -93,10 +94,10 @@ export const awsCompliantCategoryIds: string[] = [
  */
 const mainCategoriesLookupOrder: string[] = [
   MainCategoryId.securityAndCrime,
+  MainCategoryId.healthAndAir,
   MainCategoryId.weatherAndEnvironment,
   MainCategoryId.trafficAndTransport,
   MainCategoryId.utilitiesAndInfrastructure,
-  MainCategoryId.healthAndAir,
   MainCategoryId.communityInfo,
   MainCategoryId.other,
 ];
@@ -112,7 +113,7 @@ const mainCategoriesLookupOrder: string[] = [
  * @param availableCategories - List of available hazard categories with their keywords.
  * @returns The matched HazardCategory or the "other" category if no match is found.
  */
-export const getCategoryFromDescription = (
+const getCategoryFromDescriptionBase = (
   description: string,
   availableCategories: (HazardCategory & { parent: HazardCategory | null })[],
   fallbackCategoryId: string = "other"
@@ -383,11 +384,75 @@ export const getCategoryFromDescription = (
     color: null,
     keywords: [],
     isFireRelated: false,
+    iconKey: null,
     parentId: null,
     createdAt: now,
     updatedAt: now,
   };
 };
+
+/**
+ * Smoke routing (owner ruling 2026-10-14). Smoke is two different things:
+ * health advice about smoke in the air belongs with Air Quality, while
+ * residual smoke from a fire that is already out or being managed is only
+ * information, so it becomes Other Fire (which is capped at Info).
+ */
+const SMOKE_HEALTH_WORDS = [
+  "health", "air quality", "asthma", "breathing", "sensitive groups",
+  "lung", "respiratory", "heart condition", "smoke haze", "hazardous smoke",
+];
+
+export const routeSmokeCategory = (
+  base: HazardCategory,
+  description: string,
+  availableCategories: (HazardCategory & { parent: HazardCategory | null })[]
+): HazardCategory => {
+  if (base.id !== "smoke" && base.id !== "smokePlume") return base;
+  const desc = description.toLowerCase();
+  const find = (id: string) => availableCategories.find((c) => c.id === id);
+  if (SMOKE_HEALTH_WORDS.some((w) => desc.includes(w))) {
+    return find("airQualityAlert") ?? base;
+  }
+  if (SMOKE_RESIDUAL_WORDS.some((w) => desc.includes(w))) {
+    return find("otherFire") ?? base;
+  }
+  return base;
+};
+
+export const getCategoryFromDescription = (
+  description: string,
+  availableCategories: (HazardCategory & { parent: HazardCategory | null })[],
+  fallbackCategoryId: string = "other"
+): HazardCategory => {
+  const base = getCategoryFromDescriptionBase(
+    description,
+    availableCategories,
+    fallbackCategoryId
+  );
+  return routeSmokeCategory(base, description, availableCategories);
+};
+
+/**
+ * The headline names the hazard, so it is read first. Body text often
+ * mentions other things (a smoke alert that tells people to switch off
+ * air-conditioners or expect power cuts), and those words must not
+ * override what the agency titled the alert. Returns null when the title
+ * alone does not identify a category, so the caller can use the full text.
+ */
+export const getCategoryFromTitleFirst = (
+  title: string,
+  fullText: string,
+  availableCategories: (HazardCategory & { parent: HazardCategory | null })[]
+): HazardCategory | null => {
+  const fromTitle = getCategoryFromDescriptionBase(
+    title,
+    availableCategories,
+    "other"
+  );
+  if (!fromTitle || fromTitle.id === "other") return null;
+  return routeSmokeCategory(fromTitle, fullText, availableCategories);
+};
+
 
 /**
  * Determine fire status based on description keywords.

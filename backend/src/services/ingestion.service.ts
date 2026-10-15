@@ -538,7 +538,7 @@ export const summarizeAndPostHazards = async ({
       if (!hazardData.id) continue;
       if(templateRelease&&hazardData.source&&!(hazardData.category?.id==='airQualityAlert' && hazardData.source.id==='waqi')){
         const resolved=resolveTemplate(templateRelease.pack,{country:templateCountry(hazardData.jurisdictionCountry,hazardData.source),sourceId:hazardData.source.id});
-        hazardData.severityBand=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info}).band;
+        hazardData.severityBand=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,categoryId:hazardData.category?.id,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info}).band;
       }
 
       try {

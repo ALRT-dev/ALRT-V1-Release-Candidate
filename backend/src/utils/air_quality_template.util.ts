@@ -21,42 +21,45 @@ import type { AISummaryResponse } from "../models/ai_summary_response_interface.
 const MANDATORY_HEALTH_CLOSE =
   "This is general information. A health professional can help with personal health concerns.";
 
+/**
+ * Plain words, no number (owner instruction 2026-10-14). WAQI reports the US
+ * AQI scale, so the descriptors are that scale's own: 101 to 150 unhealthy
+ * for sensitive groups, 151 to 200 unhealthy, 201 to 300 very unhealthy,
+ * above 300 hazardous. The number stays in the source text, not on the card.
+ */
 const SUMMARY_BY_BAND: Record<
   HazardSeverityBand,
   (params: { stationName: string; aqiValue: number | null }) => string
 > = {
-  [HazardSeverityBand.info]: ({ stationName, aqiValue }) =>
-    aqiValue !== null
-      ? `Air quality is good near ${stationName} with AQI at ${aqiValue}.`
-      : `Air quality is good near ${stationName}.`,
-  [HazardSeverityBand.monitor]: ({ stationName, aqiValue }) =>
-    aqiValue !== null
-      ? `Air quality is moderate near ${stationName} with AQI at ${aqiValue}.`
-      : `Air quality is moderate near ${stationName}.`,
-  [HazardSeverityBand.action]: ({ stationName, aqiValue }) =>
-    aqiValue !== null
-      ? `Air quality is poor near ${stationName} with AQI at ${aqiValue}, as reported by WAQI.`
-      : `Air quality is poor near ${stationName}, as reported by WAQI.`,
+  [HazardSeverityBand.info]: ({ stationName }) =>
+    `Air quality is good near ${stationName}.`,
+  [HazardSeverityBand.monitor]: ({ stationName }) =>
+    `Air quality is moderate near ${stationName}.`,
+  [HazardSeverityBand.action]: ({ stationName }) =>
+    `Air quality near ${stationName} is unhealthy for sensitive groups, as reported by WAQI.`,
   [HazardSeverityBand.critical]: ({ stationName, aqiValue }) =>
     aqiValue !== null && aqiValue > 300
-      ? `Air quality is hazardous near ${stationName} with AQI at ${aqiValue}, as reported by WAQI.`
-      : aqiValue !== null
-        ? `Air quality is very poor near ${stationName} with AQI at ${aqiValue}, as reported by WAQI.`
-        : `Air quality is very poor near ${stationName}, as reported by WAQI.`,
+      ? `Air quality near ${stationName} is hazardous, as reported by WAQI.`
+      : aqiValue !== null && aqiValue > 200
+        ? `Air quality near ${stationName} is very unhealthy, as reported by WAQI.`
+        : `Air quality near ${stationName} is unhealthy for everyone, as reported by WAQI.`,
 };
+
+/**
+ * ALRT is not a health authority, so no ALRT-authored health directives
+ * (owner decision 2026-10-14, option b): one generic pointer to the state
+ * air quality service, the fixed health close, and for the Critical band
+ * only the standing "call your local emergency number" line (no digits).
+ */
+const CHECK_UPDATES_LINE = "Check your state air quality service for updates.";
 
 const CALLS_TO_ACTION_BY_BAND: Record<HazardSeverityBand, string[]> = {
   [HazardSeverityBand.info]: [],
-  [HazardSeverityBand.monitor]: [
-    "Staying across official air quality updates is advisable.",
-    MANDATORY_HEALTH_CLOSE,
-  ],
-  [HazardSeverityBand.action]: [
-    "ALRT suggests: Consider checking local health advice before strenuous outdoor activity, particularly if a breathing condition applies.",
-    MANDATORY_HEALTH_CLOSE,
-  ],
+  [HazardSeverityBand.monitor]: [CHECK_UPDATES_LINE, MANDATORY_HEALTH_CLOSE],
+  [HazardSeverityBand.action]: [CHECK_UPDATES_LINE, MANDATORY_HEALTH_CLOSE],
   [HazardSeverityBand.critical]: [
-    "ALRT suggests: Consider reducing exposure to polluted air and checking local health advice. Any official fire or evacuation directions take priority.",
+    CHECK_UPDATES_LINE,
+    "If you have severe breathing difficulty or chest pain, call your local emergency number.",
     MANDATORY_HEALTH_CLOSE,
   ],
 };

@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
@@ -665,6 +666,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           categoryName: hazard.category?.name,
           sourceName: hazard.source?.name,
           locationName: hazard.locationName,
+          hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
         );
         if (plainTerms == null) return const SizedBox.shrink();
 
@@ -862,6 +864,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           }
           return Column(children: [_buildOfficialDescriptionSection(), _buildWhatToDoSection()]);
         }),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4.spMin),
+          child: Text(
+            AlertTextUtil.standingEmergencyLine,
+            style: TextStyle(
+              fontSize: 13.spMin,
+              height: 1.4,
+              color: AppColors.mediumGrey,
+            ),
+          ),
+        ),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
@@ -971,6 +984,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       categoryName: hazard.category?.name,
       sourceName: hazard.source?.name,
       locationName: hazard.locationName,
+      hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
     );
     final text = [
       hazard.isUserReported
@@ -1037,18 +1051,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 ),
               ),
               Container(
-                padding: EdgeInsets.all(12.spMin),
+                padding: EdgeInsets.all(14.spMin),
                 decoration: BoxDecoration(
                   gradient: FamilyColors.headerGradient,
                   borderRadius:
                       BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
-                  boxShadow: [
-                    BoxShadow(
-                      color: FamilyColors.indigo.withValues(alpha: 0.25),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1061,12 +1068,19 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                       borderRadius: BorderRadius.circular(8.spMin),
                       child: Row(
                         children: [
+                          Icon(
+                            LucideIcons.users,
+                            size: 15.spMin,
+                            color: AppColors.white.withValues(alpha: 0.9),
+                          ),
+                          8.wSizedBox,
                           Expanded(
                             child: Text(
                               peopleLine,
                               style: TextStyle(
-                                fontSize: 13.spMin,
-                                color: AppColors.white.withValues(alpha: 0.85),
+                                fontSize: 14.spMin,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.white,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1089,7 +1103,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ],
                       ),
                     ),
-                    10.hSizedBox,
+                    14.hSizedBox,
                     // One compact row: Check in, Send to group, Share.
                     Row(
                       children: [
@@ -1162,7 +1176,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         decoration: BoxDecoration(
           color: filled
               ? AppColors.white
-              : AppColors.white.withValues(alpha: 0.16),
+              : AppColors.white.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(12.spMin),
         ),
         child: Material(
@@ -1499,7 +1513,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   Widget _buildWhatToDoSection() {
     return Consumer(
       builder: (context, ref, child) {
-        final callsToAction = ref.watch(
+        final allActions = ref.watch(
           provider.select((value) => value.hazard?.callsToAction),
         );
         final isUserReported = ref.watch(
@@ -1507,8 +1521,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             (value) => value.hazard?.isUserReported ?? false,
           ),
         );
+        // Only the advice the agency actually gave (up to three points, in
+        // its own words). Nothing is added. Assumed or "worth considering"
+        // guidance lives in For You, chosen from the person's safety profile.
+        // A community report carries no instruction of its own, so it shows
+        // one standing line that points at the emergency services.
+        final callsToAction = isUserReported
+            ? <String>[AlertTextUtil.followAgencyLine(null)]
+            : AlertTextUtil.capActions(allActions ?? const <String>[]);
 
-        final shouldShow = (callsToAction?.isNotEmpty ?? false);
+        final shouldShow = callsToAction.isNotEmpty;
 
         if (!shouldShow) {
           // An official alert always shows the section, so it is clear
@@ -1520,9 +1542,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           }
           return _buildEmptySectionCard(
             label: 'WHAT TO DO',
-            body: 'The issuing agency has not published advice for this '
-                'alert. We never write advice for them. Check their '
-                'source below for updates.',
+            body: AlertTextUtil.followAgencyLine(
+              ref.watch(
+                provider.select((value) => value.hazard?.source?.name),
+              ),
+            ),
           );
         }
 
@@ -1582,7 +1606,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ),
                       ),
                       12.spMin.hSizedBox,
-                      ...callsToAction!.asMap().entries.map((entry) {
+                      ...callsToAction.asMap().entries.map((entry) {
                         final index = entry.key;
                         final action = entry.value;
                         return Padding(
@@ -1640,13 +1664,32 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             (value) => value.hazard?.isUserReported ?? false,
           ),
         );
-        if (isUserReported) return const SizedBox.shrink();
-
         final description = ref.watch(
           provider.select((value) => value.hazard?.description),
         );
+        final reportTitle = ref.watch(
+          provider.select((value) => value.hazard?.title),
+        );
 
-        if (description?.isEmpty ?? true) return const SizedBox.shrink();
+        // Facts only: the agency's own instructions and road notes have
+        // their own sections, so they are cut from here. A community report
+        // always gets at least one point, even with nothing written.
+        // The section always shows (owner, 15 Oct 2026): an official alert
+        // with nothing beyond its headline gets one honest line instead of
+        // no section at all.
+        final hasHazard = ref.watch(
+          provider.select((value) => value.hazard != null),
+        );
+        if (!hasHazard) return const SizedBox.shrink();
+        final sourceName = ref.watch(
+          provider.select((value) => value.hazard?.source?.name),
+        );
+        final found = isUserReported
+            ? AlertTextUtil.communityPoints(reportTitle, description)
+            : AlertTextUtil.whatWeKnowPoints(description);
+        final points = found.isEmpty
+            ? <String>[AlertTextUtil.noDetailsLine(sourceName)]
+            : found;
 
         // Paired with WHAT TO DO, to the pixel. This used to be a blue
         // card with a blue bar and a sentence-case heading: blue is the
@@ -1700,14 +1743,39 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ),
                       ),
                       12.spMin.hSizedBox,
-                      Text(
-                        description!,
-                        style: TextStyle(
-                          color: AppColors.black.withValues(alpha: 0.9),
-                          fontSize: 14.spMin,
-                          height: 1.5,
+                      for (var i = 0; i < points.length; i++)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            bottom: i < points.length - 1 ? 8.spMin : 0,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '\u2022 ',
+                                style: TextStyle(
+                                  color: AppColors.black.withValues(
+                                    alpha: 0.9,
+                                  ),
+                                  fontSize: 14.spMin,
+                                  height: 1.5,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  points[i],
+                                  style: TextStyle(
+                                    color: AppColors.black.withValues(
+                                      alpha: 0.9,
+                                    ),
+                                    fontSize: 14.spMin,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),

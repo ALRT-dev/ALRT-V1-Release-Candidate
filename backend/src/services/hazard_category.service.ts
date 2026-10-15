@@ -70,27 +70,12 @@ export const populateInitialCategories = async () => {
     const categories: Prisma.HazardCategoryCreateInput[] = [
       {
         id: MainCategoryId.securityAndCrime,
-        name: "Security & Crime",
+        name: "Safety & Crime",
         description: "Crime, Civil Unrest, Terror Threat",
         keywords: [],
         color: "#FC9493",
         subCategories: {
           connectOrCreate: [
-            {
-              where: { id: "rescueRoad" },
-              create: {
-                id: "rescueRoad",
-                name: "Rescue (Road)",
-                description:
-                  "Rescue operations for trapped individuals on roads",
-                keywords: [
-                  "road rescue",
-                  "vehicle rescue",
-                  "car rescue",
-                  "truck rescue",
-                ],
-              },
-            },
             {
               where: { id: "rescueMarine" },
               create: {
@@ -666,12 +651,27 @@ export const populateInitialCategories = async () => {
       },
       {
         id: MainCategoryId.trafficAndTransport,
-        name: "Traffic & Transport",
+        name: "Transport & Traffic",
         description: "Traffic and transport disruptions",
         keywords: [],
         color: "#86DF9D",
         subCategories: {
           connectOrCreate: [
+            {
+              where: { id: "rescueRoad" },
+              create: {
+                id: "rescueRoad",
+                name: "Rescue (Road)",
+                description:
+                  "Rescue operations for trapped individuals on roads",
+                keywords: [
+                  "road rescue",
+                  "vehicle rescue",
+                  "car rescue",
+                  "truck rescue",
+                ],
+              },
+            },
             {
               where: { id: "crash" },
               create: {
@@ -1354,7 +1354,7 @@ export const populateInitialCategories = async () => {
       },
       {
         id: MainCategoryId.communityInfo,
-        name: "Community/Info",
+        name: "Community / Information",
         description: "Community Events and Information Notices",
         keywords: [
           "special event",

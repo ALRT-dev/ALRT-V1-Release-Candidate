@@ -101,6 +101,13 @@ export const updateHazardCategoryForAdminBodySchema = z.object({
 
   isFireRelated: z.boolean().optional(),
 
+  // Which bundled icon set the map uses for this category (null = default).
+  iconKey: z
+    .string()
+    .regex(/^[A-Za-z0-9]{1,64}$/, "iconKey must be letters and digits only")
+    .nullable()
+    .optional(),
+
   parentId: z.string().nullable().optional(),
 
   imageDimensions: imageDimensionsSchema,

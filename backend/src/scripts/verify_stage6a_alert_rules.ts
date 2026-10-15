@@ -61,13 +61,13 @@ check("produces zero-AI action-band content with no invented facts", () => {
   });
   assert.equal(content.title, "Air Quality Alert - Rockingham");
   assert.match(content.summary, /Rockingham/);
-  assert.match(content.summary, /142/);
+  assert.doesNotMatch(content.summary, /\d/, "summary carries no number");
   assert.ok(content.callsToAction.length > 0);
   assert.equal(content.confidence, "high");
 });
 
 check(
-  "critical-band content branches on the actual AQI number (hazardous vs very poor), not a fixed string",
+  "critical-band content branches on the actual AQI number (hazardous vs very unhealthy vs unhealthy), with no number shown",
   () => {
     const hazardous = getDeterministicAirQualityContent({
       title: "Air Quality Alert - X",
@@ -81,7 +81,14 @@ check(
       description: sampleDescription.replace("142", "200"),
       severityBand: HazardSeverityBand.critical,
     });
-    assert.match(veryPoor.summary, /very poor/);
+    assert.match(veryPoor.summary, /unhealthy for everyone/);
+    assert.doesNotMatch(veryPoor.summary, /\d/);
+    const veryUnhealthy = getDeterministicAirQualityContent({
+      title: "Air Quality Alert - X",
+      description: sampleDescription.replace("142", "250"),
+      severityBand: HazardSeverityBand.critical,
+    });
+    assert.match(veryUnhealthy.summary, /very unhealthy/);
   },
 );
 

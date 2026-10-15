@@ -148,6 +148,15 @@ describe("editable alert templates", () => {
     settings.nativeLevelMappings = [{ level: "Emergency Warning", band: "info" }];
     expect(chooseTemplateBand(settings, { isAws: false, severity: "emergency", nativeLevel: "Emergency Warning", description: "Emergency Warning for Example Town", fallback: "critical" }).band).toBe("critical");
   });
+  it("does not let editable phrases or mappings raise information-only categories", () => {
+    const settings = defaultTemplatePack().defaults;
+    settings.severityPhrases = [{ phrase: "extreme heat", band: "critical" }];
+    settings.nativeLevelMappings = [{ level: "Not Applicable", band: "critical" }];
+    const input = { isAws: false, categoryId: "fireWeather", fallback: "info" as const, description: "Information about extreme heat." };
+    expect(chooseTemplateBand(settings, input).band).toBe("info");
+    expect(chooseTemplateBand(settings, { ...input, nativeLevel: "Not Applicable" }).band).toBe("info");
+    expect(chooseTemplateBand(settings, { ...input, severity: "emergency", nativeLevel: "Emergency Warning", description: "Emergency Warning: extreme heat." }).band).toBe("critical");
+  });
   it("uses the destination country and never a global publisher's home country", () => {
     expect(normaliseCountry("Saudi Arabia")).toBe("SA");
     expect(normaliseCountry("Japan")).toBe("JP");

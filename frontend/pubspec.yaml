@@ -97,5 +97,6 @@ flutter:
     - assets/images/hazards/
     - assets/images/hazards/aws/
     - assets/images/hazards/non_aws/
+    - assets/images/hazards/gdacs/
     - assets/pins/
     - assets/launcher_icons/

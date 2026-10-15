@@ -6,35 +6,26 @@ import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import { ApiError } from "../api/client";
 import type { HazardCategory } from "../api/types";
+import { ICON_KEYS, effectiveIconKey } from "../data/iconKeys";
 
 interface EditDraft {
   name: string;
   description: string;
   color: string;
+  iconKey: string | null;
 }
 
+const iconSrc = (key: string) => `${import.meta.env.BASE_URL}icons/${key}.png`;
+
 const CategoryIcon = ({ category }: { category: HazardCategory }) => {
-  const icon = (category.images ?? []).find((img) => img.presignedUrl);
-  if (!icon?.presignedUrl) {
-    return (
-      <span
-        style={{
-          display: "inline-block",
-          width: 20,
-          height: 20,
-          borderRadius: 4,
-          background: category.color ?? "#ccc",
-        }}
-        aria-hidden
-      />
-    );
-  }
+  const key = effectiveIconKey(category);
   return (
     <img
-      src={icon.presignedUrl}
+      src={iconSrc(key)}
       alt=""
-      width={20}
-      height={20}
+      width={32}
+      height={32}
+      title={category.iconKey ? `Icon: ${key} (chosen)` : `Icon: ${key} (default)`}
       style={{ objectFit: "contain" }}
     />
   );
@@ -88,7 +79,7 @@ export const CategoriesPage = () => {
   const canWrite = hasRole("superAdmin", "admin");
 
   const [editing, setEditing] = useState<HazardCategory | null>(null);
-  const [draft, setDraft] = useState<EditDraft>({ name: "", description: "", color: "" });
+  const [draft, setDraft] = useState<EditDraft>({ name: "", description: "", color: "", iconKey: null });
   const [saving, setSaving] = useState(false);
 
   const fetcher = useCallback(() => listCategories(), []);
@@ -100,6 +91,7 @@ export const CategoriesPage = () => {
       name: category.name,
       description: category.description ?? "",
       color: category.color ?? "",
+      iconKey: category.iconKey ?? null,
     });
   };
 
@@ -111,6 +103,7 @@ export const CategoriesPage = () => {
         name: draft.name,
         description: draft.description,
         color: draft.color || undefined,
+        iconKey: draft.iconKey,
       });
       notifySuccess(`Updated "${editing.name}".`);
       setEditing(null);
@@ -128,9 +121,9 @@ export const CategoriesPage = () => {
         <div>
           <h1>Categories / Icons</h1>
           <p>
-            Hazard categories and their icon sets. Icon image upload is not
-            supported in this V1 - text fields (name, description, colour)
-            edit safely via the existing JSON-body PUT endpoint.
+            Hazard categories and their icon sets. Each category shows the map icon it
+            uses now. Press Edit to pick a different icon set; the app picks it
+            up the next time it loads categories.
           </p>
         </div>
       </div>
@@ -186,6 +179,57 @@ export const CategoriesPage = () => {
                   setDraft({ ...draft, description: event.target.value })
                 }
               />
+            </div>
+            <div className="field">
+              <label>Map icon</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <img
+                  src={iconSrc(effectiveIconKey({ ...editing, iconKey: draft.iconKey }))}
+                  alt=""
+                  width={48}
+                  height={48}
+                />
+                <span>
+                  {draft.iconKey
+                    ? `Chosen: ${draft.iconKey}`
+                    : `Default: ${effectiveIconKey({ ...editing, iconKey: null })}`}
+                </span>
+                {draft.iconKey && (
+                  <button type="button" className="btn btn-sm" onClick={() => setDraft({ ...draft, iconKey: null })}>
+                    Use default
+                  </button>
+                )}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))",
+                  gap: 6,
+                  maxHeight: 220,
+                  overflowY: "auto",
+                  padding: 4,
+                  border: "1px solid #ddd",
+                  borderRadius: 6,
+                }}
+              >
+                {ICON_KEYS.map((icon) => (
+                  <button
+                    key={icon.key}
+                    type="button"
+                    title={icon.label}
+                    onClick={() => setDraft({ ...draft, iconKey: icon.key })}
+                    style={{
+                      padding: 4,
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      background: "transparent",
+                      border: draft.iconKey === icon.key ? "2px solid #E8622A" : "1px solid transparent",
+                    }}
+                  >
+                    <img src={iconSrc(icon.key)} alt={icon.label} width={48} height={48} />
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="field">
               <label htmlFor="cat-color">Colour (hex)</label>

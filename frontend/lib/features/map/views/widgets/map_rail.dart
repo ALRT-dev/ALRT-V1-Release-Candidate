@@ -16,9 +16,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// The white floating rail on the map's right edge (prototype board "Main",
 /// approved 9 Oct 2026).
 ///
-/// Exactly five 48 x 48 buttons. Top: one stacked block of three (Map
-/// layers, which holds the map type and the way into the ALRT Filters, the
-/// alerts list, and the map key). Below it, standalone: locate me, then
+/// Exactly five 48 x 48 buttons. Top: one stacked block of three, in the
+/// owner's order (12 Oct 2026): Map layers (the Google map type only: Default,
+/// Satellite, Terrain), the alerts list (its filter button sits in the top
+/// right corner of the list), and the map key. Below it, standalone: locate me, then
 /// check a route. Ask ALRT and the voice mic moved into the search bar; the journey
 /// share button and the hidden-filters badge were removed.
 class MapRail extends ConsumerStatefulWidget {
@@ -68,8 +69,7 @@ class _MapRailState extends ConsumerState<MapRail> {
     );
   }
 
-  /// Map layers (map type, with a way into the ALRT Filters), alerts list and
-  /// map key in one white block with hairline
+  /// Map layers (map type only), alerts list and map key in one white block with hairline
   /// dividers inset 10 px from each side.
   Widget _stackedBlockBuilder() {
     return Container(

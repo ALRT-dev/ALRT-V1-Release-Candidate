@@ -29,6 +29,7 @@ import 'package:hazard_app/features/shared/repositories/hazard_repository.dart';
 import 'package:hazard_app/features/shared/services/cache_manager_service.dart';
 import 'package:hazard_app/features/shared/services/media_service.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
+import 'package:hazard_app/features/shared/utils/event_icon_assets.dart';
 import 'package:hazard_app/features/shared/utils/hazard_util.dart';
 
 /// Limits concurrent async tasks to prevent network/socket saturation.
@@ -375,7 +376,7 @@ class HazardService {
     categories.add(HazardCategory(id: 'other'));
 
     final scheduledKeys = <String>{};
-    const defaultSize = Size(40, 40);
+    const defaultSize = Size(30, 30);
 
     final parentCategoryIds = categories
         .map((cat) => cat.parentId)
@@ -671,6 +672,54 @@ class HazardService {
       }
     }
 
+    // ── Phase 3.5: bundled event pictograms ──
+    // The event artwork (bushfire, flood, crash...) that ships with the app.
+    // It carries the source frame (AWS triangle or official diamond), the
+    // event picture and the band colour in one image, so a pin shows what
+    // happened as well as how urgent it is. Only allow-listed artwork is
+    // loaded; anything else falls back to the plain source shape below.
+    // The picture is 36 wide inside a 44 box: the transparent margin is the
+    // extra tap area, so small icons are still easy to hit.
+    const eventPinSize = Size(44, 44);
+    const eventArtSize = 36.0;
+    final eventImageSize = Size(
+      (eventPinSize.width * dpr).ceilToDouble(),
+      (eventPinSize.height * dpr).ceilToDouble(),
+    );
+    Future<void> loadEventPin(final String name) async {
+      try {
+        final descriptor = await SizedBox(
+          width: eventPinSize.width,
+          height: eventPinSize.height,
+          child: Center(
+            child: Image.asset(
+              'assets/images/hazards/$name.png',
+              width: eventArtSize,
+              height: eventArtSize,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ).toBitmapDescriptor(
+          logicalSize: eventPinSize,
+          imageSize: eventImageSize,
+        );
+        bitmapMap[EventIconAssets.bitmapKey(name)] = descriptor;
+      } catch (_) {
+        // A missing picture falls back to the plain shape pin.
+      }
+    }
+
+    // About 490 small images: render them in batches so a phone is never
+    // asked to build hundreds of bitmaps at the same moment.
+    const eventBatch = 40;
+    final eventNames = EventIconAssets.names.toList();
+    for (var i = 0; i < eventNames.length; i += eventBatch) {
+      final end = i + eventBatch > eventNames.length
+          ? eventNames.length
+          : i + eventBatch;
+      await Future.wait(eventNames.sublist(i, end).map(loadEventPin));
+    }
+
     // ── Phase 4: Generate shaped pins (shape × band) ──
     // 5 shapes × 4 bands = 20 bitmaps, keyed as `shape_{shapeName}_{bandName}`.
     // These are the V3 pins that replace category-image markers with a simple
@@ -718,7 +767,7 @@ class HazardService {
     required final HazardCategory category,
     required final HazardSeverityBand severityBand,
     final bool isAwsCompliant = false,
-    final Size size = const Size(40, 40),
+    final Size size = const Size(30, 30),
   }) async {
     final imageType = _categoryImageTypeForSeverityBand(
       severityBand,
@@ -736,7 +785,7 @@ class HazardService {
   /// User-report marker: own [CategoryImageType.user], then parent chain, then [other_info].
   Future<BitmapDescriptor> getBitmapDescriptorForCategoryUserMarker({
     required final HazardCategory category,
-    final Size size = const Size(40, 40),
+    final Size size = const Size(30, 30),
   }) async {
     return _bitmapDescriptorFromCategoryImageChain(
       category: category,

@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/map/providers/map_display_settings_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
-import 'package:hazard_app/features/shared/utils/dialogs.dart';
-import 'package:hazard_app/features/map/views/screens/map_screen.dart';
+import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/show_choice.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
-import 'package:hazard_app/features/shared/views/widgets/alert_key_content.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Shows the "Map details" bottom sheet (light background, owner 9 Sep 2026): map type picker
-/// and per-source-system alert visibility toggles.
+/// Shows the map type bottom sheet (owner, 12 Oct 2026): the layers button
+/// on the map's right-hand stack picks the Google map type only (Default,
+/// Satellite, Terrain). Filters live behind the Alerts list's filter button
+/// and the key has its own button.
 /// Opens at about three-quarters of the screen so the map stays visible
 /// above it (product decision 2026-09-09); the content scrolls inside the
 /// sheet and Done stays pinned above the navigation bar.
@@ -31,9 +32,9 @@ Future<void> showMapDetailsSheet({
 }
 
 /// How much of the screen the sheet takes when it opens, and its bounds.
-const kMapDetailsSheetInitialSize = 0.75;
+const kMapDetailsSheetInitialSize = 0.52;
 const kMapDetailsSheetMinSize = 0.4;
-const kMapDetailsSheetMaxSize = 0.9;
+const kMapDetailsSheetMaxSize = 0.7;
 
 class MapDetailsSheet extends ConsumerStatefulWidget {
   const MapDetailsSheet({super.key});
@@ -85,75 +86,23 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _sectionLabelBuilder('MAP TYPE').pT(16.0),
-                    _mapTypesBuilder().pT(10.0),
-                    // Which alerts show is decided in ONE place, the ALRT
-                    // Filters sheet the map and the feed share. This sheet
-                    // used to carry a second, unsynced set of source
-                    // toggles (phone QA 2026-09-09); now it points there.
-                    _sectionLabelBuilder('WHICH ALERTS SHOW').pT(18.0),
-                    _alertFiltersLinkBuilder().pT(10.0),
-                    // THE key, shared with the feed's filter sheet and
-                    // the ALRT Key sheet, so it cannot drift again.
-                    const AlertKeyContent(isDark: false).pT(18.0),
+                    _labelBuilder('MAP TYPE').pT(14.0),
+                    _mapTypesBuilder().pT(8.0),
+                    _labelBuilder('WHICH ALERTS SHOW').pT(18.0),
+                    _showChoicesBuilder().pT(8.0),
+                    Text(
+                      'Emergency warnings are always on.',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        color: AppColors.mediumGrey,
+                      ),
+                    ).pT(10.0),
                     12.hSizedBox,
                   ],
                 ),
               ),
             ),
             _doneButtonBuilder().pT(12.0),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Closes this sheet and opens the shared ALRT Filters sheet for the map.
-  Widget _alertFiltersLinkBuilder() {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        Navigator.of(context).pop();
-        showHazardFiltersBottomSheet(
-          context: context,
-          filtersKey: MapScreen.filtersKey,
-          onFiltersUpdated: () =>
-              ref.read(providerOfMap.notifier).getMapHazards(),
-        );
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
-        decoration: BoxDecoration(
-          color: _tileColor,
-          borderRadius: BorderRadius.circular(14.spMin),
-        ),
-        child: Row(
-          children: [
-            Icon(LucideIcons.slidersHorizontal, size: 20.spMin, color: _accentColor),
-            SizedBox(width: 12.spMin),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ALRT Filters',
-                    style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.black,
-                    ),
-                  ),
-                  Text(
-                    'Warning levels, sources and categories · the same for the map and the feed',
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      color: AppColors.black.withValues(alpha: 0.55),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(LucideIcons.chevronRight, size: 18.spMin, color: AppColors.black.withValues(alpha: 0.45)),
           ],
         ),
       ),
@@ -171,15 +120,89 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
     );
   }
 
-  Widget _sectionLabelBuilder(final String label) {
+  Widget _labelBuilder(final String text) {
     return Text(
-      label,
+      text,
       style: TextStyle(
-        fontSize: 10.5.spMin,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.1,
+        fontSize: 11.spMin,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.0,
         color: AppColors.black.withValues(alpha: 0.5),
       ),
+    );
+  }
+
+  /// The same four choices as the Filters sheet, one tap each.
+  Widget _showChoicesBuilder() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final f = ref.watch(providerOfHazardFiltersForMap);
+        final switches = HazardFilterSwitches(
+          awsWatchAndAct: f.awsWatchAndAct,
+          awsAdvice: f.awsAdvice,
+          officialNonAws: f.officialNonAws,
+          userReported: f.userReported,
+        );
+        final current = ShowChoice.of(switches);
+        return Row(
+          spacing: 8.spMin,
+          children: [
+            for (final choice in ShowChoice.values)
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 12.spMin),
+                  decoration: BoxDecoration(
+                    color: _tileColor,
+                    borderRadius: BorderRadius.circular(14.spMin),
+                    border: Border.all(
+                      color: current == choice
+                          ? _accentColor
+                          : AppColors.black.withValues(alpha: 0.08),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    spacing: 6.spMin,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (final icon in choice.shapes)
+                            Icon(
+                              icon,
+                              size: 16.spMin,
+                              color: current == choice
+                                  ? _accentColor
+                                  : AppColors.black.withValues(alpha: 0.65),
+                            ),
+                        ],
+                      ),
+                      Text(
+                        choice.shortTitle,
+                        style: TextStyle(
+                          fontSize: 11.5.spMin,
+                          fontWeight: current == choice
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: current == choice
+                              ? AppColors.black
+                              : AppColors.black.withValues(alpha: 0.65),
+                        ),
+                      ),
+                    ],
+                  ),
+                ).onPressed(() {
+                  choice.apply(
+                    ref.read(providerOfHazardFiltersForMap.notifier),
+                    switches,
+                  );
+                  ref.read(providerOfMap.notifier).getMapHazards();
+                  ref.read(providerOfMap.notifier).getRoutePlanHazardsToAvoid();
+                }),
+              ),
+          ],
+        );
+      },
     );
   }
 

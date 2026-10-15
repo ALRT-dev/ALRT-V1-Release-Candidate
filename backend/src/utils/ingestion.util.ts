@@ -34,6 +34,7 @@ import {
 import {
   awsCompliantCategoryIds,
   getCategoryFromDescription,
+  getCategoryFromTitleFirst,
   getFireStatusFromDescription,
 } from "./ingestion.category.util.js";
 import type { HazardDataWithRelations } from "../models/hazard_data_with_relations_interface.js";
@@ -824,9 +825,29 @@ export async function parseWAIncidentsToHazards({
       descriptionParts.push(`Incident Type: ${incidentInfo.incidentType}`);
     }
 
-    if (incidentInfo.region) {
-      descriptionParts.push(`Region: ${incidentInfo.region}`);
+    // The raw title carries the place: "Bushfire (ARMADALE, SHIRE, REGION, CAD-ID: n)".
+    const titleParts = (title || "").match(/\(([^)]*)\)/)?.[1]
+      ?.split(",")
+      .map((p) => p.trim())
+      .filter((p) => p && !/^CAD-ID/i.test(p));
+    const titleCase = (v: string) =>
+      v.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    if (titleParts?.[0]) {
+      descriptionParts.push(`Location: ${titleCase(titleParts[0])}`);
     }
+    if (titleParts?.[1]) {
+      descriptionParts.push(`Local government area: ${titleCase(titleParts[1])}`);
+    }
+    const regionText = incidentInfo.region || titleParts?.[2] || null;
+    if (regionText) {
+      descriptionParts.push(`Region: ${titleCase(regionText)}`);
+    }
+    if (incidentInfo.publicationTime) {
+      descriptionParts.push(`Reported: ${incidentInfo.publicationTime}`);
+    }
+    descriptionParts.push(
+      "Source: Department of Fire and Emergency Services WA incident feed",
+    );
 
     const fullDescription = descriptionParts.join("\n");
 
@@ -837,11 +858,21 @@ export async function parseWAIncidentsToHazards({
         `${ExternalSourceId.waDfes}-${incidentInfo.incidentNumber}`);
 
     // Determine category and severity from incident type and description
-    const { category, fireStatus, isAwsCompliant } =
-      getHazardAttributesFromDescription(
-        incidentInfo.incidentType || fullDescription,
-        availableCategories,
-      );
+    const attrs = getHazardAttributesFromDescription(
+      incidentInfo.incidentType || fullDescription,
+      availableCategories,
+    );
+    const { fireStatus, isAwsCompliant } = attrs;
+    let { category } = attrs;
+    // A bare "Fire" incident type ("Fire in Trigg") matched no category and
+    // fell to Other, which draws the generic "!" icon. It is a fire.
+    if (
+      category.id === "other" &&
+      /\bfire\b/i.test(incidentInfo.incidentType || "")
+    ) {
+      category =
+        availableCategories.find((c) => c.id === "otherFire") ?? category;
+    }
 
     const hazard: HazardDataWithRelations = {
       ...(hazardId && { id: hazardId }),
@@ -1568,6 +1599,13 @@ function createWAHazardFromWarning({
     description,
     availableCategories,
   );
+  // The headline wins over words in the body (a smoke alert must not
+  // become a power outage because the body mentions power).
+  const titleCategory = getCategoryFromTitleFirst(
+    warning.title,
+    categoryText,
+    availableCategories,
+  );
 
   return {
     id: hazardId,
@@ -1577,8 +1615,8 @@ function createWAHazardFromWarning({
     description,
     severity,
     severityBand,
-    category,
-    ...(category.isFireRelated && {
+    category: titleCategory ?? category,
+    ...((titleCategory ?? category).isFireRelated && {
       fireStatus,
     }),
     link,

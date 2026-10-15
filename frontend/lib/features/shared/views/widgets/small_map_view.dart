@@ -68,7 +68,7 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
       providerOfHazardMarkerBitmaps.select((value) => value.markerBitmaps),
     );
 
-    final bitmapDescriptor = await templateMarker(widget.hazard) ?? widget.hazard.getMarkerBitmapDescriptor(
+    final bitmapDescriptor = await templateMarker(widget.hazard, markerBitmaps) ?? widget.hazard.getMarkerBitmapDescriptor(
       markerBitmaps,
     );
 

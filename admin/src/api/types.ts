@@ -248,6 +248,8 @@ export interface HazardCategory {
   color: string | null;
   isFireRelated: boolean;
   parentId: string | null;
+  // Map icon set chosen in this portal (null = the default for the category).
+  iconKey?: string | null;
   images: HazardCategoryImage[];
   subCategories: HazardCategory[];
   // GET /api/admin/categories (hazard_category.controller.ts) only nests

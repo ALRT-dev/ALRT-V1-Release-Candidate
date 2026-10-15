@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isInfoOverride } from "./ingestion.severity.util.js";
+import { capForInfoOnlyCategory } from "./info_only_category.util.js";
 import { initialGuidance } from "./alert_template_seed.util.js";
 
 export const bands = ["info", "monitor", "action", "critical"] as const;
@@ -213,6 +214,7 @@ export function chooseTemplateBand(
   settings: TemplateSettings,
   input: {
     isAws: boolean;
+    categoryId?: string | undefined;
     severity?: string | null;
     nativeLevel?: string | null;
     description: string;
@@ -234,6 +236,8 @@ export function chooseTemplateBand(
       band: aws[input.severity]!,
       reason: "Preserved official warning level independently of icon shape.",
     };
+  const capped = capForInfoOnlyCategory(input.categoryId, { severityBand: "critical" as TemplateBand }, input.description, input.nativeLevel);
+  if (capped.severityBand === "info") return { band: "info" as TemplateBand, reason: "Information-only category; editable rules cannot raise its band." };
   const label = input.nativeLevel?.trim().toLowerCase();
   const match = label
     ? settings.nativeLevelMappings.find((x) => x.level.toLowerCase() === label)

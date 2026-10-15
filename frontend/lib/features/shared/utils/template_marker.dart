@@ -8,11 +8,18 @@ final _templateMarkers = <String, BitmapDescriptor>{};
 
 /// Reuses existing pin artwork and shape rendering. Agency and fire-status
 /// assets keep their original colours; custom ALRT colours affect ALRT pins.
-Future<BitmapDescriptor?> templateMarker(Hazard hazard) async {
+Future<BitmapDescriptor?> templateMarker(
+  Hazard hazard,
+  Map<String, BitmapDescriptor> bitmaps,
+) async {
   final color = hazard.templateBandColor;
   if (color == null ||
       hazard.templateIconCategoryId != null ||
       hazard.fireStatus != null) {
+    return null;
+  }
+  if (!hazard.isAlrtIntel &&
+      hazard.getMarkerBitmapDescriptor(bitmaps, artworkOnly: true) != null) {
     return null;
   }
   final key = '${hazard.effectiveMapShape.name}_${color.toARGB32()}';

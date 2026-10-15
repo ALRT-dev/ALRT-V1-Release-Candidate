@@ -16,6 +16,7 @@ import 'package:hazard_app/features/shared/models/category_image_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
 import 'package:hazard_app/features/shared/models/s3_media_model.dart';
+import 'package:hazard_app/features/shared/utils/event_icon_assets.dart';
 
 part 'hazard_model.freezed.dart';
 part 'hazard_model.g.dart';
@@ -218,21 +219,20 @@ abstract class Hazard with _$Hazard {
   /// category-image keys are kept as fallback for the fire-status overlays
   /// which still need category-specific images.
   BitmapDescriptor? getMarkerBitmapDescriptor(
-    Map<String, BitmapDescriptor> bitmapMap,
-  ) {
+    Map<String, BitmapDescriptor> bitmapMap, {
+    bool artworkOnly = false,
+  }) {
     final overrideId = templateIconCategoryId;
     if (isAwsCompliant == true) {
       final agency =
           bitmapMap['${categoryId}_${severityBand?.name ?? 'info'}_aws'];
       if (agency != null) return agency;
     }
-    if (overrideId != null) {
-      final selected =
-          bitmapMap['${overrideId}_${severityBand?.name ?? 'info'}_non_aws'];
-      if (selected != null) return selected;
-    }
     // Fire-status pins keep the category-specific treatment.
-    if (fireStatus != null && isAwsCompliant == false) {
+    // A planned burn keeps its own dotted diamond whatever its fire status.
+    if (fireStatus != null &&
+        isAwsCompliant == false &&
+        categoryId != 'plannedBurn') {
       final fireKey = '${categoryId}_fireStatus_${fireStatus!.name}';
       final fireBitmap = bitmapMap[fireKey];
       if (fireBitmap != null) {
@@ -240,8 +240,53 @@ abstract class Hazard with _$Hazard {
       }
     }
 
-    // V3 shaped pin: shape × band.
     final band = severityBand ?? HazardSeverityBand.info;
+
+    // GDACS: a diamond in the GDACS level colour (green, orange, red).
+    if (source?.id == 'gdacsGlobal') {
+      final name = EventIconAssets.gdacsName(title);
+      final gdacsBitmap = name == null
+          ? null
+          : bitmapMap[EventIconAssets.bitmapKey(name)];
+      if (gdacsBitmap != null) return gdacsBitmap;
+    }
+
+    // Event pictogram (bushfire, flood, crash...) on the source frame, in the
+    // band colour. Own category first, then its parent. Falls through to the
+    // plain shape pin when there is no picture for this event and band.
+    if (!isUserReported) {
+      final eventIds = <String>[
+        if (overrideId != null) overrideId,
+        // The admin portal's chosen icon for this category comes first.
+        if (categoryId != null && EventIconAssets.overrides[categoryId] != null)
+          EventIconAssets.overrides[categoryId]!,
+        if (categoryId != null) categoryId!,
+        if (category?.parentId != null) category!.parentId!,
+      ];
+      for (final id in eventIds) {
+        final eventBitmap =
+            bitmapMap[EventIconAssets.lookupKey(
+              isAws: isAwsCompliant == true,
+              categoryId: id,
+              // AWS has three levels only (Advice, Watch and Act, Emergency
+              // Warning), so an Info band on an AWS alert shows the Advice
+              // (yellow) picture. There is no AWS Info triangle.
+              bandName:
+                  (isAwsCompliant == true && band == HazardSeverityBand.info)
+                  ? HazardSeverityBand.monitor.name
+                  : band.name,
+            )];
+        if (eventBitmap != null) return eventBitmap;
+      }
+    }
+
+    if (overrideId != null) {
+      final legacy = bitmapMap['${overrideId}_${band.name}_non_aws'];
+      if (legacy != null) return legacy;
+    }
+    if (artworkOnly) return null;
+
+    // V3 shaped pin: shape × band.
     final shapeKey = 'shape_${effectiveMapShape.name}_${band.name}';
     final shapeBitmap = bitmapMap[shapeKey];
     if (shapeBitmap != null) return shapeBitmap;
@@ -288,7 +333,9 @@ abstract class Hazard with _$Hazard {
       return CategoryImageType.user;
     }
 
-    if (fireStatus != null && isAwsCompliant == false) {
+    if (fireStatus != null &&
+        isAwsCompliant == false &&
+        category?.id != 'plannedBurn') {
       final firestatus = switch (fireStatus!) {
         FireStatus.active => CategoryImageType.fireActive,
         FireStatus.beingControlled => CategoryImageType.fireBeingControlled,
@@ -326,7 +373,9 @@ abstract class Hazard with _$Hazard {
 
   /// A valid ALRT colour never recolours agency artwork or community reports.
   Color? get templateBandColor {
-    if (isUserReported || isAwsCompliant == true) return null;
+    if (isUserReported || isAwsCompliant == true || source?.id == 'gdacsGlobal') {
+      return null;
+    }
     final presentation = contentDetails?['presentation'];
     if (presentation is! Map || presentation['band'] != severityBand?.name) {
       return null;
@@ -339,7 +388,9 @@ abstract class Hazard with _$Hazard {
   }
 
   String? get templateIconCategoryId {
-    if (isUserReported || isAwsCompliant == true) return null;
+    if (isUserReported || isAwsCompliant == true || source?.id == 'gdacsGlobal') {
+      return null;
+    }
     final presentation = contentDetails?['presentation'];
     final id = presentation is Map ? presentation['iconCategoryId'] : null;
     return id is String && id.isNotEmpty && id != categoryId ? id : null;
@@ -359,7 +410,11 @@ abstract class Hazard with _$Hazard {
         for (final tag in row['profileTags'] as List) {
           if (tag is String) {
             final text = row['text'] as String;
-            result.update(tag, (existing) => '$existing\n\n$text', ifAbsent: () => text);
+            result.update(
+              tag,
+              (existing) => '$existing\n\n$text',
+              ifAbsent: () => text,
+            );
           }
         }
       }

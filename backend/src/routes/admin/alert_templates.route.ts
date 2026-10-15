@@ -141,6 +141,7 @@ router.post(
         sourceId: source.id,
       });
       let decision = chooseTemplateBand(resolved.settings, {
+        categoryId: category.id,
         isAws: attributes.isAwsCompliant,
         severity: attributes.severity,
         nativeLevel: input.nativeWarningLevel ?? null,

@@ -109,6 +109,7 @@ abstract final class AlertCardStyle {
     final String? categoryName,
     final String? sourceName,
     final String? locationName,
+    final bool hasAdvice = true,
   }) {
     if (!isOfficial) return null;
 
@@ -149,10 +150,14 @@ abstract final class AlertCardStyle {
         : null;
 
     if (level != null) {
-      return '$who has issued a $level for $subject. '
-          'Their advice is in this alert.';
+      return hasAdvice
+          ? '$who has issued a $level for $subject. '
+              'Their advice is in this alert.'
+          : '$who has issued a $level for $subject.';
     }
-    return '$who has reported $subject. Their advice is in this alert.';
+    return hasAdvice
+        ? '$who has reported $subject. Their advice is in this alert.'
+        : '$who has reported $subject.';
   }
 
   /// Title-cases a string only when it is entirely upper case (a shouted
