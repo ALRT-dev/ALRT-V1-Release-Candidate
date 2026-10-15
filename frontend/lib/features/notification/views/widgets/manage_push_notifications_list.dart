@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/category_grid_picker.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
+import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
 import 'package:hazard_app/features/notification/providers/manage_notifications_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
-import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/providers/states/main_categories_provider_state.dart';
-import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -217,35 +217,46 @@ class _ManagePushNotificationsListState
               'AWS Advice, Watch and Act and Emergency Warnings, plus other official emergency warnings, are always on for your area.',
           child: Column(
             children: [
-              _levelCard(
-                title: 'Official warnings only',
-                description:
-                    'Emergency, Watch and Act, Advice and other official '
-                    'alerts. No community reports.',
-                selected: level == NotificationLevel.officialOnly,
-                onTap: () => pick(NotificationLevel.officialOnly),
-              ),
-              10.hSizedBox,
+              // "All alerts" first so the everything choice is obvious,
+              // and each option carries the same shapes as the map and
+              // the Filters sheet (product owner, 15 Oct 2026).
               _levelCard(
                 title: 'All alerts',
                 description:
-                    'Everything official, plus reports from people nearby.',
+                    'Official alerts and reports from people nearby.',
+                icons: const [
+                  LucideIcons.triangleAlert,
+                  LucideIcons.diamond,
+                  LucideIcons.circle,
+                ],
                 selected: level == NotificationLevel.officialAndCommunity,
                 onTap: () => pick(NotificationLevel.officialAndCommunity),
               ),
               10.hSizedBox,
               _levelCard(
+                title: 'Official warnings only',
+                description: 'From agencies only. No community reports.',
+                icons: const [
+                  LucideIcons.triangleAlert,
+                  LucideIcons.diamond,
+                ],
+                selected: level == NotificationLevel.officialOnly,
+                onTap: () => pick(NotificationLevel.officialOnly),
+              ),
+              10.hSizedBox,
+              _levelCard(
                 title: 'Community only',
                 description:
-                    'Reports from people nearby, plus always-on official '
-                    'warnings.',
+                    'Reports from people nearby, plus emergency warnings.',
+                icons: const [LucideIcons.circle],
                 selected: level == NotificationLevel.communityOnly,
                 onTap: () => pick(NotificationLevel.communityOnly),
               ),
               10.hSizedBox,
               _levelCard(
                 title: 'Keep it quiet',
-                description: 'Always-on official warnings only.',
+                description: 'Emergency warnings only.',
+                icons: const [LucideIcons.bellOff],
                 selected: level == NotificationLevel.quiet,
                 onTap: () => pick(NotificationLevel.quiet),
               ),
@@ -284,6 +295,7 @@ class _ManagePushNotificationsListState
     required final String description,
     required final bool selected,
     required final VoidCallback onTap,
+    final List<IconData> icons = const [],
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -300,6 +312,19 @@ class _ManagePushNotificationsListState
         ),
         child: Row(
           children: [
+            if (icons.isNotEmpty) ...[
+              SizedBox(
+                width: 58.spMin,
+                child: Row(
+                  spacing: 2.spMin,
+                  children: [
+                    for (final icon in icons)
+                      HazardShapeBadge.outlineGlyph(icon: icon, size: 17.spMin),
+                  ],
+                ),
+              ),
+              SizedBox(width: 10.spMin),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,9 +392,8 @@ class _ManagePushNotificationsListState
 
         return _sectionContainerBuilder(
           title: 'Colour shows severity',
-          subtitle:
-              'Colour shows severity. Pick the lowest you want to hear '
-              'about. Active AWS and official emergency warnings are always on.',
+          subtitle: 'Choose which colours you get notified about. '
+              'Red emergency warnings are always on.',
           child: SeverityLine(
             advice: settings.awsAdvice,
             watchAndAct: settings.awsWatchAndAct,
@@ -406,49 +430,6 @@ class _ManagePushNotificationsListState
     );
   }
 
-  Widget _customToggleSwitch({
-    required bool isEnabled,
-    required ValueChanged<bool> onToggle,
-    required Color activeColor,
-  }) {
-    return GestureDetector(
-      onTap: () => onToggle(!isEnabled),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 48.spMin,
-        height: 26.spMin,
-        decoration: BoxDecoration(
-          color: isEnabled ? activeColor : Colors.grey.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(13.r),
-        ),
-        child: Stack(
-          children: [
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              left: isEnabled ? 24.spMin : 2.spMin,
-              top: 2.spMin,
-              child: Container(
-                width: 22.spMin,
-                height: 22.spMin,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(11.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------
   // CATEGORIES
   // ---------------------------------------------------------------
@@ -459,12 +440,6 @@ class _ManagePushNotificationsListState
         final categoriesState = ref.watch(
           providerOfMainCategories.select(
             (value) => value.getMainCategoriesState,
-          ),
-        );
-
-        final isAnyCategoryEnabled = ref.watch(
-          providerOfManageNotifications.select(
-            (s) => s.pushNotificationSettings.subscribedCategoryIds.isNotEmpty,
           ),
         );
 
@@ -493,57 +468,27 @@ class _ManagePushNotificationsListState
               providerOfManageNotifications.notifier,
             );
 
+            final selectedIds = ref.watch(
+              providerOfManageNotifications.select(
+                (s) => s.pushNotificationSettings.subscribedCategoryIds,
+              ),
+            );
+
             return _sectionContainerBuilder(
               title: 'Categories',
-              subtitle: 'Which hazard categories reach you. Tap to toggle.',
-              trailing: _customToggleSwitch(
-                isEnabled: isAnyCategoryEnabled,
-                onToggle: (_) {
-                  if (isAnyCategoryEnabled) {
-                    filterProvider.updateSelectedCategories({});
-                  } else {
-                    filterProvider.updateSelectedCategories(
-                      cats.map((e) => e.id).toSet(),
-                    );
-                  }
-                },
-                activeColor: AppColors.green,
-              ),
-              // Same pill as the ALRT feed filter, so a category reads
-              // identically wherever it is offered (it draws its glyph).
-              child: Wrap(
-                spacing: 10.spMin,
-                runSpacing: 10.spMin,
-                children: cats
-                    .map((category) => _categoryChipBuilder(category))
-                    .toList(),
+              subtitle: 'Choose the kinds of alerts you get notified about.',
+              child: CategoryGridPicker(
+                categories: cats,
+                selectedIds: selectedIds.toSet(),
+                onToggle: (category) =>
+                    filterProvider.toggleCategory(category.id),
+                onSelectAll: () => filterProvider.updateSelectedCategories(
+                  cats.map((e) => e.id).toSet(),
+                ),
               ),
             );
           },
           error: (error) => const SizedBox.shrink(),
-        );
-      },
-    );
-  }
-
-  Widget _categoryChipBuilder(final HazardCategory category) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isSelected = ref.watch(
-          providerOfManageNotifications.select(
-            (s) => s.pushNotificationSettings.subscribedCategoryIds.contains(
-              category.id,
-            ),
-          ),
-        );
-
-        return CategoryFilterChip(
-          category: category,
-          iconOnly: true,
-          isSelected: isSelected,
-          onToggle: (value) => ref
-              .read(providerOfManageNotifications.notifier)
-              .toggleCategory(category.id),
         );
       },
     );

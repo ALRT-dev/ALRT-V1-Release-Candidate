@@ -24,9 +24,14 @@ explicit instruction from the product owner in the current session.
   grouped; overlapping pins group (34 px) at street zoom and fan out from
   zoom 17. The Alerts tab is the list of the alerts in the map's current
   view, most serious first, and the rail's list button opens it. Map
-  details holds only the map type and one row of alert levels; the rail's
-  info button is the key. The Filters sheet shows a locked, ticked
-  "Emergency warnings" row and calls the middle level "All alerts".
+  details holds MAP TYPE, then WHICH ALERTS SHOW as one row into ALRT
+  Filters, then Done (product owner, 15 Oct 2026, replacing the 14 Oct
+  row of alert levels); the rail's info button is the key. The Filters sheet shows a locked, ticked
+  "Emergency warnings" row and lists "All alerts" first. Filters and
+  Notifications share the severity picker (three 60 pt choices: All,
+  Orange and red, Red only) and the category grid with an "All
+  categories" tile; every level option shows its source shapes and a
+  one-line description (product owner, 15 Oct 2026).
 - Published `contentDetails` separates source facts, affected area, native level,
   agency instructions and labelled ALRT suggestions. For You matches all published
   generic rows against local profile choices; never send profile selections to

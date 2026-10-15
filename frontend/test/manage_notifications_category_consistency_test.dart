@@ -22,6 +22,7 @@ import 'package:hazard_app/features/shared/repositories/hazard_repository.dart';
 import 'package:hazard_app/features/shared/repositories/user_repository.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/category_grid_picker.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/hazard_filters_bottomsheet_content.dart';
 
@@ -205,21 +206,21 @@ List<HazardCategory> _sampleCategories() => const [
   ),
 ];
 
-/// The ordered (name, colour, selected) tuple every [CategoryFilterChip]
-/// renders - the "actual rendered data/mapping" this suite compares,
-/// rather than trusting that two call sites reading the same provider
-/// necessarily render the same thing.
+/// The ordered (name, colour, selected) tuple the Notifications category
+/// grid renders. Both screens draw the shared [CategoryGridPicker] (15 Oct
+/// 2026), so this reads what the picker was given to draw: the "actual
+/// rendered data/mapping" this suite compares.
 List<(String, Color, bool)> _renderedChips(final WidgetTester tester) {
-  return tester
-      .widgetList<CategoryFilterChip>(find.byType(CategoryFilterChip))
-      .map(
-        (final chip) => (
-          chip.category.name ?? '',
-          categoryChipColor(chip.category),
-          chip.isSelected,
-        ),
-      )
-      .toList();
+  final picker =
+      tester.widget<CategoryGridPicker>(find.byType(CategoryGridPicker));
+  return [
+    for (final category in picker.categories)
+      (
+        category.name ?? '',
+        categoryChipColor(category),
+        picker.selectedIds.contains(category.id),
+      ),
+  ];
 }
 
 /// The ordered (name, colour) pair every category tile in the ALRT

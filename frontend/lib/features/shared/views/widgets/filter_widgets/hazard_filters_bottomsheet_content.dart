@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
 import 'package:hazard_app/features/notification/views/widgets/manage_push_notifications_list.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/category_grid_picker.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -9,9 +10,6 @@ import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/views/widgets/base_bottomsheet_v2.dart';
-import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
-import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
-import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -195,8 +193,9 @@ class _HazardFiltersBottomsheetContentState
         Widget choice(
           final String title,
           final NotificationLevel value,
-          final List<IconData> icons,
-        ) {
+          final List<IconData> icons, {
+          final String? sub,
+        }) {
           final selected = level == value;
           return Semantics(
             button: true,
@@ -227,13 +226,29 @@ class _HazardFiltersBottomsheetContentState
                     _levelIconsBuilder(icons),
                     12.wSizedBox,
                     Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 15.spMin,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.black,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 15.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.black,
+                            ),
+                          ),
+                          if (sub != null) ...[
+                            2.hSizedBox,
+                            Text(
+                              sub,
+                              style: TextStyle(
+                                fontSize: 12.spMin,
+                                height: 1.3,
+                                color: AppColors.mediumGrey,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     Icon(
@@ -259,25 +274,32 @@ class _HazardFiltersBottomsheetContentState
               // see the guarantee instead of reading about it.
               _alwaysOnRowBuilder(),
               8.hSizedBox,
-              choice(
-                'Official warnings only',
-                NotificationLevel.officialOnly,
-                _officialShapes,
-              ),
+              // "All alerts" first so the everything choice is obvious
+              // (product owner, 15 Oct 2026); every option keeps its shapes
+              // and says in one line what it shows.
               choice(
                 'All alerts',
                 NotificationLevel.officialAndCommunity,
                 [..._officialShapes, LucideIcons.circle],
+                sub: 'Official alerts and reports from people nearby.',
+              ),
+              choice(
+                'Official warnings only',
+                NotificationLevel.officialOnly,
+                _officialShapes,
+                sub: 'From agencies only. No community reports.',
               ),
               choice(
                 'Community only',
                 NotificationLevel.communityOnly,
                 const [LucideIcons.circle],
+                sub: 'Reports from people nearby, plus emergency warnings.',
               ),
               choice(
                 'Keep it quiet',
                 NotificationLevel.quiet,
                 const [LucideIcons.bellOff],
+                sub: 'Emergency warnings only.',
               ),
               4.hSizedBox,
               _switchBuilder(
@@ -412,7 +434,8 @@ class _HazardFiltersBottomsheetContentState
 
         return _sectionContainerBuilder(
           title: 'Colour shows severity',
-          subtitle: 'Emergency warnings (red) are always on.',
+          subtitle: 'Choose which colours show. Red emergency warnings '
+              'always show.',
           spacing: 6.0,
           child: SeverityLine(
             advice: awsAdvice,
@@ -440,91 +463,28 @@ class _HazardFiltersBottomsheetContentState
         final selectedCategories = ref.watch(
           _filtersProvider.select((value) => value.selectedCategoryIds),
         );
-        // A uniform two-column grid: every tile the same size, the
-        // category disc and its name, so the set reads as one tidy block
-        // instead of a ragged row of icons (product owner, 14 Oct 2026).
         return _sectionContainerBuilder(
           title: 'Categories',
-          subtitle: 'Tap to show or hide that kind of alert.',
+          subtitle: 'Choose the kinds of alerts to show.',
           spacing: 14.0,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final gap = 8.spMin;
-              final tileWidth = (constraints.maxWidth - gap) / 2;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: categories.map((category) {
-                  final selected = selectedCategories.contains(category.id);
-                  return SizedBox(
-                    width: tileWidth,
-                    child: _categoryTileBuilder(
-                      category: category,
-                      isSelected: selected,
-                      onTap: () {
-                        ref
-                            .read(_filtersProvider.notifier)
-                            .toggleCategory(category.id);
-                        widget.onFiltersUpdated?.call();
-                      },
-                    ),
+          child: CategoryGridPicker(
+            categories: categories,
+            selectedIds: selectedCategories,
+            onToggle: (category) {
+              ref.read(_filtersProvider.notifier).toggleCategory(category.id);
+              widget.onFiltersUpdated?.call();
+            },
+            onSelectAll: () {
+              ref
+                  .read(_filtersProvider.notifier)
+                  .updateSelectedCategories(
+                    categories.map((c) => c.id).toSet(),
                   );
-                }).toList(),
-              );
+              widget.onFiltersUpdated?.call();
             },
           ),
         );
       },
-    );
-  }
-
-  Widget _categoryTileBuilder({
-    required final HazardCategory category,
-    required final bool isSelected,
-    required final VoidCallback onTap,
-  }) {
-    final color = categoryChipColor(category);
-    final name = category.name ?? 'Category';
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      label: name,
-      child: Opacity(
-        opacity: isSelected ? 1.0 : 0.5,
-        child: Container(
-          height: 52.spMin,
-          padding: EdgeInsets.symmetric(horizontal: 10.spMin),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? color.withValues(alpha: 0.10)
-                : AppColors.extraLightGrey,
-            borderRadius: BorderRadius.circular(14.spMin),
-            border: Border.all(
-              color: isSelected ? color : AppColors.lightGrey,
-              width: isSelected ? 1.5 : 1.0,
-            ),
-          ),
-          child: Row(
-            children: [
-              CategoryGlyph(category: category, size: 28.spMin),
-              8.wSizedBox,
-              Expanded(
-                child: Text(
-                  name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    height: 1.2,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ).onPressed(onTap),
     );
   }
 
