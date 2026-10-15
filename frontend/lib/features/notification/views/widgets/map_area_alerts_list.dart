@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
@@ -52,12 +53,12 @@ class MapAreaAlertsList extends ConsumerWidget {
         (h) => !h.isExpired && !blocked.contains(h.reportedBy?.id),
       ),
     );
+    // Freezed equality: the loading case has no fields, so this is a type
+    // check. (This state class generates no when/maybeWhen helpers.)
     final isFirstLoad = ref.watch(
       providerOfMap.select(
-        (value) => value.getMapHazardsState.maybeWhen(
-          loading: () => true,
-          orElse: () => false,
-        ),
+        (value) =>
+            value.getMapHazardsState == const GetMapHazardsState.loading(),
       ),
     );
 
