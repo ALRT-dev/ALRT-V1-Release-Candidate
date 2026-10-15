@@ -180,13 +180,13 @@ class _HazardFiltersBottomsheetContentState
         final notifier = ref.read(_filtersProvider.notifier);
 
         Widget glyphs(final List<IconData> shapes) => SizedBox(
-              width: 64.spMin,
+              width: 68.spMin,
               child: Row(
                 children: [
                   for (final icon in shapes)
                     Padding(
-                      padding: EdgeInsets.only(right: 4.spMin),
-                      child: Icon(icon, size: 18.spMin, color: AppColors.ink),
+                      padding: EdgeInsets.only(right: 3.spMin),
+                      child: Icon(icon, size: 16.spMin, color: AppColors.ink),
                     ),
                 ],
               ),
