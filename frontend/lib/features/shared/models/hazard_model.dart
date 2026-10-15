@@ -216,7 +216,10 @@ abstract class Hazard with _$Hazard {
     Map<String, BitmapDescriptor> bitmapMap,
   ) {
     // Fire-status pins keep the category-specific treatment.
-    if (fireStatus != null && isAwsCompliant == false) {
+    // A planned burn keeps its own dotted diamond whatever its fire status.
+    if (fireStatus != null &&
+        isAwsCompliant == false &&
+        categoryId != 'plannedBurn') {
       final fireKey = '${categoryId}_fireStatus_${fireStatus!.name}';
       final fireBitmap = bitmapMap[fireKey];
       if (fireBitmap != null) {
@@ -307,7 +310,9 @@ abstract class Hazard with _$Hazard {
       return CategoryImageType.user;
     }
 
-    if (fireStatus != null && isAwsCompliant == false) {
+    if (fireStatus != null &&
+        isAwsCompliant == false &&
+        category?.id != 'plannedBurn') {
       final firestatus = switch (fireStatus!) {
         FireStatus.active => CategoryImageType.fireActive,
         FireStatus.beingControlled => CategoryImageType.fireBeingControlled,
