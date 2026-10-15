@@ -16,6 +16,7 @@ import 'package:hazard_app/features/shared/providers/states/hazard_item_provider
 import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
+import 'package:hazard_app/features/shared/views/widgets/hazard_artwork.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -142,7 +143,9 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                     ],
                     6.hSizedBox,
                     _metaRowBuilder(),
-                    if (!isUserReported) _tapForMoreBuilder(),
+                    // Every card opens, so every card says so (product
+                    // owner, 16 Oct 2026).
+                    _tapForMoreBuilder(),
                     if (widget.showTrustMeter &&
                         isUserReported &&
                         !widget.isInfoWindow)
@@ -359,16 +362,31 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
           ),
         );
 
-        return Text(
-          title,
-          style: TextStyle(
-            fontSize: 17.spMin,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-            color: AppColors.black,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+
+        // Title on the left, the alert's own pin artwork on the right so
+        // the card and its map pin match (product owner, 16 Oct 2026).
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 17.spMin,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                  color: AppColors.black,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (hazard != null) ...[
+              10.wSizedBox,
+              HazardArtwork(hazard: hazard, size: 44.spMin),
+            ],
+          ],
         );
       },
     );

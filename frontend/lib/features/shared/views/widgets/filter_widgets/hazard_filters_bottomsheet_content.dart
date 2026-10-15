@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
-import 'package:hazard_app/features/notification/views/widgets/manage_push_notifications_list.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/category_grid_picker.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -163,153 +161,163 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
-  /// Who you hear from: the same four choices as Notifications, so one
-  /// filter is learned once. Emergency warnings are never hidden. ALRT
-  /// Assessment keeps its own switch underneath.
+  /// Who shows on the map and in Alerts (product owner, 16 Oct 2026):
+  /// the locked Emergency warnings row, then one switch per source with
+  /// its shape on the left (Official, Community, ALRT Assessment), then
+  /// Keep it quiet, which turns every switch off and leaves emergency
+  /// warnings. Turning a switch back on leaves Keep it quiet. Official
+  /// stays on at whatever colours the severity bar below allows.
   Widget _whoIsSpeakingSection() {
     return Consumer(
       builder: (context, ref, child) {
         final f = ref.watch(_filtersProvider);
-        final settings = PushNotificationSettings(
-          awsEmergency: true,
-          awsWatchAndAct: f.awsWatchAndAct,
-          awsAdvice: f.awsAdvice,
-          officialNonAws: f.officialNonAws,
-          userReported: f.userReported,
-        );
-        final level = notificationLevelOf(settings);
         final notifier = ref.read(_filtersProvider.notifier);
+        final officialOn = f.officialNonAws || f.awsAdvice || f.awsWatchAndAct;
+        final quiet = !officialOn && !f.userReported && !f.alrtIntel;
 
-        void pick(final NotificationLevel chosen) {
-          final next = settingsForLevel(settings, chosen);
+        void setOfficial(final bool on) {
           notifier
-            ..updateAwsAdvice(next.awsAdvice)
-            ..updateAwsWatchAndAct(next.awsWatchAndAct)
-            ..updateOfficialNonAws(next.officialNonAws)
-            ..updateUserReported(next.userReported);
+            ..updateOfficialNonAws(on)
+            ..updateAwsAdvice(on)
+            ..updateAwsWatchAndAct(on);
           widget.onFiltersUpdated?.call();
         }
 
-        Widget choice(
-          final String title,
-          final NotificationLevel value, {
-          final String? sub,
-        }) {
-          final selected = level == value;
-          return Semantics(
-            button: true,
-            selected: selected,
-            label: title,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => pick(value),
-              child: Container(
-                margin: EdgeInsets.only(bottom: 8.spMin),
-                constraints: BoxConstraints(minHeight: 52.spMin),
-                padding: EdgeInsets.symmetric(
-                  horizontal: 14.spMin,
-                  vertical: 10.spMin,
-                ),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? AppColors.green.withValues(alpha: 0.10)
-                      : AppColors.extraLightGrey,
-                  borderRadius: BorderRadius.circular(14.spMin),
-                  border: Border.all(
-                    color: selected ? AppColors.green : AppColors.lightGrey,
-                    width: selected ? 1.5 : 1.0,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 15.spMin,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.black,
-                            ),
-                          ),
-                          if (sub != null) ...[
-                            2.hSizedBox,
-                            Text(
-                              sub,
-                              style: TextStyle(
-                                fontSize: 12.spMin,
-                                height: 1.3,
-                                color: AppColors.mediumGrey,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      selected
-                          ? Icons.check_circle_rounded
-                          : Icons.radio_button_unchecked_rounded,
-                      color: selected ? AppColors.green : AppColors.lightGrey,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
+        void setCommunity(final bool on) {
+          notifier.updateUserReported(on);
+          widget.onFiltersUpdated?.call();
+        }
+
+        void setIntel(final bool on) {
+          notifier.updateAlrtIntel(on);
+          widget.onFiltersUpdated?.call();
+        }
+
+        void keepItQuiet() {
+          notifier
+            ..updateOfficialNonAws(false)
+            ..updateAwsAdvice(false)
+            ..updateAwsWatchAndAct(false)
+            ..updateUserReported(false)
+            ..updateAlrtIntel(false);
+          widget.onFiltersUpdated?.call();
         }
 
         return _sectionContainerBuilder(
           title: 'Show',
           subtitle: 'Emergency warnings from official sources are always on. '
-              'Pick what else shows.',
+              'Choose what else shows.',
           child: Column(
             children: [
-              // Emergency warnings can never be switched off, so they sit
-              // on top as a row that is always ticked and locked: people
-              // see the guarantee instead of reading about it.
               _alwaysOnRowBuilder(),
+              10.hSizedBox,
+              _switchBuilder(
+                icon: LucideIcons.diamond,
+                title: 'Official',
+                subtitle: 'Alerts from agencies.',
+                isEnabled: officialOn,
+                onToggle: setOfficial,
+              ),
               8.hSizedBox,
-              // "All alerts" first so the everything choice is obvious, and
-              // every option says in one line what it shows; no shape icons
-              // beside the levels (product owner, 16 Oct 2026).
-              choice(
-                'All alerts',
-                NotificationLevel.officialAndCommunity,
-                sub: 'Official alerts and reports from people nearby.',
+              _switchBuilder(
+                icon: LucideIcons.circle,
+                title: 'Community',
+                subtitle: 'Reports from people nearby. Always unverified.',
+                isEnabled: f.userReported,
+                onToggle: setCommunity,
               ),
-              choice(
-                'Official warnings only',
-                NotificationLevel.officialOnly,
-                sub: 'From agencies only. No community reports.',
-              ),
-              choice(
-                'Community only',
-                NotificationLevel.communityOnly,
-                sub: 'Reports from people nearby, plus emergency warnings.',
-              ),
-              choice(
-                'Keep it quiet',
-                NotificationLevel.quiet,
-                sub: 'Emergency warnings only.',
-              ),
-              4.hSizedBox,
+              8.hSizedBox,
               _switchBuilder(
                 icon: LucideIcons.shield,
                 title: 'ALRT Assessment',
-                subtitle: 'Named sources. Never restates a warning',
+                subtitle: 'Named sources. Never restates a warning.',
                 isEnabled: f.alrtIntel,
-                onToggle: (value) {
-                  notifier.updateAlrtIntel(value);
-                  widget.onFiltersUpdated?.call();
-                },
+                onToggle: setIntel,
               ),
+              8.hSizedBox,
+              _quietRowBuilder(selected: quiet, onTap: keepItQuiet),
             ],
           ),
         );
       },
+    );
+  }
+
+  /// "Keep it quiet": emergency warnings only. Shown ticked when every
+  /// switch above is off.
+  Widget _quietRowBuilder({
+    required final bool selected,
+    required final VoidCallback onTap,
+  }) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Keep it quiet, emergency warnings only',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          constraints: BoxConstraints(minHeight: 52.spMin),
+          padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 10.spMin),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.green.withValues(alpha: 0.10)
+                : AppColors.extraLightGrey,
+            borderRadius: BorderRadius.circular(14.spMin),
+            border: Border.all(
+              color: selected ? AppColors.green : AppColors.lightGrey,
+              width: selected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34.spMin,
+                height: 34.spMin,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(10.spMin),
+                ),
+                child: HazardShapeBadge.outlineGlyph(
+                  icon: LucideIcons.bellOff,
+                  size: 18.spMin,
+                ),
+              ),
+              12.wSizedBox,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Keep it quiet',
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
+                    ),
+                    2.hSizedBox,
+                    Text(
+                      'Emergency warnings only.',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        color: AppColors.mediumGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected ? AppColors.green : AppColors.lightGrey,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -350,8 +358,7 @@ class _HazardFiltersBottomsheetContentState
                     // Matches hazard_visibility_util: every active AWS
                     // level and every official critical alert bypass the
                     // filters below.
-                    'Emergency warnings from official sources are always '
-                    'on. You cannot switch these off.',
+                    'From official sources. Always on, cannot be switched off.',
                     style: TextStyle(
                       fontSize: 12.spMin,
                       color: AppColors.mediumGrey,

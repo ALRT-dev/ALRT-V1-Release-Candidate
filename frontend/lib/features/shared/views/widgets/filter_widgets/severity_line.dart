@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
-/// "Colour shows severity" picker, shared by the Filters sheet and the
-/// Notifications screen.
+/// One horizontal bar in the four alert colours, shared by the Filters
+/// sheet and the Notifications screen (product owner, 16 Oct 2026: keep
+/// the horizontal bar with red clearly locked; the three-tile version was
+/// dropped). Tapping a segment picks the lowest severity to see; colours
+/// below it are dimmed. Red (emergency) can never be hidden and carries a
+/// lock, and grey has no switch of its own on the server, so both stay
+/// lit. The bar carries no colour names: the colour is the severity the
+/// issuing agency gave.
 ///
-/// Three big choices instead of four thin colour bars (product owner,
-/// 15 Oct 2026: the bars were too thin to hit, there was no "all" choice,
-/// and it was hard to tell what each one did). Each choice is a 60 pt tile
-/// that says what it includes in plain words and shows the colours it
-/// covers. Red (emergency) is in every choice and can never be switched
-/// off. Grey has no switch of its own on the server, so it travels with
-/// yellow; that is why "All" covers both and there is no separate grey
-/// choice. No warning-level names are written, only colours and plain
-/// words, as before.
-///
-/// Mapping to the server switches:
-/// - All: Advice on, Watch and Act on
-/// - Orange and red: Advice off, Watch and Act on
-/// - Red only: both off
+/// Yellow maps to the Advice switch and orange to Watch and Act:
+/// - grey or yellow: both on
+/// - orange: Advice off, Watch and Act on
+/// - red: both off
 class SeverityLine extends StatelessWidget {
   const SeverityLine({
     super.key,
@@ -33,173 +30,113 @@ class SeverityLine extends StatelessWidget {
   /// Called with the new (advice, watchAndAct) pair.
   final void Function(bool advice, bool watchAndAct) onChanged;
 
-  static const _choices = <_Choice>[
-    _Choice(
-      title: 'All',
-      sub: 'Every colour',
-      colours: [
-        AppColors.info,
-        AppColors.advice,
-        AppColors.watchAndAct,
-        AppColors.emergency,
-      ],
-      advice: true,
-      watchAndAct: true,
-    ),
-    _Choice(
-      title: 'Orange and red',
-      sub: 'Skip grey and yellow',
-      colours: [AppColors.watchAndAct, AppColors.emergency],
-      advice: false,
-      watchAndAct: true,
-    ),
-    _Choice(
-      title: 'Red only',
-      sub: 'Emergency warnings',
-      colours: [AppColors.emergency],
-      advice: false,
-      watchAndAct: false,
-    ),
+  static const _colours = [
+    AppColors.info,
+    AppColors.advice,
+    AppColors.watchAndAct,
+    AppColors.emergency,
   ];
 
-  int get _selected {
+  /// Screen-reader names only; the line itself shows no words.
+  static const _semanticNames = [
+    'Show grey and above',
+    'Show yellow and above',
+    'Show orange and above',
+    'Red, always shown',
+  ];
+
+  /// Index of the lowest segment currently shown.
+  int get _lowest {
     if (advice) return 0;
-    if (watchAndAct) return 1;
-    return 2;
+    if (watchAndAct) return 2;
+    return 3;
+  }
+
+  void _select(final int index) {
+    switch (index) {
+      case 0:
+      case 1:
+        onChanged(true, true);
+      case 2:
+        onChanged(false, true);
+      default:
+        onChanged(false, false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final selected = _selected;
+    final lowest = _lowest;
     return Semantics(
-      label: 'Which colours to show',
-      // Both screens put this in a vertical scroll view (unbounded height),
-      // so the tiles are stretched to the tallest one, not to infinity.
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < _choices.length; i++) ...[
-              if (i > 0) SizedBox(width: 8.spMin),
-              Expanded(
-                child: _tile(_choices[i], isSelected: i == selected),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _tile(final _Choice choice, {required final bool isSelected}) {
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      label: '${choice.title}, ${choice.sub}',
-      excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onChanged(choice.advice, choice.watchAndAct),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          constraints: BoxConstraints(minHeight: 60.spMin),
-          padding: EdgeInsets.fromLTRB(
-            10.spMin,
-            10.spMin,
-            10.spMin,
-            10.spMin,
-          ),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFFAF9F7) : AppColors.white,
-            borderRadius: BorderRadius.circular(14.spMin),
-            border: Border.all(
-              color: isSelected ? AppColors.ink : AppColors.lightGrey,
-              width: isSelected ? 2.0 : 1.5,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      label: 'Lowest severity to show',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Each colour is a full-height segment (48 pt tap target: the
+          // thin bars were too hard to hit, product owner 14 and 15 Oct
+          // 2026). The lowest colour shown carries a tick; red carries a
+          // lock because it can never be hidden.
+          Row(
             children: [
-              // The colours this choice covers, as one thick bar.
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6.spMin),
-                child: SizedBox(
-                  height: 12.spMin,
-                  child: Row(
-                    children: [
-                      for (final c in choice.colours)
-                        Expanded(child: ColoredBox(color: c)),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 8.spMin),
-              Row(
-                children: [
-                  Expanded(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        choice.title,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: TextStyle(
-                          fontSize: 14.spMin,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
+              for (var i = 0; i < _colours.length; i++)
+                Expanded(
+                  child: Semantics(
+                    button: i != _colours.length - 1,
+                    selected: i == lowest,
+                    label: _semanticNames[i],
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _select(i),
+                      child: Container(
+                        height: 48.spMin,
+                        margin: EdgeInsets.symmetric(horizontal: 2.spMin),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: i >= lowest
+                              ? _colours[i]
+                              : _colours[i].withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(12.spMin),
+                          border: i == lowest
+                              ? Border.all(color: AppColors.ink, width: 2)
+                              : null,
                         ),
+                        child: i == _colours.length - 1
+                            ? Icon(
+                                Icons.lock_rounded,
+                                size: 18.spMin,
+                                color: AppColors.white,
+                              )
+                            : i == lowest
+                                ? Icon(
+                                    Icons.check_rounded,
+                                    size: 18.spMin,
+                                    color: i == 1
+                                        ? AppColors.ink
+                                        : AppColors.white,
+                                  )
+                                : null,
                       ),
                     ),
                   ),
-                  if (isSelected)
-                    Container(
-                      width: 18.spMin,
-                      height: 18.spMin,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: AppColors.ink,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.check_rounded,
-                        size: 12.spMin,
-                        color: AppColors.white,
-                      ),
-                    ),
-                ],
-              ),
-              SizedBox(height: 2.spMin),
-              Text(
-                choice.sub,
-                maxLines: 2,
-                style: TextStyle(
-                  fontSize: 11.5.spMin,
-                  height: 1.25,
-                  color: AppColors.mediumGrey,
                 ),
+            ],
+          ),
+          6.hSizedBox,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Lower',
+                style: TextStyle(fontSize: 11.spMin, color: AppColors.grey),
+              ),
+              Text(
+                'Higher',
+                style: TextStyle(fontSize: 11.spMin, color: AppColors.grey),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
-}
-
-class _Choice {
-  const _Choice({
-    required this.title,
-    required this.sub,
-    required this.colours,
-    required this.advice,
-    required this.watchAndAct,
-  });
-
-  final String title;
-  final String sub;
-  final List<Color> colours;
-  final bool advice;
-  final bool watchAndAct;
 }

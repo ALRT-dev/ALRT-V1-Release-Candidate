@@ -3,6 +3,7 @@ import 'package:hazard_app/features/map/providers/map_display_settings_provider.
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/map/views/screens/map_screen.dart';
+import 'package:hazard_app/features/map/views/widgets/map_type_thumbnail.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -194,19 +195,16 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
           children: [
             _mapTypeTileBuilder(
               label: 'Default',
-              icon: LucideIcons.map,
               mapType: MapType.normal,
               isSelected: selectedMapType == MapType.normal,
             ),
             _mapTypeTileBuilder(
               label: 'Satellite',
-              icon: LucideIcons.satellite,
               mapType: MapType.satellite,
               isSelected: selectedMapType == MapType.satellite,
             ),
             _mapTypeTileBuilder(
               label: 'Terrain',
-              icon: LucideIcons.mountain,
               mapType: MapType.terrain,
               isSelected: selectedMapType == MapType.terrain,
             ),
@@ -218,42 +216,51 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
 
   Widget _mapTypeTileBuilder({
     required final String label,
-    required final IconData icon,
     required final MapType mapType,
     required final bool isSelected,
   }) {
+    // A painted picture of the map style instead of a line icon (product
+    // owner, 16 Oct 2026).
     return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 12.spMin),
-        decoration: BoxDecoration(
-          color: _tileColor,
-          borderRadius: BorderRadius.circular(14.spMin),
-          border: Border.all(
-            color: isSelected ? _accentColor : AppColors.black.withValues(alpha: 0.08),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          spacing: 6.spMin,
-          children: [
-            Icon(
-              icon,
-              size: 18.spMin,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        label: '$label map',
+        child: Container(
+          padding: EdgeInsets.fromLTRB(6.spMin, 6.spMin, 6.spMin, 10.spMin),
+          decoration: BoxDecoration(
+            color: _tileColor,
+            borderRadius: BorderRadius.circular(14.spMin),
+            border: Border.all(
               color: isSelected
                   ? _accentColor
-                  : AppColors.black.withValues(alpha: 0.65),
+                  : AppColors.black.withValues(alpha: 0.08),
+              width: isSelected ? 2.0 : 1.5,
             ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11.5.spMin,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected
-                    ? AppColors.black
-                    : AppColors.black.withValues(alpha: 0.65),
+          ),
+          child: Column(
+            spacing: 8.spMin,
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) => MapTypeThumbnail(
+                  mapType: mapType,
+                  width: constraints.maxWidth,
+                  height: 46.spMin,
+                  radius: 9.spMin,
+                ),
               ),
-            ),
-          ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected
+                      ? AppColors.black
+                      : AppColors.black.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
         ),
       ).onPressed(
         () => ref.read(providerOfMapType.notifier).update(mapType),

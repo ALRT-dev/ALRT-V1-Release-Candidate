@@ -209,6 +209,12 @@ class _ManagePushNotificationsListState
               'your area. Pick what else you hear about.',
           child: Column(
             children: [
+              // Emergency warnings can never be switched off, so they sit
+              // on top as a row that is always ticked and locked, the same
+              // row the Filters sheet shows (product owner, 16 Oct 2026:
+              // "make the emergency warning always on obvious").
+              _alwaysOnRow(),
+              10.hSizedBox,
               // "All alerts" first so the everything choice is obvious; no
               // shape icons beside the levels (product owner, 16 Oct 2026).
               _levelCard(
@@ -240,31 +246,67 @@ class _ManagePushNotificationsListState
                 selected: level == NotificationLevel.quiet,
                 onTap: () => pick(NotificationLevel.quiet),
               ),
-              12.hSizedBox,
-              Row(
-                children: [
-                  const Icon(
-                    Icons.lock_outline_rounded,
-                    size: 16,
-                    color: AppColors.grey,
-                  ),
-                  6.wSizedBox,
-                  Expanded(
-                    child: Text(
-                      'Emergency warnings from official sources',
-                      style: TextStyle(
-                        fontSize: 13.spMin,
-                        color: AppColors.grey,
-                      ),
-                    ),
-                  ),
-                  _alwaysOnPill(),
-                ],
-              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  /// "Emergency warnings: always on", red tinted, ticked and locked. Not
+  /// tappable. Matches the Filters sheet row to the pixel.
+  Widget _alwaysOnRow() {
+    return Semantics(
+      label: 'Emergency warnings from official sources, always on',
+      child: Container(
+        constraints: BoxConstraints(minHeight: 56.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
+        decoration: BoxDecoration(
+          color: AppColors.emergency.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14.spMin),
+          border: Border.all(
+            color: AppColors.emergency.withValues(alpha: 0.6),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Emergency warnings',
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                      height: 1.2,
+                    ),
+                  ),
+                  3.hSizedBox,
+                  Text(
+                    'From official sources. Always on, cannot be switched off.',
+                    style: TextStyle(
+                      fontSize: 12.5.spMin,
+                      color: AppColors.grey,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 10.spMin),
+            Icon(
+              LucideIcons.lock,
+              size: 15.spMin,
+              color: AppColors.mediumGrey,
+            ),
+            6.wSizedBox,
+            _alwaysOnPill(),
+          ],
+        ),
+      ),
     );
   }
 

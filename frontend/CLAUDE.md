@@ -26,14 +26,20 @@ explicit instruction from the product owner in the current session.
   view, most serious first, and the rail's list button opens it. Map
   details holds MAP TYPE, then WHICH ALERTS SHOW as one row into ALRT
   Filters, then Done (product owner, 15 Oct 2026, replacing the 14 Oct
-  row of alert levels); the rail's info button is the key. The Filters sheet shows a locked, ticked
-  "Emergency warnings" row and lists "All alerts" first. Filters and
-  Notifications share the severity picker (three 60 pt choices: All,
-  Orange and red, Red only) and the category grid with an "All
-  categories" tile; every level option carries a one-line description
-  and NO shape icons beside it, and the locked row reads "Emergency
-  warnings from official sources are always on" (product owner, 15 and
-  16 Oct 2026).
+  row of alert levels); the rail's info button is the key. The Filters sheet and the
+  Notifications screen both open with a locked, red-tinted "Emergency
+  warnings" row ("From official sources. Always on, cannot be switched
+  off."). Notifications then lists All alerts / Official warnings only /
+  Community only / Keep it quiet, each with a one-line description and no
+  shape icons. Filters instead shows one switch per source with its shape
+  on the left (Official diamond, Community circle, ALRT Assessment
+  shield) and then Keep it quiet. Both share the horizontal four-colour
+  severity bar (48 pt segments, tick on the lowest shown, lock on red; the
+  three-tile picker was dropped) and the category grid with an "All
+  categories" tile. Cards (list and map callout are one widget) carry the
+  alert's pin artwork at the right of the title and "Tap for more" on
+  every card. Map details' map-type tiles are painted thumbnails, not
+  line icons (product owner, 15 and 16 Oct 2026).
 - Published `contentDetails` separates source facts, affected area, native level,
   agency instructions and labelled ALRT suggestions. For You matches all published
   generic rows against local profile choices; never send profile selections to
