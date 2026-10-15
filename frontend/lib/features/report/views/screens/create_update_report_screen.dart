@@ -503,10 +503,10 @@ class _CreateUpdateReportScreenState
       if (!_wordingTouched) _pickedWording = _preselectedWording();
     });
 
-    // "Something else" asks for words instead of adding taxonomy data.
-    if (chip.isOther && _selectedChipIds.contains(chip.id)) {
-      _descriptionFocusNode.requestFocus();
-    }
+    // "Something else" asks for words instead of adding taxonomy data. It
+    // used to focus the details field, which scrolled the form and opened
+    // the keyboard on every tap (owner, 15 Oct 2026). The tap now only
+    // marks the chip; the person scrolls to Add details when ready.
   }
 
   /// Highest severityDefault across the selected chips (spec A.3), or null
@@ -568,24 +568,20 @@ class _CreateUpdateReportScreenState
             width: isSelected ? 2.0 : 1.5,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (isSelected) ...[
-                  Icon(
-                    LucideIcons.check,
-                    size: 14.spMin,
-                    color: AppColors.ink,
-                  ),
-                  4.wSizedBox,
-                ],
-                Flexible(
+                // One line, always. The tick sits in the corner so choosing
+                // a card never narrows the word and wraps it onto two rows.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
                   child: Text(
                     wording.label,
+                    maxLines: 1,
+                    softWrap: false,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15.spMin,
@@ -594,17 +590,27 @@ class _CreateUpdateReportScreenState
                     ),
                   ),
                 ),
+                3.hSizedBox,
+                Text(
+                  wording.sub,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.spMin,
+                    color: AppColors.mediumGrey,
+                  ),
+                ),
               ],
             ),
-            3.hSizedBox,
-            Text(
-              wording.sub,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.spMin,
-                color: AppColors.mediumGrey,
+            if (isSelected)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Icon(
+                  LucideIcons.check,
+                  size: 14.spMin,
+                  color: AppColors.ink,
+                ),
               ),
-            ),
           ],
         ),
       ),
