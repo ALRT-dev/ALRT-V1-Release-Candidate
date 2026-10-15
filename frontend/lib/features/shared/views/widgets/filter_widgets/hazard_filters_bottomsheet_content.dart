@@ -164,7 +164,7 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
-  /// Who you hear from: the same four choices as Notifications, so one
+  /// Who you hear from: the same three choices as Notifications, so one
   /// filter is learned once. Emergency warnings are never hidden. ALRT
   /// Assessment keeps its own switch underneath.
   Widget _whoIsSpeakingSection() {
@@ -195,7 +195,13 @@ class _HazardFiltersBottomsheetContentState
           final String title,
           final NotificationLevel value,
         ) {
-          final selected = level == value;
+          // "Community only" is no longer offered (owner, 12 Oct 2026: one
+          // simple three-choice filter everywhere); an older saved
+          // community-only state reads as Official and community.
+          final shown = level == NotificationLevel.communityOnly
+              ? NotificationLevel.officialAndCommunity
+              : level;
+          final selected = shown == value;
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => pick(value),
@@ -249,7 +255,6 @@ class _HazardFiltersBottomsheetContentState
                 'Official and community',
                 NotificationLevel.officialAndCommunity,
               ),
-              choice('Community only', NotificationLevel.communityOnly),
               choice('Keep it quiet', NotificationLevel.quiet),
               4.hSizedBox,
               _switchBuilder(
