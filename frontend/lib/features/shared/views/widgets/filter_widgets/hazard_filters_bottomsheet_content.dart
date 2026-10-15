@@ -192,8 +192,7 @@ class _HazardFiltersBottomsheetContentState
 
         Widget choice(
           final String title,
-          final NotificationLevel value,
-          final List<IconData> icons, {
+          final NotificationLevel value, {
           final String? sub,
         }) {
           final selected = level == value;
@@ -223,8 +222,6 @@ class _HazardFiltersBottomsheetContentState
                 ),
                 child: Row(
                   children: [
-                    _levelIconsBuilder(icons),
-                    12.wSizedBox,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,7 +263,8 @@ class _HazardFiltersBottomsheetContentState
 
         return _sectionContainerBuilder(
           title: 'Show',
-          subtitle: 'Pick what else appears with them.',
+          subtitle: 'Emergency warnings from official sources are always on. '
+              'Pick what else shows.',
           child: Column(
             children: [
               // Emergency warnings can never be switched off, so they sit
@@ -274,31 +272,27 @@ class _HazardFiltersBottomsheetContentState
               // see the guarantee instead of reading about it.
               _alwaysOnRowBuilder(),
               8.hSizedBox,
-              // "All alerts" first so the everything choice is obvious
-              // (product owner, 15 Oct 2026); every option keeps its shapes
-              // and says in one line what it shows.
+              // "All alerts" first so the everything choice is obvious, and
+              // every option says in one line what it shows; no shape icons
+              // beside the levels (product owner, 16 Oct 2026).
               choice(
                 'All alerts',
                 NotificationLevel.officialAndCommunity,
-                [..._officialShapes, LucideIcons.circle],
                 sub: 'Official alerts and reports from people nearby.',
               ),
               choice(
                 'Official warnings only',
                 NotificationLevel.officialOnly,
-                _officialShapes,
                 sub: 'From agencies only. No community reports.',
               ),
               choice(
                 'Community only',
                 NotificationLevel.communityOnly,
-                const [LucideIcons.circle],
                 sub: 'Reports from people nearby, plus emergency warnings.',
               ),
               choice(
                 'Keep it quiet',
                 NotificationLevel.quiet,
-                const [LucideIcons.bellOff],
                 sub: 'Emergency warnings only.',
               ),
               4.hSizedBox,
@@ -316,28 +310,6 @@ class _HazardFiltersBottomsheetContentState
           ),
         );
       },
-    );
-  }
-
-  /// The official source shapes as they appear on the map: the AWS
-  /// triangle and the official diamond.
-  static const _officialShapes = [
-    LucideIcons.triangleAlert,
-    LucideIcons.diamond,
-  ];
-
-  /// A fixed-width slot of dark grey outline shapes, so every option's
-  /// title lines up whether it shows one shape or three.
-  Widget _levelIconsBuilder(final List<IconData> icons) {
-    return SizedBox(
-      width: 58.spMin,
-      child: Row(
-        spacing: 2.spMin,
-        children: [
-          for (final icon in icons)
-            HazardShapeBadge.outlineGlyph(icon: icon, size: 17.spMin),
-        ],
-      ),
     );
   }
 
@@ -361,19 +333,6 @@ class _HazardFiltersBottomsheetContentState
         ),
         child: Row(
           children: [
-            SizedBox(
-              width: 58.spMin,
-              child: Row(
-                children: [
-                  Icon(
-                    LucideIcons.triangleAlert,
-                    size: 19.spMin,
-                    color: AppColors.emergency,
-                  ),
-                ],
-              ),
-            ),
-            12.wSizedBox,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,8 +350,8 @@ class _HazardFiltersBottomsheetContentState
                     // Matches hazard_visibility_util: every active AWS
                     // level and every official critical alert bypass the
                     // filters below.
-                    'Always on, with every Advice, Watch and Act and '
-                    'Emergency Warning. You cannot switch these off.',
+                    'Emergency warnings from official sources are always '
+                    'on. You cannot switch these off.',
                     style: TextStyle(
                       fontSize: 12.spMin,
                       color: AppColors.mediumGrey,

@@ -30,8 +30,10 @@ explicit instruction from the product owner in the current session.
   "Emergency warnings" row and lists "All alerts" first. Filters and
   Notifications share the severity picker (three 60 pt choices: All,
   Orange and red, Red only) and the category grid with an "All
-  categories" tile; every level option shows its source shapes and a
-  one-line description (product owner, 15 Oct 2026).
+  categories" tile; every level option carries a one-line description
+  and NO shape icons beside it, and the locked row reads "Emergency
+  warnings from official sources are always on" (product owner, 15 and
+  16 Oct 2026).
 - Published `contentDetails` separates source facts, affected area, native level,
   agency instructions and labelled ALRT suggestions. For You matches all published
   generic rows against local profile choices; never send profile selections to

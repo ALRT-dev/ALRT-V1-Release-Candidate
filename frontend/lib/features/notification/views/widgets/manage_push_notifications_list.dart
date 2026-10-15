@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/category_grid_picker.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
-import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/notification/models/push_notification_settings_model.dart';
@@ -206,21 +205,16 @@ class _ManagePushNotificationsListState
         return _sectionContainerBuilder(
           title: 'Level',
           subtitle:
-              'AWS Advice, Watch and Act and Emergency Warnings, plus other official emergency warnings, are always on for your area.',
+              'Emergency warnings from official sources are always on for '
+              'your area. Pick what else you hear about.',
           child: Column(
             children: [
-              // "All alerts" first so the everything choice is obvious,
-              // and each option carries the same shapes as the map and
-              // the Filters sheet (product owner, 15 Oct 2026).
+              // "All alerts" first so the everything choice is obvious; no
+              // shape icons beside the levels (product owner, 16 Oct 2026).
               _levelCard(
                 title: 'All alerts',
                 description:
                     'Official alerts and reports from people nearby.',
-                icons: const [
-                  LucideIcons.triangleAlert,
-                  LucideIcons.diamond,
-                  LucideIcons.circle,
-                ],
                 selected: level == NotificationLevel.officialAndCommunity,
                 onTap: () => pick(NotificationLevel.officialAndCommunity),
               ),
@@ -228,10 +222,6 @@ class _ManagePushNotificationsListState
               _levelCard(
                 title: 'Official warnings only',
                 description: 'From agencies only. No community reports.',
-                icons: const [
-                  LucideIcons.triangleAlert,
-                  LucideIcons.diamond,
-                ],
                 selected: level == NotificationLevel.officialOnly,
                 onTap: () => pick(NotificationLevel.officialOnly),
               ),
@@ -240,7 +230,6 @@ class _ManagePushNotificationsListState
                 title: 'Community only',
                 description:
                     'Reports from people nearby, plus emergency warnings.',
-                icons: const [LucideIcons.circle],
                 selected: level == NotificationLevel.communityOnly,
                 onTap: () => pick(NotificationLevel.communityOnly),
               ),
@@ -248,7 +237,6 @@ class _ManagePushNotificationsListState
               _levelCard(
                 title: 'Keep it quiet',
                 description: 'Emergency warnings only.',
-                icons: const [LucideIcons.bellOff],
                 selected: level == NotificationLevel.quiet,
                 onTap: () => pick(NotificationLevel.quiet),
               ),
@@ -263,7 +251,7 @@ class _ManagePushNotificationsListState
                   6.wSizedBox,
                   Expanded(
                     child: Text(
-                      'Active AWS and official emergency warnings',
+                      'Emergency warnings from official sources',
                       style: TextStyle(
                         fontSize: 13.spMin,
                         color: AppColors.grey,
@@ -287,7 +275,6 @@ class _ManagePushNotificationsListState
     required final String description,
     required final bool selected,
     required final VoidCallback onTap,
-    final List<IconData> icons = const [],
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -304,19 +291,6 @@ class _ManagePushNotificationsListState
         ),
         child: Row(
           children: [
-            if (icons.isNotEmpty) ...[
-              SizedBox(
-                width: 58.spMin,
-                child: Row(
-                  spacing: 2.spMin,
-                  children: [
-                    for (final icon in icons)
-                      HazardShapeBadge.outlineGlyph(icon: icon, size: 17.spMin),
-                  ],
-                ),
-              ),
-              SizedBox(width: 10.spMin),
-            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
