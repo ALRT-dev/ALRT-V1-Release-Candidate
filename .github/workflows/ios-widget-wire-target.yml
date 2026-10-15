@@ -1,0 +1,40 @@
+# One-off: attaches the AlrtWidget extension to the Xcode project (using the
+# xcodeproj gem), proves the extension target builds unsigned for the
+# simulator, then commits the project change back to this branch. No signing,
+# no secrets, no upload.
+name: iOS Widget Wire Target
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  wire:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          [ -n "$XC" ] || XC="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$XC/Contents/Developer"
+      - name: Install xcodeproj
+        run: sudo gem install xcodeproj --no-document
+      - name: Add the widget target
+        run: ruby scripts/ios_add_widget_target.rb
+      - name: List targets and schemes
+        working-directory: frontend/ios
+        run: xcodebuild -project Runner.xcodeproj -list
+      - name: Build the widget extension (simulator, unsigned)
+        working-directory: frontend/ios
+        run: |
+          xcodebuild -project Runner.xcodeproj -target AlrtWidget \
+            -configuration Debug-dev -sdk iphonesimulator \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | tail -40
+          exit ${PIPESTATUS[0]}
+      - name: Commit the project change
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add frontend/ios/Runner.xcodeproj/project.pbxproj
+          git commit -m "iOS: attach the AlrtWidget extension to the Xcode project (not yet signed)" || echo "nothing to commit"
+          git push
