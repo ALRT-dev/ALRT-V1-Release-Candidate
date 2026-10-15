@@ -384,6 +384,7 @@ const getCategoryFromDescriptionBase = (
     color: null,
     keywords: [],
     isFireRelated: false,
+    iconKey: null,
     parentId: null,
     createdAt: now,
     updatedAt: now,
