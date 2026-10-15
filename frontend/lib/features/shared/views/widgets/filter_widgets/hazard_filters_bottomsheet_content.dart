@@ -191,20 +191,44 @@ class _HazardFiltersBottomsheetContentState
           widget.onFiltersUpdated?.call();
         }
 
+        // "Show all" is everything: official, community, ALRT Assessment,
+        // global feeds and every category (owner, 15 Oct 2026). It is
+        // ticked only when all of that is on, so each row ticks honestly.
+        final everyCategoryOn = f.allCategoryIds.isNotEmpty &&
+            f.selectedCategoryIds.length >= f.allCategoryIds.length;
+        final showAll = level == NotificationLevel.officialAndCommunity &&
+            f.alrtIntel &&
+            f.globalHumanitarian &&
+            everyCategoryOn;
+
+        void pickShowAll() {
+          pick(NotificationLevel.officialAndCommunity);
+          notifier
+            ..updateAlrtIntel(true)
+            ..updateGlobalHumanitarian(true)
+            ..updateSelectedCategories(Set<String>.from(f.allCategoryIds));
+          widget.onFiltersUpdated?.call();
+        }
+
         Widget choice(
           final String title,
-          final NotificationLevel value,
-        ) {
+          final NotificationLevel value, {
+          final bool? isSelected,
+          final VoidCallback? onPick,
+        }) {
           // "Community only" is no longer offered (owner, 12 Oct 2026: one
           // simple three-choice filter everywhere); an older saved
           // community-only state reads as Official and community.
           final shown = level == NotificationLevel.communityOnly
               ? NotificationLevel.officialAndCommunity
               : level;
-          final selected = shown == value;
+          final selected = isSelected ??
+              (shown == value &&
+                  !(value == NotificationLevel.officialAndCommunity &&
+                      showAll));
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => pick(value),
+            onTap: onPick ?? () => pick(value),
             child: Container(
               margin: EdgeInsets.only(bottom: 8.spMin),
               padding: EdgeInsets.symmetric(
@@ -256,6 +280,12 @@ class _HazardFiltersBottomsheetContentState
                 NotificationLevel.officialAndCommunity,
               ),
               choice('Keep it quiet', NotificationLevel.quiet),
+              choice(
+                'Show all',
+                NotificationLevel.officialAndCommunity,
+                isSelected: showAll,
+                onPick: pickShowAll,
+              ),
               4.hSizedBox,
               _switchBuilder(
                 icon: LucideIcons.shield,

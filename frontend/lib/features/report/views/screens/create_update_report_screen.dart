@@ -535,7 +535,9 @@ class _CreateUpdateReportScreenState
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 8.spMin,
+        // Closer together so each card is wider and taller to tap (owner,
+        // 15 Oct 2026), still one horizontal row.
+        spacing: 6.spMin,
         children: [
           for (final wording in ReportSeverityWording.values)
             Expanded(child: _wordingItemBuilder(wording)),
@@ -558,8 +560,8 @@ class _CreateUpdateReportScreenState
       excludeSemantics: true,
       onTap: handleTap,
       child: Container(
-        constraints: BoxConstraints(minHeight: 64.spMin),
-        padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 16.spMin),
+        constraints: BoxConstraints(minHeight: 80.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 6.spMin, vertical: 18.spMin),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFFAF9F7) : AppColors.white,
           borderRadius: BorderRadius.circular(12.spMin),
