@@ -15,14 +15,25 @@ import 'package:hazard_app/features/shared/providers/states/hazard_filters_provi
 
 /// Whether [hazard]'s point falls within [bounds]. A hazard with no
 /// latitude/longitude is never in bounds.
+///
+/// The viewport can cross the antimeridian: zoom out from Australia and the
+/// east edge passes 180 and comes back negative, so the south-west longitude
+/// is GREATER than the north-east one. A plain `lng >= west && lng <= east`
+/// is then false for every longitude on earth, which is why the map and the
+/// Alerts list went blank on zoom out. A wrapped viewport covers everything
+/// east of the west edge OR west of the east edge instead.
 bool hazardIsInMapBounds(Hazard hazard, LatLngBounds bounds) {
   final lat = hazard.latitude;
   final lng = hazard.longitude;
   if (lat == null || lng == null) return false;
-  return lat >= bounds.southwest.latitude &&
-      lat <= bounds.northeast.latitude &&
-      lng >= bounds.southwest.longitude &&
-      lng <= bounds.northeast.longitude;
+  if (lat < bounds.southwest.latitude || lat > bounds.northeast.latitude) {
+    return false;
+  }
+  final west = bounds.southwest.longitude;
+  final east = bounds.northeast.longitude;
+  return west > east
+      ? lng >= west || lng <= east
+      : lng >= west && lng <= east;
 }
 
 /// Whether [hazard] passes the given source/category filters. Category
