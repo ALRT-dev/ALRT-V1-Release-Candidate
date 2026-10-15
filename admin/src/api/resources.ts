@@ -144,7 +144,7 @@ export const listCategories = () => apiGet<HazardCategory[]>("/api/admin/categor
 
 export const updateCategory = (
   categoryId: string,
-  patch: { name?: string; description?: string; color?: string; isFireRelated?: boolean },
+  patch: { name?: string; description?: string; color?: string; isFireRelated?: boolean; iconKey?: string | null },
 ) => apiPut<HazardCategory>(`/api/admin/categories/${categoryId}`, patch);
 
 // --- App users -------------------------------------------------------

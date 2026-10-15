@@ -144,6 +144,10 @@ model HazardCategory {
 
   isFireRelated Boolean @default(false) // True if this category pertains to fire hazards
 
+  // Optional override: which bundled map icon set this category uses (the id of
+  // the category whose artwork to show). Null = the default for this category.
+  iconKey String?
+
   parentId String? // For subcategories, this points to the parent category
 
   hazards       Hazard[]

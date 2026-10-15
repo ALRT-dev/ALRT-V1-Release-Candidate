@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hazard_app/features/shared/enums/category_image_type.dart';
 import 'package:hazard_app/features/shared/models/category_image_model.dart';
+import 'package:hazard_app/features/shared/utils/event_icon_assets.dart';
 
 part 'hazard_category_model.freezed.dart';
 part 'hazard_category_model.g.dart';
@@ -76,6 +77,13 @@ abstract class HazardCategory with _$HazardCategory {
 
   factory HazardCategory.fromJson(Map<String, dynamic> json) {
     final category = _$HazardCategoryFromJson(json);
+    // The admin portal can pick which bundled icon set a category uses.
+    final iconKey = json['iconKey'];
+    if (iconKey is String && iconKey.isNotEmpty) {
+      EventIconAssets.overrides[category.id] = iconKey;
+    } else {
+      EventIconAssets.overrides.remove(category.id);
+    }
     final shown = categoryPillNames[category.id];
     return shown == null ? category : category.copyWith(name: shown);
   }

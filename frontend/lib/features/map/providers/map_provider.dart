@@ -2078,9 +2078,10 @@ class MapProvider extends StateNotifier<MapProviderState> {
     if (cached != null) return cached;
 
     try {
-      const size = 32.0;
-      // Room for the ring so the disc is not clipped at the bitmap edge.
-      const canvas = size + 4.0;
+      const size = 36.0;
+      // Room for the ring plus a transparent margin: the margin makes the
+      // tap target bigger than the disc itself.
+      const canvas = 46.0;
       final widget = Center(
         child: CategoryGlyph(
           category: drawn,
@@ -2156,7 +2157,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
     if (cached != null) return cached;
 
     try {
-      final size = cluster.count > 20 ? 38.0 : 32.0;
+      final size = cluster.count > 20 ? 44.0 : 38.0;
       final widget = Container(
         width: size,
         height: size,

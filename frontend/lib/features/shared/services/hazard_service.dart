@@ -678,18 +678,27 @@ class HazardService {
     // event picture and the band colour in one image, so a pin shows what
     // happened as well as how urgent it is. Only allow-listed artwork is
     // loaded; anything else falls back to the plain source shape below.
-    const eventPinSize = Size(30, 30);
+    // The picture is 36 wide inside a 44 box: the transparent margin is the
+    // extra tap area, so small icons are still easy to hit.
+    const eventPinSize = Size(44, 44);
+    const eventArtSize = 36.0;
     final eventImageSize = Size(
       (eventPinSize.width * dpr).ceilToDouble(),
       (eventPinSize.height * dpr).ceilToDouble(),
     );
     Future<void> loadEventPin(final String name) async {
       try {
-        final descriptor = await Image.asset(
-          'assets/images/hazards/$name.png',
+        final descriptor = await SizedBox(
           width: eventPinSize.width,
           height: eventPinSize.height,
-          fit: BoxFit.contain,
+          child: Center(
+            child: Image.asset(
+              'assets/images/hazards/$name.png',
+              width: eventArtSize,
+              height: eventArtSize,
+              fit: BoxFit.contain,
+            ),
+          ),
         ).toBitmapDescriptor(
           logicalSize: eventPinSize,
           imageSize: eventImageSize,

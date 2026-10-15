@@ -239,6 +239,9 @@ abstract class Hazard with _$Hazard {
     // plain shape pin when there is no picture for this event and band.
     if (!isUserReported) {
       final eventIds = <String>[
+        // The admin portal's chosen icon for this category comes first.
+        if (categoryId != null && EventIconAssets.overrides[categoryId] != null)
+          EventIconAssets.overrides[categoryId]!,
         if (categoryId != null) categoryId!,
         if (category?.parentId != null) category!.parentId!,
       ];

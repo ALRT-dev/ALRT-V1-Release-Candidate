@@ -557,6 +557,10 @@ abstract final class EventIconAssets {
     'non_aws/weatherAndEnvironment_monitor',
   };
 
+  /// Category id -> icon set chosen in the admin portal (iconKey). Filled as
+  /// categories are read from the server; empty means every default.
+  static final Map<String, String> overrides = <String, String>{};
+
   /// GDACS pictogram (diamond in the GDACS level colour) for a title such as
   /// "Orange earthquake alert in Japan". Null when hazard or level is unclear.
   static String? gdacsName(final String? title) {
