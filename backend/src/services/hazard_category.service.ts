@@ -1455,6 +1455,22 @@ export const populateInitialCategories = async () => {
               },
             },
             {
+              where: { id: "snakeSighting" },
+              create: {
+                id: "snakeSighting",
+                name: "Snake Sighting",
+                description: "Reports of snakes near paths, beaches, parks or homes",
+                keywords: [
+                  "snake sighting",
+                  "snake seen",
+                  "snakes",
+                  "tiger snake",
+                  "dugite",
+                  "brown snake",
+                ],
+              },
+            },
+            {
               where: { id: "sharkSighting" },
               create: {
                 id: "sharkSighting",
