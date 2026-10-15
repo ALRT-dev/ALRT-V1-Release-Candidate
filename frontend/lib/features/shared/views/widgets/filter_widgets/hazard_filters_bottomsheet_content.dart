@@ -164,22 +164,35 @@ class _HazardFiltersBottomsheetContentState
   /// Who shows on the map and in Alerts (product owner, 16 Oct 2026):
   /// the locked Emergency warnings row, then one switch per source with
   /// its shape on the left (Official, Community, ALRT Assessment), then
-  /// Keep it quiet, which turns every switch off and leaves emergency
-  /// warnings. Turning a switch back on leaves Keep it quiet. Official
-  /// stays on at whatever colours the severity bar below allows.
+  /// Keep it quiet, which turns every switch off, drops the severity bar
+  /// to red and leaves emergency warnings. Turning a switch back on leaves
+  /// Keep it quiet.
+  ///
+  /// Official is the officialNonAws switch and nothing else: the severity
+  /// bar below owns awsAdvice and awsWatchAndAct, so moving the bar never
+  /// flips this switch (with the old "any of the three" reading, tapping
+  /// yellow with Official off made the switch read on while agency alerts
+  /// stayed hidden). Turning Official off leaves the bar where it is.
+  /// Turning it on while the bar sits on red alone also brings the bar
+  /// back to every colour, because red is always shown and Official at
+  /// red only would add nothing.
   Widget _whoIsSpeakingSection() {
     return Consumer(
       builder: (context, ref, child) {
         final f = ref.watch(_filtersProvider);
         final notifier = ref.read(_filtersProvider.notifier);
-        final officialOn = f.officialNonAws || f.awsAdvice || f.awsWatchAndAct;
-        final quiet = !officialOn && !f.userReported && !f.alrtIntel;
+        final officialOn = f.officialNonAws;
+        final redOnly = !f.awsAdvice && !f.awsWatchAndAct;
+        final quiet =
+            !officialOn && !f.userReported && !f.alrtIntel && redOnly;
 
         void setOfficial(final bool on) {
-          notifier
-            ..updateOfficialNonAws(on)
-            ..updateAwsAdvice(on)
-            ..updateAwsWatchAndAct(on);
+          notifier.updateOfficialNonAws(on);
+          if (on && redOnly) {
+            notifier
+              ..updateAwsAdvice(true)
+              ..updateAwsWatchAndAct(true);
+          }
           widget.onFiltersUpdated?.call();
         }
 
@@ -244,7 +257,7 @@ class _HazardFiltersBottomsheetContentState
   }
 
   /// "Keep it quiet": emergency warnings only. Shown ticked when every
-  /// switch above is off.
+  /// switch above is off and the severity bar sits on red alone.
   Widget _quietRowBuilder({
     required final bool selected,
     required final VoidCallback onTap,
