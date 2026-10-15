@@ -111,12 +111,15 @@ class _MapDetailsSheetState extends ConsumerState<MapDetailsSheet> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        Navigator.of(context).pop();
+        // Taken before the pop: this sheet (and its ref) is disposed while
+        // the Filters sheet is still open, so its callback must not use ref.
+        final mapNotifier = ref.read(providerOfMap.notifier);
+        final navigator = Navigator.of(context);
+        navigator.pop();
         showHazardFiltersBottomSheet(
-          context: context,
+          context: navigator.context,
           filtersKey: MapScreen.filtersKey,
-          onFiltersUpdated: () =>
-              ref.read(providerOfMap.notifier).getMapHazards(),
+          onFiltersUpdated: mapNotifier.getMapHazards,
         );
       },
       child: Container(

@@ -73,16 +73,20 @@ class SeverityLine extends StatelessWidget {
     final selected = _selected;
     return Semantics(
       label: 'Which colours to show',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < _choices.length; i++) ...[
-            if (i > 0) SizedBox(width: 8.spMin),
-            Expanded(
-              child: _tile(_choices[i], isSelected: i == selected),
-            ),
+      // Both screens put this in a vertical scroll view (unbounded height),
+      // so the tiles are stretched to the tallest one, not to infinity.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < _choices.length; i++) ...[
+              if (i > 0) SizedBox(width: 8.spMin),
+              Expanded(
+                child: _tile(_choices[i], isSelected: i == selected),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

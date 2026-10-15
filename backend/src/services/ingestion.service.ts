@@ -1076,9 +1076,12 @@ const fetchHazardsFromSource = async <T = any>(
       }
 
       const data = await response.json();
-      const hazards = (parseFunction as (data: T) => HazardDataWithRelations[])(
-        data,
-      );
+      // Awaited: a parser may be async (WAQI reads station feeds first).
+      const hazards = await (
+        parseFunction as (
+          data: T,
+        ) => HazardDataWithRelations[] | Promise<HazardDataWithRelations[]>
+      )(data);
       await recordSourceFetchResult(sourceId, {
         ok: true,
         hazardCount: hazards.length,
@@ -1108,11 +1111,11 @@ const fetchHazardsFromSource = async <T = any>(
           }
 
           const data = await response.json();
-          const hazards = (
+          const hazards = await (
             parseFunction as (
               data: T,
               source?: any,
-            ) => HazardDataWithRelations[]
+            ) => HazardDataWithRelations[] | Promise<HazardDataWithRelations[]>
           )(data, source);
 
           return hazards.map((hazard) => ({

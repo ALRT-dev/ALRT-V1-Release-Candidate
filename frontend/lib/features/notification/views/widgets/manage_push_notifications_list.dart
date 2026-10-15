@@ -137,7 +137,6 @@ class _ManagePushNotificationsListState
     required final String title,
     required final String subtitle,
     required final Widget child,
-    final Widget? trailing,
   }) {
     return Container(
       padding: EdgeInsets.all(18.spMin),
@@ -157,21 +156,14 @@ class _ManagePushNotificationsListState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10.5.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: _sectionLabelColor,
-                  ),
-                ),
-              ),
-              if (trailing != null) trailing,
-            ],
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10.5.spMin,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: _sectionLabelColor,
+            ),
           ),
           5.hSizedBox,
           Text(

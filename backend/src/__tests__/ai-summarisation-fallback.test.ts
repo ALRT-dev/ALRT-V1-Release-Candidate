@@ -130,6 +130,7 @@ vi.mock("../utils/ingestion.util.js", () => ({
   parseCFSFeedToHazards: vi.fn().mockReturnValue([]),
   parseNTFireAndRescueToHazards: vi.fn().mockReturnValue([]),
   parseWAQIToHazards: vi.fn().mockReturnValue([]),
+  enrichWaqiDominantPollutants: vi.fn().mockImplementation(async (d: any) => d),
   parseUVIndexAndPollenToHazards: vi.fn().mockReturnValue([]),
   parseWAWarningsToHazards: vi.fn().mockReturnValue([]),
   parseWAIncidentsToHazards: vi.fn().mockReturnValue([]),

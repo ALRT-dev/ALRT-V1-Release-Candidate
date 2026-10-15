@@ -141,8 +141,11 @@ abstract final class AlertCardStyle {
           titleLower.contains(valueLower)) {
         continue;
       }
-      // Repeats an earlier line.
-      if (seen.any((e) => e.contains(valueLower))) continue;
+      // Repeats an earlier line. Short values ("2", "Yes") are left alone:
+      // they turn up inside unrelated lines ("M2", "2 lanes").
+      if (valueLower.length >= 4 && seen.any((e) => e.contains(valueLower))) {
+        continue;
+      }
       seen.add(line.toLowerCase());
 
       final calmValue = _calmShouted(value);
@@ -159,7 +162,7 @@ abstract final class AlertCardStyle {
   static const _machineKeys = {
     'coordinates', 'coordinate', 'lat', 'lon', 'lng', 'latitude',
     'longitude', 'last updated', 'updated', 'published', 'id', 'uid',
-    'station time',
+    'station time', 'measured',
   };
 
   static const _keepUpper = {
@@ -187,15 +190,20 @@ abstract final class AlertCardStyle {
   /// words becomes a label ("CHANGED TRAFFIC CONDITIONS Oversize vehicle"
   /// -> "Changed traffic conditions: Oversize vehicle").
   static String _calmShouted(final String value) {
+    String core(final String w) => w.replaceAll(RegExp(r'[^A-Za-z0-9.]'), '');
+    bool acronym(final String w) => _keepUpper.contains(core(w).toUpperCase());
+    // Known acronyms ("NSW RFS reports") are not shouting.
     bool shouted(final String w) =>
-        RegExp(r'[A-Z]').hasMatch(w) && w == w.toUpperCase() && w.length > 1;
+        RegExp(r'[A-Z]').hasMatch(w) &&
+        w == w.toUpperCase() &&
+        w.length > 1 &&
+        !acronym(w);
     final words = value.split(' ');
     final shoutedCount = words.where(shouted).length;
     if (shoutedCount < 2) return value;
 
     String titleWord(final String w) {
-      final core = w.replaceAll(RegExp(r'[^A-Za-z0-9.]'), '');
-      if (_keepUpper.contains(core.toUpperCase())) return w;
+      if (acronym(w)) return w;
       final lower = w.toLowerCase();
       final i = lower.indexOf(RegExp(r'[a-z]'));
       if (i < 0) return w;
@@ -210,10 +218,17 @@ abstract final class AlertCardStyle {
     while (n < words.length && !RegExp(r'[a-z]').hasMatch(words[n])) {
       n++;
     }
-    if (n >= 2 && n < words.length) {
-      final lead = words.take(n).join(' ').toLowerCase();
+    if (words.take(n).where(shouted).length >= 2 && n < words.length) {
+      final lead = words
+          .take(n)
+          .map((w) => acronym(w) ? w : w.toLowerCase())
+          .join(' ');
       final rest = words.skip(n).join(' ');
-      return '${lead[0].toUpperCase()}${lead.substring(1)}: $rest';
+      // A label only when the rest starts a new phrase ("CHANGED TRAFFIC
+      // CONDITIONS Oversize vehicle"); "ROAD CLOSED due to flooding" reads
+      // on as one sentence.
+      final joiner = RegExp(r'^[A-Z0-9]').hasMatch(rest) ? ': ' : ' ';
+      return '${lead[0].toUpperCase()}${lead.substring(1)}$joiner$rest';
     }
     return value;
   }
