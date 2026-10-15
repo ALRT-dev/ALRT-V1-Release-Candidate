@@ -9,7 +9,10 @@
 /* Begin PBXBuildFile section */
 		04452CDCC10AD1F50E7165A6 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 609D5F42FD860C11C0483EE2 /* Pods_Runner.framework */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		1C03FA9A98F95E972A8FC381 /* GlanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9E9965A841DB6D992286905 /* GlanceView.swift */; };
+		2DFC42F3FD59422270B1097A /* AlrtWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 9B5FA56115A6401CA65ED0C3 /* AlrtWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
+		38A8926E7E2667B77C995A87 /* GlanceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6323912CEF41E42716E9FD /* GlanceModel.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		553521054D66CC9AE571D00C /* AlrtAlertsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D70A0914A1C8B4671D3CE44 /* AlrtAlertsWidget.swift */; };
 		6381021D33E01F942208AC32 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 470C68C308C22F6921B007C6 /* Foundation.framework */; };
@@ -19,9 +22,11 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		AE004D4A446304AEB523F0E5 /* AlrtWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357ECFB04E1C8053EDE9C644 /* AlrtWatchApp.swift */; };
 		B958FA5E5C3113C39F7690D7 /* AlrtWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3917C6C0E5EDBD424E26E148 /* AlrtWidgetBundle.swift */; };
 		D51B556A000268FA58272A91 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 888D080746C24E8E147D1D83 /* GoogleService-Info.plist */; };
 		EB599C5EC30BC813F78BF3FD /* AlrtWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6E7C6AAEB45359BB0C07C9CF /* AlrtWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F6FC170675628A9E5B818E2E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1845242B6CD7084CDE602059 /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,9 +44,27 @@
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
 		};
+		53BE79929D856B239A041967 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8990F4405D435897FF7A5BAA;
+			remoteInfo = AlrtWatch;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		4988D4512038F839E19B34E4 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				2DFC42F3FD59422270B1097A /* AlrtWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9705A1C41CF9048500538489 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -69,6 +92,7 @@
 		035A7FF8D63782E270A4DA22 /* Pods-Runner.debug-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug-dev.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
+		1845242B6CD7084CDE602059 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		18EADC46DFA05DF9F1BE5D4D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1940DF7C2E9A755500CF6761 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		1AEA5BE5C52135752A622B39 /* Pods-RunnerTests.release-prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release-prod.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release-prod.xcconfig"; sourceTree = "<group>"; };
@@ -76,6 +100,7 @@
 		302D75F89A74CFD1211FED1D /* Pods-Runner.profile-prod.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-prod.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-prod.xcconfig"; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		357ECFB04E1C8053EDE9C644 /* AlrtWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlrtWatchApp.swift; sourceTree = "<group>"; };
 		363D0D1D1B70FC7F62E44560 /* Pods-RunnerTests.debug-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug-dev.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug-dev.xcconfig"; sourceTree = "<group>"; };
 		3917C6C0E5EDBD424E26E148 /* AlrtWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlrtWidgetBundle.swift; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
@@ -106,12 +131,17 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9B5FA56115A6401CA65ED0C3 /* AlrtWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AlrtWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6EF1E5EDB0FC43962BBC8D8 /* Debug-prod.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Debug-prod.xcconfig"; path = "Flutter/Debug-prod.xcconfig"; sourceTree = "<group>"; };
 		B22A365F1757B76D17BE040A /* Pods-Runner.release-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release-dev.xcconfig"; sourceTree = "<group>"; };
 		B429FC8602160B382A02BBF2 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B7835FB59B7D74C830BF262F /* Pods-Runner.profile-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-dev.xcconfig"; sourceTree = "<group>"; };
 		C337D3B37C35E1B2EE8D978D /* AlrtWidget-dev.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = "AlrtWidget-dev.entitlements"; sourceTree = "<group>"; };
+		C9E9965A841DB6D992286905 /* GlanceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GlanceView.swift; sourceTree = "<group>"; };
+		CF6323912CEF41E42716E9FD /* GlanceModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GlanceModel.swift; sourceTree = "<group>"; };
 		D0EA8105712F90EA0F1A6432 /* Profile-dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Profile-dev.xcconfig"; path = "Flutter/Profile-dev.xcconfig"; sourceTree = "<group>"; };
+		D84F67FB443FA52861AB3980 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Watch.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -136,6 +166,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				6381021D33E01F942208AC32 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CD30D4F9AD253E174C161539 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6FC170675628A9E5B818E2E /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -165,6 +203,14 @@
 			path = RunnerTests;
 			sourceTree = "<group>";
 		};
+		4F94E9A9FA1C5FD771269F4B /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				1845242B6CD7084CDE602059 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
 		5E30FACB07D77EC49C11A9B2 /* iOS */ = {
 			isa = PBXGroup;
 			children = (
@@ -179,6 +225,7 @@
 				609D5F42FD860C11C0483EE2 /* Pods_Runner.framework */,
 				B429FC8602160B382A02BBF2 /* Pods_RunnerTests.framework */,
 				5E30FACB07D77EC49C11A9B2 /* iOS */,
+				4F94E9A9FA1C5FD771269F4B /* watchOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -211,6 +258,7 @@
 				888D080746C24E8E147D1D83 /* GoogleService-Info.plist */,
 				615E1D46330E15F7D5F71318 /* Frameworks */,
 				2759EFCCC299F45279BA1E70 /* AlrtWidget */,
+				C5583350BAE96AAB0258D6F7 /* AlrtWatch */,
 			);
 			sourceTree = "<group>";
 		};
@@ -220,6 +268,7 @@
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				6E7C6AAEB45359BB0C07C9CF /* AlrtWidget.appex */,
+				9B5FA56115A6401CA65ED0C3 /* AlrtWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -257,6 +306,19 @@
 				2D46F676BB43981C49608071 /* Pods-RunnerTests.profile-dev.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		C5583350BAE96AAB0258D6F7 /* AlrtWatch */ = {
+			isa = PBXGroup;
+			children = (
+				357ECFB04E1C8053EDE9C644 /* AlrtWatchApp.swift */,
+				CF6323912CEF41E42716E9FD /* GlanceModel.swift */,
+				C9E9965A841DB6D992286905 /* GlanceView.swift */,
+				D84F67FB443FA52861AB3980 /* Info.plist */,
+				E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */,
+			);
+			name = AlrtWatch;
+			path = AlrtWatch;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -298,6 +360,23 @@
 			productReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		8990F4405D435897FF7A5BAA /* AlrtWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC1EEA5121278DA20D348169 /* Build configuration list for PBXNativeTarget "AlrtWatch" */;
+			buildPhases = (
+				08E8CAC0058218981A288D7F /* Sources */,
+				CD30D4F9AD253E174C161539 /* Frameworks */,
+				BF004A06E8FCEE69F1FCA577 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AlrtWatch;
+			productName = AlrtWatch;
+			productReference = 9B5FA56115A6401CA65ED0C3 /* AlrtWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		97C146ED1CF9000F007C117D /* Runner */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
@@ -309,6 +388,7 @@
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				BB3AD4C46DAFE29AA6359858 /* Embed Foundation Extensions */,
+				4988D4512038F839E19B34E4 /* Embed Watch Content */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				BEEB50D06DA8A30D801867E9 /* [CP] Embed Pods Frameworks */,
 				0BB5060832C4BE95A0668326 /* [CP] Copy Pods Resources */,
@@ -317,6 +397,7 @@
 			);
 			dependencies = (
 				45628F6B8E1DFC9327B3C364 /* PBXTargetDependency */,
+				241241F06F4C3F6F2DA28B7D /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
@@ -359,6 +440,7 @@
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				0BCE052CAA2434BDEC9CB57B /* AlrtWidget */,
+				8990F4405D435897FF7A5BAA /* AlrtWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -380,6 +462,13 @@
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				D51B556A000268FA58272A91 /* GoogleService-Info.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BF004A06E8FCEE69F1FCA577 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -505,6 +594,16 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		08E8CAC0058218981A288D7F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE004D4A446304AEB523F0E5 /* AlrtWatchApp.swift in Sources */,
+				38A8926E7E2667B77C995A87 /* GlanceModel.swift in Sources */,
+				1C03FA9A98F95E972A8FC381 /* GlanceView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		282F53AC22C2A34C912F5C6F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -535,6 +634,12 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		241241F06F4C3F6F2DA28B7D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = AlrtWatch;
+			target = 8990F4405D435897FF7A5BAA /* AlrtWatch */;
+			targetProxy = 53BE79929D856B239A041967 /* PBXContainerItemProxy */;
+		};
 		331C8086294A63A400263BE5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
@@ -902,6 +1007,52 @@
 			};
 			name = "Profile-dev";
 		};
+		1D4D2518F3EFB06BDC5EDAB5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WK_COMPANION_BUNDLE_ID = com.safetyalrt.alrt;
+			};
+			name = Release;
+		};
+		24858EBF545BC3A51D523F19 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WK_COMPANION_BUNDLE_ID = com.safetyalrt.alrt;
+			};
+			name = Debug;
+		};
 		249021D3217E4FDB00AE95B9 /* Profile-prod */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1090,6 +1241,51 @@
 				VALIDATE_PRODUCT = YES;
 			};
 			name = "Release-prod";
+		};
+		62EF2448AEA4FD576E8FF711 /* Profile-prod */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WK_COMPANION_BUNDLE_ID = com.safetyalrt.alrt;
+			};
+			name = "Profile-prod";
+		};
+		8A80A1E7D238DAB1210594E0 /* Debug-dev */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.dev.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.dev.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WK_COMPANION_BUNDLE_ID = com.safetyalrt.alrt.dev;
+			};
+			name = "Debug-dev";
 		};
 		8F55D92724F4CAEADCB1C90B /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1317,6 +1513,29 @@
 			};
 			name = "Release-prod";
 		};
+		A1E3AD9AD74BF53907032324 /* Profile-dev */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.dev.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.dev.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WK_COMPANION_BUNDLE_ID = com.safetyalrt.alrt.dev;
+			};
+			name = "Profile-dev";
+		};
 		BB9DE80A4E077C7298A674DD /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 62BCA256EE32C4C7A49F567A /* Widget.xcconfig */;
@@ -1401,6 +1620,76 @@
 			};
 			name = "Debug-prod";
 		};
+		D56A848D107BAD8EC012AFF3 /* Release-dev */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.dev.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.dev.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WK_COMPANION_BUNDLE_ID = com.safetyalrt.alrt.dev;
+			};
+			name = "Release-dev";
+		};
+		D57EBEBEB2BE56FF6DD3EF45 /* Debug-prod */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WK_COMPANION_BUNDLE_ID = com.safetyalrt.alrt;
+			};
+			name = "Debug-prod";
+		};
+		F7E6B4AAD794A79F6BF1204A /* Release-prod */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E4A5FF3E9E5F7F6F11AEF993 /* Watch.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = JR89M7CYPR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlrtWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.safetyalrt.alrt.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.safetyalrt.alrt.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WK_COMPANION_BUNDLE_ID = com.safetyalrt.alrt;
+			};
+			name = "Release-prod";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1454,6 +1743,21 @@
 				01AE6356D858CE6A51105946 /* Release-dev */,
 				3E87F14D05E21B44D2A37450 /* Profile-prod */,
 				BF5F4EC82BE5E3F7B87D69E2 /* Profile-dev */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC1EEA5121278DA20D348169 /* Build configuration list for PBXNativeTarget "AlrtWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1D4D2518F3EFB06BDC5EDAB5 /* Release */,
+				24858EBF545BC3A51D523F19 /* Debug */,
+				D57EBEBEB2BE56FF6DD3EF45 /* Debug-prod */,
+				8A80A1E7D238DAB1210594E0 /* Debug-dev */,
+				F7E6B4AAD794A79F6BF1204A /* Release-prod */,
+				D56A848D107BAD8EC012AFF3 /* Release-dev */,
+				62EF2448AEA4FD576E8FF711 /* Profile-prod */,
+				A1E3AD9AD74BF53907032324 /* Profile-dev */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
