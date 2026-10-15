@@ -5,7 +5,12 @@ explicit instruction from the product owner in the current session.
 
 ## Design system
 
-- Band colours: Info #8A93A0, Monitor #F5C518, Action #F07E1B, Critical #DA1F2D.
+- Band colours: Info #8A93A0, Monitor #FBE032, Action #F07E1B, Critical #DA1F2D.
+  Monitor was #F5C518 until 16 Oct 2026 (owner: the Advice triangles looked
+  dull); #FBE032 is the yellow sampled from the official AWS icons on
+  australianwarningsystem.com.au and already used by the supplied diamond
+  artwork. Orange and red stay as locked (the national icons sample as
+  #FF7900 and #D6001C; not changed, owner asked about yellow only).
 - Shapes carry the SOURCE system: AWS triangle, official diamond, current
   community disc artwork, ALRT shield. The square is retired (product-owner
   instruction, confirmed 13 October 2026). Humanitarian events use a diamond

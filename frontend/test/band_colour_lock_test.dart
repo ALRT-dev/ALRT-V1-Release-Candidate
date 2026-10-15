@@ -12,7 +12,7 @@ import 'package:hazard_app/others/app_colors.dart';
 /// AppColors, and this test is what stops a second set growing back.
 void main() {
   const info = Color(0xFF8A93A0);
-  const monitor = Color(0xFFF5C518);
+  const monitor = Color(0xFFFBE032);
   const action = Color(0xFFF07E1B);
   const critical = Color(0xFFDA1F2D);
 

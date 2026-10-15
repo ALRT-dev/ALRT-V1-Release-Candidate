@@ -140,7 +140,7 @@ export const defaultTemplatePack = (): TemplatePack => ({
       "Extract 2-3 concise facts supported by the agency source. Retain the affected area, original warning level and all essential official instructions. Do not invent missing facts. ALRT suggestions and For You guidance come from the approved library.",
     bandColors: {
       info: "#8A93A0",
-      monitor: "#F5C518",
+      monitor: "#FBE032",
       action: "#F07E1B",
       critical: "#DA1F2D",
     },
