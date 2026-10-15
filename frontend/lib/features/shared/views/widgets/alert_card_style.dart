@@ -162,7 +162,10 @@ abstract final class AlertCardStyle {
   static const _machineKeys = {
     'coordinates', 'coordinate', 'lat', 'lon', 'lng', 'latitude',
     'longitude', 'last updated', 'updated', 'published', 'id', 'uid',
-    'station time', 'measured',
+    'station time',
+    // Index values are never shown (purge list, pack file 03: category
+    // names only). The number stays in the data for the band.
+    'aqi', 'aqi value', 'index', 'pm2.5', 'pm10', 'reading', 'measured',
   };
 
   static const _keepUpper = {

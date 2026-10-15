@@ -139,4 +139,28 @@ void main() {
       );
     });
   });
+
+  group('air quality shows words, never the number', () {
+    test('the AQI machine field is hidden and the meaning shows', () {
+      final facts = AlertCardStyle.factLines(
+        'Station: Moranbah\n'
+        'Air quality: Unhealthy for sensitive groups (World Air Quality Index rating)\n'
+        'Main pollutant: fine particles (PM2.5)\n'
+        'What this means: People with heart or lung conditions may notice effects.\n'
+        'Measured: 2026-10-15T02:00:00\n'
+        'AQI: 111',
+        title: 'Air Quality Alert - Moranbah',
+      );
+      expect(facts.any((f) => f.contains('111')), isFalse);
+      expect(facts.any((f) => f.startsWith('Measured')), isFalse);
+      expect(
+        facts,
+        containsAll([
+          'Air quality: Unhealthy for sensitive groups (World Air Quality Index rating)',
+          'Main pollutant: fine particles (PM2.5)',
+          'What this means: People with heart or lung conditions may notice effects.',
+        ]),
+      );
+    });
+  });
 }

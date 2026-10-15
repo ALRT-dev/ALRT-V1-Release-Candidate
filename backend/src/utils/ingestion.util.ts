@@ -221,6 +221,30 @@ export const waqiRatingFor = (aqi: number): string | null => {
   return "Hazardous";
 };
 
+/**
+ * What each WAQI rating means for people, in plain words, from the US EPA
+ * AQI category descriptions WAQI publishes. Attributed as the rating's
+ * meaning, never as agency advice; it says who may notice effects, not
+ * what to do.
+ */
+export const waqiRatingMeaning = (aqi: number): string | null => {
+  if (!Number.isFinite(aqi) || aqi < 0) return null;
+  if (aqi <= 50) return "Air quality is good and poses little or no risk.";
+  if (aqi <= 100) {
+    return "Air quality is acceptable. A few people who are unusually sensitive to air pollution may notice effects.";
+  }
+  if (aqi <= 150) {
+    return "People with heart or lung conditions, older adults, children and people active outdoors may notice effects. Most people are unlikely to be affected.";
+  }
+  if (aqi <= 200) {
+    return "Some people may begin to notice health effects. People with heart or lung conditions, older adults and children may notice more serious effects.";
+  }
+  if (aqi <= 300) {
+    return "A health alert level. Everyone may begin to notice health effects, and sensitive groups may notice more serious effects.";
+  }
+  return "Emergency conditions. The whole population is more likely to be affected.";
+};
+
 const WAQI_POLLUTANTS: Record<string, string> = {
   pm25: "fine particles (PM2.5)",
   pm10: "coarse particles (PM10)",
@@ -297,23 +321,23 @@ export function parseWAQIToHazards({
 
       const title = `Air Quality Alert - ${item.station.name}`;
 
-      // What the reader needs to know WHY the alert is there: the reading,
-      // WAQI's own rating for it, and (when WAQI's station feed names it)
-      // the pollutant driving it. Coordinates and the raw timestamp were
-      // shown as "facts" and explained nothing (phone review, 15 Oct 2026).
-      // "AQI: <n>" stays first on its line: parseAqiValueFromDescription
-      // reads it.
+      // Why the alert is there, in the source's own words and never as a
+      // number (product owner, 16 Oct 2026; purge list, pack file 03:
+      // category names only, never "AQI at 150"): WAQI's rating for the
+      // reading, the main pollutant when WAQI's station feed names it,
+      // and what that rating means for people. The number is kept only in
+      // a machine field for the band and the card template.
       const rating = waqiRatingFor(aqiValue);
       const pollutant = describeWaqiPollutant(item.dominentpol);
+      const meaning = waqiRatingMeaning(aqiValue);
       const descriptionParts: string[] = [
         `Station: ${item.station.name}`,
-        rating
-          ? `AQI: ${aqiValue}, which WAQI rates "${rating}"`
-          : `AQI: ${aqiValue}`,
+        ...(rating ? [`Air quality: ${rating} (World Air Quality Index rating)`] : []),
         ...(pollutant ? [`Main pollutant: ${pollutant}`] : []),
+        ...(meaning ? [`What this means: ${meaning}`] : []),
         `Measured: ${item.station.time}`,
+        `AQI: ${aqiValue}`,
       ];
-
       const description = descriptionParts.join("\n");
 
       // Determine severity band based on AQI value

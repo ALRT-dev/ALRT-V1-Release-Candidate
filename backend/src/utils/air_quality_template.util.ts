@@ -21,29 +21,28 @@ import type { AISummaryResponse } from "../models/ai_summary_response_interface.
 const MANDATORY_HEALTH_CLOSE =
   "This is general information. A health professional can help with personal health concerns.";
 
-const SUMMARY_BY_BAND: Record<
-  HazardSeverityBand,
-  (params: { stationName: string; aqiValue: number | null }) => string
-> = {
-  [HazardSeverityBand.info]: ({ stationName, aqiValue }) =>
-    aqiValue !== null
-      ? `Air quality is good near ${stationName} with AQI at ${aqiValue}.`
-      : `Air quality is good near ${stationName}.`,
-  [HazardSeverityBand.monitor]: ({ stationName, aqiValue }) =>
-    aqiValue !== null
-      ? `Air quality is moderate near ${stationName} with AQI at ${aqiValue}.`
-      : `Air quality is moderate near ${stationName}.`,
-  [HazardSeverityBand.action]: ({ stationName, aqiValue }) =>
-    aqiValue !== null
-      ? `Air quality is poor near ${stationName} with AQI at ${aqiValue}, as reported by WAQI.`
-      : `Air quality is poor near ${stationName}, as reported by WAQI.`,
-  [HazardSeverityBand.critical]: ({ stationName, aqiValue }) =>
-    aqiValue !== null && aqiValue > 300
-      ? `Air quality is hazardous near ${stationName} with AQI at ${aqiValue}, as reported by WAQI.`
-      : aqiValue !== null
-        ? `Air quality is very poor near ${stationName} with AQI at ${aqiValue}, as reported by WAQI.`
-        : `Air quality is very poor near ${stationName}, as reported by WAQI.`,
+/**
+ * The summary is the source's statement, in the source's own rating words
+ * and never a number (product owner, 16 Oct 2026; purge list, pack file
+ * 03): "World Air Quality Index reports that air quality near {station}
+ * is {rating}." The rating comes from the description line the parser
+ * wrote; the band is the fallback when that line is missing.
+ */
+const RATING_BY_BAND: Record<HazardSeverityBand, string> = {
+  [HazardSeverityBand.info]: "good",
+  [HazardSeverityBand.monitor]: "moderate",
+  [HazardSeverityBand.action]: "unhealthy for sensitive groups",
+  [HazardSeverityBand.critical]: "unhealthy",
 };
+
+const summaryFor = ({
+  stationName,
+  rating,
+}: {
+  stationName: string;
+  rating: string;
+}): string =>
+  `World Air Quality Index reports that air quality near ${stationName} is ${rating}.`;
 
 const CALLS_TO_ACTION_BY_BAND: Record<HazardSeverityBand, string[]> = {
   [HazardSeverityBand.info]: [],
@@ -61,7 +60,7 @@ const CALLS_TO_ACTION_BY_BAND: Record<HazardSeverityBand, string[]> = {
   ],
 };
 
-/** Extracts the numeric AQI value from parseWAQIToHazards's fixed-format description ("...AQI: 87..."). Returns null rather than throwing if the format ever changes. */
+/** Extracts the numeric AQI value from parseWAQIToHazards's description (machine field "AQI: 87"). Never shown to people; returns null if absent. */
 export const parseAqiValueFromDescription = (
   description: string,
 ): number | null => {
@@ -95,16 +94,14 @@ export const getDeterministicAirQualityContent = ({
   description: string;
   severityBand: HazardSeverityBand;
 }): AISummaryResponse => {
-  const aqiValue = parseAqiValueFromDescription(description);
   const stationName = parseStationNameFromDescription(description, title);
-  // Say what is driving the reading when the station feed named it.
-  const pollutant = /Main pollutant:\s*(.+)/.exec(description)?.[1]?.trim();
-  const base = SUMMARY_BY_BAND[severityBand]({ stationName, aqiValue });
+  const ratingLine = /Air quality:\s*(.+?)\s*\(World Air Quality Index rating\)/.exec(
+    description,
+  )?.[1]?.trim();
+  const rating = (ratingLine ?? RATING_BY_BAND[severityBand]).toLowerCase();
   return {
     title,
-    summary: pollutant
-      ? `${base} The main pollutant is ${pollutant}.`
-      : base,
+    summary: summaryFor({ stationName, rating }),
     callsToAction: CALLS_TO_ACTION_BY_BAND[severityBand],
     confidence: "high",
   };
