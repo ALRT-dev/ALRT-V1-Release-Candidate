@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hazard_app/features/ask_alrt/models/ask_alrt_message.dart';
+import 'package:hazard_app/features/ask_alrt/providers/ask_alrt_provider.dart';
 import 'package:hazard_app/features/ask_alrt/views/ask_alrt_sheet.dart';
 import 'package:hazard_app/features/map/models/google_place_model.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
@@ -13,9 +15,12 @@ import 'package:hazard_app/features/map/views/widgets/places_search_results_menu
 import 'package:hazard_app/features/report/providers/create_update_report_provider.dart';
 import 'package:hazard_app/features/report/views/screens/create_update_report_screen.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
+import 'package:hazard_app/features/shared/services/alert_speech_service.dart';
+import 'package:hazard_app/features/shared/services/voice_command.dart';
 import 'package:hazard_app/features/shared/services/voice_input_controller.dart';
 import 'package:hazard_app/features/shared/views/widgets/dropdown.dart';
 import 'package:hazard_app/features/shared/views/widgets/voice/voice_listening_sheet.dart';
+import 'package:hazard_app/features/shared/views/widgets/voice/speak_to_alrt_sheet.dart';
 import 'package:hazard_app/features/shared/views/widgets/voice/voice_priming_sheet.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -120,7 +125,7 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
                     background: _micBackground,
                     icon: LucideIcons.mic,
                     iconColor: _micIconColor,
-                    semanticLabel: 'Search by voice',
+                    semanticLabel: 'Speak to ALRT',
                     onPressed: _handleMicTap,
                   ),
                 if (isSearchActive || !_micHidden) SizedBox(width: 10.spMin),
@@ -200,8 +205,7 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
   }
 
   /// Tap-to-talk. Primes for permission the first time, then listens and
-  /// routes the words: a place name lands in the search field, a hazard
-  /// description lands in Post an ALRT. Mirrors VoiceSearchMicButton, which
+  /// hands the words to [_handleSpokenCommand]. Mirrors VoiceSearchMicButton, which
   /// draws its own orange disc and so could not take the bar's styling.
   Future<void> _handleMicTap() async {
     if (_micBusy) return;
@@ -225,19 +229,54 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
       }
 
       if (!mounted) return;
-      final dictation = await VoiceListeningSheet.showForIntent(
-        context,
-        controller,
-      );
-      if (dictation == null) return;
-      if (dictation.intent == VoiceIntent.report) {
-        _handleReportDictation(dictation.text);
-      } else {
-        _handleVoiceSearchTranscript(dictation.text);
-      }
+      final heard = await VoiceListeningSheet.show(context, controller);
+      if (heard == null || heard.trim().isEmpty || !mounted) return;
+      await _handleSpokenCommand(VoiceCommand.parse(heard));
     } finally {
       _micBusy = false;
     }
+  }
+
+  /// One mic (ruling 16 Oct 2026): a search, a question for Ask ALRT, a
+  /// hazard to report, or something to do. Search, questions and reports
+  /// keep their own screens; everything else goes to Speak to ALRT, which
+  /// asks before saving, sending or checking in and reads its reply aloud.
+  Future<void> _handleSpokenCommand(final VoiceCommand command) async {
+    switch (command.kind) {
+      case VoiceCommandKind.search:
+        _handleVoiceSearchTranscript(command.place ?? command.heard);
+      case VoiceCommandKind.route:
+        _handleVoiceSearchTranscript(command.place ?? command.heard);
+        await ref.read(providerOfAlertSpeech).speak(
+              'Pick ${command.place} from the list, then Get Directions to '
+              'see each route and the alerts on it.',
+            );
+      case VoiceCommandKind.report:
+        _handleReportDictation(command.heard);
+      case VoiceCommandKind.ask:
+        await _askAloud(command.heard);
+      default:
+        await showSpeakToAlrtSheet(context: context, command: command);
+    }
+  }
+
+  /// Opens Ask ALRT, asks the spoken question there (it counts the same as
+  /// a typed one) and reads the answer aloud.
+  Future<void> _askAloud(final String question) async {
+    final sheet = showAskAlrtSheet(context);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
+    final notifier = ref.read(providerOfAskAlrt.notifier);
+    await notifier.ask(question);
+    if (!mounted) return;
+    final messages = ref.read(providerOfAskAlrt).messages;
+    final answer = messages.isNotEmpty &&
+            messages.last.role == AskAlrtRole.assistant
+        ? messages.last.text
+        : null;
+    if (answer != null) await ref.read(providerOfAlertSpeech).speak(answer);
+    await sheet;
+    await ref.read(providerOfAlertSpeech).stop();
   }
 
   void _handleVoiceSearchTranscript(final String transcript) {

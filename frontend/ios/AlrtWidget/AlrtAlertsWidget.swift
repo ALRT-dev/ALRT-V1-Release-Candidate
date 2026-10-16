@@ -206,17 +206,17 @@ private struct AlrtWidgetView: View {
                         .foregroundColor(.white)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("You\u{2019}re all clear")
+                    Text("No warnings near you")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
-                    Text("No warnings near you.")
+                    Text("Nothing official in your area right now.")
                         .font(.system(size: 12))
                         .foregroundColor(Color(white: 0.8))
                         .lineLimit(1)
                 }
             }
             HStack(spacing: 8) {
-                Text("ALL CLEAR")
+                Text("NO WARNINGS")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(Color(red: 0.04, green: 0.24, blue: 0.16))
                     .padding(.horizontal, 8)
