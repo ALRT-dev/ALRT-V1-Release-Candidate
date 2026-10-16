@@ -5,17 +5,44 @@ explicit instruction from the product owner in the current session.
 
 ## Design system
 
-- Band colours: Info #8A93A0, Monitor #F5C518, Action #F07E1B, Critical #DA1F2D.
-- Shapes carry the SOURCE system, five of them: AWS triangle, official
-  diamond, global-humanitarian rounded square, community circle, ALRT
-  shield. The shield never writes the band word and never restates or
-  overrides an official warning. The square is GDACS-style events rated for
-  international humanitarian response; it carries the source's own scale
-  verbatim (Red/Orange/Green describes likelihood of international aid, not
-  personal danger) and may be retired later, so it hangs off
-  Hazard.globalHumanitarianSourceIds alone. Every shape, the shield
-  included, takes the band hexes above; there is no separate brighter
-  shield palette.
+- Band colours: Info #8A93A0, Monitor #FBE032, Action #FF7900, Critical #D6001C.
+  Owner, 16 Oct 2026: the AWS warning colours are the ones the Australian
+  Warning System designates. AIDR publishes no hex values, so these are
+  sampled from the official level icons on australianwarningsystem.com.au
+  (yellow #FBE032, orange #FF7900, red #D6001C). They replace #F5C518,
+  #F07E1B and #DA1F2D everywhere a band is drawn: AppColors, the bundled
+  pin artwork, the backend template defaults. GDACS keeps its own scale.
+- Shapes carry the SOURCE system: AWS triangle, official diamond, current
+  community disc artwork, ALRT shield. The square is retired (product-owner
+  instruction, confirmed 13 October 2026). Humanitarian events use a diamond
+  and retain their native scale, which describes response needs, not personal
+  danger. The shield never overrides an official warning. Published templates
+  may change ALRT band colours and choose an existing map icon family. Required
+  AWS artwork and current community artwork are protected. Category pill colours
+  remain independent of severity.
+
+- Map markers and the Alerts tab (product owner, 14 Oct 2026, "match
+  prod"): official pins wear the category artwork (band-coloured diamond
+  or AWS triangle with the hazard pictogram); the bare shape x band pin
+  and template-coloured shapes are fallbacks only. Count bubbles are black
+  with a white number, orange or red only when an official Action or
+  Critical alert is inside; AWS Watch and Act / Emergency Warning are never
+  grouped; overlapping pins group (34 px) at street zoom and fan out from
+  zoom 17. The Alerts tab is the list of the alerts in the map's current
+  view, most serious first, and the rail's list button opens it. Map
+  details holds MAP TYPE, then WHICH ALERTS SHOW as one row into ALRT
+  Filters, then Done (product owner, 15 Oct 2026, replacing the 14 Oct
+  row of alert levels); the rail's info button is the key. The Filters sheet shows a locked, ticked
+  "Emergency warnings" row and lists "All alerts" first. Filters and
+  Notifications share the severity picker (three 60 pt choices: All,
+  Orange and red, Red only) and the category grid with an "All
+  categories" tile; every level option shows its source shapes and a
+  one-line description (product owner, 15 Oct 2026).
+- Published `contentDetails` separates source facts, affected area, native level,
+  agency instructions and labelled ALRT suggestions. For You matches all published
+  generic rows against local profile choices; never send profile selections to
+  ingestion or let them affect severity. An empty published library must not
+  silently fall back to older bundled guidance.
 - Category colours (brightened 2026-08-04; Security changed to
   crimson-pink 2026-09-08, product-owner instruction): Weather #2FA6FF,
   Health #FF7E29, Security #D9304F (crimson-pink, "make security and

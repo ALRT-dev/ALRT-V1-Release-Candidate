@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/category_grid_picker.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/severity_line.dart';
-import 'package:hazard_app/features/shared/views/widgets/filter_widgets/show_choice.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
@@ -8,7 +8,6 @@ import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
 import 'package:hazard_app/features/shared/views/widgets/base_bottomsheet_v2.dart';
-import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
 import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -149,8 +148,7 @@ class _HazardFiltersBottomsheetContentState
           Padding(
             padding: EdgeInsets.only(right: 8.spMin),
             child: Text(
-              'What shows on the map and in Alerts. Emergency warnings are '
-              'always on.',
+              'What shows on the map and in Alerts.',
               style: TextStyle(
                 fontSize: 15.spMin,
                 height: 1.4,
@@ -163,182 +161,232 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
-  /// Which alerts show: the same four choices as the Map details sheet.
-  /// Emergency warnings sit above them, locked on. ALRT Assessment keeps
-  /// its own switch underneath.
+  /// Who shows on the map and in Alerts (product owner, 16 Oct 2026):
+  /// the locked Emergency warnings row, then one switch per source with
+  /// its shape on the left (Official, Community, ALRT Assessment), then
+  /// Keep it quiet, which turns every switch off, drops the severity bar
+  /// to red and leaves emergency warnings. Turning a switch back on leaves
+  /// Keep it quiet.
+  ///
+  /// Official is the officialNonAws switch and nothing else: the severity
+  /// bar below owns awsAdvice and awsWatchAndAct, so moving the bar never
+  /// flips this switch (with the old "any of the three" reading, tapping
+  /// yellow with Official off made the switch read on while agency alerts
+  /// stayed hidden). Turning Official off leaves the bar where it is.
+  /// Turning it on while the bar sits on red alone also brings the bar
+  /// back to every colour, because red is always shown and Official at
+  /// red only would add nothing.
   Widget _whoIsSpeakingSection() {
     return Consumer(
       builder: (context, ref, child) {
         final f = ref.watch(_filtersProvider);
-        final switches = HazardFilterSwitches(
-          awsWatchAndAct: f.awsWatchAndAct,
-          awsAdvice: f.awsAdvice,
-          officialNonAws: f.officialNonAws,
-          userReported: f.userReported,
-        );
-        final current = ShowChoice.of(switches);
         final notifier = ref.read(_filtersProvider.notifier);
+        final officialOn = f.officialNonAws;
+        final redOnly = !f.awsAdvice && !f.awsWatchAndAct;
+        final quiet =
+            !officialOn && !f.userReported && !f.alrtIntel && redOnly;
 
-        Widget glyphs(final List<IconData> shapes) => SizedBox(
-              width: 68.spMin,
-              child: Row(
-                children: [
-                  for (final icon in shapes)
-                    Padding(
-                      padding: EdgeInsets.only(right: 3.spMin),
-                      child: Icon(icon, size: 16.spMin, color: AppColors.ink),
-                    ),
-                ],
-              ),
-            );
+        void setOfficial(final bool on) {
+          notifier.updateOfficialNonAws(on);
+          if (on && redOnly) {
+            notifier
+              ..updateAwsAdvice(true)
+              ..updateAwsWatchAndAct(true);
+          }
+          widget.onFiltersUpdated?.call();
+        }
 
-        Widget emergencyRow() => Container(
-              margin: EdgeInsets.only(bottom: 8.spMin),
-              padding: EdgeInsets.symmetric(
-                horizontal: 14.spMin,
-                vertical: 12.spMin,
+        void setCommunity(final bool on) {
+          notifier.updateUserReported(on);
+          widget.onFiltersUpdated?.call();
+        }
+
+        void setIntel(final bool on) {
+          notifier.updateAlrtIntel(on);
+          widget.onFiltersUpdated?.call();
+        }
+
+        void keepItQuiet() {
+          notifier
+            ..updateOfficialNonAws(false)
+            ..updateAwsAdvice(false)
+            ..updateAwsWatchAndAct(false)
+            ..updateUserReported(false)
+            ..updateAlrtIntel(false);
+          widget.onFiltersUpdated?.call();
+        }
+
+        return _sectionContainerBuilder(
+          title: 'Show',
+          subtitle: 'Choose what else shows.',
+          child: Column(
+            children: [
+              _alwaysOnRowBuilder(),
+              10.hSizedBox,
+              _switchBuilder(
+                icon: LucideIcons.diamond,
+                title: 'Official',
+                subtitle: 'Alerts from agencies.',
+                isEnabled: officialOn,
+                onToggle: setOfficial,
               ),
-              decoration: BoxDecoration(
-                color: AppColors.emergency.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14.spMin),
-                border: Border.all(
-                  color: AppColors.emergency.withValues(alpha: 0.45),
+              8.hSizedBox,
+              _switchBuilder(
+                icon: LucideIcons.circle,
+                title: 'Community',
+                subtitle: 'Reports from people nearby. Always unverified.',
+                isEnabled: f.userReported,
+                onToggle: setCommunity,
+              ),
+              8.hSizedBox,
+              _switchBuilder(
+                icon: LucideIcons.shield,
+                title: 'ALRT Assessment',
+                subtitle: 'Named sources. Never restates a warning.',
+                isEnabled: f.alrtIntel,
+                onToggle: setIntel,
+              ),
+              8.hSizedBox,
+              _quietRowBuilder(selected: quiet, onTap: keepItQuiet),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// "Keep it quiet": emergency warnings only. Shown ticked when every
+  /// switch above is off and the severity bar sits on red alone.
+  Widget _quietRowBuilder({
+    required final bool selected,
+    required final VoidCallback onTap,
+  }) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Keep it quiet, emergency warnings only',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          constraints: BoxConstraints(minHeight: 52.spMin),
+          padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 10.spMin),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.green.withValues(alpha: 0.10)
+                : AppColors.extraLightGrey,
+            borderRadius: BorderRadius.circular(14.spMin),
+            border: Border.all(
+              color: selected ? AppColors.green : AppColors.lightGrey,
+              width: selected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34.spMin,
+                height: 34.spMin,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(10.spMin),
+                ),
+                child: HazardShapeBadge.outlineGlyph(
+                  icon: LucideIcons.bellOff,
+                  size: 18.spMin,
                 ),
               ),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 64.spMin,
-                    child: Icon(
-                      Icons.warning_amber_rounded,
-                      size: 20.spMin,
-                      color: AppColors.emergency,
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Emergency warnings',
-                          style: TextStyle(
-                            fontSize: 15.spMin,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.black,
-                          ),
-                        ),
-                        2.hSizedBox,
-                        Text(
-                          'Always on, with every Advice, Watch and Act and '
-                          'Emergency Warning. You cannot switch these off.',
-                          style: TextStyle(
-                            fontSize: 12.spMin,
-                            height: 1.35,
-                            color: AppColors.mediumGrey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  8.wSizedBox,
-                  Icon(Icons.lock_outline, size: 16.spMin, color: AppColors.grey),
-                  6.wSizedBox,
-                  Container(
-                    width: 24.spMin,
-                    height: 24.spMin,
-                    decoration: const BoxDecoration(
-                      color: AppColors.emergency,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.check,
-                      size: 16.spMin,
-                      color: AppColors.white,
-                    ),
-                  ),
-                ],
-              ),
-            );
-
-        Widget choice(final ShowChoice value) {
-          final selected = current == value;
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              value.apply(notifier, switches);
-              widget.onFiltersUpdated?.call();
-            },
-            child: Container(
-              margin: EdgeInsets.only(bottom: 8.spMin),
-              padding: EdgeInsets.symmetric(
-                horizontal: 14.spMin,
-                vertical: 14.spMin,
-              ),
-              decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.green.withValues(alpha: 0.10)
-                    : AppColors.extraLightGrey,
-                borderRadius: BorderRadius.circular(14.spMin),
-                border: Border.all(
-                  color: selected ? AppColors.green : AppColors.lightGrey,
-                  width: selected ? 1.5 : 1.0,
-                ),
-              ),
-              child: Row(
-                children: [
-                  glyphs(value.shapes),
-                  Expanded(
-                    child: Text(
-                      value.title,
+              12.wSizedBox,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Keep it quiet',
                       style: TextStyle(
                         fontSize: 15.spMin,
                         fontWeight: FontWeight.w700,
                         color: AppColors.black,
                       ),
                     ),
-                  ),
-                  Container(
-                    width: 24.spMin,
-                    height: 24.spMin,
-                    decoration: BoxDecoration(
-                      color: selected ? AppColors.green : AppColors.transparent,
-                      shape: BoxShape.circle,
-                      border: selected
-                          ? null
-                          : Border.all(color: AppColors.lightGrey, width: 1.5),
+                    2.hSizedBox,
+                    Text(
+                      'Emergency warnings only.',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        color: AppColors.mediumGrey,
+                      ),
                     ),
-                    child: selected
-                        ? Icon(Icons.check, size: 16.spMin, color: AppColors.white)
-                        : null,
+                  ],
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected ? AppColors.green : AppColors.lightGrey,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// "Emergency warnings: always on", ticked and locked. Not tappable.
+  Widget _alwaysOnRowBuilder() {
+    return Semantics(
+      label: 'Official Emergency Warnings, always on',
+      child: Container(
+        constraints: BoxConstraints(minHeight: 52.spMin),
+        padding: EdgeInsets.symmetric(
+          horizontal: 14.spMin,
+          vertical: 10.spMin,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.emergency.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14.spMin),
+          border: Border.all(
+            color: AppColors.emergency.withValues(alpha: 0.55),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Official Emergency Warnings',
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  2.hSizedBox,
+                  Text(
+                    // Matches hazard_visibility_util: every active AWS
+                    // level and every official critical alert bypass the
+                    // filters below.
+                    'Always on, cannot be switched off.',
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      color: AppColors.mediumGrey,
+                    ),
                   ),
                 ],
               ),
             ),
-          );
-        }
-
-        return _sectionContainerBuilder(
-          title: 'Show',
-          subtitle: 'Pick what else appears with them.',
-          child: Column(
-            children: [
-              emergencyRow(),
-              for (final value in ShowChoice.values) choice(value),
-              4.hSizedBox,
-              _switchBuilder(
-                icon: LucideIcons.shield,
-                title: 'ALRT Assessment',
-                subtitle: 'Named sources. Never restates a warning',
-                isEnabled: f.alrtIntel,
-                onToggle: (value) {
-                  notifier.updateAlrtIntel(value);
-                  widget.onFiltersUpdated?.call();
-                },
-              ),
-            ],
-          ),
-        );
-      },
+            Icon(
+              LucideIcons.lock,
+              size: 18.spMin,
+              color: AppColors.emergency,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -359,7 +407,8 @@ class _HazardFiltersBottomsheetContentState
 
         return _sectionContainerBuilder(
           title: 'Colour shows severity',
-          subtitle: 'Emergency warnings (red) are always on.',
+          subtitle: 'Choose which colours show. Red emergency warnings '
+              'always show.',
           spacing: 6.0,
           child: SeverityLine(
             advice: awsAdvice,
@@ -389,25 +438,29 @@ class _HazardFiltersBottomsheetContentState
         );
         return _sectionContainerBuilder(
           title: 'Categories',
-          subtitle: 'Tap an icon to show or hide that kind of alert.',
-          child: Wrap(
-            spacing: 10.spMin,
-            runSpacing: 10.spMin,
-            children: categories
-                .map(
-                  (category) => CategoryFilterChip(
-                    category: category,
-                    iconOnly: true,
-                    isSelected: selectedCategories.contains(category.id),
-                    onToggle: (value) {
-                      ref
-                          .read(_filtersProvider.notifier)
-                          .toggleCategory(category.id);
-                      widget.onFiltersUpdated?.call();
-                    },
-                  ),
-                )
-                .toList(),
+          subtitle: 'Choose the kinds of alerts to show.',
+          spacing: 14.0,
+          child: CategoryGridPicker(
+            categories: categories,
+            selectedIds: selectedCategories,
+            onToggle: (category) {
+              ref.read(_filtersProvider.notifier).toggleCategory(category.id);
+              widget.onFiltersUpdated?.call();
+            },
+            onSelectAll: () {
+              ref
+                  .read(_filtersProvider.notifier)
+                  .updateSelectedCategories(
+                    categories.map((c) => c.id).toSet(),
+                  );
+              widget.onFiltersUpdated?.call();
+            },
+            onSelectOnly: (category) {
+              ref
+                  .read(_filtersProvider.notifier)
+                  .updateSelectedCategories({category.id});
+              widget.onFiltersUpdated?.call();
+            },
           ),
         );
       },

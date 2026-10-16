@@ -135,6 +135,8 @@ export interface AdminHazardReporterRef {
 }
 
 export interface AdminHazard {
+  contentDetails?: import('./alertTemplates').AlertContent | null;
+  nativeWarningLevel?: string | null;
   id: string;
   title: string;
   description: string;

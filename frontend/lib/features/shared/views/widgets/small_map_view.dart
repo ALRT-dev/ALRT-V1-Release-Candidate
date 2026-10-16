@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:hazard_app/features/shared/utils/community_disc_marker.dart';
+import 'package:hazard_app/features/shared/utils/template_marker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -33,6 +36,7 @@ class SmallMapView extends ConsumerStatefulWidget {
 class _SmallMapViewState extends ConsumerState<SmallMapView> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
+  int _markerGeneration = 0;
 
   @override
   void initState() {
@@ -43,7 +47,8 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
   @override
   void didUpdateWidget(SmallMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.hazard.id != widget.hazard.id ||
+    if (oldWidget.hazard.contentDetails != widget.hazard.contentDetails ||
+        oldWidget.hazard.id != widget.hazard.id ||
         oldWidget.hazard.latitude != widget.hazard.latitude ||
         oldWidget.hazard.longitude != widget.hazard.longitude ||
         oldWidget.hazard.severity != widget.hazard.severity ||
@@ -52,7 +57,8 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
     }
   }
 
-  void _createMarker() {
+  Future<void> _createMarker() async {
+    final generation = ++_markerGeneration;
     if (widget.hazard.latitude == null || widget.hazard.longitude == null) {
       setState(() {
         _markers = {};
@@ -64,9 +70,23 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
       providerOfHazardMarkerBitmaps.select((value) => value.markerBitmaps),
     );
 
-    final bitmapDescriptor = widget.hazard.getMarkerBitmapDescriptor(
-      markerBitmaps,
-    );
+    // Same order as the main map: the category artwork first, a bare
+    // template shape only when no artwork resolved.
+    final band = widget.hazard.severityBand ?? HazardSeverityBand.info;
+    final bareShape = markerBitmaps[
+        'shape_${widget.hazard.effectiveMapShape.name}_${band.name}'];
+    final artwork = widget.hazard.getMarkerBitmapDescriptor(markerBitmaps);
+    // Community reports wear their category disc here too, as on the main
+    // map (this used to fall through to a plain grey circle).
+    final disc = widget.hazard.isUserReported
+        ? await communityDiscMarker(widget.hazard)
+        : null;
+    final bitmapDescriptor = disc ??
+        (artwork != null && !identical(artwork, bareShape)
+            ? artwork
+            : await templateMarker(widget.hazard) ?? artwork);
+
+    if (!mounted || generation != _markerGeneration) return;
 
     setState(() {
       _markers = {

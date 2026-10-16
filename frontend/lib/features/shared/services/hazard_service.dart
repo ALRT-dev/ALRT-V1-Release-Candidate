@@ -404,11 +404,11 @@ class HazardService {
     }
 
     // ── Phase 1: Resolve all bitmap entries synchronously ──
-    // Network entries: (bitmapKey, slot, netSize, fallbackSeverity, fallbackIsAws, fallbackSize)
+    // Network entries: (bitmapKey, slot, netSize, fallbackSeverity, fallbackIsAws, fallbackSize, fallbackArtId)
     final networkEntries =
-        <(String, CategoryImage, Size, HazardSeverityBand, bool, Size)>[];
-    // Asset-only entries: (bitmapKey, severity, isAws, size)
-    final assetEntries = <(String, HazardSeverityBand, bool, Size)>[];
+        <(String, CategoryImage, Size, HazardSeverityBand, bool, Size, String)>[];
+    // Asset-only entries: (bitmapKey, severity, isAws, size, artId)
+    final assetEntries = <(String, HazardSeverityBand, bool, Size, String)>[];
     // Fire status entries (nullable, no fallback): (bitmapKey, slot, size)
     final fireEntries = <(String, CategoryImage, Size)>[];
 
@@ -424,6 +424,7 @@ class HazardService {
         isAwsCompliant: isAws,
       );
       final slot = _findFirstImageInChain(cat, imageType);
+      final artId = _bundledArtIdFor(cat, severity, isAwsCompliant: isAws);
       if (slot != null) {
         networkEntries.add((
           key,
@@ -436,6 +437,7 @@ class HazardService {
             imageType,
             defaultSize,
           ),
+          artId,
         ));
       } else {
         assetEntries.add((
@@ -447,6 +449,7 @@ class HazardService {
             imageType,
             defaultSize,
           ),
+          artId,
         ));
       }
     }
@@ -466,6 +469,7 @@ class HazardService {
             CategoryImageType.user,
             defaultSize,
           ),
+          'other',
         ));
       } else {
         assetEntries.add((
@@ -477,6 +481,7 @@ class HazardService {
             CategoryImageType.user,
             defaultSize,
           ),
+          'other',
         ));
       }
     }
@@ -549,7 +554,7 @@ class HazardService {
 
     // ── Phase 2: Batch-download unique images + pre-load fallback assets ──
     final uniqueDownloads = <String, String>{}; // s3Key → url
-    for (final (_, slot, _, _, _, _) in networkEntries) {
+    for (final (_, slot, _, _, _, _, _) in networkEntries) {
       uniqueDownloads.putIfAbsent(slot.s3Key, () => slot.url);
     }
     for (final (_, slot, _) in fireEntries) {
@@ -559,24 +564,26 @@ class HazardService {
     // Collect unique asset fallbacks (including fallbacks for network entries
     // in case a download fails).
     final assetFutures = <String, Future<BitmapDescriptor>>{};
-    void ensureAsset(HazardSeverityBand sev, bool isAws, Size size) {
-      final k = '${isAws}_${sev.name}_${size.width}_${size.height}';
+    String assetKeyOf(String art, HazardSeverityBand sev, bool isAws, Size size) =>
+        '${art}_${isAws}_${sev.name}_${size.width}_${size.height}';
+    void ensureAsset(String art, HazardSeverityBand sev, bool isAws, Size size) {
       assetFutures.putIfAbsent(
-        k,
+        assetKeyOf(art, sev, isAws, size),
         () => _bitmapDescriptorOtherSeverity(
           severityBand: sev,
           isAwsCompliant: isAws,
           size: size,
+          artId: art,
         ),
       );
     }
 
-    for (final (_, sev, isAws, size) in assetEntries) {
-      ensureAsset(sev, isAws, size);
+    for (final (_, sev, isAws, size, art) in assetEntries) {
+      ensureAsset(art, sev, isAws, size);
     }
-    for (final (_, _, _, fallbackSev, fallbackAws, fallbackSize)
+    for (final (_, _, _, fallbackSev, fallbackAws, fallbackSize, art)
         in networkEntries) {
-      ensureAsset(fallbackSev, fallbackAws, fallbackSize);
+      ensureAsset(art, fallbackSev, fallbackAws, fallbackSize);
     }
 
     // Run all downloads and asset loads concurrently
@@ -636,7 +643,7 @@ class HazardService {
       }());
     }
 
-    for (final (_, slot, size, _, _, _) in networkEntries) {
+    for (final (_, slot, size, _, _, _, _) in networkEntries) {
       scheduleRender(slot.s3Key, size);
     }
     for (final (_, slot, size) in fireEntries) {
@@ -652,17 +659,15 @@ class HazardService {
       return renderedDescriptors[cacheKey];
     }
 
-    for (final (key, slot, size, fallbackSev, fallbackAws, fallbackSize)
+    for (final (key, slot, size, fallbackSev, fallbackAws, fallbackSize, art)
         in networkEntries) {
       final bitmap = networkBitmap(slot, size);
-      final assetKey =
-          '${fallbackAws}_${fallbackSev.name}_${fallbackSize.width}_${fallbackSize.height}';
-      bitmapMap[key] = bitmap ?? resolvedAssets[assetKey]!;
+      bitmapMap[key] = bitmap ??
+          resolvedAssets[assetKeyOf(art, fallbackSev, fallbackAws, fallbackSize)]!;
     }
 
-    for (final (key, sev, isAws, size) in assetEntries) {
-      final assetKey = '${isAws}_${sev.name}_${size.width}_${size.height}';
-      bitmapMap[key] = resolvedAssets[assetKey]!;
+    for (final (key, sev, isAws, size, art) in assetEntries) {
+      bitmapMap[key] = resolvedAssets[assetKeyOf(art, sev, isAws, size)]!;
     }
 
     for (final (key, slot, size) in fireEntries) {
@@ -866,6 +871,11 @@ class HazardService {
       severityBand: severityBandForOtherFallback,
       isAwsCompliant: isAwsCompliantForOtherFallback,
       size: assetSize,
+      artId: _bundledArtIdFor(
+        category,
+        severityBandForOtherFallback,
+        isAwsCompliant: isAwsCompliantForOtherFallback,
+      ),
     );
   }
 
@@ -877,9 +887,25 @@ class HazardService {
     final w = image.width;
     final h = image.height;
     if (w != null && h != null && w > 0 && h > 0) {
-      return Size(w.toDouble(), h.toDouble());
+      return _readableOnMap(Size(w.toDouble(), h.toDouble()));
     }
-    return defaultSize;
+    return _readableOnMap(defaultSize);
+  }
+
+  /// Map pins take their size from the image width/height set per category
+  /// in the admin portal, and several were set small enough that the
+  /// pictogram could not be read or tapped (phone review, 14 Oct 2026).
+  /// The longer side is held between 44 (the tap-target minimum, and about
+  /// the live app's pin size) and 52,
+  /// keeping the image's own proportions.
+  static Size _readableOnMap(final Size size) {
+    const minSide = 44.0;
+    const maxSide = 52.0;
+    final longest = size.longestSide;
+    if (longest <= 0) return const Size(minSide, minSide);
+    final target = longest.clamp(minSide, maxSide);
+    final k = target / longest;
+    return Size(size.width * k, size.height * k);
   }
 
   /// First matching [imageType] in category → parent chain with valid width/height, else [defaultSize].
@@ -898,10 +924,10 @@ class HazardService {
       final w = slot.width;
       final h = slot.height;
       if (w != null && h != null && w > 0 && h > 0) {
-        return Size(w.toDouble(), h.toDouble());
+        return _readableOnMap(Size(w.toDouble(), h.toDouble()));
       }
     }
-    return defaultSize;
+    return _readableOnMap(defaultSize);
   }
 
   Future<Uint8List?> _downloadImageBytes(
@@ -1036,20 +1062,171 @@ class HazardService {
     };
   }
 
-  /// Local fallback markers: only the generic `other_*` assets are kept on disk.
+  /// Every hazard artwork bundled in assets/images/hazards (family/name).
+  /// Used when the category has no image from the server, which is the
+  /// usual state on the TEST backend: pins there fell back to the generic
+  /// `other_*` artwork, so a planned burn showed a plain triangle instead of
+  /// the dotted diamond with the flame (phone review, 15 Oct 2026).
+  static const _bundledHazardArt = <String>{
+    'aws/bushfire_action',
+    'aws/bushfire_critical',
+    'aws/bushfire_info',
+    'aws/bushfire_monitor',
+    'aws/cyclone_action',
+    'aws/cyclone_critical',
+    'aws/cyclone_info',
+    'aws/cyclone_monitor',
+    'aws/damagingWinds_action',
+    'aws/damagingWinds_critical',
+    'aws/damagingWinds_info',
+    'aws/damagingWinds_monitor',
+    'aws/earthquake_action',
+    'aws/earthquake_critical',
+    'aws/earthquake_info',
+    'aws/earthquake_monitor',
+    'aws/extremeHeat_action',
+    'aws/extremeHeat_critical',
+    'aws/extremeHeat_info',
+    'aws/extremeHeat_monitor',
+    'aws/flood_action',
+    'aws/flood_critical',
+    'aws/flood_info',
+    'aws/flood_monitor',
+    'aws/other_action',
+    'aws/other_critical',
+    'aws/other_info',
+    'aws/other_monitor',
+    'aws/storm_action',
+    'aws/storm_critical',
+    'aws/storm_info',
+    'aws/storm_monitor',
+    'non_aws/bushfire_info',
+    'non_aws/bushfire_monitor',
+    'non_aws/chemicalSpill_action',
+    'non_aws/chemicalSpill_critical',
+    'non_aws/chemicalSpill_info',
+    'non_aws/chemicalSpill_monitor',
+    'non_aws/communityInfo_action',
+    'non_aws/communityInfo_critical',
+    'non_aws/communityInfo_info',
+    'non_aws/communityInfo_monitor',
+    'non_aws/communityInfo_user',
+    'non_aws/crash_action',
+    'non_aws/crash_critical',
+    'non_aws/crash_info',
+    'non_aws/crash_monitor',
+    'non_aws/fireStatus_active',
+    'non_aws/fireStatus_beingControlled',
+    'non_aws/fireStatus_closed',
+    'non_aws/fireStatus_underControl',
+    'non_aws/hazmatSpill_action',
+    'non_aws/hazmatSpill_critical',
+    'non_aws/hazmatSpill_info',
+    'non_aws/hazmatSpill_monitor',
+    'non_aws/healthAndAir_action',
+    'non_aws/healthAndAir_critical',
+    'non_aws/healthAndAir_info',
+    'non_aws/healthAndAir_monitor',
+    'non_aws/healthAndAir_user',
+    'non_aws/otherFire_action',
+    'non_aws/otherFire_critical',
+    'non_aws/otherFire_info',
+    'non_aws/otherFire_monitor',
+    'non_aws/other_action',
+    'non_aws/other_critical',
+    'non_aws/other_info',
+    'non_aws/other_monitor',
+    'non_aws/other_unknown',
+    'non_aws/other_user',
+    'non_aws/plannedBurn_action',
+    'non_aws/plannedBurn_critical',
+    'non_aws/plannedBurn_info',
+    'non_aws/plannedBurn_monitor',
+    'non_aws/pollen_action',
+    'non_aws/pollen_critical',
+    'non_aws/pollen_info',
+    'non_aws/pollen_monitor',
+    'non_aws/powerOutage_action',
+    'non_aws/powerOutage_critical',
+    'non_aws/powerOutage_info',
+    'non_aws/powerOutage_monitor',
+    'non_aws/powerOutage_unknown',
+    'non_aws/rescueMarine_action',
+    'non_aws/rescueMarine_critical',
+    'non_aws/rescueMarine_info',
+    'non_aws/rescueMarine_monitor',
+    'non_aws/rescueRoad_action',
+    'non_aws/rescueRoad_critical',
+    'non_aws/rescueRoad_info',
+    'non_aws/rescueRoad_monitor',
+    'non_aws/securityAndCrime_action',
+    'non_aws/securityAndCrime_critical',
+    'non_aws/securityAndCrime_info',
+    'non_aws/securityAndCrime_monitor',
+    'non_aws/securityAndCrime_user',
+    'non_aws/smoke_action',
+    'non_aws/smoke_critical',
+    'non_aws/smoke_info',
+    'non_aws/smoke_monitor',
+    'non_aws/structuralFire_action',
+    'non_aws/structuralFire_critical',
+    'non_aws/structuralFire_info',
+    'non_aws/structuralFire_monitor',
+    'non_aws/trafficAndTransport_action',
+    'non_aws/trafficAndTransport_critical',
+    'non_aws/trafficAndTransport_info',
+    'non_aws/trafficAndTransport_monitor',
+    'non_aws/trafficAndTransport_user',
+    'non_aws/treeDown_action',
+    'non_aws/treeDown_critical',
+    'non_aws/treeDown_info',
+    'non_aws/treeDown_monitor',
+    'non_aws/utilitiesAndInfrastructure_action',
+    'non_aws/utilitiesAndInfrastructure_critical',
+    'non_aws/utilitiesAndInfrastructure_info',
+    'non_aws/utilitiesAndInfrastructure_monitor',
+    'non_aws/utilitiesAndInfrastructure_unknown',
+    'non_aws/utilitiesAndInfrastructure_user',
+    'non_aws/weatherAndEnvironment_action',
+    'non_aws/weatherAndEnvironment_critical',
+    'non_aws/weatherAndEnvironment_info',
+    'non_aws/weatherAndEnvironment_monitor',
+    'non_aws/weatherAndEnvironment_unknown',
+    'non_aws/weatherAndEnvironment_user',
+  };
+
+  /// The most specific bundled artwork for [category] (itself, then its
+  /// parents) at [band], or `other` when none is bundled.
+  static String _bundledArtIdFor(
+    final HazardCategory? category,
+    final HazardSeverityBand band, {
+    required final bool isAwsCompliant,
+  }) {
+    final family = isAwsCompliant ? 'aws' : 'non_aws';
+    for (HazardCategory? node = category; node != null; node = node.parent) {
+      if (_bundledHazardArt.contains('$family/${node.id}_${band.name}')) {
+        return node.id;
+      }
+    }
+    return 'other';
+  }
+
+  /// Local fallback markers: the category's own bundled artwork when there
+  /// is one, otherwise the generic `other_*` asset.
   Future<BitmapDescriptor> _bitmapDescriptorOtherSeverity({
     required final HazardSeverityBand severityBand,
     required final bool isAwsCompliant,
     required final Size size,
+    final String artId = 'other',
   }) {
     final cacheKey =
-        '${isAwsCompliant}_${severityBand.name}_${size.width}_${size.height}';
+        '${artId}_${isAwsCompliant}_${severityBand.name}_${size.width}_${size.height}';
     return _assetBitmapCache.putIfAbsent(
       cacheKey,
       () async {
         try {
           final assetPath =
-              'assets/images/hazards/${isAwsCompliant ? 'aws/' : 'non_aws/'}other_${severityBand.name}.png';
+              'assets/images/hazards/${isAwsCompliant ? 'aws/' : 'non_aws/'}${artId}_${severityBand.name}.png';
           final dpr =
               ui.PlatformDispatcher.instance.views.first.devicePixelRatio;
           final imageSize = Size(
