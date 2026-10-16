@@ -18,6 +18,7 @@ class AskAlrtMessage {
     required this.role,
     required this.text,
     this.groundingAlerts = const <Hazard>[],
+    this.freeAnswer = false,
   });
 
   /// Who sent the message.
@@ -32,6 +33,11 @@ class AskAlrtMessage {
   /// source chips under the assistant bubble. Empty for user messages and
   /// for answers that didn't cite any specific alert.
   final List<Hazard> groundingAlerts;
+
+  /// True when the answer came from the ALRT library or the emergency
+  /// number lookup, which never count toward the daily allowance (R03).
+  /// The sheet says so under the answer.
+  final bool freeAnswer;
 
   /// Whether this message was written by the assistant.
   bool get isAssistant => role == AskAlrtRole.assistant;

@@ -504,9 +504,60 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
     );
   }
 
-  /// Handles the account deletion process.
-  void _handleDeleteAccount() {
+  /// Asks once more before deleting (product owner, 16 Oct 2026: delete
+  /// account "with confirmation"), then schedules the deletion.
+  Future<void> _handleDeleteAccount() async {
     context.unfocusInputs();
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20.spMin, 20.spMin, 20.spMin, 16.spMin),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Are you sure?',
+                style: TextStyle(
+                  fontSize: 20.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1C1C1E),
+                ),
+              ),
+              SizedBox(height: 8.spMin),
+              Text(
+                'Your account is scheduled for deletion. You have 30 days to '
+                'change your mind by signing in again. After that your '
+                'places, points and group memberships are removed for good.',
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  color: const Color(0xFF5C5C66),
+                  height: 1.45,
+                ),
+              ),
+              SizedBox(height: 16.spMin),
+              Button.filled(
+                value: 'Yes, delete my account',
+                color: ProfileColors.dangerAction,
+                onPressed: () => Navigator.of(sheetContext).pop(true),
+              ),
+              SizedBox(height: 8.spMin),
+              Button.bordered(
+                value: 'No, keep my account',
+                onPressed: () => Navigator.of(sheetContext).pop(false),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     ref.read(providerOfProfile.notifier).deleteAccount();
   }
 }

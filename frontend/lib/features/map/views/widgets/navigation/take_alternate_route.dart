@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
 import 'package:hazard_app/features/shared/views/widgets/app_cached_network_image.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -227,6 +229,7 @@ class _TakeAlternateRouteState extends ConsumerState<TakeAlternateRoute>
         children: [
           // Take Alternate Route Button
           Expanded(
+            flex: 2,
             child: Consumer(
               builder: (context, ref, child) {
                 final isLoading = ref.watch(
@@ -295,6 +298,26 @@ class _TakeAlternateRouteState extends ConsumerState<TakeAlternateRoute>
               },
             ),
           ),
+          // View the alert (prototype 9 Oct 2026: Avoid it / View / Keep going)
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.all(10.spMin),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12.spMin),
+                color: AppColors.extraLightGrey,
+              ),
+              child: Center(
+                child: Text(
+                  'View',
+                  style: TextStyle(
+                    fontSize: 12.spMin,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.black.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+            ).pY(1.0).onPressed(_handleView),
+          ),
           // Continue Button
           Expanded(
             child: Container(
@@ -337,6 +360,19 @@ class _TakeAlternateRouteState extends ConsumerState<TakeAlternateRoute>
 
   void _handleTakeAlternateRoute() {
     ref.read(providerOfMap.notifier).takeAlternateRoute();
+  }
+
+  /// Opens the alert ahead. Navigation keeps running underneath; back
+  /// returns to it.
+  void _handleView() {
+    final corridors = ref.read(providerOfMap).hazardCorridorsAhead;
+    if (corridors.isEmpty || corridors.first.hazards.isEmpty) return;
+    final hazard = corridors.first.hazards.first;
+    ref.read(providerOfMap.notifier).updateShowTakeAlternateRouteButton(false);
+    context.push(
+      ViewHazardScreen.route,
+      extra: ViewHazardScreenArgs(hazard: hazard),
+    );
   }
 
   void _handleContinue() {

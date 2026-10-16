@@ -466,6 +466,16 @@ class _MessageBubble extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (message.freeAnswer) ...[
+                  SizedBox(height: 4.spMin),
+                  Text(
+                    'From the ALRT library. Not counted.',
+                    style: TextStyle(
+                      fontSize: 11.spMin,
+                      color: Colors.white.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
                 if (message.groundingAlerts.isNotEmpty) ...[
                   SizedBox(height: 6.spMin),
                   Wrap(

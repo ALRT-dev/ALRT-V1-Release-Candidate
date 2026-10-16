@@ -341,7 +341,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              '● ${cohort.label}',
+              '● ${safetyCohortDisplayLabel(cohort)}',
               style: TextStyle(
                 fontSize: 10.spMin,
                 fontWeight: FontWeight.w700,

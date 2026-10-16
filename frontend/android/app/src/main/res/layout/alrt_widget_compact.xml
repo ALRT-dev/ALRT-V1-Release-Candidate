@@ -83,7 +83,7 @@
             android:id="@+id/widget_allclear_pill"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ALL CLEAR"
+            android:text="NO WARNINGS"
             android:textColor="#1EE28C"
             android:textSize="13sp"
             android:textStyle="bold"

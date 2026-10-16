@@ -216,7 +216,8 @@ class _VoiceListeningSheetState extends State<VoiceListeningSheet>
           ],
           SizedBox(height: 10.spMin),
           Text(
-            'Recognised on this phone. Nothing is recorded or sent. '
+            'Recognised on this phone. Your voice is never recorded. '
+            'A question goes to Ask ALRT as text, like a typed one. '
             'It finishes when you stop speaking.',
             textAlign: TextAlign.center,
             style: TextStyle(
