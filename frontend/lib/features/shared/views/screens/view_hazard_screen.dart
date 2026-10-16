@@ -1579,8 +1579,22 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         final isUserReported = hazard?.isUserReported ?? false;
-        // Community reports have no advice section at all.
-        if (hazard == null || isUserReported) return const SizedBox.shrink();
+        // Community reports carry no agency advice, only the standing line.
+        if (hazard == null) return const SizedBox.shrink();
+        if (isUserReported) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.spMin),
+            child: Text(
+              'In an emergency, call your local emergency number.',
+              key: const Key('standing_emergency_line'),
+              style: TextStyle(
+                color: AppColors.black.withValues(alpha: 0.7),
+                fontSize: 13.spMin,
+                height: 1.4,
+              ),
+            ),
+          );
+        }
 
         var callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction);
         if (callsToAction.isEmpty) {

@@ -1,10 +1,10 @@
-/// Tests for R-05: .env must NOT be bundled as a Flutter asset.
-///
-/// Verifies that:
-/// 1. pubspec.yaml does not list .env as an asset (plaintext in the APK/IPA).
-/// 2. No Dart source imports flutter_dotenv (the package that reads assets).
-/// 3. env.dart uses compile-time String.fromEnvironment, not dotenv.env.
-/// 4. Every CI workflow passes --dart-define-from-file to flutter build.
+// Tests for R-05: .env must NOT be bundled as a Flutter asset.
+//
+// Verifies that:
+// 1. pubspec.yaml does not list .env as an asset (plaintext in the APK/IPA).
+// 2. No Dart source imports flutter_dotenv (the package that reads assets).
+// 3. env.dart uses compile-time String.fromEnvironment, not dotenv.env.
+// 4. Every CI workflow passes --dart-define-from-file to flutter build.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';

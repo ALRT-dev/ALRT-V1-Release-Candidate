@@ -24,12 +24,34 @@ const pick = (source: Query, allowed: readonly string[]): Query => {
   return out;
 };
 
-const forward = async (path: string, params: Query): Promise<unknown> => {
+// Short-lived cache so repeated identical lookups aren't billed again by Google.
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 1000;
+const cache = new Map<string, { expires: number; data: unknown }>();
+
+const forward = async (
+  path: string,
+  params: Query,
+  cacheable = false,
+): Promise<unknown> => {
+  const cacheKey = cacheable ? `${path}?${JSON.stringify(params)}` : "";
+  if (cacheable) {
+    const hit = cache.get(cacheKey);
+    if (hit && hit.expires > Date.now()) return hit.data;
+  }
   const { data } = await axios.get(`${GOOGLE_MAPS_BASE}${path}`, {
     // The server key is injected here; any client-supplied "key" was dropped by pick().
     params: { ...params, key: config.googleMapsApi.apiKey },
     timeout: 10000,
   });
+  const status = (data as { status?: string } | null)?.status;
+  if (cacheable && (status === "OK" || status === "ZERO_RESULTS")) {
+    if (cache.size >= CACHE_MAX_ENTRIES) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+    cache.set(cacheKey, { expires: Date.now() + CACHE_TTL_MS, data });
+  }
   return data;
 };
 
@@ -61,10 +83,10 @@ const PLACE_DETAILS_PARAMS = [
 ] as const;
 
 export const proxyGeocode = (query: Query): Promise<unknown> =>
-  forward("/geocode/json", pick(query, GEOCODE_PARAMS));
+  forward("/geocode/json", pick(query, GEOCODE_PARAMS), true);
 
 export const proxyPlaceAutocomplete = (query: Query): Promise<unknown> =>
   forward("/place/autocomplete/json", pick(query, AUTOCOMPLETE_PARAMS));
 
 export const proxyPlaceDetails = (query: Query): Promise<unknown> =>
-  forward("/place/details/json", pick(query, PLACE_DETAILS_PARAMS));
+  forward("/place/details/json", pick(query, PLACE_DETAILS_PARAMS), true);

@@ -140,9 +140,12 @@ export const config = {
     tenantId: getOptionalEnv("MICROSOFT_OAUTH_TENANT_ID", "common"),
   },
 
-  // OpenAI
+  // OpenAI (only needed when AI_PROVIDER=openai; Bedrock is the default)
   openAI: {
-    apiKey: getRequiredEnv("OPENAI_API_KEY"),
+    apiKey:
+      getOptionalEnv("AI_PROVIDER", "bedrock") === "openai"
+        ? getRequiredEnv("OPENAI_API_KEY")
+        : getOptionalEnv("OPENAI_API_KEY", ""),
   },
 
   // AWS

@@ -276,5 +276,6 @@ describe("RevenueCat route registration", () => {
         layer.route?.methods?.post === true,
     );
     expect(webhookRoute).toBeDefined();
-  });
+    // Cold dynamic import can exceed the default 5s timeout.
+  }, 30000);
 });

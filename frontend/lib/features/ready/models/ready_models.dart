@@ -1,7 +1,7 @@
-/// Plain models for the Ready tab backend endpoints.
-///
-/// These avoid freezed/codegen so the build can run without build_runner.
-/// JSON parsing is manual — the backend returns camelCase keys.
+// Plain models for the Ready tab backend endpoints.
+//
+// These avoid freezed/codegen so the build can run without build_runner.
+// JSON parsing is manual — the backend returns camelCase keys.
 
 class ReadySummary {
   const ReadySummary({

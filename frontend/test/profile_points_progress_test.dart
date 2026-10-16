@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/enums/user_badge_enum.dart';
 
 /// Pins the tier-progress formula behind the Profile header's XP bar
-/// (ProfileXpProgress: "N XP to <next tier>") - the single XP/progress
+/// (ProfileXpProgress: "N XP to `next tier`") - the single XP/progress
 /// summary now shown on Profile, after the duplicate points card below
 /// the header was removed. Same source data and formula throughout,
 /// never a second invented points/level system.
