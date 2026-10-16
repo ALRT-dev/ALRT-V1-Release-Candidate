@@ -204,6 +204,35 @@ class LocalNotificationService {
     return true;
   }
 
+  /// While navigating, an alert on the road ahead (prototype 9 Oct 2026:
+  /// "the alert pops up en route"). Called only when the app is not in the
+  /// foreground; in the foreground the in-app prompt shows instead. One id,
+  /// so a newer hazard replaces the older one rather than stacking.
+  Future<void> showHazardAhead({
+    required final String title,
+    required final String body,
+  }) async {
+    if (kIsWeb || !_initialized) return;
+    await _plugin.show(
+      0x4A11,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          _channelName,
+          channelDescription: _channelDescription,
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentSound: true,
+        ),
+      ),
+    );
+  }
+
   /// Shows a foreground FCM message as a local notification (Android only —
   /// iOS presents it natively through the foreground presentation options).
   Future<void> showFromRemoteMessage(RemoteMessage message) async {

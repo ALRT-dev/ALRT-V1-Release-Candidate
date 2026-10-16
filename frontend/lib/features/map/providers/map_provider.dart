@@ -20,6 +20,7 @@ import 'package:hazard_app/features/map/models/route_plan_model.dart';
 import 'package:hazard_app/features/map/models/route_step_model.dart';
 import 'package:hazard_app/features/map/models/safest_fastest_routes_model.dart';
 import 'package:hazard_app/features/notification/providers/last_feed_fetch_provider.dart';
+import 'package:hazard_app/features/notification/services/local_notification_service.dart';
 import 'package:hazard_app/features/map/providers/hazard_markers_bitmaps_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/service_providers.dart';
@@ -1287,8 +1288,8 @@ class MapProvider extends StateNotifier<MapProviderState> {
     // Calculate if user is within 300m of the closest hazard corridor
     bool isUserNear = false;
     HazardCorridor? closestCorridor;
+    double minDistance = double.infinity;
     if (corridors.isNotEmpty) {
-      double minDistance = double.infinity;
 
       for (final corridor in corridors) {
         final distanceToCenter = calculateDistanceInMeters(
@@ -1320,6 +1321,10 @@ class MapProvider extends StateNotifier<MapProviderState> {
         // New hazard detected - show button and start timer
         shouldShowButton = true;
         newLastAlertedHazardId = closestHazardId;
+        _notifyHazardAheadIfBackgrounded(
+          closestCorridor.hazards.first,
+          minDistance,
+        );
 
         // Cancel existing timer and start a new one
         _takeAlternateRouteButtonTimer?.cancel();
@@ -1364,6 +1369,26 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// 4. If it still does, retry with a different side / wider offset.
   /// 5. On success, swap the active route and remember the corridor so a
   ///    later detour doesn't reuse this same area.
+  /// The app is in the background while navigating: tell the person about
+  /// the alert ahead with a notification (the in-app prompt cannot be seen).
+  void _notifyHazardAheadIfBackgrounded(
+    final Hazard hazard,
+    final double metres,
+  ) {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == null || lifecycle == AppLifecycleState.resumed) return;
+    final distance = metres >= 1000
+        ? '${(metres / 1000).toStringAsFixed(1)} km'
+        : '${metres.round()} m';
+    final name = hazard.title ?? hazard.category?.name ?? 'An alert';
+    unawaited(
+      LocalNotificationService.instance.showHazardAhead(
+        title: 'Ahead on your route: $name',
+        body: '$distance ahead. Open ALRT to see it or take another way.',
+      ),
+    );
+  }
+
   Future<void> takeAlternateRoute() async {
     if (state.takeAlternateRouteState.isLoading) return;
 
