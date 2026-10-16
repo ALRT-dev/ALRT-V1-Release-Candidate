@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - claude/combined-15oct
+      - claude/integration-16oct
 
 defaults:
   run:
