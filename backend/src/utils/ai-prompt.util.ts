@@ -218,12 +218,12 @@ export const getAirQualityAlertCategoryPrompt = (
         return [];
       case HazardSeverityBand.action:
         return [
-          "Air quality is poor near [SUBURB LOCATION] with AQI at [NUMBER], as reported by [AGENCY].",
+          "[AGENCY] reports that air quality near [SUBURB LOCATION] is poor.",
         ];
       case HazardSeverityBand.critical:
         return [
-          "Air quality is very poor near [SUBURB LOCATION] with AQI at [NUMBER], as reported by [AGENCY].",
-          "Air quality is hazardous near [SUBURB LOCATION] with AQI at [NUMBER], as reported by [AGENCY].",
+          "[AGENCY] reports that air quality near [SUBURB LOCATION] is very poor.",
+          "[AGENCY] reports that air quality near [SUBURB LOCATION] is extremely poor.",
         ];
       default:
         return [];

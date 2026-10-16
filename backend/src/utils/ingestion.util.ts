@@ -20,6 +20,7 @@ import {
   convertAddressToLatLng,
   convertLatLngToAddress,
 } from "../services/google_map.service.js";
+import { waqiRatingFor, waqiRatingMeaning } from "./waqi_rating.util.js";
 import {
   awsCompliantSeverities,
   getSeverityBandFromAQI,
@@ -207,20 +208,10 @@ export function parseGeoJsonToHazards({
  * const hazards = parseWAQIToHazards(waqiData, categoryId);
  * ```
  */
-/**
- * WAQI's own category names for its (US EPA based) index, as published on
- * aqicn.org. Passed through attributed to WAQI, never as ALRT's rating and
- * never mapped onto an Australian state index.
- */
-export const waqiRatingFor = (aqi: number): string | null => {
-  if (!Number.isFinite(aqi) || aqi < 0) return null;
-  if (aqi <= 50) return "Good";
-  if (aqi <= 100) return "Moderate";
-  if (aqi <= 150) return "Unhealthy for sensitive groups";
-  if (aqi <= 200) return "Unhealthy";
-  if (aqi <= 300) return "Very unhealthy";
-  return "Hazardous";
-};
+// WAQI's rating words and their published meaning live in
+// waqi_rating.util.ts (dependency free, so the air quality card template
+// can share them); re-exported here for existing importers.
+export { waqiRatingFor, waqiRatingMeaning };
 
 const WAQI_POLLUTANTS: Record<string, string> = {
   pm25: "fine particles (PM2.5)",
@@ -298,23 +289,23 @@ export function parseWAQIToHazards({
 
       const title = `Air Quality Alert - ${item.station.name}`;
 
-      // What the reader needs to know WHY the alert is there: the reading,
-      // WAQI's own rating for it, and (when WAQI's station feed names it)
-      // the pollutant driving it. Coordinates and the raw timestamp were
-      // shown as "facts" and explained nothing (phone review, 15 Oct 2026).
-      // "AQI: <n>" stays first on its line: parseAqiValueFromDescription
-      // reads it.
+      // Why the alert is there, in the source's own words and never as a
+      // number (product owner, 16 Oct 2026; purge list, pack file 03:
+      // category names only, never "AQI at 150"): WAQI's rating for the
+      // reading, the main pollutant when WAQI's station feed names it,
+      // and what that rating means for people. The number is kept only in
+      // a machine field for the band and the card template.
       const rating = waqiRatingFor(aqiValue);
       const pollutant = describeWaqiPollutant(item.dominentpol);
+      const meaning = waqiRatingMeaning(aqiValue);
       const descriptionParts: string[] = [
         `Station: ${item.station.name}`,
-        rating
-          ? `AQI: ${aqiValue}, which WAQI rates "${rating}"`
-          : `AQI: ${aqiValue}`,
+        ...(rating ? [`Air quality: ${rating} (World Air Quality Index rating)`] : []),
         ...(pollutant ? [`Main pollutant: ${pollutant}`] : []),
+        ...(meaning ? [`What this means: ${meaning}`] : []),
         `Measured: ${item.station.time}`,
+        `AQI: ${aqiValue}`,
       ];
-
       const description = descriptionParts.join("\n");
 
       // Determine severity band based on AQI value

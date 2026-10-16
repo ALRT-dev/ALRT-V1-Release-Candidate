@@ -5,7 +5,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
@@ -41,6 +40,7 @@ import 'package:hazard_app/features/shared/providers/view_hazard_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/share_alert.dart';
+import 'package:hazard_app/features/shared/utils/general_guidance.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.dart';
@@ -876,19 +876,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           }
           return Column(children: [_buildOfficialDescriptionSection(), _buildWhatToDoSection()]);
         }),
-        // The standing line under What to do, on every alert (owner,
-        // 15 Oct 2026), templated or not.
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4.spMin),
-          child: Text(
-            AlertTextUtil.standingEmergencyLine,
-            style: TextStyle(
-              fontSize: 13.spMin,
-              height: 1.4,
-              color: AppColors.mediumGrey,
-            ),
-          ),
-        ),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
@@ -1587,94 +1574,23 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// A muted card for an official section the source left empty.
-  Widget _buildEmptySectionCard({
-    required final String label,
-    required final String body,
-  }) {
-    final color = AppColors.orange200;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16.spMin),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border(
-          left: BorderSide(color: color.withValues(alpha: 0.6), width: 4),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColorLight,
-            blurRadius: 2.0,
-            offset: Offset.zero,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10.5.spMin,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-            ),
-          ),
-          8.hSizedBox,
-          Text(
-            body,
-            style: TextStyle(
-              fontSize: 13.5.spMin,
-              height: 1.45,
-              color: AppColors.mediumGrey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildWhatToDoSection() {
     return Consumer(
       builder: (context, ref, child) {
-        // Old pipeline filler ("be ready to follow ... instructions") is
-        // never shown as the agency's advice.
-        final allActions = AlertCardStyle.agencyActions(
-          ref.watch(provider.select((value) => value.hazard?.callsToAction)),
-        );
-        final isUserReported = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isUserReported ?? false,
-          ),
-        );
-        // Only the advice the agency actually gave (up to three points, in
-        // its own words). Nothing is added. Assumed or "worth considering"
-        // guidance lives in For You, chosen from the person's safety profile.
-        // A community report carries no instruction of its own, so it shows
-        // one standing line that points at the emergency services.
-        final callsToAction = isUserReported
-            ? <String>[AlertTextUtil.followAgencyLine(null)]
-            : AlertTextUtil.capActions(allActions);
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        final isUserReported = hazard?.isUserReported ?? false;
+        // Community reports have no advice section at all.
+        if (hazard == null || isUserReported) return const SizedBox.shrink();
 
-        final shouldShow = callsToAction.isNotEmpty;
-
-        if (!shouldShow) {
-          // An official alert always shows the section, so it is clear
-          // the advice is the agency's to give and none was published.
-          // Community reports have no advice section at all.
-          if (isUserReported ||
-              ref.watch(provider.select((value) => value.hazard == null))) {
-            return const SizedBox.shrink();
-          }
-          return _buildEmptySectionCard(
-            label: 'WHAT TO DO',
-            body: AlertTextUtil.followAgencyLine(
-              ref.watch(
-                provider.select((value) => value.hazard?.source?.name),
-              ),
-            ),
+        var callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction);
+        if (callsToAction.isEmpty) {
+          // The agency published no instructions: ALRT's general guidance
+          // for this kind of alert, labelled as such below (product owner,
+          // 16 Oct 2026; replaces the "has not published advice" note).
+          callsToAction = GeneralGuidance.forAlert(
+            title: hazard.title,
+            categoryName: hazard.category?.name,
+            parentCategoryName: hazard.category?.parent?.name,
           );
         }
 
@@ -1761,6 +1677,21 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                           ),
                         );
                       }),
+                      // ALRT's own lines carry no prefix, so the block says
+                      // whose words they are (product owner, 16 Oct 2026).
+                      if (AlertCardStyle.hasAlrtGuidance(callsToAction))
+                        Padding(
+                          padding: EdgeInsets.only(top: 10.spMin),
+                          child: Text(
+                            'General guidance from ALRT, not part of the '
+                            'official warning.',
+                            style: TextStyle(
+                              fontSize: 11.5.spMin,
+                              color: AppColors.mediumGrey,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
                       // Deep link into the matching safety guide, if any.
                       Consumer(
                         builder: (context, ref, child) {
@@ -1792,38 +1723,15 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             (value) => value.hazard?.isUserReported ?? false,
           ),
         );
+        if (isUserReported) return const SizedBox.shrink();
+
         final description = ref.watch(
           provider.select((value) => value.hazard?.description),
         );
-        final reportTitle = ref.watch(
-          provider.select((value) => value.hazard?.title),
-        );
+        final title = ref.watch(provider.select((value) => value.hazard?.title));
+        final facts = AlertCardStyle.factLines(description, title: title);
 
-        // Facts only: the agency's own instructions and road notes have
-        // their own sections, so they are cut from here. A community report
-        // always gets at least one point, even with nothing written.
-        // The section always shows (owner, 15 Oct 2026): an official alert
-        // with nothing beyond its headline gets one honest line instead of
-        // no section at all.
-        final hasHazard = ref.watch(
-          provider.select((value) => value.hazard != null),
-        );
-        if (!hasHazard) return const SizedBox.shrink();
-        final sourceName = ref.watch(
-          provider.select((value) => value.hazard?.source?.name),
-        );
-        final found = isUserReported
-            ? AlertTextUtil.communityPoints(reportTitle, description)
-            // The facts before any instruction heading, then cleaned: no
-            // 'Not Applicable' values, coordinates, timestamps, repeats of
-            // the title, or shouted capitals (15 Oct reviews, both lines).
-            : AlertCardStyle.factLines(
-                AlertTextUtil.whatWeKnowPoints(description).join('\n'),
-                title: reportTitle,
-              );
-        final points = found.isEmpty
-            ? <String>[AlertTextUtil.noDetailsLine(sourceName)]
-            : found;
+        if (facts.isEmpty) return const SizedBox.shrink();
 
         // Paired with WHAT TO DO, to the pixel. This used to be a blue
         // card with a blue bar and a sentence-case heading: blue is the
@@ -1877,37 +1785,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         ),
                       ),
                       12.spMin.hSizedBox,
-                      for (var i = 0; i < points.length; i++)
+                      for (final fact in facts)
                         Padding(
-                          padding: EdgeInsets.only(
-                            bottom: i < points.length - 1 ? 8.spMin : 0,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '\u2022 ',
-                                style: TextStyle(
-                                  color: AppColors.black.withValues(
-                                    alpha: 0.9,
-                                  ),
-                                  fontSize: 14.spMin,
-                                  height: 1.5,
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  points[i],
-                                  style: TextStyle(
-                                    color: AppColors.black.withValues(
-                                      alpha: 0.9,
-                                    ),
-                                    fontSize: 14.spMin,
-                                    height: 1.5,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          padding: EdgeInsets.only(bottom: 6.spMin),
+                          child: Text(
+                            '\u2022 $fact',
+                            style: TextStyle(
+                              color: AppColors.black.withValues(alpha: 0.9),
+                              fontSize: 14.spMin,
+                              height: 1.5,
+                            ),
                           ),
                         ),
                     ],

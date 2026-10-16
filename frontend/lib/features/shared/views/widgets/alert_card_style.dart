@@ -162,7 +162,10 @@ abstract final class AlertCardStyle {
   static const _machineKeys = {
     'coordinates', 'coordinate', 'lat', 'lon', 'lng', 'latitude',
     'longitude', 'last updated', 'updated', 'published', 'id', 'uid',
-    'station time', 'measured',
+    'station time',
+    // Index values are never shown (purge list, pack file 03: category
+    // names only). The number stays in the data for the band.
+    'aqi', 'aqi value', 'index', 'pm2.5', 'pm10', 'reading', 'measured',
   };
 
   static const _keepUpper = {
@@ -250,17 +253,23 @@ abstract final class AlertCardStyle {
     ];
   }
 
+  /// Whether [action] is the agency's own instruction: those lead with
+  /// "{Agency} advises:" (or "The source advises:", the prompt contract).
+  /// Anything else under What to do is ALRT's own general guidance.
+  static final _agencyLead = RegExp(r'^.{1,60}? advises:', caseSensitive: false);
+  static bool isAgencyAction(final String action) =>
+      _agencyLead.hasMatch(action.trim());
+
   /// Whether any of [callsToAction] is the AGENCY's advice. ALRT's own
-  /// labelled suggestions ("ALRT suggests: ...") and the general health
-  /// close are not, so "In plain terms" must not say "Their advice is in
-  /// this alert" for them (WAQI publishes no advice at all).
-  static bool hasAgencyAdvice(final List<String>? callsToAction) {
-    final alrtOwn = RegExp(
-      r'^\s*(alrt suggests|this is general information|this information is general)',
-      caseSensitive: false,
-    );
-    return agencyActions(callsToAction).any((a) => !alrtOwn.hasMatch(a));
-  }
+  /// lines (unprefixed "Consider ..." guidance) are not, so "In plain
+  /// terms" must not say "Their advice is in this alert" for them.
+  static bool hasAgencyAdvice(final List<String>? callsToAction) =>
+      agencyActions(callsToAction).any(isAgencyAction);
+
+  /// Whether any of [callsToAction] is ALRT's own guidance, which the
+  /// What to do block labels with a footer.
+  static bool hasAlrtGuidance(final List<String>? callsToAction) =>
+      agencyActions(callsToAction).any((a) => !isAgencyAction(a));
 
   /// The "In plain terms" line.
   ///

@@ -156,8 +156,12 @@ Tests/drills/resolved incidents are Info. Source-authorised emergency phone word
 be retained only with an explicit source-specific exception. Otherwise use "your local
 emergency number" while preserving road, route, date and measurement numbers.
 
-Approved library suggestions use non-directive wording and a separate ALRT label. They
-are used when extraction finds no agency instructions; an extraction failure does not
+Approved library suggestions use non-directive wording ("Consider ...", or a plain safety
+statement such as "Driving through flood water is dangerous. Consider your route before
+driving.") with NO "ALRT suggests:" prefix (product owner, 16 Oct 2026); the app labels
+them with a footer under What to do ("General guidance from ALRT, not part of the official
+warning"), telling them from agency lines by the "{agency} advises:" lead. They are used
+when extraction finds no agency instructions; an extraction failure does not
 guess that advice was absent. For You receives generic reviewed rows; personal selections
 stay on the phone. No square is produced. Required AWS and current community artwork stay.
 Source instruction content and native-level-only updates must change sourceContentHash.
@@ -188,8 +192,17 @@ TEST deployment is authorised in this conversation; production deployment is not
 - WAQI numeric AQI hazards (`SubCategoryId.airQualityAlert`, source `waqi`) never call the AI —
   `getDeterministicAirQualityContent` in `air_quality_template.util.ts`
   builds the card content directly from the already-deterministic
-  severity band and the AQI value/station name in the source text. Do
-  not route AQI back through `executePrompt`.
+  severity band and the station name in the source text. The card never
+  shows an index number (purge list; product owner 16 Oct 2026): the
+  summary is the source's statement in its own rating words ("World Air
+  Quality Index reports that air quality near X is unhealthy for
+  sensitive groups."), What we know carries the rating, the main
+  pollutant when the station feed names it, and a "What this means" line
+  (who may notice effects, from the rating's published meaning), and What
+  to do carries the agency's advice or ALRT's labelled suggestions. The
+  number stays only in the machine field "AQI: n" at the end of the
+  description, which the app hides. Do not route AQI back through
+  `executePrompt`.
   Other agencies' air-quality warning text may use source extraction; never apply WAQI
   numeric thresholds to an unknown index. A new measurement scale requires an adapter.
 

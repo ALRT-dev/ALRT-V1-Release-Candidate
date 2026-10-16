@@ -574,8 +574,8 @@ void main() {
       expect(find.text('LEVEL'), findsOneWidget);
       expect(find.text('COLOUR SHOWS SEVERITY'), findsOneWidget);
       expect(find.text('CATEGORIES'), findsOneWidget);
-      await tester.ensureVisible(find.text('Always on'));
-      expect(find.text('Always on'), findsOneWidget);
+      await tester.ensureVisible(find.text('Official Emergency Warnings'));
+      expect(find.text('Official Emergency Warnings'), findsOneWidget);
       expect(userRepository.savedSettings, isEmpty);
 
       await tester.ensureVisible(find.text('Keep it quiet'));

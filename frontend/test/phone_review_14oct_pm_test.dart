@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/profile/models/for_you_library.dart';
+import 'package:hazard_app/features/shared/utils/general_guidance.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 
 /// Phone review, 14 Oct 2026 (afternoon): prompts on the alert detail.
@@ -117,7 +118,7 @@ void main() {
       expect(
         AlertCardStyle.factLines(
           'Incident Type: Road Crash\nLocation: Wanneroo',
-          title: 'Road Crash – Wanneroo',
+          title: 'Road Crash - Wanneroo',
         ),
         isEmpty,
       );
@@ -129,13 +130,69 @@ void main() {
       expect(AlertCardStyle.distanceLabel(459), '459 m');
     });
 
-    test('ALRT suggestions are not the agency advice', () {
+    test('ALRT guidance is not the agency advice', () {
+      const alrt = [
+        'Consider checking local health advice.',
+        'Driving through flood water is dangerous. Consider your route before driving.',
+      ];
+      expect(AlertCardStyle.hasAgencyAdvice(alrt), isFalse);
+      expect(AlertCardStyle.hasAlrtGuidance(alrt), isTrue);
+      const agency = ['NSW SES advises: do not drive through flood water.'];
+      expect(AlertCardStyle.hasAgencyAdvice(agency), isTrue);
+      expect(AlertCardStyle.hasAlrtGuidance(agency), isFalse);
+    });
+  });
+
+  group('air quality shows words, never the number', () {
+    test('the AQI machine field is hidden and the meaning shows', () {
+      final facts = AlertCardStyle.factLines(
+        'Station: Moranbah\n'
+        'Air quality: Unhealthy for sensitive groups (World Air Quality Index rating)\n'
+        'Main pollutant: fine particles (PM2.5)\n'
+        'What this means: People with heart or lung conditions may notice effects.\n'
+        'Measured: 2026-10-15T02:00:00\n'
+        'AQI: 111',
+        title: 'Air Quality Alert - Moranbah',
+      );
+      expect(facts.any((f) => f.contains('111')), isFalse);
+      expect(facts.any((f) => f.startsWith('Measured')), isFalse);
       expect(
-        AlertCardStyle.hasAgencyAdvice([
-          'ALRT suggests: Consider checking local health advice.',
-          'This is general information. A health professional can help.',
+        facts,
+        containsAll([
+          'Air quality: Unhealthy for sensitive groups (World Air Quality Index rating)',
+          'Main pollutant: fine particles (PM2.5)',
+          'What this means: People with heart or lung conditions may notice effects.',
         ]),
-        isFalse,
+      );
+    });
+  });
+
+  group('general guidance when the agency gave none', () {
+    test('a road crash gets travel guidance and the check-sources line', () {
+      final lines = GeneralGuidance.forAlert(
+        title: 'Road Crash - Wanneroo',
+        categoryName: 'Crash',
+        parentCategoryName: 'Traffic & Transport',
+      );
+      expect(lines.first, contains('consider your route'));
+      expect(lines.last, 'Check official sources for updates.');
+      expect(lines.any((l) => l.contains('ALRT suggests')), isFalse);
+    });
+
+    test('keywords match whole words, so a train is not rain', () {
+      final lines = GeneralGuidance.forAlert(
+        title: 'Train delays - Fremantle line',
+        categoryName: 'Rail',
+        parentCategoryName: 'Traffic & Transport',
+      );
+      expect(lines.first, contains('consider your route'));
+      expect(lines.any((l) => l.contains('flood water')), isFalse);
+    });
+
+    test('a flood warns about flood water', () {
+      expect(
+        GeneralGuidance.forAlert(title: 'Flood Watch', categoryName: 'Flood').first,
+        startsWith('Driving through flood water is dangerous.'),
       );
     });
   });

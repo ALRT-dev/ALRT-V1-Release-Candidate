@@ -701,7 +701,7 @@ export const summarizeHazard = async ({
     const country=templateCountry(jurisdictionCountry,source);
     const {settings}=resolveTemplate(published.pack,{country,sourceId:source.id});
     const guidance=selectLibraryGuidance(published.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand});
-    return {...value,callsToAction:guidance.alrtSuggestions.map(x=>`ALRT suggests: ${x}`),contentDetails:{schemaVersion:1,templateVersion:published.version,facts:[value.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:null,officialActions:[],...guidance,evidence:[],presentation:{band:severityBand,bandColor:settings.bandColors[severityBand],iconCategoryId:settings.iconCategoryId??category.id,agencyArtwork:false}}};
+    return {...value,callsToAction:guidance.alrtSuggestions.map(x=>x.replace(/^ALRT suggests:\s*/i,"")),contentDetails:{schemaVersion:1,templateVersion:published.version,facts:[value.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:null,officialActions:[],...guidance,evidence:[],presentation:{band:severityBand,bandColor:settings.bandColors[severityBand],iconCategoryId:settings.iconCategoryId??category.id,agencyArtwork:false}}};
   }
 
   // WA DFES warnings: the agency's facts and its own instructions, word for

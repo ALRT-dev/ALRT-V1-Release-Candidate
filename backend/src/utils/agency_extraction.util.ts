@@ -108,9 +108,11 @@ export function parseAgencyExtraction(
       : title,
     callsToAction: [
       ...officialActions.map((x) => `${options.agency} advises: ${x}`),
-      ...alrtSuggestions.map((x) =>
-        /^ALRT suggests/i.test(x) ? x : `ALRT suggests: ${x}`,
-      ),
+      // ALRT's own lines carry no prefix (product owner, 16 Oct 2026:
+      // "Consider ..." or a plain safety statement). The app tells them
+      // from agency lines by the "{agency} advises:" lead on those, and
+      // labels ALRT's with a footer under the block.
+      ...alrtSuggestions.map((x) => x.replace(/^ALRT suggests:\s*/i, "")),
     ],
     confidence: parsed.confidence,
     contentDetails: details,
