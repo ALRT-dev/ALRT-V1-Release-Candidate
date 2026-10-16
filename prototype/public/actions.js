@@ -43,6 +43,27 @@ async function poll() {
 }
 function cohortsSet(a) { try { localStorage.setItem('alrt_cohorts', JSON.stringify(a)); } catch {} }
 
+// What the person meant. Fixed commands are understood on the phone; anything else is a search, or a question when it reads like one.
+function parseVoice(text) {
+  const t = (text || '').trim().replace(/[.!?]+$/, ''); const l = t.toLowerCase();
+  let m;
+  if (/\bsos\b/.test(l)) return { kind: 'sos' };
+  if (/^(report|post|lodge) (a |an |this |the )?(alert|hazard|report|incident|fire|flood|crash)/.test(l)) return { kind: 'report' };
+  if ((m = l.match(/^(?:save|add|remember) (.+?) (?:as|to) (?:a |my |the )?(?:saved |favourite )?places?$/))) return { kind: 'savePlace', name: m[1].replace(/^(my |the )/, ''), confirm: true, say: `Save ${cap(m[1])} as a place, with alerts 5 km around it?`, yes: 'Yes, save it' };
+  if ((m = l.match(/^(?:send|share|forward) (.*?)(?: to | with )(.*)$/))) { const alert = m[1].replace(/^(this |that |the )?(alert|warning)?\s*/, ''); const group = m[2].replace(/^(my |the )/, '').replace(/\b(group|circle|family)\b/g, '').trim(); return { kind: 'sendAlert', alert, group, confirm: true, say: null, yes: 'Yes, send it' }; }
+  if (/check(ed)? ?in|i'?m (okay|ok|fine)|i am (okay|ok|fine)|tell (my |the )?(group|family|circle) i/.test(l)) return { kind: 'checkIn', confirm: true, say: 'Check in with your group now?', yes: 'Yes, check in' };
+  if ((m = l.match(/^(?:read|read me|read out|read aloud|say|tell me about) (.*)$/))) return { kind: 'readAlert', alert: m[1] };
+  if (/near me|around me|nearby|close to me|what'?s happening|anything (near|around)/.test(l)) return { kind: 'nearMe' };
+  if ((m = l.match(/^(?:take me to|navigate to|directions to|route to|drive to|get me to|go to) (.+)$/))) return { kind: 'route', to: cap(m[1]) };
+  if (/^(what|how|why|when|where|is|are|should|can|could|do|does|will|which|who)\b/.test(l) || /\?$/.test(text.trim())) return { kind: 'ask', q: t };
+  return { kind: 'search', q: t };
+}
+const cap = (x) => x.replace(/\b\w/g, (ch) => ch.toUpperCase());
+const SEV = ['critical', 'action', 'monitor', 'info'];
+function voicePickAlert(words) { const w = (words || '').toLowerCase().split(/\s+/).filter((x) => x.length >= 3 && !['this', 'that', 'the', 'alert', 'warning', 'near', 'one', 'out', 'aloud'].includes(x)); const live = visibleHazards(); if (w.length) { const m0 = live.find((h) => w.every((t) => (h.title + ' ' + (h.locationName || '')).toLowerCase().includes(t))) || live.find((h) => w.some((t) => (h.title + ' ' + (h.locationName || '')).toLowerCase().includes(t))); if (m0) return m0; } if (st.detail) { const d = live.find((h) => h.id === st.detail); if (d) return d; } return live.filter((h) => h.source !== 'community').sort((a, b2) => SEV.indexOf(a.band) - SEV.indexOf(b2.band))[0] || live[0]; }
+function voicePickCircle(words) { const cs = st.circles || []; if (!cs.length) return null; const w = (words || '').toLowerCase(); const c = circ(); return cs.find((x) => w && x.name.toLowerCase().split(/\s+/).some((t) => t.length >= 3 && w.includes(t))) || (c ? cs.find((x) => x.circleId === c.circleId) : null) || cs[0]; }
+function speak(text) { try { if (!window.speechSynthesis || !text) return; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/\bALRT\b/g, 'alert').replace(/\bmin ago\b/g, 'minutes ago').replace(/\bkm\b/g, 'kilometres')); u.lang = 'en-AU'; u.rate = 1.02; speechSynthesis.speak(u); } catch {} }
+
 const A = {
   // onboarding
   onbwho(e) { st.onb.who = e.dataset.who; },
@@ -68,9 +89,35 @@ const A = {
   // alerts
   async open(e) { const h = st.hazards.find((x) => x.id === e.dataset.id); if (!h) return; st.detail = h.id; st.screen = 'main'; st.tab = h.source === 'community' ? 'Community' : (h.board && window.BOARDS[h.board]) ? h.board : 'Detail'; await api('/hazard/' + h.id + '/view', { method: 'POST', body: {} }); },
   openfilters() { st.sheet = 'filters'; }, mapkey() { st.sheet = 'mapkey'; },
-  voice() { st.voiceHeard = ''; st.sheet = 'voice'; setTimeout(() => { if (st.sheet === 'voice' && !st.voiceHeard) { st.voiceHeard = 'Scarborough Beach Road'; draw(); } }, 900); },
-  voicedone() { st.voiceHeard = st.voiceHeard || 'Scarborough Beach Road'; },
-  async voiceuse() { st.searchQ = st.voiceHeard; st.voiceText = st.voiceHeard; st.screen = 'main'; st.tab = 'Main'; st.sheet = 'search'; await A.searchrun(); },
+  // ---- one mic (Sarah 16 Oct): speak to search, ask, or act. Heard on the phone; understood on the phone for the fixed commands.
+  // Anything that saves, sends or checks in asks first. SOS and community reports are never voice. The reply is spoken back and shown as a caption.
+  voice() { st.voice = { phase: 'listening', heard: '' }; st.sheet = 'voice'; setTimeout(() => { if (st.sheet === 'voice' && st.voice && st.voice.phase === 'listening' && !st.voice.heard) A.voiceheard('Scarborough Beach Road').then(() => draw()); }, 900); },
+  voicedone() { if (st.voice && st.voice.phase === 'listening') return A.voiceheard('Scarborough Beach Road'); },
+  async voicesay(e) { await A.voiceheard(e.dataset.say); },
+  async voiceheard(text) { const it = parseVoice(text);
+    if (it.kind === 'sendAlert') { const h = voicePickAlert(it.alert); const cc = voicePickCircle(it.group); if (!h) { st.voice = { phase: 'done', heard: text, intent: it, reply: 'There is no alert to send right now.' }; speak(st.voice.reply); return; } if (!cc) { st.voice = { phase: 'done', heard: text, intent: it, reply: 'You\'re not in a group yet. Create one in Family and I can send alerts to it.', next: { label: 'Open Family', act: 'tab', data: 'data-tab="Family"' } }; speak(st.voice.reply); return; } it.hazardId = h.id; it.circleId = cc.circleId; it.say = `Send \u201c${h.title}\u201d to ${cc.name}${cc.peopleCount ? ' (' + cc.peopleCount + ' people)' : ''}?`; }
+    if (it.kind === 'checkIn' && circ()) it.say = `Check in with ${circ().name} now?`;
+    st.voice = { phase: it.confirm ? 'confirm' : 'run', heard: text, intent: it }; if (!it.confirm) await A.voicerun(); },
+  async voiceyes() { await A.voicerun(); },
+  voiceno() { st.voice = { ...st.voice, phase: 'done', reply: 'OK, not done. Say it again if you want something else.' }; speak(st.voice.reply); },
+  async voicerun() {
+    const v = st.voice; const it = v.intent; let reply = ''; let next = null;
+    const c = circ(); const nm0 = (h) => h.title; const pickAlert = voicePickAlert; const pickCircle = voicePickCircle;
+    try {
+      if (it.kind === 'sos') reply = 'SOS can\'t be sent by voice. Open Family and hold the SOS button for 3 seconds.';
+      else if (it.kind === 'report') reply = 'Reports can\'t be posted by voice. Open Report so ALRT can check where you are and what you can see.';
+      else if (it.kind === 'savePlace') { const ac = await api('/maps/places/autocomplete?q=' + encodeURIComponent(it.name)); const g = ac.ok && ac.data.predictions[0]; const r = await api('/user/subscribe-location', { body: g ? { placeId: g.placeId, name: g.mainText, radiusKm: 5 } : { name: it.name, radiusKm: 5 } }); if (r.status === 402) { reply = 'You already have your free saved place. ALRT + gives you unlimited places.'; next = { label: 'See ALRT +', act: 'paywall', data: 'data-ctx="place"' }; } else if (!r.ok) reply = r.data.message || 'That did not work.'; else { await refresh(); reply = `Saved. You'll get alerts for ${r.data.name}, 5 km around it.`; next = { label: 'Open Places', act: 'tab', data: 'data-tab="Places"' }; } }
+      else if (it.kind === 'sendAlert') { const h = st.hazards.find((x) => x.id === it.hazardId) || pickAlert(it.alert); const cc = (st.circles || []).find((x) => x.circleId === it.circleId) || pickCircle(it.group); if (!h) reply = 'There is no alert to send right now.'; else if (!cc) { reply = 'You\'re not in a group yet. Create one in Family and I can send alerts to it.'; next = { label: 'Open Family', act: 'tab', data: 'data-tab="Family"' }; } else { const r = await api('/family/circles/' + cc.circleId + '/share', { body: { hazardId: h.id } }); if (!r.ok) reply = r.data.message || 'That did not work.'; else { reply = `Sent ${nm0(h)} to ${cc.name}, ${r.data.recipients} ${r.data.recipients === 1 ? 'person' : 'people'}.`; } } }
+      else if (it.kind === 'checkIn') { if (!c) { reply = 'You\'re not in a group yet. Create one in Family first.'; next = { label: 'Open Family', act: 'tab', data: 'data-tab="Family"' }; } else { const r = await api('/family/circles/' + c.circleId + '/check-in', { body: {} }); if (r.status === 402) { reply = 'Check in needs ALRT + for each person, or a plan covering the group.'; next = { label: 'See plans', act: 'paywall', data: 'data-ctx="circle"' }; } else if (!r.ok) reply = r.data.message || 'That did not work.'; else { await loadFamily(); reply = `Checked in. ${c.name} has been notified.`; } } }
+      else if (it.kind === 'readAlert') { const h = pickAlert(it.alert); if (!h) reply = 'Nothing to read: there are no alerts near you right now.'; else { reply = `${h.source === 'aws' ? h.level + '. ' : h.source === 'community' ? 'Community report, unverified. ' : ''}${h.title}. ${h.agency ? h.agency + ', ' : ''}${ago(h)}. ${h.plain || h.body || ''}`; next = { label: 'Open the alert', act: 'open', data: `data-id="${h.id}"` }; } }
+      else if (it.kind === 'nearMe') { const live = visibleHazards(); const warn = live.filter((h) => ['critical', 'action'].includes(h.band) && h.source !== 'community'); const top = pickAlert(''); reply = warn.length ? `${warn.length} warning${warn.length > 1 ? 's' : ''} near you. The most serious is ${top.title}${top.level ? ', an ' + top.level : ''}${top.distance ? ', ' + top.distance : ''}.` : `No warnings near you right now. ${live.length} alert${live.length === 1 ? '' : 's'} in your area.`; next = { label: 'See the list', act: 'tab', data: 'data-tab="Feed"' }; }
+      else if (it.kind === 'route') { const ac = await api('/maps/places/autocomplete?q=' + encodeURIComponent(it.to)); const dest = ac.ok && ac.data.predictions[0] ? ac.data.predictions[0].mainText : it.to; st.route = { ...(st.route || {}), to: dest, pick: 0 }; const r = await api('/maps/routes', { body: { from: 'Your location', to: dest, mode: st.route.mode || 'Drive' } }); if (r.ok) { st.route.options = r.data.options; const o = r.data.options[0]; reply = `${r.data.options.length} ways to ${dest}. Fastest is ${o.mins} minutes via ${o.via}${o.hazards.length ? ', with ' + o.hazards.length + ' alert' + (o.hazards.length > 1 ? 's' : '') + ' on the way' : ', nothing on the way'}. Choose one to start.`; next = { label: 'Choose a route', act: 'tab', data: 'data-tab="route"' }; } else reply = 'Could not check that route.'; }
+      else if (it.kind === 'ask') { const r = await api('/ask-alrt', { body: { question: it.q } }); if (r.status === 429) { reply = 'You have used today\'s questions. ALRT + gives you 10 a day. Definitions and your emergency number are always free.'; next = { label: 'See ALRT +', act: 'paywall', data: 'data-ctx="ask"' }; } else if (!r.ok) reply = r.data.message || 'That did not work.'; else { reply = r.data.answer; (st.askThread ||= []).push({ q: it.q, a: r.data.answer, source: r.data.source || 'ai', basedOn: r.data.basedOn || [], at: Date.now() }); const a = await api('/ask-alrt/allowance'); if (a.ok) st.ask = { remaining: a.data.remaining, limit: a.data.limit }; } }
+      else { st.searchQ = it.q; st.voiceText = it.q; await A.searchrun(); const n1 = st.searchRes ? st.searchRes.hazards.length : 0, n2 = st.searchRes ? st.searchRes.places.length : 0; reply = n1 + n2 ? `Here's what I found for ${it.q}: ${n1} alert${n1 === 1 ? '' : 's'} and ${n2} place${n2 === 1 ? '' : 's'}.` : `Nothing matches ${it.q} yet.`; next = { label: 'See results', act: 'voiceuse', data: 'data-testid="voice-use"' }; }
+    } catch (e) { reply = 'Something went wrong. Try again.'; }
+    st.voice = { ...v, phase: 'done', reply, next }; speak(reply);
+  },
+  voiceuse() { st.screen = 'main'; st.tab = 'Main'; st.sheet = 'search'; },
   // typed search: alerts and places, both from the backend
   search() { st.sheet = 'search'; st.searchRes = null; if (st.searchQ) A.searchrun().then(() => draw()); },
   async searchrun() { const q = (st.searchQ || '').trim(); if (!q) { st.searchRes = null; return; } const [hz, pl] = await Promise.all([api('/hazard?q=' + encodeURIComponent(q)), api('/maps/places/autocomplete?q=' + encodeURIComponent(q))]); st.searchRes = { hazards: hz.ok ? hz.data : [], places: pl.ok ? pl.data.predictions : [] }; },
@@ -89,7 +136,7 @@ const A = {
   async vote(e) { await api('/hazard/' + e.dataset.id + '/vote', { body: { vote: e.dataset.v } }); toast(e.dataset.v === 'see' ? 'Thanks. You confirmed this alert.' : 'Thanks. Noted.'); await refresh(); },
   follow() { const f = st.followed; const i = f.indexOf(st.detail); i >= 0 ? f.splice(i, 1) : f.push(st.detail); try { localStorage.setItem('followed_alert_ids', JSON.stringify(f)); } catch {} },
   readaloud() { const h = st.hazards.find((x) => x.id === st.detail); toast('Reading aloud: ' + (h?.plain || h?.body || '')); },
-  sharefam() { st.sheet = null; toast('Shared with your family circle'); },
+  async sharefam() { const c = circ(); st.sheet = null; if (!c) { toast('Create a group in Family first'); return; } const r = await api('/family/circles/' + c.circleId + '/share', { body: { hazardId: st.detail } }); toast(r.ok ? `Sent to ${c.name}, ${r.data.recipients} ${r.data.recipients === 1 ? 'person' : 'people'}.` : r.data.message); },
   async cihazard() { const c = circ(); if (!c) { go('Family'); return; } const r = await api('/family/circles/' + c.circleId + '/check-in', { body: { hazardId: st.detail } }); if (r.status === 402) return refusal(r.data, 'circle'); if (!r.ok) return toast(r.data.message); st.ciDone = st.detail; toast('Checked in. Your circle has been notified.'); },
   flagsheet() { st.sheet = 'flagblock'; st.flagReason = 'misleading'; }, flagr(e) { st.flagReason = e.dataset.r; },
   async flag() { const r = await api('/hazard/' + st.detail + '/flag', { body: { reason: st.flagReason } }); st.sheet = null; toast(r.ok ? 'Thanks. This report has been sent for review.' : r.data.message); await refresh(); if (!st.hazards.find((x) => x.id === st.detail)) st.tab = 'Feed'; },

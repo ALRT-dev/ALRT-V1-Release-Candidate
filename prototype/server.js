@@ -417,9 +417,11 @@ async function api(req, res, url) {
   if (p === '/family/journeys/shared') return json(res, 200, S.journeys.filter((j) => j.status === 'active' && (j.recipients || []).includes(u.id)).map((j) => ({ ...j, memberName: S.users[j.userId].name })));
   const jget = p.match(/^\/family\/journeys\/([^/]+)$/);
   if (jget && m === 'GET' && jget[1] !== 'me') { const j = S.journeys.find((x) => x.id === jget[1]); if (!j) return err(res, 404, 'NOT_FOUND', 'Not found'); if (j.userId !== u.id && !(j.recipients || []).includes(u.id)) return err(res, 403, 'FORBIDDEN', 'Not shared with you'); return json(res, 200, { ...j, memberName: S.users[j.userId].name, serverNow: now() }); }
-  const cm = p.match(/^\/family\/circles\/([^/]+)\/(check-in|check-in\/request|sos|journeys|location)$/);
+  const cm = p.match(/^\/family\/circles\/([^/]+)\/(check-in|check-in\/request|sos|journeys|location|share)$/);
   if (cm) {
     const c = S.circles.find((x) => x.id === cm[1] && x.members.includes(u.id)); if (!c) return err(res, 404, 'NOT_FOUND', 'Group not found');
+    // sending an alert to your group is free (not one of the gated four: check in, check on, SOS, journey)
+    if (cm[2] === 'share' && m === 'POST') { const h = S.hazards.find((x) => x.id === b.hazardId); if (!h) return err(res, 404, 'NOT_FOUND', 'No such alert'); const others = c.members.filter((id) => id !== u.id); others.forEach((id) => push(S.users[id], u.name + ' sent you an alert', h.title, 'alertShare', { hazardId: h.id, circleId: c.id })); return json(res, 200, { ok: true, recipients: others.length, circleName: c.name }); }
     if (!gateCircle(res, c, u)) return;
     const kind = cm[2];
     if (kind === 'check-in' && m === 'POST') {

@@ -1,6 +1,6 @@
 {
-  "passed": 259,
-  "total": 259,
+  "passed": 273,
+  "total": 273,
   "results": [
     {
       "check": "Splash is white with the icon",
@@ -123,17 +123,67 @@
       "detail": ""
     },
     {
-      "check": "Mic (voice to text) and Ask ALRT are separate buttons",
+      "check": "One mic and a separate Ask ALRT button",
       "pass": true,
       "detail": ""
     },
     {
-      "check": "Voice to text fills the search, not Ask ALRT",
+      "check": "Speak to ALRT: listening with example commands",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Heard words shown, understood as a search, spoken reply with results",
       "pass": true,
       "detail": ""
     },
     {
       "check": "Spoken search opens results for what was said",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Save a place by voice asks first",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "No does nothing",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Yes saves it through the backend and says so",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "What is near me: spoken count and the most serious warning",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Read the warning: level, title, agency, plain words",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Take me to: routes from the backend, spoken summary",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "SOS is never sent by voice",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "A report is never posted by voice",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Send to a group with no group: told to create one",
       "pass": true,
       "detail": ""
     },
@@ -405,12 +455,12 @@
     {
       "check": "Push after first confirmation: \"Community report | title\", Unverified",
       "pass": true,
-      "detail": "[{'id': 'n_mw3hw2f', 'userId': 'u_q7gktap', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
+      "detail": "[{'id': 'n_kfo7wdm', 'userId': 'u_whnzd7z', 'title': 'Community report | Crash reported in Scarborough', 'body': 'Reported nearby. Confirmed by a neighbour. Unverified.', 'kind': 'community', 'created"
     },
     {
       "check": "Dangerous report pushes at once, within 2 km (decided)",
       "pass": true,
-      "detail": "[{'id': 'n_i2hug7a', 'userId': 'u_q7gktap', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1792105958"
+      "detail": "[{'id': 'n_6uxyr3g', 'userId': 'u_whnzd7z', 'title': 'Community report | Fight outside the station', 'body': 'Risk to people reported nearby. Unverified.', 'kind': 'community', 'createdAt': 1792123240"
     },
     {
       "check": "Reporter gets ALRT Approved push",
@@ -618,6 +668,26 @@
       "detail": ""
     },
     {
+      "check": "Send this alert to my group: names the alert and the group before sending",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Alert sent to the group: the friend gets the push, free of charge",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Check in by voice asks first, naming the group",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "Check in by voice goes through the backend",
+      "pass": true,
+      "detail": ""
+    },
+    {
       "check": "Check on sends a targeted ask",
       "pass": true,
       "detail": ""
@@ -755,7 +825,7 @@
     {
       "check": "Group covered, capacity from plan",
       "pass": true,
-      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794701012408, 'coveredBy': 'you', 'youPay': True}"
+      "detail": "{'tier': 'family', 'live': True, 'status': 'active', 'expiresAt': 1794718298038, 'coveredBy': 'you', 'youPay': True}"
     },
     {
       "check": "Family header shows coverage",
@@ -950,7 +1020,7 @@
     {
       "check": "Live journey allowed after host allows it",
       "pass": true,
-      "detail": "{'status': 201, 'data': {'id': 'j_6rq06rw', 'circleId': 'c_6ljrs45', 'userId': 'u_bx89h5e', 'createdAt': 1792112702744, 'endsAt': 1792113602744, 'live': True, 'points': [], 'status': 'active', 'dest':"
+      "detail": "{'status': 201, 'data': {'id': 'j_g3wjhzj', 'circleId': 'c_q5l4vjj', 'userId': 'u_52ezgxa', 'createdAt': 1792129988346, 'endsAt': 1792130888346, 'live': True, 'points': [], 'status': 'active', 'dest':"
     },
     {
       "check": "Wording scan clean: Family places",

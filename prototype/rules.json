@@ -556,8 +556,8 @@
       "source": "rules.json decisionsApplied (navigation server-proxied)"
     },
     "voiceInput": {
-      "value": "voice to text stays, as a mic in the search bar; Ask ALRT is a separate function with its own button",
-      "source": "9 Oct 2026 instruction (supersedes 'hidden')"
+      "value": "superseded 16 Oct 2026 by voiceAssistant: one mic. The 9 Oct ruling that dictation and Ask ALRT are different functions still holds underneath: the spoken reply says which one it did",
+      "source": "9 Oct 2026 instruction; 16 Oct 2026 'yes agreed, one mic'"
     },
     "language": {
       "value": "English and Spanish picker kept; official warnings always in their issued wording",
@@ -658,6 +658,14 @@
     "signInScreen": {
       "value": "front page is white with the logo and the writing only: no blurred coloured circles in the corners, no tile or coloured glow behind the logo",
       "source": "9 Oct 2026 instruction"
+    },
+    "voiceAssistant": {
+      "value": "one mic in the Main search bar: Speak to ALRT. It searches (places and alerts), answers questions (through Ask ALRT, counted the same way), and acts: save a place, send this alert to a group, check in, read an alert aloud, what is near me, take me to. Anything that saves, sends or checks in asks first. SOS and community reports are never done by voice. The reply is spoken back and shown as a caption. Speech is recognised on the phone; the fixed commands are understood on the phone; a free-form question goes through the Ask ALRT route like a typed one",
+      "source": "16 Oct 2026 instruction: 'speak to finding the information and speaking back, e.g. save Scarborough as a saved place, send this alert to group xx'; 'yes agreed ... one mic'"
+    },
+    "sendAlertToGroup": {
+      "value": "sending an alert to your group is free (not one of the four gated features) and pushes the alert to every other member",
+      "source": "Detail board 'Tell your people'; 16 Oct 2026 voice command"
     }
   },
   "bandWords": {
@@ -706,7 +714,28 @@
   },
   "voice": {
     "voiceToText": "mic in the map search bar, recognised on the phone, fills the search field",
-    "askAlrt": "its own button, separate function"
+    "askAlrt": "its own button, separate function",
+    "oneMic": true,
+    "commands": [
+      "search",
+      "ask",
+      "savePlace",
+      "sendAlert",
+      "checkIn",
+      "readAlert",
+      "nearMe",
+      "route"
+    ],
+    "confirmBefore": [
+      "savePlace",
+      "sendAlert",
+      "checkIn"
+    ],
+    "never": [
+      "sos",
+      "report"
+    ],
+    "spokenReply": true
   },
   "reporting": {
     "fromPhysicalLocationOnly": true,
