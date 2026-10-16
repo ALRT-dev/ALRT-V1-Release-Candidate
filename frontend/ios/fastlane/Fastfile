@@ -87,7 +87,7 @@ platform :ios do
     )
   end
 
-  desc "CI: install signing for the isolated TEST app and its widget extension"
+  desc "CI: install the App Store signing certificate and profile for the isolated TEST (dev-flavour) app on the runner"
   lane :ci_certs_dev do |options|
     # Same as ci_certs above, targeting the separate "ALRT Dev" App Store
     # Connect app (com.safetyalrt.alrt.dev) instead of production. Never
@@ -100,36 +100,21 @@ platform :ios do
       key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
       is_key_content_base64: true
     )
-    dev_targets = {
-      "Runner" => "com.safetyalrt.alrt.dev",
-      "AlrtWidget" => "com.safetyalrt.alrt.dev.AlrtWidget"
-    }
     match(
       type: "appstore",
       readonly: options[:generate].to_s != "true",
       api_key: api_key,
-      app_identifier: dev_targets.values
+      app_identifier: "com.safetyalrt.alrt.dev"
     )
-    profiles = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
-    dev_targets.each do |target, bundle_id|
-      profile = profiles[bundle_id]
-      UI.user_error!("No installed TEST signing profile for #{bundle_id}") if profile.to_s.empty?
-      update_code_signing_settings(
-        use_automatic_signing: false,
-        path: "Runner.xcodeproj",
-        targets: [target],
-        build_configurations: ["Debug-dev", "Release-dev", "Profile-dev"],
-        team_id: "JR89M7CYPR",
-        bundle_identifier: bundle_id,
-        code_sign_identity: "Apple Distribution",
-        profile_name: profile
-      )
-    end
-    require 'xcodeproj'
-    export_path = File.expand_path('../ExportOptionsCI-dev.plist', __dir__)
-    export_options = Xcodeproj::Plist.read_from_path(export_path)
-    export_options['provisioningProfiles'] = dev_targets.values.to_h { |id| [id, profiles.fetch(id)] }
-    Xcodeproj::Plist.write_to_path(export_options, export_path)
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Runner.xcodeproj",
+      targets: ["Runner"],
+      team_id: "JR89M7CYPR",
+      bundle_identifier: "com.safetyalrt.alrt.dev",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.safetyalrt.alrt.dev"
+    )
   end
 
   desc "CI: upload the already-built ipa (IPA_PATH env, absolute) to TestFlight"

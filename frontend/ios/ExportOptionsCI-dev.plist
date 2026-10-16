@@ -18,8 +18,6 @@
 	<dict>
 		<key>com.safetyalrt.alrt.dev</key>
 		<string>match AppStore com.safetyalrt.alrt.dev</string>
-		<key>com.safetyalrt.alrt.dev.AlrtWidget</key>
-		<string>match AppStore com.safetyalrt.alrt.dev.AlrtWidget</string>
 	</dict>
 	<key>uploadSymbols</key>
 	<true/>
