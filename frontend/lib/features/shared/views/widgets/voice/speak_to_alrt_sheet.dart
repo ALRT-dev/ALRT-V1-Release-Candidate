@@ -9,6 +9,7 @@ import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/service_providers.dart';
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
+import 'package:hazard_app/features/profile/providers/states/my_location_subscriptions_provider_state.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/services/alert_speech_service.dart';

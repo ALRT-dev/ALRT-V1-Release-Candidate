@@ -77,13 +77,14 @@ class VoiceCommand {
           .join(' ');
 
   /// The words of [m]'s group [g] as they were heard (original casing).
-  /// Lower-casing keeps ASCII lengths, so the offsets line up.
+  /// The pattern ran on the lower-cased text, which keeps ASCII lengths, so
+  /// the group's offset there is its offset in [heard].
   static String _orig(final String heard, final RegExpMatch m, final int g) {
-    final start = m.start(g), end = m.end(g);
-    if (heard.length != heard.toLowerCase().length || start < 0) {
-      return m.group(g)!;
-    }
-    return heard.substring(start, end);
+    final words = m.group(g)!;
+    if (heard.length != m.input.length) return words;
+    final at = m.input.indexOf(words, m.start);
+    if (at < 0) return words;
+    return heard.substring(at, at + words.length);
   }
 
   static String _stripLeading(final String s, final List<String> words) {
