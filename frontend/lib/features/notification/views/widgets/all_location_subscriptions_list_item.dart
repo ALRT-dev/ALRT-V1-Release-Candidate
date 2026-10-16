@@ -5,10 +5,10 @@ import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
 import 'package:hazard_app/features/profile/providers/states/my_location_subscriptions_provider_state.dart';
 import 'package:hazard_app/features/shared/extensions/context_navigation_extension.dart';
-import 'package:hazard_app/features/shared/extensions/date_time_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/models/location_subscription_model.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
@@ -93,13 +93,39 @@ class _AllLocationSubscriptionsListItemState
                     ),
                   ),
                   2.hSizedBox,
-                  Text(
-                    'Subscribed ${widget.subscription.createdAt?.formattedDateOnly}',
-                    style: TextStyle(
-                      fontSize: 11.spMin,
-                      color: AppColors.grey,
-                      fontStyle: FontStyle.italic,
-                    ),
+                  // How many alerts sit inside this place right now (Places
+                  // board, 16 Oct 2026), counted from the alerts feed, which
+                  // already covers every saved place.
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final sub = widget.subscription;
+                      final count = ref.watch(
+                        providerOfNotificationsFeed.select(
+                          (value) => value.hazards.where((h) {
+                            final lat = h.latitude, lng = h.longitude;
+                            if (lat == null || lng == null || h.isExpired) {
+                              return false;
+                            }
+                            return lat <= sub.northeastLat &&
+                                lat >= sub.southwestLat &&
+                                lng <= sub.northeastLng &&
+                                lng >= sub.southwestLng;
+                          }).length,
+                        ),
+                      );
+                      return Text(
+                        count == 0
+                            ? 'No alerts here now'
+                            : '$count alert${count == 1 ? '' : 's'} here now',
+                        style: TextStyle(
+                          fontSize: 12.spMin,
+                          fontWeight: FontWeight.w600,
+                          color: count == 0
+                              ? AppColors.grey
+                              : const Color(0xFFB84500),
+                        ),
+                      );
+                    },
                   ),
                   8.hSizedBox,
 

@@ -147,6 +147,7 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
         return PlacesSearchResultsMenuContent(
           placesSearchKey: MapSearchbar.placesSearchKey,
           onPlaceSelected: _handleSearchResultSelected,
+          showMatchingAlerts: true,
         );
       },
     );
