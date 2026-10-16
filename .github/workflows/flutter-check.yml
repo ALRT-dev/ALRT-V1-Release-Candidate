@@ -1,0 +1,87 @@
+name: Flutter check (no build)
+
+# Check-only: analyze and run the unit/widget tests for app-build branches.
+# Builds no app, signs nothing, uploads nothing, reads no secrets, and does
+# not touch the android-test-latest pre-release that testers install from.
+# The analyze and test steps are copied from android-test.yml.
+
+on:
+  push:
+    branches:
+      - "claude/app-build-**"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+
+      # Blank placeholder values: tests never call the network.
+      - name: Placeholder .env
+        run: |
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
+            echo "GOOGLE_MAPS_API_KEY="
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE="
+            echo "REVENUECAT_API_KEY_GOOGLE="
+            echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
+            echo "ALRT_PLUS_TEST_UNLOCK=true"
+            echo "USE_DUMMY_AI_FOR_REPORTS=false"
+          } > .env
+
+      - run: flutter pub get
+
+      - name: Run flutter analyze (fail on findings in files this branch changed)
+        run: |
+          set +e
+          flutter analyze > /tmp/analyze-output.txt 2>&1
+          set -e
+          cat /tmp/analyze-output.txt
+          base=$(git merge-base HEAD origin/test 2>/dev/null || echo "")
+          if [ -n "$base" ]; then
+            changed=$(git diff --name-only "$base" HEAD -- lib test | sed 's#^frontend/##')
+          else
+            changed="lib"
+          fi
+          echo "Files this branch changed:"; echo "$changed"
+          fail=0
+          for f in $changed; do
+            if grep -qE "(error|warning|info) . .*$f" /tmp/analyze-output.txt; then
+              grep -E "(error|warning|info) . .*$f" /tmp/analyze-output.txt | while read -r line; do echo "::error title=flutter analyze::$line"; done
+              fail=1
+            fi
+          done
+          if grep -qE '^\s*error ' /tmp/analyze-output.txt; then
+            grep -E '^\s*error ' /tmp/analyze-output.txt | head -20 | while read -r line; do echo "::error title=flutter analyze (error)::$line"; done
+            fail=1
+          fi
+          exit $fail
+
+      - name: Run flutter test
+        run: |
+          set +e
+          flutter test --reporter expanded > /tmp/test-output.txt 2>&1
+          code=$?
+          tail -n 5 /tmp/test-output.txt
+          if [ "$code" -ne 0 ]; then
+            grep -E '\[E\]|Error:|Expected:|Actual:|Failed to load|Some tests failed' /tmp/test-output.txt | head -40 | while read -r line; do echo "::error title=flutter test::$line"; done
+          fi
+          exit $code
