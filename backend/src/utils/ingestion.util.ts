@@ -20,6 +20,7 @@ import {
   convertAddressToLatLng,
   convertLatLngToAddress,
 } from "../services/google_map.service.js";
+import { waqiRatingFor, waqiRatingMeaning } from "./waqi_rating.util.js";
 import {
   awsCompliantSeverities,
   getSeverityBandFromAQI,
@@ -38,6 +39,7 @@ import {
   getFireStatusFromDescription,
 } from "./ingestion.category.util.js";
 import type { HazardDataWithRelations } from "../models/hazard_data_with_relations_interface.js";
+import { normaliseCountry } from "./alert_templates.util.js";
 import { MainCategoryId } from "../services/hazard_category.service.js";
 import {
   ExternalSourceId,
@@ -163,6 +165,7 @@ export function parseGeoJsonToHazards({
         severity,
         severityBand,
         category: finalCategory,
+        ...(idPrefix === ExternalSourceId.rfs && typeof properties?.category === "string" && {nativeWarningLevel: properties.category, jurisdictionCountry: "AU"}),
         ...(finalCategory.isFireRelated && {
           fireStatus: fireStatus || FireStatus.active,
         }),
@@ -205,6 +208,59 @@ export function parseGeoJsonToHazards({
  * const hazards = parseWAQIToHazards(waqiData, categoryId);
  * ```
  */
+// WAQI's rating words and their published meaning live in
+// waqi_rating.util.ts (dependency free, so the air quality card template
+// can share them); re-exported here for existing importers.
+export { waqiRatingFor, waqiRatingMeaning };
+
+const WAQI_POLLUTANTS: Record<string, string> = {
+  pm25: "fine particles (PM2.5)",
+  pm10: "coarse particles (PM10)",
+  o3: "ozone (O3)",
+  no2: "nitrogen dioxide (NO2)",
+  so2: "sulphur dioxide (SO2)",
+  co: "carbon monoxide (CO)",
+};
+
+/** Plain name for WAQI's `dominentpol` code, or null when absent/unknown. */
+export const describeWaqiPollutant = (code?: string | null): string | null => {
+  if (!code) return null;
+  return WAQI_POLLUTANTS[code.trim().toLowerCase()] ?? null;
+};
+
+/**
+ * The map/bounds feed carries only the AQI number. For the few stations
+ * high enough to become alerts, read each station's feed once to learn
+ * which pollutant is driving the reading. Best effort: a failed or slow
+ * lookup leaves the station without a pollutant line, never drops it.
+ */
+export const enrichWaqiDominantPollutants = async <
+  T extends { uid: number; aqi: string; dominentpol?: string | undefined },
+>(
+  data: T[],
+  token: string,
+  minimumAqi = 101,
+): Promise<T[]> => {
+  const targets = data.filter((d) => parseInt(d.aqi, 10) >= minimumAqi).slice(0, 25);
+  await Promise.all(
+    targets.map(async (d) => {
+      try {
+        const res = await fetch(
+          `https://api.waqi.info/feed/@${d.uid}/?token=${encodeURIComponent(token)}`,
+          { signal: AbortSignal.timeout(8000) },
+        );
+        if (!res.ok) return;
+        const body = (await res.json()) as { status?: string; data?: { dominentpol?: unknown } };
+        const pol = body?.status === "ok" ? body.data?.dominentpol : undefined;
+        if (typeof pol === "string" && pol.length > 0) d.dominentpol = pol;
+      } catch {
+        // Keep the station; it simply has no pollutant line.
+      }
+    }),
+  );
+  return data;
+};
+
 export function parseWAQIToHazards({
   data,
   category,
@@ -218,6 +274,8 @@ export function parseWAQIToHazards({
       name: string;
       time: string;
     };
+    /** Added by enrichWaqiDominantPollutants from the station feed. */
+    dominentpol?: string | undefined;
   }>;
   category: HazardCategory;
 }): HazardDataWithRelations[] {
@@ -231,14 +289,23 @@ export function parseWAQIToHazards({
 
       const title = `Air Quality Alert - ${item.station.name}`;
 
-      // Build comprehensive description
+      // Why the alert is there, in the source's own words and never as a
+      // number (product owner, 16 Oct 2026; purge list, pack file 03:
+      // category names only, never "AQI at 150"): WAQI's rating for the
+      // reading, the main pollutant when WAQI's station feed names it,
+      // and what that rating means for people. The number is kept only in
+      // a machine field for the band and the card template.
+      const rating = waqiRatingFor(aqiValue);
+      const pollutant = describeWaqiPollutant(item.dominentpol);
+      const meaning = waqiRatingMeaning(aqiValue);
       const descriptionParts: string[] = [
         `Station: ${item.station.name}`,
+        ...(rating ? [`Air quality: ${rating} (World Air Quality Index rating)`] : []),
+        ...(pollutant ? [`Main pollutant: ${pollutant}`] : []),
+        ...(meaning ? [`What this means: ${meaning}`] : []),
+        `Measured: ${item.station.time}`,
         `AQI: ${aqiValue}`,
-        `Coordinates: ${item.lat}, ${item.lon}`,
-        `Last Updated: ${item.station.time}`,
       ];
-
       const description = descriptionParts.join("\n");
 
       // Determine severity band based on AQI value
@@ -1040,9 +1107,8 @@ export async function parseSESToHazards({
         "NSW SES Alert";
 
       // Extract calls to action from instruction field
-      const callsToAction = alertData.instruction
-        ? extractCallsToActionFromInstruction(alertData.instruction)
-        : undefined;
+      const fullInstruction = cleanDescription(alertData.instruction ?? undefined);
+      const callsToAction = fullInstruction ? [fullInstruction] : undefined;
 
       const descriptionPartsForAttributes: string[] = [];
       if (alertData.event) {
@@ -1095,6 +1161,9 @@ export async function parseSESToHazards({
         locationName:
           alertData.affectedLocation?.replaceAll("&amp;", "&") || null,
         ...(callsToAction && callsToAction.length > 0 && { callsToAction }),
+        sourceInstructionBlocks: callsToAction ?? [],
+        nativeWarningLevel: alertData.awsWarningLevel || null,
+        jurisdictionCountry: "AU",
         link,
         occurredAt,
       };
@@ -1606,6 +1675,8 @@ function createWAHazardFromWarning({
   return {
     id: hazardId,
     title: warning.title,
+    nativeWarningLevel: warning.warningType,
+    jurisdictionCountry: "AU",
     description,
     severity,
     severityBand,
@@ -1875,6 +1946,8 @@ export function parseNTFireAndRescueToHazards({
         longitude: coordinates.longitude,
         occurredAt,
         expiresAt,
+        nativeWarningLevel: typeof properties?.["Alert Level"] === "string" ? properties["Alert Level"] : null,
+        jurisdictionCountry: "AU",
       };
 
       return hazard;
@@ -1949,9 +2022,11 @@ export function parseSmartravellerToHazards({
     if (advisory.field_last_update) {
       descriptionParts.push(`\n${advisory.field_last_update}`);
     }
+    if (advisory.field_last_update_notes) descriptionParts.push(cleanDescription(advisory.field_last_update_notes));
+    if (advisory.field_advice_levels) descriptionParts.push(cleanDescription(advisory.field_advice_levels));
 
     const description = descriptionParts
-      .join("\n")
+      .join("\n\n")
       .replace(/&[a-z]+;/gi, " ")
       .replace(/\*\*/g, "")
       .replace(/ +/g, " ")
@@ -1965,15 +2040,7 @@ export function parseSmartravellerToHazards({
     // Determine severity band from advice level
     const severityBand = getSeverityBandFromSmartravellerLevel(adviceLevel);
 
-    const callsToAction = advisory.field_last_update_notes
-      ? advisory.field_last_update_notes
-          .replace(/&nbsp;/g, " ")
-          .replace(/&[a-z]+;/gi, " ")
-          .split("\n")
-          .slice(1)
-          .filter((line) => line.trim())
-          .map((line) => line.trim())
-      : undefined;
+    const callsToAction = [advisory.field_last_update_notes, advisory.field_advice_levels].map(cleanDescription).filter(Boolean);
 
     // Parse the last updated date
     const occurredAt = advisory.changed
@@ -1987,6 +2054,9 @@ export function parseSmartravellerToHazards({
         .replace(/\s+/g, "-")}`,
       title: hazardTitle,
       description,
+      nativeWarningLevel: adviceLevel,
+      jurisdictionCountry: normaliseCountry(country),
+      sourceInstructionBlocks: callsToAction,
       severityBand,
       category,
       ...(callsToAction && callsToAction.length > 0 && { callsToAction }),
@@ -2096,9 +2166,7 @@ export function parseUSGSEarthquakeToHazards({
         );
       }
 
-      if (tsunami === 1) {
-        descriptionParts.push(`Tsunami Warning: Yes`);
-      }
+      // USGS says this flag does not indicate an actual tsunami warning.
 
       if (sig != null) {
         descriptionParts.push(`Significance: ${sig}`);
@@ -2109,7 +2177,7 @@ export function parseUSGSEarthquakeToHazards({
       // Determine severity band based on magnitude and alert level
       let severityBand: HazardSeverityBand;
 
-      if (alert === "red" || magnitude >= 7.0 || tsunami === 1) {
+      if (alert === "red" || magnitude >= 7.0) {
         severityBand = HazardSeverityBand.critical;
       } else if (alert === "orange" || magnitude >= 6.0) {
         severityBand = HazardSeverityBand.action;
@@ -2133,6 +2201,7 @@ export function parseUSGSEarthquakeToHazards({
         description,
         severityBand,
         category: earthquakeCategory,
+        nativeWarningLevel: typeof alert === "string" ? alert : null,
         latitude,
         longitude,
         ...(url && { link: url }),
@@ -3565,8 +3634,9 @@ const isValidURL = (str: string): boolean => {
 export const convertHazardDataWithRelationsToCreateInput = (
   hazardData: HazardDataWithRelations,
 ): Prisma.HazardCreateInput => {
+  const {sourceInstructionBlocks: _sourceInstructionBlocks, ...stored} = hazardData;
   return {
-    ...hazardData,
+    ...stored,
     category: {
       connect: { id: hazardData.category?.id || "other" },
     },

@@ -218,12 +218,12 @@ export const getAirQualityAlertCategoryPrompt = (
         return [];
       case HazardSeverityBand.action:
         return [
-          "Air quality is poor near [SUBURB LOCATION] with AQI at [NUMBER], as reported by [AGENCY].",
+          "[AGENCY] reports that air quality near [SUBURB LOCATION] is poor.",
         ];
       case HazardSeverityBand.critical:
         return [
-          "Air quality is very poor near [SUBURB LOCATION] with AQI at [NUMBER], as reported by [AGENCY].",
-          "Air quality is hazardous near [SUBURB LOCATION] with AQI at [NUMBER], as reported by [AGENCY].",
+          "[AGENCY] reports that air quality near [SUBURB LOCATION] is very poor.",
+          "[AGENCY] reports that air quality near [SUBURB LOCATION] is extremely poor.",
         ];
       default:
         return [];
@@ -291,89 +291,12 @@ export const getAirQualityAlertCategoryPrompt = (
  * Generates a prompt for summarizing Smartraveller source alerts.
  * @returns {string} The prompt string.
  */
-export const getSmartravellerSourcePrompt = (
-  severityBand: HazardSeverityBand
-): string => {
-  const getSummaryExamplesBySeverityBand = (
-    severityBand: HazardSeverityBand
-  ): string[] => {
-    switch (severityBand) {
-      case HazardSeverityBand.info:
-        return [
-          "Australian Government advises exercising normal safety precautions for [LOCATION], as reported by Smartraveller.",
-        ];
-      case HazardSeverityBand.monitor:
-        return [
-          "Australian Government advises exercising a high degree of caution in [LOCATION] due to [REASONS], as reported by Smartraveller.",
-        ];
-      case HazardSeverityBand.action:
-        return [
-          "Australian Government advises reconsidering your need to travel to [LOCATION] due to [REASONS], as reported by Smartraveller.",
-        ];
-      case HazardSeverityBand.critical:
-        return [
-          "Australian Government advises do not travel to [LOCATION] due to [REASONS], as reported by Smartraveller.",
-        ];
-      default:
-        return [];
-    }
-  };
-
-  const getCallToActionExamplesBySeverityBand = (
-    severityBand: HazardSeverityBand
-  ): string[] => {
-    switch (severityBand) {
-      case HazardSeverityBand.info:
-        return [
-          "Exercise normal safety precautions. Stay aware of your surroundings and monitor local media for updates.",
-        ];
-      case HazardSeverityBand.monitor:
-        return [
-          "Exercise a high degree of caution. Avoid affected areas where possible and follow advice from local authorities.",
-        ];
-      case HazardSeverityBand.action:
-        return [
-          "Reconsider your need to travel. If already there, consider leaving. Register with Smartraveller and have an exit plan.",
-        ];
-      case HazardSeverityBand.critical:
-        return [
-          "Do not travel to this location. If already there, leave immediately if safe to do so. Contact DFAT on 1300 555 135.",
-        ];
-      default:
-        return [];
-    }
-  };
-
-  const summaryExamples = getSummaryExamplesBySeverityBand(severityBand);
-  const summaryExamplesText =
-    summaryExamples.length > 0
-      ? `- STRICTLY follow the structure as in the following examples:\n    ${summaryExamples
-          .map((example) => `"${example}"`)
-          .join("\n    ")}`
-      : "";
-
-  const callToActionExamples =
-    getCallToActionExamplesBySeverityBand(severityBand);
-  const callToActionExamplesText =
-    callToActionExamples.length > 0
-      ? `- STRICTLY follow the structure as in the following examples:\n    ${callToActionExamples
-          .map((example) => `"${example}"`)
-          .join("\n    ")}`
-      : "";
-
-  return `${defaultAIPromptIntroduction}
-  
-  ${defaultSummaryGuidelines}
-  - Use Australian spellings.
-  ${summaryExamplesText}
-
-  ${defaultCallToActionGuidelines}
-  - Use Australian spellings.
-  ${callToActionExamplesText}
-  
-  ${defaultConfidenceLevelGuidelines}
-  
-  ${defaultOutputStructure}`;
+export const getSmartravellerSourcePrompt = (severityBand: HazardSeverityBand): string => {
+  void severityBand;
+  return [defaultAIPromptIntroduction, defaultSummaryGuidelines,
+    "Preserve the native Smartraveller advice level exactly as supplied for the affected country and region. Never derive an advice level from the ALRT band.",
+    "A do-not-travel advisory does not itself instruct people already there to leave. Include a departure instruction only when the source explicitly supplies it, with all conditions and area exceptions.",
+    defaultCallToActionGuidelines, defaultSpecialRules, defaultConfidenceLevelGuidelines, defaultOutputStructure].join("\n");
 };
 
 const defaultAIPromptIntroduction = `You are an AI hazard intelligence assistant supporting emergency systems. Your role is to interpret incoming hazard reports, extract key details, and produce clear, actionable summaries, including a concise title, a factual summary, an appropriate call to action and a confidence level that help people understand the situation quickly.`;
@@ -403,7 +326,7 @@ Generate "callsToAction" using the following rules:
     two or three most safety-relevant instructions, in the agency's order.
   - If the description contains no instruction, return an empty array: [].
     Do not invent one, and do not soften this into a generic safety tip —
-    ALRT never writes its own advice.
+    ALRT suggestions are selected separately from a reviewed library and labelled as suggestions.
   - Never paraphrase a source instruction into something stronger, softer,
     or different. Keep specifics (evacuation centres, road names) intact.
   - Physical-movement words ("leave", "stay", "depart", "evacuate", "shelter",

@@ -22,6 +22,8 @@ import 'package:hazard_app/features/shared/repositories/hazard_repository.dart';
 import 'package:hazard_app/features/shared/repositories/user_repository.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
+import 'package:hazard_app/features/shared/views/widgets/filter_widgets/category_grid_picker.dart';
+import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/filter_widgets/hazard_filters_bottomsheet_content.dart';
 
 /// A [HazardRepository] that only serves the parent-category list this test
@@ -204,18 +206,33 @@ List<HazardCategory> _sampleCategories() => const [
   ),
 ];
 
-/// The ordered (name, colour, selected) tuple every [CategoryFilterChip]
-/// renders - the "actual rendered data/mapping" this suite compares,
-/// rather than trusting that two call sites reading the same provider
-/// necessarily render the same thing.
+/// The ordered (name, colour, selected) tuple the Notifications category
+/// grid renders. Both screens draw the shared [CategoryGridPicker] (15 Oct
+/// 2026), so this reads what the picker was given to draw: the "actual
+/// rendered data/mapping" this suite compares.
 List<(String, Color, bool)> _renderedChips(final WidgetTester tester) {
+  final picker =
+      tester.widget<CategoryGridPicker>(find.byType(CategoryGridPicker));
+  return [
+    for (final category in picker.categories)
+      (
+        category.name ?? '',
+        categoryChipColor(category),
+        picker.selectedIds.contains(category.id),
+      ),
+  ];
+}
+
+/// The ordered (name, colour) pair every category tile in the ALRT
+/// Filters sheet renders. The sheet draws a two-column grid of
+/// [CategoryGlyph] tiles (14 Oct 2026), not [CategoryFilterChip]s.
+List<(String, Color)> _renderedFilterTiles(final WidgetTester tester) {
   return tester
-      .widgetList<CategoryFilterChip>(find.byType(CategoryFilterChip))
+      .widgetList<CategoryGlyph>(find.byType(CategoryGlyph))
       .map(
-        (final chip) => (
-          chip.category.name ?? '',
-          categoryChipColor(chip.category),
-          chip.isSelected,
+        (final glyph) => (
+          glyph.category.name ?? '',
+          categoryChipColor(glyph.category),
         ),
       )
       .toList();
@@ -283,7 +300,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final feedChips = _renderedChips(tester);
+        final feedChips = _renderedFilterTiles(tester);
 
         expect(
           notificationsChips.map((c) => (c.$1, c.$2)),
@@ -557,8 +574,8 @@ void main() {
       expect(find.text('LEVEL'), findsOneWidget);
       expect(find.text('COLOUR SHOWS SEVERITY'), findsOneWidget);
       expect(find.text('CATEGORIES'), findsOneWidget);
-      await tester.ensureVisible(find.text('Always on'));
-      expect(find.text('Always on'), findsOneWidget);
+      await tester.ensureVisible(find.text('Official Emergency Warnings'));
+      expect(find.text('Official Emergency Warnings'), findsOneWidget);
       expect(userRepository.savedSettings, isEmpty);
 
       await tester.ensureVisible(find.text('Keep it quiet'));

@@ -49,7 +49,7 @@ abstract final class AlertCardStyle {
     final bool isAlrtIntel = false,
   }) {
     if (isAlrtIntel) return LucideIcons.shield;
-    if (isGlobalHumanitarian) return LucideIcons.square;
+    if (isGlobalHumanitarian) return LucideIcons.diamond;
     if (isAws) return LucideIcons.triangleAlert;
     if (isOfficial) return LucideIcons.diamond;
     return LucideIcons.circle;
@@ -89,6 +89,188 @@ abstract final class AlertCardStyle {
     };
   }
 
+  /// "8.4 km", "820 m", "3,274 km": tenths only under 100 km, so a far
+  /// alert's distance fits beside the source name on the compact card
+  /// ("3273.5 km a..." was cut off, phone review 15 Oct 2026).
+  static String distanceLabel(final double metres) {
+    if (metres < 1000) return '${metres.toStringAsFixed(0)} m';
+    final km = metres / 1000;
+    if (km < 100) return '${km.toStringAsFixed(1)} km';
+    final whole = km.round().toString();
+    final grouped = whole.replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (_) => ',',
+    );
+    return '$grouped km';
+  }
+
+  /// The source's facts as clean lines for WHAT WE KNOW and the compact
+  /// card. Feeds hand us raw fields ("ALERT LEVEL: Not Applicable",
+  /// "LOCATION: BRICKWORKS PLANT, WALLGROVE RD", "Coordinates: -21.9,
+  /// 148.0", "Main Category: CHANGED TRAFFIC CONDITIONS" after a line that
+  /// already said it). This keeps the source's facts and words, and only:
+  /// drops empty values ("Not Applicable", "Unknown"), machine fields
+  /// (coordinates, timestamps the card already shows), lines that just
+  /// repeat the title or an earlier line; and brings shouted capitals back
+  /// to normal case. It never adds a fact (phone review, 15 Oct 2026).
+  static List<String> factLines(final String? description, {final String? title}) {
+    final raw = (description ?? '').split(RegExp(r'\r?\n'));
+    final titleLower = (title ?? '').toLowerCase();
+    final out = <String>[];
+    final seen = <String>[];
+    for (var line in raw) {
+      line = line.replaceFirst(RegExp(r'^\s*[•\-\*·]+\s*'), '').trim();
+      if (line.isEmpty) continue;
+
+      String? key;
+      String value = line;
+      final m = RegExp(r'^([A-Za-z][A-Za-z /&()]{1,40}):\s*(.*)$').firstMatch(line);
+      if (m != null) {
+        key = m.group(1)!.trim();
+        value = m.group(2)!.trim();
+      }
+      final keyLower = key?.toLowerCase() ?? '';
+      final valueLower = value.toLowerCase();
+
+      if (value.isEmpty || _emptyValues.contains(valueLower)) continue;
+      if (_machineKeys.contains(keyLower)) continue;
+      // Repeats the title ("Wandandian Expo", "Incident Type: Road Crash"
+      // under "Road Crash - Warwick").
+      if (titleLower.isNotEmpty &&
+          valueLower.length >= 4 &&
+          titleLower.contains(valueLower)) {
+        continue;
+      }
+      // Repeats an earlier line. Short values ("2", "Yes") are left alone:
+      // they turn up inside unrelated lines ("M2", "2 lanes").
+      if (valueLower.length >= 4 && seen.any((e) => e.contains(valueLower))) {
+        continue;
+      }
+      seen.add(line.toLowerCase());
+
+      final calmValue = _calmShouted(value);
+      out.add(key == null ? calmValue : '${_sentenceCaseKey(key)}: $calmValue');
+    }
+    return out;
+  }
+
+  static const _emptyValues = {
+    'not applicable', 'n/a', 'na', 'unknown', 'none', 'null', '-', 'tbc',
+    'not specified', 'not available',
+  };
+
+  static const _machineKeys = {
+    'coordinates', 'coordinate', 'lat', 'lon', 'lng', 'latitude',
+    'longitude', 'last updated', 'updated', 'published', 'id', 'uid',
+    'station time',
+    // Index values are never shown (purge list, pack file 03: category
+    // names only). The number stays in the data for the band.
+    'aqi', 'aqi value', 'index', 'pm2.5', 'pm10', 'reading', 'measured',
+  };
+
+  static const _keepUpper = {
+    'NSW', 'WA', 'QLD', 'VIC', 'SA', 'NT', 'ACT', 'TAS', 'AQI', 'UV',
+    'PM2.5', 'PM10', 'CBD', 'M1', 'M2', 'M4', 'M5', 'M7', 'M31', 'SES',
+    'RFS', 'DFES', 'BOM', 'AWS', 'LGA', 'UK', 'US', 'NZ',
+  };
+
+  /// "ALERT LEVEL" -> "Alert level"; "Incident Kind" -> "Incident kind".
+  static String _sentenceCaseKey(final String key) {
+    final words = key.split(RegExp(r'\s+'));
+    return [
+      for (var i = 0; i < words.length; i++)
+        _keepUpper.contains(words[i].toUpperCase()) && words[i].length <= 4
+            ? words[i].toUpperCase()
+            : i == 0
+                ? words[i][0].toUpperCase() + words[i].substring(1).toLowerCase()
+                : words[i].toLowerCase(),
+    ].join(' ');
+  }
+
+  /// Brings runs of shouted words back to normal case: a fully shouted
+  /// value becomes Title Case ("BRICKWORKS PLANT, WALLGROVE RD" ->
+  /// "Brickworks Plant, Wallgrove Rd"); a shouted lead-in before ordinary
+  /// words becomes a label ("CHANGED TRAFFIC CONDITIONS Oversize vehicle"
+  /// -> "Changed traffic conditions: Oversize vehicle").
+  static String _calmShouted(final String value) {
+    String core(final String w) => w.replaceAll(RegExp(r'[^A-Za-z0-9.]'), '');
+    bool acronym(final String w) => _keepUpper.contains(core(w).toUpperCase());
+    // Known acronyms ("NSW RFS reports") are not shouting.
+    bool shouted(final String w) =>
+        RegExp(r'[A-Z]').hasMatch(w) &&
+        w == w.toUpperCase() &&
+        w.length > 1 &&
+        !acronym(w);
+    final words = value.split(' ');
+    final shoutedCount = words.where(shouted).length;
+    if (shoutedCount < 2) return value;
+
+    String titleWord(final String w) {
+      if (acronym(w)) return w;
+      final lower = w.toLowerCase();
+      final i = lower.indexOf(RegExp(r'[a-z]'));
+      if (i < 0) return w;
+      return lower.substring(0, i) + lower[i].toUpperCase() + lower.substring(i + 1);
+    }
+
+    if (words.every((w) => !RegExp(r'[a-z]').hasMatch(w))) {
+      return words.map(titleWord).join(' ');
+    }
+    // Shouted lead-in followed by normal words.
+    var n = 0;
+    while (n < words.length && !RegExp(r'[a-z]').hasMatch(words[n])) {
+      n++;
+    }
+    if (words.take(n).where(shouted).length >= 2 && n < words.length) {
+      final lead = words
+          .take(n)
+          .map((w) => acronym(w) ? w : w.toLowerCase())
+          .join(' ');
+      final rest = words.skip(n).join(' ');
+      // A label only when the rest starts a new phrase ("CHANGED TRAFFIC
+      // CONDITIONS Oversize vehicle"); "ROAD CLOSED due to flooding" reads
+      // on as one sentence.
+      final joiner = RegExp(r'^[A-Z0-9]').hasMatch(rest) ? ': ' : ' ';
+      return '${lead[0].toUpperCase()}${lead.substring(1)}$joiner$rest';
+    }
+    return value;
+  }
+
+  /// The agency's own instructions from an alert, without the generic
+  /// filler older TEST records carry ("If you are near the area, be ready
+  /// to follow ... instructions"). That line was written by the old
+  /// pipeline, not the agency, so it is never shown under WHAT TO DO and
+  /// never counts as published advice (phone review, 14 Oct 2026).
+  static List<String> agencyActions(final List<String>? callsToAction) {
+    if (callsToAction == null) return const [];
+    final filler = RegExp(
+      r'^\s*(if you are (near|in|around) (the|this) area,?\s*)?be ready to follow\b.*instructions\.?\s*$',
+      caseSensitive: false,
+    );
+    return [
+      for (final a in callsToAction)
+        if (a.trim().isNotEmpty && !filler.hasMatch(a)) a,
+    ];
+  }
+
+  /// Whether [action] is the agency's own instruction: those lead with
+  /// "{Agency} advises:" (or "The source advises:", the prompt contract).
+  /// Anything else under What to do is ALRT's own general guidance.
+  static final _agencyLead = RegExp(r'^.{1,60}? advises:', caseSensitive: false);
+  static bool isAgencyAction(final String action) =>
+      _agencyLead.hasMatch(action.trim());
+
+  /// Whether any of [callsToAction] is the AGENCY's advice. ALRT's own
+  /// lines (unprefixed "Consider ..." guidance) are not, so "In plain
+  /// terms" must not say "Their advice is in this alert" for them.
+  static bool hasAgencyAdvice(final List<String>? callsToAction) =>
+      agencyActions(callsToAction).any(isAgencyAction);
+
+  /// Whether any of [callsToAction] is ALRT's own guidance, which the
+  /// What to do block labels with a footer.
+  static bool hasAlrtGuidance(final List<String>? callsToAction) =>
+      agencyActions(callsToAction).any((a) => !isAgencyAction(a));
+
   /// The "In plain terms" line.
   ///
   /// Locked rule (product owner, 2026-08-05): this states only WHAT HAS
@@ -109,7 +291,8 @@ abstract final class AlertCardStyle {
     final String? categoryName,
     final String? sourceName,
     final String? locationName,
-    final bool hasAdvice = true,
+    final String? title,
+    final bool? hasAdvice,
   }) {
     if (!isOfficial) return null;
 
@@ -125,8 +308,26 @@ abstract final class AlertCardStyle {
     // ("an outage", "a bushfire"). A place name the source shouted in
     // capitals is brought back to title case; it is not our emphasis.
     final rawWhat = (categoryName ?? '').trim().toLowerCase();
-    final what = rawWhat == 'other' ? 'alert' : rawWhat;
-    final where = _calmCase((locationName ?? '').trim());
+    // A broad bucket name ("Other", "Security & Crime") is not a thing that
+    // happened. The agency's own title usually names it ("Active Alarm in
+    // Metro Central", "Police operation in Northbridge"), so those words
+    // are used; only with no usable title does it read as "an alert" or
+    // "a security and crime alert" (phone review, 14 Oct 2026).
+    final isBucket = rawWhat.isEmpty || rawWhat == 'other' || rawWhat.contains('&');
+    final titleHazard = isBucket ? _hazardFromTitle(title) : null;
+    final what = titleHazard ??
+        (rawWhat == 'other'
+            ? 'alert'
+            : rawWhat.contains('&')
+                ? '${rawWhat.replaceAll('&', 'and').replaceAll(RegExp(r'\s+'), ' ')} alert'
+                : rawWhat);
+    // The place: the agency's own title names it ("Vehicle Fire at Salter
+    // Point", "Road Crash – Warwick") far better than the feed's region
+    // code ("METRO SOUTH EAST"), so the title's place wins when it has one.
+    final fromTitle = _placeAndPreposition(title);
+    final where = fromTitle?.$2 ?? _calmCase((locationName ?? '').trim());
+    // Keep the agency's own word: "at Salter Point", "in Northbridge".
+    final preposition = fromTitle?.$1 ?? 'near';
     final article = what.isEmpty
         ? ''
         : 'aeiou'.contains(what[0])
@@ -136,7 +337,13 @@ abstract final class AlertCardStyle {
         ? 'this'
         : where.isEmpty
             ? '$article $what'
-            : '$article $what near $where';
+            : '$article $what $preposition $where';
+
+    // Never promise advice that is not there: when the agency published
+    // none, say so, matching the What to do section below it.
+    final adviceLine = hasAdvice == false
+        ? 'They have not published advice yet.'
+        : 'Their advice is in this alert.';
 
     // The source's own level word, verbatim, never reworded. Only AWS
     // publishes one.
@@ -150,14 +357,90 @@ abstract final class AlertCardStyle {
         : null;
 
     if (level != null) {
-      return hasAdvice
-          ? '$who has issued a $level for $subject. '
-              'Their advice is in this alert.'
-          : '$who has issued a $level for $subject.';
+      return '$who has issued a $level for $subject. $adviceLine';
     }
-    return hasAdvice
-        ? '$who has reported $subject. Their advice is in this alert.'
-        : '$who has reported $subject.';
+    return '$who has reported $subject. $adviceLine';
+  }
+
+  /// The place named at the end of an agency title, as in "Vehicle Fire at
+  /// Salter Point" or "Grass fire near Gingin", or null when the title has
+  /// no such phrase. Shouted titles are brought back to title case.
+  static String? placeFromTitle(final String? title) =>
+      _placeAndPreposition(title)?.$2;
+
+  /// Splits a "Hazard – Place" title (DFES writes "Road Crash – Warwick",
+  /// "Bushfire – Dandaragan") into its two halves, or null.
+  static (String, String)? _dashParts(final String? title) {
+    final t = title?.trim();
+    if (t == null || t.isEmpty) return null;
+    final m = RegExp(r'^(.+?)\s+[\u2013\u2014-]\s+(.+)$').firstMatch(t);
+    if (m == null) return null;
+    return (m.group(1)!.trim(), m.group(2)!.trim());
+  }
+
+  /// The hazard words of an agency title, lower-cased ("active alarm",
+  /// "road crash", "police operation"), or null when the title has no
+  /// place phrase to split it at.
+  static String? _hazardFromTitle(final String? title) {
+    final t = title?.trim();
+    if (t == null || t.isEmpty) return null;
+    String? hazard;
+    final dash = _dashParts(t);
+    if (dash != null) {
+      hazard = dash.$1;
+    } else {
+      final lower = t.toLowerCase();
+      var cut = -1;
+      for (final candidate in const [' at ', ' near ', ' in ']) {
+        final i = lower.lastIndexOf(candidate);
+        if (i > cut) cut = i;
+      }
+      if (cut > 0) hazard = t.substring(0, cut);
+    }
+    hazard = hazard?.trim();
+    if (hazard == null ||
+        hazard.isEmpty ||
+        hazard.length > 40 ||
+        !RegExp(r"^[A-Za-z][A-Za-z' /-]*$").hasMatch(hazard)) {
+      return null;
+    }
+    return hazard.toLowerCase();
+  }
+
+  /// The title's place with the word the agency put before it.
+  static (String, String)? _placeAndPreposition(final String? title) {
+    final t = title?.trim();
+    if (t == null || t.isEmpty) return null;
+    // "Road Crash – Warwick": the place is everything after the dash.
+    final dash = _dashParts(t);
+    if (dash != null) {
+      final place = dash.$2;
+      if (place.length <= 40 &&
+          RegExp(r"^[A-Za-z][A-Za-z' .,-]*$").hasMatch(place)) {
+        return ('in', _calmCase(place));
+      }
+    }
+    final lower = t.toLowerCase();
+    // The LAST " at " / " near " / " in " wins, so "Burn-off in progress
+    // at Gingin" gives Gingin, not "progress at Gingin".
+    var cut = -1;
+    var word = '';
+    for (final candidate in const [' at ', ' near ', ' in ']) {
+      final i = lower.lastIndexOf(candidate);
+      if (i > cut) {
+        cut = i;
+        word = candidate;
+      }
+    }
+    if (cut < 0) return null;
+    final place = t.substring(cut + word.length).trim();
+    // A place name, not the rest of a sentence.
+    if (place.isEmpty ||
+        place.length > 40 ||
+        !RegExp(r"^[A-Za-z][A-Za-z' .,-]*$").hasMatch(place)) {
+      return null;
+    }
+    return (word.trim(), _calmCase(place));
   }
 
   /// Title-cases a string only when it is entirely upper case (a shouted

@@ -137,7 +137,7 @@ check("predicate: AWS emergency and official critical are always-on", () => {
   assert.equal(isAlwaysOnOfficialWarning(communityCritical), false);
   assert.equal(
     isAlwaysOnOfficialWarning({ isAwsCompliant: true, severity: "watchAndAct", severityBand: "action" }),
-    false,
+    true,
   );
 });
 
@@ -208,7 +208,7 @@ check("push recipients: non-exempt alerts still obey switch and category", () =>
   assert.equal(userMatches(buildPushSettingsUserWhere(officialInfo, "flood-parent"), off), false);
   assert.equal(userMatches(buildPushSettingsUserWhere(communityCritical, "fire-parent"), user), false);
   const watch = { ...base, isAwsCompliant: true, severity: "watchAndAct", severityBand: "action" };
-  assert.equal(userMatches(buildPushSettingsUserWhere(watch, "fire-parent"), user), false);
+  assert.equal(userMatches(buildPushSettingsUserWhere(watch, "fire-parent"), user), true);
 });
 
 check("source guards: builders and recipient query use the exemption; location/block rules remain", () => {

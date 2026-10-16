@@ -16,6 +16,7 @@ import 'package:hazard_app/features/shared/providers/states/hazard_item_provider
 import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
+import 'package:hazard_app/features/shared/views/widgets/hazard_artwork.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -142,7 +143,9 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                     ],
                     6.hSizedBox,
                     _metaRowBuilder(),
-                    if (!isUserReported) _tapForMoreBuilder(),
+                    // Every card opens, so every card says so (product
+                    // owner, 16 Oct 2026).
+                    _tapForMoreBuilder(),
                     if (widget.showTrustMeter &&
                         isUserReported &&
                         !widget.isInfoWindow)
@@ -216,14 +219,15 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
 
         final category = hazard.category;
         final Widget glyph = isUserReported && category != null
-            ? CategoryGlyph(category: category, size: 22.spMin)
+            ? CategoryGlyph(category: category, size: 26.spMin)
             : SourceShapeGlyph(
                 isAws: isAws,
                 isOfficial: isOfficial,
                 isGlobalHumanitarian: hazard.isGlobalHumanitarian,
                 isAlrtIntel: hazard.isAlrtIntel,
                 color: hazard.color,
-                size: 14.spMin,
+                // Was 14: too small to read (phone review, 14 Oct 2026).
+                size: 20.spMin,
               );
 
         return Row(
@@ -288,7 +292,11 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
 
-        final given = hazard.description?.trim() ?? '';
+        // Cleaned source facts, never the raw feed fields.
+        final given = AlertCardStyle.factLines(
+          hazard.description,
+          title: hazard.title,
+        ).take(2).join('\n');
         final text = given.isNotEmpty
             ? given
             : AlertCardStyle.plainTermsOf(
@@ -299,7 +307,8 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                 categoryName: hazard.category?.name,
                 sourceName: hazard.source?.name,
                 locationName: hazard.locationName,
-                hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
+                title: hazard.title,
+                hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
               );
         if (text == null || text.isEmpty) return const SizedBox.shrink();
 
@@ -353,16 +362,31 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
           ),
         );
 
-        return Text(
-          title,
-          style: TextStyle(
-            fontSize: 17.spMin,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-            color: AppColors.black,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+
+        // Title on the left, the alert's own pin artwork on the right so
+        // the card and its map pin match (product owner, 16 Oct 2026).
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 17.spMin,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                  color: AppColors.black,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (hazard != null) ...[
+              10.wSizedBox,
+              HazardArtwork(hazard: hazard, size: 44.spMin),
+            ],
+          ],
         );
       },
     );
@@ -389,9 +413,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         );
         final distanceText = distance == null
             ? null
-            : distance < 1000
-            ? '${distance.toStringAsFixed(0)} m away'
-            : '${(distance / 1000).toStringAsFixed(1)} km away';
+            : '${AlertCardStyle.distanceLabel(distance)} away';
 
         final fragments = <String>[];
         if (hazard.isUserReported) {

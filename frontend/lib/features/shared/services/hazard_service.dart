@@ -21,6 +21,7 @@ import 'package:hazard_app/features/shared/models/category_image_model.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/shared/utils/hazard_art_assets.dart';
 import 'package:hazard_app/features/shared/models/get_hazards_with_subscription_id_reponse.dart';
 import 'package:hazard_app/features/shared/models/view_hazard_response_model.dart';
 import 'package:hazard_app/features/shared/providers/repository_providers.dart';
@@ -404,11 +405,11 @@ class HazardService {
     }
 
     // ── Phase 1: Resolve all bitmap entries synchronously ──
-    // Network entries: (bitmapKey, slot, netSize, fallbackSeverity, fallbackIsAws, fallbackSize)
+    // Network entries: (bitmapKey, slot, netSize, fallbackSeverity, fallbackIsAws, fallbackSize, fallbackArtId)
     final networkEntries =
-        <(String, CategoryImage, Size, HazardSeverityBand, bool, Size)>[];
-    // Asset-only entries: (bitmapKey, severity, isAws, size)
-    final assetEntries = <(String, HazardSeverityBand, bool, Size)>[];
+        <(String, CategoryImage, Size, HazardSeverityBand, bool, Size, String)>[];
+    // Asset-only entries: (bitmapKey, severity, isAws, size, artId)
+    final assetEntries = <(String, HazardSeverityBand, bool, Size, String)>[];
     // Fire status entries (nullable, no fallback): (bitmapKey, slot, size)
     final fireEntries = <(String, CategoryImage, Size)>[];
 
@@ -424,6 +425,7 @@ class HazardService {
         isAwsCompliant: isAws,
       );
       final slot = _findFirstImageInChain(cat, imageType);
+      final artId = bundledHazardArtId(cat, severity, isAwsCompliant: isAws);
       if (slot != null) {
         networkEntries.add((
           key,
@@ -436,6 +438,7 @@ class HazardService {
             imageType,
             defaultSize,
           ),
+          artId,
         ));
       } else {
         assetEntries.add((
@@ -447,6 +450,7 @@ class HazardService {
             imageType,
             defaultSize,
           ),
+          artId,
         ));
       }
     }
@@ -466,6 +470,7 @@ class HazardService {
             CategoryImageType.user,
             defaultSize,
           ),
+          'other',
         ));
       } else {
         assetEntries.add((
@@ -477,6 +482,7 @@ class HazardService {
             CategoryImageType.user,
             defaultSize,
           ),
+          'other',
         ));
       }
     }
@@ -549,7 +555,7 @@ class HazardService {
 
     // ── Phase 2: Batch-download unique images + pre-load fallback assets ──
     final uniqueDownloads = <String, String>{}; // s3Key → url
-    for (final (_, slot, _, _, _, _) in networkEntries) {
+    for (final (_, slot, _, _, _, _, _) in networkEntries) {
       uniqueDownloads.putIfAbsent(slot.s3Key, () => slot.url);
     }
     for (final (_, slot, _) in fireEntries) {
@@ -559,24 +565,26 @@ class HazardService {
     // Collect unique asset fallbacks (including fallbacks for network entries
     // in case a download fails).
     final assetFutures = <String, Future<BitmapDescriptor>>{};
-    void ensureAsset(HazardSeverityBand sev, bool isAws, Size size) {
-      final k = '${isAws}_${sev.name}_${size.width}_${size.height}';
+    String assetKeyOf(String art, HazardSeverityBand sev, bool isAws, Size size) =>
+        '${art}_${isAws}_${sev.name}_${size.width}_${size.height}';
+    void ensureAsset(String art, HazardSeverityBand sev, bool isAws, Size size) {
       assetFutures.putIfAbsent(
-        k,
+        assetKeyOf(art, sev, isAws, size),
         () => _bitmapDescriptorOtherSeverity(
           severityBand: sev,
           isAwsCompliant: isAws,
           size: size,
+          artId: art,
         ),
       );
     }
 
-    for (final (_, sev, isAws, size) in assetEntries) {
-      ensureAsset(sev, isAws, size);
+    for (final (_, sev, isAws, size, art) in assetEntries) {
+      ensureAsset(art, sev, isAws, size);
     }
-    for (final (_, _, _, fallbackSev, fallbackAws, fallbackSize)
+    for (final (_, _, _, fallbackSev, fallbackAws, fallbackSize, art)
         in networkEntries) {
-      ensureAsset(fallbackSev, fallbackAws, fallbackSize);
+      ensureAsset(art, fallbackSev, fallbackAws, fallbackSize);
     }
 
     // Run all downloads and asset loads concurrently
@@ -636,7 +644,7 @@ class HazardService {
       }());
     }
 
-    for (final (_, slot, size, _, _, _) in networkEntries) {
+    for (final (_, slot, size, _, _, _, _) in networkEntries) {
       scheduleRender(slot.s3Key, size);
     }
     for (final (_, slot, size) in fireEntries) {
@@ -652,17 +660,15 @@ class HazardService {
       return renderedDescriptors[cacheKey];
     }
 
-    for (final (key, slot, size, fallbackSev, fallbackAws, fallbackSize)
+    for (final (key, slot, size, fallbackSev, fallbackAws, fallbackSize, art)
         in networkEntries) {
       final bitmap = networkBitmap(slot, size);
-      final assetKey =
-          '${fallbackAws}_${fallbackSev.name}_${fallbackSize.width}_${fallbackSize.height}';
-      bitmapMap[key] = bitmap ?? resolvedAssets[assetKey]!;
+      bitmapMap[key] = bitmap ??
+          resolvedAssets[assetKeyOf(art, fallbackSev, fallbackAws, fallbackSize)]!;
     }
 
-    for (final (key, sev, isAws, size) in assetEntries) {
-      final assetKey = '${isAws}_${sev.name}_${size.width}_${size.height}';
-      bitmapMap[key] = resolvedAssets[assetKey]!;
+    for (final (key, sev, isAws, size, art) in assetEntries) {
+      bitmapMap[key] = resolvedAssets[assetKeyOf(art, sev, isAws, size)]!;
     }
 
     for (final (key, slot, size) in fireEntries) {
@@ -866,6 +872,11 @@ class HazardService {
       severityBand: severityBandForOtherFallback,
       isAwsCompliant: isAwsCompliantForOtherFallback,
       size: assetSize,
+      artId: bundledHazardArtId(
+        category,
+        severityBandForOtherFallback,
+        isAwsCompliant: isAwsCompliantForOtherFallback,
+      ),
     );
   }
 
@@ -877,9 +888,25 @@ class HazardService {
     final w = image.width;
     final h = image.height;
     if (w != null && h != null && w > 0 && h > 0) {
-      return Size(w.toDouble(), h.toDouble());
+      return _readableOnMap(Size(w.toDouble(), h.toDouble()));
     }
-    return defaultSize;
+    return _readableOnMap(defaultSize);
+  }
+
+  /// Map pins take their size from the image width/height set per category
+  /// in the admin portal, and several were set small enough that the
+  /// pictogram could not be read or tapped (phone review, 14 Oct 2026).
+  /// The longer side is held between 44 (the tap-target minimum, and about
+  /// the live app's pin size) and 52,
+  /// keeping the image's own proportions.
+  static Size _readableOnMap(final Size size) {
+    const minSide = 44.0;
+    const maxSide = 52.0;
+    final longest = size.longestSide;
+    if (longest <= 0) return const Size(minSide, minSide);
+    final target = longest.clamp(minSide, maxSide);
+    final k = target / longest;
+    return Size(size.width * k, size.height * k);
   }
 
   /// First matching [imageType] in category → parent chain with valid width/height, else [defaultSize].
@@ -898,10 +925,10 @@ class HazardService {
       final w = slot.width;
       final h = slot.height;
       if (w != null && h != null && w > 0 && h > 0) {
-        return Size(w.toDouble(), h.toDouble());
+        return _readableOnMap(Size(w.toDouble(), h.toDouble()));
       }
     }
-    return defaultSize;
+    return _readableOnMap(defaultSize);
   }
 
   Future<Uint8List?> _downloadImageBytes(
@@ -1036,20 +1063,22 @@ class HazardService {
     };
   }
 
-  /// Local fallback markers: only the generic `other_*` assets are kept on disk.
+  /// Local fallback markers: the category's own bundled artwork when there
+  /// is one, otherwise the generic `other_*` asset.
   Future<BitmapDescriptor> _bitmapDescriptorOtherSeverity({
     required final HazardSeverityBand severityBand,
     required final bool isAwsCompliant,
     required final Size size,
+    final String artId = 'other',
   }) {
     final cacheKey =
-        '${isAwsCompliant}_${severityBand.name}_${size.width}_${size.height}';
+        '${artId}_${isAwsCompliant}_${severityBand.name}_${size.width}_${size.height}';
     return _assetBitmapCache.putIfAbsent(
       cacheKey,
       () async {
         try {
           final assetPath =
-              'assets/images/hazards/${isAwsCompliant ? 'aws/' : 'non_aws/'}other_${severityBand.name}.png';
+              'assets/images/hazards/${isAwsCompliant ? 'aws/' : 'non_aws/'}${artId}_${severityBand.name}.png';
           final dpr =
               ui.PlatformDispatcher.instance.views.first.devicePixelRatio;
           final imageSize = Size(

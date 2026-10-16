@@ -56,6 +56,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         HomeTabbar.height -
         20.0;
     return Scaffold(
+      // Home no longer resizes for the keyboard on the map tab, so the
+      // keyboard inset now reaches this Scaffold; resizing here would
+      // squash the map exactly as before (phone review, 14 Oct 2026).
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           MapsAvailability.available
