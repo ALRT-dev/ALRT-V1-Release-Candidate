@@ -4,10 +4,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
+import 'package:hazard_app/features/map/models/alrt_location_model.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:hazard_app/features/map/views/widgets/map_details_sheet.dart';
+import 'package:hazard_app/features/map/utils/directions_helper.dart';
 import 'package:hazard_app/features/map/views/widgets/map_key_sheet.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
@@ -63,7 +65,7 @@ class _MapRailState extends ConsumerState<MapRail> {
           icon: LucideIcons.route,
           iconColor: _inkColor,
           semanticLabel: 'Check a route',
-          onPressed: () => context.push(SelectLocationScreen.route),
+          onPressed: _handleCheckRouteTap,
         ),
       ],
     );
@@ -168,6 +170,17 @@ class _MapRailState extends ConsumerState<MapRail> {
 
   /// Animates the map to the user's current location (same behaviour as the
   /// old my-location button).
+  /// Check a route: pick where you are going, then the route options open.
+  Future<void> _handleCheckRouteTap() async {
+    final picked = await context.push<Object?>(
+      SelectLocationScreen.route,
+      extra: SelectLocationScreenArgs(showYourLocationOption: false),
+    );
+    if (!mounted || picked is! AlrtLocation) return;
+    selectPlaceOnMap(ref, picked);
+    await startDirectionsTo(context: context, ref: ref, destination: picked);
+  }
+
   void _handleLocateTap() {
     final location = ref.read(providerOfLocation).location;
     ref

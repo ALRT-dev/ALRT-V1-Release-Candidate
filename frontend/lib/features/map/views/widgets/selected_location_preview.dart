@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hazard_app/features/map/providers/location_provider.dart';
+import 'package:hazard_app/features/map/utils/directions_helper.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/map_search_text_editing_controller_provider.dart';
 import 'package:hazard_app/features/map/providers/places_provider.dart';
@@ -164,32 +164,10 @@ class _SelectedLocationPreviewState
   Future<void> _getDirections() async {
     final selectedLocation = ref.read(providerOfMap).selectedLocation;
     if (selectedLocation == null) return;
-
-    final currentUserLocation = ref.read(providerOfLocation).location;
-
-    await ref
-        .read(providerOfMap.notifier)
-        .getRoutePlan(
-          origin: currentUserLocation,
-          destination: selectedLocation,
-        );
-    if (!mounted) return;
-    final failure = ref.read(providerOfMap).getRouteState.maybeWhen(
-      error: (error) => error.message,
-      orElse: () => null,
+    await startDirectionsTo(
+      context: context,
+      ref: ref,
+      destination: selectedLocation,
     );
-    if (failure != null) {
-      // Never put Google's raw error ("Routes API error: 403 ...") in front
-      // of people; it goes to the log for us instead.
-      debugPrint('[directions] $failure');
-      final noRoad = failure.startsWith(
-        'No routes found between these locations',
-      );
-      context.showErrorToast(
-        message: noRoad
-            ? "We couldn't find a route to this place."
-            : "Directions aren't available right now. Please try again later.",
-      );
-    }
   }
 }
