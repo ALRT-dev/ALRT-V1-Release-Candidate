@@ -11,6 +11,7 @@ import 'package:hazard_app/features/map/models/google_place_model.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/map_search_text_editing_controller_provider.dart';
 import 'package:hazard_app/features/map/providers/places_provider.dart';
+import 'package:hazard_app/features/map/views/screens/check_route_screen.dart';
 import 'package:hazard_app/features/map/views/widgets/map_search_sheet.dart';
 import 'package:hazard_app/features/report/providers/create_update_report_provider.dart';
 import 'package:hazard_app/features/report/views/screens/create_update_report_screen.dart';
@@ -260,11 +261,7 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
       case VoiceCommandKind.search:
         _handleVoiceSearchTranscript(command.place ?? command.heard);
       case VoiceCommandKind.route:
-        _handleVoiceSearchTranscript(command.place ?? command.heard);
-        await ref.read(providerOfAlertSpeech).speak(
-              'Pick ${command.place} from the list, then Get Directions to '
-              'see each route and the alerts on it.',
-            );
+        await _checkRouteByVoice(command.place ?? command.heard);
       case VoiceCommandKind.report:
         _handleReportDictation(command.heard);
       case VoiceCommandKind.ask:
@@ -272,6 +269,35 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
       default:
         await showSpeakToAlrtSheet(context: context, command: command);
     }
+  }
+
+  /// A spoken route ("how do I get to Scarborough"): the place is looked
+  /// up with the same places search this bar uses, and Check a route opens
+  /// with the first match as the destination and checks it at once. When
+  /// nothing matches, the words go into the search instead.
+  Future<void> _checkRouteByVoice(final String spoken) async {
+    final place = spoken.trim();
+    if (place.isEmpty) return;
+    final places = ref.read(providerOfPlacesForMap.notifier)
+      ..updateSearchString(place);
+    await places.getPlaces();
+    if (!mounted) return;
+    final found = ref.read(providerOfPlacesForMap).places;
+    if (found.isEmpty) {
+      _handleVoiceSearchTranscript(place);
+      await ref.read(providerOfAlertSpeech).speak(
+            'I could not find $place. Pick it from the list, then Check a '
+            'route to see each route and the alerts on it.',
+          );
+      return;
+    }
+    // The search box is not left holding the spoken words.
+    ref.read(providerOfPlacesForMap.notifier).updateSearchString('');
+    await CheckRouteScreen.open(
+      context,
+      destination: found.first.toAlrtLocation,
+      checkOnOpen: true,
+    );
   }
 
   /// Opens Ask ALRT, asks the spoken question there (it counts the same as
