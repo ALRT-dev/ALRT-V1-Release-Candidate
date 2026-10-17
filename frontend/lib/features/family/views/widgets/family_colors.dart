@@ -168,6 +168,34 @@ class FamilyColors {
   /// Card shadow on the lavender page.
   static const v31CardShadow = Color(0x0D1E142D);
 
+  // ── ALRT screen map ("boards' language") tokens ───────────────────────
+  // Read off the approved screen map's shared components (prototype
+  // public/ui.js: note, secondary, radio, toggle, pill). Used by the
+  // Family settings screens built from family_board_kit.dart.
+
+  /// The quiet note panel behind explanatory copy, and its ink.
+  static const boardNote = Color(0xFFF0EEEA);
+  static const boardNoteInk = Color(0xFF3A3A42);
+
+  /// Outline of the full-width secondary buttons.
+  static const boardOutline = Color(0xFFD9D6D0);
+
+  /// Unselected radio ring and the off toggle track.
+  static const boardOff = Color(0xFFD5D9DE);
+
+  /// Light indigo wash behind indigo pills ("Current", "Default").
+  static const boardIndigoWash = Color(0xFFEEEEFB);
+
+  /// The five colour dots a member can pick on "My profile in this
+  /// circle" (CircleProfile board): orange, indigo, green, purple, crimson.
+  static const boardMemberSwatches = <Color>[
+    Color(0xFFE8622A),
+    Color(0xFF3D3DDF),
+    Color(0xFF0A7F4F),
+    Color(0xFF7B359A),
+    Color(0xFFD9304F),
+  ];
+
   /// The palette used to derive a stable per-member avatar color.
   ///
   /// Neutral/purple family only, on purpose: green is reserved for the
