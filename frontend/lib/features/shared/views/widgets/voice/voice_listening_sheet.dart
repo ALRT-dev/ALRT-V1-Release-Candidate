@@ -5,7 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/shared/services/voice_input_controller.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-/// The dark "listening" sheet: a live waveform, the running transcript and the
+/// The "Speak to ALRT" listening sheet (VoiceListening board): a live waveform, the running transcript and the
 /// on-device privacy promise. Starts listening on open and pops with the
 /// recognised text the moment the speaker stops (or null if cancelled/empty).
 /// What a finished dictation is for: searching a place or posting an ALRT.
@@ -161,102 +161,224 @@ class _VoiceListeningSheetState extends State<VoiceListeningSheet>
     super.dispose();
   }
 
+  static const _ink = Color(0xFF1C1C1E);
+  static const _muted = Color(0xFF5C5C66);
+  static const _orange = Color(0xFFE8622A);
+  static const _peach = Color(0xFFFDEDE4);
+  static const _labelOrange = Color(0xFFB84500);
+  static const _line = Color(0xFFD9D6D0);
+  static const _tries = <String>[
+    'Save Scarborough as a place',
+    'Send this alert to my group',
+    'Read the warning near me',
+    "What's near me?",
+    'Take me to Perth CBD',
+    'Check in',
+  ];
+
+  /// "Tap when done": stop listening and use what was heard so far.
+  Future<void> _done() async {
+    if (_completed) return;
+    final heard = _transcript;
+    await widget.controller.stop();
+    _complete(heard);
+  }
+
+  /// Tapping a TRY SAYING chip is the same as saying it.
+  Future<void> _useExample(final String phrase) async {
+    if (_completed) return;
+    await widget.controller.cancel();
+    _complete(phrase);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1B1F).withValues(alpha: 0.98),
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
       ),
-      padding: EdgeInsets.fromLTRB(18.spMin, 18.spMin, 18.spMin, 14.spMin),
+      padding: EdgeInsets.fromLTRB(20.spMin, 10.spMin, 20.spMin, 8.spMin),
       child: SafeArea(
         top: false,
-        child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _waveBuilder(),
-          SizedBox(height: 10.spMin),
-          // A long dictation scrolls inside its own box instead of pushing
-          // the sheet off the screen, and the text follows the phone's
-          // text size (capped so the sheet still fits).
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.28,
-            ),
-            child: SingleChildScrollView(
-              reverse: true,
-              child: Text(
-                _transcript.isEmpty ? 'Listening…' : '"$_transcript"',
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40.spMin,
+                  height: 5.spMin,
+                  decoration: BoxDecoration(
+                    color: _line,
+                    borderRadius: BorderRadius.circular(3.spMin),
+                  ),
+                ),
+              ),
+              SizedBox(height: 14.spMin),
+              Text(
+                'Speak to ALRT',
+                style: TextStyle(
+                  fontSize: 22.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
+              ),
+              SizedBox(height: 4.spMin),
+              Text(
+                'Search, ask, or get something done. Heard on this phone.',
+                style: TextStyle(fontSize: 14.spMin, color: _muted, height: 1.4),
+              ),
+              SizedBox(height: 18.spMin),
+              Center(
+                child: Container(
+                  width: 72.spMin,
+                  height: 72.spMin,
+                  decoration: const BoxDecoration(
+                    color: _peach,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.mic_none_rounded,
+                      size: 30.spMin, color: _orange),
+                ),
+              ),
+              SizedBox(height: 10.spMin),
+              _waveBuilder(),
+              SizedBox(height: 8.spMin),
+              // A long dictation scrolls inside its own box instead of
+              // pushing the sheet off the screen.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.2,
+                ),
+                child: SingleChildScrollView(
+                  reverse: true,
+                  child: Text(
+                    _transcript.isEmpty ? 'Listening...' : '"$_transcript"',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 17.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: _transcript.isEmpty ? _muted : _ink,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.detectIntent && _transcript.isNotEmpty) ...[
+                SizedBox(height: 6.spMin),
+                Text(
+                  VoiceListeningSheet.detectIntentOf(_transcript) ==
+                          VoiceIntent.report
+                      ? 'Post an ALRT'
+                      : 'Search',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: _labelOrange,
+                  ),
+                ),
+              ],
+              SizedBox(height: 4.spMin),
+              Text(
+                'Say a place, a question, or what you want done.',
                 textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13.spMin, color: _muted),
+              ),
+              SizedBox(height: 16.spMin),
+              SizedBox(
+                height: 48.spMin,
+                child: OutlinedButton(
+                  onPressed: _done,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _ink,
+                    side: const BorderSide(color: _line),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.spMin),
+                    ),
+                  ),
+                  child: Text(
+                    'Tap when done',
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 16.spMin),
+              Text(
+                'TRY SAYING',
                 style: TextStyle(
-                  fontSize: 18.spMin,
-                  fontWeight: FontWeight.w800,
-                  color: _transcript.isEmpty
-                      ? Colors.white.withValues(alpha: 0.55)
-                      : Colors.white,
-                  height: 1.3,
+                  fontSize: 12.spMin,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                  color: _labelOrange,
                 ),
               ),
-            ),
-          ),
-          if (widget.detectIntent && _transcript.isNotEmpty) ...[
-            SizedBox(height: 8.spMin),
-            Text(
-              VoiceListeningSheet.detectIntentOf(_transcript) ==
-                      VoiceIntent.report
-                  ? '\u2192 Post an ALRT'
-                  : '\u2192 Search locations',
-              style: TextStyle(
-                fontSize: 13.spMin,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFFFF8C00),
+              SizedBox(height: 8.spMin),
+              Wrap(
+                spacing: 8.spMin,
+                runSpacing: 8.spMin,
+                children: [
+                  for (final phrase in _tries)
+                    InkWell(
+                      onTap: () => _useExample(phrase),
+                      borderRadius: BorderRadius.circular(17.spMin),
+                      child: Container(
+                        height: 34.spMin,
+                        padding: EdgeInsets.symmetric(horizontal: 12.spMin),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(17.spMin),
+                          border: Border.all(
+                            color: const Color(0xFFE3E6EA),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Text(
+                          '\u201C$phrase\u201D',
+                          style: TextStyle(
+                            fontSize: 13.spMin,
+                            fontWeight: FontWeight.w600,
+                            color: _ink,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
-          ],
-          SizedBox(height: 10.spMin),
-          Text(
-            'Recognised on this phone. Your voice is never recorded. '
-            'A question goes to Ask ALRT as text, like a typed one. '
-            'It finishes when you stop speaking.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              color: Colors.white.withValues(alpha: 0.7),
-              height: 1.45,
-            ),
-          ),
-          SizedBox(height: 14.spMin),
-          SizedBox(
-            width: 140.spMin,
-            height: 44.spMin,
-            child: OutlinedButton(
-              onPressed: _cancel,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.spMin),
+              SizedBox(height: 14.spMin),
+              Text(
+                'Anything that saves, sends or checks in asks you first. '
+                'SOS and reports are never done by voice. The reply is read '
+                'aloud and shown here. Your voice is never recorded.',
+                style: TextStyle(fontSize: 12.spMin, color: _muted, height: 1.45),
+              ),
+              SizedBox(height: 6.spMin),
+              TextButton(
+                onPressed: _cancel,
+                style: TextButton.styleFrom(foregroundColor: _muted),
+                child: Text(
+                  'Close',
+                  style: TextStyle(
+                    fontSize: 15.spMin,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 14.spMin,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
+            ],
           ),
-        ],
         ),
       ),
     );
   }
 
   Widget _waveBuilder() {
-    const barCount = 10;
+    const barCount = 6;
     return SizedBox(
       height: 44.spMin,
       child: AnimatedBuilder(
@@ -276,11 +398,7 @@ class _VoiceListeningSheetState extends State<VoiceListeningSheet>
                 height: height,
                 margin: EdgeInsets.symmetric(horizontal: 2.spMin),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFF8C00), Color(0xFFFF2020)],
-                  ),
+                  color: _orange,
                   borderRadius: BorderRadius.circular(3.spMin),
                 ),
               );
