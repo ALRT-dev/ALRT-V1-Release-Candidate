@@ -102,12 +102,22 @@ async function main() {
   await joinCircle(sarah.token, tom.token);
   console.log("  setup - done\n");
 
+  console.log("§0 - a check-in request makes the ask real (waitingOn only lists people who were actually asked)");
+  const ask = await api("/api/family/check-in/request", {
+    method: "POST",
+    token: sarah.token,
+    body: { message: "Everyone please check in" },
+  });
+  assert.equal(ask.status, 201, JSON.stringify(ask.body));
+
   console.log("§1 - a fresh circle");
-  await check("nobody checked in, waitingOn names all three, no SOS", async () => {
+  await check("nobody checked in, waitingOn lists the two asked members, no SOS", async () => {
     const [row] = (await listAs(sarah.token)).filter((c) => c.circleId === circleId);
     assert.ok(row, "circle row present");
     assert.equal(row.checkedInCount, 0);
-    assert.deepEqual([...row.waitingOn].sort(), ["Amy", "Sarah", "Tom"]);
+    // Product rule (12 Oct 2026): the requester is never "waiting"; only the
+    // members actually asked and not yet answered appear.
+    assert.deepEqual([...row.waitingOn].sort(), ["Amy", "Tom"]);
     assert.equal(row.activeSos, null);
   });
   console.log();
@@ -122,7 +132,8 @@ async function main() {
     assert.equal(res.status, 201, JSON.stringify(res.body));
     const [row] = (await listAs(tom.token)).filter((c) => c.circleId === circleId);
     assert.equal(row.checkedInCount, 1);
-    assert.deepEqual([...row.waitingOn].sort(), ["Sarah", "Tom"]);
+    // Sarah (the requester) is never waiting; Amy answered.
+    assert.deepEqual([...row.waitingOn].sort(), ["Tom"]);
   });
   console.log();
 
@@ -168,6 +179,14 @@ async function main() {
     });
     assert.equal(other.status, 201);
     await joinCircle(otherHost.token, amy.token);
+    // A real ask makes the "waiting" state honest: Kim asks, so Kim (the
+    // requester) is never waiting and only Amy is outstanding.
+    const netballAsk = await api("/api/family/check-in/request", {
+      method: "POST",
+      token: otherHost.token,
+      body: { message: "Netball group check in" },
+    });
+    assert.equal(netballAsk.status, 201, JSON.stringify(netballAsk.body));
     const rows = await listAs(amy.token);
     const nixon = rows.find((c) => c.circleId === circleId);
     const netball = rows.find((c) => c.circleId === (other.body as any).id);
@@ -175,7 +194,7 @@ async function main() {
     // A check-in is per circle: Amy checked in to Nixon Family, not to
     // Netball, so Netball is still waiting on her there.
     assert.equal(netball.checkedInCount, 0);
-    assert.deepEqual([...netball.waitingOn].sort(), ["Amy", "Kim"]);
+    assert.deepEqual([...netball.waitingOn].sort(), ["Amy"]);
     assert.equal(netball.activeSos, null);
   });
 
