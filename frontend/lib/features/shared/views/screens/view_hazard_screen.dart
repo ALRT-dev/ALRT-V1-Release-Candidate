@@ -1426,12 +1426,20 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     r'^(.{1,60}? advises:)\s*(.*)$',
   );
 
-  /// Bolds the "{Agency} advises:" prefix of a What To Do line so an
-  /// attributed source directive reads visibly differently from ALRT's own
-  /// wording around it - the classification standard's "attribution
-  /// prefixes bold" rule. Falls back to plain text for a line that isn't in
-  /// that shape (community reports carry no instructions at all, and older
-  /// content may not follow the pattern).
+  /// The leading directive phrase of a What To Do line, bolded as the key
+  /// info so the safety-critical instruction reads first. Matches the first
+  /// imperative fragment: up to a comma, colon, or ~6 words, whichever comes
+  /// first. Falls back to the whole line when it is too short to split.
+  static final RegExp _directiveLeadPattern = RegExp(
+    r'^(.{1,55}?)(?:[,;:.](?:\s|$)|(\s+))',
+    caseSensitive: false,
+  );
+
+  /// Bolds the "{Agency} advises:" prefix AND the leading directive phrase of
+  /// a What To Do line. The attribution prefix and the key safety instruction
+  /// both read first, so an attributed source directive is scannable and the
+  /// most important wording stands out from the surrounding text. Falls back
+  /// to plain text for a line that isn't in that shape.
   Widget _attributedActionText(final String action) {
     final match = _attributedActionPattern.firstMatch(action);
     final baseStyle = TextStyle(
@@ -1442,16 +1450,36 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     if (match == null) {
       return Text(action, style: baseStyle);
     }
-    return Text.rich(
+    final attribution = match.group(1);
+    final directive = match.group(2) ?? '';
+    final directiveTrimmed = directive.trim();
+    final lead = _directiveLeadPattern.firstMatch(directiveTrimmed);
+    // Bold the attribution prefix, then the leading directive phrase (key
+    // info), then the rest of the line in normal weight.
+    final spans = <TextSpan>[
       TextSpan(
-        children: [
-          TextSpan(
-            text: match.group(1),
-            style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-          ),
-          TextSpan(text: ' ${match.group(2)}'),
-        ],
+        text: attribution,
+        style: baseStyle.copyWith(fontWeight: FontWeight.w700),
       ),
+      TextSpan(text: ' '),
+    ];
+    if (lead != null && lead.group(1) != null) {
+      final leadText = lead.group(1)!.trim();
+      final rest = directiveTrimmed.substring(lead.group(1)!.length).trim();
+      spans.add(
+        TextSpan(
+          text: leadText,
+          style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+        ),
+      );
+      if (rest.isNotEmpty) {
+        spans.add(TextSpan(text: ' $rest'));
+      }
+    } else {
+      spans.add(TextSpan(text: directive));
+    }
+    return Text.rich(
+      TextSpan(children: spans),
       style: baseStyle,
     );
   }
@@ -1595,9 +1623,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                           color: isUserReported
                               ? AlertCardStyle.communitySectionHeaderColor
                               : AlertCardStyle.officialSectionHeaderColor,
-                          fontSize: 10.5.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
+                          fontSize: 13.spMin,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       12.spMin.hSizedBox,
@@ -1732,9 +1760,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         'WHAT WE KNOW',
                         style: TextStyle(
                           color: color,
-                          fontSize: 10.5.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
+                          fontSize: 13.spMin,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       12.spMin.hSizedBox,
