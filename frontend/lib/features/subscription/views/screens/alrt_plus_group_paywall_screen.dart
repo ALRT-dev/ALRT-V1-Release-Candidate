@@ -581,7 +581,8 @@ class _AlrtPlusGroupPaywallScreenState
                     ),
                     Text(
                       group == null
-                          ? 'Create a group in Family first'
+                          ? 'You need to host a group before you can cover '
+                                'it. Create a group in Family first.'
                           : '${_people(group.peopleCount)} · '
                                 '${group.isHost ? 'you host' : 'you pay'}',
                       style: TextStyle(fontSize: 12.spMin, color: _muted),
