@@ -54,6 +54,7 @@ import 'package:hazard_app/features/profile/views/screens/blocked_accounts_scree
 import 'package:hazard_app/features/profile/views/screens/child_mode_screen.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/app_links.dart';
+import 'package:hazard_app/features/map/views/widgets/places_sheet.dart';
 
 /// The Profile ("Me") tab, matched to the prototype "Profile" board
 /// (ALRT screen map, 16 Oct 2026): the avatar inside a thick readiness
@@ -386,10 +387,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 icon: LucideIcons.mapPin,
                 label: 'Save a place',
                 done: readiness.savedPlace,
-                onTap: () => context.push(
-                  ManageNotificationsScreen.route,
-                  extra: const ManageNotificationsScreenArgs(initialTab: 1),
-                ),
+                onTap: () => showPlacesSheet(context: context),
               ),
               SizedBox(width: 8.spMin),
               _buildSetupTile(
@@ -711,10 +709,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           icon: LucideIcons.mapPin,
           title: 'Saved places',
           subtitle: savedSubtitle,
-          onTap: () => context.push(
-            ManageNotificationsScreen.route,
-            extra: const ManageNotificationsScreenArgs(initialTab: 1),
-          ),
+          onTap: () => showPlacesSheet(context: context),
         ),
         _RowSpec(
           icon: LucideIcons.shield,
