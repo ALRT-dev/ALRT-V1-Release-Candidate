@@ -412,13 +412,7 @@ class _PlacesSheetState extends ConsumerState<PlacesSheet> {
       providerOfPlaces(kPlacesSheetSearchKey).select((s) => s.places),
     );
 
-    LocationSubscription? own;
-    for (final s in subs) {
-      if (s.isOwnLocation) {
-        own = s;
-        break;
-      }
-    }
+    final own = subs.where((s) => s.isOwnLocation).firstOrNull;
     final saved = subs.where((s) => !s.isOwnLocation).toList();
 
     final ownAlerts = own == null ? null : alertsInsideSubscription(own, hazards);
@@ -435,7 +429,7 @@ class _PlacesSheetState extends ConsumerState<PlacesSheet> {
         subtitle: ownSub,
         onEdit: own == null
             ? null
-            : () => showPlaceEditSheet(context: context, subscription: own!),
+            : () => showPlaceEditSheet(context: context, subscription: own),
       ),
       for (final s in saved)
         _placeRow(

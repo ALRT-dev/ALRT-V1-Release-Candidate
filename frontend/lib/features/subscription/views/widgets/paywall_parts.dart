@@ -681,92 +681,124 @@ class PlanChoiceCard extends StatelessWidget {
   /// empty shows nothing: never a typed price.
   final String? priceLine;
 
+  /// Drawn like the Choose board's cards: the plan gradient, radius 18,
+  /// a soft circle top-right, the plan pill with the store price beside
+  /// it, then the title and one line.
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Ink(
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(20.spMin),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20.spMin),
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(18.spMin, 16.spMin, 14.spMin, 16.spMin),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              eyebrow,
-                              style: TextStyle(
-                                fontSize: 11.5.spMin,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.1,
-                                color: Colors.white.withValues(alpha: 0.9),
+    final radius = BorderRadius.circular(18.spMin);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(gradient: gradient, borderRadius: radius),
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onTap,
+            child: ClipRRect(
+              borderRadius: radius,
+              child: Stack(
+                children: [
+                  Positioned(
+                    right: -50.spMin,
+                    top: -50.spMin,
+                    child: Container(
+                      width: 180.spMin,
+                      height: 180.spMin,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.14),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.all(18.spMin),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              height: 24.spMin,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.spMin,
                               ),
-                            ),
-                          ),
-                          if (priceLine != null && priceLine!.isNotEmpty) ...[
-                            SizedBox(width: 8.spMin),
-                            Flexible(
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(12.spMin),
+                              ),
                               child: Text(
-                              priceLine!,
-                              textAlign: TextAlign.right,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11.5.spMin,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white.withValues(alpha: 0.95),
+                                eyebrow,
+                                style: TextStyle(
+                                  fontSize: 12.spMin,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                            ),
+                            const Spacer(),
+                            if (priceLine != null && priceLine!.isNotEmpty)
+                              Flexible(
+                                flex: 3,
+                                child: Text(
+                                  priceLine!,
+                                  textAlign: TextAlign.right,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13.spMin,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white.withValues(alpha: 0.92),
+                                  ),
+                                ),
+                              ),
                           ],
-                        ],
-                      ),
-                      SizedBox(height: 6.spMin),
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 18.spMin,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
                         ),
-                      ),
-                      SizedBox(height: 4.spMin),
-                      Text(
-                        body,
-                        style: TextStyle(
-                          fontSize: 13.spMin,
-                          height: 1.45,
-                          color: Colors.white.withValues(alpha: 0.92),
-                        ),
-                      ),
-                      if (footnote != null) ...[
-                        SizedBox(height: 8.spMin),
+                        SizedBox(height: 10.spMin),
                         Text(
-                          footnote!,
+                          title,
                           style: TextStyle(
-                            fontSize: 12.spMin,
+                            fontSize: 19.spMin,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
                         ),
+                        SizedBox(height: 10.spMin),
+                        Text(
+                          body,
+                          style: TextStyle(
+                            fontSize: 14.spMin,
+                            height: 1.45,
+                            color: Colors.white.withValues(alpha: 0.88),
+                          ),
+                        ),
+                        if (footnote != null) ...[
+                          SizedBox(height: 8.spMin),
+                          Text(
+                            footnote!,
+                            style: TextStyle(
+                              fontSize: 12.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (onTap != null)
-                  Icon(LucideIcons.chevronRight, color: Colors.white, size: 22.spMin),
-              ],
+                ],
+              ),
             ),
           ),
         ),

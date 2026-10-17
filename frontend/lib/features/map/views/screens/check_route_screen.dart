@@ -83,6 +83,10 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
   bool _checking = false;
   String? _failure;
 
+  /// Set by Go this way, so leaving the screen keeps the chosen route while
+  /// navigation is starting.
+  bool _started = false;
+
   @override
   void initState() {
     super.initState();
@@ -109,7 +113,7 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
 
   /// Leaving without starting drops the planned routes from the map.
   void _clearPlanIfIdle() {
-    if (_isNavigating) return;
+    if (_started || _isNavigating) return;
     if (ref.read(providerOfMap).currentRoutePlan == null) return;
     ref.read(providerOfMap.notifier).updateCurrentRoutePlan(null);
   }
@@ -715,6 +719,7 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
     final plan = ref.read(providerOfMap).currentRoutePlan;
     if (plan == null) return;
     if (!plan.isNavigating) {
+      _started = true;
       ref.read(providerOfMap.notifier).startNavigation();
     }
     ref.read(providerOfHomeTab.notifier).state = HomeTab.map;

@@ -5,7 +5,6 @@ import 'dart:developer';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Route;
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,6 +55,7 @@ import 'package:hazard_app/features/shared/utils/community_disc_marker.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:widget_to_marker/widget_to_marker.dart';
 import 'package:hazard_app/features/shared/providers/community_safety_provider.dart';
+import 'package:hazard_app/features/map/utils/test_build.dart';
 
 final providerOfMap =
     StateNotifierProvider.autoDispose<MapProvider, MapProviderState>(
@@ -1335,16 +1335,10 @@ class MapProvider extends StateNotifier<MapProviderState> {
           minDistance,
         );
 
-        // Cancel existing timer and start a new one
+        // The en-route sheet stays until the person chooses Avoid, View or
+        // Keep going (EnRouteAlert board); no auto-hide timer.
         _takeAlternateRouteButtonTimer?.cancel();
-        _takeAlternateRouteButtonTimer = Timer(
-          const Duration(seconds: 10),
-          () {
-            if (mounted) {
-              state = state.copyWith(showTakeAlternateRouteButton: false);
-            }
-          },
-        );
+        _takeAlternateRouteButtonTimer = null;
       }
       // If it's the same hazard, keep the current button state and timer
     } else {
@@ -1598,7 +1592,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
 
   /// Debug-only: toggles whether GPS is ignored and movement is simulated.
   void toggleNavigationSimulation() {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     if (!(state.currentRoutePlan?.isNavigating ?? false)) return;
     final enablingSim = !state.navigationSimulationEnabled;
     state = state.copyWith(
@@ -1635,7 +1629,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
     required double northMeters,
     required double eastMeters,
   }) {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     if (!state.navigationSimulationEnabled) return;
     final plan = state.currentRoutePlan;
     if (plan == null || !plan.isNavigating) return;
@@ -1681,7 +1675,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// Debug-only: advance [meters] along the active route polyline toward the
   /// destination (realistic step progression for desk testing).
   void simulateAdvanceAlongRoute(final double meters) {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     if (!state.navigationSimulationEnabled) return;
     final plan = state.currentRoutePlan;
     final safest = plan?.currentRoute;
@@ -1717,7 +1711,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
 
   /// Debug-only: jump to [latLng] (used with map long-press while sim is on).
   void simulateTeleportToNavigationLocation(final LatLng latLng) {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     if (!state.navigationSimulationEnabled) return;
     final plan = state.currentRoutePlan;
     if (plan == null || !plan.isNavigating) return;
@@ -1765,7 +1759,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// Debug-only: shows the simulated navigation position as an Azure pin on
   /// the map (real GPS continues to use the blue-dot pipeline when sim is off).
   void _syncSimulatedNavigationMarker() {
-    if (!kDebugMode) {
+    if (!isTestBuild) {
       _removeSimulatedNavigationMarker();
       return;
     }

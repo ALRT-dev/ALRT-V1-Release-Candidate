@@ -1,5 +1,4 @@
 import 'package:auto_size_text/auto_size_text.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Route;
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +17,9 @@ import 'package:hazard_app/features/map/views/widgets/navigation/take_alternate_
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/features/map/utils/test_build.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Travelling (prototype board "Travelling", Sarah 9 Oct 2026): the trip in
 /// progress over the live map. Title with time, distance and road, End;
@@ -62,7 +63,7 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildHeader(),
-              if (kDebugMode)
+              if (isTestBuild)
                 Align(
                   alignment: Alignment.centerRight,
                   child: Padding(
@@ -377,6 +378,28 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
             SizedBox(height: 12.spMin),
             SizedBox(
               height: 48.spMin,
+              child: OutlinedButton.icon(
+                onPressed: _openInGoogleMaps,
+                icon: Icon(LucideIcons.navigation, size: 18.spMin),
+                label: Text(
+                  'Turn-by-turn in Google Maps',
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF2563EB),
+                  side: const BorderSide(color: Color(0xFFD9D6D0)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.spMin),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 10.spMin),
+            SizedBox(
+              height: 48.spMin,
               child: OutlinedButton(
                 onPressed: () => context.push(FamilyJourneyScreen.route),
                 style: OutlinedButton.styleFrom(
@@ -405,6 +428,27 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
         ),
       ),
     );
+  }
+
+  /// Hands the trip to Google Maps for spoken turn-by-turn directions.
+  /// ALRT keeps watching the route for alerts while it runs in the
+  /// background (hazard-ahead notification).
+  Future<void> _openInGoogleMaps() async {
+    final plan = ref.read(providerOfMap).currentRoutePlan;
+    if (plan == null) return;
+    const modes = <TravelMode, String>{
+      TravelMode.walking: 'walking',
+      TravelMode.bicycling: 'bicycling',
+      TravelMode.transit: 'transit',
+    };
+    final mode = modes[plan.selectedTravelMode] ?? 'driving';
+    final d = plan.destination.latLng;
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+      '&destination=${d.latitude},${d.longitude}'
+      '&travelmode=$mode&dir_action=navigate',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Widget _hazardRow(final Hazard hazard) {

@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
+import 'package:hazard_app/features/map/utils/test_build.dart';
 
 /// Debug-only desk-testing controls: toggle simulated GPS, nudge position,
 /// advance along the route, and long-press teleport (wired from [MapScreen]).
@@ -19,7 +19,7 @@ class NavigationSimulationControls extends ConsumerWidget {
 
   @override
   Widget build(final BuildContext context, final WidgetRef ref) {
-    if (!kDebugMode) return const SizedBox.shrink();
+    if (!isTestBuild) return const SizedBox.shrink();
 
     final simEnabled = ref.watch(
       providerOfMap.select((final s) => s.navigationSimulationEnabled),
@@ -181,7 +181,7 @@ class NavigationSimulationControls extends ConsumerWidget {
 
   /// Long-press handler for [GoogleMap]; pass from map screen when debug + navigating + sim on.
   static void handleMapLongPress(final WidgetRef ref, final LatLng position) {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     final navigating = ref.read(
       providerOfMap.select(
         (final s) => s.currentRoutePlan?.isNavigating ?? false,

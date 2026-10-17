@@ -36,141 +36,150 @@ class _PushInboxScreenState extends ConsumerState<PushInboxScreen> {
   Widget build(BuildContext context) {
     final items = ref.watch(providerOfPushInbox);
 
+    // Notifications board (16 Oct 2026): white header with back, title and
+    // "Everything ALRT has sent to this phone", then one card per push.
     return Scaffold(
+      backgroundColor: _page,
       appBar: AppBar(
-        title: Text(
-          'Notifications',
-          style: TextStyle(
-            fontSize: 18.spMin,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: AppColors.white,
+        surfaceTintColor: AppColors.white,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: false,
+        toolbarHeight: 72.spMin,
+        titleSpacing: 0,
         leading: IconButton(
+          tooltip: 'Back',
           onPressed: () => context.pop(),
-          icon: Icon(LucideIcons.arrowLeft, size: 22.spMin),
+          icon: Icon(LucideIcons.chevronLeft, size: 24.spMin, color: _ink),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Notifications',
+              style: TextStyle(
+                fontSize: 24.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+                color: _ink,
+              ),
+            ),
+            SizedBox(height: 4.spMin),
+            Text(
+              'Everything ALRT has sent to this phone',
+              style: TextStyle(fontSize: 14.spMin, color: _muted),
+            ),
+          ],
         ),
       ),
-      backgroundColor: const Color(0xFFF5F5F5),
       body: items.isEmpty
-          ? _emptyState()
+          ? ListView(
+              padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 16.spMin),
+              children: [_emptyState()],
+            )
           : ListView.separated(
-              padding: EdgeInsets.symmetric(
-                horizontal: 16.spMin,
-                vertical: 16.spMin,
-              ),
+              padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 16.spMin),
               itemCount: items.length,
-              separatorBuilder: (_, __) => 8.hSizedBox,
+              separatorBuilder: (_, __) => 10.hSizedBox,
               itemBuilder: (context, index) => _buildItem(items[index]),
             ),
     );
   }
 
+  static const _page = Color(0xFFF5F5F7);
+  static const _ink = Color(0xFF1C1C1E);
+  static const _muted = Color(0xFF5C5C66);
+
   Widget _emptyState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            LucideIcons.bellOff,
-            size: 48.spMin,
-            color: AppColors.grey.withValues(alpha: 0.4),
-          ),
-          16.hSizedBox,
-          Text(
-            'No notifications yet',
-            style: TextStyle(
-              fontSize: 16.spMin,
-              fontWeight: FontWeight.w600,
-              color: AppColors.grey,
-            ),
-          ),
-          8.hSizedBox,
-          Text(
-            'Push notifications you receive will\nappear here',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14.spMin,
-              color: AppColors.grey.withValues(alpha: 0.7),
-              height: 1.4,
-            ),
+    return Container(
+      padding: EdgeInsets.all(16.spMin),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18.spMin),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.black.withValues(alpha: 0.06),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
           ),
         ],
+      ),
+      child: Text(
+        'Nothing yet. Alerts, check-ins and SOS land here.',
+        style: TextStyle(fontSize: 13.spMin, color: _muted, height: 1.45),
       ),
     );
   }
 
   Widget _buildItem(PushInboxItem item) {
-    final bandColor = _bandColor(item.severityBand);
+    // Only the most serious pushes carry the red edge, as on the board.
+    final isCritical = item.severityBand == 'critical';
 
     return GestureDetector(
       onTap: () => _navigateToAlert(item),
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14.spMin),
-          border: Border(
-            left: BorderSide(
-              color: bandColor,
-              width: 4.spMin,
-            ),
-          ),
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(18.spMin),
           boxShadow: [
             BoxShadow(
-              color: AppColors.black.withValues(alpha: 0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: AppColors.black.withValues(alpha: 0.06),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
-        padding: EdgeInsets.symmetric(
-          horizontal: 14.spMin,
-          vertical: 12.spMin,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    item.title,
-                    style: TextStyle(
-                      fontSize: 14.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.black,
-                      height: 1.3,
+        child: Container(
+          decoration: BoxDecoration(
+            border: isCritical
+                ? Border(
+                    left: BorderSide(color: AppColors.emergency, width: 5.spMin),
+                  )
+                : null,
+          ),
+          padding: EdgeInsets.all(16.spMin),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.title,
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                        height: 1.3,
+                      ),
                     ),
                   ),
-                ),
-                8.wSizedBox,
+                  8.wSizedBox,
+                  Text(
+                    item.receivedAt.timeAgo,
+                    style: TextStyle(fontSize: 12.spMin, color: _muted),
+                  ),
+                ],
+              ),
+              if (item.body.isNotEmpty) ...[
+                4.hSizedBox,
                 Text(
-                  item.receivedAt.timeAgo,
+                  item.body,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12.spMin,
-                    color: AppColors.grey,
+                    fontSize: 13.spMin,
+                    color: _muted,
+                    height: 1.45,
                   ),
                 ),
               ],
-            ),
-            if (item.body.isNotEmpty) ...[
-              6.hSizedBox,
-              Text(
-                item.body,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13.spMin,
-                  color: AppColors.mediumGrey,
-                  height: 1.35,
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -203,20 +212,5 @@ class _PushInboxScreenState extends ConsumerState<PushInboxScreen> {
       ViewHazardScreen.route,
       extra: ViewHazardScreenArgs(hazard: hazard),
     );
-  }
-
-  Color _bandColor(String? band) {
-    switch (band) {
-      case 'critical':
-        return AppColors.emergency;
-      case 'action':
-        return AppColors.watchAndAct;
-      case 'monitor':
-        return AppColors.advice;
-      case 'info':
-        return AppColors.info;
-      default:
-        return AppColors.grey;
-    }
   }
 }

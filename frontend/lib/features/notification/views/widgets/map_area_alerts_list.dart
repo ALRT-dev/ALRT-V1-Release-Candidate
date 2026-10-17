@@ -5,6 +5,7 @@ import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
+import 'package:hazard_app/features/notification/views/widgets/offline_banner.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
@@ -78,6 +79,8 @@ class MapAreaAlertsList extends ConsumerWidget {
 
     return SliverMainAxisGroup(
       slivers: [
+        // Offline board: "Can't update right now" with Retry on top.
+        const SliverToBoxAdapter(child: OfflineAlertsCard()),
         SliverToBoxAdapter(
           child: Text(
             visible.length == 1
@@ -101,6 +104,7 @@ class MapAreaAlertsList extends ConsumerWidget {
           },
           separatorBuilder: (context, index) => 20.hSizedBox,
         ),
+        const SliverToBoxAdapter(child: OfflineAlertsFootnote()),
       ],
     );
   }

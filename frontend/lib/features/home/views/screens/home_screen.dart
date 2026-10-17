@@ -23,6 +23,7 @@ import 'package:hazard_app/features/map/providers/places_provider.dart';
 import 'package:hazard_app/features/map/views/screens/map_screen.dart';
 import 'package:hazard_app/features/notification/enums/push_notification_types.dart';
 import 'package:hazard_app/features/notification/views/widgets/offline_banner.dart';
+import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/features/notification/extensions/remote_message_extension.dart';
 import 'package:hazard_app/features/notification/providers/manage_notifications_provider.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
@@ -212,6 +213,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final hasSos = ref.watch(
       providerOfFamily.select((s) => s.activeSosEvents.isNotEmpty),
     );
+    final offline = isOfflineNow(ref);
     // Same tree shape with and without the strip, so the tabs are never
     // re-inflated when an SOS starts or ends (a re-inflate re-ran the
     // Family tab's first load and blanked the SOS banner for a beat).
@@ -222,13 +224,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: FamilyColors.sosRed,
             child: const SafeArea(bottom: false, child: FamilySosStrip()),
           ),
-        const OfflineBanner(),
+        // Offline: the dark strip from the Offline board. It takes the
+        // status-bar inset itself unless the SOS strip already has.
+        if (offline)
+          ColoredBox(
+            color: AppColors.ink,
+            child: SafeArea(
+              top: !hasSos,
+              bottom: false,
+              child: const OfflineBanner(),
+            ),
+          ),
         Expanded(
-          // Only the strip takes the status-bar inset; with no SOS the
+          // Only the strips take the status-bar inset; with neither the
           // tabs keep it, or their headers sit under the notch.
           child: MediaQuery.removePadding(
             context: context,
-            removeTop: hasSos,
+            removeTop: hasSos || offline,
             child: tabs,
           ),
         ),

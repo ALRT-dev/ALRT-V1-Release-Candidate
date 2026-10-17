@@ -376,7 +376,7 @@ class ProfileButton extends StatelessWidget {
             ? const Color(0x4DC8102E)
             : AppColors.orange.withValues(alpha: 0.25);
         return Opacity(
-          opacity: enabled || busy ? 1 : 0.5,
+          opacity: enabled || busy ? 1.0 : 0.5,
           child: Container(
             height: 54.spMin,
             width: double.infinity,
@@ -414,7 +414,7 @@ class ProfileButton extends StatelessWidget {
         )._tap(enabled ? onPressed : null);
       case ProfileButtonKind.secondary:
         return Opacity(
-          opacity: enabled ? 1 : 0.5,
+          opacity: enabled ? 1.0 : 0.5,
           child: Container(
             height: 48.spMin,
             width: double.infinity,

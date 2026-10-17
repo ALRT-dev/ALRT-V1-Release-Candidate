@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:easy_debounce/easy_debounce.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/home/widgets/home_tabbar.dart';
 import 'package:hazard_app/features/shared/providers/states/hazard_filters_provider_state.dart';
@@ -24,6 +23,7 @@ import 'package:hazard_app/features/map/views/widgets/selected_location_preview.
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/map/utils/maps_availability.dart';
+import 'package:hazard_app/features/map/utils/test_build.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -104,7 +104,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     context.unfocusInputs();
                     ref.read(providerOfMap.notifier).updateSelectedHazard(null);
                   },
-                  onLongPress: kDebugMode
+                  onLongPress: isTestBuild
                       ? (final LatLng position) =>
                             NavigationSimulationControls.handleMapLongPress(
                               ref,
