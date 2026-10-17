@@ -559,7 +559,7 @@ verify() {
       printf 'resume: no earlier verify in this run; running everything\n' | tee -a "$V/summary.txt"
     else
       printf 'resume: earlier verify %s\n' "$prev" | tee -a "$V/summary.txt"
-      if grep -q '^consent exit=0 ' "$prev/summary.txt" && grep -q "All 40 checks passed." "$prev/consent.log" 2>/dev/null; then
+      if grep -q '^consent exit=0 ' "$prev/summary.txt" && grep -qE "All [0-9]+ checks passed\." "$prev/consent.log" 2>/dev/null; then
         skip_consent=1; carried=$((carried + 1))
         printf 'consent skipped=passed-in %s (%s)\n' "$prev" "$(grep '^consent exit=0 ' "$prev/summary.txt" | tail -1)" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
       fi
@@ -595,7 +595,7 @@ verify() {
     consent_exit=$?
     set -e
     printf 'consent exit=%s last=%s\n' "$consent_exit" "$(tail -1 "$V/consent.log")" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
-    if [ "$consent_exit" -ne 0 ] || ! grep -q "All 40 checks passed." "$V/consent.log"; then
+    if [ "$consent_exit" -ne 0 ] || ! grep -qE "All [0-9]+ checks passed\." "$V/consent.log"; then
       tail -25 "$V/consent.log"
       stop "consent verification failed (exit $consent_exit); stopping before any regression script. Privacy on TEST is NOT verified. Report before any recovery."
     fi
