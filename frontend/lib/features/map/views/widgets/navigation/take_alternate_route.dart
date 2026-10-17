@@ -5,14 +5,16 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
-import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
-import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
+import 'package:hazard_app/features/map/views/widgets/navigation/route_hazard_shape.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/shared/utils/location_helper.dart';
 import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
-import 'package:hazard_app/features/shared/views/widgets/app_cached_network_image.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// The en route alert (prototype board "EnRouteAlert", rules.json enRoute):
+/// while travelling, an alert that touches the road ahead pops up as a
+/// sheet. "Ahead on your route" and the distance, the alert, then Avoid it
+/// (a detour around it), View the alert, or Keep going.
 class TakeAlternateRoute extends ConsumerStatefulWidget {
   const TakeAlternateRoute({super.key});
 
@@ -21,340 +23,262 @@ class TakeAlternateRoute extends ConsumerStatefulWidget {
       _TakeAlternateRouteState();
 }
 
-class _TakeAlternateRouteState extends ConsumerState<TakeAlternateRoute>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _animationController;
-  late final Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 10),
-      vsync: this,
-    );
-
-    _animation = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
+class _TakeAlternateRouteState extends ConsumerState<TakeAlternateRoute> {
+  static const _ink = Color(0xFF1C1C1E);
+  static const _muted = Color(0xFF5C5C66);
+  static const _routeBlue = Color(0xFF2563EB);
 
   @override
   Widget build(BuildContext context) {
     final hazard = ref.watch(
       providerOfMap.select(
-        (s) => s.hazardCorridorsAhead.first.hazards.first,
+        (s) => s.hazardCorridorsAhead.firstOrNull?.hazards.firstOrNull,
       ),
     );
+    if (hazard == null) return const SizedBox.shrink();
 
-    return Column(
-      spacing: 8.spMin,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(14.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorDark,
-                blurRadius: 10.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
+    final color = hazard.color == Colors.transparent
+        ? const Color(0xFF8A93A0)
+        : hazard.color;
+    final plain = (hazard.aiSummary ?? '').trim().isNotEmpty
+        ? hazard.aiSummary!.trim()
+        : (hazard.description ?? '').trim();
+    final agency = hazard.source?.name ?? '';
+    final meta = [
+      if (hazard.isUserReported) ...['Community report', 'Unverified'],
+      if (!hazard.isUserReported && hazard.isAwsCompliant == true)
+        hazard.severityTitle,
+      if (agency.isNotEmpty) agency,
+    ].join(' · ');
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
+      ),
+      padding: EdgeInsets.fromLTRB(20.spMin, 10.spMin, 20.spMin, 16.spMin),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40.spMin,
+                height: 4.spMin,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(14.spMin),
-                    topRight: Radius.circular(14.spMin),
+                  color: AppColors.lightGrey,
+                  borderRadius: BorderRadius.circular(2.spMin),
+                ),
+              ),
+            ),
+            SizedBox(height: 14.spMin),
+            Row(
+              children: [
+                Container(
+                  width: 44.spMin,
+                  height: 44.spMin,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12.spMin),
                   ),
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.orange300,
-                      AppColors.red200,
+                  child: RouteHazardShape(hazard: hazard, size: 28.spMin),
+                ),
+                SizedBox(width: 12.spMin),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AHEAD ON YOUR ROUTE${_distanceText(hazard)}',
+                        style: TextStyle(
+                          fontSize: 12.spMin,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: color,
+                        ),
+                      ),
+                      SizedBox(height: 2.spMin),
+                      Text(
+                        hazard.title ?? hazard.category?.name ?? 'Alert',
+                        style: TextStyle(
+                          fontSize: 20.spMin,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                          color: _ink,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                padding: EdgeInsets.all(10.spMin),
-                child: Row(
+              ],
+            ),
+            if (plain.isNotEmpty || meta.isNotEmpty) ...[
+              SizedBox(height: 14.spMin),
+              Container(
+                padding: EdgeInsets.all(16.spMin),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(18.spMin),
+                  border: Border.all(
+                    color: AppColors.black.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildIcon(hazard),
-                    10.wSizedBox,
-                    Expanded(child: _buildTitle(hazard)),
-                    10.wSizedBox,
-                    _buildDistance(hazard),
+                    if (plain.isNotEmpty)
+                      Text(
+                        plain,
+                        maxLines: 5,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14.spMin,
+                          color: _ink,
+                          height: 1.45,
+                        ),
+                      ),
+                    if (meta.isNotEmpty) ...[
+                      SizedBox(height: 8.spMin),
+                      Text(
+                        meta,
+                        style: TextStyle(fontSize: 12.spMin, color: _muted),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              _buildActionButtons().pad(10.0),
             ],
-          ),
-        ),
-        _buildLinearProgressIndicator(),
-      ],
-    );
-  }
-
-  Widget _buildIcon(final Hazard hazard) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final categoryImage = hazard.categoryImage;
-        final hazardColor = hazard.color;
-        final fallbackIconPath = hazard.fallbackIconPath;
-
-        return SizedBox(
-          width: 38.spMin,
-          height: 38.spMin,
-          child: AppCachedNetworkImage(
-            imageUrl: categoryImage?.url ?? '',
-            cacheKey: categoryImage?.s3Key,
-            fit: BoxFit.contain,
-            errorWidget: (context, url, error) => Image.asset(
-              fallbackIconPath,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => Container(
-                decoration: BoxDecoration(
-                  color: hazardColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12.spMin),
-                ),
-                child: Icon(
-                  Icons.error,
-                  size: 24.spMin,
-                  color: hazardColor == AppColors.transparent
-                      ? AppColors.grey
-                      : hazardColor,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTitle(final Hazard hazard) {
-    final awsAlertLevel = (hazard.isAwsCompliant ?? false)
-        ? hazard.severityTitle
-        : '';
-    final locationName = hazard.locationName ?? '';
-
-    final subtitle = [
-      if (awsAlertLevel.isNotEmpty) awsAlertLevel,
-      if (locationName.isNotEmpty) locationName,
-    ].join(' · ');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${hazard.category?.name ?? ''} alert ahead in your route',
-          style: TextStyle(
-            fontSize: 12.spMin,
-            fontWeight: FontWeight.w600,
-            color: AppColors.white,
-          ),
-        ),
-        if (subtitle.isNotEmpty)
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 10.spMin,
-              color: AppColors.white,
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildDistance(final Hazard hazard) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final distance = ref.watch(
-          providerOfLocation.select(
-            (value) => hazard.latitude == null || hazard.longitude == null
-                ? 0.0
-                : value.distanceTo(hazard.latitude!, hazard.longitude!),
-          ),
-        );
-
-        final distanceText = distance == 0.0
-            ? 'Nearby'
-            : distance < 1000
-            ? '${distance.toStringAsFixed(1)} m'
-            : '${(distance / 1000).toStringAsFixed(1)} km';
-
-        return Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: 9.spMin,
-            vertical: 4.spMin,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(14.spMin),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.3),
-              width: 1.0,
-            ),
-          ),
-          child: Text(
-            distanceText,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w600,
-              color: AppColors.white,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return IntrinsicHeight(
-      child: Row(
-        spacing: 10.spMin,
-        children: [
-          // Take Alternate Route Button
-          Expanded(
-            flex: 2,
-            child: Consumer(
+            SizedBox(height: 14.spMin),
+            _avoidButton(),
+            Consumer(
               builder: (context, ref, child) {
-                final isLoading = ref.watch(
+                final error = ref.watch(
                   providerOfMap.select(
-                    (value) => value.takeAlternateRouteState.maybeWhen(
-                      orElse: () => false,
-                      loading: () => true,
+                    (s) => s.takeAlternateRouteState.maybeWhen(
+                      error: (message) => message,
+                      orElse: () => null,
                     ),
                   ),
                 );
-
-                return Container(
-                  padding: EdgeInsets.all(10.spMin),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.spMin),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.shadowColorDark,
-                        blurRadius: 10.0,
-                        offset: Offset(0.0, 0.0),
-                      ),
-                    ],
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.orange300,
-                        AppColors.red200,
-                      ],
+                if (error == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: EdgeInsets.only(top: 8.spMin),
+                  child: Text(
+                    error,
+                    style: TextStyle(
+                      fontSize: 13.spMin,
+                      color: const Color(0xFFB3141F),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 5.spMin,
-                    children: [
-                      if (isLoading)
-                        SizedBox(
-                          width: 20.spMin,
-                          height: 20.spMin,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.0,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.white,
-                            ),
-                          ),
-                        )
-                      else
-                        Icon(
-                          LucideIcons.arrowLeftRight,
-                          size: 20.spMin,
-                          color: AppColors.white,
-                        ),
-                      Text(
-                        'Take Alternate Route',
-                        style: TextStyle(
-                          fontSize: 12.spMin,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ).onPressed(() {
-                  if (!isLoading) {
-                    _handleTakeAlternateRoute();
-                  }
-                });
+                );
               },
             ),
-          ),
-          // View the alert (prototype 9 Oct 2026: Avoid it / View / Keep going)
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.all(10.spMin),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12.spMin),
-                color: AppColors.extraLightGrey,
-              ),
-              child: Center(
-                child: Text(
-                  'View',
-                  style: TextStyle(
-                    fontSize: 12.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.black.withValues(alpha: 0.8),
-                  ),
+            SizedBox(height: 10.spMin),
+            Row(
+              children: [
+                Expanded(
+                  child: _secondaryButton('View the alert', _handleView),
                 ),
-              ),
-            ).pY(1.0).onPressed(_handleView),
-          ),
-          // Continue Button
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.all(10.spMin),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12.spMin),
-                color: AppColors.extraLightGrey,
-              ),
-              child: Center(
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontSize: 12.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.black.withValues(alpha: 0.8),
-                  ),
+                SizedBox(width: 10.spMin),
+                Expanded(
+                  child: _secondaryButton('Keep going', _handleContinue),
                 ),
-              ),
-            ).pY(1.0).onPressed(_handleContinue),
-          ),
-        ],
+              ],
+            ),
+            SizedBox(height: 12.spMin),
+            Text(
+              'Emergency Warnings always pop up. Other levels follow your '
+              'notification level.',
+              style: TextStyle(fontSize: 12.spMin, color: _muted, height: 1.4),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildLinearProgressIndicator() {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        return LinearProgressIndicator(
-          value: _animation.value,
-          color: AppColors.orange300,
-          backgroundColor: AppColors.transparent,
-          borderRadius: BorderRadius.circular(100.spMin),
-          minHeight: 5.spMin,
-        ).pX(5.0);
+  /// " · 5.9 KM" from where the person is now to the alert.
+  String _distanceText(final Hazard hazard) {
+    final lat = hazard.latitude;
+    final lng = hazard.longitude;
+    if (lat == null || lng == null) return '';
+    final here =
+        ref.watch(providerOfMap.select((s) => s.currentNavigationLocation)) ??
+        ref.read(providerOfLocation).location;
+    final metres = calculateDistanceInMeters(
+      here.latitude,
+      here.longitude,
+      lat,
+      lng,
+    );
+    final text = metres >= 1000
+        ? '${(metres / 1000).toStringAsFixed(1)} KM'
+        : '${metres.round()} M';
+    return ' · $text';
+  }
+
+  Widget _avoidButton() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final isLoading = ref.watch(
+          providerOfMap.select((s) => s.takeAlternateRouteState.isLoading),
+        );
+        return SizedBox(
+          height: 54.spMin,
+          child: FilledButton(
+            onPressed: isLoading ? null : _handleTakeAlternateRoute,
+            style: FilledButton.styleFrom(
+              backgroundColor: _routeBlue,
+              disabledBackgroundColor: _routeBlue.withValues(alpha: 0.6),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14.spMin),
+              ),
+            ),
+            child: isLoading
+                ? SizedBox(
+                    width: 22.spMin,
+                    height: 22.spMin,
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    'Avoid it, find another way',
+                    style: TextStyle(
+                      fontSize: 16.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white,
+                    ),
+                  ),
+          ),
+        );
       },
+    );
+  }
+
+  Widget _secondaryButton(final String label, final VoidCallback onPressed) {
+    return SizedBox(
+      height: 48.spMin,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _ink,
+          backgroundColor: AppColors.white,
+          side: const BorderSide(color: Color(0xFFD9D6D0)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.spMin),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w600),
+        ),
+      ),
     );
   }
 

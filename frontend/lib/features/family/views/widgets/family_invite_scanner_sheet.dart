@@ -255,7 +255,7 @@ class _FamilyInviteScannerSheetState extends State<_FamilyInviteScannerSheet> {
       case MobileScannerErrorCode.controllerUninitialized:
       case MobileScannerErrorCode.genericError:
         title = 'The camera couldn\'t start';
-        body = 'Close this and try Scan a code again, or type the code in '
+        body = 'Close this and try Scan invite QR again, or type the code in '
             'below instead.';
     }
     return Container(

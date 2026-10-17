@@ -16,8 +16,10 @@ const kPaywallInkFaint = Color(0xFF8A8A93);
 const kPaywallLine = Color(0xFFE6E4EA);
 const kPaywallBody = Color(0xFFF6F6F8);
 
-/// The plan hero: a rounded card on the plan's gradient with white text,
-/// the plan pill, heading, one line, and an optional "who it covers" chip.
+/// The plan hero from the Paywall and GroupPaywall boards: full-bleed on
+/// the plan's gradient with a 32 px bottom radius and a soft circle in the
+/// top-right, a round back button with the plan name centred, the
+/// heading, one line, then the plan's benefits as white ticks.
 class PlanHero extends StatelessWidget {
   const PlanHero({
     super.key,
@@ -27,6 +29,7 @@ class PlanHero extends StatelessWidget {
     required this.onClose,
     this.badgeLabel,
     this.coverLine,
+    this.benefits = const [],
   });
 
   final PlanIdentity identity;
@@ -36,100 +39,145 @@ class PlanHero extends StatelessWidget {
   final String? badgeLabel;
 
   /// Plain words for who and what the plan covers ("Covers you", "Covers
-  /// everyone in Netball Mums · up to 20 people").
+  /// everyone in Netball Mums · up to 20 people"). Optional; the boards
+  /// put this under the hero instead.
   final String? coverLine;
+
+  /// White tick lines under the intro.
+  final List<String> benefits;
 
   @override
   Widget build(BuildContext context) {
     final rest = badgeLabel ?? identity.name;
-    return Padding(
-      padding: EdgeInsets.only(
-        top: MediaQuery.paddingOf(context).top + 4.spMin,
-        left: 12.spMin,
-        right: 12.spMin,
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: identity.linearGradient,
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(32.spMin),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          IconButton(
-            tooltip: 'Close',
-            onPressed: onClose,
-            icon: Icon(LucideIcons.x, color: kPaywallInk, size: 22.spMin),
+          Positioned(
+            right: -60.spMin,
+            top: -40.spMin,
+            child: Container(
+              width: 220.spMin,
+              height: 220.spMin,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
           ),
-          Container(
-            width: double.infinity,
+          Padding(
             padding: EdgeInsets.fromLTRB(
               20.spMin,
-              18.spMin,
+              MediaQuery.paddingOf(context).top + 8.spMin,
               20.spMin,
-              20.spMin,
-            ),
-            decoration: BoxDecoration(
-              gradient: identity.linearGradient,
-              borderRadius: BorderRadius.circular(22.spMin),
+              22.spMin,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  rest.isEmpty ? 'ALRT +' : 'ALRT + $rest',
-                  style: TextStyle(
-                    fontSize: 12.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: Colors.white.withValues(alpha: 0.92),
-                  ),
+                Row(
+                  children: [
+                    Semantics(
+                      button: true,
+                      label: 'Back',
+                      child: InkWell(
+                        onTap: onClose,
+                        customBorder: const CircleBorder(),
+                        child: Container(
+                          width: 36.spMin,
+                          height: 36.spMin,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.18),
+                          ),
+                          child: Icon(
+                            LucideIcons.chevronLeft,
+                            color: Colors.white,
+                            size: 20.spMin,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        rest.isEmpty ? 'ALRT +' : 'ALRT + $rest',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 36.spMin),
+                  ],
                 ),
-                SizedBox(height: 10.spMin),
+                SizedBox(height: 12.spMin),
                 Text(
                   heading,
                   style: TextStyle(
-                    fontSize: 24.spMin,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
+                    fontSize: 30.spMin,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    height: 1.1,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 6.spMin),
+                SizedBox(height: 12.spMin),
                 Text(
                   intro,
                   style: TextStyle(
-                    fontSize: 13.5.spMin,
-                    height: 1.45,
-                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 15.spMin,
+                    height: 1.5,
+                    color: Colors.white.withValues(alpha: 0.88),
                   ),
                 ),
-                if (coverLine != null) ...[
-                  SizedBox(height: 14.spMin),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12.spMin,
-                      vertical: 8.spMin,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(12.spMin),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.circleCheck,
-                          size: 15.spMin,
+                for (final b in benefits) ...[
+                  SizedBox(height: 10.spMin),
+                  Row(
+                    children: [
+                      Container(
+                        width: 24.spMin,
+                        height: 24.spMin,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.22),
+                        ),
+                        child: Icon(
+                          LucideIcons.check,
+                          size: 14.spMin,
                           color: Colors.white,
                         ),
-                        SizedBox(width: 8.spMin),
-                        Flexible(
-                          child: Text(
-                            coverLine!,
-                            style: TextStyle(
-                              fontSize: 12.5.spMin,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                      ),
+                      SizedBox(width: 10.spMin),
+                      Expanded(
+                        child: Text(
+                          b,
+                          style: TextStyle(
+                            fontSize: 15.spMin,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
                           ),
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ],
+                if (coverLine != null) ...[
+                  SizedBox(height: 14.spMin),
+                  Text(
+                    coverLine!,
+                    style: TextStyle(
+                      fontSize: 12.5.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -230,7 +278,8 @@ class PaywallFinePrint extends StatelessWidget {
   }
 }
 
-/// The purchase button, solid in the plan colour.
+/// The purchase button from the boards: 54 px, radius 14, on the plan's
+/// gradient with a soft coloured shadow. Faded while it can't be used.
 class PlanCta extends StatelessWidget {
   const PlanCta({
     super.key,
@@ -248,35 +297,51 @@ class PlanCta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
-    return SizedBox(
-      width: double.infinity,
-      height: 52.spMin,
-      child: FilledButton(
-        style: FilledButton.styleFrom(
-          backgroundColor: identity.accentFor(context),
-          disabledBackgroundColor: identity.accent.withValues(alpha: 0.45),
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white,
-          shape: const StadiumBorder(),
+    final radius = BorderRadius.circular(14.spMin);
+    return Opacity(
+      opacity: enabled || busy ? 1 : 0.5,
+      child: Container(
+        width: double.infinity,
+        height: 54.spMin,
+        decoration: BoxDecoration(
+          gradient: identity.linearGradient,
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(
+              color: identity.accent.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
-        onPressed: enabled ? onPressed : null,
-        child: busy
-            ? SizedBox(
-                width: 22.spMin,
-                height: 22.spMin,
-                child: const CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            disabledForegroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: radius),
+          ),
+          onPressed: enabled ? onPressed : null,
+          child: busy
+              ? SizedBox(
+                  width: 22.spMin,
+                  height: 22.spMin,
+                  child: const CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              )
-            : Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15.spMin,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+        ),
       ),
     );
   }

@@ -41,12 +41,11 @@ class MapWarningsBanner extends ConsumerWidget {
   }
 
   static String labelFor(final int count) {
-    // The count is of the alerts in the map's current view, so the copy
-    // says "in this area", not "near you", and stays short enough to fit a
-    // narrow phone on one line.
-    if (count == 0) return 'No warnings in this area right now';
-    if (count == 1) return '1 warning in this area';
-    return '$count warnings in this area';
+    // Board "Main" wording (16 Oct 2026). The count is of the warnings
+    // loaded for the map's view, which opens on where you are.
+    if (count == 0) return 'No warnings near you right now';
+    if (count == 1) return '1 warning near you. See what to do';
+    return '$count warnings near you. See what to do';
   }
 
   @override

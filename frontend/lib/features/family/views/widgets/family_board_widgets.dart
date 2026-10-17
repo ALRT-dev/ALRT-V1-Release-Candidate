@@ -285,13 +285,15 @@ class FamilyBoardSmallButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 36.spMin,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: 36.spMin),
       child: TextButton(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.ink,
           backgroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(horizontal: 14.spMin),
+          minimumSize: Size(0, 36.spMin),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 6.spMin),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10.spMin),
             side: const BorderSide(color: AppColors.lightGrey),

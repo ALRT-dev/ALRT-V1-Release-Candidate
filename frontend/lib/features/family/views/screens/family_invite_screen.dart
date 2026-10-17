@@ -4,12 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/views/widgets/family_app_bar.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_kit.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:intl/intl.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -78,100 +77,42 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
         ? _shownCode
         : invites.firstOrNull?.code;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const FamilyWhiteAppBar(title: 'Add a member'),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          20.spMin,
-          4.spMin,
-          20.spMin,
-          24.spMin + MediaQuery.viewPaddingOf(context).bottom,
+    return FamilyBoardScaffold(
+      title: 'Add a member',
+      gap: 10,
+      children: [
+        const FamilyBoardNote(
+          'Codes can be used up to 20 times and expire after 7 days. '
+          'Joining is always free.',
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Codes can be used up to 20 times and expire after 7 days. '
-              'Joining is always free.',
-              style: TextStyle(
-                fontSize: 13.spMin,
-                height: 1.45,
-                color: AppColors.grey,
-              ),
-            ),
-            SizedBox(height: 16.spMin),
-            for (final invite in invites)
-              _inviteCardBuilder(
-                invite,
-                isShown: invite.code == shown,
-                isHost: isHost,
-              ),
-            SizedBox(
-              height: 54.spMin,
-              child: ElevatedButton(
-                key: const Key('invite-create'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orange,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.orange.withValues(
-                    alpha: 0.5,
-                  ),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.spMin),
-                  ),
-                ),
-                onPressed: createState.isLoading ? null : _onGenerate,
-                child: Text(
-                  createState.isLoading
-                      ? 'Generating...'
-                      : 'Create an invite code',
-                  style: TextStyle(
-                    fontSize: 16.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 10.spMin),
-            SizedBox(
-              height: 54.spMin,
-              child: OutlinedButton.icon(
-                key: const Key('invite-show-qr'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.ink,
-                  side: const BorderSide(color: FamilyColors.v31Border),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.spMin),
-                  ),
-                ),
-                onPressed: shown == null
-                    ? null
-                    : () => setState(() => _qrVisible = !_qrVisible),
-                icon: Icon(LucideIcons.qrCode, size: 18.spMin),
-                label: Text(
-                  _qrVisible && shown != null ? 'Hide QR' : 'Show QR',
-                  style: TextStyle(
-                    fontSize: 16.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-            if (_qrVisible && shown != null) ...[
-              SizedBox(height: 16.spMin),
-              _qrBuilder(shown),
-            ],
-          ],
+        for (final invite in invites)
+          _inviteCardBuilder(
+            invite,
+            isShown: invite.code == shown,
+            isHost: isHost,
+          ),
+        FamilyBoardPrimaryButton(
+          key: const Key('invite-create'),
+          label: createState.isLoading
+              ? 'Creating...'
+              : 'Create an invite code',
+          onPressed: createState.isLoading ? null : _onGenerate,
         ),
-      ),
+        FamilyBoardSecondaryButton(
+          key: const Key('invite-show-qr'),
+          label: _qrVisible && shown != null ? 'Hide QR' : 'Show QR',
+          onPressed: shown == null
+              ? null
+              : () => setState(() => _qrVisible = !_qrVisible),
+        ),
+        if (_qrVisible && shown != null) _qrBuilder(shown),
+      ],
     );
   }
 
-  /// One active code: the code itself, how far through its 20 uses it is
-  /// and when it lapses, then Share and (host only) Revoke side by side.
-  /// Tapping the code copies it and makes it the one the QR shows.
+  /// One active code (Invite board): the code, how far through its uses
+  /// it is and when it lapses, then Share and (host only) Revoke. Tapping
+  /// the code copies it and makes it the one the QR shows.
   Widget _inviteCardBuilder(
     final FamilyInvite invite, {
     required final bool isShown,
@@ -180,104 +121,58 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
     final expiresAt = invite.expiresAt;
     final expires = expiresAt == null
         ? ''
-        : ' · expires ${DateFormat('d MMM').format(expiresAt.toLocal())}';
+        : ' · expires ${DateFormat('d MMM yyyy').format(expiresAt.toLocal())}';
 
-    return Container(
+    return FamilyBoardCard(
       key: Key('invite-card-${invite.id}'),
-      margin: EdgeInsets.only(bottom: 12.spMin),
-      padding: EdgeInsets.all(16.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(
-          color: isShown && _qrVisible
-              ? AppColors.ink
-              : FamilyColors.v31Divider,
-          width: isShown && _qrVisible ? 1.5 : 1,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: FamilyColors.v31CardShadow,
-            blurRadius: 10.0,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(() => _shownCode = invite.code);
-              _copyCode(invite.code);
-            },
-            child: Text(
-              invite.code,
-              style: TextStyle(
-                fontSize: 22.spMin,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-                color: AppColors.ink,
+      borderColor: isShown && _qrVisible ? AppColors.ink : null,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  setState(() => _shownCode = invite.code);
+                  _copyCode(invite.code);
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      invite.code,
+                      style: TextStyle(
+                        fontSize: 20.spMin,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    SizedBox(height: 2.spMin),
+                    FamilyBoardMuted(
+                      '${invite.useCount} of ${invite.maxUses} used$expires',
+                      size: 12,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          SizedBox(height: 4.spMin),
-          Text(
-            '${invite.useCount} of ${invite.maxUses} used$expires',
-            style: TextStyle(fontSize: 13.spMin, color: AppColors.grey),
-          ),
-          SizedBox(height: 14.spMin),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.ink,
-                    side: const BorderSide(color: FamilyColors.v31Border),
-                    padding: EdgeInsets.symmetric(vertical: 12.spMin),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.spMin),
-                    ),
-                  ),
-                  onPressed: () => _shareCode(invite.code),
-                  icon: Icon(LucideIcons.share2, size: 16.spMin),
-                  label: Text(
-                    'Share',
-                    style: TextStyle(
-                      fontSize: 14.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+            SizedBox(width: 8.spMin),
+            FamilyBoardSmallButton(
+              label: 'Share',
+              onPressed: () => _shareCode(invite.code),
+            ),
+            if (isHost) ...[
+              SizedBox(width: 8.spMin),
+              FamilyBoardSmallButton(
+                key: Key('invite-revoke-${invite.id}'),
+                label: 'Revoke',
+                onPressed: () => _confirmRevoke(invite),
               ),
-              if (isHost) ...[
-                SizedBox(width: 10.spMin),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.red,
-                      side: const BorderSide(color: FamilyColors.v31Border),
-                      padding: EdgeInsets.symmetric(vertical: 12.spMin),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.spMin),
-                      ),
-                    ),
-                    onPressed: () => _confirmRevoke(invite),
-                    child: Text(
-                      'Revoke',
-                      style: TextStyle(
-                        fontSize: 14.spMin,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ],
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -353,37 +248,30 @@ class _FamilyInviteScreenState extends ConsumerState<FamilyInviteScreen> {
     );
   }
 
-  void _confirmRevoke(final FamilyInvite invite) {
-    showDialog<void>(
+  Future<void> _confirmRevoke(final FamilyInvite invite) async {
+    final revoke = await showFamilyBoardSheet<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Revoke this invite?'),
-        content: Text(
-          'Code ${invite.code} stops working immediately. People who '
-          'already joined with it stay in the group.',
+      builder: (sheetContext) => [
+        FamilyBoardSheetTitle(
+          'Revoke ${invite.code}?',
+          subtitle:
+              'The code stops working straight away. People who already '
+              'joined with it stay in the group.',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              ref
-                  .read(providerOfFamily.notifier)
-                  .revokeInvite(inviteId: invite.id);
-              if (_shownCode == invite.code) {
-                setState(() => _shownCode = null);
-              }
-            },
-            child: const Text(
-              'Revoke',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
+        FamilyBoardPrimaryButton(
+          key: const Key('invite-revoke-go'),
+          label: 'Revoke code',
+          onPressed: () => Navigator.of(sheetContext).pop(true),
+        ),
+        FamilyBoardGhostButton(
+          label: 'Keep',
+          onPressed: () => Navigator.of(sheetContext).pop(false),
+        ),
+      ],
     );
+    if (revoke != true || !mounted) return;
+    await ref.read(providerOfFamily.notifier).revokeInvite(inviteId: invite.id);
+    if (!mounted) return;
+    if (_shownCode == invite.code) setState(() => _shownCode = null);
   }
 }

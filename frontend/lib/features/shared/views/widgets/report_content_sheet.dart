@@ -6,7 +6,6 @@ import 'package:hazard_app/features/shared/models/blocked_user_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/providers/community_safety_provider.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// What a person can do about a community report they object to: send it
 /// for review, or stop seeing that account entirely.
@@ -41,7 +40,28 @@ class _ReportContentSheet extends ConsumerStatefulWidget {
 
 class _ReportContentSheetState extends ConsumerState<_ReportContentSheet> {
   bool _busy = false;
-  HazardFlagReason? _reason;
+
+  /// Misleading is picked to start with, as on the ReportAlert board; any
+  /// chip can be chosen instead.
+  HazardFlagReason? _reason = HazardFlagReason.misleading;
+
+  static const _ink = Color(0xFF1C1C1E);
+  static const _muted = Color(0xFF5C5C66);
+  static const _chipBorder = Color(0xFFE3E6EA);
+  static const _chipOnWash = Color(0xFFFAF9F7);
+  static const _secondaryBorder = Color(0xFFD9D6D0);
+  static const _handle = Color(0xFFD9D6D0);
+
+  /// The one-word chip labels from the board. The longer labels on
+  /// [HazardFlagReason] stay for other screens.
+  static String _chipLabel(final HazardFlagReason reason) =>
+      switch (reason) {
+        HazardFlagReason.inappropriate => 'Inappropriate',
+        HazardFlagReason.misleading => 'Misleading',
+        HazardFlagReason.spam => 'Spam',
+        HazardFlagReason.harassment => 'Harassment',
+        HazardFlagReason.other => 'Other',
+      };
 
   Future<void> _flag() async {
     final id = widget.hazard.id;
@@ -89,74 +109,59 @@ class _ReportContentSheetState extends ConsumerState<_ReportContentSheet> {
     final canBlock = widget.hazard.reportedBy != null;
     final canSend = _reason != null && !_busy;
 
+    // ReportAlert board (16 Oct 2026): title, who sees it, five reason
+    // chips, Send for review, Block this person, Cancel.
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20.spMin, 12.spMin, 20.spMin, 20.spMin),
+        padding: EdgeInsets.fromLTRB(16.spMin, 10.spMin, 16.spMin, 28.spMin),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Drag handle
             Center(
               child: Container(
                 width: 40.spMin,
-                height: 4.spMin,
+                height: 5.spMin,
                 decoration: BoxDecoration(
-                  color: AppColors.lightGrey,
-                  borderRadius: BorderRadius.circular(2.spMin),
+                  color: _handle,
+                  borderRadius: BorderRadius.circular(3.spMin),
                 ),
-              ),
-            ),
-            SizedBox(height: 16.spMin),
-            Row(
-              children: [
-                Icon(
-                  LucideIcons.flag,
-                  size: 20.spMin,
-                  color: AppColors.ink,
-                ),
-                SizedBox(width: 10.spMin),
-                Expanded(
-                  child: Text(
-                    'Report this alert',
-                    style: TextStyle(
-                      fontSize: 20.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 6.spMin),
-            Text(
-              'Tell us what is wrong with it. Enough reports and it goes '
-              'back for review.',
-              style: TextStyle(
-                fontSize: 13.spMin,
-                height: 1.45,
-                color: AppColors.mediumGrey,
               ),
             ),
             SizedBox(height: 14.spMin),
             Text(
-              'REASON',
+              'Report this alert',
               style: TextStyle(
-                fontSize: 11.spMin,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.0,
-                color: AppColors.sectionLabel,
+                fontSize: 22.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+                color: _ink,
               ),
             ),
-            SizedBox(height: 6.spMin),
-            for (final reason in HazardFlagReason.values)
-              _reasonRowBuilder(reason),
-            SizedBox(height: 16.spMin),
+            SizedBox(height: 4.spMin),
+            Text(
+              'Sent to ALRT for review. The reporter is not told who '
+              'flagged it.',
+              style: TextStyle(
+                fontSize: 14.spMin,
+                height: 1.45,
+                color: _muted,
+              ),
+            ),
+            SizedBox(height: 14.spMin),
+            Wrap(
+              spacing: 8.spMin,
+              runSpacing: 8.spMin,
+              children: [
+                for (final reason in HazardFlagReason.values)
+                  _reasonChipBuilder(reason),
+              ],
+            ),
+            SizedBox(height: 14.spMin),
             // Primary: send the chosen reason for review.
             SizedBox(
-              width: double.infinity,
-              height: 48.spMin,
+              height: 54.spMin,
               child: ElevatedButton(
                 onPressed: canSend ? _flag : null,
                 style: ElevatedButton.styleFrom(
@@ -168,71 +173,56 @@ class _ReportContentSheetState extends ConsumerState<_ReportContentSheet> {
                   foregroundColor: AppColors.white,
                   disabledForegroundColor: AppColors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.spMin),
+                    borderRadius: BorderRadius.circular(14.spMin),
                   ),
                 ),
                 child: Text(
                   'Send for review',
                   style: TextStyle(
-                    fontSize: 15.spMin,
+                    fontSize: 16.spMin,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ),
             if (canBlock) ...[
-              SizedBox(height: 10.spMin),
+              SizedBox(height: 14.spMin),
               // Outlined: stop seeing this account. They are not told, and
               // nothing is deleted for anyone else.
               SizedBox(
-                width: double.infinity,
                 height: 48.spMin,
-                child: OutlinedButton.icon(
+                child: OutlinedButton(
                   onPressed: _busy ? null : _block,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.ink,
-                    side: const BorderSide(
-                      color: AppColors.lightGrey,
-                      width: 1.0,
-                    ),
+                    foregroundColor: _ink,
+                    side: const BorderSide(color: _secondaryBorder),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.spMin),
+                      borderRadius: BorderRadius.circular(14.spMin),
                     ),
                   ),
-                  icon: Icon(
-                    LucideIcons.circleX,
-                    size: 18.spMin,
-                    color: AppColors.ink,
-                  ),
-                  label: Text(
+                  child: Text(
                     'Block this person',
                     style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
+                      fontSize: 14.spMin,
+                      fontWeight: FontWeight.w600,
+                      color: _ink,
                     ),
                   ),
                 ),
               ),
             ],
-            SizedBox(height: 4.spMin),
+            SizedBox(height: 6.spMin),
             SizedBox(
-              width: double.infinity,
               height: 44.spMin,
               child: TextButton(
                 onPressed: _busy
                     ? null
                     : () => Navigator.of(context).maybePop(),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.mediumGrey,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.spMin),
-                  ),
-                ),
+                style: TextButton.styleFrom(foregroundColor: _muted),
                 child: Text(
                   'Cancel',
                   style: TextStyle(
-                    fontSize: 15.spMin,
+                    fontSize: 14.spMin,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -244,33 +234,35 @@ class _ReportContentSheetState extends ConsumerState<_ReportContentSheet> {
     );
   }
 
-  /// One selectable reason. A filled circle marks the chosen one.
-  Widget _reasonRowBuilder(final HazardFlagReason reason) {
+  /// One reason chip: 40 high, a dark outline when chosen.
+  Widget _reasonChipBuilder(final HazardFlagReason reason) {
     final selected = _reason == reason;
-    return InkWell(
-      onTap: _busy ? null : () => setState(() => _reason = reason),
-      borderRadius: BorderRadius.circular(12.spMin),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 10.spMin, horizontal: 4.spMin),
-        child: Row(
-          children: [
-            Icon(
-              selected ? LucideIcons.circleCheck : LucideIcons.circle,
-              size: 20.spMin,
-              color: selected ? AppColors.orange : AppColors.grey,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: reason.label,
+      child: GestureDetector(
+        onTap: _busy ? null : () => setState(() => _reason = reason),
+        child: Container(
+          height: 40.spMin,
+          padding: EdgeInsets.symmetric(horizontal: 16.spMin),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? _chipOnWash : AppColors.white,
+            borderRadius: BorderRadius.circular(20.spMin),
+            border: Border.all(
+              color: selected ? _ink : _chipBorder,
+              width: selected ? 2 : 1.5,
             ),
-            SizedBox(width: 12.spMin),
-            Expanded(
-              child: Text(
-                reason.label,
-                style: TextStyle(
-                  fontSize: 14.5.spMin,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: AppColors.ink,
-                ),
-              ),
+          ),
+          child: Text(
+            _chipLabel(reason),
+            style: TextStyle(
+              fontSize: 14.spMin,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              color: _ink,
             ),
-          ],
+          ),
         ),
       ),
     );

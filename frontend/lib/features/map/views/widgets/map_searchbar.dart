@@ -11,14 +11,13 @@ import 'package:hazard_app/features/map/models/google_place_model.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/map_search_text_editing_controller_provider.dart';
 import 'package:hazard_app/features/map/providers/places_provider.dart';
-import 'package:hazard_app/features/map/views/widgets/places_search_results_menu_content.dart';
+import 'package:hazard_app/features/map/views/widgets/map_search_sheet.dart';
 import 'package:hazard_app/features/report/providers/create_update_report_provider.dart';
 import 'package:hazard_app/features/report/views/screens/create_update_report_screen.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/services/alert_speech_service.dart';
 import 'package:hazard_app/features/shared/services/voice_command.dart';
 import 'package:hazard_app/features/shared/services/voice_input_controller.dart';
-import 'package:hazard_app/features/shared/views/widgets/dropdown.dart';
 import 'package:hazard_app/features/shared/views/widgets/voice/voice_listening_sheet.dart';
 import 'package:hazard_app/features/shared/views/widgets/voice/speak_to_alrt_sheet.dart';
 import 'package:hazard_app/features/shared/views/widgets/voice/voice_priming_sheet.dart';
@@ -31,6 +30,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// White 48 px bar, radius 14. Leading search glyph, the place/alert search
 /// field, then two square buttons inside the bar on the right: voice search
 /// and Ask ALRT. Both moved here from the old setup chips and the rail.
+///
+/// Tapping the field opens the Search sheet (prototype boards Search and
+/// SearchResults, 16 Oct 2026) instead of a dropdown under the bar.
 class MapSearchbar extends ConsumerStatefulWidget {
   const MapSearchbar({super.key});
 
@@ -57,7 +59,7 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
   TextEditingController get _searchController =>
       ref.read(providerOfMapSearchTextEditingController);
 
-  final _dropdownController = AlrtDropdownController();
+  bool _sheetOpen = false;
 
   /// The mic hides itself when there is no recogniser or the microphone was
   /// refused; typing still works.
@@ -78,87 +80,96 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
 
   @override
   Widget build(BuildContext context) {
-    return AlrtDropdown(
-      controller: _dropdownController,
-      fitAboveKeyboard: true,
-      dropdownHeight: 360,
-      button: (context, isOpen) => Consumer(
-        builder: (context, ref, child) {
-          final isSearchActive = ref.watch(
-            providerOfPlacesForMap.select(
-              (value) => value.searchString.isNotEmpty,
-            ),
-          );
+    return Consumer(
+      builder: (context, ref, child) {
+        final isSearchActive = ref.watch(
+          providerOfPlacesForMap.select(
+            (value) => value.searchString.isNotEmpty,
+          ),
+        );
 
-          return Container(
-            height: 48.spMin,
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(14.spMin),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.black.withValues(alpha: 0.10),
-                  blurRadius: 16.0,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            padding: EdgeInsets.symmetric(horizontal: 14.spMin),
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.search,
-                  size: 20.spMin,
-                  color: _hintColor,
-                ),
-                SizedBox(width: 10.spMin),
-                Expanded(child: _searchFieldBuilder()),
-                SizedBox(width: 10.spMin),
-                if (isSearchActive)
-                  _squareButtonBuilder(
-                    background: _micBackground,
-                    icon: LucideIcons.x,
-                    iconColor: _micIconColor,
-                    semanticLabel: 'Clear search',
-                    onPressed: _handleClearSearchPressed,
-                  )
-                else if (!_micHidden)
-                  _squareButtonBuilder(
-                    background: _micBackground,
-                    icon: LucideIcons.mic,
-                    iconColor: _micIconColor,
-                    semanticLabel: 'Speak to ALRT',
-                    onPressed: _handleMicTap,
-                  ),
-                if (isSearchActive || !_micHidden) SizedBox(width: 10.spMin),
+        return Container(
+          height: 48.spMin,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(14.spMin),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: 0.10),
+                blurRadius: 16.0,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.symmetric(horizontal: 14.spMin),
+          child: Row(
+            children: [
+              Icon(
+                LucideIcons.search,
+                size: 20.spMin,
+                color: _hintColor,
+              ),
+              SizedBox(width: 10.spMin),
+              Expanded(child: _searchFieldBuilder()),
+              SizedBox(width: 10.spMin),
+              if (isSearchActive)
                 _squareButtonBuilder(
-                  background: _askBackground,
-                  icon: LucideIcons.sparkles,
-                  iconColor: _askIconColor,
-                  semanticLabel: 'Ask ALRT',
-                  onPressed: () => showAskAlrtSheet(context),
+                  background: _micBackground,
+                  icon: LucideIcons.x,
+                  iconColor: _micIconColor,
+                  semanticLabel: 'Clear search',
+                  onPressed: _handleClearSearchPressed,
+                )
+              else if (!_micHidden)
+                _squareButtonBuilder(
+                  background: _micBackground,
+                  icon: LucideIcons.mic,
+                  iconColor: _micIconColor,
+                  semanticLabel: 'Speak to ALRT',
+                  onPressed: _handleMicTap,
                 ),
-              ],
-            ),
-          );
-        },
-      ),
-      menuContent: (context, close) {
-        return PlacesSearchResultsMenuContent(
-          placesSearchKey: MapSearchbar.placesSearchKey,
-          onPlaceSelected: _handleSearchResultSelected,
-          showMatchingAlerts: true,
+              if (isSearchActive || !_micHidden) SizedBox(width: 10.spMin),
+              _squareButtonBuilder(
+                background: _askBackground,
+                icon: LucideIcons.sparkles,
+                iconColor: _askIconColor,
+                semanticLabel: 'Ask ALRT',
+                onPressed: () => showAskAlrtSheet(context),
+              ),
+            ],
+          ),
         );
       },
     );
+  }
+
+  /// Opens the Search sheet over the map. The sheet types into the same
+  /// places provider as this bar, so the words carry back when it closes.
+  Future<void> _openSearchSheet() async {
+    if (_sheetOpen) return;
+    _sheetOpen = true;
+    _searchFocusNode.unfocus();
+    try {
+      await showMapSearchSheet(
+        context: context,
+        onPlaceSelected: _handleSearchResultSelected,
+      );
+    } finally {
+      _sheetOpen = false;
+    }
+    if (!mounted) return;
+    // Keep the bar's text in step with what was typed in the sheet.
+    final typed = ref.read(providerOfPlacesForMap).searchString;
+    if (_searchController.text != typed) _searchController.text = typed;
   }
 
   Widget _searchFieldBuilder() {
     return TextFormField(
       focusNode: _searchFocusNode,
       controller: _searchController,
-      textInputAction: TextInputAction.search,
-      onChanged: _handleSearchChanged,
+      readOnly: true,
+      showCursor: false,
+      onTap: _openSearchSheet,
       textAlignVertical: TextAlignVertical.center,
       style: TextStyle(
         fontSize: 15.spMin,
@@ -286,8 +297,8 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
     final text = transcript.trim();
     if (text.isEmpty) return;
     _searchController.text = text;
-    _searchController.selection = TextSelection.collapsed(offset: text.length);
     _handleSearchChanged(text);
+    _openSearchSheet();
   }
 
   /// Spoken hazard descriptions skip search: they land in Post an ALRT
@@ -300,12 +311,6 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
 
   /// Handles changes in the search input field with a debounce.
   void _handleSearchChanged(final String value) {
-    if (value.trim().isEmpty) {
-      _dropdownController.close();
-    } else {
-      _dropdownController.open();
-    }
-
     // Keep the previous results on screen while the next query runs; the
     // menu shows a thin progress line rather than blanking to a spinner.
     ref.read(providerOfPlacesForMap.notifier)
@@ -338,7 +343,6 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
     } else {
       _searchFocusNode.unfocus();
       _searchController.clear();
-      _dropdownController.close();
       ref.read(providerOfPlacesForMap.notifier).updateSearchString('');
       ref.read(providerOfMap.notifier)
         ..updateSelectedLocation(null)
@@ -348,7 +352,6 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
 
   /// Updates the selected place in the map provider when a search result is selected.
   void _handleSearchResultSelected(final GooglePlace place) {
-    _dropdownController.close();
     _searchFocusNode.unfocus();
     _searchController.text = place.name;
 

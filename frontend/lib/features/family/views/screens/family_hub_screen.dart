@@ -6,10 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/check_in_roll.dart';
-import 'package:hazard_app/features/family/utils/family_sos_authorization.dart';
 import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
-import 'package:hazard_app/features/family/utils/sos_record.dart';
-import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'package:hazard_app/features/family/views/screens/family_group_settings_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_switch_group_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_check_in_roll_call_screen.dart';
@@ -19,12 +16,12 @@ import 'package:hazard_app/features/family/views/screens/family_journey_screen.d
 import 'package:hazard_app/features/family/providers/states/family_provider_state.dart';
 import 'package:hazard_app/features/family/views/screens/family_circle_profile_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_invite_screen.dart';
+import 'package:hazard_app/features/family/views/screens/family_past_sos_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_places_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sharing_level_screen.dart';
-import 'package:hazard_app/features/family/views/screens/family_sos_receiver_screen.dart';
-import 'package:hazard_app/features/family/views/screens/family_sos_resolved_screen.dart';
 import 'package:hazard_app/features/family/views/screens/family_sos_screen.dart';
 import 'package:hazard_app/features/family/views/screens/shared_journey_screen.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_widgets.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_ask_check_in_sheet.dart';
@@ -35,13 +32,10 @@ import 'package:hazard_app/features/family/views/widgets/family_member_details_s
 import 'package:hazard_app/features/family/views/widgets/family_member_list_item.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/live_connection_provider.dart';
-import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/subscription/models/access_models.dart';
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
-import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_plan_and_cover_screen.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_surface_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -69,8 +63,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   /// orange (board exception to the #B84500 default).
   static const _membersLabelOrange = Color(0xFFFF6B01);
 
-  /// The peach notice card for a group with no plan: AppColors cream.
-  static const _noticeCream = Color(0xFFFFF1E8);
+  /// The peach notice card for a group with no plan (the boards' #FFF4EE).
+  static const _noticeCream = Color(0xFFFFF4EE);
+
+  /// The light teal behind the asker's check-in tracker.
+  static const _tealWash = Color(0xFFE6F7F5);
 
   @override
   Widget build(BuildContext context) {
@@ -125,25 +122,28 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final sos in activeSosEvents) ...[
-                      _sosBannerBuilder(sos),
-                      SizedBox(height: 12.spMin),
-                    ],
+                    // A running SOS is announced by FamilySosStrip above
+                    // every home tab (Family-SOSLive board): the header
+                    // turns red and the member row carries the SOS pill,
+                    // so the hub adds no second banner of its own.
                     if (circle.hostTransitionActive) ...[
                       _hostTransitionBannerBuilder(circle),
                       SizedBox(height: 12.spMin),
                     ],
+                    // The boards' order above the Check in card: the ask
+                    // owed by me, the asker's tracker, shared journeys,
+                    // then the uncovered-group note.
+                    if (isAskedOfMe) ...[
+                      _askedOfMeCardBuilder(circle),
+                      SizedBox(height: 12.spMin),
+                    ],
+                    _checkInRequestBannerBuilder(circle, checkInState),
                     for (final journey in sharedJourneys) ...[
                       _sharedJourneyCardBuilder(journey),
                       SizedBox(height: 12.spMin),
                     ],
                     if (coverage == _Coverage.notCovered) ...[
                       _coverageNoticeBuilder(circle, access),
-                      SizedBox(height: 12.spMin),
-                    ],
-                    _checkInRequestBannerBuilder(circle, checkInState),
-                    if (isAskedOfMe) ...[
-                      _askedOfMeCardBuilder(circle),
                       SizedBox(height: 12.spMin),
                     ],
                     _checkInCardBuilder(circle, checkInState),
@@ -158,7 +158,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                       memberIdsNearAlert: memberIdsNearAlert,
                       activeSosEvents: activeSosEvents,
                     ),
-                    SizedBox(height: 12.spMin),
+                    SizedBox(height: 22.spMin),
+                    _moreSectionBuilder(circle, coverage: coverage, access: access),
+                    SizedBox(height: 14.spMin),
                     _bottomActionsBuilder(circle),
                     SizedBox(height: 10.spMin),
                     Text(
@@ -171,8 +173,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                         color: context.onSurfaceMuted,
                       ),
                     ),
-                    SizedBox(height: 22.spMin),
-                    _moreSectionBuilder(circle, coverage: coverage, access: access),
                     SizedBox(height: 120.spMin),
                   ],
                 ),
@@ -491,8 +491,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Check in, Check on, SOS and Journey need ALRT + for each '
-            'person, or one plan covering the group.',
+            'Check in, Check on, SOS and Journey in this group need ALRT + '
+            'for each person, or a plan covering the group.',
             style: TextStyle(
               fontSize: 13.spMin,
               height: 1.4,
@@ -528,30 +528,14 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// "Plan and cover": the plan screen when something is already in force
-  /// (manage), the group paywall pre-set to this group when I host an
-  /// unfunded group (the "connection features in an unfunded group"
-  /// paywall moment), otherwise the one ALRT + choice screen.
+  /// "Plan and cover": this group's own plan screen (board PlanAndCover),
+  /// which offers Cover this group, Everyone uses their own ALRT + or My
+  /// plans from what GET /api/access says about the group.
   void _openPlanAndCover(
     final FamilyCircle circle,
     final AccessSummary? access,
   ) {
-    final group = access?.groupById(circle.id);
-    final hasAnyPlan =
-        (access?.personal.isIndividual ?? false) ||
-        (group?.isSponsoredAndLive ?? false);
-    if (hasAnyPlan) {
-      context.push(AlrtPlusManageScreen.route);
-      return;
-    }
-    if (circle.me?.role == FamilyRole.owner) {
-      context.push(
-        AlrtPlusGroupPaywallScreen.route,
-        extra: AlrtPlusGroupPaywallArgs(circleId: circle.id),
-      );
-      return;
-    }
-    context.push(AlrtPlusChooseScreen.route);
+    context.push(AlrtPlusPlanAndCoverScreen.route, extra: circle.id);
   }
 
   // ── Banners kept from the previous hub ────────────────────────────────
@@ -640,53 +624,50 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
   /// status, last-updated time) - never a destination, route, ETA or trail,
   /// since the journey model carries none of those.
   Widget _sharedJourneyCardBuilder(final FamilyJourney journey) {
-    final label = journey.isLive ? 'Live journey' : 'Journey';
-    final updatedAt = journey.createdAt;
+    // The boards' white card with the indigo left edge: who, and how
+    // often it updates. Nothing about where they are going.
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => context.push(
         SharedJourneyScreen.route,
         extra: SharedJourneyScreenArgs(journeyId: journey.id),
       ),
-      child: Container(
-        padding: EdgeInsets.all(14.spMin),
-        decoration: BoxDecoration(
-          gradient: FamilyColors.headerGradient,
-          borderRadius: BorderRadius.circular(16.spMin),
-        ),
-        child: Row(
-          children: [
-            Icon(LucideIcons.navigation, color: Colors.white, size: 22.spMin),
-            SizedBox(width: 10.spMin),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${journey.memberName} is sharing a $label with you',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14.spMin,
-                      fontWeight: FontWeight.w700,
+      child: FamilyBoardCard(
+        leftEdge: FamilyColors.indigo,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${journey.memberName} is sharing a journey',
+                      style: TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 2.spMin),
-                  Text(
-                    [
-                      '${journey.remaining.inMinutes} min left',
-                      if (updatedAt != null)
-                        'started ${timeago.format(updatedAt)}',
-                    ].join(' · '),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      fontSize: 12.spMin,
+                    SizedBox(height: 2.spMin),
+                    Text(
+                      journey.isLive ? 'Live' : 'Updates every 10 min',
+                      style: TextStyle(
+                        color: AppColors.mediumGrey,
+                        fontSize: 12.spMin,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Icon(LucideIcons.chevronRight, color: Colors.white, size: 20.spMin),
-          ],
-        ),
+              Icon(
+                LucideIcons.chevronRight,
+                color: AppColors.mediumGrey,
+                size: 20.spMin,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -850,193 +831,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           );
   }
 
-  Widget _sosBannerBuilder(final FamilySosEvent sos) {
-    final name = sos.member?.displayName ?? 'A family member';
-    // The same banner reads completely differently on the two phones:
-    // the person IN SOS is being watched over, everyone else is being
-    // asked to respond. Two-phone testing showed neither could tell
-    // which side they were on. "Mine" is checked by user as well as
-    // member id, because member ids differ per circle.
-    final isMine = isSosMine(
-      sos,
-      myMemberId: ref.read(providerOfFamily).circle?.myMemberId,
-      myUserId: ref.read(providerOfLoggedInUser)?.id,
-    );
-    return GestureDetector(
-      onTap: () => context.push(
-        FamilySosReceiverScreen.route,
-        extra: FamilySosReceiverScreenArgs(sosEvent: sos),
-      ),
-      child: Container(
-        padding: EdgeInsets.all(14.spMin),
-        decoration: BoxDecoration(
-          color: FamilyColors.sosRed,
-          borderRadius: BorderRadius.circular(16.spMin),
-        ),
-        child: Row(
-          children: [
-            Icon(LucideIcons.siren, color: Colors.white, size: 24.spMin),
-            SizedBox(width: 10.spMin),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isMine
-                        ? (sos.isLive
-                              ? 'Your SOS is live'
-                              : 'Your SOS is active')
-                        : '$name needs help · SOS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (sos.createdAt != null)
-                    Text(
-                      isMine
-                          ? (sos.isLive
-                                ? 'Your family can watch your movements · tap '
-                                      'to update or stand down'
-                                : 'Your family has been alerted · tap to stand '
-                                      'down')
-                          : 'Started ${timeago.format(sos.createdAt!)} · '
-                                'tap to see them on the map and respond',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 12.spMin,
-                      ),
-                    ),
-                  // Who has answered, on the banner itself. Replying used
-                  // to leave no trace until you opened the SOS.
-                  if (sos.responses.isNotEmpty) ...[
-                    SizedBox(height: 6.spMin),
-                    Text(
-                      _sosResponseSummary(sos),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.spMin,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Icon(LucideIcons.chevronRight, color: Colors.white, size: 20.spMin),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// A one-line read of who has acknowledged an SOS, by name, newest
-  /// last, with the most recent time. The sender reads this on their own
-  /// banner: knowing WHO has seen it is the reassurance (product owner
-  /// 2026-08-07), so it is never reduced to a bare count.
-  String _sosResponseSummary(final FamilySosEvent sos) {
-    // Only "I've seen this" is shown: "On my way" and "Called" are out of
-    // the flow (their old rows stay in the data, never on screen).
-    final seen =
-        sos.responses
-            .where((r) => r.type == FamilySosResponseType.seen)
-            .toList()
-          ..sort((a, b) {
-            final at = a.createdAt;
-            final bt = b.createdAt;
-            if (at == null || bt == null) return 0;
-            return at.compareTo(bt);
-          });
-    final seenNames = seen.map(
-      (r) => r.member?.displayName ?? 'A family member',
-    );
-    final latestSeenAt = seen.isEmpty ? null : seen.last.createdAt;
-
-    final parts = <String>[
-      if (seen.isNotEmpty)
-        'Seen by ${seenNames.join(', ')}'
-            '${latestSeenAt != null ? ' · ${timeago.format(latestSeenAt)}' : ''}',
-    ];
-    return parts.join(' · ');
-  }
-
-  Widget _sosHistoryRowBuilder(
-    final FamilyCircle circle,
-    final FamilySosEvent sos,
-  ) {
-    final isMine =
-        sos.memberId == circle.myMemberId ||
-        (sos.member?.user?.id != null &&
-            sos.member?.user?.id == ref.read(providerOfLoggedInUser)?.id);
-    final who = isMine
-        ? 'Your SOS'
-        : "${sosSenderName(sos)}'s SOS";
-    final endedAt = sos.resolvedAt ?? sos.createdAt;
-    final seen = sos.responses
-        .where((r) => r.type == FamilySosResponseType.seen)
-        .map((r) => r.member?.displayName ?? 'A family member')
-        .toList();
-    final ack = seen.isEmpty
-        ? 'Nobody acknowledged it'
-        : 'Seen by ${seen.join(', ')}';
-
-    return ListTile(
-      onTap: () {
-        // Its stored audience, by name - never the group's size today.
-        final audience = sosAudienceNames(
-          sos,
-          members: circle.members,
-          myUserId: ref.read(providerOfLoggedInUser)?.id,
-        );
-        context.push(
-          FamilySosResolvedScreen.route,
-          extra: FamilySosResolvedScreenArgs(
-            event: sos,
-            circleName: circle.name,
-            audienceNames: audience.names,
-            unnamedAudienceCount: audience.unnamed,
-          ),
-        );
-      },
-      contentPadding: EdgeInsets.symmetric(horizontal: 14.spMin),
-      leading: Container(
-        width: 32.spMin,
-        height: 32.spMin,
-        decoration: const BoxDecoration(
-          color: FamilyColors.sosRedLight,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          LucideIcons.siren,
-          size: 16.spMin,
-          color: FamilyColors.sosRed,
-        ),
-      ),
-      title: Text(
-        // An SOS that ran out its hour expired; nobody ended it.
-        sosExpired(sos)
-            ? '$who · expired ${timeago.format(sosExpiredAt(sos)!)}'
-            : endedAt == null
-            ? '$who · ended'
-            : '$who · ended ${timeago.format(endedAt)}',
-        style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
-      ),
-      subtitle: Text(
-        ack,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
-      ),
-      trailing: Icon(
-        LucideIcons.chevronRight,
-        size: 20.spMin,
-        color: AppColors.grey,
-      ),
-    );
-  }
-
-
   // ── Check in ───────────────────────────────────────────────────────────
 
   /// Every check-in from this screen - answering someone's ask or a
@@ -1080,12 +874,10 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             .map((m) => m.name)
             .firstOrNull ??
         'Someone';
-    final askedAt = request.createdAt;
+    // The time is on my own member row ("Asked to check in 12:04 PM");
+    // the card carries only the asker's note, when there is one.
     final message = request.message ?? '';
-    final detail = [
-      if (askedAt != null) timeago.format(askedAt),
-      if (message.isNotEmpty) '"$message"',
-    ].join(' · ');
+    final detail = message.isEmpty ? '' : '"$message"';
 
     // The 4 px orange left edge is a strip inside the clipped card, not a
     // one-sided Border: a BoxDecoration refuses a radius with a border
@@ -1106,7 +898,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(width: 4.spMin, color: AppColors.orange),
+          Container(width: 5.spMin, color: AppColors.orange),
           Expanded(
             child: Padding(
               padding: EdgeInsets.all(14.spMin),
@@ -1130,7 +922,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           '$who asked you to check in',
           style: TextStyle(
             fontSize: 15.spMin,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: context.onSurface,
           ),
         ),
@@ -1149,48 +941,17 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           spacing: 8.spMin,
           runSpacing: 8.spMin,
           children: [
-            _pillActionBuilder(
+            FamilyBoardSmallButton(
               label: 'Check in',
-              filled: true,
-              onTap: () => _answerAsks(circle),
+              onPressed: () => _answerAsks(circle),
             ),
-            _pillActionBuilder(
+            FamilyBoardSmallButton(
               label: 'See who has',
-              filled: false,
-              onTap: () => context.push(FamilyCheckInRollCallScreen.route),
+              onPressed: () => context.push(FamilyCheckInRollCallScreen.route),
             ),
           ],
         ),
       ],
-    );
-  }
-
-  /// Indigo filled pill, or the grey outlined one.
-  Widget _pillActionBuilder({
-    required final String label,
-    required final bool filled,
-    required final VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 10.spMin),
-        decoration: BoxDecoration(
-          color: filled ? FamilyColors.indigo : context.surfaceCard,
-          borderRadius: BorderRadius.circular(20.spMin),
-          border: filled
-              ? null
-              : Border.all(color: context.outline, width: 1.2),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13.5.spMin,
-            fontWeight: FontWeight.w800,
-            color: filled ? Colors.white : context.onSurfaceMuted,
-          ),
-        ),
-      ),
     );
   }
 
@@ -1575,22 +1336,11 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
           ],
         ),
         SizedBox(height: 10.spMin),
-        _cardBuilder(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final (index, member) in visible.indexed) ...[
-                if (index > 0)
-                  Divider(
-                    height: 1,
-                    indent: 68.spMin,
-                    color: context.outline.withValues(alpha: 0.5),
-                  ),
-                rowFor(member),
-              ],
-            ],
-          ),
-        ),
+        // One white card per person, as on the boards.
+        for (final (index, member) in visible.indexed) ...[
+          if (index > 0) SizedBox(height: 10.spMin),
+          _cardBuilder(padding: EdgeInsets.zero, child: rowFor(member)),
+        ],
       ],
     );
   }
@@ -1666,9 +1416,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     required final _Coverage? coverage,
     required final AccessSummary? access,
   }) {
-    final historyCount = ref.watch(
-      providerOfFamily.select((s) => s.sosHistory.length),
-    );
     final rows = <Widget>[
       _moreRowBuilder(
         icon: LucideIcons.shieldAlert,
@@ -1689,8 +1436,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       _moreRowBuilder(
         icon: LucideIcons.history,
         label: 'Past SOS',
-        detail: historyCount == 0 ? null : '$historyCount',
-        onTap: () => _showSosHistorySheet(circle),
+        detail: 'Last 30 days',
+        onTap: () => FamilyPastSosScreen.open(context),
       ),
     ];
 
@@ -1766,72 +1513,6 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
     );
   }
 
-  /// Retained SOS history: every stood-down SOS in this group (last 30
-  /// days), with who acknowledged it. Tapping a row opens the after-event
-  /// record. The server never returns locations for these - who and when
-  /// only.
-  void _showSosHistorySheet(final FamilyCircle circle) {
-    final history = ref.read(providerOfFamily).sosHistory;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: context.surfaceCard,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.spMin)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(0, 20.spMin, 0, 12.spMin),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.spMin),
-                child: Text(
-                  history.isEmpty
-                      ? 'Past SOS'
-                      : 'Past SOS · ${history.length}',
-                  style: TextStyle(
-                    fontSize: 17.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: context.onSurface,
-                  ),
-                ),
-              ),
-              SizedBox(height: 8.spMin),
-              if (history.isEmpty)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(20.spMin, 4.spMin, 20.spMin, 8.spMin),
-                  child: Text(
-                    'No SOS has run in this group in the last 30 days.',
-                    style: TextStyle(
-                      fontSize: 13.spMin,
-                      color: context.onSurfaceMuted,
-                    ),
-                  ),
-                )
-              else
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: history.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      indent: 56.spMin,
-                      color: context.outline.withValues(alpha: 0.5),
-                    ),
-                    itemBuilder: (_, index) =>
-                        _sosHistoryRowBuilder(circle, history[index]),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   /// Section labels on this screen (More): quiet uppercase, letter-spaced.
   Widget _sectionLabelBuilder(final String title) {
     return Text(
@@ -1841,8 +1522,8 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       style: TextStyle(
         fontSize: 13.spMin,
         fontWeight: FontWeight.w700,
-        color: FamilyColors.v31Label,
-        letterSpacing: 0.5,
+        color: _membersLabelOrange,
+        letterSpacing: 0.8,
       ),
     );
   }
@@ -1857,7 +1538,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       padding: padding ?? EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
         color: context.surfaceCard,
-        borderRadius: BorderRadius.circular(20.spMin),
+        borderRadius: BorderRadius.circular(18.spMin),
         boxShadow: [
           BoxShadow(
             color: context.cardShadow,
@@ -1922,9 +1603,9 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
         Container(
           padding: EdgeInsets.all(14.spMin),
           decoration: BoxDecoration(
-            color: FamilyColors.amberLight,
+            color: _tealWash,
             borderRadius: BorderRadius.circular(16.spMin),
-            border: Border.all(color: FamilyColors.amber, width: 1.5),
+            border: Border.all(color: FamilyColors.teal, width: 1.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1937,7 +1618,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
                     child: Icon(
                       LucideIcons.bellRing,
                       size: 18.spMin,
-                      color: FamilyColors.amber,
+                      color: FamilyColors.teal,
                     ),
                   ),
                   SizedBox(width: 10.spMin),
@@ -2038,7 +1719,7 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
             decoration: BoxDecoration(
               color: answered
                   ? FamilyColors.safeGreen
-                  : const Color(0xFFFBBF24),
+                  : FamilyColors.teal,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -2077,16 +1758,16 @@ class _FamilyHubScreenState extends ConsumerState<FamilyHubScreen> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 9.spMin),
         decoration: BoxDecoration(
-          color: filled ? FamilyColors.amber : Colors.transparent,
+          color: filled ? FamilyColors.teal : Colors.transparent,
           borderRadius: BorderRadius.circular(12.spMin),
-          border: Border.all(color: FamilyColors.amber, width: 1.4),
+          border: Border.all(color: FamilyColors.teal, width: 1.4),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13.spMin,
             fontWeight: FontWeight.w800,
-            color: filled ? Colors.white : FamilyColors.amber,
+            color: filled ? Colors.white : FamilyColors.tealDeep,
           ),
         ),
       ),

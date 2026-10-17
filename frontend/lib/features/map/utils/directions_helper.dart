@@ -24,6 +24,42 @@ void selectPlaceOnMap(final WidgetRef ref, final AlrtLocation destination) {
   map.addSelectedLocationMarker(destination.latLng);
 }
 
+/// The plain words for a failed directions request ([failure] is the raw
+/// error the Routes API call returned). Test builds add the raw reason.
+String directionsFailureText(final String failure) {
+  final noRoad = failure.startsWith('No routes found between these locations');
+  final plain = noRoad
+      ? "We couldn't find a route to this place."
+      : "Directions aren't available right now. Please try again later.";
+  return showRawDirectionsErrors && !noRoad
+      ? '$plain\n(Test build) $failure'
+      : plain;
+}
+
+/// Asks for routes from [origin] to [destination] (Routes API through
+/// map_repository.getRoute) and starts the search for the alerts that touch
+/// them. Returns null on success, else the words to show.
+Future<String?> planRouteBetween({
+  required final WidgetRef ref,
+  required final AlrtLocation origin,
+  required final AlrtLocation destination,
+}) async {
+  final notifier = ref.read(providerOfMap.notifier);
+  await notifier.getRoutePlan(origin: origin, destination: destination);
+  final failure = ref.read(providerOfMap).getRouteState.maybeWhen(
+        error: (error) => error.message,
+        orElse: () => null,
+      );
+  if (failure != null) {
+    debugPrint('[directions] $failure');
+    return directionsFailureText(failure);
+  }
+  // The hazards on each route are otherwise only fetched when the map
+  // camera moves, which may not happen while Check a route covers the map.
+  unawaited(notifier.getRoutePlanHazardsToAvoid());
+  return null;
+}
+
 /// Asks for routes from where the person is to [destination] and explains
 /// any failure. The route options sheet opens from the map state on success.
 Future<void> startDirectionsTo({
@@ -32,23 +68,11 @@ Future<void> startDirectionsTo({
   required final AlrtLocation destination,
 }) async {
   final origin = ref.read(providerOfLocation).location;
-  await ref
-      .read(providerOfMap.notifier)
-      .getRoutePlan(origin: origin, destination: destination);
-  if (!context.mounted) return;
-  final failure = ref.read(providerOfMap).getRouteState.maybeWhen(
-        error: (error) => error.message,
-        orElse: () => null,
-      );
-  if (failure == null) return;
-  debugPrint('[directions] $failure');
-  final noRoad = failure.startsWith('No routes found between these locations');
-  final plain = noRoad
-      ? "We couldn't find a route to this place."
-      : "Directions aren't available right now. Please try again later.";
-  context.showErrorToast(
-    message: showRawDirectionsErrors && !noRoad
-        ? '$plain\n(Test build) $failure'
-        : plain,
+  final failure = await planRouteBetween(
+    ref: ref,
+    origin: origin,
+    destination: destination,
   );
+  if (!context.mounted || failure == null) return;
+  context.showErrorToast(message: failure);
 }

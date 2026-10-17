@@ -47,6 +47,7 @@ import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.da
 import 'package:hazard_app/features/shared/views/widgets/small_map_view.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/hazard_medias_carousel.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/send_to_group_sheet.dart';
+import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/share_link_sheet.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'dart:math' as math;
@@ -293,8 +294,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               _roundControl(
                 icon: LucideIcons.share2,
                 semanticLabel: 'Share',
-                onTap: () =>
-                    shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+                onTap: () => _openShareLinkSheet(hazard),
               )
             else
               SizedBox(width: 40.spMin),
@@ -689,11 +689,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           decoration: BoxDecoration(
             // The plain-terms surface is always the dark band (locked).
             color: AlertCardStyle.plainTermsBackground,
-            borderRadius: BorderRadius.circular(10.spMin),
+            borderRadius: BorderRadius.circular(12.spMin),
           ),
           padding: EdgeInsets.symmetric(
-            horizontal: 11.spMin,
-            vertical: 9.spMin,
+            horizontal: 12.spMin,
+            vertical: 10.spMin,
           ),
           child: Text.rich(
             TextSpan(
@@ -709,8 +709,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               ],
             ),
             style: TextStyle(
-              fontSize: 12.spMin,
-              height: 1.55,
+              fontSize: 14.spMin,
+              height: 1.5,
               color: Colors.white,
             ),
           ),
@@ -904,8 +904,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           },
         ),
 
-        // Tell your people: Send to my group, Check in, Share a link.
+        // Tell your people: Send to my group and Check in.
         _buildTellYourPeopleSection(),
+
+        // Share a link (Detail board): its own full-width button, so an
+        // alert can be shared with or without a group.
+        _buildShareLinkButton(),
 
         // Community alerts: I see it / I don't see it voting, the
         // unverified note, then Follow / Listen / Report.
@@ -939,6 +943,66 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         message: 'That could not be sent. Please try again.',
       );
     }
+  }
+
+  /// The ShareLink sheet: the public link, Share, and Send to my family
+  /// circle when the user has a group.
+  void _openShareLinkSheet(final Hazard hazard) {
+    final hasGroup = ref.read(providerOfFamily).circle != null;
+    showShareLinkSheet(
+      context: context,
+      hazard: hazard,
+      onSendToGroup: hasGroup ? () => _sendAlertToGroup(hazard) : null,
+    );
+  }
+
+  /// "Share a link" under Tell your people (Detail board): white, full
+  /// width, outlined. Official alerts only; a community report shares from
+  /// the button in its header. Hidden until the alert has a public page.
+  Widget _buildShareLinkButton() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null ||
+            hazard.isUserReported ||
+            !isAlertShareable(hazard)) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: EdgeInsets.only(top: 12.spMin),
+          child: Material(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(14.spMin),
+            child: InkWell(
+              onTap: () => _openShareLinkSheet(hazard),
+              borderRadius: BorderRadius.circular(14.spMin),
+              child: Container(
+                height: 50.spMin,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14.spMin),
+                  border: Border.all(color: AppColors.lightGrey, width: 1.5),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(LucideIcons.share2, size: 18.spMin, color: AppColors.ink),
+                    8.wSizedBox,
+                    Text(
+                      'Share a link',
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   /// Sends a personal check-in near this alert to the user's family circle.
@@ -1034,7 +1098,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final isSending = ref.watch(
           providerOfFamily.select((s) => s.checkInState.isLoading),
         );
-        final canShare = isAlertShareable(hazard);
         final canPickGroup = circleCount > 1;
         final memberCount = members.length;
         final countLine =
@@ -1172,21 +1235,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                                 : () => _sendCheckIn(hazard),
                           ),
                         ),
-                        if (canShare) ...[
-                          10.wSizedBox,
-                          Expanded(
-                            child: _groupSecondaryButton(
-                              label: 'Share link',
-                              icon: LucideIcons.share2,
-                              onTap: () => shareAlert(
-                                ref: ref,
-                                hazard: hazard,
-                                from: 'detail',
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
+                    ),
+                    10.hSizedBox,
+                    Text(
+                      'Sends the alert and a one-line note. No location '
+                      'unless you choose to add it.',
+                      style: TextStyle(
+                        fontSize: 11.spMin,
+                        height: 1.4,
+                        color: AppColors.white.withValues(alpha: 0.75),
+                      ),
                     ),
                   ],
                 ),

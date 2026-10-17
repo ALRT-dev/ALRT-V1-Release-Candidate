@@ -555,11 +555,20 @@ class MapProvider extends StateNotifier<MapProviderState> {
 
     // If origin is different from current user location, get a new route then start navigation
     if (origin != currentUserLocation) {
+      final chosenMode = currentRoutePlan.selectedTravelMode;
       await getRoutePlan(
         origin: currentUserLocation,
         destination: destination,
       );
       if (!mounted) return;
+      // The fresh plan starts on its default mode; keep the mode the person
+      // chose (Walk, Bike, Transit) so navigation follows what they picked.
+      final refreshed = state.currentRoutePlan;
+      if (refreshed != null &&
+          refreshed.selectedTravelMode != chosenMode &&
+          refreshed.travelModeRoutes.containsKey(chosenMode)) {
+        updateSelectedTravelMode(chosenMode);
+      }
     }
 
     _logStartNavigationSteps();

@@ -5,23 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/views/widgets/family_app_bar.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_kit.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
-import 'package:hazard_app/features/family/views/widgets/family_group_avatar.dart';
+import 'package:hazard_app/features/family/views/widgets/family_leave_confirm_sheet.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_source_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Group settings (12 Oct 2026 mockup): the ONE place a group's name,
-/// rules, picture and colour are edited, plus the host's own actions on
-/// the group (hand it over, close it, leave it).
+/// Group settings (GroupSettings board).
 ///
-/// The host edits; everyone else sees the same card read-only, so a member
-/// learns where the settings live rather than finding a menu item that
-/// fails. "How this group sees you" is a per-member thing and lives on the
-/// circle profile screen, reached from the Family hub.
+/// NAME AND RULES: the group photo (host only, "Members only. Never on the
+/// map."), the name, the two rules as switches, and Save (host only).
+/// HOSTING: the host hands the circle to someone or closes it; a member
+/// sees who hosts it. Everyone can leave. Members see the values
+/// read-only under "Only the host can change these."
 class FamilyGroupSettingsScreen extends ConsumerStatefulWidget {
   const FamilyGroupSettingsScreen({super.key});
 
@@ -34,26 +32,10 @@ class FamilyGroupSettingsScreen extends ConsumerStatefulWidget {
 
 class _FamilyGroupSettingsScreenState
     extends ConsumerState<FamilyGroupSettingsScreen> {
-  /// The ten colours a group can wear. Colours another group already uses
-  /// are labelled rather than hidden, so every group stays distinct.
-  static const _swatches = <Color>[
-    FamilyColors.v31Indigo,
-    Color(0xFFFF6B01),
-    Color(0xFF16A46B),
-    Color(0xFFE0362B),
-    Color(0xFFF5A623),
-    Color(0xFF4DA8FF),
-    FamilyColors.v31HeaderGlow,
-    Color(0xFFEC1C7D),
-    Color(0xFF1D1D21),
-    Color(0xFF8A8792),
-  ];
-
-  Color? _picked;
   bool _isSaving = false;
 
-  // Name and rules are held here until Save, like the colour, so one tap
-  // saves everything and Back discards everything.
+  // Name and rules are held here until Save, so one tap saves everything
+  // and Back discards everything.
   late final TextEditingController _nameController;
   bool? _anyoneCanRequest;
   bool? _snapPointsOnly;
@@ -91,478 +73,190 @@ class _FamilyGroupSettingsScreenState
     });
 
     final circle = ref.watch(providerOfFamily.select((s) => s.circle));
-    final circles = ref.watch(providerOfFamily.select((s) => s.circles));
     if (circle == null) return const SizedBox.shrink();
     _seedFrom(circle);
 
     final isOwner = circle.me?.role == FamilyRole.owner;
-    final selected = _picked ?? _colorOf(circle.themeColor) ?? _swatches.first;
 
-    // Which colours the user's other groups already wear, so they can be
-    // labelled instead of quietly clashing.
-    final takenLabels = <int, String>{};
-    for (final other in circles) {
-      if (other.circleId == circle.id) continue;
-      final color = _colorOf(other.themeColor);
-      if (color == null) continue;
-      takenLabels[color.toARGB32()] = other.name
-          .split(RegExp(r'\s+'))
-          .first
-          .toUpperCase();
-    }
-
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final bottomSafe = MediaQuery.viewPaddingOf(context).bottom;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const FamilyWhiteAppBar(title: 'Group settings'),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          16.spMin,
-          4.spMin,
-          16.spMin,
-          24.spMin + (bottomInset > bottomSafe ? bottomInset : bottomSafe),
-        ),
-        children: [
-          _nameAndRulesCardBuilder(
-            circle,
-            selected,
-            takenLabels,
-            isOwner: isOwner,
-          ),
-          if (isOwner) _hostingCardBuilder(circle),
-        ],
-      ),
+    return FamilyBoardScaffold(
+      title: 'Group settings',
+      children: [
+        if (!isOwner) const FamilyBoardNote('Only the host can change these.'),
+        _section('Name and rules', _nameAndRulesCardBuilder(circle, isOwner)),
+        _section('Hosting', _hostingCardBuilder(circle, isOwner)),
+      ],
     );
   }
 
-  /// Picture, name, colour and the two rules, with Save at the bottom.
-  /// Editable by the host only; members see the values so the rules are
-  /// never a mystery.
+  Widget _section(final String label, final Widget card) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FamilyBoardLabel(label),
+        SizedBox(height: 8.spMin),
+        card,
+      ],
+    );
+  }
+
   Widget _nameAndRulesCardBuilder(
     final FamilyCircle circle,
-    final Color selected,
-    final Map<int, String> takenLabels, {
-    required final bool isOwner,
-  }) {
-    final hasPhoto = (circle.photoUrl ?? '').isNotEmpty;
-    return _cardBuilder(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _labelBuilder('NAME AND RULES'),
-          SizedBox(height: 12.spMin),
+    final bool isOwner,
+  ) {
+    return FamilyBoardCard(
+      children: [
+        if (isOwner)
           Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10.spMin),
-                child: FamilyGroupAvatar(
-                  name: circle.name,
-                  photoUrl: circle.photoUrl,
-                  themeColorHex: _hexOf(selected),
-                  size: 44.spMin,
-                ),
+              _photoTileBuilder(circle.photoUrl, size: 44, radius: 14),
+              SizedBox(width: 12.spMin),
+              FamilyBoardSmallButton(
+                key: const Key('group-photo'),
+                label: 'Group photo',
+                onPressed: _isSaving ? null : () => _openGroupPhotoSheet(circle),
               ),
               SizedBox(width: 12.spMin),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isOwner)
-                      Row(
-                        children: [
-                          _outlinedBuilder(
-                            key: 'group-photo',
-                            label: 'Group photo',
-                            icon: LucideIcons.camera,
-                            onTap: _isSaving ? null : _changeGroupPhoto,
-                          ),
-                          if (hasPhoto) ...[
-                            SizedBox(width: 8.spMin),
-                            TextButton(
-                              onPressed: _isSaving ? null : _removeGroupPhoto,
-                              child: Text(
-                                'Remove',
-                                style: TextStyle(
-                                  fontSize: 13.spMin,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.red,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    SizedBox(height: 4.spMin),
-                    Text(
-                      'Members only. Never on the map.',
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        color: AppColors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16.spMin),
-          _fieldLabelBuilder('Group name'),
-          SizedBox(height: 6.spMin),
-          TextField(
-            key: const Key('group-name'),
-            controller: _nameController,
-            maxLength: 50,
-            textCapitalization: TextCapitalization.words,
-            enabled: isOwner && !_isSaving,
-            style: TextStyle(
-              fontSize: 15.spMin,
-              fontWeight: FontWeight.w600,
-              color: AppColors.ink,
-            ),
-            decoration: InputDecoration(
-              counterText: '',
-              isDense: true,
-              filled: true,
-              fillColor: AppColors.extraLightGrey,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 14.spMin,
-                vertical: 14.spMin,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.spMin),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          SizedBox(height: 16.spMin),
-          _fieldLabelBuilder('Group colour'),
-          SizedBox(height: 10.spMin),
-          Wrap(
-            spacing: 10.spMin,
-            runSpacing: 10.spMin,
-            children: [
-              for (final swatch in _swatches)
-                _swatchBuilder(
-                  swatch: swatch,
-                  isSelected: swatch.toARGB32() == selected.toARGB32(),
-                  takenBy: takenLabels[swatch.toARGB32()],
-                  enabled: isOwner && !_isSaving,
-                ),
-            ],
-          ),
-          SizedBox(height: 10.spMin),
-          _ruleBuilder(
-            key: 'rule-anyone-can-ask',
-            title: 'Anyone can ask for a snapshot',
-            value: _anyoneCanRequest ?? circle.anyoneCanRequestSnapshot,
-            isOwner: isOwner,
-            onChanged: (value) => setState(() => _anyoneCanRequest = value),
-          ),
-          // No "SOS to whole group" rule (product owner, 8 Oct 2026): who
-          // an SOS reaches is the sender's choice on the SOS screen.
-          _ruleBuilder(
-            key: 'rule-periodic-only',
-            title: 'Journeys use periodic updates only',
-            value: _snapPointsOnly ?? circle.journeysSnapPointsOnly,
-            isOwner: isOwner,
-            onChanged: (value) => setState(() => _snapPointsOnly = value),
-          ),
-          if (isOwner) ...[
-            SizedBox(height: 14.spMin),
-            SizedBox(
-              height: 54.spMin,
-              child: ElevatedButton(
-                key: const Key('group-save'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orange,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.orange.withValues(
-                    alpha: 0.5,
-                  ),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.spMin),
-                  ),
-                ),
-                onPressed: _isSaving ? null : _handleSave,
                 child: Text(
-                  _isSaving ? 'Saving...' : 'Save',
+                  'Members only. Never on the map.',
                   style: TextStyle(
-                    fontSize: 16.spMin,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12.spMin,
+                    color: AppColors.mediumGrey,
                   ),
                 ),
               ),
-            ),
-          ] else ...[
-            SizedBox(height: 8.spMin),
-            Text(
-              'Only the host can change these.',
-              style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// The host's own moves: hand the group to someone, close it for
-  /// everyone, or step back and leave it running for the others.
-  Widget _hostingCardBuilder(final FamilyCircle circle) {
-    return _cardBuilder(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _labelBuilder('HOSTING'),
-          SizedBox(height: 12.spMin),
-          _wideOutlinedBuilder(
-            key: 'host-transfer',
-            label: 'Hand the group to someone',
-            onTap: _isSaving ? null : _showTransferHostingSheet,
+            ],
           ),
-          SizedBox(height: 10.spMin),
-          _wideOutlinedBuilder(
-            key: 'host-close',
-            label: 'Close the group',
-            onTap: _isSaving ? null : _confirmClose,
-          ),
-          // Leaving without naming a successor starts a 7-day host-transition
-          // window instead of closing the group: a real, separate choice,
-          // only offered when there is someone left to keep it running for.
-          if (circle.members.length > 1) ...[
-            SizedBox(height: 6.spMin),
-            TextButton(
-              key: const Key('host-leave'),
-              onPressed: _isSaving ? null : () => _confirmStepBack(circle),
-              child: Text(
-                'Leave ${circle.name}',
-                style: TextStyle(
-                  fontSize: 15.spMin,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.red,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _labelBuilder(final String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 11.spMin,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.8,
-        color: AppColors.sectionLabel,
-      ),
-    );
-  }
-
-  Widget _fieldLabelBuilder(final String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13.spMin,
-        fontWeight: FontWeight.w700,
-        color: AppColors.ink,
-      ),
-    );
-  }
-
-  Widget _ruleBuilder({
-    required final String key,
-    required final String title,
-    required final bool value,
-    required final bool isOwner,
-    required final ValueChanged<bool> onChanged,
-  }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4.spMin),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 14.spMin,
-                fontWeight: FontWeight.w600,
-                color: AppColors.ink,
-              ),
-            ),
-          ),
-          Switch(
-            key: Key(key),
-            value: value,
-            activeTrackColor: FamilyColors.v31ToggleOn,
-            inactiveTrackColor: FamilyColors.v31ToggleOff,
-            inactiveThumbColor: Colors.white,
-            onChanged: isOwner && !_isSaving ? onChanged : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _outlinedBuilder({
-    required final String key,
-    required final String label,
-    required final IconData icon,
-    required final VoidCallback? onTap,
-  }) {
-    return OutlinedButton.icon(
-      key: Key(key),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.ink,
-        side: const BorderSide(color: FamilyColors.v31Border),
-        padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 8.spMin),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10.spMin),
+        TextField(
+          key: const Key('group-name'),
+          controller: _nameController,
+          maxLength: 50,
+          textCapitalization: TextCapitalization.words,
+          enabled: isOwner && !_isSaving,
+          style: familyBoardInputStyle(),
+          decoration: familyBoardInputDecoration('Group name'),
         ),
-      ),
-      onPressed: onTap,
-      icon: Icon(icon, size: 15.spMin),
-      label: Text(
-        label,
-        style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-
-  Widget _wideOutlinedBuilder({
-    required final String key,
-    required final String label,
-    required final VoidCallback? onTap,
-  }) {
-    return SizedBox(
-      height: 50.spMin,
-      child: OutlinedButton(
-        key: Key(key),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.ink,
-          side: const BorderSide(color: FamilyColors.v31Border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14.spMin),
-          ),
-        ),
-        onPressed: onTap,
-        child: Text(
-          label,
-          style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
-
-  Widget _swatchBuilder({
-    required final Color swatch,
-    required final bool isSelected,
-    final String? takenBy,
-    required final bool enabled,
-  }) {
-    return GestureDetector(
-      onTap: enabled ? () => setState(() => _picked = swatch) : null,
-      child: Container(
-        width: 28.spMin,
-        height: 28.spMin,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: swatch,
-          shape: BoxShape.circle,
-          // The selected ring: a white gap then an ink ring, so it reads on
-          // every swatch colour including the near-black one.
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: isSelected
-              ? const [
-                  BoxShadow(color: AppColors.ink, spreadRadius: 2),
-                ]
+        FamilyBoardToggleRow(
+          switchKey: const Key('rule-anyone-can-ask'),
+          title: 'Anyone can ask for a snapshot',
+          value: _anyoneCanRequest ?? circle.anyoneCanRequestSnapshot,
+          onChanged: isOwner && !_isSaving
+              ? (value) => setState(() => _anyoneCanRequest = value)
               : null,
         ),
-        child: isSelected
-            ? Icon(LucideIcons.check, size: 12.spMin, color: Colors.white)
-            : takenBy == null
-            ? null
-            : Text(
-                takenBy.substring(0, 1),
-                style: TextStyle(
-                  fontSize: 9.spMin,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _cardBuilder({required final Widget child}) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 14.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(color: FamilyColors.v31Divider),
-        boxShadow: const [
-          BoxShadow(
-            color: FamilyColors.v31CardShadow,
-            blurRadius: 10.0,
-            offset: Offset(0, 2),
+        // No "SOS to whole group" rule (product owner, 8 Oct 2026): who
+        // an SOS reaches is the sender's choice on the SOS screen.
+        FamilyBoardToggleRow(
+          switchKey: const Key('rule-periodic-only'),
+          title: 'Journeys use periodic updates only',
+          value: _snapPointsOnly ?? circle.journeysSnapPointsOnly,
+          onChanged: isOwner && !_isSaving
+              ? (value) => setState(() => _snapPointsOnly = value)
+              : null,
+        ),
+        if (isOwner)
+          FamilyBoardPrimaryButton(
+            key: const Key('group-save'),
+            label: 'Save',
+            busy: _isSaving,
+            onPressed: _handleSave,
           ),
-        ],
-      ),
-      padding: EdgeInsets.all(16.spMin),
-      child: child,
+      ],
     );
   }
 
-  /// Picks and uploads a group picture. Applies immediately rather than
-  /// waiting for Save: an image upload is its own action, and the group's
-  /// members see it the moment it lands.
-  Future<void> _changeGroupPhoto() async {
-    final medias = await showImagePickerBottomSheet(context: context);
-    final media = medias?.firstOrNull;
-    if (media == null || media.source != AlrtMediaSource.file) return;
-    if (!mounted) return;
+  /// The host hands the circle on or closes it; everyone can leave.
+  Widget _hostingCardBuilder(final FamilyCircle circle, final bool isOwner) {
+    final hostName = circle.members
+        .where((m) => m.role == FamilyRole.owner)
+        .firstOrNull
+        ?.name;
+    // A host alone in the circle closes it rather than leaving it empty.
+    final canLeave = !isOwner || circle.members.length > 1;
 
-    setState(() => _isSaving = true);
-    final uploaded = await ref
-        .read(providerOfFamily.notifier)
-        .updateGroupPhoto(File(media.value));
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-
-    uploaded
-        ? context.showSuccessToast(message: 'Group photo updated.')
-        : context.showErrorToast(
-            message: 'Could not upload the photo. Please try again.',
-          );
+    return FamilyBoardCard(
+      children: [
+        if (isOwner) ...[
+          FamilyBoardSecondaryButton(
+            key: const Key('host-transfer'),
+            label: 'Hand the circle to someone',
+            onPressed: _isSaving ? null : _showTransferHostingSheet,
+          ),
+          FamilyBoardSecondaryButton(
+            key: const Key('host-close'),
+            label: 'Close the circle',
+            onPressed: _isSaving ? null : _confirmClose,
+          ),
+        ] else
+          FamilyBoardMuted(
+            hostName == null ? 'Hosted by someone else.' : 'Hosted by $hostName.',
+          ),
+        if (canLeave)
+          FamilyBoardSecondaryButton(
+            key: const Key('host-leave'),
+            label: 'Leave ${circle.name}',
+            onPressed: _isSaving ? null : () => _confirmLeave(circle, isOwner),
+          ),
+      ],
+    );
   }
 
-  Future<void> _removeGroupPhoto() async {
-    setState(() => _isSaving = true);
-    final removed = await ref
-        .read(providerOfFamily.notifier)
-        .removeGroupPhoto();
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-
-    removed
-        ? context.showSuccessToast(message: 'Group photo removed.')
-        : context.showErrorToast(
-            message: 'Could not remove the photo. Please try again.',
-          );
+  Widget _photoTileBuilder(
+    final String? photoUrl, {
+    required final double size,
+    required final double radius,
+  }) {
+    final hasPhoto = (photoUrl ?? '').isNotEmpty;
+    return Container(
+      width: size.spMin,
+      height: size.spMin,
+      decoration: BoxDecoration(
+        color: FamilyColors.boardIndigoWash,
+        borderRadius: BorderRadius.circular(radius.spMin),
+        image: hasPhoto
+            ? DecorationImage(
+                image: NetworkImage(photoUrl!),
+                fit: BoxFit.cover,
+              )
+            : null,
+      ),
+    );
   }
+
+  // ── Group photo sheet (GroupPhoto board) ────────────────────────────
+
+  Future<void> _openGroupPhotoSheet(final FamilyCircle circle) async {
+    final outcome = await showFamilyBoardSheet<String>(
+      context: context,
+      builder: (sheetContext) => [
+        const FamilyBoardSheetTitle(
+          'Group photo',
+          subtitle: 'Shown to members of this group only.',
+        ),
+        _GroupPhotoSheetBody(photoUrl: circle.photoUrl),
+      ],
+    );
+    if (!mounted || outcome == null) return;
+    switch (outcome) {
+      case _GroupPhotoSheetBody.saved:
+        context.showSuccessToast(message: 'Group photo updated.');
+      case _GroupPhotoSheetBody.removed:
+        context.showSuccessToast(message: 'Group photo removed.');
+      case _GroupPhotoSheetBody.failed:
+        context.showErrorToast(
+          message: 'Could not update the photo. Please try again.',
+        );
+    }
+  }
+
+  // ── Save ─────────────────────────────────────────────────────────────
 
   Future<void> _handleSave() async {
     final circle = ref.read(providerOfFamily).circle;
     if (circle == null) return;
 
-    final picked = _picked;
     final newName = _nameController.text.trim();
     final name = newName.isEmpty || newName == circle.name ? null : newName;
-    final themeColor = picked == null ? null : _hexOf(picked);
     final anyone = _anyoneCanRequest == circle.anyoneCanRequestSnapshot
         ? null
         : _anyoneCanRequest;
@@ -570,10 +264,7 @@ class _FamilyGroupSettingsScreenState
         ? null
         : _snapPointsOnly;
 
-    if (name == null &&
-        themeColor == null &&
-        anyone == null &&
-        snap == null) {
+    if (name == null && anyone == null && snap == null) {
       Navigator.of(context).maybePop();
       return;
     }
@@ -583,7 +274,6 @@ class _FamilyGroupSettingsScreenState
         .read(providerOfFamily.notifier)
         .updateGroupSettings(
           name: name,
-          themeColor: themeColor,
           anyoneCanRequestSnapshot: anyone,
           journeysSnapPointsOnly: snap,
         );
@@ -598,9 +288,10 @@ class _FamilyGroupSettingsScreenState
     }
   }
 
-  /// Host-only (§29 TRANSFER): hand the group to an eligible member.
-  /// Ineligible members are shown greyed with the reason, never hidden.
-  /// The same provider calls as the hub's "Transfer hosting".
+  // ── Hosting ──────────────────────────────────────────────────────────
+
+  /// Host only (§29 TRANSFER): "Hand the circle to", one row per member.
+  /// Members who cannot take over are shown with the reason, never hidden.
   Future<void> _showTransferHostingSheet() async {
     final candidates = await ref
         .read(providerOfFamily.notifier)
@@ -612,118 +303,50 @@ class _FamilyGroupSettingsScreenState
       );
       return;
     }
-    if (candidates.candidates.isEmpty) {
-      context.showErrorToast(
-        message:
-            'Invite someone first. There is no one to hand the group to yet.',
-      );
-      return;
-    }
 
-    final picked = await showModalBottomSheet<FamilyTransferCandidate>(
+    final picked = await showFamilyBoardSheet<FamilyTransferCandidate>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.spMin)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.spMin, 20.spMin, 20.spMin, 12.spMin),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Hand the group to someone',
-                style: TextStyle(
-                  fontSize: 17.spMin,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 4.spMin),
-              Text(
-                'The new host runs invites and group settings. How the group '
-                'is paid for does not change, and you stay on as a member.',
-                style: TextStyle(
-                  fontSize: 12.5.spMin,
-                  color: AppColors.mediumGrey,
-                ),
-              ),
-              SizedBox(height: 8.spMin),
-              ...candidates.candidates.map(
-                (candidate) => ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  enabled: candidate.eligible,
+      builder: (sheetContext) => [
+        const FamilyBoardSheetTitle('Hand the circle to'),
+        if (candidates.candidates.isEmpty)
+          const FamilyBoardCard(
+            children: [FamilyBoardMuted('Nobody else is in this circle yet.')],
+          )
+        else
+          FamilyBoardGroup(
+            rows: [
+              for (final candidate in candidates.candidates)
+                FamilyBoardRow(
+                  key: Key('cand-${candidate.memberId}'),
+                  title: candidate.name,
+                  subtitle: candidate.eligible
+                      ? null
+                      : candidate.reason ?? 'Not eligible right now',
+                  trailing: candidate.eligible ? null : const SizedBox.shrink(),
                   onTap: candidate.eligible
                       ? () => Navigator.of(sheetContext).pop(candidate)
                       : null,
-                  leading: CircleAvatar(
-                    radius: 18.spMin,
-                    backgroundColor: FamilyColors.indigo.withValues(
-                      alpha: candidate.eligible ? 0.15 : 0.06,
-                    ),
-                    foregroundImage: candidate.profilePictureUrl != null
-                        ? NetworkImage(candidate.profilePictureUrl!)
-                        : null,
-                    child: Text(
-                      candidate.name.isEmpty
-                          ? '?'
-                          : candidate.name[0].toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 14.spMin,
-                        fontWeight: FontWeight.w700,
-                        color: candidate.eligible
-                            ? FamilyColors.indigo
-                            : AppColors.grey,
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    candidate.name,
-                    style: TextStyle(
-                      fontSize: 14.5.spMin,
-                      fontWeight: FontWeight.w600,
-                      color: candidate.eligible
-                          ? Colors.black87
-                          : AppColors.grey,
-                    ),
-                  ),
-                  subtitle: candidate.eligible
-                      ? null
-                      : Text(
-                          candidate.reason ?? 'Not eligible right now',
-                          style: TextStyle(
-                            fontSize: 11.5.spMin,
-                            color: AppColors.grey,
-                          ),
-                        ),
-                  trailing: candidate.eligible
-                      ? Icon(
-                          LucideIcons.chevronRight,
-                          size: 18.spMin,
-                          color: AppColors.grey,
-                        )
-                      : null,
                 ),
-              ),
             ],
           ),
+        FamilyBoardGhostButton(
+          label: 'Cancel',
+          onPressed: () => Navigator.of(sheetContext).pop(),
         ),
-      ),
+      ],
     );
     if (picked == null || !mounted) return;
 
     var confirmed = false;
     await showConfirmationSheet(
       context: context,
-      title: 'Hand the group to ${picked.name}?',
+      title: 'Hand the circle to ${picked.name}?',
       description:
           '${picked.name} will run invites and group settings. Everything '
           'keeps working, how the group is paid for does not change, and '
           'you stay on as a member. Only ${picked.name} can hand hosting '
           'back.',
-      confirmButtonText: 'Transfer hosting',
+      confirmButtonText: 'Hand it over',
       onPressedConfirm: (_, __) => confirmed = true,
     );
     if (!confirmed || !mounted) return;
@@ -734,55 +357,158 @@ class _FamilyGroupSettingsScreenState
     if (!mounted) return;
     ok
         ? context.showSuccessToast(
-            message: '${picked.name} is now hosting this group.',
+            message: '${picked.name} is now hosting this circle.',
           )
         : context.showErrorToast(
-            message: 'Could not transfer hosting. Please try again.',
+            message: 'Could not hand over hosting. Please try again.',
           );
   }
 
-  /// Closing a group for everyone is a different decision from leaving
-  /// one, so it keeps the plain destructive confirmation (the hub's).
+  /// Closing a circle for everyone is a different decision from leaving
+  /// one, so it keeps the plain destructive confirmation.
   Future<void> _confirmClose() {
     return showConfirmationSheet(
       context: context,
-      title: 'Close this group for everyone?',
+      title: 'Close this circle for everyone?',
       description:
-          'Everyone is removed and the group is deleted. Snapshots and '
-          'journeys in it are gone; SOS history keeps time and duration '
+          'Everyone is removed and the circle is deleted. Snapshots and '
+          'journeys in it are gone. SOS history keeps time and duration '
           'only.',
-      confirmButtonText: 'Close group',
+      confirmButtonText: 'Close the circle',
       onPressedConfirm: (_, __) =>
           ref.read(providerOfFamily.notifier).deleteCircle(),
     );
   }
 
-  /// The host leaving without naming a successor first: the group stays
-  /// active for everyone else, with a 7-day window for an eligible member
-  /// to take over before invites and settings lock (the hub's "Step back
-  /// as host", word for word).
-  Future<void> _confirmStepBack(final FamilyCircle circle) {
-    return showConfirmationSheet(
+  /// The Leave sheet (LeaveSheet board). A host leaving without naming a
+  /// successor starts the 7 day host hand-over; the sheet says so.
+  Future<void> _confirmLeave(final FamilyCircle circle, final bool isOwner) async {
+    final myMemberId = circle.myMemberId;
+    final sosListCount = ref
+        .read(providerOfFamily)
+        .sosLists
+        .where((list) => list.memberIds.contains(myMemberId))
+        .length;
+    final shouldLeave = await showFamilyLeaveConfirmSheet(
       context: context,
-      title: 'Leave ${circle.name} as host?',
-      description:
-          "You'll leave the group. Everyone else keeps SOS, check-ins, "
-          'journeys and the member list. An eligible member has 7 days '
-          'to take over hosting; if nobody does, invites and group '
-          'settings lock, but nothing else changes and nobody is removed.',
-      confirmButtonText: 'Leave group',
-      onPressedConfirm: (_, __) => ref.read(providerOfFamily.notifier).leave(),
+      circleName: circle.name,
+      sosListCount: sosListCount,
+      isHost: isOwner,
+    );
+    if (!shouldLeave || !mounted) return;
+    await ref.read(providerOfFamily.notifier).leave();
+  }
+}
+
+/// The GroupPhoto sheet's body: the preview tile, "Choose a photo", Save,
+/// "Remove photo" when there is one, and Close. Pops with [saved],
+/// [removed] or [failed]; Close pops with nothing.
+class _GroupPhotoSheetBody extends ConsumerStatefulWidget {
+  const _GroupPhotoSheetBody({required this.photoUrl});
+
+  static const saved = 'saved';
+  static const removed = 'removed';
+  static const failed = 'failed';
+
+  final String? photoUrl;
+
+  @override
+  ConsumerState<_GroupPhotoSheetBody> createState() =>
+      _GroupPhotoSheetBodyState();
+}
+
+class _GroupPhotoSheetBodyState extends ConsumerState<_GroupPhotoSheetBody> {
+  File? _picked;
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final picked = _picked;
+    final url = widget.photoUrl;
+    final hasPhoto = (url ?? '').isNotEmpty;
+    final ImageProvider? image = picked != null
+        ? FileImage(picked)
+        : hasPhoto
+        ? NetworkImage(url!)
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              key: const Key('gphoto-preview'),
+              width: 72.spMin,
+              height: 72.spMin,
+              decoration: BoxDecoration(
+                color: FamilyColors.boardIndigoWash,
+                borderRadius: BorderRadius.circular(20.spMin),
+                image: image == null
+                    ? null
+                    : DecorationImage(image: image, fit: BoxFit.cover),
+              ),
+            ),
+            SizedBox(width: 14.spMin),
+            Expanded(
+              child: FamilyBoardSecondaryButton(
+                key: const Key('gphoto-choose'),
+                label: 'Choose a photo',
+                onPressed: _busy ? null : _choose,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 14.spMin),
+        FamilyBoardPrimaryButton(
+          key: const Key('gphoto-save'),
+          label: 'Save',
+          busy: _busy,
+          onPressed: _save,
+        ),
+        if (hasPhoto && picked == null)
+          FamilyBoardGhostButton(
+            label: 'Remove photo',
+            onPressed: _busy ? null : _remove,
+          ),
+        FamilyBoardGhostButton(
+          label: 'Close',
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+        ),
+      ],
     );
   }
 
-  static Color? _colorOf(final String? hex) {
-    if (hex == null || hex.isEmpty) return null;
-    final cleaned = hex.replaceAll('#', '');
-    final value = int.tryParse(cleaned, radix: 16);
-    if (value == null) return null;
-    return Color(cleaned.length <= 6 ? value | 0xFF000000 : value);
+  Future<void> _choose() async {
+    final medias = await showImagePickerBottomSheet(context: context);
+    final media = medias?.firstOrNull;
+    if (media == null || media.source != AlrtMediaSource.file) return;
+    if (!mounted) return;
+    setState(() => _picked = File(media.value));
   }
 
-  static String _hexOf(final Color color) =>
-      '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  Future<void> _save() async {
+    final picked = _picked;
+    if (picked == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _busy = true);
+    final ok = await ref
+        .read(providerOfFamily.notifier)
+        .updateGroupPhoto(picked);
+    if (!mounted) return;
+    Navigator.of(
+      context,
+    ).pop(ok ? _GroupPhotoSheetBody.saved : _GroupPhotoSheetBody.failed);
+  }
+
+  Future<void> _remove() async {
+    setState(() => _busy = true);
+    final ok = await ref.read(providerOfFamily.notifier).removeGroupPhoto();
+    if (!mounted) return;
+    Navigator.of(
+      context,
+    ).pop(ok ? _GroupPhotoSheetBody.removed : _GroupPhotoSheetBody.failed);
+  }
 }

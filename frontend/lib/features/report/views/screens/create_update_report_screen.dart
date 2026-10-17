@@ -60,6 +60,16 @@ const _previewFill = Color(0xFFF0EEEA);
 const _brandGradientStart = Color(0xFFFF6B00);
 const _brandGradientEnd = Color(0xFFFF0004);
 
+/// The Posted board's own colours: its page grey, V3 rust labels, the
+/// hairline inside the points box, and the quiet ink tones.
+const _postedPageColor = Color(0xFFF5F5F7);
+const _postedLabel = Color(0xFFB84500);
+const _postedHairline = Color(0xFFECEEF1);
+const _postedBody = Color(0xFF3A3A42);
+const _postedMuted = Color(0xFF5C5C66);
+const _postedLine = Color(0xFFE3E6EA);
+const _postedOrange = Color(0xFFE8622A);
+
 class CreateUpdateReportScreenArgs {
   CreateUpdateReportScreenArgs({this.hazardToUpdate});
 
@@ -133,13 +143,19 @@ class _CreateUpdateReportScreenState
       showReportRateLimitSheet(context: context, message: message);
     });
 
+    // The Posted board has no header: once the report has gone the page
+    // is the thanks itself, on the boards' light grey.
+    final reportSubmitted = ref.watch(
+      providerOfCreateReport.select((value) => value.reportSubmitted),
+    );
+
     return Scaffold(
       // The soft grey page the prototype uses. White cards float on it, so
       // each one reads as a distinct thing to do instead of dissolving into
       // a single white sheet divided by hairlines.
-      backgroundColor: _pageColor,
+      backgroundColor: reportSubmitted ? _postedPageColor : _pageColor,
       bottomNavigationBar: _submitBarBuilder(),
-      appBar: AppBar(
+      appBar: reportSubmitted ? null : AppBar(
         backgroundColor: AppColors.white,
         surfaceTintColor: AppColors.transparent,
         elevation: 0,
@@ -158,15 +174,6 @@ class _CreateUpdateReportScreenState
                 (value) => value.hazardToCreateOrUpdate.id?.isNotEmpty ?? false,
               ),
             );
-            final reportSubmitted = ref.watch(
-              providerOfCreateReport.select(
-                (value) => value.reportSubmitted,
-              ),
-            );
-            if (reportSubmitted) {
-              return _submittedAppbarTitleBuilder();
-            }
-
             // Title plus one plain line of what this screen is for, so the
             // header carries the purpose instead of a warning box.
             return Column(
@@ -699,110 +706,115 @@ class _CreateUpdateReportScreenState
     });
   }
 
-  /// The header once the report has gone: a plain title. The body below
-  /// carries the thanks and what the report can earn, so the header does
-  /// not repeat it.
-  Widget _submittedAppbarTitleBuilder() {
-    return Text(
-      'Report sent',
-      style: TextStyle(
-        color: AppColors.black,
-        fontSize: 21.spMin,
-        fontWeight: FontWeight.w700,
-        height: 1.1,
-      ),
-    );
-  }
-
-  /// The posted state (approved Report board): a green tick, thanks, what
-  /// the report can earn, the next badge when the ledger knows one, and one
-  /// primary action back to the map.
+  /// The posted state (board Posted): a green tick, thanks, what the
+  /// report can earn, the next badge when the ledger knows one, then "Back
+  /// to the map" and "See my reports".
   Widget _submittedBuilder() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(20.spMin, 36.spMin, 20.spMin, 24.spMin),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 72.spMin,
-              height: 72.spMin,
-              decoration: const BoxDecoration(
-                color: _postedTickBackground,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                LucideIcons.check,
-                size: 36.spMin,
-                color: AppColors.green,
+    return SafeArea(
+      bottom: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16.spMin, 48.spMin, 16.spMin, 24.spMin),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 72.spMin,
+                height: 72.spMin,
+                decoration: const BoxDecoration(
+                  color: _postedTickBackground,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  LucideIcons.check,
+                  size: 36.spMin,
+                  color: AppColors.green,
+                ),
               ),
             ),
-          ),
-          20.hSizedBox,
-          Text(
-            'Thanks for telling your neighbours',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 26.spMin,
-              fontWeight: FontWeight.w700,
-              height: 1.15,
-              color: AppColors.black,
-            ),
-          ),
-          10.hSizedBox,
-          Text(
-            'Your report is being checked. It shows as unverified until '
-            'others nearby confirm it.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15.spMin,
-              height: 1.4,
-              color: AppColors.mediumGrey,
-            ),
-          ),
-          24.hSizedBox,
-          _whatThisEarnsBuilder(),
-          _nextBadgeBuilder(),
-          24.hSizedBox,
-          SizedBox(
-            height: 54.spMin,
-            child: Button.gradient(
-              value: 'Back to the map',
-              gradient: const LinearGradient(
-                colors: [_brandGradientStart, _brandGradientEnd],
-              ),
-              borderRadius: 16.0,
-              valueStyle: TextStyle(
-                fontSize: 16.spMin,
+            12.hSizedBox,
+            Text(
+              'Thanks for telling your neighbours',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 28.spMin,
                 fontWeight: FontWeight.w700,
-                color: AppColors.white,
+                letterSpacing: -0.3,
+                height: 1.15,
+                color: AppColors.black,
               ),
-              onPressed: _handleBackToMap,
+            ).pX(8.0),
+            12.hSizedBox,
+            Text(
+              'Your report is being checked. It shows as unverified until '
+              'others nearby confirm it.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15.spMin,
+                height: 1.5,
+                color: _postedMuted,
+              ),
+            ).pX(8.0),
+            24.hSizedBox,
+            _whatThisEarnsBuilder(),
+            _nextBadgeBuilder(),
+            24.hSizedBox,
+            SizedBox(
+              height: 54.spMin,
+              child: Button.gradient(
+                value: 'Back to the map',
+                gradient: const LinearGradient(
+                  colors: [_brandGradientStart, _brandGradientEnd],
+                ),
+                borderRadius: 14.0,
+                valueStyle: TextStyle(
+                  fontSize: 16.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.white,
+                ),
+                onPressed: _handleBackToMap,
+              ),
             ),
-          ),
-          14.hSizedBox,
-          Center(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _handleSeeMyReports,
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 12.spMin,
-                  vertical: 6.spMin,
+            10.hSizedBox,
+            SizedBox(
+              height: 48.spMin,
+              child: OutlinedButton(
+                onPressed: _handleSeeMyReports,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: AppColors.white,
+                  foregroundColor: AppColors.black,
+                  side: const BorderSide(color: _postedLine),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.spMin),
+                  ),
                 ),
                 child: Text(
                   'See my reports',
                   style: TextStyle(
                     fontSize: 15.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.orange,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  /// The white card the Posted board uses: radius 18, a hairline lift.
+  BoxDecoration _postedCardDecoration() {
+    return BoxDecoration(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(18.spMin),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.06),
+          blurRadius: 3.0,
+          offset: const Offset(0, 1),
+        ),
+      ],
     );
   }
 
@@ -816,31 +828,22 @@ class _CreateUpdateReportScreenState
   Widget _whatThisEarnsBuilder() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18.spMin),
-        boxShadow: const [
-          BoxShadow(
-            color: _cardShadow,
-            blurRadius: 10.0,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: EdgeInsets.all(18.spMin),
+      decoration: _postedCardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(
                   'POINTS YOU CAN EARN',
                   style: TextStyle(
                     fontSize: 12.spMin,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.7,
-                    color: _labelColor,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: _postedLabel,
                   ),
                 ),
               ),
@@ -851,39 +854,59 @@ class _CreateUpdateReportScreenState
                   'How points work',
                   style: TextStyle(
                     fontSize: 13.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.orange,
+                    fontWeight: FontWeight.w600,
+                    color: _postedMuted,
                   ),
                 ),
               ),
             ],
           ),
           12.hSizedBox,
-          _earnLineBuilder(
-            points: '+10',
-            text: 'when a moderator approves it',
-            isPrimary: true,
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: _postedHairline),
+              borderRadius: BorderRadius.circular(14.spMin),
+            ),
+            child: Column(
+              children: [
+                _earnLineBuilder(
+                  points: '+10',
+                  text: 'when a moderator approves it',
+                  isPrimary: true,
+                ),
+                _earnDivider(),
+                _earnLineBuilder(
+                  points: '+5',
+                  text: 'if someone nearby confirms the same thing',
+                ),
+                _earnDivider(),
+                _earnLineBuilder(
+                  points: '+15',
+                  text: 'if it matches an official warning',
+                ),
+              ],
+            ),
           ),
-          _earnLineBuilder(
-            points: '+5',
-            text: 'if someone nearby confirms the same thing',
-          ),
-          _earnLineBuilder(
-            points: '+15',
-            text: 'if it matches an official warning',
-          ),
-          6.hSizedBox,
+          12.hSizedBox,
           Text(
             'Points reward careful, accurate reports. Reporting more does '
             'not earn more.',
             style: TextStyle(
-              fontSize: 12.5.spMin,
-              height: 1.4,
-              color: AppColors.mediumGrey,
+              fontSize: 13.spMin,
+              height: 1.45,
+              color: _postedMuted,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _earnDivider() {
+    return Container(
+      height: 1,
+      margin: EdgeInsets.symmetric(horizontal: 16.spMin),
+      color: _postedHairline,
     );
   }
 
@@ -893,28 +916,29 @@ class _CreateUpdateReportScreenState
     final bool isPrimary = false,
   }) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8.spMin),
+      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 12.spMin),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 40.spMin,
+            width: 52.spMin,
             child: Text(
               points,
               style: TextStyle(
                 fontSize: 16.spMin,
-                fontWeight: FontWeight.w800,
-                color: isPrimary ? AppColors.orange : AppColors.black,
+                fontWeight: FontWeight.w700,
+                color: isPrimary ? _postedOrange : AppColors.black,
               ),
             ),
           ),
+          12.wSizedBox,
           Expanded(
             child: Text(
               text,
               style: TextStyle(
                 fontSize: 14.spMin,
                 height: 1.4,
-                color: AppColors.black,
+                color: _postedBody,
               ),
             ),
           ),
@@ -923,9 +947,9 @@ class _CreateUpdateReportScreenState
     );
   }
 
-  /// The next badge still to earn, with how far off it is. Shown only when
-  /// the XP summary has loaded and holds a locked badge with a threshold;
-  /// nothing is invented when the ledger is quiet.
+  /// "Next badge: [name]" with how far off it is. Shown only when the XP
+  /// summary has loaded and holds a locked badge with a threshold; nothing
+  /// is invented when the ledger is quiet.
   Widget _nextBadgeBuilder() {
     return Consumer(
       builder: (context, ref, child) {
@@ -943,46 +967,18 @@ class _CreateUpdateReportScreenState
 
         return Container(
           width: double.infinity,
-          margin: EdgeInsets.only(top: 12.spMin),
-          padding: EdgeInsets.symmetric(
-            horizontal: 16.spMin,
-            vertical: 14.spMin,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(18.spMin),
-            boxShadow: const [
-              BoxShadow(
-                color: _cardShadow,
-                blurRadius: 10.0,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
+          margin: EdgeInsets.only(top: 14.spMin),
+          padding: EdgeInsets.all(16.spMin),
+          decoration: _postedCardDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'NEXT BADGE',
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.7,
-                  color: _labelColor,
-                ),
-              ),
-              10.hSizedBox,
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(
-                    LucideIcons.award,
-                    size: 18.spMin,
-                    color: AppColors.orange,
-                  ),
-                  8.wSizedBox,
                   Expanded(
                     child: Text(
-                      next.name,
+                      'Next badge: ${next.name}',
                       style: TextStyle(
                         fontSize: 15.spMin,
                         fontWeight: FontWeight.w700,
@@ -991,11 +987,10 @@ class _CreateUpdateReportScreenState
                     ),
                   ),
                   Text(
-                    '${next.progress} of ${next.threshold}',
+                    '${next.progress} of ${next.threshold} points',
                     style: TextStyle(
-                      fontSize: 12.5.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.mediumGrey,
+                      fontSize: 13.spMin,
+                      color: _postedMuted,
                     ),
                   ),
                 ],
@@ -1005,9 +1000,9 @@ class _CreateUpdateReportScreenState
                 borderRadius: BorderRadius.circular(4.spMin),
                 child: LinearProgressIndicator(
                   value: next.fraction,
-                  minHeight: 6.spMin,
-                  backgroundColor: AppColors.extraLightGrey,
-                  color: AppColors.orange,
+                  minHeight: 8.spMin,
+                  backgroundColor: _postedHairline,
+                  color: _postedOrange,
                 ),
               ),
             ],

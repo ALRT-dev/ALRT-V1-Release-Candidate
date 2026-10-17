@@ -58,7 +58,7 @@ class NavigationSimulationControls extends ConsumerWidget {
                           child: Text(
                             simEnabled
                                 ? 'Sim ON (GPS paused)'
-                                : 'Sim OFF — tap to enable',
+                                : 'Sim OFF, tap to enable',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 10.spMin,

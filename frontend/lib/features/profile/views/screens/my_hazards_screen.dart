@@ -80,7 +80,6 @@ class MyHazardsScreen extends ConsumerWidget {
   ) {
     final acceptedLoading = state.getMyAcceptedHazardsState.maybeWhen(
       loading: () => true,
-      initial: () => true,
       orElse: () => false,
     );
     final rejectedLoading = state.getMyRejectedHazardsState.maybeWhen(

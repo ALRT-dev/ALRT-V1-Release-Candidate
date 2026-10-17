@@ -5,103 +5,145 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_place_edit_screen.dart';
-import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
-import 'package:hazard_app/features/family/views/widgets/family_header_surface.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_kit.dart';
+import 'package:hazard_app/features/map/models/alrt_location_model.dart';
+import 'package:hazard_app/features/map/views/screens/select_location_on_map_screen.dart';
+import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Saved places: per-place radius and circle-wide "notify the family when
-/// `member` arrives/leaves" toggles.
-class FamilyPlacesScreen extends ConsumerWidget {
+/// "Family places" (FamilyPlaces board): arrive and leave notices for the
+/// group, only for places added here. The note, one card per place, then
+/// a card to add one: name, "Pick location" and "Add a place".
+///
+/// Tapping a place opens who the group is told about (arrives / leaves per
+/// person); Edit opens the full editor (icon, radius).
+class FamilyPlacesScreen extends ConsumerStatefulWidget {
   const FamilyPlacesScreen({super.key});
 
   static const route = '/family-places';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FamilyPlacesScreen> createState() => _FamilyPlacesScreenState();
+}
+
+class _FamilyPlacesScreenState extends ConsumerState<FamilyPlacesScreen> {
+  /// New places start at the default radius (rules.json placeRadiusDefaultM).
+  static const _defaultRadiusMeters = 300;
+
+  final _nameController = TextEditingController();
+  AlrtLocation? _location;
+  bool _adding = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final circle = ref.watch(providerOfFamily.select((s) => s.circle));
     final places = circle?.places ?? const <FamilySavedPlace>[];
 
-    return Scaffold(
-      backgroundColor: FamilyColors.v31Page,
-      appBar: const FamilyAppBar(
-        title: 'Places',
-        subtitle: 'Get a quiet note when family arrive or leave',
-      ),
-      body: ListView(
-        padding: EdgeInsets.all(20.spMin),
-        children: [
-          Text(
-            'SAVED PLACES',
-            style: TextStyle(
-              fontSize: 13.spMin,
-              fontWeight: FontWeight.w700,
-              color: FamilyColors.v31Label,
-              letterSpacing: 0.5,
-            ),
-          ),
-          SizedBox(height: 10.spMin),
-          for (final place in places) _PlaceCard(place: place, circle: circle!),
-          SizedBox(height: 4.spMin),
-          _addPlaceCardBuilder(context),
-          SizedBox(height: 30.spMin),
-        ],
-      ),
+    return FamilyBoardScaffold(
+      title: 'Family places',
+      subtitle: 'Arrive and leave notices for your group',
+      gap: 10,
+      children: [
+        const FamilyBoardNote(
+          'Only for places you add here. Your group is told when you arrive '
+          'or leave. Different from your own saved places for alerts.',
+        ),
+        if (circle != null)
+          for (final place in places) _PlaceCard(place: place, circle: circle),
+        _addCardBuilder(),
+      ],
     );
   }
 
-  Widget _addPlaceCardBuilder(final BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push(FamilyPlaceEditScreen.route),
-      child: Container(
-        padding: EdgeInsets.all(18.spMin),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18.spMin),
-          border: Border.all(
-            color: FamilyColors.indigo.withValues(alpha: 0.4),
-            style: BorderStyle.solid,
-          ),
+  Widget _addCardBuilder() {
+    final location = _location;
+    return FamilyBoardCard(
+      children: [
+        TextField(
+          key: const Key('family-place-name'),
+          controller: _nameController,
+          maxLength: 40,
+          textCapitalization: TextCapitalization.words,
+          style: familyBoardInputStyle(),
+          decoration: familyBoardInputDecoration('Place name (Home, School)'),
         ),
-        child: Row(
+        if (location != null)
+          FamilyBoardMuted(
+            location.address ?? 'Location picked on the map',
+            size: 12,
+          ),
+        Row(
           children: [
-            Container(
-              width: 42.spMin,
-              height: 42.spMin,
-              decoration: BoxDecoration(
-                color: FamilyColors.indigoLight,
-                borderRadius: BorderRadius.circular(12.spMin),
-              ),
-              child: Icon(
-                Icons.add,
-                color: FamilyColors.indigo,
-                size: 22.spMin,
+            Expanded(
+              child: FamilyBoardSecondaryButton(
+                key: const Key('family-place-pick'),
+                label: location == null ? 'Pick location' : 'Change location',
+                onPressed: _adding ? null : _pickLocation,
               ),
             ),
-            SizedBox(width: 14.spMin),
+            SizedBox(width: 8.spMin),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Add a place',
-                    style: TextStyle(
-                      color: FamilyColors.indigo,
-                      fontSize: 16.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    'Home, work, school: anywhere that matters',
-                    style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
-                  ),
-                ],
+              child: FamilyBoardPrimaryButton(
+                key: const Key('family-place-add'),
+                label: 'Add a place',
+                busy: _adding,
+                onPressed: _addPlace,
               ),
             ),
           ],
         ),
-      ),
+      ],
     );
+  }
+
+  Future<void> _pickLocation() async {
+    final result = await context.push<AlrtLocation>(
+      SelectLocationOnMapScreen.route,
+      extra: SelectLocationOnMapScreenArgs(initialLocation: _location),
+    );
+    if (result != null && mounted) setState(() => _location = result);
+  }
+
+  Future<void> _addPlace() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      context.showErrorToast(message: 'Give the place a name first');
+      return;
+    }
+    final location = _location;
+    if (location == null) {
+      context.showErrorToast(message: 'Pick the place on the map first');
+      return;
+    }
+
+    setState(() => _adding = true);
+    final added = await ref
+        .read(providerOfFamily.notifier)
+        .createPlace(
+          name: name,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          radiusMeters: _defaultRadiusMeters,
+          address: location.address,
+        );
+    if (!mounted) return;
+    setState(() {
+      _adding = false;
+      if (added) {
+        _nameController.clear();
+        _location = null;
+      }
+    });
+    if (!added) {
+      context.showErrorToast(message: 'Could not add the place. Try again.');
+    }
   }
 }
 
@@ -121,93 +163,56 @@ class _PlaceCardState extends ConsumerState<_PlaceCard> {
   @override
   Widget build(BuildContext context) {
     final place = widget.place;
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18.spMin),
-        boxShadow: [
-          BoxShadow(color: AppColors.shadowColorLight, blurRadius: 2.0),
-        ],
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            onTap: () => setState(() => _expanded = !_expanded),
-            leading: Container(
-              width: 42.spMin,
-              height: 42.spMin,
-              decoration: BoxDecoration(
-                color: _iconBackground(place.icon),
-                borderRadius: BorderRadius.circular(12.spMin),
-              ),
-              child: Icon(
-                _iconData(place.icon),
-                color: _iconColor(place.icon),
-                size: 20.spMin,
-              ),
-            ),
-            title: Text(
-              place.name,
-              style: TextStyle(fontSize: 16.spMin, fontWeight: FontWeight.w700),
-            ),
-            subtitle: Text(
-              '${place.address ?? 'Saved location'} · ${place.radiusMeters} m radius',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12.spMin, color: AppColors.grey),
-            ),
-            trailing: Icon(
-              _expanded ? Icons.expand_less : Icons.chevron_right,
-              color: AppColors.grey,
-            ),
-          ),
-          if (_expanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: EdgeInsets.all(16.spMin),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'NOTIFY THE FAMILY WHEN',
-                    style: TextStyle(
-                      fontSize: 11.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.grey,
-                      letterSpacing: 0.5,
+    final address = place.address;
+    return FamilyBoardCard(
+      key: Key('family-place-${place.id}'),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      place.name,
+                      style: TextStyle(
+                        fontSize: 16.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 6.spMin),
-                  for (final member in widget.circle.members)
-                    ..._memberToggleRowsBuilder(member),
-                  SizedBox(height: 8.spMin),
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => context.push(
-                          FamilyPlaceEditScreen.route,
-                          extra: FamilyPlaceEditScreenArgs(place: place),
-                        ),
-                        icon: Icon(LucideIcons.pencil, size: 14.spMin),
-                        label: const Text('Edit'),
-                      ),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        onPressed: _confirmDelete,
-                        icon: Icon(LucideIcons.trash2, size: 14.spMin),
-                        label: const Text('Delete'),
-                      ),
-                    ],
-                  ),
-                ],
+                    SizedBox(height: 2.spMin),
+                    FamilyBoardMuted(
+                      address == null || address.isEmpty
+                          ? '${place.radiusMeters} m'
+                          : '${place.radiusMeters} m · $address',
+                      size: 12,
+                    ),
+                  ],
+                ),
               ),
             ),
+            SizedBox(width: 8.spMin),
+            FamilyBoardSmallButton(
+              label: 'Edit',
+              onPressed: () => context.push(
+                FamilyPlaceEditScreen.route,
+                extra: FamilyPlaceEditScreenArgs(place: place),
+              ),
+            ),
+            SizedBox(width: 8.spMin),
+            FamilyBoardSmallButton(label: 'Delete', onPressed: _confirmDelete),
           ],
+        ),
+        if (_expanded) ...[
+          const FamilyBoardLabel('Tell the group when'),
+          for (final member in widget.circle.members)
+            ..._memberToggleRowsBuilder(member),
         ],
-      ),
+      ],
     );
   }
 
@@ -218,44 +223,27 @@ class _PlaceCardState extends ConsumerState<_PlaceCard> {
     final notifyArrivals = pref?.notifyArrivals ?? true;
     final notifyDepartures = pref?.notifyDepartures ?? true;
 
-    Widget row({
-      required String label,
-      required bool value,
-      required bool isArrival,
-    }) {
-      return Row(
-        children: [
-          Expanded(
-            child: Text(label, style: TextStyle(fontSize: 14.spMin)),
-          ),
-          Switch(
-            value: value,
-            activeTrackColor: FamilyColors.indigo,
-            onChanged: (next) {
-              ref
-                  .read(providerOfFamily.notifier)
-                  .updatePlacePref(
-                    placeId: widget.place.id,
-                    subjectMemberId: member.id,
-                    notifyArrivals: isArrival ? next : notifyArrivals,
-                    notifyDepartures: isArrival ? notifyDepartures : next,
-                  );
-            },
-          ),
-        ],
-      );
+    void update({required final bool isArrival, required final bool next}) {
+      ref
+          .read(providerOfFamily.notifier)
+          .updatePlacePref(
+            placeId: widget.place.id,
+            subjectMemberId: member.id,
+            notifyArrivals: isArrival ? next : notifyArrivals,
+            notifyDepartures: isArrival ? notifyDepartures : next,
+          );
     }
 
     return [
-      row(
-        label: '${member.name} arrives',
+      FamilyBoardToggleRow(
+        title: '${member.name} arrives',
         value: notifyArrivals,
-        isArrival: true,
+        onChanged: (next) => update(isArrival: true, next: next),
       ),
-      row(
-        label: '${member.name} leaves',
+      FamilyBoardToggleRow(
+        title: '${member.name} leaves',
         value: notifyDepartures,
-        isArrival: false,
+        onChanged: (next) => update(isArrival: false, next: next),
       ),
     ];
   }
@@ -270,23 +258,4 @@ class _PlaceCardState extends ConsumerState<_PlaceCard> {
           .deletePlace(placeId: widget.place.id),
     );
   }
-
-  IconData _iconData(final FamilyPlaceIcon icon) => switch (icon) {
-    FamilyPlaceIcon.home => LucideIcons.house,
-    FamilyPlaceIcon.work => LucideIcons.briefcase,
-    FamilyPlaceIcon.school => LucideIcons.graduationCap,
-    FamilyPlaceIcon.heart => LucideIcons.heart,
-    FamilyPlaceIcon.other => LucideIcons.mapPin,
-  };
-
-  Color _iconColor(final FamilyPlaceIcon icon) => switch (icon) {
-    FamilyPlaceIcon.home => AppColors.orange,
-    FamilyPlaceIcon.work => AppColors.blue,
-    FamilyPlaceIcon.school => const Color(0xFF16A085),
-    FamilyPlaceIcon.heart => const Color(0xFF8E44AD),
-    FamilyPlaceIcon.other => AppColors.grey,
-  };
-
-  Color _iconBackground(final FamilyPlaceIcon icon) =>
-      _iconColor(icon).withValues(alpha: 0.12);
 }

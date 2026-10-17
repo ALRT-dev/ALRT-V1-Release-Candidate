@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/utils/invite_code.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_widgets.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_invite_scanner_sheet.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
@@ -13,11 +14,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// Both entry points (the empty state and the group switcher) go through
 /// here so the rules can't drift apart.
 ///
-/// Two equal ways in: type the code, or tap "Scan a code" and point the
+/// Two equal ways in: type the code, or tap "Scan invite QR" and point the
 /// camera at the host's invite QR (which encodes the bare code - see
 /// FamilyInviteScreen). Either way the code is normalised by
 /// parseInviteCode and handed to the same, unchanged join call. The camera
-/// is never touched until "Scan a code" is tapped; the permission prompt
+/// is never touched until "Scan invite QR" is tapped; the permission prompt
 /// happens then, not on opening this sheet.
 Future<void> showJoinGroupSheet(
   final BuildContext context,
@@ -27,12 +28,11 @@ Future<void> showJoinGroupSheet(
     context: context,
     title: 'Join with a code',
     subtitle:
-        'Got an invite code? Type it, or scan the host\'s QR. Joining '
-        'is always free, and you can be in as many groups as you like.',
-    hint: 'e.g. ALRT-7F3K2',
+        'Joining is always free. Ask the host for their invite code or QR.',
+    hint: 'ALRT-XXXXX',
     buttonLabel: 'Join group',
     capitalization: TextCapitalization.characters,
-    scanButtonLabel: 'Scan a code',
+    scanButtonLabel: 'Scan invite QR',
     onScan: showFamilyInviteScannerSheet,
     onSubmit: (final raw) {
       if (raw.isEmpty) {
@@ -79,10 +79,7 @@ Future<void> showCreateGroupSheet(
   return _showFieldSheet(
     context: context,
     title: 'Name your group',
-    subtitle:
-        'e.g. Nixon Family, Netball Mums, Site Crew. Creating a group is '
-        'free. For check-ins, SOS and Journey, each person needs ALRT +, '
-        'or you can cover the whole group with a Family or Group plan.',
+    subtitle: 'Creating a group is free.',
     hint: 'Group name',
     buttonLabel: 'Create group',
     onSubmit: (final name) {
@@ -196,7 +193,7 @@ class _FieldSheetBodyState extends State<_FieldSheetBody> {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20.spMin,
-        20.spMin,
+        12.spMin,
         20.spMin,
         // Keyboard or home indicator, whichever is taller, so the Join /
         // Create button is never under either.
@@ -210,19 +207,9 @@ class _FieldSheetBodyState extends State<_FieldSheetBody> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.title,
-            style: TextStyle(fontSize: 18.spMin, fontWeight: FontWeight.w800),
-          ),
-          SizedBox(height: 6.spMin),
-          Text(
-            widget.subtitle,
-            style: TextStyle(
-              fontSize: 13.spMin,
-              height: 1.5,
-              color: AppColors.grey,
-            ),
-          ),
+          const FamilyBoardSheetHandle(),
+          SizedBox(height: 14.spMin),
+          FamilyBoardSheetTitle(title: widget.title, subtitle: widget.subtitle),
           SizedBox(height: 16.spMin),
           TextField(
             controller: _controller,
@@ -232,35 +219,27 @@ class _FieldSheetBodyState extends State<_FieldSheetBody> {
             decoration: InputDecoration(
               hintText: widget.hint,
               filled: true,
-              fillColor: FamilyColors.v31Page,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14.spMin),
-                borderSide: BorderSide.none,
+              fillColor: Colors.white,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.spMin),
+                borderSide: const BorderSide(
+                  color: AppColors.lightGrey,
+                  width: 1.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.spMin),
+                borderSide: const BorderSide(
+                  color: FamilyColors.indigo,
+                  width: 1.5,
+                ),
               ),
             ),
           ),
           SizedBox(height: 14.spMin),
-          SizedBox(
-            width: double.infinity,
-            height: 50.spMin,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FamilyColors.indigo,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15.spMin),
-                ),
-              ),
-              onPressed: _submit,
-              child: Text(
-                widget.buttonLabel,
-                style: TextStyle(
-                  fontSize: 15.spMin,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
+          FamilyBoardPrimaryButton(
+            label: widget.buttonLabel,
+            onPressed: _submit,
           ),
           if (canScan) ...[
             SizedBox(height: 10.spMin),
@@ -300,7 +279,7 @@ class _FieldSheetBodyState extends State<_FieldSheetBody> {
                 Expanded(
                   child: Text(
                     'The camera is only used while you scan, and only after '
-                    'you tap Scan a code.',
+                    'you tap Scan invite QR.',
                     style: TextStyle(
                       fontSize: 11.5.spMin,
                       color: AppColors.grey,
@@ -310,6 +289,11 @@ class _FieldSheetBodyState extends State<_FieldSheetBody> {
               ],
             ),
           ],
+          SizedBox(height: 4.spMin),
+          FamilyBoardGhostButton(
+            label: 'Cancel',
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
         ],
       ),
     );

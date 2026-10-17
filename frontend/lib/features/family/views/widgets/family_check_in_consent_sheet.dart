@@ -155,37 +155,19 @@ class _CheckInConsentSheetBody extends StatelessWidget {
               ),
             ),
             SizedBox(height: 18.spMin),
-            Row(
-              children: [
-                Container(
-                  width: 40.spMin,
-                  height: 40.spMin,
-                  decoration: const BoxDecoration(
-                    color: FamilyColors.indigoLight,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    LucideIcons.check,
-                    color: FamilyColors.indigo,
-                    size: 20.spMin,
-                  ),
-                ),
-                SizedBox(width: 12.spMin),
-                Expanded(
-                  child: Text(
-                    requesterName == null
-                        ? 'Check in'
-                        : 'Check in for $requesterName',
-                    style: TextStyle(
-                      fontSize: 18.spMin,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.black,
-                    ),
-                  ),
-                ),
-              ],
+            // The CheckIn board: a plain 22/700 title, no icon.
+            Text(
+              requesterName == null
+                  ? 'Check in'
+                  : 'Check in for $requesterName',
+              style: TextStyle(
+                fontSize: 22.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+                color: AppColors.ink,
+              ),
             ),
-            SizedBox(height: 8.spMin),
+            SizedBox(height: 4.spMin),
             Text(
               'Tells your group you are okay. Location is only sent if you '
               'choose it.',

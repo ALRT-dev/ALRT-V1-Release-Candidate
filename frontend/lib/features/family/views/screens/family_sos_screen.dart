@@ -474,8 +474,8 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     final chosenText = switch (_choice) {
       null => 'Checking your location…',
       SosLocationChoice.none => 'No location: your SOS is sent without where you are.',
-      SosLocationChoice.once => 'Share once: $onceText',
-      SosLocationChoice.live => 'Share live: $liveText',
+      SosLocationChoice.once => 'Share location once: $onceText',
+      SosLocationChoice.live => 'Share live location: $liveText',
     };
     return Column(
       key: const Key('sos-location-choice'),
@@ -491,13 +491,23 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
           ),
         ),
         SizedBox(height: 8.spMin),
-        Row(
+        // The SOS board's three chips, worded as the locked rule names
+        // them: No location / Share location once / Share live location.
+        Wrap(
+          spacing: 8.spMin,
+          runSpacing: 8.spMin,
           children: [
             _choicePill(SosLocationChoice.none, 'No location', enabled: true),
-            SizedBox(width: 8.spMin),
-            _choicePill(SosLocationChoice.once, 'Share once', enabled: onceEnabled),
-            SizedBox(width: 8.spMin),
-            _choicePill(SosLocationChoice.live, 'Share live', enabled: liveEnabled),
+            _choicePill(
+              SosLocationChoice.once,
+              'Share location once',
+              enabled: onceEnabled,
+            ),
+            _choicePill(
+              SosLocationChoice.live,
+              'Share live location',
+              enabled: liveEnabled,
+            ),
           ],
         ),
         SizedBox(height: 8.spMin),
@@ -542,24 +552,24 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
     required final bool enabled,
   }) {
     final selected = _choice == value;
-    return Expanded(
-      child: Opacity(
+    return Opacity(
         opacity: enabled ? 1 : 0.45,
         child: InkWell(
           key: Key('sos-loc-${value.name}'),
-          borderRadius: BorderRadius.circular(12.spMin),
+          borderRadius: BorderRadius.circular(20.spMin),
           onTap: enabled && !_sent
               ? () => setState(() => _choice = value)
               : null,
           child: Container(
-            height: 44.spMin,
+            height: 40.spMin,
+            padding: EdgeInsets.symmetric(horizontal: 16.spMin),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12.spMin),
+              color: selected ? const Color(0xFFFAF9F7) : Colors.white,
+              borderRadius: BorderRadius.circular(20.spMin),
               border: Border.all(
-                color: selected ? _ink : FamilyColors.v31Border,
-                width: selected ? 2 : 1,
+                color: selected ? _ink : AppColors.lightGrey,
+                width: selected ? 2 : 1.5,
               ),
             ),
             child: Text(
@@ -568,13 +578,12 @@ class _FamilySosScreenState extends ConsumerState<FamilySosScreen>
               maxLines: 1,
               style: TextStyle(
                 color: _ink,
-                fontSize: 13.spMin,
-                fontWeight: FontWeight.w700,
+                fontSize: 14.spMin,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
           ),
         ),
-      ),
     );
   }
 

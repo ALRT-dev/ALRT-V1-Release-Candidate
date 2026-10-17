@@ -30,11 +30,13 @@ import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_manage_screen.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_plan_and_cover_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/learn/views/screens/learn_topic_guides_screen.dart';
 import 'package:hazard_app/features/learn/views/screens/learn_topics_screen.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
+import 'package:hazard_app/features/map/views/screens/check_route_screen.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_on_map_screen.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:hazard_app/features/notification/views/screens/manage_notifications_screen.dart';
@@ -132,6 +134,14 @@ class AppRouter {
           builder: (context, state) {
             return SelectLocationScreen(
               args: state.extra as SelectLocationScreenArgs?,
+            );
+          },
+        ),
+        GoRoute(
+          path: CheckRouteScreen.route,
+          builder: (context, state) {
+            return CheckRouteScreen(
+              args: state.extra as CheckRouteScreenArgs?,
             );
           },
         ),
@@ -304,6 +314,12 @@ class AppRouter {
         GoRoute(
           path: AlrtPlusManageScreen.route,
           builder: (context, state) => const AlrtPlusManageScreen(),
+        ),
+        GoRoute(
+          path: AlrtPlusPlanAndCoverScreen.route,
+          builder: (context, state) => AlrtPlusPlanAndCoverScreen(
+            circleId: state.extra as String?,
+          ),
         ),
         GoRoute(
           path: SafetyProfileScreen.route,
