@@ -348,7 +348,7 @@ const main = async () => {
   const sched = await api("/api/family/scheduled-check-ins", {
     method: "POST",
     token: b.token,
-    body: { timeOfDay: "09:00", mode: "prompted" },
+    body: { timeOfDay: "09:00", mode: "prompted", timezone: "Australia/Sydney" },
   });
   assert.equal(sched.status, 201, JSON.stringify(sched.body));
   await check("GET /scheduled-check-ins: member has no location keys", async () => {
