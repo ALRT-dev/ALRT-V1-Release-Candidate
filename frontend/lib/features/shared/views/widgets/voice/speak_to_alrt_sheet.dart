@@ -23,6 +23,7 @@ import 'package:hazard_app/features/subscription/utils/saved_location_gate.dart'
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
 import 'package:hazard_app/features/shared/views/widgets/voice/voice_listening_sheet.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/features/map/views/widgets/map_search_sheet.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Speak to ALRT (ruling 16 Oct 2026, one mic): shows what was heard and
@@ -33,6 +34,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 Future<void> showSpeakToAlrtSheet({
   required final BuildContext context,
   required final VoiceCommand command,
+  final Future<void> Function(String query)? onSearch,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -41,16 +43,20 @@ Future<void> showSpeakToAlrtSheet({
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
     ),
-    builder: (_) => SpeakToAlrtSheet(command: command),
+    builder: (_) => SpeakToAlrtSheet(command: command, onSearch: onSearch),
   );
 }
 
 enum _Phase { confirm, working, done }
 
 class SpeakToAlrtSheet extends ConsumerStatefulWidget {
-  const SpeakToAlrtSheet({super.key, required this.command});
+  const SpeakToAlrtSheet({super.key, required this.command, this.onSearch});
 
   final VoiceCommand command;
+
+  /// Opens the map search with these words (VoiceSearch board: "See
+  /// results"). When null, a spoken search is handed back to the search bar.
+  final Future<void> Function(String query)? onSearch;
 
   @override
   ConsumerState<SpeakToAlrtSheet> createState() => _SpeakToAlrtSheetState();
@@ -250,6 +256,8 @@ class _SpeakToAlrtSheetState extends ConsumerState<SpeakToAlrtSheet> {
           (reply, next) = _readAlert();
         case VoiceCommandKind.nearMe:
           reply = _nearMe();
+        case VoiceCommandKind.search:
+          (reply, next) = await _search();
         case VoiceCommandKind.sosRefused:
           reply = "SOS can't be sent by voice. Open Family and hold the SOS "
               'button for 3 seconds.';
@@ -266,6 +274,32 @@ class _SpeakToAlrtSheetState extends ConsumerState<SpeakToAlrtSheet> {
       _next = next;
     });
     await _say(reply);
+  }
+
+  /// VoiceSearch board: "Here's what I found for X: 1 alert and 1 place."
+  /// with See results, which opens the map search for the same words.
+  Future<(String, _NextStep?)> _search() async {
+    final query = (_command.place ?? _command.heard).trim();
+    final onSearch = widget.onSearch;
+    if (query.isEmpty || onSearch == null) {
+      return ('Say a place or an alert to search for.', null);
+    }
+    final alerts = MapSearchSheet.matchingAlerts(query, _liveAlerts).length;
+    final found = await ref.read(providerOfMapService).getPlaces(
+          searchString: query,
+          currentUserLocation: ref.read(providerOfLocation).location,
+        );
+    final places = found.when((p) => p.length, (_) => 0);
+    String count(final int n, final String one) =>
+        n == 0 ? 'no ${one}s' : '$n $one${n == 1 ? '' : 's'}';
+    final reply = alerts == 0 && places == 0
+        ? "I couldn't find anything for $query."
+        : "Here's what I found for $query: "
+            '${count(alerts, 'alert')} and ${count(places, 'place')}.';
+    return (
+      reply,
+      _NextStep('See results', (_) => onSearch(query)),
+    );
   }
 
   Future<(String, _NextStep?)> _savePlace() async {
@@ -442,6 +476,8 @@ class _SpeakToAlrtSheetState extends ConsumerState<SpeakToAlrtSheet> {
         }
       case VoiceCommandKind.route:
         await _openRoute(command);
+      case VoiceCommandKind.search when widget.onSearch != null:
+        setState(() => _begin(command));
       case VoiceCommandKind.search:
       case VoiceCommandKind.report:
         setState(() {

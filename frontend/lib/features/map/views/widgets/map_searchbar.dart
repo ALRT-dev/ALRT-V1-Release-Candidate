@@ -259,7 +259,14 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
   Future<void> _handleSpokenCommand(final VoiceCommand command) async {
     switch (command.kind) {
       case VoiceCommandKind.search:
-        _handleVoiceSearchTranscript(command.place ?? command.heard);
+        // VoiceSearch board: say what was found, then See results.
+        await showSpeakToAlrtSheet(
+          context: context,
+          command: command,
+          onSearch: (query) async {
+            if (mounted) _handleVoiceSearchTranscript(query);
+          },
+        );
       case VoiceCommandKind.route:
         await _checkRouteByVoice(command.place ?? command.heard);
       case VoiceCommandKind.report:
@@ -267,7 +274,13 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
       case VoiceCommandKind.ask:
         await _askAloud(command.heard);
       default:
-        await showSpeakToAlrtSheet(context: context, command: command);
+        await showSpeakToAlrtSheet(
+          context: context,
+          command: command,
+          onSearch: (query) async {
+            if (mounted) _handleVoiceSearchTranscript(query);
+          },
+        );
     }
   }
 
