@@ -461,7 +461,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     Text(
                       _titleOf(hazard),
                       style: TextStyle(
-                        fontSize: 21.spMin,
+                        // Community board 22, Detail board 21.
+                        fontSize: hazard.isUserReported ? 22.spMin : 21.spMin,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
                         color: AppColors.black,
@@ -592,19 +593,24 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 56.spMin,
-          height: 56.spMin,
-          decoration: BoxDecoration(
-            color: categoryColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14.spMin),
-          ),
-          alignment: Alignment.center,
-          child: category == null
-              ? Icon(LucideIcons.users, size: 24.spMin, color: categoryColor)
-              : CategoryGlyph(category: category, size: 40.spMin),
-        ),
-        12.wSizedBox,
+        // Community board: the 40 px category disc on its own.
+        category == null
+            ? Container(
+                width: 40.spMin,
+                height: 40.spMin,
+                decoration: BoxDecoration(
+                  color: categoryColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  LucideIcons.users,
+                  size: 20.spMin,
+                  color: categoryColor,
+                ),
+              )
+            : CategoryGlyph(category: category, size: 40.spMin),
+        10.wSizedBox,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -918,6 +924,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         // Attribution
         _buildSourceSection(),
+        _buildSourceFootnote(),
         40.hSizedBox,
       ],
     );
@@ -1429,43 +1436,63 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               // One wording everywhere: the same label, helper, buttons
               // and count line as the feed card. The vote handler is the
               // same call the inline buttons made before.
-              const ConfirmationPrompt(),
-              10.hSizedBox,
-              ConfirmationButtons(
-                key: ValueKey('vote-$id'),
-                initialVoteType: voteType,
-                initialVoteCount: voteCount,
-                onVotePressed: (type) => ref
-                    .read(itemProvider.notifier)
-                    .voteHazard(voteType: type),
+              // Community board: "Can you see it?" sits in its own white
+              // card.
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(16.spMin),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius:
+                      BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
+                  boxShadow: const [AlertCardStyle.cardShadow],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const ConfirmationPrompt(),
+                    12.hSizedBox,
+                    ConfirmationButtons(
+                      key: ValueKey('vote-$id'),
+                      initialVoteType: voteType,
+                      initialVoteCount: voteCount,
+                      onVotePressed: (type) => ref
+                          .read(itemProvider.notifier)
+                          .voteHazard(voteType: type),
+                    ),
+                  ],
+                ),
               ),
               12.hSizedBox,
               // Community reports are never authority. Said once, plainly.
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(12.spMin),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 16.spMin,
+                  vertical: 14.spMin,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0EEEA),
-                  borderRadius: BorderRadius.circular(12.spMin),
+                  borderRadius: BorderRadius.circular(16.spMin),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       LucideIcons.info,
-                      size: 16.spMin,
+                      size: 18.spMin,
                       color: AppColors.mediumGrey,
                     ),
-                    8.wSizedBox,
+                    12.wSizedBox,
                     Expanded(
                       child: Text(
                         'Community reports are not verified by authorities '
                         'and can be wrong. Always follow official advice. '
                         'This report disappears when its time runs out.',
                         style: TextStyle(
-                          fontSize: 12.5.spMin,
-                          height: 1.4,
-                          color: AppColors.mediumGrey,
+                          fontSize: 13.spMin,
+                          height: 1.5,
+                          color: const Color(0xFF3A3A42),
                         ),
                       ),
                     ),
@@ -1517,34 +1544,39 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     required final VoidCallback onTap,
     final bool highlighted = false,
   }) {
-    final ink = highlighted ? _litInk : const Color(0xFF5F5C66);
+    // Community board: 48 high, radius 14, a hairline warm-grey border.
+    final ink = highlighted ? _litInk : AppColors.ink;
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(11.spMin),
+        borderRadius: BorderRadius.circular(14.spMin),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          height: 40.spMin,
+          height: 48.spMin,
           decoration: BoxDecoration(
             color: highlighted ? _litWash : AppColors.white,
-            borderRadius: BorderRadius.circular(11.spMin),
+            borderRadius: BorderRadius.circular(14.spMin),
             border: Border.all(
-              color: highlighted ? _litInk : const Color(0xFFD8D4DE),
-              width: highlighted ? 2.0 : 1.5,
+              color: highlighted ? _litInk : const Color(0xFFD9D6D0),
+              width: highlighted ? 2.0 : 1.0,
             ),
           ),
           child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 14.spMin, color: ink),
-                6.wSizedBox,
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
+                Icon(icon, size: 16.spMin, color: ink),
+                8.wSizedBox,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.spMin,
+                      fontWeight: FontWeight.w600,
+                      color: ink,
+                    ),
                   ),
                 ),
               ],
@@ -1809,6 +1841,32 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         8.wSizedBox,
         Expanded(child: child),
       ],
+    );
+  }
+
+  /// The board's closing line under an official alert: what ALRT adds and
+  /// that it never contacts emergency services.
+  Widget _buildSourceFootnote() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final isUserReported = ref.watch(
+          provider.select((value) => value.hazard?.isUserReported ?? false),
+        );
+        return Padding(
+          padding: EdgeInsets.fromLTRB(4.spMin, 10.spMin, 4.spMin, 0),
+          child: Text(
+            isUserReported
+                ? 'ALRT never contacts emergency services for you.'
+                : 'ALRT adds the plain-terms line, which is not official '
+                      'advice. ALRT never contacts emergency services for you.',
+            style: TextStyle(
+              fontSize: 11.spMin,
+              height: 1.5,
+              color: AlertCardStyle.metaInk,
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -95,7 +95,7 @@ class _SelectLocationScreenState extends ConsumerState<SelectLocationScreen> {
   final _searchFocusNode = FocusNode();
   final _searchController = TextEditingController();
 
-  /// The suburb the person is in now, for the "<suburb> / Suburb · where
+  /// The suburb the person is in now, for the "[suburb] / Suburb · where
   /// you are now" row (prototype board "SelectLocation"). Null until the
   /// backend geocoder has answered, and the row waits for it.
   String? _suburb;

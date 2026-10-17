@@ -43,6 +43,8 @@ class GuideDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
+  static const _muted = Color(0xFF5C5C66);
+
   String get _slugOrId => widget.args.slugOrId;
 
   @override
@@ -83,24 +85,20 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
 
   // ------------------------------- HEADER -------------------------------
 
+  /// The Guide board's header: back chevron and the guide's title on one
+  /// row, then "[topic] · +N XP" under it.
   Widget _headerBuilder(final GuideDetail? detail) {
     final topicName = widget.args.topicName?.trim();
+    final String? headerTopic =
+        (topicName == null || topicName.isEmpty) ? null : topicName;
 
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.orange.withValues(alpha: 0.15),
-            width: 1,
-          ),
-        ),
-      ),
+      color: AppColors.white,
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(16.spMin, 8.spMin, 16.spMin, 18.spMin),
+          padding: EdgeInsets.fromLTRB(8.spMin, 8.spMin, 16.spMin, 12.spMin),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -109,8 +107,9 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                   InkWell(
                     onTap: () => context.pop(),
                     borderRadius: BorderRadius.circular(100.spMin),
-                    child: Padding(
-                      padding: EdgeInsets.all(4.spMin),
+                    child: SizedBox(
+                      width: 40.spMin,
+                      height: 40.spMin,
                       child: Icon(
                         LucideIcons.chevronLeft,
                         color: AppColors.black,
@@ -118,75 +117,63 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                       ),
                     ),
                   ),
-                  6.wSizedBox,
                   Expanded(
                     child: Text(
-                      topicName ?? 'Learn',
-                      maxLines: 1,
+                      detail?.title ?? headerTopic ?? 'Learn',
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 15.spMin,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.mediumGrey,
+                        fontSize: 24.spMin,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        height: 1.15,
+                        color: AppColors.black,
                       ),
                     ),
                   ),
                 ],
               ),
               if (detail != null) ...[
-                10.hSizedBox,
-                if (topicName != null && topicName.isNotEmpty)
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 10.spMin,
-                      vertical: 4.spMin,
+                4.hSizedBox,
+                Padding(
+                  padding: EdgeInsets.only(left: 8.spMin),
+                  child: Text(
+                    [
+                      if (headerTopic != null) headerTopic,
+                      '+${detail.xpReward} XP',
+                    ].join(' · '),
+                    style: TextStyle(
+                      fontSize: 14.spMin,
+                      color: _muted,
                     ),
-                    decoration: BoxDecoration(
-                      color: AppColors.orange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(100.spMin),
-                    ),
-                    child: Text(
-                      topicName,
-                      style: TextStyle(
-                        fontSize: 11.spMin,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.orange,
-                      ),
-                    ),
-                  ),
-                8.hSizedBox,
-                Text(
-                  detail.title,
-                  style: TextStyle(
-                    fontSize: 22.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.black,
-                    height: 1.2,
                   ),
                 ),
                 if ((detail.sourceName ?? '').trim().isNotEmpty) ...[
-                  8.hSizedBox,
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.shieldCheck,
-                        color: AppColors.orange,
-                        size: 15.spMin,
-                      ),
-                      6.wSizedBox,
-                      Expanded(
-                        child: Text(
-                          'Guidance sourced from ${detail.sourceName!.trim()}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.spMin,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.mediumGrey,
+                  6.hSizedBox,
+                  Padding(
+                    padding: EdgeInsets.only(left: 8.spMin),
+                    child: Row(
+                      children: [
+                        Icon(
+                          LucideIcons.shieldCheck,
+                          color: AppColors.orange,
+                          size: 15.spMin,
+                        ),
+                        6.wSizedBox,
+                        Expanded(
+                          child: Text(
+                            'Guidance sourced from ${detail.sourceName!.trim()}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.spMin,
+                              fontWeight: FontWeight.w500,
+                              color: _muted,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -493,51 +480,51 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
   Widget _completedStateBuilder() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 13.spMin),
+      padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
-        color: AppColors.green.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12.spMin),
-        border: Border.all(
-          color: AppColors.green.withValues(alpha: 0.4),
-        ),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18.spMin),
+        border: Border.all(color: const Color(0xFFE3E6EA)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            LucideIcons.circleCheck,
-            color: AppColors.darkGreen,
-            size: 18.spMin,
-          ),
-          8.wSizedBox,
-          Text(
-            'Completed',
-            style: TextStyle(
-              fontSize: 15.spMin,
-              fontWeight: FontWeight.w700,
-              color: AppColors.darkGreen,
-            ),
-          ),
-        ],
+      child: Text(
+        'Completed. Nice work staying prepared.',
+        style: TextStyle(
+          fontSize: 15.spMin,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF15803D),
+        ),
       ),
     );
   }
 
+  /// The board's orange "Mark complete · +N XP": 54 px, radius 14.
   Widget _completeButtonBuilder(final GuideDetail detail) {
     final isCompleting = ref.watch(
       providerOfGuideDetail(_slugOrId).select((value) => value.isCompleting),
     );
+    const orange = Color(0xFFE8622A);
 
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 48.spMin,
+      height: 54.spMin,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14.spMin),
+        boxShadow: [
+          BoxShadow(
+            color: orange.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.green,
+          backgroundColor: orange,
           foregroundColor: AppColors.white,
-          disabledBackgroundColor: AppColors.green.withValues(alpha: 0.7),
+          disabledBackgroundColor: orange.withValues(alpha: 0.7),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.spMin),
+            borderRadius: BorderRadius.circular(14.spMin),
           ),
         ),
         onPressed: isCompleting ? null : _handleMarkComplete,
@@ -550,22 +537,12 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
                   strokeWidth: 2.5,
                 ),
               )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    LucideIcons.check,
-                    size: 18.spMin,
-                  ),
-                  8.wSizedBox,
-                  Text(
-                    'Mark complete · +${detail.xpReward} XP',
-                    style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+            : Text(
+                'Mark complete · +${detail.xpReward} XP',
+                style: TextStyle(
+                  fontSize: 16.spMin,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
       ),
     );
@@ -589,11 +566,11 @@ class _GuideDetailScreenState extends ConsumerState<GuideDetailScreen> {
 
     if (completion.alreadyCompleted) {
       context.showSuccessToast(
-        message: 'Already completed. Nice work staying prepared!',
+        message: 'Already completed. Nice work staying prepared.',
       );
     } else {
       context.showSuccessToast(
-        message: '🎉 Guide complete! +${completion.xpAwarded} XP earned',
+        message: 'Guide complete. +${completion.xpAwarded} XP earned',
       );
     }
   }

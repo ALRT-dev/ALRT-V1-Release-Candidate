@@ -4,7 +4,7 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/widgets/family_board_kit.dart';
 
-/// The Leave sheet (LeaveSheet board): "Leave <group>?", what you keep and
+/// The Leave sheet (LeaveSheet board): "Leave [group]?", what you keep and
 /// that nobody is told, the host's 7 day hand-over when you host it, then
 /// "Leave circle" and "Stay". Returns true when the person chose to leave.
 ///

@@ -94,6 +94,7 @@ class AgencyContentSections extends StatelessWidget {
     final actions = _lines('officialActions'),
         suggestions = _lines('alrtSuggestions');
     final level = content['nativeLevel'];
+    final agency = sourceName?.trim() ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -105,9 +106,7 @@ class AgencyContentSections extends StatelessWidget {
           _section(
             'WHAT TO DO',
             actions,
-            subtitle: sourceName == null || sourceName!.trim().isEmpty
-                ? null
-                : '${sourceName!.trim()}, word for word',
+            subtitle: agency.isEmpty ? null : '$agency, word for word',
           ),
         if (suggestions.isNotEmpty)
           _section(

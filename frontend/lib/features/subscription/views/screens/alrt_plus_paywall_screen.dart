@@ -302,44 +302,65 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
   Widget build(BuildContext context) {
     final trial = _trialShown;
     return Scaffold(
-      backgroundColor: kPaywallBody,
+      backgroundColor: const Color(0xFFF5F5F7),
       body: Column(
         children: [
           PlanHero(
             identity: _identity,
             heading: kIndividualHeading,
             intro: kIndividualIntro,
+            benefits: kIndividualBenefits,
             onClose: _busy ? null : () => Navigator.of(context).pop(false),
           ),
           Expanded(
             child: ListView(
               padding: EdgeInsets.fromLTRB(
+                20.spMin,
                 18.spMin,
-                16.spMin,
-                18.spMin,
-                24.spMin,
+                20.spMin,
+                32.spMin,
               ),
               children: [
                 if (_reasonLine != null) ...[
                   PaywallNotice(text: _reasonLine!),
                   SizedBox(height: 12.spMin),
                 ],
-                PaywallCard(
+                _planRow(),
+                SizedBox(height: 12.spMin),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.spMin,
+                    vertical: 12.spMin,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _identity.tint,
+                    borderRadius: BorderRadius.circular(14.spMin),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final b in kIndividualBenefits)
-                        PlanBenefit(text: b, identity: _identity),
+                      Text(
+                        kIndividualScope,
+                        style: TextStyle(
+                          fontSize: 13.spMin,
+                          height: 1.5,
+                          color: const Color(0xFF3A3A42),
+                        ),
+                      ),
                       SizedBox(height: 6.spMin),
-                      PaywallFinePrint(kIndividualUnlimitedGroupsLine),
+                      Text(
+                        kIndividualUnlimitedGroupsLine,
+                        style: TextStyle(
+                          fontSize: 13.spMin,
+                          height: 1.5,
+                          color: const Color(0xFF3A3A42),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                SizedBox(height: 12.spMin),
-                _planRow(),
-                SizedBox(height: 12.spMin),
-                PaywallFinePrint(kIndividualScope),
-                SizedBox(height: 16.spMin),
+                SizedBox(height: 18.spMin),
                 if (_notice != null) ...[
                   PaywallNotice(text: _notice!, isError: _noticeIsError),
                   SizedBox(height: 12.spMin),
@@ -394,38 +415,67 @@ class _AlrtPlusPaywallScreenState extends ConsumerState<AlrtPlusPaywallScreen> {
     );
   }
 
-  /// The one Individual plan: name left, store price right.
+  /// The board's plan card: "Monthly" and where the price comes from on
+  /// the left, the store's price on the right.
   Widget _planRow() {
-    final accent = _identity.accentFor(context);
+    const ink = Color(0xFF1C1C1E);
+    const muted = Color(0xFF5C5C66);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
+      padding: EdgeInsets.all(16.spMin),
       decoration: BoxDecoration(
-        color: _identity.tint,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(color: accent, width: 2),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18.spMin),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(Icons.check_circle, color: accent, size: 22.spMin),
-          SizedBox(width: 10.spMin),
           Expanded(
-            child: Text(
-              'ALRT +',
-              style: TextStyle(
-                fontSize: 14.spMin,
-                fontWeight: FontWeight.w700,
-                color: kPaywallInk,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Monthly',
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+                SizedBox(height: 2.spMin),
+                Text(
+                  'Price from your app store',
+                  style: TextStyle(fontSize: 12.spMin, color: muted),
+                ),
+              ],
+            ),
+          ),
+          if (_loading)
+            Text('…', style: TextStyle(fontSize: 22.spMin, color: ink))
+          else if (_price.isNotEmpty)
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: _price,
+                    style: TextStyle(
+                      fontSize: 22.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                    ),
+                  ),
+                  TextSpan(
+                    text: '/$_period',
+                    style: TextStyle(fontSize: 12.spMin, color: muted),
+                  ),
+                ],
               ),
             ),
-          ),
-          Text(
-            _loading ? '…' : (_price.isEmpty ? '' : '$_price/$_period'),
-            style: TextStyle(
-              fontSize: 14.spMin,
-              fontWeight: FontWeight.w700,
-              color: kPaywallInk,
-            ),
-          ),
         ],
       ),
     );

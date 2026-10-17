@@ -750,19 +750,27 @@ class _AlrtPlusGroupPaywallScreenState
                 ],
               ),
               SizedBox(height: 6.spMin),
-              Text(
-                _loading ? '…' : price,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16.spMin,
-                  fontWeight: FontWeight.w700,
-                  color: strong,
-                ),
-              ),
-              if (!_loading && price.isNotEmpty && period.isNotEmpty)
-                Text(
-                  'a $period',
-                  style: TextStyle(fontSize: 11.spMin, color: soft),
+              if (_loading)
+                Text('…', style: TextStyle(fontSize: 16.spMin, color: strong))
+              else if (price.isNotEmpty)
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: price,
+                        style: TextStyle(
+                          fontSize: 16.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: strong,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '/$period',
+                        style: TextStyle(fontSize: 11.spMin, color: soft),
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               if (state != null) ...[
                 SizedBox(height: 4.spMin),
