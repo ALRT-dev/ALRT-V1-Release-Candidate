@@ -16,12 +16,18 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// "AskALRT" and "AskALRT-Answer", light sheet in the boards' language).
 ///
 /// The entry point signature is stable so callers never change.
-Future<void> showAskAlrtSheet(final BuildContext context) {
+///
+/// [initialQuestion] is asked as soon as the sheet opens (a question said to
+/// Speak to ALRT); it counts the same as a typed one.
+Future<void> showAskAlrtSheet(
+  final BuildContext context, {
+  final String? initialQuestion,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const AskAlrtSheet(),
+    builder: (context) => AskAlrtSheet(initialQuestion: initialQuestion),
   );
 }
 
@@ -42,7 +48,10 @@ const _noteText = Color(0xFF3A3A42);
 
 /// The Ask ALRT grounded-question sheet.
 class AskAlrtSheet extends ConsumerStatefulWidget {
-  const AskAlrtSheet({super.key});
+  const AskAlrtSheet({super.key, this.initialQuestion});
+
+  /// Asked once when the sheet opens, if given.
+  final String? initialQuestion;
 
   @override
   ConsumerState<AskAlrtSheet> createState() => _AskAlrtSheetState();
@@ -51,6 +60,17 @@ class AskAlrtSheet extends ConsumerStatefulWidget {
 class _AskAlrtSheetState extends ConsumerState<AskAlrtSheet> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    final question = widget.initialQuestion;
+    if (question != null && question.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _send(question);
+      });
+    }
+  }
 
   @override
   void dispose() {

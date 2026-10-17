@@ -17,31 +17,76 @@ class AgencyContentSections extends StatelessWidget {
         : [];
   }
 
-  Widget _section(String title, List<String> lines) => Card(
-    margin: const EdgeInsets.only(bottom: 16),
-    color: Colors.white,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Color(0xFFB84500),
-              fontWeight: FontWeight.bold,
+  /// One section in the Detail board's language: a white card (radius 18),
+  /// the V3 orange label, an optional grey line under it, dotted lines.
+  Widget _section(String title, List<String> lines, {String? subtitle}) =>
+      Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 3,
+              offset: Offset(0, 1),
             ),
-          ),
-          const SizedBox(height: 8),
-          for (final text in lines)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text('• $text', style: const TextStyle(height: 1.5)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFFB84500),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
             ),
-        ],
-      ),
-    ),
-  );
+            if (subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF5C5C66)),
+              ),
+            ],
+            const SizedBox(height: 8),
+            for (final text in lines)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(top: 8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF9A9AA2),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        text,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.5,
+                          color: Color(0xFF3A3A42),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -57,8 +102,20 @@ class AgencyContentSections extends StatelessWidget {
         if (areas.isNotEmpty) _section('AFFECTED AREA', areas),
         if (facts.isNotEmpty) _section('WHAT WE KNOW', facts),
         if (actions.isNotEmpty)
-          _section('WHAT TO DO - ${sourceName ?? 'ISSUING AGENCY'}', actions),
-        if (suggestions.isNotEmpty) _section('ALRT SUGGESTIONS', suggestions),
+          _section(
+            'WHAT TO DO',
+            actions,
+            subtitle: sourceName == null || sourceName!.trim().isEmpty
+                ? null
+                : '${sourceName!.trim()}, word for word',
+          ),
+        if (suggestions.isNotEmpty)
+          _section(
+            'ALRT SUGGESTIONS',
+            suggestions,
+            subtitle: 'General guidance from ALRT, not part of the official '
+                'warning.',
+          ),
       ],
     );
   }

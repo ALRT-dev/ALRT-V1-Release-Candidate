@@ -65,7 +65,7 @@ class AccessibleAlertsScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Read urgent alerts aloud',
+                                'Read alerts aloud',
                                 style: TextStyle(
                                   fontSize: 15.spMin,
                                   color: AppColors.ink,

@@ -14,8 +14,8 @@ import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/utils/location_helper.dart';
-import 'package:hazard_app/features/shared/views/widgets/round_button.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Fixed TEST-only report location, matching the coordinates the Admin
 /// Portal's own "TEST — DO NOT USE — Fire" preset uses (see
@@ -87,8 +87,18 @@ class SelectLocationScreen extends ConsumerStatefulWidget {
 }
 
 class _SelectLocationScreenState extends ConsumerState<SelectLocationScreen> {
+  static const _ink = Color(0xFF1C1C1E);
+  static const _muted = Color(0xFF5C5C66);
+  static const _page = Color(0xFFF5F5F7);
+  static const _field = Color(0xFFE3E6EA);
+
   final _searchFocusNode = FocusNode();
   final _searchController = TextEditingController();
+
+  /// The suburb the person is in now, for the "<suburb> / Suburb · where
+  /// you are now" row (prototype board "SelectLocation"). Null until the
+  /// backend geocoder has answered, and the row waits for it.
+  String? _suburb;
 
   @override
   void initState() {
@@ -98,104 +108,308 @@ class _SelectLocationScreenState extends ConsumerState<SelectLocationScreen> {
         widget.args?.initialLocation?.address ??
         '';
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (_searchController.text.isNotEmpty) {
         _handleSearchChanged(_searchController.text);
+      } else {
+        // A fresh search: no query left over from the last visit.
+        ref
+            .read(providerOfPlacesForSelectLocation.notifier)
+            .updateSearchString('');
       }
+      if (widget.args?.showYourLocationOption ?? true) _loadSuburb();
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          10.hSizedBox.sliverBox,
-          SafeArea(
-            bottom: false,
-            child: _searchbarBuilder().pX(20.0),
-          ).sliverBox,
-          20.hSizedBox.sliverBox,
+  void dispose() {
+    _searchFocusNode.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
 
-          if (widget.args?.showYourLocationOption ?? true)
-            _yourLocationBuilder().sliverBox,
-          if (widget.args?.showTestScarboroughOption ?? false)
-            _testScarboroughLocationBuilder().sliverBox,
-          _chooseOnTheMapBuilder().sliverBox,
-          Divider().pX(20.0).sliverBox,
-          if (widget.args?.hasRadiusConstraint ?? false)
-            _radiusConstraintBannerBuilder().sliverBox,
-          PlaceSearchResultsList(
-            placesSearchKey: SelectLocationScreen.placesSearchKey,
-            onPlaceSelected: _handlePlaceSelected,
-            radiusFilter: widget.args?.hasRadiusConstraint ?? false
-                ? _isLocationWithinRadius
-                : null,
+  Future<void> _loadSuburb() async {
+    final here = ref.read(providerOfLocation).location;
+    final result = await ref
+        .read(providerOfLocationService)
+        .getAddressFromCoordinates(
+          coordinates: here.latLng,
+          getSubUrbOnly: true,
+        );
+    if (!mounted) return;
+    result.when(
+      (suburb) {
+        if (suburb.trim().isNotEmpty) setState(() => _suburb = suburb.trim());
+      },
+      (_) {},
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSearchActive = ref.watch(
+      providerOfPlacesForSelectLocation.select(
+        (value) => value.searchString.isNotEmpty,
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: _page,
+      body: Column(
+        children: [
+          _headerBuilder(context),
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 0),
+                  child: _searchbarBuilder(),
+                ).sliverBox,
+                14.hSizedBox.sliverBox,
+                if (widget.args?.hasRadiusConstraint ?? false)
+                  _radiusConstraintBannerBuilder().sliverBox,
+                if (isSearchActive)
+                  PlaceSearchResultsList(
+                    placesSearchKey: SelectLocationScreen.placesSearchKey,
+                    onPlaceSelected: _handlePlaceSelected,
+                    radiusFilter: widget.args?.hasRadiusConstraint ?? false
+                        ? _isLocationWithinRadius
+                        : null,
+                  )
+                else ...[
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.spMin),
+                    child: _optionsGroupBuilder(),
+                  ).sliverBox,
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20.spMin,
+                      14.spMin,
+                      20.spMin,
+                      24.spMin,
+                    ),
+                    child: Text(
+                      'You can look at alerts anywhere. Reports are always '
+                      'posted from where you actually are.',
+                      style: TextStyle(
+                        fontSize: 13.spMin,
+                        color: _muted,
+                        height: 1.45,
+                      ),
+                    ),
+                  ).sliverBox,
+                ],
+              ],
+            ),
           ),
         ],
       ),
     ).keyboardDismisser(context);
   }
 
-  Widget _searchbarBuilder() {
+  Widget _headerBuilder(final BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(30.r),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColor,
-            blurRadius: 10.0,
-            offset: Offset(0, 0.0),
-          ),
-        ],
+      color: AppColors.white,
+      padding: EdgeInsets.fromLTRB(
+        8.spMin,
+        MediaQuery.paddingOf(context).top + 8.spMin,
+        16.spMin,
+        12.spMin,
       ),
-      child: TextFormField(
-        focusNode: _searchFocusNode,
-        controller: _searchController,
-        textInputAction: TextInputAction.search,
-        onChanged: _handleSearchChanged,
-        autofocus: true,
-        decoration: InputDecoration(
-          hintText: 'Search the location...',
-          contentPadding: EdgeInsets.only(
-            top: 5.spMin,
-            bottom: 5.spMin,
-            right: 10.spMin,
-          ),
-          filled: true,
-          fillColor: AppColors.white,
-          prefixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
               IconButton(
-                icon: BackButtonIcon(),
-                onPressed: () {
-                  context.pop();
-                },
+                onPressed: () => context.pop(),
+                tooltip: 'Back',
+                icon: Icon(
+                  LucideIcons.chevronLeft,
+                  size: 26.spMin,
+                  color: _ink,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Choose a location',
+                  style: TextStyle(
+                    fontSize: 24.spMin,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                    color: _ink,
+                  ),
+                ),
               ),
             ],
           ),
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Consumer(
-                builder: (context, ref, child) {
-                  final isSearchActive = ref.watch(
-                    providerOfPlacesForSelectLocation.select(
-                      (value) => value.searchString.isNotEmpty,
-                    ),
-                  );
-                  if (!isSearchActive) return const SizedBox();
+          Padding(
+            padding: EdgeInsets.only(left: 8.spMin),
+            child: Text(
+              'Place search goes through the ALRT backend',
+              style: TextStyle(fontSize: 14.spMin, color: _muted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                  return IconButton(
-                    onPressed: _handleClearSearchPressed,
-                    icon: Icon(
-                      Icons.close_rounded,
-                      size: 20.spMin,
-                      color: AppColors.black,
+  Widget _searchbarBuilder() {
+    return TextFormField(
+      focusNode: _searchFocusNode,
+      controller: _searchController,
+      textInputAction: TextInputAction.search,
+      onChanged: _handleSearchChanged,
+      style: TextStyle(
+        fontSize: 15.spMin,
+        fontWeight: FontWeight.w500,
+        color: _ink,
+      ),
+      decoration: InputDecoration(
+        hintText: 'Search a suburb, town or address',
+        hintStyle: TextStyle(
+          fontSize: 15.spMin,
+          color: _muted.withValues(alpha: 0.7),
+        ),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 14.spMin,
+          vertical: 14.spMin,
+        ),
+        filled: true,
+        fillColor: AppColors.white,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14.spMin),
+          borderSide: const BorderSide(color: _field, width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14.spMin),
+          borderSide: const BorderSide(color: AppColors.orange, width: 1.5),
+        ),
+        suffixIcon: Consumer(
+          builder: (context, ref, child) {
+            final isSearchActive = ref.watch(
+              providerOfPlacesForSelectLocation.select(
+                (value) => value.searchString.isNotEmpty,
+              ),
+            );
+            if (!isSearchActive) return const SizedBox.shrink();
+            return IconButton(
+              onPressed: _handleClearSearchPressed,
+              tooltip: 'Clear',
+              icon: Icon(
+                Icons.close_rounded,
+                size: 20.spMin,
+                color: _ink,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Your location, the suburb you are in, Choose on the map: one white
+  /// group with hairline dividers, as on the board.
+  Widget _optionsGroupBuilder() {
+    final showYourLocation = widget.args?.showYourLocationOption ?? true;
+    final rows = <Widget>[
+      if (showYourLocation)
+        _rowBuilder(
+          title: 'Your location',
+          subtitle: 'Asked only now, when you choose it',
+          onTap: _handleYourLocationPressed,
+        ),
+      if (showYourLocation && _suburb != null)
+        _rowBuilder(
+          title: _suburb!,
+          subtitle: 'Suburb · where you are now',
+          onTap: _handleSuburbPressed,
+        ),
+      if (widget.args?.showTestScarboroughOption ?? false)
+        _rowBuilder(
+          title: 'Use Scarborough WA (TEST)',
+          subtitle: 'For testing only, when your real location is unavailable',
+          titleColor: AppColors.orange,
+          onTap: () => context.pop(testScarboroughLocation),
+        ),
+      _rowBuilder(
+        title: 'Choose on the map',
+        subtitle: 'Drop a pin',
+        onTap: _gotoSelectLocationOnMapScreen,
+      ),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18.spMin),
+        border: Border.all(color: AppColors.black.withValues(alpha: 0.04)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              Container(
+                height: 1,
+                margin: EdgeInsets.symmetric(horizontal: 16.spMin),
+                color: AppColors.black.withValues(alpha: 0.06),
+              ),
+            rows[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _rowBuilder({
+    required final String title,
+    required final String subtitle,
+    required final VoidCallback onTap,
+    final Color titleColor = _ink,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: 58.spMin),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 16.spMin,
+            vertical: 10.spMin,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: titleColor,
+                      ),
                     ),
-                  ).pR(5.0);
-                },
+                    SizedBox(height: 1.spMin),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        fontWeight: FontWeight.w500,
+                        color: _muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                LucideIcons.chevronRight,
+                size: 18.spMin,
+                color: _muted,
               ),
             ],
           ),
@@ -219,11 +433,11 @@ class _SelectLocationScreenState extends ConsumerState<SelectLocationScreen> {
         }
 
         return Container(
-          margin: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+          margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
           padding: EdgeInsets.all(12.spMin),
           decoration: BoxDecoration(
             color: AppColors.blue.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10.r),
+            borderRadius: BorderRadius.circular(14.r),
             border: Border.all(
               color: AppColors.blue.withValues(alpha: 0.3),
               width: 1,
@@ -254,75 +468,19 @@ class _SelectLocationScreenState extends ConsumerState<SelectLocationScreen> {
     );
   }
 
-  Widget _yourLocationBuilder() {
-    return ListTile(
-      leading: RoundButton(
-        icon: Icon(
-          Icons.my_location_rounded,
-          color: AppColors.blue,
-          size: 22.spMin,
-        ),
-      ),
-      title: Text(
-        'Your location',
-        style: TextStyle(
-          fontSize: 16.spMin,
-          color: AppColors.blue,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: _handleYourLocationPressed,
-    );
-  }
-
-  /// TEST-only fallback for when device location is unavailable (see
-  /// showTestScarboroughOption) - pops straight back with the fixed
-  /// Scarborough location, the same way "Your location" pops with the
-  /// device's real one, no GPS involved.
-  Widget _testScarboroughLocationBuilder() {
-    return ListTile(
-      leading: RoundButton(
-        icon: Icon(
-          Icons.science_outlined,
-          color: AppColors.orange,
-          size: 22.spMin,
-        ),
-      ),
-      title: Text(
-        'Use Scarborough WA (TEST)',
-        style: TextStyle(
-          fontSize: 16.spMin,
-          color: AppColors.orange,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        'For testing only, when your real location is unavailable',
-        style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
-      ),
-      onTap: () => context.pop(testScarboroughLocation),
-    );
-  }
-
-  Widget _chooseOnTheMapBuilder() {
-    return ListTile(
-      leading: RoundButton(
-        icon: Icon(
-          Icons.map_rounded,
-          size: 22.spMin,
-          color: AppColors.blue,
-        ),
-      ),
-      title: Text(
-        'Choose on the map',
-        style: TextStyle(
-          fontSize: 16.spMin,
-          color: AppColors.blue,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: _gotoSelectLocationOnMapScreen,
-    );
+  /// The suburb row: where the person is now, named by suburb only.
+  void _handleSuburbPressed() {
+    final suburb = _suburb;
+    if (suburb == null) return;
+    final here = ref.read(providerOfLocation).location;
+    if ((widget.args?.hasRadiusConstraint ?? false) &&
+        !_isLocationWithinRadius(here.latitude, here.longitude)) {
+      context.showErrorToast(
+        message: 'Your location is outside the allowed area.',
+      );
+      return;
+    }
+    context.pop(here.copyWith(name: suburb, address: suburb));
   }
 
   /// Updates the search string in the [PlacesProvider] and triggers a debounced to fetch places.

@@ -1642,7 +1642,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         if (hazard == null || isUserReported) return const SizedBox.shrink();
 
         var callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction);
-        if (callsToAction.isEmpty) {
+        final fromAgency = callsToAction.isNotEmpty;
+        if (!fromAgency) {
           // The agency published no instructions: ALRT's general guidance
           // for this kind of alert, labelled as such below (product owner,
           // 16 Oct 2026; replaces the "has not published advice" note).
@@ -1652,123 +1653,63 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             parentCategoryName: hazard.category?.parent?.name,
           );
         }
+        final agency = hazard.source?.name?.trim();
 
-        final color = AppColors.orange200;
-
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
+        // Detail board: WHAT TO DO in a white card, "{agency}, word for
+        // word" under the label when the lines are the agency's own, and
+        // a band-coloured dot on each line.
+        return _detailSectionCard(
+          children: [
+            _detailSectionLabel('WHAT TO DO'),
+            if (fromAgency && agency != null && agency.isNotEmpty) ...[
+              2.hSizedBox,
+              Text(
+                '$agency, word for word',
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  color: AlertCardStyle.metaInk,
+                ),
               ),
             ],
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16.spMin),
-              border: Border(
-                left: BorderSide(
-                  color: color,
-                  width: 4,
+            8.hSizedBox,
+            for (var i = 0; i < callsToAction.length; i++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: i < callsToAction.length - 1 ? 6.spMin : 0,
                 ),
-                right: BorderSide(
-                  color: color,
-                  width: 1,
-                ),
-                bottom: BorderSide(
-                  color: color,
-                  width: 1,
-                ),
-                top: BorderSide(
-                  color: color,
-                  width: 1,
+                child: _bulletRow(
+                  dot: hazard.color,
+                  child: _attributedActionText(callsToAction[i]),
                 ),
               ),
-            ),
-            padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 8.spMin, 16.spMin),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'WHAT TO DO',
-                        style: TextStyle(
-                          color: isUserReported
-                              ? AlertCardStyle.communitySectionHeaderColor
-                              : AlertCardStyle.officialSectionHeaderColor,
-                          fontSize: 10.5.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                      12.spMin.hSizedBox,
-                      ...callsToAction.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final action = entry.value;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index < callsToAction.length - 1
-                                ? 8.spMin
-                                : 0,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '• ',
-                                style: TextStyle(
-                                  color: AppColors.black.withValues(alpha: 0.9),
-                                  fontSize: 14.spMin,
-                                  height: 1.5,
-                                ),
-                              ),
-                              Expanded(
-                                child: _attributedActionText(action),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                      // ALRT's own lines carry no prefix, so the block says
-                      // whose words they are (product owner, 16 Oct 2026).
-                      if (AlertCardStyle.hasAlrtGuidance(callsToAction))
-                        Padding(
-                          padding: EdgeInsets.only(top: 10.spMin),
-                          child: Text(
-                            'General guidance from ALRT, not part of the '
-                            'official warning.',
-                            style: TextStyle(
-                              fontSize: 11.5.spMin,
-                              color: AppColors.mediumGrey,
-                              height: 1.35,
-                            ),
-                          ),
-                        ),
-                      // Deep link into the matching safety guide, if any.
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final categoryId = ref.watch(
-                            provider.select(
-                              (value) => value.hazard?.category?.id,
-                            ),
-                          );
-                          return GuideStripCard(categoryId: categoryId);
-                        },
-                      ),
-                    ],
+            // ALRT's own lines carry no prefix, so the block says whose
+            // words they are (product owner, 16 Oct 2026).
+            if (AlertCardStyle.hasAlrtGuidance(callsToAction))
+              Padding(
+                padding: EdgeInsets.only(top: 10.spMin),
+                child: Text(
+                  'General guidance from ALRT, not part of the '
+                  'official warning.',
+                  style: TextStyle(
+                    fontSize: 11.5.spMin,
+                    color: AlertCardStyle.metaInk,
+                    height: 1.35,
                   ),
                 ),
-              ],
+              ),
+            // Deep link into the matching safety guide, if any.
+            Consumer(
+              builder: (context, ref, child) {
+                final categoryId = ref.watch(
+                  provider.select(
+                    (value) => value.hazard?.category?.id,
+                  ),
+                );
+                return GuideStripCard(categoryId: categoryId);
+              },
             ),
-          ),
-        ).pB(16.0);
+          ],
+        );
       },
     );
   }
@@ -1792,78 +1733,82 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         if (facts.isEmpty) return const SizedBox.shrink();
 
-        // Paired with WHAT TO DO, to the pixel. This used to be a blue
-        // card with a blue bar and a sentence-case heading: blue is the
-        // COMMUNITY colour, so an official agency's own words were wearing
-        // the unverified-report treatment, and the two halves of the alert
-        // read as parts of two different apps.
-        final color = AlertCardStyle.officialSectionHeaderColor;
-
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16.spMin),
-              border: Border(
-                left: BorderSide(color: color, width: 4),
-                right: BorderSide(color: color, width: 1),
-                bottom: BorderSide(color: color, width: 1),
-                top: BorderSide(color: color, width: 1),
-              ),
-            ),
-            padding: EdgeInsets.fromLTRB(
-              16.spMin,
-              16.spMin,
-              8.spMin,
-              16.spMin,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'WHAT WE KNOW',
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 10.5.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                      12.spMin.hSizedBox,
-                      for (final fact in facts)
-                        Padding(
-                          padding: EdgeInsets.only(bottom: 6.spMin),
-                          child: Text(
-                            '\u2022 $fact',
-                            style: TextStyle(
-                              color: AppColors.black.withValues(alpha: 0.9),
-                              fontSize: 14.spMin,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                    ],
+        // Detail board: a white card, the orange V3 label, grey dots.
+        return _detailSectionCard(
+          children: [
+            _detailSectionLabel('WHAT WE KNOW'),
+            8.hSizedBox,
+            for (var i = 0; i < facts.length; i++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: i < facts.length - 1 ? 6.spMin : 0,
+                ),
+                child: _bulletRow(
+                  dot: _factDot,
+                  child: Text(
+                    facts[i],
+                    style: TextStyle(
+                      color: _factInk,
+                      fontSize: 14.spMin,
+                      height: 1.5,
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ).pB(16.0);
+              ),
+          ],
+        );
       },
+    );
+  }
+
+  static const _factDot = Color(0xFF9A9AA2);
+  static const _factInk = Color(0xFF3A3A42);
+
+  /// The white section card on the Detail board (radius 18, 14 x 16).
+  Widget _detailSectionCard({required final List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 10.spMin),
+      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
+        boxShadow: const [AlertCardStyle.cardShadow],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
+
+  /// 12 px, bold, letter-spaced, V3 orange.
+  Widget _detailSectionLabel(final String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 12.spMin,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.6,
+        color: AppColors.sectionLabel,
+      ),
+    );
+  }
+
+  /// A 6 px dot and the line beside it.
+  Widget _bulletRow({required final Color dot, required final Widget child}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 6.spMin,
+          height: 6.spMin,
+          margin: EdgeInsets.only(top: 8.spMin),
+          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+        ),
+        8.wSizedBox,
+        Expanded(child: child),
+      ],
     );
   }
 
