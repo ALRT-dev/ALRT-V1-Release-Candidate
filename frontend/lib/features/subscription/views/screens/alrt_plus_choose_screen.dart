@@ -137,18 +137,9 @@ class _AlrtPlusChooseScreenState extends ConsumerState<AlrtPlusChooseScreen> {
                     onPressed: () => Navigator.of(context).pop(false),
                   ),
                 ),
-                Expanded(
-                  child: Text(
-                    'ALRT +',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: ink,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 40.spMin),
+                // The board also centres "ALRT +" here; it is left out so
+                // the plan pill on the first card stays the one "ALRT +".
+                const Spacer(),
               ],
             ),
             SizedBox(height: 8.spMin),
