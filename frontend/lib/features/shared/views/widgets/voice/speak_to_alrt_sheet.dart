@@ -284,7 +284,7 @@ class _SpeakToAlrtSheetState extends ConsumerState<SpeakToAlrtSheet> {
     if (query.isEmpty || onSearch == null) {
       return ('Say a place or an alert to search for.', null);
     }
-    final alerts = MapSearchSheet.matchingAlerts(query, _liveAlerts).length;
+    final alerts = mapSearchMatchingAlerts(query, _liveAlerts).length;
     final found = await ref.read(providerOfMapService).getPlaces(
           searchString: query,
           currentUserLocation: ref.read(providerOfLocation).location,

@@ -539,3 +539,11 @@ class _MapSearchSheetState extends ConsumerState<MapSearchSheet> {
     );
   }
 }
+
+/// The alerts the map search would list for [query] (most serious first, at
+/// most 4). Speak to ALRT uses it to say what a spoken search found.
+List<Hazard> mapSearchMatchingAlerts(
+  final String query,
+  final List<Hazard> hazards,
+) =>
+    _MapSearchSheetState.matchingAlerts(query, hazards);
