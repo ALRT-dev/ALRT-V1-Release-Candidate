@@ -475,6 +475,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     ],
                     10.hSizedBox,
                     _buildLocationLine(hazard),
+                    if (!hazard.isUserReported) _buildKeyFactsStrip(hazard),
                   ],
                 ),
               ),
@@ -645,6 +646,68 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  /// The "Key facts" strip: a few headline specifics (distance, time window,
+  /// wind, size, water level) pulled verbatim from the source's own text, so
+  /// the essentials are scannable. Only what the agency wrote is shown —
+  /// never computed or invented. Renders nothing when there's nothing to show.
+  Widget _buildKeyFactsStrip(final Hazard hazard) {
+    final facts = AlertGuidanceLibrary.keyFacts(hazard.description);
+    if (facts.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(top: 12.spMin),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(12.spMin),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF6F0),
+          borderRadius: BorderRadius.circular(12.spMin),
+          border: Border.all(color: const Color(0xFFF0D3BC)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'KEY FACTS · from the source',
+              style: TextStyle(
+                fontSize: 10.5.spMin,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+                color: const Color(0xFF9A4A00),
+              ),
+            ),
+            7.spMin.hSizedBox,
+            for (final (label, value) in facts)
+              Padding(
+                padding: EdgeInsets.only(bottom: 5.spMin),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$label ',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF9A4A00),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: 12.spMin,
+                          color: const Color(0xFF3A3A42),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1864,14 +1927,39 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final sourceName = ref.watch(
           provider.select((value) => value.hazard?.source?.name),
         );
+        final incidentType = ref.watch(
+          provider.select((value) => value.hazard?.category?.name),
+        );
+        final locationName = ref.watch(
+          provider.select((value) => value.hazard?.locationName),
+        );
+
+        // Official alerts lead with who issued it and what it is, e.g.
+        // "DFES has issued a bushfire incident at Toodyay." (owner request:
+        // the incident type and agency in the first WHAT WE KNOW point).
+        // Community reports keep their existing "A community member has
+        // reported" wording and are never re-attributed to an agency.
+        final issued = isUserReported
+            ? null
+            : AlertTextUtil.issuedLine(sourceName, incidentType, locationName);
+
         final allFacts = isUserReported
             ? AlertTextUtil.communityPoints(reportTitle, description)
             : AlertTextUtil.whatWeKnowAllPoints(description);
-        final points = allFacts.isEmpty
-            ? <String>[AlertTextUtil.noDetailsLine(sourceName)]
+        // The issued line is the first point; it is never one of the source's
+        // own bullets, so it is added outside the cap.
+        final factsAfterIssued = allFacts.isEmpty
+            ? const <String>[]
             : (_whatWeKnowExpanded
                 ? allFacts
                 : allFacts.take(AlertTextUtil.maxPoints).toList());
+        final points = <String>[
+          if (issued != null && issued.isNotEmpty) issued,
+          ...factsAfterIssued,
+        ];
+        if (points.isEmpty) {
+          points.add(AlertTextUtil.noDetailsLine(sourceName));
+        }
         final showAllFacts =
             !isUserReported && allFacts.length > AlertTextUtil.maxPoints;
 
@@ -1946,16 +2034,24 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                                 ),
                               ),
                               Expanded(
-                                child: Text(
-                                  points[i],
-                                  style: TextStyle(
-                                    color: AppColors.black.withValues(
-                                      alpha: 0.9,
-                                    ),
-                                    fontSize: 14.spMin,
-                                    height: 1.5,
-                                  ),
-                                ),
+                                child: i == 0 && issued != null && incidentType != null
+                                    // The issued line leads WHAT WE KNOW and
+                                    // bolds the incident type so it reads as
+                                    // the headline fact.
+                                    ? _buildIssuedLine(
+                                        points[i],
+                                        (incidentType ?? '').trim(),
+                                      )
+                                    : Text(
+                                        points[i],
+                                        style: TextStyle(
+                                          color: AppColors.black.withValues(
+                                            alpha: 0.9,
+                                          ),
+                                          fontSize: 14.spMin,
+                                          height: 1.5,
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
@@ -1999,6 +2095,33 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           ),
         ).pB(16.0);
       },
+    );
+  }
+
+  /// The first "WHAT WE KNOW" point for an official alert, with the incident
+  /// type in bold so the headline fact reads first, e.g.
+  /// "DFES has issued a **bushfire** incident at Toodyay."
+  Widget _buildIssuedLine(final String line, final String incidentType) {
+    const base = TextStyle(
+      color: AppColors.black,
+      fontSize: 14,
+      height: 1.5,
+    );
+    if (incidentType.isEmpty) return Text(line, style: base);
+    final lower = line.toLowerCase();
+    final idx = lower.indexOf(incidentType.toLowerCase());
+    if (idx < 0) return Text(line, style: base);
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: line.substring(0, idx), style: base),
+          TextSpan(
+            text: line.substring(idx, idx + incidentType.length),
+            style: base.copyWith(fontWeight: FontWeight.w800),
+          ),
+          TextSpan(text: line.substring(idx + incidentType.length), style: base),
+        ],
+      ),
     );
   }
   Widget _buildSourceSection() {

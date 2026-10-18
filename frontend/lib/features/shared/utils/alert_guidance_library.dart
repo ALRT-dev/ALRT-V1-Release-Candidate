@@ -208,5 +208,80 @@ abstract final class AlertGuidanceLibrary {
       'Check on neighbours, especially older or less mobile people.',
       'Follow local emergency instructions as they are published.',
     ],
+    'crocodile': [
+      'Consider staying well back from the water\'s edge, jetties and boat ramps.',
+      'Keep children and pets away from the edge.',
+      'Obey local signs and keep out of the water.',
+      'Don\'t feed or approach crocodiles.',
+    ],
+    'tornado': [
+      'Consider moving to an inner room or the lowest floor, away from windows.',
+      'Keep children close and move together to shelter.',
+      'Charge your phone and keep a torch handy.',
+      'Stay in shelter until officials say it is over.',
+    ],
+    'landslide': [
+      'Consider staying away from steep slopes, cuttings and slip debris.',
+      'Know your route out and choose flatter alternatives.',
+      'Keep children and pets away from fresh slips.',
+      'Monitor local advice and road closures.',
+    ],
+    'cold_snap': [
+      'Consider heating the room you live in and layering up.',
+      'Keep medication close and check on older or less mobile people.',
+      'Never leave children or pets in a cold car.',
+      'Allow extra travel time for icy roads and paths.',
+    ],
+    'water_quality': [
+      'Consider using boiled or bottled water for drinking and brushing teeth.',
+      'Follow the alert\'s exact advice until the agency says the water is fine.',
+      'Keep pets and stock away from affected water.',
+      'If collecting bottled water is hard, ask a neighbour or council for help early.',
+    ],
   };
+
+  /// Extracts a few headline facts from the source's own description — only
+  /// numbers and specifics the agency actually wrote (distance, time window,
+  /// wind, size, water level). Never computed, never invented. Used for the
+  /// optional "Key facts" strip so the reader can scan the essentials fast.
+  /// Returns up to [maxFacts] (label, value) pairs.
+  static List<(String, String)> keyFacts(final String? description) {
+    if (description == null) return const [];
+    final d = description.toLowerCase();
+    final out = <(String, String)>[];
+    void add(String label, String? value) {
+      final v = (value ?? '').trim();
+      if (v.isEmpty) return;
+      if (out.any((e) => e.$2 == v)) return;
+      out.add((label, v));
+    }
+
+    final km = RegExp(r'(up to |within |about )?(\d+(?:\.\d+)?)\s*(km|kilometres?|kilometers?)')
+        .allMatches(d)
+        .map((m) => m.group(0))
+        .toList();
+    if (km.isNotEmpty) add('Distance', km.first);
+
+    final time = RegExp(r'(within|in|over the next)\s+\d+\s*(hours?|minutes?|days?)')
+        .allMatches(d)
+        .map((m) => m.group(0))
+        .toList();
+    if (time.isNotEmpty) add('Timeframe', time.first);
+
+    final wind = RegExp(r'\d+\s*km/h').allMatches(d).map((m) => m.group(0)).toList();
+    if (wind.isNotEmpty) add('Wind', wind.first);
+
+    final ha = RegExp(r'\d+(?:,\d+)*\s*hectares?').allMatches(d).map((m) => m.group(0)).toList();
+    if (ha.isNotEmpty) add('Size', ha.first);
+
+    final level = RegExp(r'(minor|moderate|major)\s*flood\s*(level|peak)').allMatches(d)
+        .map((m) => m.group(0))
+        .toList();
+    if (level.isNotEmpty) add('Water', level.first);
+
+    return out.take(maxFacts).toList();
+  }
+
+  /// Maximum headline facts shown in the Key facts strip.
+  static const int maxFacts = 4;
 }

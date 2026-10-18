@@ -125,6 +125,20 @@ void main() {
       expect(rows, isNotEmpty);
       expect(rows.any((r) => r.contains('Australian')), isFalse);
     });
+
+    test('keyFacts pulls numbers from the source description', () {
+      final facts = AlertGuidanceLibrary.keyFacts(
+        'A bushfire is burning and may impact within 2 hours. '
+        'Embers are travelling up to 5 km ahead.',
+      );
+      expect(facts, isNotEmpty);
+      expect(facts.any((f) => f.$2.contains('2 hours')), isTrue);
+      expect(facts.any((f) => f.$2.contains('5 km')), isTrue);
+    });
+
+    test('keyFacts returns nothing for text with no specifics', () {
+      expect(AlertGuidanceLibrary.keyFacts('A fire is burning. Stay safe.'), isEmpty);
+    });
   });
   group('global rows', () {
     test('region-agnostic — no Australian wording', () {
