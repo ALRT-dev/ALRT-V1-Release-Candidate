@@ -150,4 +150,33 @@ void main() {
       expect(ForYouLibrary.globalRows.length, SafetyCohort.values.length);
     });
   });
+  group('issuedLine', () {
+    test('agency + incident type + place', () {
+      expect(
+        AlertTextUtil.issuedLine('DFES', 'bushfire', 'Toodyay'),
+        'DFES has issued a bushfire incident at Toodyay.',
+      );
+    });
+    test('no place falls back to a plain issued line', () {
+      expect(
+        AlertTextUtil.issuedLine('DFES', 'flood', null),
+        'DFES has issued a flood incident.',
+      );
+    });
+    test('no agency still names the incident type', () {
+      expect(
+        AlertTextUtil.issuedLine(null, 'bushfire', 'Bambun'),
+        'A bushfire incident has been reported at Bambun.',
+      );
+    });
+    test('no incident type never returns empty', () {
+      expect(AlertTextUtil.issuedLine('DFES', null, null), isNotEmpty);
+    });
+    test('already-"incident" type is not doubled', () {
+      expect(
+        AlertTextUtil.issuedLine('DFES', 'incident', 'Bambun'),
+        'DFES has issued a incident at Bambun.',
+      );
+    });
+  });
 }

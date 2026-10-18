@@ -2034,13 +2034,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                                 ),
                               ),
                               Expanded(
-                                child: i == 0 && issued != null && incidentType != null
+                                child: i == 0 && issued != null
                                     // The issued line leads WHAT WE KNOW and
                                     // bolds the incident type so it reads as
                                     // the headline fact.
                                     ? _buildIssuedLine(
                                         points[i],
-                                        (incidentType ?? '').trim(),
+                                        incidentType ?? '',
                                       )
                                     : Text(
                                         points[i],
