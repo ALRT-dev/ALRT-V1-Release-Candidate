@@ -227,6 +227,14 @@ abstract class Hazard with _$Hazard {
       }
     }
 
+    // A planned burn is scheduled, not yet active: a white diamond with a
+    // dotted edge (keyed `plannedBurn_pin`), so it reads as planned rather
+    // than a solid urgency pin.
+    if (categoryId == 'plannedBurn' || category?.id == 'plannedBurn') {
+      final planned = bitmapMap['plannedBurn_pin'];
+      if (planned != null) return planned;
+    }
+
     final band = severityBand ?? HazardSeverityBand.info;
 
     // GDACS: a diamond in the GDACS level colour (green, orange, red).

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show PathMetric;
 
 import 'package:flutter/material.dart';
 import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
@@ -21,11 +22,17 @@ class MapPinShape extends StatelessWidget {
     required this.shape,
     required this.color,
     this.size = 28,
+    this.dotted = false,
   });
 
   final HazardSourceShape shape;
   final Color color;
   final double size;
+
+  /// When true, the shape is drawn as a white fill with a dotted border
+  /// (planned / not-yet-active, e.g. a planned burn) instead of a solid
+  /// band-colour fill with a solid white stroke.
+  final bool dotted;
 
   /// Total logical height including the pointer tail.
   double get totalHeight => size + 8;
@@ -41,6 +48,7 @@ class MapPinShape extends StatelessWidget {
           shape: shape,
           fillColor: color,
           shapeSize: size,
+          dotted: dotted,
         ),
       ),
     );
@@ -52,22 +60,25 @@ class _PinPainter extends CustomPainter {
     required this.shape,
     required this.fillColor,
     required this.shapeSize,
+    this.dotted = false,
   });
 
   final HazardSourceShape shape;
   final Color fillColor;
   final double shapeSize;
+  final bool dotted;
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
     final paint = Paint()
-      ..color = fillColor
+      ..color = dotted ? Colors.white : fillColor
       ..style = PaintingStyle.fill;
 
     final strokePaint = Paint()
-      ..color = Colors.white
+      ..color = dotted ? fillColor : Colors.white
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = dotted ? 2.2 : 2.0
+      ..strokeCap = StrokeCap.round;
 
     final shadowPaint = Paint()
       ..color = Colors.black.withValues(alpha: 0.25)
@@ -91,7 +102,31 @@ class _PinPainter extends CustomPainter {
     final shapePath = _shapePath(cx, cy, r);
     canvas.drawPath(shapePath, shadowPaint);
     canvas.drawPath(shapePath, paint);
-    canvas.drawPath(shapePath, strokePaint);
+    if (dotted) {
+      canvas.drawPath(_dottedPath(shapePath), strokePaint);
+    } else {
+      canvas.drawPath(shapePath, strokePaint);
+    }
+  }
+
+  /// A dotted outline of [source]: short dashes along the path. A planned
+  /// (not-yet-active) marker reads as an outline, not a solid urgency pin.
+  Path _dottedPath(Path source) {
+    final Path dest = Path();
+    for (final PathMetric metric in source.computeMetrics()) {
+      const dashWidth = 4.0;
+      const dashGap = 3.0;
+      double distance = 0;
+      while (distance < metric.length) {
+        final double nextDistance = distance + dashWidth;
+        dest.addPath(
+          metric.extractPath(distance, nextDistance.clamp(0, metric.length)),
+          Offset.zero,
+        );
+        distance = nextDistance + dashGap;
+      }
+    }
+    return dest;
   }
 
   Path _shapePath(double cx, double cy, double r) {
