@@ -98,7 +98,33 @@ abstract final class AlertTextUtil {
       out.add(d.length > 160 ? '${d.substring(0, 157).trim()}...' : d);
     }
     out.add('This report is unverified and has not been confirmed by an official source.');
+    // A report alone is not actionable. Add what the reader can do now, so a
+    // community alert never reads as just "an incident has occurred".
+    if (out.length < maxPoints) {
+      out.add(
+        'If you are near the area, take care and check for official updates.',
+      );
+    }
     return out.take(maxPoints).toList();
+  }
+
+  /// Guarantees at least [min] relevant, actionable points. When the source
+  /// gave fewer (a terse agency, an alert with nothing beyond its headline),
+  /// it tops up with ALRT's hazard-specific actionable guidance so the section
+  /// never reads as a single vague "an incident has occurred" line.
+  static List<String> ensureMinPoints(
+    final List<String> points,
+    final String? bucket,
+    final int min,
+  ) {
+    if (points.length >= min) return points.take(min).toList();
+    final out = [...points];
+    for (final line in AlertGuidanceLibrary.considerRows(bucket)) {
+      if (out.length >= min) break;
+      if (out.contains(line)) continue;
+      out.add(line);
+    }
+    return out;
   }
 
   /// The first [maxPoints] instructions, ranked by urgency (Tier 1 life-safety

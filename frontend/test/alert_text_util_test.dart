@@ -54,7 +54,7 @@ void main() {
 
     test('community report always has at least one what-we-know point', () {
       final none = AlertTextUtil.communityPoints('Smell of gas', null);
-      expect(none.length, 2);
+      expect(none.length, greaterThanOrEqualTo(3));
       expect(none.first, 'A community member has reported: Smell of gas.');
       expect(AlertTextUtil.communityPoints(null, null).isNotEmpty, isTrue);
       expect(AlertTextUtil.communityPoints('A', 'Strong smell near the park').length, 3);
@@ -138,6 +138,23 @@ void main() {
 
     test('keyFacts returns nothing for text with no specifics', () {
       expect(AlertGuidanceLibrary.keyFacts('A fire is burning. Stay safe.'), isEmpty);
+    });
+
+    test('ensureMinPoints pads a terse source to at least three actionable points', () {
+      final points = AlertTextUtil.ensureMinPoints(
+        ['DFES has issued a bushfire incident at Toodyay.'],
+        'bushfire',
+        3,
+      );
+      expect(points.length, greaterThanOrEqualTo(3));
+      // Never just "an incident has occurred" — the top-up lines are actionable.
+      expect(points.every((p) => p.trim().isNotEmpty), isTrue);
+    });
+
+    test('community report never reads as a single vague incident line', () {
+      final points = AlertTextUtil.communityPoints('Smell of gas', null);
+      expect(points.length, greaterThanOrEqualTo(3));
+      expect(points.first, isNot(contains('an incident has occurred')));
     });
   });
   group('global rows', () {

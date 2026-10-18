@@ -1859,9 +1859,14 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         }
 
         // DIRECTED: the agency's own words, ranked Tier 1 first, capped at 3,
-        // the rest behind "Show all". CONSIDER: ALRT's general guidance.
+        // topped up with ALRT guidance so there are always at least three
+        // actionable points. CONSIDER: ALRT's general guidance.
         final items = directed
-            ? AlertGuidanceLibrary.rankActions(rawActions)
+            ? AlertTextUtil.ensureMinPoints(
+                AlertGuidanceLibrary.rankActions(rawActions),
+                bucket,
+                AlertTextUtil.maxPoints,
+              )
             : consider;
         final isConsider = !directed;
         final agency = (sourceName ?? '').trim();
@@ -1943,6 +1948,15 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             ? null
             : AlertTextUtil.issuedLine(sourceName, incidentType, locationName);
 
+        final parentCategoryName = ref.watch(
+          provider.select((value) => value.hazard?.category?.parent?.name),
+        );
+        final bucket = AlertGuidanceLibrary.bucketFor(
+          categoryName: incidentType,
+          parentCategoryName: parentCategoryName,
+          title: reportTitle,
+        );
+
         final allFacts = isUserReported
             ? AlertTextUtil.communityPoints(reportTitle, description)
             : AlertTextUtil.whatWeKnowAllPoints(description);
@@ -1953,13 +1967,21 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             : (_whatWeKnowExpanded
                 ? allFacts
                 : allFacts.take(AlertTextUtil.maxPoints).toList());
-        final points = <String>[
+        final base = <String>[
           if (issued != null && issued.isNotEmpty) issued,
           ...factsAfterIssued,
         ];
-        if (points.isEmpty) {
-          points.add(AlertTextUtil.noDetailsLine(sourceName));
-        }
+        // Never read as just "an incident has occurred": guarantee at least
+        // three relevant, actionable points, topping up with ALRT guidance
+        // when the source gave little. The vague "no further details" line is
+        // gone.
+        final points = isUserReported
+            ? base
+            : AlertTextUtil.ensureMinPoints(
+                base,
+                bucket,
+                AlertTextUtil.maxPoints,
+              );
         final showAllFacts =
             !isUserReported && allFacts.length > AlertTextUtil.maxPoints;
 
