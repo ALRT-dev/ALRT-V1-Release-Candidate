@@ -64,9 +64,10 @@ async function main() {
   const [categoryId] = (await getAllMainHazardCategoryIds()) as [string];
   const tag = `post-radius-${crypto.randomUUID().slice(0, 8)}`;
   const user = await registerUser();
-  // A point nobody else posts near.
-  const lat = -67.2468;
-  const lng = 104.1357;
+  // A random point nobody else posts near, so re-runs never collide with
+  // leftovers from a previous run (the duplicate guard is 500 m).
+  const lat = -64 - Math.random() * 5;
+  const lng = 100 + Math.random() * 30;
 
   try {
     // 1. Posting for a location essentially AT the reporter's position -> 201.
