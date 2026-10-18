@@ -116,14 +116,16 @@ const ALL_ON: Flags = {
 };
 const SELECTIONS: { name: string; flags: Flags }[] = [
   { name: "all on", flags: ALL_ON },
-  { name: "Emergency off", flags: { ...ALL_ON, awsEmergency: false } },
+  // AWS Emergency Warnings are always on (product rule, 16 Oct 2026) — the
+  // flag is not user-turn-offable, so it stays true here.
   { name: "Watch & Act off", flags: { ...ALL_ON, awsWatchAndAct: false } },
   { name: "Advice off", flags: { ...ALL_ON, awsAdvice: false } },
   { name: "Official off", flags: { ...ALL_ON, officialNonAws: false } },
   { name: "Community off", flags: { ...ALL_ON, userReported: false } },
   {
     name: "Community only",
-    flags: { awsEmergency: false, awsWatchAndAct: false, awsAdvice: false, officialNonAws: false, userReported: true },
+    // AWS Emergency stays on even in Community-only mode (always-on rule).
+    flags: { awsEmergency: true, awsWatchAndAct: false, awsAdvice: false, officialNonAws: false, userReported: true },
   },
 ];
 

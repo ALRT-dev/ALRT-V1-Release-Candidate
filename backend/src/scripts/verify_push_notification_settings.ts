@@ -230,7 +230,7 @@ async function main() {
       assert.equal(after.updatedAt.getTime(), before.updatedAt.getTime());
       assert.equal(await prisma.userPushNotificationSetting.count({ where: { userId: optedOut.id } }), 1);
     });
-    await check("a row from before this build with everything off stays everything off", async () => {
+    await check("a row from before this build with everything off stays everything off (except AWS Emergency, which is always on)", async () => {
       const row = await prisma.userPushNotificationSetting.create({
         data: {
           userId: legacy.id,
@@ -246,7 +246,10 @@ async function main() {
       const res = await api("/api/user/push-notification-settings", { token: legacy.token });
       assert.equal(res.status, 200);
       const b = settingsBody(res.body);
-      for (const k of FLAGS) assert.equal(b[k], false, k);
+      // Product rule (16 Oct 2026): AWS Emergency Warnings are always on.
+      assert.equal(b.awsEmergency, true, "awsEmergency");
+      for (const k of ["awsWatchAndAct", "awsAdvice", "officialNonAws", "userReported"])
+        assert.equal(b[k], false, k);
       assert.deepEqual(b.subscribedCategoryIds, []);
       const after = await prisma.userPushNotificationSetting.findFirstOrThrow({ where: { userId: legacy.id } });
       assert.equal(after.updatedAt.getTime(), row.updatedAt.getTime());
