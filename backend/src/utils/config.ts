@@ -72,6 +72,9 @@ export const config = {
   communityReportsPerHour: parseInt(getOptionalEnv("COMMUNITY_REPORTS_PER_HOUR", "3"), 10),
   communityReportsPerDay: parseInt(getOptionalEnv("COMMUNITY_REPORTS_PER_DAY", "10"), 10),
   communityDuplicateRadiusMeters: parseInt(getOptionalEnv("COMMUNITY_DUPLICATE_RADIUS_M", "500"), 10),
+  // A community report may only be posted for a location within this distance
+  // of the reporter's OWN current position (anti-doxing / anti-targeting).
+  communityReportPostRadiusMeters: parseInt(getOptionalEnv("COMMUNITY_REPORT_POST_RADIUS_M", "1000"), 10),
   communityReportMediaEnabled:
     getOptionalEnv("COMMUNITY_REPORT_MEDIA_ENABLED", "false") === "true",
 

@@ -74,6 +74,11 @@ async function main() {
       categoryId,
       latitude: lat + dLat,
       longitude: lng,
+      // The reporter's own position: the base point, so every report here is
+      // posted from within 1 km of the reported location (satisfies the
+      // anti-doxing post-radius rule). These are never stored or displayed.
+      reporterLatitude: lat,
+      reporterLongitude: lng,
     });
 
     await check("first dummy-AI report is created", async () => {

@@ -41,17 +41,48 @@ export const toSuburbOnlyLocationName = (name?: string | null): string => {
 };
 
 /**
- * Rejects a new community report that repeats a live one (same category,
- * within DUPLICATE_RADIUS) or exceeds the per-person posting limits.
+ * Rejects a new community report that:
+ *  - is posted for a location more than COMMUNITY_REPORT_POST_RADIUS_M away
+ *    from the reporter's OWN current position (anti-doxing / anti-targeting:
+ *    you can only post an alert for a place you are actually near), or
+ *  - repeats a live one (same category, within DUPLICATE_RADIUS), or
+ *  - exceeds the per-person posting limits.
+ *
+ * The reporter's own position (reporterLatitude / reporterLongitude) is used
+ * only for this distance check and is NEVER stored, returned or shown.
  */
 export const assertCanPostCommunityReport = async (params: {
   userId: string;
   categoryId: string;
   latitude: number;
   longitude: number;
+  reporterLatitude?: number;
+  reporterLongitude?: number;
 }) => {
-  const { userId, categoryId, latitude, longitude } = params;
+  const { userId, categoryId, latitude, longitude, reporterLatitude, reporterLongitude } = params;
   const now = new Date();
+
+  // Anti-doxing / anti-targeting: the posted location must be within
+  // COMMUNITY_REPORT_POST_RADIUS_M (default 1 km) of the reporter's own
+  // position. A real user posting a community report must supply their own
+  // position; if it is missing or too far away the report is rejected.
+  if (reporterLatitude != null && reporterLongitude != null) {
+    const d = distanceKm(reporterLatitude, reporterLongitude, latitude, longitude) * 1000;
+    if (d > config.communityReportPostRadiusMeters) {
+      throw new HttpError(
+        422,
+        `You can only post an alert for a location within ${Math.round(
+          config.communityReportPostRadiusMeters / 1000,
+        )} km of where you are right now.`,
+      );
+    }
+  } else {
+    // Fail-closed: a community report must carry the reporter's own position,
+    // otherwise we can't verify they are actually near the location. This route
+    // is requireAuth'd for real users (community reports); admin and automated
+    // ingestion use different endpoints and never reach this guard.
+    throw new HttpError(422, "We couldn't verify your location for this alert. Please try again.");
+  }
 
   const [lastHour, lastDay] = await Promise.all([
     prisma.hazard.count({

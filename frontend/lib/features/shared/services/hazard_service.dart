@@ -241,10 +241,14 @@ class HazardService {
   Future<Either<Hazard, AppError>> createHazardReport({
     required final Hazard hazard,
     final List<AlrtMedia>? mediaFiles,
+    final double? reporterLatitude,
+    final double? reporterLongitude,
   }) async {
     final result = await _hazardRepository.createHazardReport(
       hazard: hazard,
       mediaFiles: mediaFiles,
+      reporterLatitude: reporterLatitude,
+      reporterLongitude: reporterLongitude,
     );
 
     final success = await result.whenSuccess(
