@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
+import 'package:hazard_app/features/shared/utils/alert_guidance_library.dart';
 
 void main() {
   const dfes = 'Warning Type: Bushfire Advice\n'
@@ -29,6 +30,12 @@ void main() {
     test('handles empty and missing text', () {
       expect(AlertTextUtil.whatWeKnowPoints(null), isEmpty);
       expect(AlertTextUtil.whatWeKnowPoints('  \n '), isEmpty);
+    });
+
+    test('all facts are available uncapped for the expander', () {
+      final text = List.generate(6, (i) => 'Fact $i.').join('\n');
+      expect(AlertTextUtil.whatWeKnowAllPoints(text).length, 6);
+      expect(AlertTextUtil.whatWeKnowPoints(text).length, 3);
     });
   });
 
@@ -66,6 +73,55 @@ void main() {
         AlertTextUtil.noDetailsLine(null),
         'The source has not published further details yet.',
       );
+    });
+  });
+
+  group('ranking', () {
+    test('ranks life-safety instructions first', () {
+      final out = AlertGuidanceLibrary.rankActions([
+        'Monitor conditions and check the website.',
+        'Leave now and use a route away from the fire.',
+        'Move valuables above floor level.',
+      ]);
+      expect(out.first, contains('Leave now'));
+      expect(out.last, contains('Monitor'));
+    });
+
+    test('keeps source order within a tier', () {
+      final out = AlertGuidanceLibrary.rankActions([
+        'Check the website.',
+        'Stay informed.',
+        'Listen to radio updates.',
+      ]);
+      expect(out, [
+        'Check the website.',
+        'Stay informed.',
+        'Listen to radio updates.',
+      ]);
+    });
+
+    test('surfaces a leave-now buried at position 5', () {
+      final out = AlertTextUtil.capActions([
+        'Monitor conditions.',
+        'Check the website.',
+        'Stay informed.',
+        'Keep clear of the area.',
+        'Leave now before the fire arrives.',
+      ]);
+      expect(out.length, 3);
+      expect(out.first, contains('Leave now'));
+    });
+
+    test('consider rows exist for a hazard and are calm', () {
+      final rows = AlertGuidanceLibrary.considerRows('bushfire');
+      expect(rows, isNotEmpty);
+      expect(rows.first, startsWith('Consider'));
+    });
+
+    test('global bucket returns region-agnostic rows', () {
+      final rows = AlertGuidanceLibrary.considerRows('global');
+      expect(rows, isNotEmpty);
+      expect(rows.any((r) => r.contains('Australian')), isFalse);
     });
   });
 }

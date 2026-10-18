@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
+import 'package:hazard_app/features/shared/utils/alert_guidance_library.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
@@ -80,6 +81,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// Attribution shows one compact line until the reader asks for the
   /// licence and copyright detail.
   bool _attributionExpanded = false;
+  bool _whatToDoExpanded = false;
+  bool _whatWeKnowExpanded = false;
+  bool _fullAlertExpanded = false;
 
   /// Whether this alert is being read aloud right now. Drives the lit
   /// Listen button, and is cleared when the speech ends on its own.
@@ -1422,69 +1426,249 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// drive through floodwater." - see the classification standard's
   /// directive-extraction rule (every relayed instruction is prefixed with
   /// the issuing agency's name and the word "advises:").
-  static final RegExp _attributedActionPattern = RegExp(
-    r'^(.{1,60}? advises:)\s*(.*)$',
-  );
-
-  /// The leading directive phrase of a What To Do line, bolded as the key
-  /// info so the safety-critical instruction reads first. Matches the first
-  /// imperative fragment: up to a comma, colon, or ~6 words, whichever comes
-  /// first. Falls back to the whole line when it is too short to split.
-  static final RegExp _directiveLeadPattern = RegExp(
-    r'^(.{1,55}?)(?:[,;:.](?:\s|$)|(\s+))',
-    caseSensitive: false,
-  );
-
-  /// Bolds the "{Agency} advises:" prefix AND the leading directive phrase of
-  /// a What To Do line. The attribution prefix and the key safety instruction
-  /// both read first, so an attributed source directive is scannable and the
-  /// most important wording stands out from the surrounding text. Falls back
-  /// to plain text for a line that isn't in that shape.
-  Widget _attributedActionText(final String action) {
-    final match = _attributedActionPattern.firstMatch(action);
-    final baseStyle = TextStyle(
-      color: AppColors.black.withValues(alpha: 0.9),
-      fontSize: 14.spMin,
-      height: 1.5,
-    );
-    if (match == null) {
-      return Text(action, style: baseStyle);
-    }
-    final attribution = match.group(1);
-    final directive = match.group(2) ?? '';
-    final directiveTrimmed = directive.trim();
-    final lead = _directiveLeadPattern.firstMatch(directiveTrimmed);
-    // Bold the attribution prefix, then the leading directive phrase (key
-    // info), then the rest of the line in normal weight.
-    final spans = <TextSpan>[
-      TextSpan(
-        text: attribution,
-        style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+  /// A "What to do" card. Used for DIRECTED (the agency's own ranked words),
+  /// CONSIDER (ALRT's general guidance when the agency gave no directive) and
+  /// community reports. A small pill says whose words these are, a "Show all"
+  /// expander reveals anything past the 3-point cap, and a "See full alert"
+  /// expander shows the complete original source text.
+  Widget _buildGuidanceCard({
+    required final String label,
+    required final Color color,
+    required final List<String> items,
+    required final int totalItems,
+    required final bool expanded,
+    required final VoidCallback onToggle,
+    required final bool showAll,
+    final String? pill,
+    final Color? pillBg,
+    final Color? pillFg,
+    final String? fullText,
+    final String? fullLink,
+    final String? lead,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16.spMin),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowColorLight,
+            blurRadius: 2.0,
+            offset: Offset(0.0, 0.0),
+          ),
+        ],
       ),
-      TextSpan(text: ' '),
-    ];
-    if (lead != null && lead.group(1) != null) {
-      final leadText = lead.group(1)!.trim();
-      final rest = directiveTrimmed.substring(lead.group(1)!.length).trim();
-      spans.add(
-        TextSpan(
-          text: leadText,
-          style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+      child: Container(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16.spMin),
+          border: Border(
+            left: BorderSide(color: color, width: 4),
+            right: BorderSide(color: color, width: 1),
+            bottom: BorderSide(color: color, width: 1),
+            top: BorderSide(color: color, width: 1),
+          ),
         ),
-      );
-      if (rest.isNotEmpty) {
-        spans.add(TextSpan(text: ' $rest'));
-      }
-    } else {
-      spans.add(TextSpan(text: directive));
-    }
-    return Text.rich(
-      TextSpan(children: spans),
-      style: baseStyle,
+        padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 8.spMin, 16.spMin),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 13.spMin,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                if (pill != null)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.spMin,
+                      vertical: 2.spMin,
+                    ),
+                    decoration: BoxDecoration(
+                      color: pillBg,
+                      borderRadius: BorderRadius.circular(6.spMin),
+                      border: Border.all(color: pillFg!.withValues(alpha: 0.5)),
+                    ),
+                    child: Text(
+                      pill,
+                      style: TextStyle(
+                        fontSize: 9.5.spMin,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                        color: pillFg,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            12.spMin.hSizedBox,
+            if (lead != null) ...[ 
+              Padding(
+                padding: EdgeInsets.only(bottom: 10.spMin),
+                child: Text(
+                  lead,
+                  style: TextStyle(
+                    color: AppColors.black,
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+            ...items.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: index < items.length - 1 ? 8.spMin : 0,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '• ',
+                      style: TextStyle(
+                        color: AppColors.black.withValues(alpha: 0.9),
+                        fontSize: 14.spMin,
+                        height: 1.5,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        item,
+                        style: TextStyle(
+                          color: AppColors.black.withValues(alpha: 0.9),
+                          fontSize: 14.spMin,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            if (showAll)
+              InkWell(
+                onTap: onToggle,
+                child: Padding(
+                  padding: EdgeInsets.only(top: 8.spMin),
+                  child: Row(
+                    children: [
+                      Text(
+                        expanded ? 'Show less' : 'Show all $totalItems',
+                        style: TextStyle(
+                          fontSize: 12.5.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: AlertCardStyle.officialSectionHeaderColor,
+                        ),
+                      ),
+                      SizedBox(width: 4.spMin),
+                      Icon(
+                        expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                        size: 14.spMin,
+                        color: AlertCardStyle.officialSectionHeaderColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            // Deep link into the matching safety guide, if any.
+            Consumer(
+              builder: (context, ref, child) {
+                final categoryId = ref.watch(
+                  provider.select((value) => value.hazard?.category?.id),
+                );
+                return GuideStripCard(categoryId: categoryId);
+              },
+            ),
+            _buildSeeFullAlert(fullText, fullLink),
+          ],
+        ),
+      ),
+    ).pB(16.0);
+  }
+
+  /// The "See full alert" expander: reveals the agency's complete original text
+  /// and links to the source page. Guarantees nothing the source published is
+  /// ever hidden by the 3-point cap.
+  Widget _buildSeeFullAlert(final String? fullText, final String? fullLink) {
+    if (fullText == null) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(top: 12.spMin),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _fullAlertExpanded = !_fullAlertExpanded),
+            child: Row(
+              children: [
+                Icon(
+                  _fullAlertExpanded
+                      ? LucideIcons.chevronUp
+                      : LucideIcons.chevronDown,
+                  size: 14.spMin,
+                  color: AppColors.blue,
+                ),
+                SizedBox(width: 4.spMin),
+                Text(
+                  'See full alert',
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.blue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_fullAlertExpanded) ...[
+            8.spMin.hSizedBox,
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(12.spMin),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F7FA),
+                borderRadius: BorderRadius.circular(10.spMin),
+                border: Border.all(color: const Color(0xFFE5E5EC)),
+              ),
+              child: Text(
+                fullText,
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  height: 1.55,
+                  color: AppColors.mediumGrey,
+                ),
+              ),
+            ),
+            if (fullLink != null) ...[
+              7.spMin.hSizedBox,
+              InkWell(
+                onTap: () => openLink(context: context, link: fullLink),
+                child: Text(
+                  'View source page ↗',
+                  style: TextStyle(
+                    fontSize: 11.5.spMin,
+                    color: AppColors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 
-  /// A muted card for an official section the source left empty.
   Widget _buildEmptySectionCard({
     required final String label,
     required final String body,
@@ -1544,25 +1728,57 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             (value) => value.hazard?.isUserReported ?? false,
           ),
         );
-        // Only the advice the agency actually gave (up to three points, in
-        // its own words). Nothing is added. Assumed or "worth considering"
-        // guidance lives in For You, chosen from the person's safety profile.
-        // A community report carries no instruction of its own, so it shows
-        // one standing line that points at the emergency services.
-        final callsToAction = isUserReported
-            ? <String>[AlertTextUtil.followAgencyLine(null)]
-            : AlertTextUtil.capActions(allActions ?? const <String>[]);
+        final categoryName = ref.watch(
+          provider.select((value) => value.hazard?.category?.name),
+        );
+        final parentCategoryName = ref.watch(
+          provider.select((value) => value.hazard?.category?.parent?.name),
+        );
+        final title = ref.watch(
+          provider.select((value) => value.hazard?.title),
+        );
+        final description = ref.watch(
+          provider.select((value) => value.hazard?.description),
+        );
+        final sourceLink = ref.watch(
+          provider.select(
+            (value) => value.hazard?.link ?? value.hazard?.source?.url,
+          ),
+        );
+        final sourceName = ref.watch(
+          provider.select((value) => value.hazard?.source?.name),
+        );
 
-        final shouldShow = callsToAction.isNotEmpty;
+        final rawActions = allActions ?? const <String>[];
+        final directed = !isUserReported && rawActions.isNotEmpty;
+        final bucket = AlertGuidanceLibrary.bucketFor(
+          categoryName: categoryName,
+          parentCategoryName: parentCategoryName,
+          title: title,
+        );
+        final consider = isUserReported
+            ? const <String>[]
+            : AlertGuidanceLibrary.considerRows(bucket);
 
-        if (!shouldShow) {
-          // An official alert always shows the section, so it is clear
-          // the advice is the agency's to give and none was published.
-          // Community reports have no advice section at all.
-          if (isUserReported ||
-              ref.watch(provider.select((value) => value.hazard == null))) {
-            return const SizedBox.shrink();
-          }
+        // Community report carries no agency instruction: one standing line
+        // that points at the emergency services.
+        if (isUserReported) {
+          return _buildGuidanceCard(
+            label: 'WHAT TO DO',
+            color: AlertCardStyle.communitySectionHeaderColor,
+            items: <String>[AlertTextUtil.followAgencyLine(null)],
+            totalItems: 1,
+            expanded: false,
+            onToggle: () {},
+            showAll: false,
+            fullText: description,
+            fullLink: sourceLink,
+          );
+        }
+
+        // No agency directive and no ALRT guidance for this hazard: an honest
+        // neutral line (never the old "no further details" dead-end).
+        if (!directed && consider.isEmpty) {
           return _buildEmptySectionCard(
             label: 'WHAT TO DO',
             body: AlertTextUtil.followAgencyLine(
@@ -1573,107 +1789,42 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           );
         }
 
-        final color = AppColors.orange200;
+        // DIRECTED: the agency's own words, ranked Tier 1 first, capped at 3,
+        // the rest behind "Show all". CONSIDER: ALRT's general guidance.
+        final items = directed
+            ? AlertGuidanceLibrary.rankActions(rawActions)
+            : consider;
+        final isConsider = !directed;
+        final agency = (sourceName ?? '').trim();
+        final lead = directed
+            ? '${agency.isEmpty ? 'The agency' : agency} advises:'
+            : "ALRT's general guidance:";
+        final visible = _whatToDoExpanded
+            ? items
+            : items.take(AlertTextUtil.maxPoints).toList();
 
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16.spMin),
-              border: Border(
-                left: BorderSide(
-                  color: color,
-                  width: 4,
-                ),
-                right: BorderSide(
-                  color: color,
-                  width: 1,
-                ),
-                bottom: BorderSide(
-                  color: color,
-                  width: 1,
-                ),
-                top: BorderSide(
-                  color: color,
-                  width: 1,
-                ),
-              ),
-            ),
-            padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 8.spMin, 16.spMin),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'WHAT TO DO',
-                        style: TextStyle(
-                          color: isUserReported
-                              ? AlertCardStyle.communitySectionHeaderColor
-                              : AlertCardStyle.officialSectionHeaderColor,
-                          fontSize: 13.spMin,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      12.spMin.hSizedBox,
-                      ...callsToAction.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final action = entry.value;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index < callsToAction.length - 1
-                                ? 8.spMin
-                                : 0,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '• ',
-                                style: TextStyle(
-                                  color: AppColors.black.withValues(alpha: 0.9),
-                                  fontSize: 14.spMin,
-                                  height: 1.5,
-                                ),
-                              ),
-                              Expanded(
-                                child: _attributedActionText(action),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                      // Deep link into the matching safety guide, if any.
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final categoryId = ref.watch(
-                            provider.select(
-                              (value) => value.hazard?.category?.id,
-                            ),
-                          );
-                          return GuideStripCard(categoryId: categoryId);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ).pB(16.0);
+        return _buildGuidanceCard(
+          label: 'WHAT TO DO',
+          color: isConsider
+              ? const Color(0xFF17603A)
+              : AlertCardStyle.officialSectionHeaderColor,
+          items: visible,
+          totalItems: items.length,
+          expanded: _whatToDoExpanded,
+          onToggle: () =>
+              setState(() => _whatToDoExpanded = !_whatToDoExpanded),
+          showAll: items.length > AlertTextUtil.maxPoints,
+          pill: isConsider ? 'CONSIDER' : 'DIRECTED',
+          pillBg: isConsider
+              ? const Color(0xFFE7F6EC)
+              : const Color(0xFFFBE9E9),
+          pillFg: isConsider
+              ? const Color(0xFF17603A)
+              : const Color(0xFFA31F26),
+          fullText: description,
+          fullLink: sourceLink,
+          lead: lead,
+        );
       },
     );
   }
@@ -1707,12 +1858,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final sourceName = ref.watch(
           provider.select((value) => value.hazard?.source?.name),
         );
-        final found = isUserReported
+        final allFacts = isUserReported
             ? AlertTextUtil.communityPoints(reportTitle, description)
-            : AlertTextUtil.whatWeKnowPoints(description);
-        final points = found.isEmpty
+            : AlertTextUtil.whatWeKnowAllPoints(description);
+        final points = allFacts.isEmpty
             ? <String>[AlertTextUtil.noDetailsLine(sourceName)]
-            : found;
+            : (_whatWeKnowExpanded
+                ? allFacts
+                : allFacts.take(AlertTextUtil.maxPoints).toList());
+        final showAllFacts =
+            !isUserReported && allFacts.length > AlertTextUtil.maxPoints;
 
         // Paired with WHAT TO DO, to the pixel. This used to be a blue
         // card with a blue bar and a sentence-case heading: blue is the
@@ -1799,6 +1954,37 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                             ],
                           ),
                         ),
+                      if (showAllFacts)
+                        InkWell(
+                          onTap: () => setState(
+                            () => _whatWeKnowExpanded = !_whatWeKnowExpanded,
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 8.spMin),
+                            child: Row(
+                              children: [
+                                Text(
+                                  _whatWeKnowExpanded
+                                      ? 'Show less'
+                                      : 'Show all facts',
+                                  style: TextStyle(
+                                    fontSize: 12.5.spMin,
+                                    fontWeight: FontWeight.w700,
+                                    color: color,
+                                  ),
+                                ),
+                                SizedBox(width: 4.spMin),
+                                Icon(
+                                  _whatWeKnowExpanded
+                                      ? LucideIcons.chevronUp
+                                      : LucideIcons.chevronDown,
+                                  size: 14.spMin,
+                                  color: color,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1809,7 +1995,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       },
     );
   }
-
   Widget _buildSourceSection() {
     return Consumer(
       builder: (context, ref, child) {
