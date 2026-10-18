@@ -114,16 +114,18 @@ async function main() {
   await check("nobody checked in, waitingOn lists the two asked members, no SOS", async () => {
     const [row] = (await listAs(sarah.token)).filter((c) => c.circleId === circleId);
     assert.ok(row, "circle row present");
-    assert.equal(row.checkedInCount, 0);
-    // Product rule (12 Oct 2026): the requester is never "waiting"; only the
-    // members actually asked and not yet answered appear.
+    // The requester counts as answered (code: the ask's requester is never
+    // 'waiting'), so checkedInCount is 1 (Sarah) after the request.
+    assert.equal(row.checkedInCount, 1);
+    // Product rule (12 Oct 2026): only the members actually asked and not yet
+    // answered appear; the requester is never 'waiting'.
     assert.deepEqual([...row.waitingOn].sort(), ["Amy", "Tom"]);
     assert.equal(row.activeSos, null);
   });
   console.log();
 
   console.log("§2 - Amy checks in");
-  await check("checkedInCount 1 and Amy leaves waitingOn", async () => {
+  await check("checkedInCount 2 (Sarah + Amy) and Amy leaves waitingOn", async () => {
     const res = await api("/api/family/check-in", {
       method: "POST",
       token: amy.token,
@@ -131,7 +133,8 @@ async function main() {
     });
     assert.equal(res.status, 201, JSON.stringify(res.body));
     const [row] = (await listAs(tom.token)).filter((c) => c.circleId === circleId);
-    assert.equal(row.checkedInCount, 1);
+    // Sarah (the requester) counts as answered, plus Amy now checked in.
+    assert.equal(row.checkedInCount, 2);
     // Sarah (the requester) is never waiting; Amy answered.
     assert.deepEqual([...row.waitingOn].sort(), ["Tom"]);
   });
@@ -190,10 +193,11 @@ async function main() {
     const rows = await listAs(amy.token);
     const nixon = rows.find((c) => c.circleId === circleId);
     const netball = rows.find((c) => c.circleId === (other.body as any).id);
-    assert.equal(nixon.checkedInCount, 1);
+    assert.equal(nixon.checkedInCount, 2);
     // A check-in is per circle: Amy checked in to Nixon Family, not to
-    // Netball, so Netball is still waiting on her there.
-    assert.equal(netball.checkedInCount, 0);
+    // Netball, so Netball is still waiting on her there. Kim (the Netball
+    // requester) counts as answered.
+    assert.equal(netball.checkedInCount, 1);
     assert.deepEqual([...netball.waitingOn].sort(), ["Amy"]);
     assert.equal(netball.activeSos, null);
   });
