@@ -14,6 +14,9 @@ import type { Hazard, HazardMedia } from "@prisma/client";
 
 const BUCKET_NAME = config.aws.s3.bucketName;
 const CLOUDFRONT_DOMAIN = config.aws.s3.cloudfrontDomain;
+const PHOTO_UPLOAD_FOLDERS = new Set([
+  "hazards", "profile-pictures", "family-circle-photos", "family-member-photos",
+]);
 
 /**
  * Upload a file to S3 and return the public URL
@@ -23,15 +26,17 @@ export const uploadFileToS3 = async (
   folder: string,
 ): Promise<MediaUploadResult> => {
   try {
-    // Cost control: resize + re-encode images (not videos/GIFs) before they
-    // are stored, so S3 storage and CloudFront egress hold a fraction of the
-    // original upload. Best-effort: an unreadable image keeps its original.
-    const optimized = await optimizeImageBuffer(file.buffer, file.mimetype);
+    // Only user-photo destinations opt in. Agency/category artwork and any
+    // future upload destination keep the exact approved bytes and colours.
+    const optimized = PHOTO_UPLOAD_FOLDERS.has(folder)
+      ? await optimizeImageBuffer(file.buffer, file.mimetype)
+      : { buffer: file.buffer, mimeType: file.mimetype, changed: false };
     const uploadBuffer = optimized.buffer;
     const uploadMime = optimized.mimeType;
 
     // Generate unique filename (matching the (possibly re-encoded) mime)
-    const fileExtension = path.extname(file.originalname);
+    const fileExtension = optimized.changed && uploadMime === "image/webp"
+      ? ".webp" : path.extname(file.originalname);
     const fileName = `${uuidv4()}${fileExtension}`;
     const key = `${folder}/${fileName}`;
 

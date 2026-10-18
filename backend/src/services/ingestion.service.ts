@@ -2,11 +2,12 @@ import {
   HazardReviewStatus,
   HazardSeverity,
   HazardSeverityBand,
+  Prisma,
   type Hazard,
   type HazardCategory,
 } from "@prisma/client";
 import {
-  parseCFSFeedToHazards,
+  parseCFSCapToHazards,
   parseGeoJsonToHazards,
   parseNTFireAndRescueToHazards,
   parseRSSFeedToHazards,
@@ -28,6 +29,12 @@ import {
 } from "../utils/ingestion.util.js";
 import * as crypto from "crypto";
 import prisma from "../utils/prisma_client.util.js";
+import { getTemplateRegistry, type TemplateRelease } from './alert_templates.service.js';
+import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
+import { agencyExtractionFallback } from '../utils/agency_extraction.util.js';
+import { sourceRenderHash, isSourceRenderRefresh } from '../utils/source_render_version.util.js';
+import {CFS_CAP_URL,fetchCFSCap,readCFSCapCancellations} from '../utils/cfs_cap.util.js';
+import { isAlwaysOnOfficialWarning } from '../utils/official_warning.util.js';
 import { summarizeHazard } from "./hazard.service.js";
 import { sendPushNotificationAboutNewHazard } from "./notification.service.js";
 import { sendSocketEventAboutHazardToSubscribers } from "./socket.service.js";
@@ -200,13 +207,13 @@ export const syncHazardsFromDifferentSources = async ({
       },
       {
         id: ExternalSourceId.cfs,
-        apiUrl:
-          "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json",
-        parseFunction: (responseData: any) =>
-          parseCFSFeedToHazards({
-            data: responseData,
-            availableCategories,
-          }),
+        apiUrl: CFS_CAP_URL,
+        parseFunction: async () => {
+          const xml=await fetchCFSCap();
+          const cancellations=readCFSCapCancellations(xml);
+          const previousHazards=cancellations.length?await prisma.hazard.findMany({where:{sourceId:'cfs',id:{in:cancellations.map(x=>x.id)}},include:{category:true,source:true}}):[];
+          return parseCFSCapToHazards({xml,availableCategories,previousHazards});
+        },
       },
       {
         id: ExternalSourceId.viceFire,
@@ -524,15 +531,44 @@ export const summarizeAndPostHazards = async ({
     const hazardsToProcess: Array<{
       hazardData: HazardDataWithRelations;
       isUpdate: boolean;
+      renderRefresh?: boolean;
     }> = [];
 
+    let templateRelease: TemplateRelease | null = null;
+    try { templateRelease = (await getTemplateRegistry()).published; }
+    catch (error) { console.error("Template registry unavailable; continuing existing source classification.", error); }
     for (const hazardData of hazardDatas) {
       if (!hazardData.id) continue;
+      if(templateRelease&&hazardData.source&&!(hazardData.category?.id==='airQualityAlert' && hazardData.source.id==='waqi')){
+        const resolved=resolveTemplate(templateRelease.pack,{country:templateCountry(hazardData.jurisdictionCountry,hazardData.source),sourceId:hazardData.source.id});
+        const decision=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,categoryId:hazardData.category?.id,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,sourceLifecycle:hazardData.sourceLifecycle,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info});
+        hazardData.severityBand=decision.band;
+        if ('severity' in decision) hazardData.severity=decision.severity;
+      }
 
       try {
+        const sourceParts = {
+          ...(hazardData.sourceLifecycle?{sourceLifecycle:hazardData.sourceLifecycle}:{}),
+          title: hazardData.title, description: hazardData.description,
+          instructions: hazardData.sourceInstructionBlocks ?? [],
+          nativeLevel: hazardData.nativeWarningLevel ?? null,
+          country: hazardData.jurisdictionCountry ?? null,
+          severity: hazardData.severity ?? null, band: hazardData.severityBand ?? null,
+          occurredAt: hazardData.occurredAt ?? null, expiresAt: hazardData.expiresAt ?? null,
+          locationName: hazardData.locationName ?? null,
+          latitude: hazardData.latitude ?? null, longitude: hazardData.longitude ?? null,
+          templateVersion: templateRelease?.version ?? 0,
+        };
+        const renderedDigest = hazardContentHash(sourceParts);
+        const {severity:_severity,band:_band,templateVersion:_version,...rawParts} = sourceParts;
+        const rawDigest = hazardContentHash({...rawParts,sourceId:hazardData.source?.id??null,categoryId:hazardData.category?.id??null});
+        hazardData.sourceContentHash = sourceRenderHash(renderedDigest,rawDigest);
         const existing = await prisma.hazard.findUnique({
           where: { id: hazardData.id },
         });
+        const previousVersion = (existing?.contentDetails as {templateVersion?:number} | null)?.templateVersion ?? 0;
+        const legacyDigest = hazardContentHash({...sourceParts,severity:existing?.severity??sourceParts.severity,band:existing?.severityBand??sourceParts.band,templateVersion:previousVersion});
+        const renderRefresh = existing?.sourceId === (hazardData.source?.id??null) && existing?.categoryId === hazardData.category?.id && isSourceRenderRefresh(existing?.sourceContentHash,rawDigest,legacyDigest);
 
         // Check if this source has severity band filtering configured
         const sourceId = hazardData.source?.id as ExternalSourceId;
@@ -544,7 +580,7 @@ export const summarizeAndPostHazards = async ({
           hazardData.severityBand || HazardSeverityBand.info;
 
         // Apply severity filter logic
-        if (hasSeverityFilter) {
+        if (hasSeverityFilter && !isAlwaysOnOfficialWarning(hazardData)) {
           const meetsMinimumSeverity =
             minimumSeverityBands.includes(currentSeverityBand);
 
@@ -588,7 +624,7 @@ export const summarizeAndPostHazards = async ({
           if (
             syncOption === SyncHazardsFromExternalSourceOption.ignoreExisting
           ) {
-            if (existing.description === hazardData.description) {
+            if (existing.sourceContentHash === hazardData.sourceContentHash) {
               console.log(
                 `${
                   hasSeverityFilter ? `[${hazardData.source?.id}] ` : ""
@@ -619,6 +655,7 @@ export const summarizeAndPostHazards = async ({
             hazardsToProcess.push({
               hazardData,
               isUpdate: true,
+              renderRefresh,
             });
           } else if (
             syncOption === SyncHazardsFromExternalSourceOption.deleteExisting
@@ -648,6 +685,7 @@ export const summarizeAndPostHazards = async ({
             hazardsToProcess.push({
               hazardData,
               isUpdate: true,
+              renderRefresh,
             });
           }
         } else {
@@ -678,9 +716,10 @@ export const summarizeAndPostHazards = async ({
     const geocodedHazards: Array<{
       hazardData: HazardDataWithRelations;
       isUpdate: boolean;
+      renderRefresh: boolean;
     }> = [];
 
-    for (const { hazardData, isUpdate } of hazardsToProcess) {
+    for (const { hazardData, isUpdate, renderRefresh = false } of hazardsToProcess) {
       try {
         const populatedHazard = await populateHazardWithGeocoding(hazardData);
 
@@ -695,6 +734,7 @@ export const summarizeAndPostHazards = async ({
         geocodedHazards.push({
           hazardData: populatedHazard,
           isUpdate,
+          renderRefresh,
         });
       } catch (error) {
         console.log("Error during geocoding:", error);
@@ -709,7 +749,7 @@ export const summarizeAndPostHazards = async ({
     // Step 3: Process each hazard individually (summarize -> post) with rate limiting
     const createdHazards = await processBatchWithRateLimit(
       geocodedHazards,
-      async ({ hazardData, isUpdate }) => {
+      async ({ hazardData, isUpdate, renderRefresh }) => {
         try {
           // Colliding-ID sources alternate a row between a handful of contents
           // and pollers re-send unchanged feeds, so notify per (id, content)
@@ -723,6 +763,8 @@ export const summarizeAndPostHazards = async ({
             severity: hazardData.severity ?? null,
             severityBand: hazardData.severityBand ?? null,
             isAwsCompliant: hazardData.isAwsCompliant ?? false,
+            sourceInstructions: hazardData.sourceInstructionBlocks ?? [],
+            nativeWarningLevel: hazardData.nativeWarningLevel ?? null,
           });
           const alreadyNotified = isUpdate
             ? await wasContentNotified(notifiedHash)
@@ -736,6 +778,10 @@ export const summarizeAndPostHazards = async ({
           let summarized: Awaited<ReturnType<typeof summarizeHazard>>;
           try {
             summarized = await summarizeHazard({
+              templateRelease,
+              jurisdictionCountry:hazardData.jurisdictionCountry,
+              nativeWarningLevel:hazardData.nativeWarningLevel,
+              sourceActions: hazardData.sourceInstructionBlocks ?? [],
               useDummy: false,
               title: hazardData.title,
               description: hazardData.description,
@@ -755,9 +801,18 @@ export const summarizeAndPostHazards = async ({
             summarized = {
               title: hazardData.title,
               summary: hazardData.description,
-              callsToAction: [],
+              callsToAction: Array.isArray(hazardData.callsToAction) ? hazardData.callsToAction : [],
               confidence: "low" as const,
             };
+            if (templateRelease && hazardData.source && hazardData.category) {
+              const country = templateCountry(hazardData.jurisdictionCountry, hazardData.source);
+              const band = hazardData.severityBand ?? HazardSeverityBand.info;
+              const {settings} = resolveTemplate(templateRelease.pack, {country, sourceId: hazardData.source.id});
+              const sourceActions = hazardData.sourceInstructionBlocks ?? [];
+              const sourceText = [hazardData.title, hazardData.description, hazardData.nativeWarningLevel ?? '', ...sourceActions].filter(Boolean).join('\n\n');
+              const fallback = agencyExtractionFallback({sourceText, sourceTitle: hazardData.title, sourceDescription: hazardData.description, sourceActions, nativeWarningLevel: hazardData.nativeWarningLevel, agency: hazardData.source.name, allowAgencyNumbers: settings.allowAgencyNumbers, templateVersion: templateRelease.version, ...selectLibraryGuidance(templateRelease.pack, {categoryId: hazardData.category.id, parentCategoryId: hazardData.category.parentId, country, band})});
+              summarized = {...fallback, contentDetails: {...fallback.contentDetails, presentation: {band, bandColor: settings.bandColors[band], iconCategoryId: hazardData.isAwsCompliant ? hazardData.category.id : (settings.iconCategoryId ?? hazardData.category.id), agencyArtwork: hazardData.isAwsCompliant ?? false}}};
+            }
           }
 
           // Calculate confidence score for ingested hazard (official source)
@@ -797,9 +852,10 @@ export const summarizeAndPostHazards = async ({
           const finalHazardData: HazardDataWithRelations = {
             ...hazardData,
             title: summarized.title || hazardData.title,
-            aiSummary: hazardData.aiSummary || summarized.summary,
+            aiSummary: templateRelease?summarized.summary:(hazardData.aiSummary || summarized.summary),
+            contentDetails: summarized.contentDetails??Prisma.DbNull,
             aiConfidence: summarized.confidence,
-            callsToAction: Array.isArray(hazardData.callsToAction)
+            callsToAction: templateRelease?summarized.callsToAction:Array.isArray(hazardData.callsToAction)
               ? hazardData.callsToAction
               : Array.isArray(summarized.callsToAction)
                 ? summarized.callsToAction
@@ -906,7 +962,7 @@ export const summarizeAndPostHazards = async ({
           // Send "new hazard" notifications when we created the row or did a genuine update.
           // When we lost a race (P2002), we only updated – skip to avoid duplicate notifications.
           // Updates whose content already triggered a notification stay silent.
-          if (actuallyCreated || (isUpdate && !alreadyNotified)) {
+          if (actuallyCreated || (isUpdate && !renderRefresh && !alreadyNotified)) {
             sendPushNotificationAboutNewHazard(createdHazard);
             sendSocketEventAboutHazardToSubscribers({
               hazard: createdHazard,

@@ -278,6 +278,8 @@ const drillPatterns: RegExp[] = [
 ];
 
 const resolvedPatterns: RegExp[] = [
+  /(?:^|[.!?\n]\s*)(?:the )?incident (?:is |has been )?(?:now )?(?:resolved|closed)(?=[.!?\n]|$)/,
+  /(?:^|\n)\s*(?:status|incident status):\s*(?:resolved|closed|cancelled)\s*(?=[.\n]|$)/,
   /\b(?:has|have) been charged\b/,
   /\bcharged with\b/,
   /\b(?:incident|crash|scene|road|roads|lane|lanes|obstruction|debris|hazard|vehicle|vehicles|breakdown|spill) (?:has |have |is |are )?(?:now )?(?:been )?cleared\b/,

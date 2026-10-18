@@ -100,6 +100,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/api/admin/alert-templates',express.json({limit:'1mb'}));
 app.use(express.json());
 
 // Rate limits: webhook first (own per-key limits), then auth (stricter), then general API.

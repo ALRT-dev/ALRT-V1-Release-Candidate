@@ -17,10 +17,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock @prisma/client enums (prisma generate hasn't run in test env)
 vi.mock("@prisma/client", () => ({
+  Prisma: { DbNull: null },
   HazardReviewStatus: { accepted: "accepted", rejected: "rejected", pending: "pending" },
   HazardSeverity: { unknown: "unknown", low: "low", medium: "medium", high: "high", extreme: "extreme" },
   HazardSeverityBand: { info: "info", action: "action", emergency: "emergency" },
 }));
+
+vi.mock('../services/alert_templates.service.js',()=>({getTemplateRegistry:vi.fn().mockResolvedValue({published:null})}));
 
 vi.mock("../utils/prisma_client.util.js", () => ({
   default: {
@@ -102,6 +105,7 @@ vi.mock("../utils/ingestion.util.js", () => ({
       aiSummary: data.aiSummary,
       aiConfidence: data.aiConfidence,
       callsToAction: data.callsToAction,
+      sourceContentHash: data.sourceContentHash,
       latitude: data.latitude,
       longitude: data.longitude,
       severity: data.severity,
@@ -123,7 +127,7 @@ vi.mock("../utils/ingestion.util.js", () => ({
   setCachedLocationExtraction: vi.fn(),
   parseGeoJsonToHazards: vi.fn().mockReturnValue([]),
   parseRSSFeedToHazards: vi.fn().mockReturnValue([]),
-  parseCFSFeedToHazards: vi.fn().mockReturnValue([]),
+  parseCFSCapToHazards: vi.fn().mockReturnValue([]),
   parseNTFireAndRescueToHazards: vi.fn().mockReturnValue([]),
   parseWAQIToHazards: vi.fn().mockReturnValue([]),
   parseUVIndexAndPollenToHazards: vi.fn().mockReturnValue([]),
@@ -191,6 +195,11 @@ import { summarizeAndPostHazards } from "../services/ingestion.service.js";
 import { summarizeHazard } from "../services/hazard.service.js";
 import prisma from "../utils/prisma_client.util.js";
 import { SyncHazardsFromExternalSourceOption } from "../enums/sync_hazards_from_external_source_option_types.js";
+import { getTemplateRegistry } from "../services/alert_templates.service.js";
+import { defaultTemplatePack } from "../utils/alert_templates.util.js";
+import { sendPushNotificationAboutNewHazard } from '../services/notification.service.js';
+import { sendSocketEventAboutHazardToSubscribers } from '../services/socket.service.js';
+import { hazardContentHash } from '../services/hazard_cache.service.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -213,6 +222,8 @@ const makeHazardData = (overrides: Record<string, unknown> = {}) => ({
 
 const fakeCreatedHazard = {
   id: "test-hazard-001",
+  sourceId: "rfs",
+  categoryId: "bushfire",
   title: "Bushfire Warning - Blue Mountains",
   description: "A bushfire is burning in the Blue Mountains area near Katoomba.",
   aiSummary: "A bushfire is burning in the Blue Mountains area near Katoomba.",
@@ -229,6 +240,7 @@ const fakeCreatedHazard = {
 describe("summarizeAndPostHazards – AI fallback (R-03)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getTemplateRegistry).mockResolvedValue({published: null} as any);
     // Default: no existing hazard in DB
     (prisma.hazard.findUnique as any).mockResolvedValue(null);
     // Default: create succeeds
@@ -280,6 +292,78 @@ describe("summarizeAndPostHazards – AI fallback (R-03)", () => {
 
     expect(result).toHaveLength(1);
     expect(prisma.hazard.create).toHaveBeenCalledOnce();
+  });
+  it("does not let a webhook band filter discard active AWS Advice", async () => {
+    vi.mocked(summarizeHazard).mockRejectedValue(new Error("Use source fallback"));
+    const result = await summarizeAndPostHazards({
+      hazardDatas: [makeHazardData({isAwsCompliant:true,severity:"advice",severityBand:"monitor"}) as any],
+      syncOption: SyncHazardsFromExternalSourceOption.ignoreExisting,
+      severityBandFilters: new Map([["rfs",["critical"]]]) as any,
+    });
+    expect(result).toHaveLength(1);
+    expect(prisma.hazard.create).toHaveBeenCalledOnce();
+  });
+  it("preserves complete source instructions and the last paragraph when published extraction fails", async () => {
+    vi.mocked(getTemplateRegistry).mockResolvedValue({published: {version: 1, pack: defaultTemplatePack()}} as any);
+    vi.mocked(summarizeHazard).mockRejectedValue(new Error("Model unavailable"));
+    const instruction = "If you are in Example Town and it is safe, use Exit 112 via Route 911. Keep clear of Example Road.";
+    const description = "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.\n\nLast essential condition.";
+    const result = await summarizeAndPostHazards({hazardDatas: [makeHazardData({description, sourceInstructionBlocks: [instruction]}) as any], syncOption: SyncHazardsFromExternalSourceOption.ignoreExisting, severityBandFilters: new Map()});
+    expect(result).toHaveLength(1);
+    expect(vi.mocked(summarizeHazard).mock.calls[0]![0].sourceActions).toEqual([instruction]);
+    const data = (prisma.hazard.create as any).mock.calls[0][0].data;
+    expect(data.callsToAction).toEqual([`NSW RFS advises: ${instruction}`]);
+    expect(data.aiSummary).toContain("Last essential condition.");
+  });
+  it("keeps processing when the template registry cannot be read", async () => {
+    vi.mocked(getTemplateRegistry).mockRejectedValueOnce(new Error("Malformed registry"));
+    vi.mocked(summarizeHazard).mockRejectedValue(new Error("Model unavailable"));
+    const result = await summarizeAndPostHazards({hazardDatas: [makeHazardData() as any], syncOption: SyncHazardsFromExternalSourceOption.ignoreExisting, severityBandFilters: new Map()});
+    expect(result).toHaveLength(1);
+  });
+  it("processes an instruction-only update when the source description is unchanged", async () => {
+    vi.mocked(getTemplateRegistry).mockResolvedValue({published: {version: 1, pack: defaultTemplatePack()}} as any);
+    (prisma.hazard.findUnique as any).mockResolvedValue({...fakeCreatedHazard,sourceContentHash:"old-source-identity"});
+    (prisma.hazard.upsert as any).mockResolvedValue(fakeCreatedHazard);
+    vi.mocked(summarizeHazard).mockRejectedValue(new Error("Use safe fallback"));
+    const result=await summarizeAndPostHazards({hazardDatas:[makeHazardData({sourceInstructionBlocks:["If you are in Example Town, follow the revised closure."]}) as any],syncOption:SyncHazardsFromExternalSourceOption.ignoreExisting,severityBandFilters:new Map(),calledFromWebhook:true});
+    expect(result).toHaveLength(1);
+    expect(prisma.hazard.upsert).toHaveBeenCalledOnce();
+    const data=(prisma.hazard.upsert as any).mock.calls[0][0].update;
+    expect(data.sourceContentHash).toBe("agency-blocks-v3:mock-hash:mock-hash");
+    expect(data.callsToAction[0]).toContain("revised closure");
+    expect(sendPushNotificationAboutNewHazard).toHaveBeenCalledOnce();
+  });
+  it('refreshes existing rendered content without re-notifying unchanged source data',async()=>{
+    vi.mocked(getTemplateRegistry).mockResolvedValue({published:{version:2,pack:defaultTemplatePack()}} as any);
+    (prisma.hazard.findUnique as any).mockResolvedValue({...fakeCreatedHazard,sourceContentHash:'mock-hash',contentDetails:{templateVersion:1},severity:'high',severityBand:'info'});
+    (prisma.hazard.upsert as any).mockResolvedValue(fakeCreatedHazard);
+    vi.mocked(summarizeHazard).mockRejectedValue(new Error('Use safe fallback'));
+    const result=await summarizeAndPostHazards({hazardDatas:[makeHazardData() as any],syncOption:SyncHazardsFromExternalSourceOption.ignoreExisting,severityBandFilters:new Map()});
+    expect(result).toHaveLength(1);
+    expect(prisma.hazard.upsert).toHaveBeenCalledOnce();
+    expect(hazardContentHash).toHaveBeenNthCalledWith(1,expect.objectContaining({templateVersion:2}));
+    expect(hazardContentHash).toHaveBeenCalledWith(expect.objectContaining({templateVersion:1,band:'info'}));
+    expect(sendPushNotificationAboutNewHazard).not.toHaveBeenCalled();
+    expect(sendSocketEventAboutHazardToSubscribers).not.toHaveBeenCalled();
+  });
+  it('does not let an unchanged entry silence a changed entry sharing its ID',async()=>{
+    (prisma.hazard.findUnique as any)
+      .mockResolvedValueOnce({...fakeCreatedHazard,sourceContentHash:'mock-hash'})
+      .mockResolvedValueOnce({...fakeCreatedHazard,sourceContentHash:'different-old-data'});
+    (prisma.hazard.upsert as any).mockResolvedValue(fakeCreatedHazard);
+    vi.mocked(summarizeHazard).mockRejectedValue(new Error('Use source fallback'));
+    await summarizeAndPostHazards({hazardDatas:[makeHazardData(),makeHazardData({description:'The agency warning has changed.'})] as any,syncOption:SyncHazardsFromExternalSourceOption.ignoreExisting,severityBandFilters:new Map()});
+    expect(prisma.hazard.upsert).toHaveBeenCalledTimes(2);
+    expect(sendPushNotificationAboutNewHazard).toHaveBeenCalledOnce();
+  });
+  it('stores the official severity label and band together for a native warning',async()=>{
+    vi.mocked(getTemplateRegistry).mockResolvedValue({published:{version:1,pack:defaultTemplatePack()}} as any);
+    vi.mocked(summarizeHazard).mockRejectedValue(new Error('Use source fallback'));
+    await summarizeAndPostHazards({hazardDatas:[makeHazardData({severity:'advice',severityBand:'monitor',nativeWarningLevel:'Watch and Act',description:'Watch and Act. Monitor official advice.'}) as any],syncOption:SyncHazardsFromExternalSourceOption.ignoreExisting,severityBandFilters:new Map()});
+    const data=(prisma.hazard.create as any).mock.calls[0][0].data;
+    expect(data.severityBand).toBe('action');
+    expect(data.severity).toBe('watchAndAct');
   });
 
   it("still uses AI data when summarisation succeeds", async () => {

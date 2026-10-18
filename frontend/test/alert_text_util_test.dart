@@ -33,9 +33,9 @@ void main() {
   });
 
   group('actions', () {
-    test('caps at three and keeps order', () {
+    test('keeps every instruction in order', () {
       final out = AlertTextUtil.capActions(['a', 'b', 'c', 'd']);
-      expect(out, ['a', 'b', 'c']);
+      expect(out, ['a', 'b', 'c', 'd']);
     });
 
     test('shows only what the agency gave, no padding', () {

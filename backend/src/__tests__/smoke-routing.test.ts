@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-vi.mock("@prisma/client", () => ({
+vi.mock("@prisma/client", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@prisma/client")>(),
   FireStatus: { active: "active", beingControlled: "beingControlled", underControl: "underControl", closed: "closed" },
 }));
 vi.mock("../services/hazard_category.service.js", () => ({ MainCategoryId: {} }));

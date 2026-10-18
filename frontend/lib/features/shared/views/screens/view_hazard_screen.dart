@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
+import 'package:hazard_app/features/shared/utils/attributed_action_parts.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
@@ -856,10 +858,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         // What we know: the SOURCE's own description, verbatim. Not our
         // words and not an AI summary.
-        _buildOfficialDescriptionSection(),
-
-        // What To Do Section (verbatim from source)
-        _buildWhatToDoSection(),
+        Consumer(builder: (context, ref, child) {
+          final hazard = ref.watch(provider.select((value) => value.hazard));
+          if (hazard?.contentDetails != null) {
+            return AgencyContentSections(content: hazard!.contentDetails!, sourceName: hazard.source?.name);
+          }
+          return Column(children: [_buildOfficialDescriptionSection(), _buildWhatToDoSection()]);
+        }),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 4.spMin),
           child: Text(
@@ -890,6 +895,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               provider.select((value) => value.hazard?.title),
             );
             return ForYouCard(
+              publishedRows: ref.watch(provider.select((value) => value.hazard?.publishedProfileGuidance)),
               categoryName: categoryName,
               parentCategoryName: parentCategoryName,
               title: title,
@@ -1422,62 +1428,29 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// drive through floodwater." - see the classification standard's
   /// directive-extraction rule (every relayed instruction is prefixed with
   /// the issuing agency's name and the word "advises:").
-  static final RegExp _attributedActionPattern = RegExp(
-    r'^(.{1,60}? advises:)\s*(.*)$',
-  );
-
-  /// The leading directive phrase of a What To Do line, bolded as the key
-  /// info so the safety-critical instruction reads first. Matches the first
-  /// imperative fragment: up to a comma, colon, or ~6 words, whichever comes
-  /// first. Falls back to the whole line when it is too short to split.
-  static final RegExp _directiveLeadPattern = RegExp(
-    r'^(.{1,55}?)(?:[,;:.](?:\s|$)|(\s+))',
-    caseSensitive: false,
-  );
-
-  /// Bolds the "{Agency} advises:" prefix AND the leading directive phrase of
-  /// a What To Do line. The attribution prefix and the key safety instruction
-  /// both read first, so an attributed source directive is scannable and the
-  /// most important wording stands out from the surrounding text. Falls back
-  /// to plain text for a line that isn't in that shape.
+  /// Highlight agency wording without changing its characters or separating
+  /// an instruction from a condition.
   Widget _attributedActionText(final String action) {
-    final match = _attributedActionPattern.firstMatch(action);
+    final parts = attributedActionParts(action);
     final baseStyle = TextStyle(
       color: AppColors.black.withValues(alpha: 0.9),
       fontSize: 14.spMin,
       height: 1.5,
     );
-    if (match == null) {
+    if (parts == null) {
       return Text(action, style: baseStyle);
     }
-    final attribution = match.group(1);
-    final directive = match.group(2) ?? '';
-    final directiveTrimmed = directive.trim();
-    final lead = _directiveLeadPattern.firstMatch(directiveTrimmed);
-    // Bold the attribution prefix, then the leading directive phrase (key
-    // info), then the rest of the line in normal weight.
     final spans = <TextSpan>[
       TextSpan(
-        text: attribution,
+        text: parts.attribution,
         style: baseStyle.copyWith(fontWeight: FontWeight.w700),
       ),
-      TextSpan(text: ' '),
+      TextSpan(
+        text: parts.lead,
+        style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+      ),
+      TextSpan(text: parts.remainder),
     ];
-    if (lead != null && lead.group(1) != null) {
-      final leadText = lead.group(1)!.trim();
-      final rest = directiveTrimmed.substring(lead.group(1)!.length).trim();
-      spans.add(
-        TextSpan(
-          text: leadText,
-          style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-        ),
-      );
-      if (rest.isNotEmpty) {
-        spans.add(TextSpan(text: ' $rest'));
-      }
-    } else {
-      spans.add(TextSpan(text: directive));
-    }
     return Text.rich(
       TextSpan(children: spans),
       style: baseStyle,

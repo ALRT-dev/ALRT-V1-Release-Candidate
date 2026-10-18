@@ -12,18 +12,14 @@ import type { AISummaryResponse } from "../models/ai_summary_response_interface.
  * told to "STRICTLY follow" canned example wording rather than the wording
  * being used directly and deterministically.
  *
- * The wording below is lifted unchanged from the pre-existing AI-prompt
- * examples for this category (ai-prompt.util.ts's
- * getAirQualityAlertCategoryPrompt) — already product-reviewed content for
- * this exact use case — not newly authored here. See the report for a
- * flagged, unresolved question about whether that wording's "avoid
- * outdoor activities / stay indoors" phrasing needs a product-owner check
- * against §9.2's physical-movement rule, since it is standard public
- * health messaging rather than an attributed source directive.
+ * The legacy fallback below now labels ALRT suggestions and defers to
+ * local health advice and official fire/evacuation instructions. Published
+ * templates select editable suggestions and profile rows from the reviewed
+ * library. These statements are never attributed to WAQI as instructions.
  */
 
 const MANDATORY_HEALTH_CLOSE =
-  "This information is general awareness only and is not a substitute for personal medical advice. If you have health concerns, speak with your GP or call Healthdirect.";
+  "This is general information. A health professional can help with personal health concerns.";
 
 /**
  * Plain words, no number (owner instruction 2026-10-14). WAQI reports the US

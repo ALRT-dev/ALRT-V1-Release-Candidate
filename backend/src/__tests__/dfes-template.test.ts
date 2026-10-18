@@ -24,10 +24,24 @@ describe("DFES warning template", () => {
     expect(r!.summary.split("\n")).toHaveLength(3);
     expect(r!.summary).toContain("A Bushfire Advice is in place");
     expect(r!.summary).not.toMatch(/WHAT TO DO/i);
-    expect(r!.callsToAction).toEqual([
-      "The threat of the fire has reduced however you should take care in the area.",
-      "Stay alert for potential dangers such as smoke and fallen trees and power poles.",
-      "If you do not have a plan, make one now on Emergency WA.",
+    expect(r!.callsToAction).toEqual([PALMER]);
+  });
+
+  it("keeps conditional headings with every instruction in their block", () => {
+    const r = parseDfesWarning(`Warning Type: Bushfire Emergency Warning
+Fire threatens Example Town.
+WHAT TO DO
+If you are east of the bridge
+• Leave now.
+• Use Example Road.
+If you are west of the bridge
+• Stay indoors.
+• Close windows.
+ROAD CLOSURES
+Example Road is open.`);
+    expect(r!.actions).toEqual([
+      "If you are east of the bridge\n• Leave now.\n• Use Example Road.",
+      "If you are west of the bridge\n• Stay indoors.\n• Close windows.",
     ]);
   });
 

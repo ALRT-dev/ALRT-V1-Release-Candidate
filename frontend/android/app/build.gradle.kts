@@ -67,7 +67,7 @@ android {
     defaultConfig {
         applicationId = "com.safetyalrt.alrt"
         minSdk = flutter.minSdkVersion
-        targetSdk = 35 // Play requires >= 35; pinned per Aug 2026 audit
+        targetSdk = 36 // Google Play phone submissions require API 36 from 31 Aug 2026.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 

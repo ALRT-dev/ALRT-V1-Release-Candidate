@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:hazard_app/features/shared/utils/template_marker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +34,7 @@ class SmallMapView extends ConsumerStatefulWidget {
 class _SmallMapViewState extends ConsumerState<SmallMapView> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
+  int _markerGeneration = 0;
 
   @override
   void initState() {
@@ -43,7 +45,8 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
   @override
   void didUpdateWidget(SmallMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.hazard.id != widget.hazard.id ||
+    if (oldWidget.hazard.contentDetails != widget.hazard.contentDetails ||
+        oldWidget.hazard.id != widget.hazard.id ||
         oldWidget.hazard.latitude != widget.hazard.latitude ||
         oldWidget.hazard.longitude != widget.hazard.longitude ||
         oldWidget.hazard.severity != widget.hazard.severity ||
@@ -52,7 +55,8 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
     }
   }
 
-  void _createMarker() {
+  Future<void> _createMarker() async {
+    final generation = ++_markerGeneration;
     if (widget.hazard.latitude == null || widget.hazard.longitude == null) {
       setState(() {
         _markers = {};
@@ -64,9 +68,11 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
       providerOfHazardMarkerBitmaps.select((value) => value.markerBitmaps),
     );
 
-    final bitmapDescriptor = widget.hazard.getMarkerBitmapDescriptor(
+    final bitmapDescriptor = await templateMarker(widget.hazard, markerBitmaps) ?? widget.hazard.getMarkerBitmapDescriptor(
       markerBitmaps,
     );
+
+    if (!mounted || generation != _markerGeneration) return;
 
     setState(() {
       _markers = {

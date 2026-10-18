@@ -21,6 +21,7 @@ class ForYouCard extends ConsumerStatefulWidget {
     this.parentCategoryName,
     this.title,
     this.isAws = false,
+    this.publishedRows,
   });
 
   /// The alert's own category name, tried first.
@@ -35,6 +36,9 @@ class ForYouCard extends ConsumerStatefulWidget {
 
   /// Whether the alert is an AWS warning (drives the visitor explainer).
   final bool isAws;
+
+  /// Server supplies generic reviewed rows; selected cohorts stay on phone.
+  final Map<String, String>? publishedRows;
 
   @override
   ConsumerState<ForYouCard> createState() => _ForYouCardState();
@@ -52,9 +56,14 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
       parentCategoryName: widget.parentCategoryName,
       title: widget.title,
     );
-    if (bucket == null) return const SizedBox.shrink();
-    final rows = ForYouLibrary.rows[bucket];
-    if (rows == null) return const SizedBox.shrink();
+    final rows = widget.publishedRows != null
+        ? <SafetyCohort, String>{
+            for (final cohort in SafetyCohort.values)
+              if (widget.publishedRows!.containsKey(cohort.id))
+                cohort: widget.publishedRows![cohort.id]!,
+          }
+        : ForYouLibrary.rows[bucket];
+    if (rows == null || rows.isEmpty) return const SizedBox.shrink();
 
     // Guidance exists for this hazard but nothing is ticked yet. Silence
     // here is why the feature looks missing: the card simply never appears
@@ -149,9 +158,7 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
                 child: Row(
                   children: [
                     Text(
-                      _expanded
-                          ? 'Show less'
-                          : 'Guidance for other groups',
+                      _expanded ? 'Show less' : 'Guidance for other groups',
                       style: TextStyle(
                         fontSize: 11.spMin,
                         color: const Color(0xFF6B6875),
@@ -159,7 +166,8 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
                     ),
                     SizedBox(width: 7.spMin),
                     if (!_expanded) ...[
-                      for (final cohort in matched.skip(maxVisibleLines).take(3))
+                      for (final cohort
+                          in matched.skip(maxVisibleLines).take(3))
                         Container(
                           width: 12.spMin,
                           height: 12.spMin,

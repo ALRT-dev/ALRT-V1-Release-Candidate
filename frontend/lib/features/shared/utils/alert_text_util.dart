@@ -64,15 +64,13 @@ abstract final class AlertTextUtil {
     return out.take(maxPoints).toList();
   }
 
-  /// The first [maxPoints] instructions. The agency's order is kept.
+  /// All agency instructions, in order. Only factual summaries are capped.
   static List<String> capActions(final List<String> actions) {
     final cleaned = actions
         .map((a) => a.trim())
         .where((a) => a.isNotEmpty)
         .toList();
-    return cleaned.length <= maxPoints
-        ? cleaned
-        : cleaned.sublist(0, maxPoints);
+    return cleaned;
   }
 
   /// Shown only when the agency gave no instruction. Points at the agency;

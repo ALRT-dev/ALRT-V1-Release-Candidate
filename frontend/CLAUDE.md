@@ -6,16 +6,20 @@ explicit instruction from the product owner in the current session.
 ## Design system
 
 - Band colours: Info #8A93A0, Monitor #F5C518, Action #F07E1B, Critical #DA1F2D.
-- Shapes carry the SOURCE system, five of them: AWS triangle, official
-  diamond, global-humanitarian rounded square, community circle, ALRT
-  shield. The shield never writes the band word and never restates or
-  overrides an official warning. The square is GDACS-style events rated for
-  international humanitarian response; it carries the source's own scale
-  verbatim (Red/Orange/Green describes likelihood of international aid, not
-  personal danger) and may be retired later, so it hangs off
-  Hazard.globalHumanitarianSourceIds alone. Every shape, the shield
-  included, takes the band hexes above; there is no separate brighter
-  shield palette.
+- Shapes carry the SOURCE system: AWS triangle, official diamond, current
+  community disc artwork, ALRT shield. The square is retired (product-owner
+  instruction, confirmed 13 October 2026). Humanitarian events use a diamond
+  and retain their native scale, which describes response needs, not personal
+  danger. The shield never overrides an official warning. Published templates
+  may change ALRT band colours and choose an existing map icon family. Required
+  AWS artwork and current community artwork are protected. Category pill colours
+  remain independent of severity.
+
+- Published `contentDetails` separates source facts, affected area, native level,
+  agency instructions and labelled ALRT suggestions. For You matches all published
+  generic rows against local profile choices; never send profile selections to
+  ingestion or let them affect severity. An empty published library must not
+  silently fall back to older bundled guidance.
 - Category colours (brightened 2026-08-04; Security changed to
   crimson-pink 2026-09-08, product-owner instruction): Weather #2FA6FF,
   Health #FF7E29, Security #D9304F (crimson-pink, "make security and

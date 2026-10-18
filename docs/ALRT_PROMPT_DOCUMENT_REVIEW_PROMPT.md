@@ -16,7 +16,7 @@ You are a senior QA reviewer for the ALRT emergency alert app. I have written a 
 
 RULES THAT ARE SETTLED (do not question them, check the document obeys them):
 1. Severity is assigned by code, never by the AI (Rule Zero). The AI may only extract, summarise and suggest actions.
-2. Colour shows severity. Locked band colours: Info #8A93A0, Monitor #F5C518, Action #F07E1B, Critical #DA1F2D. Shape shows the source system: AWS triangle, official diamond, humanitarian square, community circle, ALRT Intel shield.
+2. Colour shows severity. Default ALRT band colours: Info #8A93A0, Monitor #F5C518, Action #F07E1B, Critical #DA1F2D. Published templates may change ALRT colours; agency AWS artwork and current community artwork remain protected. Shape shows the source system: AWS triangle, official and humanitarian diamond, current community disc, ALRT Intel shield. There is no square. Category pill colour remains independent of severity.
 3. An agency's own warning level (Advice, Watch and Act, Emergency Warning) must never be lost or downgraded. Drills, tests and resolved incidents are Info.
 4. Official AWS and verified official emergency warnings are always on.
 5. No specific emergency number in any user-facing or AI text; use "your local emergency number" unless an emergency service states a number.

@@ -40,7 +40,10 @@ export const onRequest = async (context: {
 }): Promise<Response> => {
   const { request, env } = context;
   const incoming = new URL(request.url);
-  const origin = resolveRelayOrigin(env, request.headers.get(API_ORIGIN_HEADER));
+  // This named TEST site and its branch previews must never relay to production,
+  // even if the Pages project's inherited environment is misconfigured.
+  const testHost = incoming.hostname === "alrt-v1-release-candidate.pages.dev" || incoming.hostname.endsWith(".alrt-v1-release-candidate.pages.dev");
+  const origin = testHost ? DEFAULT_ORIGIN : resolveRelayOrigin(env, request.headers.get(API_ORIGIN_HEADER));
 
   if (incoming.pathname === RELAY_ORIGIN_PATH) {
     return new Response(JSON.stringify({ origin }), {

@@ -45,15 +45,15 @@ enum NotificationLevel {
 /// Warning is on, "official and community" when community reports are
 /// on, else "official only".
 NotificationLevel notificationLevelOf(final PushNotificationSettings settings) {
-  final onlyEmergency = settings.awsEmergency &&
+  final onlyEmergency =
+      settings.awsEmergency &&
       !settings.awsWatchAndAct &&
       !settings.awsAdvice &&
       !settings.officialNonAws &&
       !settings.userReported;
   if (onlyEmergency) return NotificationLevel.quiet;
-  final anyOfficial = settings.awsWatchAndAct ||
-      settings.awsAdvice ||
-      settings.officialNonAws;
+  final anyOfficial =
+      settings.awsWatchAndAct || settings.awsAdvice || settings.officialNonAws;
   if (settings.userReported && !anyOfficial) {
     return NotificationLevel.communityOnly;
   }
@@ -62,40 +62,40 @@ NotificationLevel notificationLevelOf(final PushNotificationSettings settings) {
 }
 
 /// [current] with the type flags set for [level]. Categories are left as
-/// they are; Emergency Warning (AWS) is always on.
+/// they are; active AWS warnings at all three levels are always on.
 PushNotificationSettings settingsForLevel(
   final PushNotificationSettings current,
   final NotificationLevel level,
 ) {
   return switch (level) {
     NotificationLevel.quiet => current.copyWith(
-        awsEmergency: true,
-        awsWatchAndAct: false,
-        awsAdvice: false,
-        officialNonAws: false,
-        userReported: false,
-      ),
+      awsEmergency: true,
+      awsWatchAndAct: false,
+      awsAdvice: false,
+      officialNonAws: false,
+      userReported: false,
+    ),
     NotificationLevel.communityOnly => current.copyWith(
-        awsEmergency: true,
-        awsWatchAndAct: false,
-        awsAdvice: false,
-        officialNonAws: false,
-        userReported: true,
-      ),
+      awsEmergency: true,
+      awsWatchAndAct: false,
+      awsAdvice: false,
+      officialNonAws: false,
+      userReported: true,
+    ),
     NotificationLevel.officialOnly => current.copyWith(
-        awsEmergency: true,
-        awsWatchAndAct: true,
-        awsAdvice: true,
-        officialNonAws: true,
-        userReported: false,
-      ),
+      awsEmergency: true,
+      awsWatchAndAct: true,
+      awsAdvice: true,
+      officialNonAws: true,
+      userReported: false,
+    ),
     NotificationLevel.officialAndCommunity => current.copyWith(
-        awsEmergency: true,
-        awsWatchAndAct: true,
-        awsAdvice: true,
-        officialNonAws: true,
-        userReported: true,
-      ),
+      awsEmergency: true,
+      awsWatchAndAct: true,
+      awsAdvice: true,
+      officialNonAws: true,
+      userReported: true,
+    ),
   };
 }
 
@@ -213,7 +213,8 @@ class _ManagePushNotificationsListState
 
         return _sectionContainerBuilder(
           title: 'Level',
-          subtitle: 'Emergency warnings are always on, whatever you pick.',
+          subtitle:
+              'AWS Advice, Watch and Act and Emergency Warnings, plus other official emergency warnings, are always on for your area.',
           child: Column(
             children: [
               _levelCard(
@@ -237,7 +238,8 @@ class _ManagePushNotificationsListState
               10.hSizedBox,
               _levelCard(
                 title: 'Community only',
-                description: 'Reports from people nearby, plus emergency '
+                description:
+                    'Reports from people nearby, plus always-on official '
                     'warnings.',
                 selected: level == NotificationLevel.communityOnly,
                 onTap: () => pick(NotificationLevel.communityOnly),
@@ -245,19 +247,22 @@ class _ManagePushNotificationsListState
               10.hSizedBox,
               _levelCard(
                 title: 'Keep it quiet',
-                description: 'Emergency warnings only. Nothing else.',
+                description: 'Always-on official warnings only.',
                 selected: level == NotificationLevel.quiet,
                 onTap: () => pick(NotificationLevel.quiet),
               ),
               12.hSizedBox,
               Row(
                 children: [
-                  const Icon(Icons.lock_outline_rounded,
-                      size: 16, color: AppColors.grey),
+                  const Icon(
+                    Icons.lock_outline_rounded,
+                    size: 16,
+                    color: AppColors.grey,
+                  ),
                   6.wSizedBox,
                   Expanded(
                     child: Text(
-                      'Emergency warnings',
+                      'Active AWS and official emergency warnings',
                       style: TextStyle(
                         fontSize: 13.spMin,
                         color: AppColors.grey,
@@ -364,19 +369,20 @@ class _ManagePushNotificationsListState
 
         return _sectionContainerBuilder(
           title: 'Colour shows severity',
-          subtitle: 'Colour shows severity. Pick the lowest you want to hear '
-              'about. Red is always on.',
+          subtitle:
+              'Colour shows severity. Pick the lowest you want to hear '
+              'about. Active AWS and official emergency warnings are always on.',
           child: SeverityLine(
             advice: settings.awsAdvice,
             watchAndAct: settings.awsWatchAndAct,
             onChanged: (advice, watchAndAct) =>
                 notifier.updatePushNotificationSettings(
-              settings.copyWith(
-                awsEmergency: true,
-                awsAdvice: advice,
-                awsWatchAndAct: watchAndAct,
-              ),
-            ),
+                  settings.copyWith(
+                    awsEmergency: true,
+                    awsAdvice: advice,
+                    awsWatchAndAct: watchAndAct,
+                  ),
+                ),
           ),
         );
       },

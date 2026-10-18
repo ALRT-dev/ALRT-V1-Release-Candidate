@@ -165,8 +165,8 @@ export const updateAIPrompt = async (
     const existingPrompt = await getPromptById(id);
 
     // Validate prompt content if being updated
-    if (content && variables) {
-      const validation = validatePromptContent(content, variables);
+    if (content || variables) {
+      const validation = validatePromptContent(content ?? existingPrompt.content, variables ?? existingPrompt.variables as string[]);
       if (!validation.isValid) {
         throw new HttpError(400, "Invalid prompt content");
       }

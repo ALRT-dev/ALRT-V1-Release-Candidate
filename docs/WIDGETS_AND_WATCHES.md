@@ -1,5 +1,37 @@
 # Widgets and watches: state and what is still needed
 
+## Release integration update, 18 October 2026
+
+The snapshot below predates integration into TEST. PR 33 brought the watch
+sources and phone bridges to `test` at b5043c3. The release integration retains
+the signed widget configuration from 5b44b0f and adds the unattached AlrtWatch
+target using the supplied watch setup script. Runner has one widget dependency
+and one embedded AlrtWidget.appex. Watch remains unembedded as described below.
+
+The Apple Developer portal now has `com.safetyalrt.alrt.dev.AlrtWidget`, with
+`group.com.safetyalrt.alrt.dev` assigned. Dev Runner already uses that group.
+The Dev-only signing lane and export options cover both app and widget.
+[Build 39085277408](https://github.com/ALRT-dev/ALRT-V1-Release-Candidate/actions/runs/39085277408)
+at 5b44b0f passed signing and archive compilation. Its upload and processing
+status must be checked separately. That build does not contain the newer watch
+bridge integration. Installed widget, watch and purchase behaviour still need
+device evidence.
+
+Independent review found no blocker for integrating the phone build, but the
+watch apps must remain undistributed until these issues are fixed and tested:
+
+- Both watch screens ignore payload `updatedAtMillis`, allowing persisted
+  "All clear" or alert data to appear current after disconnection. Add an
+  explicit stale state and advancing age/time labels.
+- The iPhone WatchConnectivity bridge drops a payload received before session
+  activation. Retain the latest payload and replay it after activation succeeds.
+
+The integration checks passed: three Ruby project tests with 70 assertions,
+18 Flutter widget tests, and analysis of the changed Dart bridge/service. These
+checks do not prove paired-device delivery or store availability.
+
+## Earlier branch snapshot
+
 Branch: `claude/widgets-and-watches` (not merged into the TestFlight branch).
 Everything here is TEST only. Nothing was deployed or submitted.
 

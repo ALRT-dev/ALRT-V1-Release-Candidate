@@ -291,89 +291,12 @@ export const getAirQualityAlertCategoryPrompt = (
  * Generates a prompt for summarizing Smartraveller source alerts.
  * @returns {string} The prompt string.
  */
-export const getSmartravellerSourcePrompt = (
-  severityBand: HazardSeverityBand
-): string => {
-  const getSummaryExamplesBySeverityBand = (
-    severityBand: HazardSeverityBand
-  ): string[] => {
-    switch (severityBand) {
-      case HazardSeverityBand.info:
-        return [
-          "Australian Government advises exercising normal safety precautions for [LOCATION], as reported by Smartraveller.",
-        ];
-      case HazardSeverityBand.monitor:
-        return [
-          "Australian Government advises exercising a high degree of caution in [LOCATION] due to [REASONS], as reported by Smartraveller.",
-        ];
-      case HazardSeverityBand.action:
-        return [
-          "Australian Government advises reconsidering your need to travel to [LOCATION] due to [REASONS], as reported by Smartraveller.",
-        ];
-      case HazardSeverityBand.critical:
-        return [
-          "Australian Government advises do not travel to [LOCATION] due to [REASONS], as reported by Smartraveller.",
-        ];
-      default:
-        return [];
-    }
-  };
-
-  const getCallToActionExamplesBySeverityBand = (
-    severityBand: HazardSeverityBand
-  ): string[] => {
-    switch (severityBand) {
-      case HazardSeverityBand.info:
-        return [
-          "Exercise normal safety precautions. Stay aware of your surroundings and monitor local media for updates.",
-        ];
-      case HazardSeverityBand.monitor:
-        return [
-          "Exercise a high degree of caution. Avoid affected areas where possible and follow advice from local authorities.",
-        ];
-      case HazardSeverityBand.action:
-        return [
-          "Reconsider your need to travel. If already there, consider leaving. Register with Smartraveller and have an exit plan.",
-        ];
-      case HazardSeverityBand.critical:
-        return [
-          "Do not travel to this location. If already there, leave immediately if safe to do so. Contact DFAT on 1300 555 135.",
-        ];
-      default:
-        return [];
-    }
-  };
-
-  const summaryExamples = getSummaryExamplesBySeverityBand(severityBand);
-  const summaryExamplesText =
-    summaryExamples.length > 0
-      ? `- STRICTLY follow the structure as in the following examples:\n    ${summaryExamples
-          .map((example) => `"${example}"`)
-          .join("\n    ")}`
-      : "";
-
-  const callToActionExamples =
-    getCallToActionExamplesBySeverityBand(severityBand);
-  const callToActionExamplesText =
-    callToActionExamples.length > 0
-      ? `- STRICTLY follow the structure as in the following examples:\n    ${callToActionExamples
-          .map((example) => `"${example}"`)
-          .join("\n    ")}`
-      : "";
-
-  return `${defaultAIPromptIntroduction}
-  
-  ${defaultSummaryGuidelines}
-  - Use Australian spellings.
-  ${summaryExamplesText}
-
-  ${defaultCallToActionGuidelines}
-  - Use Australian spellings.
-  ${callToActionExamplesText}
-  
-  ${defaultConfidenceLevelGuidelines}
-  
-  ${defaultOutputStructure}`;
+export const getSmartravellerSourcePrompt = (severityBand: HazardSeverityBand): string => {
+  void severityBand;
+  return [defaultAIPromptIntroduction, defaultSummaryGuidelines,
+    "Preserve the native Smartraveller advice level exactly as supplied for the affected country and region. Never derive an advice level from the ALRT band.",
+    "A do-not-travel advisory does not itself instruct people already there to leave. Include a departure instruction only when the source explicitly supplies it, with all conditions and area exceptions.",
+    defaultCallToActionGuidelines, defaultSpecialRules, defaultConfidenceLevelGuidelines, defaultOutputStructure].join("\n");
 };
 
 const defaultAIPromptIntroduction = `You are an AI hazard intelligence assistant supporting emergency systems. Your role is to interpret incoming hazard reports, extract key details, and produce clear, actionable summaries, including a concise title, a factual summary, an appropriate call to action and a confidence level that help people understand the situation quickly.`;
@@ -397,20 +320,17 @@ Generate "callsToAction" using the following rules:
   - "callsToAction" may ONLY restate an instruction that the SOURCE description
     itself actually gives, prefixed with the issuing agency's name, e.g.
     "NSW SES advises: do not drive through floodwater."
-  - When the official source gives pertinent advice, include it, and use the
-    agency's own words as written whenever it says it. Shorten only by
-    dropping repeated or minor lines; never reword the meaning. Choose the
-    two or three most safety-relevant instructions, in the agency's order.
-  - Keep each instruction SHORT and scannable: lead with the single most
-    important directive in the first few words (e.g. "Leave now", "Stay
-    indoors", "Do not drive"), then the detail. Target 15 words or fewer
-    per instruction. If the source's line is long, drop qualifying
-    filler ("please", "it is important that", "we urge you to") but keep
-    every safety-relevant directive and every specific (evacuation
-    centres, road names, shelter locations).
+  - When the official source gives pertinent advice, retain its complete
+    instructions in the agency's own words and order. Remove exact duplicate
+    instructions only. Keep all conditions, exceptions, area limits, timing,
+    negations and specifics (evacuation centres, road names, shelter locations).
+  - Never reorder or shorten a conditional instruction to lead with a
+    directive. Length targets never justify removing source wording. Use
+    separate complete source instructions for readability; retain a longer
+    source block when its conditions apply across several instructions.
   - If the description contains no instruction, return an empty array: [].
     Do not invent one, and do not soften this into a generic safety tip —
-    ALRT never writes its own advice.
+    ALRT suggestions are selected separately from a reviewed library and labelled as suggestions.
   - Never paraphrase a source instruction into something stronger, softer,
     or different. Keep specifics (evacuation centres, road names) intact.
   - Physical-movement words ("leave", "stay", "depart", "evacuate", "shelter",
@@ -442,7 +362,7 @@ Always respond with **valid JSON** in this format:
   {
     "title": "string" (≤80 chars),
     "summary": "string" (one clear sentence),
-    "callsToAction": "array", (up to 3 dot points, only what the source gives),
+    "callsToAction": "array", (all pertinent complete source instructions, with no item-count cap),
     "confidence": "high|medium|low",
   }`;
 

@@ -112,6 +112,7 @@ jobs:
           fi
           echo "Building with build number $BUILD_NUMBER"
           flutter build ipa --release --flavor prod -t lib/main_prod.dart \
+            --dart-define-from-file=.env \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=ios/ExportOptionsCI.plist
 

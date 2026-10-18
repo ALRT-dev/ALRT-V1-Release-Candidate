@@ -41,7 +41,7 @@ export interface SourceRegistryProfile {
  * - Official agencies → diamond · band colour only, band word never rendered.
  * - Community → circle · category colour (never severity) · caps at `action` ·
  *   pushes only after the nearby-confirmation threshold, never on submission.
- * - GDACS → square · level-exempt · "GDACS {colour}" verbatim · Green = no push.
+ * - GDACS → diamond · level-exempt · "GDACS {colour}" verbatim · Green = no push.
  * - ALRT Intel → shield · advisory push at most.
  */
 export const SOURCE_REGISTRY_DEFAULTS: Record<
@@ -70,7 +70,7 @@ export const SOURCE_REGISTRY_DEFAULTS: Record<
     pushPolicy: SourcePushPolicy.afterConfirmation,
   },
   gdacs: {
-    shape: HazardSourceShape.square,
+    shape: HazardSourceShape.diamond,
     severitySystem: HazardSeveritySystem.gdacsColour,
     levelHandling: SeverityLevelHandling.levelExempt,
     maxInternalBand: null,
@@ -100,7 +100,7 @@ export const resolveHazardShape = (params: {
   sourceShape?: HazardSourceShape | null;
 }): HazardSourceShape => {
   if (params.reportedById) return HazardSourceShape.circle;
-  return params.sourceShape ?? DEFAULT_SHAPE;
+  return params.sourceShape===HazardSourceShape.square?HazardSourceShape.diamond:params.sourceShape ?? DEFAULT_SHAPE;
 };
 
 const BAND_ORDER: HazardSeverityBand[] = [

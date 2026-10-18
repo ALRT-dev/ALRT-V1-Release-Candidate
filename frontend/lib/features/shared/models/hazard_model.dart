@@ -79,6 +79,11 @@ abstract class Hazard with _$Hazard {
     /// The AI-generated summary of the hazard.
     final String? aiSummary,
 
+    /// Published extraction and reviewed guidance. Profile choices stay local.
+    final Map<String, dynamic>? contentDetails,
+    final String? nativeWarningLevel,
+    final String? jurisdictionCountry,
+
     /// The AI-determined confidence level of the hazard.
     final AIConfidence? aiConfidence,
 
@@ -191,9 +196,10 @@ abstract class Hazard with _$Hazard {
   /// AWS, circle for user reports, diamond for everything else (official).
   HazardSourceShape get effectiveMapShape {
     final explicit = source?.shape;
+    if (explicit == HazardSourceShape.square) return HazardSourceShape.diamond;
     if (explicit != null) return explicit;
     if (isAlrtIntel) return HazardSourceShape.shield;
-    if (isGlobalHumanitarian) return HazardSourceShape.square;
+    if (isGlobalHumanitarian) return HazardSourceShape.diamond;
     if (isUserReported) return HazardSourceShape.circle;
     if (isAwsCompliant == true) return HazardSourceShape.triangle;
     return HazardSourceShape.diamond;
@@ -213,8 +219,15 @@ abstract class Hazard with _$Hazard {
   /// category-image keys are kept as fallback for the fire-status overlays
   /// which still need category-specific images.
   BitmapDescriptor? getMarkerBitmapDescriptor(
-    Map<String, BitmapDescriptor> bitmapMap,
-  ) {
+    Map<String, BitmapDescriptor> bitmapMap, {
+    bool artworkOnly = false,
+  }) {
+    final overrideId = templateIconCategoryId;
+    if (isAwsCompliant == true) {
+      final agency =
+          bitmapMap['${categoryId}_${severityBand?.name ?? 'info'}_aws'];
+      if (agency != null) return agency;
+    }
     // Fire-status pins keep the category-specific treatment.
     // A planned burn keeps its own dotted diamond whatever its fire status.
     if (fireStatus != null &&
@@ -232,8 +245,9 @@ abstract class Hazard with _$Hazard {
     // GDACS: a diamond in the GDACS level colour (green, orange, red).
     if (source?.id == 'gdacsGlobal') {
       final name = EventIconAssets.gdacsName(title);
-      final gdacsBitmap =
-          name == null ? null : bitmapMap[EventIconAssets.bitmapKey(name)];
+      final gdacsBitmap = name == null
+          ? null
+          : bitmapMap[EventIconAssets.bitmapKey(name)];
       if (gdacsBitmap != null) return gdacsBitmap;
     }
 
@@ -242,6 +256,7 @@ abstract class Hazard with _$Hazard {
     // plain shape pin when there is no picture for this event and band.
     if (!isUserReported) {
       final eventIds = <String>[
+        if (overrideId != null) overrideId,
         // The admin portal's chosen icon for this category comes first.
         if (categoryId != null && EventIconAssets.overrides[categoryId] != null)
           EventIconAssets.overrides[categoryId]!,
@@ -249,20 +264,27 @@ abstract class Hazard with _$Hazard {
         if (category?.parentId != null) category!.parentId!,
       ];
       for (final id in eventIds) {
-        final eventBitmap = bitmapMap[EventIconAssets.lookupKey(
-          isAws: isAwsCompliant == true,
-          categoryId: id,
-          // AWS has three levels only (Advice, Watch and Act, Emergency
-          // Warning), so an Info band on an AWS alert shows the Advice
-          // (yellow) picture. There is no AWS Info triangle.
-          bandName: (isAwsCompliant == true &&
-                  band == HazardSeverityBand.info)
-              ? HazardSeverityBand.monitor.name
-              : band.name,
-        )];
+        final eventBitmap =
+            bitmapMap[EventIconAssets.lookupKey(
+              isAws: isAwsCompliant == true,
+              categoryId: id,
+              // AWS has three levels only (Advice, Watch and Act, Emergency
+              // Warning), so an Info band on an AWS alert shows the Advice
+              // (yellow) picture. There is no AWS Info triangle.
+              bandName:
+                  (isAwsCompliant == true && band == HazardSeverityBand.info)
+                  ? HazardSeverityBand.monitor.name
+                  : band.name,
+            )];
         if (eventBitmap != null) return eventBitmap;
       }
     }
+
+    if (overrideId != null) {
+      final legacy = bitmapMap['${overrideId}_${band.name}_non_aws'];
+      if (legacy != null) return legacy;
+    }
+    if (artworkOnly) return null;
 
     // V3 shaped pin: shape × band.
     final shapeKey = 'shape_${effectiveMapShape.name}_${band.name}';
@@ -292,6 +314,7 @@ abstract class Hazard with _$Hazard {
       return severityBand?.colorAws ?? HazardSeverityBand.info.colorAws;
     }
 
+    if (templateBandColor != null) return templateBandColor!;
     // Otherwise, use non-AWS colors
     return severityBand?.colorNonAws ?? HazardSeverityBand.info.colorNonAws;
   }
@@ -347,6 +370,57 @@ abstract class Hazard with _$Hazard {
   /// The category image of the hazard.
   CategoryImage? get categoryImage =>
       category?.categoryImageByType(categoryImageType);
+
+  /// A valid ALRT colour never recolours agency artwork or community reports.
+  Color? get templateBandColor {
+    if (isUserReported || isAwsCompliant == true || source?.id == 'gdacsGlobal') {
+      return null;
+    }
+    final presentation = contentDetails?['presentation'];
+    if (presentation is! Map || presentation['band'] != severityBand?.name) {
+      return null;
+    }
+    final hex = presentation['bandColor'];
+    if (hex is! String || !RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(hex)) {
+      return null;
+    }
+    return Color(int.parse('FF${hex.substring(1)}', radix: 16));
+  }
+
+  String? get templateIconCategoryId {
+    if (isUserReported || isAwsCompliant == true || source?.id == 'gdacsGlobal') {
+      return null;
+    }
+    final presentation = contentDetails?['presentation'];
+    final id = presentation is Map ? presentation['iconCategoryId'] : null;
+    return id is String && id.isNotEmpty && id != categoryId ? id : null;
+  }
+
+  Map<String, String>? get publishedProfileGuidance {
+    if (contentDetails == null) return null;
+    final rows = contentDetails?['profileGuidance'];
+    final result = <String, String>{};
+    if (rows is List) {
+      for (final row in rows) {
+        if (row is! Map ||
+            row['text'] is! String ||
+            row['profileTags'] is! List) {
+          continue;
+        }
+        for (final tag in row['profileTags'] as List) {
+          if (tag is String) {
+            final text = row['text'] as String;
+            result.update(
+              tag,
+              (existing) => '$existing\n\n$text',
+              ifAbsent: () => text,
+            );
+          }
+        }
+      }
+    }
+    return result;
+  }
 
   /// The fallback icon path for the hazard.
   String get fallbackIconPath {

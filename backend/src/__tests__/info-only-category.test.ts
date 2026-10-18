@@ -16,4 +16,19 @@ describe("info-only categories", () => {
     expect(capForInfoOnlyCategory("bushfire", v)).toEqual(v);
     expect(capForInfoOnlyCategory(undefined, v)).toEqual(v);
   });
+  it("never treats an active smoke emergency as residual smoke", () => {
+    const values = { severity: HazardSeverity.emergency, severityBand: HazardSeverityBand.critical };
+    for (const description of [
+      "Emergency Warning: toxic smoke from the factory fire. Evacuate immediately.",
+      "An active smouldering factory fire is spreading.",
+      "Smoke may be visible while the fire spreads.",
+    ]) expect(capForInfoOnlyCategory("otherFire", values, description)).toEqual(values);
+  });
+  it("keeps a native warning above the informational category cap", () => {
+    const values = { severity: HazardSeverity.watchAndAct, severityBand: HazardSeverityBand.action };
+    expect(capForInfoOnlyCategory("plannedBurn", values, "Watch and Act: the planned burn has escaped.")).toEqual(values);
+  });
+  it("caps clearly identified residual smoke without a warning", () => {
+    expect(capForInfoOnlyCategory("otherFire", { severityBand: HazardSeverityBand.action }, "Residual smoke after the extinguished fire.").severityBand).toBe("info");
+  });
 });
