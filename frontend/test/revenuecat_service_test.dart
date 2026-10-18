@@ -75,6 +75,14 @@ void main() {
   RevenueCatService service(_FakeGateway g) =>
       RevenueCatService(gateway: g, apiKeyOverride: 'test-key');
 
+  test('personal offering follows the billing mode', () {
+    const billingMode = String.fromEnvironment('ALRT_BILLING_MODE');
+    expect(
+      RevenueCatService.personalOfferingId,
+      billingMode == 'test_store' ? 'default' : 'personal',
+    );
+  });
+
   test(
     'an existing subscriber is entitled without any purchase prompt',
     () async {

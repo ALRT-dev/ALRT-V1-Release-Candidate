@@ -9,10 +9,14 @@ import path from "path";
 import s3Client from "../utils/s3_client.util.js";
 import type { MediaUploadResult } from "../models/media_upload_result_interface.js";
 import { config } from "../utils/config.js";
+import { optimizeImageBuffer } from "../utils/image_optimization.util.js";
 import type { Hazard, HazardMedia } from "@prisma/client";
 
 const BUCKET_NAME = config.aws.s3.bucketName;
 const CLOUDFRONT_DOMAIN = config.aws.s3.cloudfrontDomain;
+const PHOTO_UPLOAD_FOLDERS = new Set([
+  "hazards", "profile-pictures", "family-circle-photos", "family-member-photos",
+]);
 
 /**
  * Upload a file to S3 and return the public URL
@@ -22,8 +26,17 @@ export const uploadFileToS3 = async (
   folder: string,
 ): Promise<MediaUploadResult> => {
   try {
-    // Generate unique filename
-    const fileExtension = path.extname(file.originalname);
+    // Only user-photo destinations opt in. Agency/category artwork and any
+    // future upload destination keep the exact approved bytes and colours.
+    const optimized = PHOTO_UPLOAD_FOLDERS.has(folder)
+      ? await optimizeImageBuffer(file.buffer, file.mimetype)
+      : { buffer: file.buffer, mimeType: file.mimetype, changed: false };
+    const uploadBuffer = optimized.buffer;
+    const uploadMime = optimized.mimeType;
+
+    // Generate unique filename (matching the (possibly re-encoded) mime)
+    const fileExtension = optimized.changed && uploadMime === "image/webp"
+      ? ".webp" : path.extname(file.originalname);
     const fileName = `${uuidv4()}${fileExtension}`;
     const key = `${folder}/${fileName}`;
 
@@ -31,8 +44,8 @@ export const uploadFileToS3 = async (
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
-      Body: file.buffer,
-      ContentType: file.mimetype,
+      Body: uploadBuffer,
+      ContentType: uploadMime,
       ContentDisposition: "inline",
       // Set cache control for better performance
       CacheControl: "max-age=31536000", // 1 year
@@ -50,8 +63,8 @@ export const uploadFileToS3 = async (
       key,
       url,
       originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
+      mimeType: uploadMime,
+      size: uploadBuffer.length,
     };
   } catch (error: unknown) {
     console.error("Error uploading file to S3:", error);

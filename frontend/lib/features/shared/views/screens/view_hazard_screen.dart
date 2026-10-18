@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
+import 'package:hazard_app/features/shared/utils/attributed_action_parts.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
@@ -1427,36 +1428,31 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// drive through floodwater." - see the classification standard's
   /// directive-extraction rule (every relayed instruction is prefixed with
   /// the issuing agency's name and the word "advises:").
-  static final RegExp _attributedActionPattern = RegExp(
-    r'^(.{1,60}? advises:)\s*(.*)$',
-  );
-
-  /// Bolds the "{Agency} advises:" prefix of a What To Do line so an
-  /// attributed source directive reads visibly differently from ALRT's own
-  /// wording around it - the classification standard's "attribution
-  /// prefixes bold" rule. Falls back to plain text for a line that isn't in
-  /// that shape (community reports carry no instructions at all, and older
-  /// content may not follow the pattern).
+  /// Highlight agency wording without changing its characters or separating
+  /// an instruction from a condition.
   Widget _attributedActionText(final String action) {
-    final match = _attributedActionPattern.firstMatch(action);
+    final parts = attributedActionParts(action);
     final baseStyle = TextStyle(
       color: AppColors.black.withValues(alpha: 0.9),
       fontSize: 14.spMin,
       height: 1.5,
     );
-    if (match == null) {
+    if (parts == null) {
       return Text(action, style: baseStyle);
     }
-    return Text.rich(
+    final spans = <TextSpan>[
       TextSpan(
-        children: [
-          TextSpan(
-            text: match.group(1),
-            style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-          ),
-          TextSpan(text: ' ${match.group(2)}'),
-        ],
+        text: parts.attribution,
+        style: baseStyle.copyWith(fontWeight: FontWeight.w700),
       ),
+      TextSpan(
+        text: parts.lead,
+        style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+      ),
+      TextSpan(text: parts.remainder),
+    ];
+    return Text.rich(
+      TextSpan(children: spans),
       style: baseStyle,
     );
   }
@@ -1600,9 +1596,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                           color: isUserReported
                               ? AlertCardStyle.communitySectionHeaderColor
                               : AlertCardStyle.officialSectionHeaderColor,
-                          fontSize: 10.5.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
+                          fontSize: 13.spMin,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       12.spMin.hSizedBox,
@@ -1737,9 +1733,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         'WHAT WE KNOW',
                         style: TextStyle(
                           color: color,
-                          fontSize: 10.5.spMin,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
+                          fontSize: 13.spMin,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       12.spMin.hSizedBox,

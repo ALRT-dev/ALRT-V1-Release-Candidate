@@ -320,10 +320,14 @@ Generate "callsToAction" using the following rules:
   - "callsToAction" may ONLY restate an instruction that the SOURCE description
     itself actually gives, prefixed with the issuing agency's name, e.g.
     "NSW SES advises: do not drive through floodwater."
-  - When the official source gives pertinent advice, include it, and use the
-    agency's own words as written whenever it says it. Shorten only by
-    dropping repeated or minor lines; never reword the meaning. Choose the
-    two or three most safety-relevant instructions, in the agency's order.
+  - When the official source gives pertinent advice, retain its complete
+    instructions in the agency's own words and order. Remove exact duplicate
+    instructions only. Keep all conditions, exceptions, area limits, timing,
+    negations and specifics (evacuation centres, road names, shelter locations).
+  - Never reorder or shorten a conditional instruction to lead with a
+    directive. Length targets never justify removing source wording. Use
+    separate complete source instructions for readability; retain a longer
+    source block when its conditions apply across several instructions.
   - If the description contains no instruction, return an empty array: [].
     Do not invent one, and do not soften this into a generic safety tip —
     ALRT suggestions are selected separately from a reviewed library and labelled as suggestions.
@@ -358,7 +362,7 @@ Always respond with **valid JSON** in this format:
   {
     "title": "string" (≤80 chars),
     "summary": "string" (one clear sentence),
-    "callsToAction": "array", (up to 3 dot points, only what the source gives),
+    "callsToAction": "array", (all pertinent complete source instructions, with no item-count cap),
     "confidence": "high|medium|low",
   }`;
 
