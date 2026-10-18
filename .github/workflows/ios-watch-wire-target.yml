@@ -1,0 +1,52 @@
+# One-off: attaches the AlrtWatch watchOS app to the Xcode project, proves it
+# builds unsigned for the watch simulator, then commits the project change to
+# this branch. No signing, no secrets, no upload.
+name: iOS Watch Wire Target
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/widgets-and-watches]
+    paths:
+      - "scripts/ios_add_watch_target.rb"
+      - ".github/workflows/ios-watch-wire-target.yml"
+permissions:
+  contents: write
+jobs:
+  wire:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          [ -n "$XC" ] || XC="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i watch || true
+      - name: Make sure the watchOS platform is present
+        run: |
+          if ! xcodebuild -showsdks | grep -qi watchsimulator; then
+            xcodebuild -downloadPlatform watchOS
+          fi
+          xcodebuild -showsdks | grep -i watch
+      - name: Install xcodeproj
+        run: sudo gem install xcodeproj --no-document
+      - name: Add the watch target
+        run: ruby scripts/ios_add_watch_target.rb
+      - name: List targets
+        working-directory: frontend/ios
+        run: xcodebuild -project Runner.xcodeproj -list
+      - name: Build the watch app (watch simulator, unsigned)
+        working-directory: frontend/ios
+        run: |
+          xcodebuild -project Runner.xcodeproj -target AlrtWatch \
+            -configuration Debug-dev -sdk watchsimulator \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | tail -40
+          exit ${PIPESTATUS[0]}
+      - name: Commit the project change
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add frontend/ios/Runner.xcodeproj/project.pbxproj
+          git commit -m "iOS: attach the AlrtWatch watchOS app to the Xcode project (not yet signed)" || echo "nothing to commit"
+          git push

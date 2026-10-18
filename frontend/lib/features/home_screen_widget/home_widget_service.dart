@@ -5,6 +5,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_keys.dart';
 import 'package:hazard_app/features/home_screen_widget/models/family_widget_payload.dart';
 import 'package:hazard_app/features/home_screen_widget/models/home_widget_alert.dart';
+import 'package:hazard_app/features/home_screen_widget/watch_sync.dart';
 
 /// Bridges app state to the native home-screen widgets (iOS WidgetKit +
 /// Android App Widget) via the `home_widget` plugin.
@@ -26,11 +27,14 @@ class HomeWidgetService {
   /// Serializes [payload] and asks both platforms to redraw.
   static Future<void> update(final HomeWidgetPayload payload) async {
     try {
+      final json = jsonEncode(payload.toJson());
       await HomeWidget.saveWidgetData<String>(
         HomeWidgetKeys.payloadKey,
-        jsonEncode(payload.toJson()),
+        json,
       );
       await refresh();
+      // The same glance goes to a paired watch, if there is one.
+      await WatchSync.push(json);
     } catch (e, s) {
       // Never let a widget failure crash the host app.
       debugPrint('HomeWidgetService.update failed: $e\n$s');
