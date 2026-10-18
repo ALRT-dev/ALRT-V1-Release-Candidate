@@ -113,11 +113,8 @@ async function main() {
         reporterLongitude: lng,
       });
       assert.equal(res.status, 422, JSON.stringify(res.body));
-      assert.match(
-        String((res.body as any)?.message ?? res.body),
-        /within .* km of where you are/i,
-        JSON.stringify(res.body),
-      );
+      const msg = String((res.body as any)?.error ?? res.body);
+      assert.match(msg, /within .* km of where you are/i, msg);
     });
 
     // 4. Posting without the reporter's own position -> rejected (fail-closed, 422).
