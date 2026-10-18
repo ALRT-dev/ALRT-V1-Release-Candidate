@@ -137,6 +137,13 @@ async function main() {
     console.error(`\n  NOT ok - ${(error as Error).message}`);
     process.exitCode = 1;
   } finally {
+    // Clean up the hazards this run created so re-runs never collide with
+    // leftovers (the duplicate guard is 500 m).
+    try {
+      await prisma.hazard.deleteMany({ where: { title: { startsWith: `${tag} ` } } });
+    } catch (e) {
+      console.error("cleanup skipped:", (e as Error).message);
+    }
     await prisma.$disconnect();
   }
 }
