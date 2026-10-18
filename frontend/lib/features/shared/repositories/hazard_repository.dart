@@ -71,6 +71,8 @@ abstract class HazardRepository {
   Future<Either<Hazard, AppError>> createHazardReport({
     required final Hazard hazard,
     final List<AlrtMedia>? mediaFiles,
+    final double? reporterLatitude,
+    final double? reporterLongitude,
   });
 
   Future<Either<Hazard, AppError>> updateHazardReport({
@@ -151,6 +153,8 @@ class HazardRepositoryImpl extends HazardRepository {
   Future<Either<Hazard, AppError>> createHazardReport({
     required Hazard hazard,
     List<AlrtMedia>? mediaFiles,
+    double? reporterLatitude,
+    double? reporterLongitude,
   }) {
     return runAsyncCall(
       name: 'createHazardReport',
@@ -159,6 +163,13 @@ class HazardRepositoryImpl extends HazardRepository {
           hazard.toJson(),
           enabled: useDummyAiForReports,
         );
+        // Transient reporter coords: sent so the backend can enforce the
+        // "post only within 1km of your current location" rule. Never stored
+        // on the Hazard row, never returned to other users.
+        if (reporterLatitude != null && reporterLongitude != null) {
+          hazardJson['reporterLatitude'] = reporterLatitude;
+          hazardJson['reporterLongitude'] = reporterLongitude;
+        }
         final result = await _restClient.createHazardReport(
           hazard: hazardJson,
           mediaFiles: mediaFiles?.map((media) => File(media.value)).toList(),
