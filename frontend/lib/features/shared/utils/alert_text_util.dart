@@ -4,6 +4,8 @@
 /// "WHAT TO DO" list, road closures and more. The screen has separate
 /// sections for those, so "What we know" must hold the facts only and
 /// "What to do" must not be repeated inside it.
+library;
+
 import 'package:hazard_app/features/shared/utils/alert_guidance_library.dart';
 
 abstract final class AlertTextUtil {
