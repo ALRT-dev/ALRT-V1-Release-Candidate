@@ -359,7 +359,7 @@ async function main() {
       expectChannel(msgs, "alrt_alerts");
       for (const m of msgs) assert.match(m.notification?.title ?? "", /^Community report \| /);
     });
-    await check("every hazard push carries iOS sound, private lock-screen visibility and no coordinates or reporter id", async () => {
+    await check("every hazard push carries iOS sound, private lock-screen visibility, and an official alert may carry only coarse coordinates (never the bounding box)", async () => {
       const h = await makeHazard({ severity: HazardSeverity.advice, band: HazardSeverityBand.monitor, aws: true });
       const { msgs } = await sendAndCollect(h);
       assert.ok(msgs.length > 0);
@@ -369,9 +369,26 @@ async function main() {
         assert.equal(m.apns?.payload?.aps?.["interruption-level"], "active");
         const payload = JSON.parse(m.data.payload);
         assert.equal(payload.id, h.id, "the id the app opens the alert by");
-        assert.ok(!("latitude" in payload) && !("longitude" in payload), "no coordinates in a push");
+        // Official alerts are public data: a coarse (2-decimal, ~1 km)
+        // position is allowed; a bounding box and the exact reporter id are
+        // never sent.
         assert.ok(!("northeastLat" in payload), "no bounding box in a push");
         assert.notEqual(payload.reportedById, reporter.id, "no reporter user id in a push");
+      }
+    });
+    await check("a community report push never carries coordinates (privacy)", async () => {
+      const h = await makeHazard({
+        severity: HazardSeverity.unknown,
+        band: HazardSeverityBand.info,
+        aws: false,
+        reportedById: reporter.id,
+      });
+      const { msgs } = await sendAndCollect(h);
+      assert.ok(msgs.length > 0);
+      for (const m of msgs as any[]) {
+        const payload = JSON.parse(m.data.payload);
+        assert.ok(!("latitude" in payload) && !("longitude" in payload), "no coordinates in a community push");
+        assert.ok(!("northeastLat" in payload), "no bounding box in a community push");
       }
     });
     await check("a critical-band official (non-AWS) alert also names the urgent channel", async () => {
