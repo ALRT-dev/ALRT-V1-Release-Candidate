@@ -49,6 +49,34 @@ abstract final class AlertTextUtil {
     return points;
   }
 
+  /// The first "WHAT WE KNOW" line for an official alert: who issued it and
+  /// what kind of incident it is, at which place. e.g. "DFES has issued a
+  /// bushfire incident at Toodyay." Falls back to a plain agency line when
+  /// the type or place is unknown, and is never empty.
+  static String issuedLine(
+    final String? agencyName,
+    final String? incidentType,
+    final String? locationName,
+  ) {
+    final agency = (agencyName ?? '').trim();
+    final type = (incidentType ?? '').trim().toLowerCase();
+    final place = (locationName ?? '').trim();
+    if (type.isEmpty) {
+      return agency.isEmpty
+          ? 'An incident has been reported.'
+          : '$agency has reported an incident.';
+    }
+    final typePhrase = type.startsWith('incident') ? type : '$type incident';
+    if (agency.isEmpty) {
+      return place.isEmpty
+          ? 'A $typePhrase has been reported.'
+          : 'A $typePhrase has been reported at $place.';
+    }
+    return place.isEmpty
+        ? '$agency has issued a $typePhrase.'
+        : '$agency has issued a $typePhrase at $place.';
+  }
+
   /// What we know for a community report: what was reported, what the
   /// reporter wrote (if anything), and that it is unverified. Always 1 to
   /// [maxPoints] points, never empty.

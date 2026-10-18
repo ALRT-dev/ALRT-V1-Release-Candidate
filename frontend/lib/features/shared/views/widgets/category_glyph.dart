@@ -33,6 +33,15 @@ class CategoryGlyph extends StatelessWidget {
   /// locked colour so colour and glyph can never disagree.
   static IconData? iconFor(final String? categoryName) {
     final name = categoryName?.toLowerCase() ?? '';
+    // Fire / bushfire / burn categories get their own flame glyph so they
+    // never inherit the parent's cloud (Weather & Environment). A bushfire
+    // map pin must read as fire, not weather.
+    if (name.contains('bushfire') ||
+        name.contains('fire') ||
+        name.contains('burn') ||
+        name.contains('blaze')) {
+      return LucideIcons.flame;
+    }
     if (name.contains('weather') || name.contains('environment')) {
       return LucideIcons.cloud;
     }

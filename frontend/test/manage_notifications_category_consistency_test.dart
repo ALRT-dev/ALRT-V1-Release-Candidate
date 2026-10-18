@@ -61,6 +61,8 @@ class _FakeHazardRepository implements HazardRepository {
   Future<Either<Hazard, AppError>> createHazardReport({
     required final Hazard hazard,
     final List<AlrtMedia>? mediaFiles,
+    final double? reporterLatitude,
+    final double? reporterLongitude,
   }) => throw UnimplementedError();
 
   @override
