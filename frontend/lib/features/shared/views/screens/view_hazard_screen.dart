@@ -893,11 +893,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             final title = ref.watch(
               provider.select((value) => value.hazard?.title),
             );
+            final isGlobal = ref.watch(
+              provider.select(
+                (value) => value.hazard?.isGlobalHumanitarian ?? false,
+              ),
+            );
             return ForYouCard(
               categoryName: categoryName,
               parentCategoryName: parentCategoryName,
               title: title,
               isAws: isAws,
+              isGlobal: isGlobal,
             );
           },
         ),

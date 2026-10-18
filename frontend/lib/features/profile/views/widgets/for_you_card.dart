@@ -21,6 +21,7 @@ class ForYouCard extends ConsumerStatefulWidget {
     this.parentCategoryName,
     this.title,
     this.isAws = false,
+    this.isGlobal = false,
   });
 
   /// The alert's own category name, tried first.
@@ -36,6 +37,11 @@ class ForYouCard extends ConsumerStatefulWidget {
   /// Whether the alert is an AWS warning (drives the visitor explainer).
   final bool isAws;
 
+  /// Whether the alert is a global humanitarian / GDACS event. When true, the
+  /// card uses the region-agnostic guidance set, never the Australia-specific
+  /// wording.
+  final bool isGlobal;
+
   @override
   ConsumerState<ForYouCard> createState() => _ForYouCardState();
 }
@@ -47,13 +53,18 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
   Widget build(BuildContext context) {
     final ticked = ref.watch(providerOfSafetyProfile);
 
-    final bucket = ForYouLibrary.bucketFor(
-      categoryName: widget.categoryName,
-      parentCategoryName: widget.parentCategoryName,
-      title: widget.title,
-    );
-    if (bucket == null) return const SizedBox.shrink();
-    final rows = ForYouLibrary.rows[bucket];
+    // Global/GDACS events use the region-agnostic guidance set, never the
+    // Australia-specific wording. Everything else matches by hazard as usual.
+    final bucket = widget.isGlobal
+        ? null
+        : ForYouLibrary.bucketFor(
+            categoryName: widget.categoryName,
+            parentCategoryName: widget.parentCategoryName,
+            title: widget.title,
+          );
+    final rows = widget.isGlobal
+        ? ForYouLibrary.globalRows
+        : (bucket == null ? null : ForYouLibrary.rows[bucket]);
     if (rows == null) return const SizedBox.shrink();
 
     // Guidance exists for this hazard but nothing is ticked yet. Silence

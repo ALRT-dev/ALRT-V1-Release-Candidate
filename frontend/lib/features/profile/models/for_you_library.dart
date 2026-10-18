@@ -724,4 +724,28 @@ abstract final class ForYouLibrary {
           'Pets often bolt in storms. Bringing them indoors with identification before the storm arrives is a good idea.',
     },
   };
+  /// Region-agnostic For You guidance for global/GDACS events. No country
+  /// references — general household response that applies anywhere, so a
+  /// reader in another country is never handed "Australian earthquakes are
+  /// usually small". Used when the alert is a global humanitarian event.
+  static const Map<SafetyCohort, String> globalRows = {
+    SafetyCohort.older:
+        'Older adults are most at risk in a fast-moving emergency. Moving early and calmly, rather than waiting to see, is the safer choice.',
+    SafetyCohort.kids:
+        'Keep children close and explain the plan calmly. They pick up on worry fast.',
+    SafetyCohort.mobility:
+        'Leaving takes longer than warnings allow. Go early and tell someone your route.',
+    SafetyCohort.medical:
+        'Keep medication and essentials together, and seek help early if symptoms start.',
+    SafetyCohort.deaf:
+        'Sirens and loudspeakers may not reach you. Keep vibration and screen-flash alerts on.',
+    SafetyCohort.vision:
+        'Ask someone nearby to guide you, and agree a meeting point early.',
+    SafetyCohort.visitor:
+        'Follow local instructions and keep your passport and essentials together.',
+    SafetyCohort.worker:
+        'If required on site, confirm the plan and a route in and out before you travel.',
+    SafetyCohort.pets:
+        'Bring animals and carriers with you — returning can take hours.',
+  };
 }

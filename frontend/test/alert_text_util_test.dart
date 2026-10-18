@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
 import 'package:hazard_app/features/shared/utils/alert_guidance_library.dart';
+import 'package:hazard_app/features/profile/models/for_you_library.dart';
+import 'package:hazard_app/features/profile/models/safety_cohort.dart';
 
 void main() {
   const dfes = 'Warning Type: Bushfire Advice\n'
@@ -122,6 +124,16 @@ void main() {
       final rows = AlertGuidanceLibrary.considerRows('global');
       expect(rows, isNotEmpty);
       expect(rows.any((r) => r.contains('Australian')), isFalse);
+    });
+  });
+  group('global rows', () {
+    test('region-agnostic — no Australian wording', () {
+      for (final line in ForYouLibrary.globalRows.values) {
+        expect(line.toLowerCase().contains('australia'), isFalse,
+            reason: line);
+        expect(line.contains('is a good idea'), isFalse, reason: line);
+      }
+      expect(ForYouLibrary.globalRows.length, SafetyCohort.values.length);
     });
   });
 }
