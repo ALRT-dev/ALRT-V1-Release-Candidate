@@ -444,11 +444,18 @@ jobs:
         if: ${{ inputs.simulator_smoke }}
         run: |
           set -x
+          set +e
           flutter build ios --simulator --debug --flavor dev -t lib/main_dev.dart \
             --dart-define-from-file=.env \
             --dart-define=ALRT_EMAIL_AUTH=true \
             --dart-define=ALRT_BUILD_COMMIT=${GITHUB_SHA::7} \
-            --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }}
+            --dart-define=ALRT_BILLING_MODE=${{ inputs.billing_mode }} 2>&1 | tee "$RUNNER_TEMP/build.log"
+          BUILD_RC=${PIPESTATUS[0]}
+          set -e
+          if [ "$BUILD_RC" != "0" ]; then
+            grep -E "error:|Error \(Xcode\)|failed|Cycle|Unable" "$RUNNER_TEMP/build.log" | head -15 | while read -r line; do echo "::error::${line:0:400}"; done
+            exit "$BUILD_RC"
+          fi
           APP="$(ls -d build/ios/iphonesimulator/*.app | head -1)"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
           WIDGET="$APP/PlugIns/AlrtWidget.appex"
