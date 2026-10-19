@@ -624,6 +624,7 @@ model AIPrompt {
 }
 
 enum ConfigurationKey {
+  severityLabels
   aiPrompts
 }
 

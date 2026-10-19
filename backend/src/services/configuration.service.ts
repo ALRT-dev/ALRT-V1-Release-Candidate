@@ -511,3 +511,42 @@ export const resetAIPromptConfigurationToBracketDefaults = async (): Promise<{
 
   return { adminId: superAdmin.id, config: merged };
 };
+
+// ---------------------------------------------------------------------------
+// Severity labels — admin-configurable words for each severity band.
+// Reads from the database config row; the caller falls back to hardcoded
+// defaults if the row is absent so the app always has a label.
+// ---------------------------------------------------------------------------
+
+const _severityLabelDefaults = {
+  emergency: "Emergency Warning",
+  watchAndAct: "Watch and Act",
+  advice: "Advice",
+  default: "Alert",
+};
+
+export const getSeverityLabels = async (): Promise<Record<string, string>> => {
+  const row = await prisma.configuration.findUnique({
+    where: { key: ConfigurationKey.severityLabels },
+  });
+  if (!row?.value) return _severityLabelDefaults;
+  return { ..._severityLabelDefaults, ...(row.value as Record<string, string>) };
+};
+
+export const upsertSeverityLabels = async (
+  labels: Record<string, string>,
+  adminId: string,
+): Promise<Record<string, string>> => {
+  const merged = { ..._severityLabelDefaults, ...labels };
+  await upsertConfiguration(
+    {
+      key: ConfigurationKey.severityLabels,
+      value: merged,
+      title: "Severity Labels",
+      description:
+        "Words shown next to each severity band. Edit here — no app rebuild needed.",
+    },
+    adminId,
+  );
+  return merged;
+};
