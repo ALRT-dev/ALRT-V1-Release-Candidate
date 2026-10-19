@@ -564,6 +564,18 @@ jobs:
       # Connect record to com.safetyalrt.alrt.dev / "ALRT Dev" and refuses any
       # ipa whose bundle id is not exactly that, so this step can never reach
       # the live ALRT app. The production lane is untouched.
+      - name: Record build number and commit SHA
+        if: always()
+        run: |
+          BUILD=$(( 100 + ${{ github.run_number }} ))
+          echo "### TestFlight build mapping" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| TestFlight build | $BUILD |" >> $GITHUB_STEP_SUMMARY
+          echo "| GitHub run | ${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| headSha | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "TestFlight build $BUILD = run ${{ github.run_number }} @ ${{ github.sha }}"
+
       - name: Upload to TestFlight (ALRT Dev only)
         if: ${{ !inputs.simulator_smoke }}
         working-directory: frontend/ios
