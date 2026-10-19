@@ -81,9 +81,7 @@ class AlertKeyContent extends ConsumerWidget {
 
   Widget _seriousnessBuilder() {
     const bands = [AppColors.info, AppColors.advice, AppColors.watchAndAct, AppColors.emergency];
-    const awsWords = ['Advice', 'Watch
-and Act', 'Emergency
-Warning'];
+    const awsWords = ['Advice', 'Watch and Act', 'Emergency Warning'];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         const Expanded(child: SizedBox.shrink()),
