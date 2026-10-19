@@ -1,4 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
+import { getSeverityLabels } from "../services/configuration.service.js";
+
 import { HazardReviewStatus } from "@prisma/client";
 import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
