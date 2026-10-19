@@ -42,4 +42,6 @@ class Env {
 
   static const revenueCatApiKeyGoogle =
       String.fromEnvironment('REVENUECAT_API_KEY_GOOGLE');
+
+  static const alrtBillingMode = String.fromEnvironment('ALRT_BILLING_MODE');
 }

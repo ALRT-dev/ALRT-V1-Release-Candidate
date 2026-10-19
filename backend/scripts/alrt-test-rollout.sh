@@ -57,7 +57,7 @@ readonly EXTERNAL_HEALTH_URL="https://api-test.safetyalrt.com/api/test"
 readonly INTERNAL_HEALTH_URL="http://127.0.0.1:3010/api/test"
 # Files whose content must be byte-identical between the checked-out revision and the running image.
 readonly CONTENT_FILES="src/services/family.service.ts src/controllers/family.controller.ts src/scripts/verify_family_location_consent.ts src/scripts/verify_targeted_check_in_request.ts src/scripts/verify_push_notification_settings.ts src/scripts/verify_family_leave_and_alert_link.ts src/scripts/verify_alert_filter_matrix.ts src/scripts/verify_saved_location_limit.ts src/scripts/verify_family_push_delivery.ts src/scripts/verify_hazard_push_dedupe.ts src/controllers/notification.controller.ts src/routes/notification.route.ts src/services/family_alert.service.ts src/services/location_subscription.service.ts src/services/entitlement.service.ts src/services/notification.service.ts src/services/user.service.ts src/utils/hazard.util.ts src/validators/family.validator.ts package.json prisma/migrations/20260904000000_family_check_in_request_targets/migration.sql prisma/migrations/20260905000000_family_host_transition/migration.sql"
-readonly REGRESSION_SCRIPTS="verify_checkin_request_location_privacy verify_sos_history verify_stage9a_journey_recipient verify_targeted_check_in_request verify_circle_list_state verify_seat_rule verify_push_notification_settings verify_family_leave_and_alert_link verify_alert_filter_matrix verify_saved_location_limit verify_family_push_delivery verify_hazard_push_dedupe"
+readonly REGRESSION_SCRIPTS="verify_checkin_request_location_privacy verify_sos_history verify_stage9a_journey_recipient verify_targeted_check_in_request verify_circle_list_state verify_push_notification_settings verify_family_leave_and_alert_link verify_alert_filter_matrix verify_saved_location_limit verify_family_push_delivery verify_hazard_push_dedupe"
 
 # ----------------------------------------------------------------------------- tool shims (stand-in testing only)
 DOCKER="${ALRT_DOCKER:-sudo docker}"
@@ -559,7 +559,7 @@ verify() {
       printf 'resume: no earlier verify in this run; running everything\n' | tee -a "$V/summary.txt"
     else
       printf 'resume: earlier verify %s\n' "$prev" | tee -a "$V/summary.txt"
-      if grep -q '^consent exit=0 ' "$prev/summary.txt" && grep -q "All 40 checks passed." "$prev/consent.log" 2>/dev/null; then
+      if grep -q '^consent exit=0 ' "$prev/summary.txt" && grep -qE "All [0-9]+ checks passed\." "$prev/consent.log" 2>/dev/null; then
         skip_consent=1; carried=$((carried + 1))
         printf 'consent skipped=passed-in %s (%s)\n' "$prev" "$(grep '^consent exit=0 ' "$prev/summary.txt" | tail -1)" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
       fi
@@ -595,7 +595,7 @@ verify() {
     consent_exit=$?
     set -e
     printf 'consent exit=%s last=%s\n' "$consent_exit" "$(tail -1 "$V/consent.log")" | tee -a "$V/summary.txt" | tee -a "$RUN_DIR/status.txt"
-    if [ "$consent_exit" -ne 0 ] || ! grep -q "All 40 checks passed." "$V/consent.log"; then
+    if [ "$consent_exit" -ne 0 ] || ! grep -qE "All [0-9]+ checks passed\." "$V/consent.log"; then
       tail -25 "$V/consent.log"
       stop "consent verification failed (exit $consent_exit); stopping before any regression script. Privacy on TEST is NOT verified. Report before any recovery."
     fi

@@ -223,4 +223,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    // Sends the nearby-alert glance to a paired Wear OS watch (read-only).
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
 }

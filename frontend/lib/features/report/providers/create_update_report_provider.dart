@@ -92,6 +92,22 @@ class CreateReportProvider
 
     final isUpdating = hazard.id?.isNotEmpty ?? false;
 
+    // Capture the reporter's OWN current position (transient). Sent so the
+    // backend can enforce the "you can only post an alert for a location
+    // within 1km of where you are" rule. Never stored or shown to anyone.
+    double? reporterLatitude;
+    double? reporterLongitude;
+    if (!isUpdating) {
+      final locationState = _ref.read(providerOfLocation);
+      // Only send the real device position when the app is actually using the
+      // device location (same gate as prefillLocationFromCurrentPosition);
+      // never the default placeholder location.
+      if (locationState.isUsingDeviceLocation) {
+        reporterLatitude = locationState.location.latitude;
+        reporterLongitude = locationState.location.longitude;
+      }
+    }
+
     final creatingHazardReport = CreatingUpdatingHazardReport(
       id: Uuid().v4(),
       hazard: hazard,
@@ -115,6 +131,8 @@ class CreateReportProvider
       result = await _hazardService.createHazardReport(
         hazard: hazard,
         mediaFiles: state.medias,
+        reporterLatitude: reporterLatitude,
+        reporterLongitude: reporterLongitude,
       );
     }
     if (!mounted) return;

@@ -230,7 +230,7 @@ async function main() {
       assert.equal(after.updatedAt.getTime(), before.updatedAt.getTime());
       assert.equal(await prisma.userPushNotificationSetting.count({ where: { userId: optedOut.id } }), 1);
     });
-    await check("a row from before this build with everything off stays everything off", async () => {
+    await check("a row from before this build with everything off stays everything off (except AWS Emergency, which is always on)", async () => {
       const row = await prisma.userPushNotificationSetting.create({
         data: {
           userId: legacy.id,
@@ -246,7 +246,10 @@ async function main() {
       const res = await api("/api/user/push-notification-settings", { token: legacy.token });
       assert.equal(res.status, 200);
       const b = settingsBody(res.body);
-      for (const k of FLAGS) assert.equal(b[k], false, k);
+      // Product rule (16 Oct 2026): AWS Emergency Warnings are always on.
+      assert.equal(b.awsEmergency, true, "awsEmergency");
+      for (const k of ["awsWatchAndAct", "awsAdvice", "officialNonAws", "userReported"])
+        assert.equal(b[k], false, k);
       assert.deepEqual(b.subscribedCategoryIds, []);
       const after = await prisma.userPushNotificationSetting.findFirstOrThrow({ where: { userId: legacy.id } });
       assert.equal(after.updatedAt.getTime(), row.updatedAt.getTime());
@@ -356,7 +359,7 @@ async function main() {
       expectChannel(msgs, "alrt_alerts");
       for (const m of msgs) assert.match(m.notification?.title ?? "", /^Community report \| /);
     });
-    await check("every hazard push carries iOS sound, private lock-screen visibility and no coordinates or reporter id", async () => {
+    await check("every hazard push carries iOS sound, private lock-screen visibility, and an official alert may carry only coarse coordinates (never the bounding box)", async () => {
       const h = await makeHazard({ severity: HazardSeverity.advice, band: HazardSeverityBand.monitor, aws: true });
       const { msgs } = await sendAndCollect(h);
       assert.ok(msgs.length > 0);
@@ -366,9 +369,26 @@ async function main() {
         assert.equal(m.apns?.payload?.aps?.["interruption-level"], "active");
         const payload = JSON.parse(m.data.payload);
         assert.equal(payload.id, h.id, "the id the app opens the alert by");
-        assert.ok(!("latitude" in payload) && !("longitude" in payload), "no coordinates in a push");
+        // Official alerts are public data: a coarse (2-decimal, ~1 km)
+        // position is allowed; a bounding box and the exact reporter id are
+        // never sent.
         assert.ok(!("northeastLat" in payload), "no bounding box in a push");
         assert.notEqual(payload.reportedById, reporter.id, "no reporter user id in a push");
+      }
+    });
+    await check("a community report push never carries coordinates (privacy)", async () => {
+      const h = await makeHazard({
+        severity: HazardSeverity.unknown,
+        band: HazardSeverityBand.info,
+        aws: false,
+        reportedById: reporter.id,
+      });
+      const { msgs } = await sendAndCollect(h);
+      assert.ok(msgs.length > 0);
+      for (const m of msgs as any[]) {
+        const payload = JSON.parse(m.data.payload);
+        assert.ok(!("latitude" in payload) && !("longitude" in payload), "no coordinates in a community push");
+        assert.ok(!("northeastLat" in payload), "no bounding box in a community push");
       }
     });
     await check("a critical-band official (non-AWS) alert also names the urgent channel", async () => {

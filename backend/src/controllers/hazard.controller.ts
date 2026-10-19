@@ -363,6 +363,8 @@ export const createHazard = async (
       locationName,
       occurredAt,
       useDummyAi,
+      reporterLatitude,
+      reporterLongitude,
     } = hazardData;
     const { userId } = res;
 
@@ -410,6 +412,9 @@ export const createHazard = async (
         categoryId: category.id,
         latitude,
         longitude,
+        ...(reporterLatitude != null && reporterLongitude != null
+          ? { reporterLatitude, reporterLongitude }
+          : {}),
       });
     }
 

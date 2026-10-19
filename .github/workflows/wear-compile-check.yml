@@ -1,0 +1,29 @@
+# Compiles the Wear OS companion (wear/) and the phone app's watch bridge.
+# No signing, no secrets, no upload. Runs on pushes to the watch branch.
+name: Wear OS Compile Check
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/watch-apps]
+    paths:
+      - "wear/**"
+      - ".github/workflows/wear-compile-check.yml"
+permissions:
+  contents: read
+jobs:
+  wear:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Build the Wear OS dev debug APK
+        working-directory: wear
+        run: gradle --no-daemon :app:assembleDevDebug
+      - name: Show the APK
+        run: ls -l wear/app/build/outputs/apk/dev/debug/

@@ -324,6 +324,13 @@ Generate "callsToAction" using the following rules:
     agency's own words as written whenever it says it. Shorten only by
     dropping repeated or minor lines; never reword the meaning. Choose the
     two or three most safety-relevant instructions, in the agency's order.
+  - Keep each instruction SHORT and scannable: lead with the single most
+    important directive in the first few words (e.g. "Leave now", "Stay
+    indoors", "Do not drive"), then the detail. Target 15 words or fewer
+    per instruction. If the source's line is long, drop qualifying
+    filler ("please", "it is important that", "we urge you to") but keep
+    every safety-relevant directive and every specific (evacuation
+    centres, road names, shelter locations).
   - If the description contains no instruction, return an empty array: [].
     Do not invent one, and do not soften this into a generic safety tip —
     ALRT suggestions are selected separately from a reviewed library and labelled as suggestions.

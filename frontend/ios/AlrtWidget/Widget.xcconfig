@@ -1,0 +1,7 @@
+// Version numbers follow the app, so the widget extension always matches the
+// app it is embedded in. Generated.xcconfig exists after `flutter pub get`.
+FLUTTER_BUILD_NAME = 1.0.0
+FLUTTER_BUILD_NUMBER = 1
+#include? "../Flutter/Generated.xcconfig"
+MARKETING_VERSION = $(FLUTTER_BUILD_NAME)
+CURRENT_PROJECT_VERSION = $(FLUTTER_BUILD_NUMBER)

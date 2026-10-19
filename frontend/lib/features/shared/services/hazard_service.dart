@@ -242,10 +242,14 @@ class HazardService {
   Future<Either<Hazard, AppError>> createHazardReport({
     required final Hazard hazard,
     final List<AlrtMedia>? mediaFiles,
+    final double? reporterLatitude,
+    final double? reporterLongitude,
   }) async {
     final result = await _hazardRepository.createHazardReport(
       hazard: hazard,
       mediaFiles: mediaFiles,
+      reporterLatitude: reporterLatitude,
+      reporterLongitude: reporterLongitude,
     );
 
     final success = await result.whenSuccess(
@@ -761,6 +765,37 @@ class HazardService {
       }
     }
     await Future.wait(shapePinFutures);
+
+    // ── Phase 4b: Planned-burn dotted pin ──
+    // A planned burn is scheduled, not yet active, so it draws as a white
+    // diamond with a dotted edge (keyed `plannedBurn_pin`). A planned burn
+    // is never urgent, so it uses the official (diamond) shape in the info
+    // band colour, dotted.
+    const plannedBurnKey = 'plannedBurn_pin';
+    if (!bitmapMap.containsKey(plannedBurnKey)) {
+      try {
+        final pinWidget = MapPinShape(
+          shape: HazardSourceShape.diamond,
+          color: AlertCardStyle.bandShapeColor(HazardSeverityBand.info),
+          dotted: true,
+        );
+        final logicalSize = Size(
+          pinWidget.size,
+          pinWidget.totalHeight,
+        );
+        final imageSize = Size(
+          (logicalSize.width * dpr).ceilToDouble(),
+          (logicalSize.height * dpr).ceilToDouble(),
+        );
+        final descriptor = await pinWidget.toBitmapDescriptor(
+          logicalSize: logicalSize,
+          imageSize: imageSize,
+        );
+        bitmapMap[plannedBurnKey] = descriptor;
+      } catch (_) {
+        // Planned-burn pin failed; falls back to the normal shape pin.
+      }
+    }
 
     _urlBytesCache.clear();
     _bitmapByS3KeyCache.clear();

@@ -9,6 +9,7 @@ import path from "path";
 import s3Client from "../utils/s3_client.util.js";
 import type { MediaUploadResult } from "../models/media_upload_result_interface.js";
 import { config } from "../utils/config.js";
+import { optimizeImageBuffer } from "../utils/image_optimization.util.js";
 import type { Hazard, HazardMedia } from "@prisma/client";
 
 const BUCKET_NAME = config.aws.s3.bucketName;
@@ -22,7 +23,14 @@ export const uploadFileToS3 = async (
   folder: string,
 ): Promise<MediaUploadResult> => {
   try {
-    // Generate unique filename
+    // Cost control: resize + re-encode images (not videos/GIFs) before they
+    // are stored, so S3 storage and CloudFront egress hold a fraction of the
+    // original upload. Best-effort: an unreadable image keeps its original.
+    const optimized = await optimizeImageBuffer(file.buffer, file.mimetype);
+    const uploadBuffer = optimized.buffer;
+    const uploadMime = optimized.mimeType;
+
+    // Generate unique filename (matching the (possibly re-encoded) mime)
     const fileExtension = path.extname(file.originalname);
     const fileName = `${uuidv4()}${fileExtension}`;
     const key = `${folder}/${fileName}`;
@@ -31,8 +39,8 @@ export const uploadFileToS3 = async (
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
-      Body: file.buffer,
-      ContentType: file.mimetype,
+      Body: uploadBuffer,
+      ContentType: uploadMime,
       ContentDisposition: "inline",
       // Set cache control for better performance
       CacheControl: "max-age=31536000", // 1 year
@@ -50,8 +58,8 @@ export const uploadFileToS3 = async (
       key,
       url,
       originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
+      mimeType: uploadMime,
+      size: uploadBuffer.length,
     };
   } catch (error: unknown) {
     console.error("Error uploading file to S3:", error);

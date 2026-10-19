@@ -34,7 +34,8 @@ class RevenueCatService {
   static const String entitlementId = 'individual';
 
   /// RevenueCat offering ids (reconfiguration item C10).
-  static const String personalOfferingId = 'personal';
+  static String get personalOfferingId =>
+      Env.alrtBillingMode == 'test_store' ? 'default' : 'personal';
   static const String groupsOfferingId = 'groups';
 
   final PurchasesGateway _gateway;

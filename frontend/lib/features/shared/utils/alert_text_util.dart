@@ -4,6 +4,10 @@
 /// "WHAT TO DO" list, road closures and more. The screen has separate
 /// sections for those, so "What we know" must hold the facts only and
 /// "What to do" must not be repeated inside it.
+library;
+
+import 'package:hazard_app/features/shared/utils/alert_guidance_library.dart';
+
 abstract final class AlertTextUtil {
   /// Most points either section shows.
   static const int maxPoints = 3;
@@ -27,6 +31,12 @@ abstract final class AlertTextUtil {
 
   /// The facts only, as 1 to [maxPoints] short points.
   static List<String> whatWeKnowPoints(final String? description) {
+    return whatWeKnowAllPoints(description).take(maxPoints).toList();
+  }
+
+  /// All the facts the source published, uncapped. Used by the "Show all"
+  /// expander so nothing the agency wrote is ever hidden.
+  static List<String> whatWeKnowAllPoints(final String? description) {
     if (description == null) return const [];
     final points = <String>[];
     for (final raw in description.split(RegExp(r'\r?\n'))) {
@@ -37,9 +47,36 @@ abstract final class AlertTextUtil {
       final text = line.replaceFirst(_bullet, '').trim();
       if (text.isEmpty) continue;
       points.add(text);
-      if (points.length == maxPoints) break;
     }
     return points;
+  }
+
+  /// The first "WHAT WE KNOW" line for an official alert: who issued it and
+  /// what kind of incident it is, at which place. e.g. "DFES has issued a
+  /// bushfire incident at Toodyay." Falls back to a plain agency line when
+  /// the type or place is unknown, and is never empty.
+  static String issuedLine(
+    final String? agencyName,
+    final String? incidentType,
+    final String? locationName,
+  ) {
+    final agency = (agencyName ?? '').trim();
+    final type = (incidentType ?? '').trim().toLowerCase();
+    final place = (locationName ?? '').trim();
+    if (type.isEmpty) {
+      return agency.isEmpty
+          ? 'An incident has been reported.'
+          : '$agency has reported an incident.';
+    }
+    final typePhrase = type.startsWith('incident') ? type : '$type incident';
+    if (agency.isEmpty) {
+      return place.isEmpty
+          ? 'A $typePhrase has been reported.'
+          : 'A $typePhrase has been reported at $place.';
+    }
+    return place.isEmpty
+        ? '$agency has issued a $typePhrase.'
+        : '$agency has issued a $typePhrase at $place.';
   }
 
   /// What we know for a community report: what was reported, what the
@@ -61,18 +98,44 @@ abstract final class AlertTextUtil {
       out.add(d.length > 160 ? '${d.substring(0, 157).trim()}...' : d);
     }
     out.add('This report is unverified and has not been confirmed by an official source.');
+    // A report alone is not actionable. Add what the reader can do now, so a
+    // community alert never reads as just "an incident has occurred".
+    if (out.length < maxPoints) {
+      out.add(
+        'If you are near the area, take care and check for official updates.',
+      );
+    }
     return out.take(maxPoints).toList();
   }
 
-  /// The first [maxPoints] instructions. The agency's order is kept.
+  /// Guarantees at least [min] relevant, actionable points. When the source
+  /// gave fewer (a terse agency, an alert with nothing beyond its headline),
+  /// it tops up with ALRT's hazard-specific actionable guidance so the section
+  /// never reads as a single vague "an incident has occurred" line.
+  static List<String> ensureMinPoints(
+    final List<String> points,
+    final String? bucket,
+    final int min,
+  ) {
+    if (points.length >= min) return points.take(min).toList();
+    final out = [...points];
+    for (final line in AlertGuidanceLibrary.considerRows(bucket)) {
+      if (out.length >= min) break;
+      if (out.contains(line)) continue;
+      out.add(line);
+    }
+    return out;
+  }
+
+  /// The first [maxPoints] instructions, ranked by urgency (Tier 1 life-safety
+  /// first) then capped. The agency's own words are never changed — only their
+  /// display order — so a "leave now" buried at #5 still surfaces. The rest of
+  /// the agency's list is reachable behind the "Show all" expander.
   static List<String> capActions(final List<String> actions) {
-    final cleaned = actions
-        .map((a) => a.trim())
-        .where((a) => a.isNotEmpty)
-        .toList();
-    return cleaned.length <= maxPoints
-        ? cleaned
-        : cleaned.sublist(0, maxPoints);
+    final ranked = AlertGuidanceLibrary.rankActions(actions);
+    return ranked.length <= maxPoints
+        ? ranked
+        : ranked.sublist(0, maxPoints);
   }
 
   /// Shown only when the agency gave no instruction. Points at the agency;

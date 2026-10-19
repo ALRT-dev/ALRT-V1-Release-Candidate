@@ -31,6 +31,22 @@ export const createHazardDataSchema = z.object({
 
   occurredAt: z.string().datetime().optional(),
 
+  // The reporter's OWN current GPS position, captured at submit time. This is
+  // used ONLY to enforce the "you can only post an alert for a location within
+  // 1 km of where you actually are" rule (anti-doxing / anti-targeting). It is
+  // transient: it is never persisted on the Hazard row, never returned to other
+  // users, and never shown. See assertCanPostCommunityReport.
+  reporterLatitude: z
+    .number()
+    .min(-90, "Latitude must be between -90 and 90")
+    .max(90, "Latitude must be between -90 and 90")
+    .optional(),
+  reporterLongitude: z
+    .number()
+    .min(-180, "Longitude must be between -180 and 180")
+    .max(180, "Longitude must be between -180 and 180")
+    .optional(),
+
   // Opt-in only, and hard-gated server-side to the TEST environment
   // regardless of what a client sends - see createHazard's useDummy
   // computation in hazard.controller.ts. Omitted/false is identical to
