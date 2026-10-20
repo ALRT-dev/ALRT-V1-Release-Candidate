@@ -660,9 +660,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// from the saved switches. Null until the settings have loaded.
   String? _notificationLevelLabel(final PushNotificationSettings s) {
     final official = s.awsWatchAndAct || s.awsAdvice || s.officialNonAws;
-    if (s.userReported && official) return 'Official and community';
+    if (s.userReported && official) return 'All alerts';
     if (s.userReported) return 'Community only';
-    if (official) return 'Official warnings only';
+    if (official) return 'Official only';
     return 'Keep it quiet';
   }
 

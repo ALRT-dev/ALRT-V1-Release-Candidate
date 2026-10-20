@@ -225,7 +225,7 @@ class _ManagePushNotificationsListState
               ),
               10.hSizedBox,
               _levelCard(
-                title: 'Official warnings only',
+                title: 'Official only',
                 description: 'From agencies only. No community reports.',
                 selected: level == NotificationLevel.officialOnly,
                 onTap: () => pick(NotificationLevel.officialOnly),
