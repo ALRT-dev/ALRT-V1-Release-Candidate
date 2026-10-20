@@ -5,49 +5,53 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/ask_alrt/models/ask_alrt_message.dart';
 import 'package:hazard_app/features/ask_alrt/providers/ask_alrt_provider.dart';
 import 'package:hazard_app/features/ask_alrt/providers/states/ask_alrt_provider_state.dart';
+import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
-import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
-import 'package:hazard_app/features/shared/views/widgets/voice/voice_search_mic_button.dart';
+import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// Opens the Ask ALRT assistant as a dark bottom sheet.
+/// Opens the Ask ALRT assistant as a bottom sheet (prototype boards
+/// "AskALRT" and "AskALRT-Answer", light sheet in the boards' language).
 ///
-/// The entry point signature is stable so callers (the map rail) never change.
-Future<void> showAskAlrtSheet(final BuildContext context) {
+/// The entry point signature is stable so callers never change.
+///
+/// [initialQuestion] is asked as soon as the sheet opens (a question said to
+/// Speak to ALRT); it counts the same as a typed one.
+Future<void> showAskAlrtSheet(
+  final BuildContext context, {
+  final String? initialQuestion,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const AskAlrtSheet(),
+    builder: (context) => AskAlrtSheet(initialQuestion: initialQuestion),
   );
 }
 
-/// The Ask ALRT gradient (badge, user bubbles, send button).
+/// The Ask ALRT badge gradient (boards: #FF6B00 to #FF0004).
 const _askAlrtGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFFFF8C00), Color(0xFFFF2020)],
+  colors: [Color(0xFFFF6B00), Color(0xFFFF0004)],
 );
 
-const _sheetBackground = Color(0xFF141416);
-const _assistantBubbleColor = Color(0xFF232326);
-const _inputFillColor = Color(0xFF1E1E21);
-const _sourceChipBorderColor = Color(0xFFB84500);
-const _sourceChipTextColor = Color(0xFFFFB020);
-const _disclaimerBackground = Color(0xFF3A1215);
-const _disclaimerTextColor = Color(0xFFFF9B9B);
+const _ink = Color(0xFF1C1C1E);
+const _muted = Color(0xFF5C5C66);
+const _brandOrange = Color(0xFFE8622A);
+const _fieldBorder = Color(0xFFE3E6EA);
+const _questionTint = Color(0xFFFFF1E8);
+const _noteTint = Color(0xFFF0EEEA);
+const _noteText = Color(0xFF3A3A42);
 
-/// Starter questions shown while the chat is still empty.
-const _suggestedQuestions = <String>[
-  'What does Watch and Act mean?',
-  'How do I prepare for a bushfire?',
-  'What should be in an emergency kit?',
-];
-
-/// The Ask ALRT grounded-chat sheet (Sarah's V3 dark chat design).
+/// The Ask ALRT grounded-question sheet.
 class AskAlrtSheet extends ConsumerStatefulWidget {
-  const AskAlrtSheet({super.key});
+  const AskAlrtSheet({super.key, this.initialQuestion});
+
+  /// Asked once when the sheet opens, if given.
+  final String? initialQuestion;
 
   @override
   ConsumerState<AskAlrtSheet> createState() => _AskAlrtSheetState();
@@ -56,6 +60,17 @@ class AskAlrtSheet extends ConsumerStatefulWidget {
 class _AskAlrtSheetState extends ConsumerState<AskAlrtSheet> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    final question = widget.initialQuestion;
+    if (question != null && question.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _send(question);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -83,6 +98,53 @@ class _AskAlrtSheetState extends ConsumerState<AskAlrtSheet> {
     });
   }
 
+  /// ALRT Free when the server says the allowance is the Free one.
+  static bool _isFree(final AskAlrtProviderState state) =>
+      (state.dailyLimit ?? AskAlrtProvider.freeDailyLimit) <=
+      AskAlrtProvider.freeDailyLimit;
+
+  /// "3 of 3 left today", once the server has said.
+  static String? _quotaPill(final AskAlrtProviderState state) {
+    final limit = state.dailyLimit;
+    final remaining = state.remainingToday;
+    if (limit == null || remaining == null) return null;
+    return '${remaining.clamp(0, limit)} of $limit left today';
+  }
+
+  /// The first suggestion names the most serious official warning nearby,
+  /// as on the board; the other two are always the same.
+  List<String> _suggestions() {
+    List<Hazard> hazards;
+    try {
+      hazards = ref.read(providerOfMap).hazards;
+    } catch (_) {
+      hazards = const <Hazard>[];
+    }
+    final lead = hazards
+        .where((h) => !h.isUserReported)
+        .where(
+          (h) =>
+              h.severityBand == HazardSeverityBand.critical ||
+              h.severityBand == HazardSeverityBand.action,
+        )
+        .where((h) => (h.title ?? '').trim().isNotEmpty)
+        .firstOrNull;
+    String first = 'What is happening near me?';
+    if (lead != null) {
+      final title = lead.title!.trim().split(',').first.trim();
+      if (title.isNotEmpty) {
+        first =
+            'What should I do about the '
+            '${title[0].toLowerCase()}${title.substring(1)}?';
+      }
+    }
+    return [
+      first,
+      'What does Emergency Warning mean?',
+      'What is my local emergency number?',
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(providerOfAskAlrt);
@@ -95,93 +157,61 @@ class _AskAlrtSheetState extends ConsumerState<AskAlrtSheet> {
       }
     });
 
-    // Keep the input above the keyboard: pad by the view inset and shrink the
-    // sheet by the same amount so the total never exceeds the screen.
-    final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.85;
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final sheetHeight = (maxSheetHeight - bottomInset)
-        .clamp(maxSheetHeight * 0.4, maxSheetHeight)
+    final media = MediaQuery.of(context);
+    final bottomInset = media.viewInsets.bottom;
+    final maxSheetHeight = (media.size.height * 0.88 - bottomInset)
+        .clamp(media.size.height * 0.4, media.size.height * 0.88)
         .toDouble();
+    final hasThread = state.messages.isNotEmpty || state.isSending;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        height: sheetHeight,
-        decoration: BoxDecoration(
-          color: _sheetBackground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
-        ),
-        child: Column(
-          children: [
-            _buildDragHandle(),
-            _buildHeader(context),
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: EdgeInsets.fromLTRB(
-                  16.spMin,
-                  10.spMin,
-                  16.spMin,
-                  14.spMin,
-                ),
-                itemCount: state.messages.length + (state.isSending ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index >= state.messages.length) {
-                    return const _ThinkingBubble();
-                  }
-                  return _MessageBubble(message: state.messages[index]);
-                },
-              ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(24.spMin),
             ),
-            if (state.messages.isEmpty && !state.isSending)
-              _buildSuggestionChips(),
-            if (state.limitReached &&
-                (state.dailyLimit ?? AskAlrtProvider.freeDailyLimit) <=
-                    AskAlrtProvider.freeDailyLimit)
-              _buildUpgradePrompt(context),
-            _buildDisclaimer(),
-            _buildInputRow(state.isSending),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// "2 of 3 questions left today", once the server has said.
-  static String? _allowanceLine(final AskAlrtProviderState state) {
-    final limit = state.dailyLimit;
-    final remaining = state.remainingToday;
-    if (limit == null || remaining == null) return null;
-    final left = remaining.clamp(0, limit);
-    if (left == 0) return 'No questions left today. Resets tomorrow.';
-    return '$left of $limit question${limit == 1 ? '' : 's'} left today';
-  }
-
-  /// Offered once, under the chat, when ALRT Free's daily questions are used.
-  Widget _buildUpgradePrompt(final BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16.spMin, 0, 16.spMin, 8.spMin),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: () => context
-              .push<bool>(
-                AlrtPlusPaywallScreen.route,
-                extra: const AlrtPlusPaywallArgs(
-                  reason: AlrtPlusPaywallReason.askLimit,
-                ),
-              )
-              .then((_) {
-                if (!mounted) return;
-                ref.read(providerOfAskAlrt.notifier).refreshAllowance();
-              }),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF7B359A),
-            padding: EdgeInsets.symmetric(vertical: 12.spMin),
           ),
-          child: Text(
-            'See ALRT + for 10 questions a day',
-            style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
+          padding: EdgeInsets.fromLTRB(
+            16.spMin,
+            10.spMin,
+            16.spMin,
+            (bottomInset > 0 ? 8.spMin : media.padding.bottom + 8.spMin),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildDragHandle(),
+              SizedBox(height: 14.spMin),
+              _buildHeader(state),
+              if (state.dailyLimit != null) ...[
+                SizedBox(height: 10.spMin),
+                Text(
+                  '${_isFree(state) ? 'ALRT + gives you 10 a day. ' : ''}'
+                  'Library and emergency-number answers are always free.',
+                  style: TextStyle(fontSize: 13.spMin, color: _muted),
+                ),
+              ],
+              SizedBox(height: 14.spMin),
+              if (hasThread)
+                Flexible(child: _buildThread(state))
+              else
+                _buildSuggestionChips(),
+              if (state.limitReached && _isFree(state)) ...[
+                SizedBox(height: 12.spMin),
+                _buildUpgradePrompt(context),
+              ],
+              SizedBox(height: 14.spMin),
+              _buildInputRow(state),
+              SizedBox(height: 14.spMin),
+              _buildDangerNote(),
+              SizedBox(height: 4.spMin),
+              _buildCloseButton(),
+            ],
           ),
         ),
       ),
@@ -189,225 +219,298 @@ class _AskAlrtSheetState extends ConsumerState<AskAlrtSheet> {
   }
 
   Widget _buildDragHandle() {
-    return Container(
-      width: 40.spMin,
-      height: 4.spMin,
-      margin: EdgeInsets.only(top: 10.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(2.spMin),
-      ),
-    );
-  }
-
-  Widget _buildHeader(final BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20.spMin, 14.spMin, 16.spMin, 12.spMin),
-      child: Row(
-        children: [
-          Container(
-            width: 42.spMin,
-            height: 42.spMin,
-            decoration: const BoxDecoration(
-              gradient: _askAlrtGradient,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              LucideIcons.sparkles,
-              size: 20.spMin,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(width: 12.spMin),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ask ALRT',
-                  style: TextStyle(
-                    fontSize: 17.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 2.spMin),
-                Text(
-                  _allowanceLine(ref.watch(providerOfAskAlrt)) ??
-                      'Answers grounded in alerts near you',
-                  style: TextStyle(
-                    fontSize: 11.5.spMin,
-                    color: Colors.white.withValues(alpha: 0.55),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 10.spMin),
-          InkWell(
-            onTap: () => Navigator.of(context).pop(),
-            customBorder: const CircleBorder(),
-            child: Container(
-              width: 32.spMin,
-              height: 32.spMin,
-              decoration: const BoxDecoration(
-                color: _assistantBubbleColor,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                LucideIcons.x,
-                size: 16.spMin,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuggestionChips() {
-    return SizedBox(
-      height: 38.spMin,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: 16.spMin),
-        itemCount: _suggestedQuestions.length,
-        separatorBuilder: (context, index) => SizedBox(width: 8.spMin),
-        itemBuilder: (context, index) {
-          final question = _suggestedQuestions[index];
-          return InkWell(
-            onTap: () => _send(question),
-            borderRadius: BorderRadius.circular(19.spMin),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 14.spMin),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _inputFillColor,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                ),
-                borderRadius: BorderRadius.circular(19.spMin),
-              ),
-              child: Text(
-                question,
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildDisclaimer() {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(top: 10.spMin),
-      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 8.spMin),
-      color: _disclaimerBackground,
-      child: Text(
-        "If you're in immediate danger, call your local emergency number now. "
-        'ALRT is information, not emergency services.',
-        style: TextStyle(
-          fontSize: 11.spMin,
-          color: _disclaimerTextColor,
-          height: 1.4,
+    return Center(
+      child: Container(
+        width: 40.spMin,
+        height: 4.spMin,
+        decoration: BoxDecoration(
+          color: _fieldBorder,
+          borderRadius: BorderRadius.circular(2.spMin),
         ),
       ),
     );
   }
 
-  Widget _buildInputRow(final bool isSending) {
-    // The home indicator sits under the sheet when the keyboard is closed
-    // (padding.bottom drops to zero once the keyboard covers it), so the
-    // send button needs that clearance or it reads as cut off.
-    final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16.spMin,
-        10.spMin,
-        16.spMin,
-        16.spMin + bottomSafeArea,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          VoiceSearchMicButton(
-            onTranscript: (text) {
-              // Spoken questions go straight to Ask ALRT.
-              _send(text);
-            },
+  Widget _buildHeader(final AskAlrtProviderState state) {
+    final pill = _quotaPill(state);
+    final empty = state.remainingToday == 0 && _isFree(state);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 44.spMin,
+          height: 44.spMin,
+          decoration: BoxDecoration(
+            gradient: _askAlrtGradient,
+            borderRadius: BorderRadius.circular(14.spMin),
           ),
-          Expanded(
-            child: TextField(
-              controller: _inputController,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.send,
-              onSubmitted: _send,
-              style: TextStyle(
-                fontSize: 13.5.spMin,
-                color: Colors.white,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: _inputFillColor,
-                hintText: 'Ask about alerts near you',
-                hintStyle: TextStyle(
-                  fontSize: 13.5.spMin,
-                  color: Colors.white.withValues(alpha: 0.4),
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16.spMin,
-                  vertical: 12.spMin,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22.spMin),
-                  borderSide: BorderSide.none,
+          child: Icon(
+            LucideIcons.sparkles,
+            size: 22.spMin,
+            color: AppColors.white,
+          ),
+        ),
+        SizedBox(width: 12.spMin),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ask ALRT',
+                style: TextStyle(
+                  fontSize: 22.spMin,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  color: _ink,
                 ),
               ),
+              SizedBox(height: 2.spMin),
+              Text(
+                'Plain answers, grounded in the official alerts near you.',
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  color: _muted,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (pill != null) ...[
+          SizedBox(width: 8.spMin),
+          Container(
+            height: 26.spMin,
+            padding: EdgeInsets.symmetric(horizontal: 10.spMin),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: empty ? const Color(0xFFFDE8EA) : _questionTint,
+              borderRadius: BorderRadius.circular(13.spMin),
             ),
-          ),
-          SizedBox(width: 10.spMin),
-          Opacity(
-            opacity: isSending ? 0.5 : 1,
-            child: InkWell(
-              onTap: () => _send(_inputController.text),
-              customBorder: const CircleBorder(),
-              child: Container(
-                width: 44.spMin,
-                height: 44.spMin,
-                decoration: const BoxDecoration(
-                  gradient: _askAlrtGradient,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  LucideIcons.arrowUp,
-                  size: 20.spMin,
-                  color: Colors.white,
-                ),
+            child: Text(
+              pill,
+              style: TextStyle(
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w700,
+                color: empty ? const Color(0xFFB3141F) : AppColors.sectionLabel,
               ),
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildSuggestionChips() {
+    final questions = _suggestions();
+    return Wrap(
+      spacing: 8.spMin,
+      runSpacing: 8.spMin,
+      children: [
+        for (final question in questions)
+          InkWell(
+            onTap: () => _send(question),
+            borderRadius: BorderRadius.circular(20.spMin),
+            child: Container(
+              constraints: BoxConstraints(minHeight: 40.spMin),
+              padding: EdgeInsets.symmetric(
+                horizontal: 16.spMin,
+                vertical: 8.spMin,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                border: Border.all(color: _fieldBorder, width: 1.5),
+                borderRadius: BorderRadius.circular(20.spMin),
+              ),
+              child: Text(
+                question,
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  fontWeight: FontWeight.w600,
+                  color: _ink,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildThread(final AskAlrtProviderState state) {
+    return ListView.builder(
+      controller: _scrollController,
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      itemCount: state.messages.length + (state.isSending ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= state.messages.length) {
+          return const _ThinkingBubble();
+        }
+        return _MessageBubble(message: state.messages[index]);
+      },
+    );
+  }
+
+  /// Offered once, under the answers, when ALRT Free's daily questions are
+  /// used up.
+  Widget _buildUpgradePrompt(final BuildContext context) {
+    return SizedBox(
+      height: 48.spMin,
+      child: FilledButton(
+        onPressed: () => context
+            .push<bool>(
+              AlrtPlusPaywallScreen.route,
+              extra: const AlrtPlusPaywallArgs(
+                reason: AlrtPlusPaywallReason.askLimit,
+              ),
+            )
+            .then((_) {
+              if (!mounted) return;
+              ref.read(providerOfAskAlrt.notifier).refreshAllowance();
+            }),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF7B359A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.spMin),
+          ),
+        ),
+        child: Text(
+          'See ALRT + for 10 questions a day',
+          style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputRow(final AskAlrtProviderState state) {
+    final hasThread = state.messages.isNotEmpty;
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _inputController,
+            minLines: 1,
+            maxLines: 3,
+            textInputAction: TextInputAction.send,
+            onSubmitted: _send,
+            style: TextStyle(
+              fontSize: 15.spMin,
+              fontWeight: FontWeight.w500,
+              color: _ink,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: AppColors.white,
+              hintText: hasThread
+                  ? 'Ask something else'
+                  : 'What does this warning mean for me?',
+              hintStyle: TextStyle(
+                fontSize: 15.spMin,
+                color: _muted.withValues(alpha: 0.7),
+              ),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 14.spMin,
+                vertical: 14.spMin,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14.spMin),
+                borderSide: const BorderSide(color: _fieldBorder, width: 1.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14.spMin),
+                borderSide: const BorderSide(color: _brandOrange, width: 1.5),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: 8.spMin),
+        SizedBox(
+          height: 48.spMin,
+          child: FilledButton(
+            onPressed: state.isSending
+                ? null
+                : () => _send(_inputController.text),
+            style: FilledButton.styleFrom(
+              backgroundColor: _brandOrange,
+              disabledBackgroundColor: _brandOrange.withValues(alpha: 0.5),
+              padding: EdgeInsets.symmetric(horizontal: 18.spMin),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14.spMin),
+              ),
+            ),
+            child: Text(
+              'Ask',
+              style: TextStyle(
+                fontSize: 15.spMin,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDangerNote() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
+      decoration: BoxDecoration(
+        color: _noteTint,
+        borderRadius: BorderRadius.circular(14.spMin),
+      ),
+      child: Text(
+        "If you're in immediate danger, call your local emergency number now. "
+        'ALRT is information, not emergency services.',
+        style: TextStyle(fontSize: 13.spMin, color: _noteText, height: 1.45),
+      ),
+    );
+  }
+
+  Widget _buildCloseButton() {
+    return SizedBox(
+      height: 44.spMin,
+      child: TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        style: TextButton.styleFrom(foregroundColor: _muted),
+        child: Text(
+          'Close',
+          style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }
 }
 
-/// A single chat message: gradient bubble on the right for the user, dark
-/// bubble with a sparkle avatar (plus optional source chips) on the left for
-/// the assistant.
+/// One message: the question in a soft orange bubble on the right, the
+/// answer in a white card on the left with a line saying where it came from
+/// and whether it counted.
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({required this.message});
 
   final AskAlrtMessage message;
+
+  /// Local fallback bubbles (limit, unavailable, rate limited) are not
+  /// answers, so they carry no source line.
+  bool get _isNotice =>
+      message.text == AskAlrtProvider.limitAnswer ||
+      message.text == AskAlrtProvider.unavailableAnswer ||
+      message.text == AskAlrtProvider.tooManyRequestsAnswer;
+
+  String? get _sourceLine {
+    if (_isNotice) return null;
+    if (message.freeAnswer) return 'From the ALRT library. Not counted.';
+    final agencies = <String>[];
+    for (final alert in message.groundingAlerts) {
+      final name = (alert.source?.name ?? '').trim();
+      final label = name.isEmpty ? 'official source' : name;
+      if (!agencies.contains(label)) agencies.add(label);
+    }
+    if (agencies.isNotEmpty) {
+      return 'Based on ${agencies.join(' and ')}. Counted.';
+    }
+    return "AI answer, counted against today's questions";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -421,145 +524,67 @@ class _MessageBubble extends StatelessWidget {
             vertical: 10.spMin,
           ),
           decoration: BoxDecoration(
-            gradient: _askAlrtGradient,
-            borderRadius: BorderRadius.circular(18.spMin),
+            color: _questionTint,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(16.spMin),
+              topRight: Radius.circular(16.spMin),
+              bottomLeft: Radius.circular(16.spMin),
+              bottomRight: Radius.circular(4.spMin),
+            ),
           ),
           child: Text(
             message.text,
-            style: TextStyle(
-              fontSize: 13.5.spMin,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-              height: 1.4,
-            ),
+            style: TextStyle(fontSize: 15.spMin, color: _ink, height: 1.4),
           ),
         ),
       );
     }
 
-    return Padding(
-      padding: EdgeInsets.only(top: 10.spMin, right: 34.spMin),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SparkleAvatar(),
-          SizedBox(width: 8.spMin),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 14.spMin,
-                    vertical: 10.spMin,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _assistantBubbleColor,
-                    borderRadius: BorderRadius.circular(18.spMin),
-                  ),
-                  child: Text(
-                    message.text,
-                    style: TextStyle(
-                      fontSize: 13.5.spMin,
-                      color: Colors.white,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-                if (message.groundingAlerts.isNotEmpty) ...[
-                  SizedBox(height: 6.spMin),
-                  Wrap(
-                    spacing: 6.spMin,
-                    runSpacing: 6.spMin,
-                    children: [
-                      for (final alert in message.groundingAlerts)
-                        _SourceChip(alert: alert),
-                    ],
-                  ),
-                ],
-              ],
+    final source = _sourceLine;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: EdgeInsets.only(top: 10.spMin, right: 24.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(16.spMin),
+            topRight: Radius.circular(16.spMin),
+            bottomLeft: Radius.circular(4.spMin),
+            bottomRight: Radius.circular(16.spMin),
+          ),
+          border: Border.all(color: AppColors.black.withValues(alpha: 0.04)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: 0.06),
+              blurRadius: 3.0,
+              offset: const Offset(0, 1),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The small orange sparkle avatar next to assistant bubbles.
-class _SparkleAvatar extends StatelessWidget {
-  const _SparkleAvatar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 24.spMin,
-      height: 24.spMin,
-      decoration: const BoxDecoration(
-        gradient: _askAlrtGradient,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        LucideIcons.sparkles,
-        size: 12.spMin,
-        color: Colors.white,
-      ),
-    );
-  }
-}
-
-/// Outlined pill naming an alert the answer was grounded in: the
-/// source-system shape icon (V3 spec: shape says which system) + title.
-class _SourceChip extends StatelessWidget {
-  const _SourceChip({required this.alert});
-
-  final Hazard alert;
-
-  @override
-  Widget build(BuildContext context) {
-    final shapeIcon = AlertCardStyle.systemShapeIcon(
-      isAws: alert.isAwsCompliant == true,
-      isOfficial: alert.source != null,
-      isGlobalHumanitarian: alert.isGlobalHumanitarian,
-      isAlrtIntel: alert.isAlrtIntel,
-    );
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 5.spMin),
-      decoration: BoxDecoration(
-        border: Border.all(color: _sourceChipBorderColor, width: 1.5),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            shapeIcon,
-            size: 11.spMin,
-            color: _sourceChipTextColor,
-          ),
-          SizedBox(width: 5.spMin),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 180.spMin),
-            child: Text(
-              alert.title?.trim().isNotEmpty == true
-                  ? alert.title!.trim()
-                  : 'Nearby alert',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10.5.spMin,
-                fontWeight: FontWeight.w600,
-                color: _sourceChipTextColor,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.text,
+              style: TextStyle(fontSize: 15.spMin, color: _ink, height: 1.5),
+            ),
+            if (source != null) ...[
+              SizedBox(height: 8.spMin),
+              Text(
+                source,
+                style: TextStyle(fontSize: 12.spMin, color: _muted),
               ),
-            ),
-          ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// The subtle assistant-side "thinking" indicator shown while waiting.
+/// A quiet "thinking" indicator while the answer is on its way.
 class _ThinkingBubble extends StatefulWidget {
   const _ThinkingBubble();
 
@@ -582,54 +607,44 @@ class _ThinkingBubbleState extends State<_ThinkingBubble>
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(top: 10.spMin),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SparkleAvatar(),
-          SizedBox(width: 8.spMin),
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 14.spMin,
-              vertical: 12.spMin,
-            ),
-            decoration: BoxDecoration(
-              color: _assistantBubbleColor,
-              borderRadius: BorderRadius.circular(18.spMin),
-            ),
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var dot = 0; dot < 3; dot++) ...[
-                      if (dot > 0) SizedBox(width: 4.spMin),
-                      _buildDot(dot),
-                    ],
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: EdgeInsets.only(top: 10.spMin),
+        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 14.spMin),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16.spMin),
+          border: Border.all(color: AppColors.black.withValues(alpha: 0.06)),
+        ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var dot = 0; dot < 3; dot++) ...[
+                  if (dot > 0) SizedBox(width: 4.spMin),
+                  _buildDot(dot),
+                ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildDot(final int index) {
-    // Stagger the three dots a third of a cycle apart.
     final phase = (_controller.value + index / 3) % 1;
-    // Rise and fall between 0.25 and 1.0 opacity.
     final wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
     return Opacity(
       opacity: 0.25 + 0.75 * wave,
       child: Container(
         width: 6.spMin,
         height: 6.spMin,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.8),
+        decoration: const BoxDecoration(
+          color: _muted,
           shape: BoxShape.circle,
         ),
       ),
