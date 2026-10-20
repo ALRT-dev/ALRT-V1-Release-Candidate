@@ -5,7 +5,7 @@
  *   1. Pre-written library (matching.ts + entries.ts) — ZERO AI, unlimited.
  *   2. Emergency-number lookup from the resolved table — ZERO AI, unlimited.
  *   3. AI fallback (claude-haiku-4-5) — only for the long tail, and rate limited
- *      to 5/day (free) or 30/day (ALRT+) per the V1 product rules. This is the
+ *      to 3/day (free) or 10/day (ALRT+) per the V1 product rules. This is the
  *      only path that spends money or the daily quota.
  *
  * Locked-rule enforcement carried over: App Check required, refusal handling,

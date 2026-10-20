@@ -231,12 +231,23 @@ class MapRepositoryImpl implements MapRepository {
             'routes.legs.steps.travelMode',
             'routes.legs.steps.transitDetails',
           ].join(','),
-          headers: _appRestrictionHeaders(),
         );
 
-        final result = await _polylinePoints.getRouteBetweenCoordinatesV2(
-          request: request,
+        final response = await _dio.post(
+          kUrlMapsRoutes,
+          data: request.toJson(),
+          options: Options(
+            headers: {'X-Goog-FieldMask': request.getFieldMask()},
+          ),
         );
+
+        // Routes API v2 returns HTTP 200 on success without a 'status' field;
+        // inject 'OK' to satisfy RoutesApiResponse.isSuccessful (which checks
+        // status == 'OK'), mirroring what the flutter_polyline_points package
+        // does internally in its network provider.
+        final responseData = response.data as Map<String, dynamic>;
+        responseData['status'] = 'OK';
+        final result = RoutesApiResponse.fromJson(responseData);
 
         if (!result.isSuccessful) {
           throw AppError(

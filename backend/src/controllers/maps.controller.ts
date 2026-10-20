@@ -4,6 +4,7 @@ import {
   proxyGeocode,
   proxyPlaceAutocomplete,
   proxyPlaceDetails,
+  proxyRoutes,
 } from "../services/maps_proxy.service.js";
 
 type Query = Record<string, unknown>;
@@ -64,6 +65,40 @@ export const placeDetails = async (
     }
     const data = await proxyPlaceDetails(query);
     res.status(200).json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/maps/routes — proxies Google Routes API v2 (computeRoutes).
+ * Requires a JSON body and the X-Goog-FieldMask header.
+ */
+export const routesProxy = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const fieldMask = req.headers['x-goog-fieldmask'] as string | undefined;
+    if (!fieldMask) {
+      throw new HttpError(400, "'X-Goog-FieldMask' header is required");
+    }
+    if (!req.body || typeof req.body !== 'object') {
+      throw new HttpError(400, "Request body is required");
+    }
+    try {
+      const data = await proxyRoutes(req.body, fieldMask);
+      res.status(200).json(data);
+    } catch (err: unknown) {
+      // Surface the Google error body to the client as a 502.
+      const axiosErr = err as { response?: { data?: unknown } };
+      if (axiosErr?.response?.data) {
+        res.status(502).json(axiosErr.response.data);
+      } else {
+        throw err;
+      }
+    }
   } catch (error) {
     next(error);
   }

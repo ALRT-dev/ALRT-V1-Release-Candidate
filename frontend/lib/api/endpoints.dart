@@ -25,6 +25,7 @@ const kUrlMaps = '$kUrlApi/maps';
 const kUrlMapsGeocode = '$kUrlMaps/geocode';
 const kUrlMapsPlacesAutocomplete = '$kUrlMaps/places/autocomplete';
 const kUrlMapsPlaceDetails = '$kUrlMaps/places/details';
+const kUrlMapsRoutes = '$kUrlMaps/routes';
 
 // ---------------------------- ONBOARDING ----------------------------
 

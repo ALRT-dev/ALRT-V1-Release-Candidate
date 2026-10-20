@@ -3,6 +3,7 @@ import {
   geocode,
   placeAutocomplete,
   placeDetails,
+  routesProxy,
 } from "../controllers/maps.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 import { mapsProxyUserLimiter } from "../middlewares/api_rate_limit.middleware.js";
@@ -24,5 +25,6 @@ mapsRouter.get(
   mapsProxyUserLimiter,
   placeDetails,
 );
+mapsRouter.post("/routes", requireAuth, mapsProxyUserLimiter, routesProxy);
 
 export default mapsRouter;

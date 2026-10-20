@@ -68,3 +68,17 @@ export const proxyPlaceAutocomplete = (query: Query): Promise<unknown> =>
 
 export const proxyPlaceDetails = (query: Query): Promise<unknown> =>
   forward("/place/details/json", pick(query, PLACE_DETAILS_PARAMS));
+
+const ROUTES_API_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+
+export const proxyRoutes = async (body: unknown, fieldMask: string): Promise<unknown> => {
+  const { data } = await axios.post(ROUTES_API_URL, body, {
+    headers: {
+      'X-Goog-Api-Key': config.googleMapsApi.apiKey,
+      'X-Goog-FieldMask': fieldMask,
+      'Content-Type': 'application/json',
+    },
+    timeout: 15000,
+  });
+  return data;
+};

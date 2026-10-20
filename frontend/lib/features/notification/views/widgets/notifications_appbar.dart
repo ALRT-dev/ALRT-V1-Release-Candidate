@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/ask_alrt/views/ask_alrt_sheet.dart';
+import 'package:hazard_app/features/notification/providers/alerts_display_provider.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/notification/views/screens/push_inbox_screen.dart';
 import 'package:hazard_app/features/shared/providers/hazard_filters_provider.dart';
@@ -39,16 +40,24 @@ class _NotificationsAppBarState extends ConsumerState<NotificationsAppBar> {
       leading: const SizedBox.shrink(),
       leadingWidth: 0,
       titleSpacing: 20.spMin,
-      toolbarHeight: 60.spMin,
+      toolbarHeight: 80.spMin,
       centerTitle: false,
-      title: Text(
-        'Alerts',
-        style: TextStyle(
-          color: AppColors.ink,
-          fontSize: 28.spMin,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.3,
-        ),
+      title: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Alerts',
+            style: TextStyle(
+              color: AppColors.ink,
+              fontSize: 28.spMin,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
+          ),
+          SizedBox(height: 4.spMin),
+          _savedLocationsPill(),
+        ],
       ),
       // Feed board: Ask ALRT, the notifications inbox, then Filters.
       actions: [
@@ -77,6 +86,42 @@ class _NotificationsAppBarState extends ConsumerState<NotificationsAppBar> {
   }
 
   static const _askWash = Color(0xFFFFF1E8);
+
+  /// Pill toggle that switches the Alerts list between all map-visible alerts
+  /// and only those inside the user's saved-location subscription boxes.
+  Widget _savedLocationsPill() {
+    return Consumer(
+      builder: (context, ref, _) {
+        final active = ref.watch(providerOfShowSavedLocationsOnly);
+        return GestureDetector(
+          onTap: () =>
+              ref.read(providerOfShowSavedLocationsOnly.notifier).state =
+                  !active,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 12.spMin,
+              vertical: 5.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: active ? AppColors.ink : AppColors.white,
+              borderRadius: BorderRadius.circular(20.spMin),
+              border: Border.all(
+                color: active ? AppColors.ink : AppColors.lightGrey,
+              ),
+            ),
+            child: Text(
+              'My saved locations',
+              style: TextStyle(
+                fontSize: 13.spMin,
+                fontWeight: FontWeight.w600,
+                color: active ? AppColors.white : AppColors.ink,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   /// A 40x40 square header button.
   Widget _squareButtonBuilder({
