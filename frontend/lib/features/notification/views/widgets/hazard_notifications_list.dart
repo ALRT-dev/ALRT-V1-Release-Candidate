@@ -2,109 +2,135 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/notification/providers/states/notifications_feed_provider_state.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
+import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/views/widgets/common_hazards_list_item.dart';
 import 'package:hazard_app/features/shared/views/widgets/spinner.dart';
 
-class HazardNotificationsList extends ConsumerStatefulWidget {
+/// The main Alerts feed list — shows all hazards currently visible on the
+/// map, sorted by severity (critical first) then most recent.
+///
+/// This replaces the old subscription-only feed so the user always sees
+/// what is actually on the map without needing a saved location first.
+/// Saved-location alerts are reachable via the 'My saved location alerts'
+/// pill in the app bar, which opens [SavedLocationHazardsList].
+class HazardNotificationsList extends ConsumerWidget {
   const HazardNotificationsList({super.key});
 
   @override
-  ConsumerState<ConsumerStatefulWidget> createState() =>
-      _HazardNotificationsListState();
-}
-
-class _HazardNotificationsListState
-    extends ConsumerState<HazardNotificationsList> {
-  @override
-  Widget build(BuildContext context) {
-    final getNotificationsFeedHazardsState = ref.watch(
-      providerOfNotificationsFeed.select(
-        (value) => value.getNotificationsFeedHazardsState,
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Read the hazards already loaded by the map provider — no extra API call.
+    final mapHazards = ref.watch(
+      providerOfMap.select((s) => s.hazards),
     );
 
-    return getNotificationsFeedHazardsState.maybeWhen(
-      loading: _loadingBuilder,
-      success: (_) => _dataBuilder(),
-      error: (error) => _errorBuilder(),
-      orElse: () => const SizedBox(),
-    );
-  }
+    final sorted = [...mapHazards]
+      ..sort((a, b) {
+        // Higher severity band index = more serious = show first.
+        final aIdx = a.severityBand?.index ?? 0;
+        final bIdx = b.severityBand?.index ?? 0;
+        if (bIdx != aIdx) return bIdx.compareTo(aIdx);
+        // Same severity: most recently updated first.
+        final aTime = a.updatedAt ?? a.createdAt ?? DateTime(2000);
+        final bTime = b.updatedAt ?? b.createdAt ?? DateTime(2000);
+        return bTime.compareTo(aTime);
+      });
 
-  Widget _loadingBuilder() {
-    return SliverFillRemaining(
-      child: Spinner(),
+    if (sorted.isEmpty) {
+      return _emptyBuilder();
+    }
+
+    return SliverList.separated(
+      itemCount: sorted.length,
+      itemBuilder: (context, index) {
+        final hazard = sorted[index];
+        return CommonHazardsListItem(
+          key: ValueKey(hazard.id),
+          hazard: hazard,
+        );
+      },
+      separatorBuilder: (context, index) => 20.hSizedBox,
     );
   }
 
   Widget _emptyBuilder() {
     return SliverFillRemaining(
-      child: Consumer(
-        builder: (context, ref, child) {
-          final isSearchActive = ref.watch(
-            providerOfNotificationsFeed.select(
-              (value) => value.searchString.isNotEmpty,
-            ),
-          );
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            spacing: 10.spMin,
-            children: [
-              SvgPicture.asset(
-                'assets/icons/notifications_tab_unselected.svg',
-                width: 40.spMin,
-              ),
-              Column(
-                spacing: 5.spMin,
-                children: [
-                  Text(
-                    'Nothing to show!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    isSearchActive
-                        ? 'No results found for your search. Please try changing it.'
-                        : 'There are no alerts at the moment. Please check back later.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ).pad(20.0);
-        },
-      ),
-    );
-  }
-
-  Widget _errorBuilder() {
-    return SliverFillRemaining(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        spacing: 10,
         children: [
-          Text(
-            'Something went wrong!',
-            style: TextStyle(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w500,
-            ),
+          SvgPicture.asset(
+            'assets/icons/notifications_tab_unselected.svg',
+            width: 40,
           ),
-          Text(
-            'We are unable to load the data at the moment. Please try again later.',
-            textAlign: TextAlign.center,
+          Column(
+            spacing: 5,
+            children: [
+              Text(
+                'No alerts in this area',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                'Move the map to an area with alerts, or zoom out to see more.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
           ),
         ],
       ).pad(20.0),
+    );
+  }
+}
+
+/// The subscription-based (saved locations) alerts list, shown in the
+/// 'My saved location alerts' bottom sheet.
+class SavedLocationHazardsList extends ConsumerStatefulWidget {
+  const SavedLocationHazardsList({super.key});
+
+  @override
+  ConsumerState<ConsumerStatefulWidget> createState() =>
+      _SavedLocationHazardsListState();
+}
+
+class _SavedLocationHazardsListState
+    extends ConsumerState<SavedLocationHazardsList> {
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(
+      providerOfNotificationsFeed.select(
+        (value) => value.getNotificationsFeedHazardsState,
+      ),
+    );
+
+    return state.maybeWhen(
+      loading: () => SliverFillRemaining(child: Spinner()),
+      success: (_) => _dataBuilder(),
+      error: (_) => SliverFillRemaining(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Something went wrong.',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            Text(
+              'Unable to load your saved location alerts. Please try again.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ).pad(20.0),
+      ),
+      orElse: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
     );
   }
 
@@ -112,31 +138,43 @@ class _HazardNotificationsListState
     return Consumer(
       builder: (context, ref, child) {
         final hazards = ref.watch(
-          providerOfNotificationsFeed.select(
-            (value) => value.hazards,
-          ),
+          providerOfNotificationsFeed.select((value) => value.hazards),
         );
+
         if (hazards.isEmpty) {
-          return _emptyBuilder();
+          return SliverFillRemaining(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 10,
+              children: [
+                SvgPicture.asset(
+                  'assets/icons/notifications_tab_unselected.svg',
+                  width: 40,
+                ),
+                Column(
+                  spacing: 5,
+                  children: [
+                    Text(
+                      'No alerts for your saved locations',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      'Add a saved location in Notifications to get alerts for that area.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+              ],
+            ).pad(20.0),
+          );
         }
 
-        final getNextNotificationsFeedHazardsState = ref.watch(
-          providerOfNotificationsFeed.select(
-            (value) => value.getNextNotificationsFeedHazardsState,
-          ),
-        );
-        final isLoadingMore = getNextNotificationsFeedHazardsState.maybeWhen(
-          loading: () => true,
-          orElse: () => false,
-        );
-
         return SliverList.separated(
-          itemCount: hazards.length + (isLoadingMore ? 1 : 0),
+          itemCount: hazards.length,
           itemBuilder: (context, index) {
-            if (index == hazards.length) {
-              // Show loading indicator at the bottom
-              return Spinner().pad(20.0);
-            }
             final hazard = hazards[index];
             return CommonHazardsListItem(
               key: ValueKey(hazard.id),
