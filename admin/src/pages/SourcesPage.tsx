@@ -85,6 +85,7 @@ export const SourcesPage = () => {
       <div className="page-header">
         <div>
           <h1>Sources</h1>
+          <p>Manage extraction and country-specific changes in <a href="/alert-templates">Alert Templates</a>.</p>
           <p>
             Official alert sources feeding the app. Sources cannot be
             impersonated - alert attribution is always tied to a real

@@ -133,8 +133,8 @@ RefusalPresentation refusalPresentation(
       return RefusalPresentation(
         title: 'ALRT + needed in this group',
         body:
-            'This group doesn\'t have a Family or Group plan, so each person '
-            'taking part needs their own ALRT +.'
+            'Check in, Check on, SOS and Journey here need ALRT + for each '
+            'person, or a plan covering the group.'
             '${isHost ? ' As the host, you can cover everyone instead.' : ''}',
         primary: RefusalAction.seeAlrtPlus,
         primaryLabel: 'See ALRT +',
@@ -232,7 +232,9 @@ RefusalPresentation refusalPresentation(
     case AccessRefusalKind.savedPlaceLimit:
       return RefusalPresentation(
         title: 'One saved place on ALRT Free',
-        body: refusal.message,
+        body:
+            'ALRT Free includes 1 saved place as well as where you are. '
+            'ALRT + gives you unlimited places.',
         primary: RefusalAction.seeAlrtPlus,
         primaryLabel: 'See ALRT +',
       );

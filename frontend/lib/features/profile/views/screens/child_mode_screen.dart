@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/profile/providers/child_mode_provider.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_page_kit.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
-import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Child mode: a parent's switch on a child's phone.
 ///
 /// A restriction that helps, not a security boundary: the PIN stops the
-/// casual case. Approved board 9 Oct 2026: plain white app bar, one status
-/// card, the optional PIN, one solid CTA.
+/// casual case. Prototype "ChildMode" board: white header with back arrow,
+/// one status card, the PIN field, then an orange "Turn on" (or a white
+/// "Turn off" while it is on).
 class ChildModeScreen extends ConsumerStatefulWidget {
   const ChildModeScreen({super.key});
 
@@ -23,11 +22,8 @@ class ChildModeScreen extends ConsumerStatefulWidget {
 }
 
 class _ChildModeScreenState extends ConsumerState<ChildModeScreen> {
-  static const _page = Color(0xFFF5F5F7);
-  static const _muted = Color(0xFF5C5C66);
-  static const _cta = Color(0xFFE8622A);
-
   final _pinController = TextEditingController();
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -36,174 +32,125 @@ class _ChildModeScreenState extends ConsumerState<ChildModeScreen> {
   }
 
   Future<void> _toggle(final bool turnOn) async {
+    if (_busy) return;
     final notifier = ref.read(providerOfChildMode.notifier);
+    final pin = _pinController.text.trim();
+    setState(() => _busy = true);
     if (turnOn) {
-      await notifier.enable(pin: _pinController.text.trim());
+      await notifier.enable(pin: pin);
+      if (!mounted) return;
       _pinController.clear();
+      setState(() => _busy = false);
       return;
     }
 
     final settings = ref.read(providerOfChildMode);
-    if (!settings.hasPin) {
-      await notifier.disable();
-      return;
-    }
-    final pin = await _askForPin();
-    if (pin == null) return;
-    final ok = await notifier.disable(pin: pin);
+    final ok = await notifier.disable(pin: settings.hasPin ? pin : null);
     if (!mounted) return;
-    if (!ok) context.showErrorToast(message: 'That PIN did not match.');
-  }
-
-  Future<String?> _askForPin() {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Enter the PIN'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          obscureText: true,
-          decoration: const InputDecoration(hintText: 'PIN'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Turn off'),
-          ),
-        ],
-      ),
-    );
+    setState(() => _busy = false);
+    if (ok) {
+      _pinController.clear();
+    } else {
+      context.showErrorToast(
+        message: pin.isEmpty
+            ? 'Enter the PIN to turn child mode off.'
+            : 'That PIN did not match.',
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(providerOfChildMode);
     final isOn = settings.isOn;
+    final needsPinToTurnOff = isOn && settings.hasPin;
+    final showPin = !isOn || needsPinToTurnOff;
 
     return Scaffold(
-      backgroundColor: _page,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        surfaceTintColor: AppColors.white,
-        foregroundColor: AppColors.black,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          onPressed: () => context.pop(),
-          icon: const Icon(LucideIcons.chevronLeft, color: AppColors.black),
-        ),
-        title: Text(
-          'Child mode',
-          style: TextStyle(
-            fontSize: 22.spMin,
-            fontWeight: FontWeight.w700,
-            color: AppColors.black,
-          ),
-        ),
-      ),
-      body: ListView(
-        padding: EdgeInsets.all(16.spMin),
+      backgroundColor: ProfilePageKit.page,
+      body: Column(
         children: [
-          Container(
-            padding: EdgeInsets.all(16.spMin),
-            decoration: _cardDecoration(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const ProfilePageHeader(title: 'Child mode'),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 32.spMin),
               children: [
-                Text(
-                  isOn ? 'Child mode is on' : 'Child mode is off',
-                  style: TextStyle(
-                    fontSize: 18.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.black,
-                  ),
-                ),
-                SizedBox(height: 6.spMin),
-                Text(
-                  'Map, SOS and check-ins only. Report is hidden. Set by a '
-                  'parent or guardian.',
-                  style: TextStyle(
-                    fontSize: 14.spMin,
-                    height: 1.4,
-                    color: _muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!isOn) ...[
-            SizedBox(height: 12.spMin),
-            Container(
-              padding: EdgeInsets.all(16.spMin),
-              decoration: _cardDecoration(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'PIN (optional)',
-                    style: TextStyle(
-                      fontSize: 14.spMin,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.black,
+                ProfileCard(
+                  children: [
+                    Text(
+                      isOn ? 'Child mode is on' : 'Child mode is off',
+                      style: TextStyle(
+                        fontSize: 16.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 10.spMin),
+                    const ProfileMutedText(
+                      'Map, SOS and check-ins only. Report is hidden. Set by '
+                      'a parent or guardian.',
+                    ),
+                  ],
+                ),
+                if (showPin) ...[
+                  SizedBox(height: 14.spMin),
                   TextField(
+                    key: const Key('child-mode-pin'),
                     controller: _pinController,
+                    enabled: !_busy,
                     keyboardType: TextInputType.number,
                     obscureText: true,
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.ink,
+                    ),
                     decoration: InputDecoration(
-                      hintText: 'Choose a PIN',
+                      hintText: needsPinToTurnOff ? 'PIN' : 'PIN (optional)',
                       filled: true,
-                      fillColor: _page,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.spMin),
-                        borderSide: BorderSide.none,
+                      fillColor: AppColors.white,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 14.spMin,
+                        vertical: 14.spMin,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14.spMin),
+                        borderSide: const BorderSide(
+                          color: ProfilePageKit.hairline,
+                          width: 1.5,
+                        ),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14.spMin),
+                        borderSide: const BorderSide(
+                          color: ProfilePageKit.hairline,
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14.spMin),
+                        borderSide: const BorderSide(
+                          color: AppColors.orange,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
                 ],
-              ),
+                SizedBox(height: 14.spMin),
+                ProfileButton(
+                  key: const Key('child-mode-toggle'),
+                  label: isOn ? 'Turn off' : 'Turn on',
+                  kind: isOn
+                      ? ProfileButtonKind.secondary
+                      : ProfileButtonKind.primary,
+                  busy: _busy,
+                  onPressed: () => _toggle(!isOn),
+                ),
+              ],
             ),
-          ],
-          SizedBox(height: 20.spMin),
-          Container(
-            height: 54.spMin,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _cta,
-              borderRadius: BorderRadius.circular(16.spMin),
-            ),
-            child: Text(
-              isOn ? 'Turn off' : 'Turn on',
-              style: TextStyle(
-                fontSize: 16.spMin,
-                fontWeight: FontWeight.w700,
-                color: AppColors.white,
-              ),
-            ),
-          ).onPressed(() => _toggle(!isOn)),
+          ),
         ],
       ),
     );
   }
-
-  BoxDecoration _cardDecoration() => BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18.spMin),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 3.0,
-            offset: Offset(0, 1),
-          ),
-        ],
-      );
 }

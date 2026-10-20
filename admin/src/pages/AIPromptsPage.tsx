@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Link } from 'react-router-dom';
 import { useApiQuery } from "../hooks/useApiQuery";
 import { listAIPrompts, updateAIPrompt } from "../api/resources";
 import { useAuth } from "../auth/AuthContext";
@@ -48,10 +49,9 @@ export const AIPromptsPage = () => {
         <div>
           <h1>AI Prompts</h1>
           <p>
-            The live alert-generation prompt content
-            (src/utils/ai-prompt.util.ts / ai-prompt.service.ts is the sole
-            authoritative system - backend/CLAUDE.md). Editing here changes
-            what the AI writes for every future alert of this kind.
+            Edit the wording used by AI. For published agency templates,
+            preview and publish these changes in <Link to="/alert-templates">Alert Templates</Link>.
+            Other AI features use edits saved here directly.
           </p>
         </div>
       </div>

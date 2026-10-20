@@ -263,6 +263,10 @@ enum HazardSourceHealthStatus {
 }
 
 model Hazard {
+  contentDetails Json?
+  nativeWarningLevel String?
+  sourceContentHash String?
+  jurisdictionCountry String?
   id            String             @id @default(uuid())
   title         String
   description   String

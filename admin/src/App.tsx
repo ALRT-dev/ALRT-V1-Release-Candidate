@@ -12,6 +12,7 @@ import { CategoriesPage } from "./pages/CategoriesPage";
 import { UsersPage } from "./pages/UsersPage";
 import { AdminAccountsPage } from "./pages/AdminAccountsPage";
 import { AIPromptsPage } from "./pages/AIPromptsPage";
+import { AlertTemplatesPage } from './pages/AlertTemplatesPage';
 import { ConfigurationPage } from "./pages/ConfigurationPage";
 import { WebhookKeysPage } from "./pages/WebhookKeysPage";
 import { AskAlrtPage } from "./pages/AskAlrtPage";
@@ -50,6 +51,7 @@ function App() {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/admin-accounts" element={<AdminAccountsPage />} />
             <Route path="/ai-prompts" element={<AIPromptsPage />} />
+            <Route path="/alert-templates" element={<AlertTemplatesPage />} />
             <Route path="/configuration" element={<ConfigurationPage />} />
             <Route path="/webhook-keys" element={<WebhookKeysPage />} />
             <Route path="/ask-alrt" element={<AskAlrtPage />} />

@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/profile/providers/states/support_request_provider_state.dart';
 import 'package:hazard_app/features/profile/providers/support_request_provider.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_page_kit.dart';
 import 'package:hazard_app/features/shared/enums/support_request_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
-import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
-import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
-import 'package:hazard_app/features/shared/views/widgets/button.dart';
-import 'package:hazard_app/features/shared/views/widgets/round_button.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// "Help and feedback", as on the prototype "Support" board: white header,
+/// one row of type chips (Support, Feedback, Question, Other), a "What
+/// happened?" box, the orange "Submit request" button, and once sent a
+/// "Request submitted" card ("We reply by email."). Sends through the
+/// existing support request provider (POST /support).
 class SupportRequestScreen extends ConsumerStatefulWidget {
   const SupportRequestScreen({super.key});
 
@@ -25,7 +25,6 @@ class SupportRequestScreen extends ConsumerStatefulWidget {
 
 class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
   final _detailsController = TextEditingController();
-  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -36,519 +35,211 @@ class _SupportRequestScreenState extends ConsumerState<SupportRequestScreen> {
   @override
   void dispose() {
     _detailsController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // register this provider to the lifecycle of this screen
-    ref.watch(providerOfSupportRequest.select((value) => null));
-
     _listenToSubmitStateChanges();
 
+    final state = ref.watch(providerOfSupportRequest);
+    final isLoading = state.submitState.maybeWhen(
+      loading: () => true,
+      orElse: () => false,
+    );
+    final isSent = state.submitState.maybeWhen(
+      success: () => true,
+      orElse: () => false,
+    );
+    final selected = state.requestType ?? SupportRequestType.support;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Support Request',
-          style: TextStyle(
-            color: AppColors.black,
-          ),
-        ),
-        foregroundColor: AppColors.black,
-        actions: [
-          _clearAllBuilder(),
-          15.wSizedBox,
-        ],
-      ),
-      bottomNavigationBar: _submitButtonBuilder(),
-      body: Consumer(
-        builder: (context, ref, child) {
-          final requestSubmitted = ref.watch(
-            providerOfSupportRequest.select(
-              (value) => value.requestSubmitted,
-            ),
-          );
-          return requestSubmitted ? _submittedBuilder() : _formBuilder();
-        },
-      ),
-    ).keyboardDismisser(context);
-  }
-
-  Widget _formBuilder() {
-    return SingleChildScrollView(
-      controller: _scrollController,
-      padding: EdgeInsets.all(20.spMin),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitleBuilder(
-            title: 'Request Type',
-            isRequired: true,
-          ),
-          10.hSizedBox,
-          _requestTypeBuilder(),
-          24.hSizedBox,
-          _detailsBuilder(),
-          24.hSizedBox,
-        ],
-      ),
-    );
-  }
-
-  Widget _submittedBuilder() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            LucideIcons.circleCheck,
-            color: AppColors.green,
-            size: 80.spMin,
-          ),
-          10.hSizedBox,
-          Text(
-            'Request Submitted!',
-            style: TextStyle(
-              fontSize: 18.spMin,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          5.hSizedBox,
-          Text(
-            'Your support request has been submitted. We will get back to you shortly.',
-            style: TextStyle(
-              fontSize: 14.spMin,
-              fontWeight: FontWeight.normal,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          20.hSizedBox,
-          _submitAnotherButtonBuilder(),
-          10.hSizedBox,
-          _closeButtonBuilder(),
-        ],
-      ).pX(20.0),
-    );
-  }
-
-  Widget _sectionTitleBuilder({
-    required final String title,
-    final bool isRequired = false,
-  }) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (isRequired)
-          Text(
-            ' *',
-            style: TextStyle(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w600,
-              color: AppColors.red,
-            ),
-          )
-        else
-          Text(
-            ' (Optional)',
-            style: TextStyle(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w400,
-              color: AppColors.grey,
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _inputBuilder({
-    required final String hintText,
-    final TextEditingController? controller,
-    final String? value,
-    final int? maxLines,
-    final int? minLines,
-    final TextCapitalization textCapitalization = TextCapitalization.none,
-    final TextInputType? keyboardType,
-    final EdgeInsetsGeometry? contentPadding,
-    final bool enabled = true,
-    final VoidCallback? onPressed,
-    final Function(String)? onChanged,
-  }) {
-    return TextFormField(
-      enabled: enabled,
-      minLines: minLines,
-      maxLines: maxLines,
-      textCapitalization: textCapitalization,
-      keyboardType: keyboardType,
-      controller: controller ?? TextEditingController(text: value),
-      style: TextStyle(
-        color: AppColors.black,
-        fontWeight: FontWeight.w600,
-      ),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: TextStyle(
-          color: AppColors.black,
-          fontWeight: FontWeight.normal,
-        ),
-        contentPadding: contentPadding,
-        filled: true,
-        fillColor: AppColors.white,
-        disabledBorder: context.theme.inputDecorationTheme.border?.copyWith(
-          borderSide: BorderSide(
-            color: AppColors.lightGrey,
-          ),
-        ),
-      ),
-      onChanged: onChanged,
-    ).onPressed(onPressed);
-  }
-
-  Widget _requestTypeBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final selectedRequestType = ref.watch(
-          providerOfSupportRequest.select(
-            (value) => value.requestType,
-          ),
-        );
-
-        return Column(
-          spacing: 12.h,
-          children: SupportRequestType.values.map((type) {
-            final isSelected = selectedRequestType == type;
-            final typeInfo = _getRequestTypeInfo(type);
-
-            return InkWell(
-              onTap: () => _handleRequestTypeSelect(type),
-              borderRadius: BorderRadius.circular(12.r),
-              child: Container(
-                padding: EdgeInsets.all(16.spMin),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? typeInfo['color'].withValues(alpha: 0.005)
-                      : AppColors.white,
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(
-                    color: isSelected
-                        ? typeInfo['color']
-                        : AppColors.transparent,
-                    width: 1.0,
+      backgroundColor: ProfilePageKit.page,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
+          children: [
+            const ProfilePageHeader(title: 'Help and feedback'),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  16.spMin,
+                  14.spMin,
+                  16.spMin,
+                  32.spMin,
+                ),
+                children: [
+                  Wrap(
+                    spacing: 8.spMin,
+                    runSpacing: 8.spMin,
+                    children: [
+                      for (final type in SupportRequestType.values)
+                        _TypeChip(
+                          label: _label(type),
+                          selected: selected == type,
+                          onTap: () => ref
+                              .read(providerOfSupportRequest.notifier)
+                              .updateRequestType(type),
+                        ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isSelected
-                          ? typeInfo['color'].withValues(alpha: 0.1)
-                          : AppColors.shadowColorLight,
-                      blurRadius: 5.0,
-                      offset: Offset(0.0, 0.0),
+                  SizedBox(height: 14.spMin),
+                  SizedBox(
+                    height: 110.spMin,
+                    child: TextField(
+                      key: const Key('support-details'),
+                      controller: _detailsController,
+                      enabled: !isLoading,
+                      expands: true,
+                      maxLines: null,
+                      textAlignVertical: TextAlignVertical.top,
+                      textCapitalization: TextCapitalization.sentences,
+                      keyboardType: TextInputType.multiline,
+                      onChanged: (value) => ref
+                          .read(providerOfSupportRequest.notifier)
+                          .updateDetails(value.trim()),
+                      style: TextStyle(
+                        fontSize: 14.spMin,
+                        color: AppColors.ink,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'What happened?',
+                        filled: true,
+                        fillColor: AppColors.white,
+                        contentPadding: EdgeInsets.all(12.spMin),
+                        enabledBorder: _border(ProfilePageKit.hairline),
+                        disabledBorder: _border(ProfilePageKit.hairline),
+                        focusedBorder: _border(AppColors.orange),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 14.spMin),
+                  ProfileButton(
+                    key: const Key('support-send'),
+                    label: 'Submit request',
+                    busy: isLoading,
+                    onPressed: state.details.isEmpty ? null : _submit,
+                  ),
+                  if (isSent) ...[
+                    SizedBox(height: 14.spMin),
+                    ProfileCard(
+                      children: [
+                        Text(
+                          'Request submitted',
+                          style: TextStyle(
+                            fontSize: 15.spMin,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const ProfileMutedText('We reply by email.'),
+                      ],
                     ),
                   ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48.spMin,
-                      height: 48.spMin,
-                      decoration: BoxDecoration(
-                        color: typeInfo['color'].withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Icon(
-                        typeInfo['icon'],
-                        color: typeInfo['color'],
-                        size: 24.spMin,
-                      ),
-                    ),
-                    16.wSizedBox,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            typeInfo['title'],
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.black,
-                            ),
-                          ),
-                          4.hSizedBox,
-                          Text(
-                            typeInfo['description'],
-                            style: TextStyle(
-                              fontSize: 13.sp,
-                              color: AppColors.grey,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isSelected)
-                      Icon(
-                        LucideIcons.circleCheck,
-                        color: typeInfo['color'],
-                        size: 24.spMin,
-                      )
-                    else
-                      Icon(
-                        LucideIcons.circle,
-                        color: AppColors.lightGrey,
-                        size: 24.spMin,
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Widget _detailsBuilder() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 8.h,
-      children: [
-        _sectionTitleBuilder(
-          title: 'Details',
-          isRequired: true,
-        ),
-        _inputBuilder(
-          hintText: 'Provide details about your request...',
-          controller: _detailsController,
-          minLines: 8,
-          maxLines: 15,
-          textCapitalization: TextCapitalization.sentences,
-          keyboardType: TextInputType.multiline,
-          contentPadding: EdgeInsets.all(15.spMin),
-          onChanged: (value) => _updateDetails(value.trim()),
-        ),
-      ],
-    );
-  }
-
-  Widget _submitButtonBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final requestSubmitted = ref.watch(
-          providerOfSupportRequest.select(
-            (value) => value.requestSubmitted,
-          ),
-        );
-        if (requestSubmitted) return const SizedBox.shrink();
-
-        final hasAllRequiredDataEntered = _hasAllRequiredDataEntered(ref);
-        if (!hasAllRequiredDataEntered) return const SizedBox.shrink();
-
-        final isLoading = ref.watch(
-          providerOfSupportRequest.select(
-            (value) => value.submitState.when(
-              initial: () => false,
-              loading: () => true,
-              success: () => false,
-              error: (_) => false,
-            ),
-          ),
-        );
-
-        return Container(
-          decoration: BoxDecoration(
-            color: context.theme.scaffoldBackgroundColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorMedium,
-                blurRadius: 3,
-                offset: const Offset(0, -1),
-              ),
-            ],
-          ),
-          padding: EdgeInsets.all(10.spMin),
-          child: Padding(
-            padding: MediaQuery.of(context).viewInsets,
-            child: SafeArea(
-              child: Button.filled(
-                value: 'Submit Request',
-                icon: Icon(LucideIcons.check),
-                isLoading: isLoading,
-                onPressed: _handleSubmitRequest,
+                ],
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _submitAnotherButtonBuilder() {
-    return Button.bordered(
-      width: 300.0,
-      value: 'Submit Another Request',
-      icon: Icon(LucideIcons.plus),
-      onPressed: _handleAnotherRequest,
-    );
-  }
-
-  Widget _closeButtonBuilder() {
-    return Button.bordered(
-      width: 300.0,
-      value: 'Go Back',
-      icon: Icon(LucideIcons.chevronLeft),
-      onPressed: () => context.pop(),
-    );
-  }
-
-  Widget _clearAllBuilder() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final hasAnyDataEntered = _hasAnyDataEntered(ref);
-        if (!hasAnyDataEntered) {
-          return const SizedBox.shrink();
-        }
-        return RoundButton(
-          icon: Icon(
-            LucideIcons.trash2,
-            color: AppColors.black,
-            size: 24.spMin,
-          ),
-          size: 35.0,
-          backgroundColor: AppColors.lightGrey.withValues(alpha: 0.7),
-          onPressed: _clearAll,
-        );
-      },
-    );
-  }
-
-  /// Checks if any data has been entered in the form.
-  bool _hasAnyDataEntered(final WidgetRef ref) {
-    return ref.watch(
-      providerOfSupportRequest.select(
-        (value) => value.requestType != null || value.details.isNotEmpty,
+          ],
+        ),
       ),
     );
   }
 
-  /// Checks if all required data has been entered in the form.
-  bool _hasAllRequiredDataEntered(final WidgetRef ref) {
-    return ref.watch(
-      providerOfSupportRequest.select(
-        (value) => value.requestType != null && value.details.isNotEmpty,
-      ),
-    );
-  }
+  OutlineInputBorder _border(final Color color) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12.spMin),
+        borderSide: BorderSide(color: color, width: 1.5),
+      );
 
-  /// Gets the display info for a request type.
-  Map<String, dynamic> _getRequestTypeInfo(SupportRequestType type) {
-    switch (type) {
-      case SupportRequestType.support:
-        return {
-          'title': 'Support',
-          'description': 'Get help with technical issues or account problems',
-          'icon': LucideIcons.lifeBuoy,
-          'color': AppColors.blue,
-        };
-      case SupportRequestType.feedback:
-        return {
-          'title': 'Feedback',
-          'description': 'Share your thoughts on how we can improve',
-          'icon': LucideIcons.messageSquare,
-          'color': AppColors.green,
-        };
-      case SupportRequestType.question:
-        return {
-          'title': 'Question',
-          'description': 'Ask questions about features or functionality',
-          'icon': LucideIcons.info,
-          'color': AppColors.orange,
-        };
-      case SupportRequestType.other:
-        return {
-          'title': 'Other',
-          'description': 'Something else? Let us know what you need',
-          'icon': LucideIcons.ellipsisVertical,
-          'color': AppColors.grey,
-        };
-    }
-  }
+  String _label(final SupportRequestType type) => switch (type) {
+        SupportRequestType.support => 'Support',
+        SupportRequestType.feedback => 'Feedback',
+        SupportRequestType.question => 'Question',
+        SupportRequestType.other => 'Other',
+      };
 
   void _onInit() {
-    ref.read(providerOfSupportRequest.notifier).updateRequestSubmitted(false);
-    ref.read(providerOfSupportRequest.notifier).resetAllFields();
+    final notifier = ref.read(providerOfSupportRequest.notifier);
+    notifier.updateRequestSubmitted(false);
+    notifier.resetAllFields();
+    notifier.updateRequestType(SupportRequestType.support);
   }
 
-  /// Listens to changes in the submit state to show error toasts.
+  /// Shows a toast when sending fails.
   void _listenToSubmitStateChanges() {
     ref.listen(
-      providerOfSupportRequest.select(
-        (value) => value.submitState,
-      ),
+      providerOfSupportRequest.select((value) => value.submitState),
       (previous, next) {
-        if (previous != next) {
-          next.maybeWhen(
-            error: (error) {
-              context.showErrorToast(
-                message:
-                    'Failed to submit request: ${error.message.isNotEmpty ? error.message : 'Unknown error'}',
-              );
-            },
-            orElse: () {},
-          );
-        }
+        if (previous == next) return;
+        next.maybeWhen(
+          error: (error) => context.showErrorToast(
+            message: error.message.isNotEmpty
+                ? error.message
+                : 'Your request could not be sent. Try again.',
+          ),
+          orElse: () {},
+        );
       },
     );
   }
 
-  /// Handles the selection of a request type.
-  void _handleRequestTypeSelect(SupportRequestType type) {
-    ref.read(providerOfSupportRequest.notifier).updateRequestType(type);
-    _scrollToEnd();
-  }
-
-  /// Updates the details in the state.
-  void _updateDetails(final String details) {
-    ref.read(providerOfSupportRequest.notifier).updateDetails(details);
-  }
-
-  /// Clears all the inputs and resets the state.
-  void _clearAll() {
-    context.unfocusInputs();
-    _detailsController.clear();
-    ref.read(providerOfSupportRequest.notifier).resetAllFields();
-  }
-
-  /// Handles the submission of the support request.
-  void _handleSubmitRequest() {
-    context.unfocusInputs();
-    ref.read(providerOfSupportRequest.notifier).submitSupportRequest();
-    _clearAll();
-  }
-
-  /// Handles the action when user wants to submit another request.
-  void _handleAnotherRequest() {
-    _detailsController.clear();
-    ref.read(providerOfSupportRequest.notifier).updateRequestSubmitted(false);
-    ref.read(providerOfSupportRequest.notifier).resetAllFields();
-  }
-
-  /// Scrolls to the end of the screen.
-  void _scrollToEnd() {
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (!mounted) return;
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
+  /// Sends, then clears the box and keeps the chosen type for another.
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    final notifier = ref.read(providerOfSupportRequest.notifier);
+    final type = ref.read(providerOfSupportRequest).requestType ??
+        SupportRequestType.support;
+    notifier.updateRequestType(type);
+    await notifier.submitSupportRequest();
+    if (!mounted) return;
+    final sent = ref.read(providerOfSupportRequest).submitState.maybeWhen(
+          success: () => true,
+          orElse: () => false,
         );
-      }
-    });
+    if (sent) {
+      _detailsController.clear();
+      notifier.updateDetails('');
+    }
+  }
+}
+
+/// The prototype chip: 40 px pill, ink border and bold when selected.
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 40.spMin,
+        padding: EdgeInsets.symmetric(horizontal: 16.spMin),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFFAF9F7) : AppColors.white,
+          borderRadius: BorderRadius.circular(20.spMin),
+          border: Border.all(
+            color: selected ? AppColors.ink : ProfilePageKit.hairline,
+            width: selected ? 2 : 1.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14.spMin,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color: AppColors.ink,
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -82,7 +82,7 @@ class _FamilyOnboardingScreenState
             margin: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 0),
             padding: EdgeInsets.symmetric(
               horizontal: 16.spMin,
-              vertical: 6.spMin,
+              vertical: 10.spMin,
             ),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -103,15 +103,14 @@ class _FamilyOnboardingScreenState
                   title: 'Check in with one tap',
                   body: 'Everyone sees it at once. No group chat.',
                 ),
-                const Divider(height: 1, color: FamilyColors.v31Divider),
                 _featureRow(
                   icon: LucideIcons.mapPin,
                   title: 'A location only when you send it',
                   body: 'One moment, sent on purpose. Gone in an hour.',
                 ),
-                const Divider(height: 1, color: FamilyColors.v31Divider),
                 _featureRow(
                   icon: LucideIcons.siren,
+                  isSos: true,
                   title: 'SOS to your group',
                   body:
                       'Hold 3 seconds. Runs for 1 hour. ALRT never contacts '
@@ -277,20 +276,28 @@ class _FamilyOnboardingScreenState
     required final IconData icon,
     required final String title,
     required final String body,
+    final bool isSos = false,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.spMin),
+      padding: EdgeInsets.symmetric(vertical: 8.spMin),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 36.spMin,
             height: 36.spMin,
+            // The FamilyEmpty board: indigo tiles, and the SOS row on the
+            // red SOS gradient.
             decoration: BoxDecoration(
-              color: FamilyColors.indigoLight,
+              color: isSos ? null : FamilyColors.indigoLight,
+              gradient: isSos ? FamilyColors.sosHeaderGradient : null,
               borderRadius: BorderRadius.circular(10.spMin),
             ),
-            child: Icon(icon, size: 18.spMin, color: FamilyColors.indigo),
+            child: Icon(
+              icon,
+              size: 18.spMin,
+              color: isSos ? Colors.white : FamilyColors.indigo,
+            ),
           ),
           SizedBox(width: 12.spMin),
           Expanded(

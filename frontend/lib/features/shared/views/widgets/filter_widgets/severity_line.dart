@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
-/// One horizontal line in the four alert colours. Tapping a segment picks
-/// the lowest severity to see; colours below it are dimmed. Red (emergency)
-/// can never be hidden, and grey has no switch of its own on the server, so
-/// both stay lit. The line carries no colour names: the colour is the
-/// severity the issuing agency gave.
+/// One horizontal bar in the four alert colours, shared by the Filters
+/// sheet and the Notifications screen (product owner, 16 Oct 2026: keep
+/// the horizontal bar with red clearly locked; the three-tile version was
+/// dropped). Tapping a segment picks the lowest severity to see; colours
+/// below it are dimmed. Red (emergency) can never be hidden and carries a
+/// lock, and grey has no switch of its own on the server, so both stay
+/// lit. The bar carries no colour names: the colour is the severity the
+/// issuing agency gave.
 ///
 /// Yellow maps to the Advice switch and orange to Watch and Act:
 /// - grey or yellow: both on
@@ -31,6 +35,14 @@ class SeverityLine extends StatelessWidget {
     AppColors.advice,
     AppColors.watchAndAct,
     AppColors.emergency,
+  ];
+
+  /// Screen-reader names only; the line itself shows no words.
+  static const _semanticNames = [
+    'Show grey and above',
+    'Show yellow and above',
+    'Show orange and above',
+    'Red, always shown',
   ];
 
   /// Index of the lowest segment currently shown.
@@ -60,44 +72,51 @@ class SeverityLine extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Each colour is a full-height segment (48 pt tap target: the
+          // thin bars were too hard to hit, product owner 14 and 15 Oct
+          // 2026).
           Row(
             children: [
               for (var i = 0; i < _colours.length; i++)
                 Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _select(i),
-                    child: Padding(
-                      // A real tap target, not a hairline (owner, 15 Oct
-                      // 2026: too thin and too hard to hit). Still one
-                      // horizontal row.
-                      padding: EdgeInsets.symmetric(vertical: 6.spMin),
+                  child: Semantics(
+                    button: i != _colours.length - 1,
+                    selected: i == lowest,
+                    label: _semanticNames[i],
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _select(i),
                       child: Container(
                         height: 48.spMin,
-                        margin: EdgeInsets.symmetric(horizontal: 3.spMin),
+                        margin: EdgeInsets.symmetric(horizontal: 2.spMin),
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: i >= lowest
                               ? _colours[i]
-                              : _colours[i].withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(14.spMin),
+                              : _colours[i].withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(12.spMin),
                           border: i == lowest
                               ? Border.all(color: AppColors.ink, width: 2)
                               : null,
                         ),
-                        // A tick on the lowest colour shown, a padlock on
-                        // red because it can never be switched off.
-                        alignment: Alignment.center,
+                        // Red carries the lock because it can never be
+                        // hidden; the chosen segment is told by its dark
+                        // border, with no tick (product owner, 16 Oct
+                        // 2026). Colours below the chosen one sit dull.
                         child: i == _colours.length - 1
-                            ? Icon(Icons.lock, size: 16.spMin, color: AppColors.white)
-                            : i == lowest
-                                ? Icon(Icons.check, size: 18.spMin, color: AppColors.white)
-                                : null,
+                            ? Icon(
+                                Icons.lock_rounded,
+                                size: 18.spMin,
+                                color: AppColors.white,
+                              )
+                            : null,
                       ),
                     ),
                   ),
                 ),
             ],
           ),
+          6.hSizedBox,
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

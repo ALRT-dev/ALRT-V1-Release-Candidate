@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'package:hazard_app/features/shared/utils/template_marker.dart';
 import 'dart:math' hide log;
 import 'dart:developer';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Route;
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +20,7 @@ import 'package:hazard_app/features/map/models/route_plan_model.dart';
 import 'package:hazard_app/features/map/models/route_step_model.dart';
 import 'package:hazard_app/features/map/models/safest_fastest_routes_model.dart';
 import 'package:hazard_app/features/notification/providers/last_feed_fetch_provider.dart';
+import 'package:hazard_app/features/notification/services/local_notification_service.dart';
 import 'package:hazard_app/features/map/providers/hazard_markers_bitmaps_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/service_providers.dart';
@@ -40,7 +41,6 @@ import 'package:hazard_app/features/map/views/widgets/route_label_marker.dart';
 import 'package:hazard_app/features/search/models/hazard_search_params.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
-import 'package:hazard_app/features/shared/enums/hazard_severity_types.dart';
 import 'package:hazard_app/features/shared/enums/sort_category_types.dart';
 import 'package:hazard_app/features/shared/enums/sort_order_types.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
@@ -51,10 +51,11 @@ import 'package:hazard_app/features/shared/providers/hazard_item_provider.dart';
 import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/hazard_service.dart';
 import 'package:hazard_app/features/shared/utils/location_helper.dart';
-import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
+import 'package:hazard_app/features/shared/utils/community_disc_marker.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:widget_to_marker/widget_to_marker.dart';
 import 'package:hazard_app/features/shared/providers/community_safety_provider.dart';
+import 'package:hazard_app/features/map/utils/test_build.dart';
 
 final providerOfMap =
     StateNotifierProvider.autoDispose<MapProvider, MapProviderState>(
@@ -554,11 +555,20 @@ class MapProvider extends StateNotifier<MapProviderState> {
 
     // If origin is different from current user location, get a new route then start navigation
     if (origin != currentUserLocation) {
+      final chosenMode = currentRoutePlan.selectedTravelMode;
       await getRoutePlan(
         origin: currentUserLocation,
         destination: destination,
       );
       if (!mounted) return;
+      // The fresh plan starts on its default mode; keep the mode the person
+      // chose (Walk, Bike, Transit) so navigation follows what they picked.
+      final refreshed = state.currentRoutePlan;
+      if (refreshed != null &&
+          refreshed.selectedTravelMode != chosenMode &&
+          refreshed.travelModeRoutes.containsKey(chosenMode)) {
+        updateSelectedTravelMode(chosenMode);
+      }
     }
 
     _logStartNavigationSteps();
@@ -1287,8 +1297,8 @@ class MapProvider extends StateNotifier<MapProviderState> {
     // Calculate if user is within 300m of the closest hazard corridor
     bool isUserNear = false;
     HazardCorridor? closestCorridor;
+    double minDistance = double.infinity;
     if (corridors.isNotEmpty) {
-      double minDistance = double.infinity;
 
       for (final corridor in corridors) {
         final distanceToCenter = calculateDistanceInMeters(
@@ -1320,17 +1330,15 @@ class MapProvider extends StateNotifier<MapProviderState> {
         // New hazard detected - show button and start timer
         shouldShowButton = true;
         newLastAlertedHazardId = closestHazardId;
-
-        // Cancel existing timer and start a new one
-        _takeAlternateRouteButtonTimer?.cancel();
-        _takeAlternateRouteButtonTimer = Timer(
-          const Duration(seconds: 10),
-          () {
-            if (mounted) {
-              state = state.copyWith(showTakeAlternateRouteButton: false);
-            }
-          },
+        _notifyHazardAheadIfBackgrounded(
+          closestCorridor.hazards.first,
+          minDistance,
         );
+
+        // The en-route sheet stays until the person chooses Avoid, View or
+        // Keep going (EnRouteAlert board); no auto-hide timer.
+        _takeAlternateRouteButtonTimer?.cancel();
+        _takeAlternateRouteButtonTimer = null;
       }
       // If it's the same hazard, keep the current button state and timer
     } else {
@@ -1364,6 +1372,26 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// 4. If it still does, retry with a different side / wider offset.
   /// 5. On success, swap the active route and remember the corridor so a
   ///    later detour doesn't reuse this same area.
+  /// The app is in the background while navigating: tell the person about
+  /// the alert ahead with a notification (the in-app prompt cannot be seen).
+  void _notifyHazardAheadIfBackgrounded(
+    final Hazard hazard,
+    final double metres,
+  ) {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == null || lifecycle == AppLifecycleState.resumed) return;
+    final distance = metres >= 1000
+        ? '${(metres / 1000).toStringAsFixed(1)} km'
+        : '${metres.round()} m';
+    final name = hazard.title ?? hazard.category?.name ?? 'An alert';
+    unawaited(
+      LocalNotificationService.instance.showHazardAhead(
+        title: 'Ahead on your route: $name',
+        body: '$distance ahead. Open ALRT to see it or take another way.',
+      ),
+    );
+  }
+
   Future<void> takeAlternateRoute() async {
     if (state.takeAlternateRouteState.isLoading) return;
 
@@ -1564,7 +1592,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
 
   /// Debug-only: toggles whether GPS is ignored and movement is simulated.
   void toggleNavigationSimulation() {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     if (!(state.currentRoutePlan?.isNavigating ?? false)) return;
     final enablingSim = !state.navigationSimulationEnabled;
     state = state.copyWith(
@@ -1601,7 +1629,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
     required double northMeters,
     required double eastMeters,
   }) {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     if (!state.navigationSimulationEnabled) return;
     final plan = state.currentRoutePlan;
     if (plan == null || !plan.isNavigating) return;
@@ -1647,7 +1675,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// Debug-only: advance [meters] along the active route polyline toward the
   /// destination (realistic step progression for desk testing).
   void simulateAdvanceAlongRoute(final double meters) {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     if (!state.navigationSimulationEnabled) return;
     final plan = state.currentRoutePlan;
     final safest = plan?.currentRoute;
@@ -1683,7 +1711,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
 
   /// Debug-only: jump to [latLng] (used with map long-press while sim is on).
   void simulateTeleportToNavigationLocation(final LatLng latLng) {
-    if (!kDebugMode) return;
+    if (!isTestBuild) return;
     if (!state.navigationSimulationEnabled) return;
     final plan = state.currentRoutePlan;
     if (plan == null || !plan.isNavigating) return;
@@ -1731,7 +1759,7 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// Debug-only: shows the simulated navigation position as an Azure pin on
   /// the map (real GPS continues to use the blue-dot pipeline when sim is off).
   void _syncSimulatedNavigationMarker() {
-    if (!kDebugMode) {
+    if (!isTestBuild) {
       _removeSimulatedNavigationMarker();
       return;
     }
@@ -1805,27 +1833,41 @@ class MapProvider extends StateNotifier<MapProviderState> {
             .toList();
     final currentZoom = state.cameraPosition.zoom;
     final individualMarkers = <Marker>[];
+    final markerBitmaps = _hazardMarkerBitmapsProviderState.markerBitmaps;
 
-    if (currentZoom < kClusterMaxZoom) {
-      final clusters = clusterHazards(hazards: hazards, zoom: currentZoom);
-      final markerBitmaps = _hazardMarkerBitmapsProviderState.markerBitmaps;
+    Future<Marker> hazardMarker(
+      final Hazard hazard, {
+      final (double, double)? offset,
+    }) async {
+      final dLat = offset?.$1 ?? 0.0;
+      final dLng = offset?.$2 ?? 0.0;
+      return Marker(
+        markerId: MarkerId(
+          'hazard_${hazard.id ?? '${hazard.latitude},${hazard.longitude}'}',
+        ),
+        position: LatLng(hazard.latitude! + dLat, hazard.longitude! + dLng),
+        onTap: () => _onIndividualMarkerTap(hazard: hazard),
+        consumeTapEvents: true,
+        // Warnings sit above advice and community pins where they touch.
+        zIndexInt: isClusterExempt(hazard) ? 1 : 0,
+        icon:
+            await _hazardMarkerBitmap(hazard, markerBitmaps) ??
+            BitmapDescriptor.defaultMarker,
+      );
+    }
+
+    if (currentZoom < kNoGroupingZoom) {
+      // City zoom groups by the 64 px grid; street zoom only groups pins
+      // that would sit on top of each other (34 px), so nothing hides.
+      final clusters = clusterHazards(
+        hazards: hazards,
+        zoom: currentZoom,
+        gridPx: currentZoom < kClusterMaxZoom ? kClusterGridPx : kOverlapGridPx,
+      );
 
       for (final cluster in clusters) {
         if (cluster.isSingle) {
-          final hazard = cluster.single;
-          individualMarkers.add(
-            Marker(
-              markerId: MarkerId(
-                'hazard_${hazard.id ?? '${hazard.latitude},${hazard.longitude}'}',
-              ),
-              position: LatLng(hazard.latitude!, hazard.longitude!),
-              onTap: () => _onIndividualMarkerTap(hazard: hazard),
-              consumeTapEvents: true,
-              icon:
-                  await _hazardMarkerBitmap(hazard, markerBitmaps) ??
-                  BitmapDescriptor.defaultMarker,
-            ),
-          );
+          individualMarkers.add(await hazardMarker(cluster.single));
           continue;
         }
 
@@ -1843,25 +1885,13 @@ class MapProvider extends StateNotifier<MapProviderState> {
         );
       }
     } else {
+      // Closest zoom: every pin on its own, and pins sharing a spot are
+      // fanned out on a small ring instead of stacking.
+      final offsets = fanOutOffsets(hazards: hazards, zoom: currentZoom);
       for (final hazard in hazards) {
         if (hazard.latitude == null || hazard.longitude == null) continue;
-
-        final markerBitmaps = _hazardMarkerBitmapsProviderState.markerBitmaps;
-        final bitmapDescriptor = await _hazardMarkerBitmap(
-          hazard,
-          markerBitmaps,
-        );
-
         individualMarkers.add(
-          Marker(
-            markerId: MarkerId(
-              'hazard_${hazard.id ?? '${hazard.latitude},${hazard.longitude}'}',
-            ),
-            position: LatLng(hazard.latitude!, hazard.longitude!),
-            onTap: () => _onIndividualMarkerTap(hazard: hazard),
-            consumeTapEvents: true,
-            icon: bitmapDescriptor ?? BitmapDescriptor.defaultMarker,
-          ),
+          await hazardMarker(hazard, offset: offsets[hazard.id]),
         );
       }
     }
@@ -2025,7 +2055,11 @@ class MapProvider extends StateNotifier<MapProviderState> {
   /// Tapping a cluster zooms in towards its centroid to break it apart.
   void _onClusterMarkerTap(final HazardCluster cluster) {
     final currentZoom = state.cameraPosition.zoom;
-    final targetZoom = min(currentZoom + 2.5, kClusterMaxZoom + 1.5);
+    // Far out, jump towards street level; at street zoom (an overlap
+    // bubble) go close enough for the pins to separate.
+    final targetZoom = currentZoom < kClusterMaxZoom
+        ? min(currentZoom + 2.5, kClusterMaxZoom + 1.5)
+        : min(currentZoom + 2.0, kNoGroupingZoom + 0.5);
     animateTo(
       position: LatLng(cluster.latitude, cluster.longitude),
       zoom: targetZoom,
@@ -2053,54 +2087,35 @@ class MapProvider extends StateNotifier<MapProviderState> {
       final disc = await _getCommunityDiscBitmap(hazard);
       if (disc != null) return disc;
     }
-    return hazard.getMarkerBitmapDescriptor(markerBitmaps);
-  }
-
-  /// Cache of community category discs, one per category.
-  final Map<String, BitmapDescriptor> _communityDiscBitmapCache = {};
-
-  /// Draws (and caches) the community pin: the category disc (product
-  /// owner, 12 Oct 2026), a 30 px circle in the category colour with a
-  /// 2.5 px white ring and the category's white glyph, the same picture
-  /// [CategoryGlyph] draws on the chips and the cards. A community report
-  /// wears its category, never a band colour.
-  Future<BitmapDescriptor?> _getCommunityDiscBitmap(final Hazard hazard) async {
-    final category = hazard.category;
-    if (category == null) return null;
-    // A child category (say "bushfire") has no glyph of its own; the
-    // parent's glyph and colour are the ones the chips show.
-    final parent = category.parent;
-    final drawn = CategoryGlyph.iconFor(category.name) == null && parent != null
-        ? parent
-        : category;
-    final cacheKey = drawn.id;
-    final cached = _communityDiscBitmapCache[cacheKey];
-    if (cached != null) return cached;
-
-    try {
-      const size = 36.0;
-      // Room for the ring plus a transparent margin: the margin makes the
-      // tap target bigger than the disc itself.
-      const canvas = 46.0;
-      final widget = Center(
-        child: CategoryGlyph(
-          category: drawn,
-          size: size,
-          borderColor: AppColors.white,
-          borderWidth: 2.5,
-        ),
-      );
-      final bitmap = await widget.toBitmapDescriptor(
-        logicalSize: const Size(canvas, canvas),
-        imageSize: const Size(canvas * 2.5, canvas * 2.5),
-      );
-      _communityDiscBitmapCache[cacheKey] = bitmap;
-      return bitmap;
-    } catch (_) {
-      // A failed disc falls back to the pin set, never a missing marker.
-      return null;
+    // Category artwork (diamond or AWS triangle with the hazard pictogram)
+    // first, as on the live app. A template-coloured bare shape has no
+    // pictogram, so it is only the fallback when no artwork resolved.
+    final artwork = hazard.getMarkerBitmapDescriptor(markerBitmaps);
+    if (artwork != null &&
+        !_isBareShapePin(artwork, hazard, markerBitmaps)) {
+      return artwork;
     }
+    return await templateMarker(hazard) ?? artwork;
   }
+
+  /// Whether [bitmap] is the plain shape × band pin (no pictogram), the
+  /// last-resort fallback in [Hazard.getMarkerBitmapDescriptor].
+  bool _isBareShapePin(
+    final BitmapDescriptor bitmap,
+    final Hazard hazard,
+    final Map<String, BitmapDescriptor> markerBitmaps,
+  ) {
+    final band = hazard.severityBand ?? HazardSeverityBand.info;
+    return identical(
+      bitmap,
+      markerBitmaps['shape_${hazard.effectiveMapShape.name}_${band.name}'],
+    );
+  }
+
+  /// The community category disc, shared with the detail screen's small
+  /// map so both draw the same pin.
+  Future<BitmapDescriptor?> _getCommunityDiscBitmap(final Hazard hazard) =>
+      communityDiscMarker(hazard);
 
   /// Draws (and caches) the shield pin: the band hex on a white ground so
   /// it reads against the map, same treatment as every other shape -
@@ -2142,16 +2157,17 @@ class MapProvider extends StateNotifier<MapProviderState> {
   Future<BitmapDescriptor?> _getClusterBitmap(
     final HazardCluster cluster,
   ) async {
-    final severity = cluster.dominantSeverity;
-    final badgeColor = switch (severity) {
-      HazardSeverity.emergency => AppColors.emergency,
-      HazardSeverity.watchAndAct => AppColors.watchAndAct,
-      HazardSeverity.advice => AppColors.advice,
-      // The quiet end of the scale is the Info grey. Black is not a band,
-      // and the key says so.
-      _ => AppColors.info,
+    // As on the live app: a black bubble with a white count, turning
+    // orange or red only when an Action or Critical alert is inside, so a
+    // grey or yellow bubble never hides a serious warning (product owner,
+    // 14 Oct 2026: match prod grouping).
+    final band = cluster.dominantBand;
+    final badgeColor = switch (band) {
+      HazardSeverityBand.critical => AppColors.emergency,
+      HazardSeverityBand.action => AppColors.watchAndAct,
+      _ => const Color(0xFF111114),
     };
-    final cacheKey = '${cluster.label}_${severity.name}';
+    final cacheKey = '${cluster.label}_${band?.name ?? 'none'}';
 
     final cached = _clusterBitmapCache[cacheKey];
     if (cached != null) return cached;

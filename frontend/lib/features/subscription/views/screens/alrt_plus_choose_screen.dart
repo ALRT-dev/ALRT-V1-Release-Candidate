@@ -118,28 +118,39 @@ class _AlrtPlusChooseScreenState extends ConsumerState<AlrtPlusChooseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const ink = Color(0xFF1C1C1E);
+    const muted = Color(0xFF5C5C66);
     return Scaffold(
-      backgroundColor: kPaywallBody,
+      backgroundColor: const Color(0xFFF5F5F7),
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.fromLTRB(18.spMin, 8.spMin, 18.spMin, 24.spMin),
+          padding: EdgeInsets.fromLTRB(20.spMin, 8.spMin, 20.spMin, 24.spMin),
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                tooltip: 'Back',
-                icon: const Icon(LucideIcons.chevronLeft),
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
+            Row(
+              children: [
+                SizedBox(
+                  width: 40.spMin,
+                  child: IconButton(
+                    tooltip: 'Back',
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(LucideIcons.chevronLeft, color: ink),
+                    onPressed: () => Navigator.of(context).pop(false),
+                  ),
+                ),
+                // The board also centres "ALRT +" here; it is left out so
+                // the plan pill on the first card stays the one "ALRT +".
+                const Spacer(),
+              ],
             ),
-            SizedBox(height: 4.spMin),
+            SizedBox(height: 8.spMin),
             Text(
               kChooseHeading,
               style: TextStyle(
-                fontSize: 26.spMin,
+                fontSize: 28.spMin,
                 fontWeight: FontWeight.w700,
-                height: 1.2,
-                color: kPaywallInk,
+                letterSpacing: -0.4,
+                height: 1.15,
+                color: ink,
               ),
             ),
             SizedBox(height: 8.spMin),
@@ -147,9 +158,9 @@ class _AlrtPlusChooseScreenState extends ConsumerState<AlrtPlusChooseScreen> {
               'Alerts, the live map, navigation, one saved place and 3 Ask '
               'ALRT questions a day are always free.',
               style: TextStyle(
-                fontSize: 14.spMin,
+                fontSize: 15.spMin,
                 height: 1.5,
-                color: kPaywallInkSoft,
+                color: muted,
               ),
             ),
             SizedBox(height: 18.spMin),
@@ -185,29 +196,25 @@ class _AlrtPlusChooseScreenState extends ConsumerState<AlrtPlusChooseScreen> {
                 }
               },
             ),
-            SizedBox(height: 16.spMin),
+            SizedBox(height: 14.spMin),
             // Prices are the store's, never typed here; a group plan buys
             // nobody personal extras, the payer included.
             Text(
               'Prices come from your app store. No annual plan. A group plan '
               'gives nobody personal extras, including the payer.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5.spMin,
-                height: 1.5,
-                color: kPaywallInkFaint,
-              ),
+              style: TextStyle(fontSize: 12.spMin, height: 1.5, color: muted),
             ),
-            SizedBox(height: 14.spMin),
-            Center(
+            SizedBox(height: 24.spMin),
+            SizedBox(
+              height: 44.spMin,
               child: TextButton(
-                style: TextButton.styleFrom(foregroundColor: kPaywallInk),
+                style: TextButton.styleFrom(foregroundColor: muted),
                 onPressed: () => Navigator.of(context).pop(false),
                 child: Text(
                   kContinueFree,
                   style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

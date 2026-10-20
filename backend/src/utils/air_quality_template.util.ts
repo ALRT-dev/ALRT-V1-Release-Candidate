@@ -1,5 +1,6 @@
 import { HazardSeverityBand } from "@prisma/client";
 import type { AISummaryResponse } from "../models/ai_summary_response_interface.js";
+import { waqiRatingFor } from "./waqi_rating.util.js";
 
 /**
  * Deterministic, zero-AI content for Air Quality Alert category hazards
@@ -12,63 +13,58 @@ import type { AISummaryResponse } from "../models/ai_summary_response_interface.
  * told to "STRICTLY follow" canned example wording rather than the wording
  * being used directly and deterministically.
  *
- * The wording below is lifted unchanged from the pre-existing AI-prompt
- * examples for this category (ai-prompt.util.ts's
- * getAirQualityAlertCategoryPrompt) — already product-reviewed content for
- * this exact use case — not newly authored here. See the report for a
- * flagged, unresolved question about whether that wording's "avoid
- * outdoor activities / stay indoors" phrasing needs a product-owner check
- * against §9.2's physical-movement rule, since it is standard public
- * health messaging rather than an attributed source directive.
+ * The legacy fallback below now labels ALRT suggestions and defers to
+ * local health advice and official fire/evacuation instructions. Published
+ * templates select editable suggestions and profile rows from the reviewed
+ * library. These statements are never attributed to WAQI as instructions.
  */
-
-const MANDATORY_HEALTH_CLOSE =
-  "This information is general awareness only and is not a substitute for personal medical advice. If you have health concerns, speak with your GP or call Healthdirect.";
 
 /**
- * Plain words, no number (owner instruction 2026-10-14). WAQI reports the US
- * AQI scale, so the descriptors are that scale's own: 101 to 150 unhealthy
- * for sensitive groups, 151 to 200 unhealthy, 201 to 300 very unhealthy,
- * above 300 hazardous. The number stays in the source text, not on the card.
+ * The summary is the source's statement, in the source's own rating words
+ * and never a number (product owner, 16 Oct 2026; purge list, pack file
+ * 03): "World Air Quality Index reports that air quality near {station}
+ * is {rating}." The rating comes from the description line the parser
+ * wrote; for an older record without that line it is WAQI's rating for
+ * the machine "AQI: n" field, and the band is the last fallback.
  */
-const SUMMARY_BY_BAND: Record<
-  HazardSeverityBand,
-  (params: { stationName: string; aqiValue: number | null }) => string
-> = {
-  [HazardSeverityBand.info]: ({ stationName }) =>
-    `Air quality is good near ${stationName}.`,
-  [HazardSeverityBand.monitor]: ({ stationName }) =>
-    `Air quality is moderate near ${stationName}.`,
-  [HazardSeverityBand.action]: ({ stationName }) =>
-    `Air quality near ${stationName} is unhealthy for sensitive groups, as reported by WAQI.`,
-  [HazardSeverityBand.critical]: ({ stationName, aqiValue }) =>
-    aqiValue !== null && aqiValue > 300
-      ? `Air quality near ${stationName} is hazardous, as reported by WAQI.`
-      : aqiValue !== null && aqiValue > 200
-        ? `Air quality near ${stationName} is very unhealthy, as reported by WAQI.`
-        : `Air quality near ${stationName} is unhealthy for everyone, as reported by WAQI.`,
+const RATING_BY_BAND: Record<HazardSeverityBand, string> = {
+  [HazardSeverityBand.info]: "good",
+  [HazardSeverityBand.monitor]: "moderate",
+  [HazardSeverityBand.action]: "unhealthy for sensitive groups",
+  [HazardSeverityBand.critical]: "unhealthy",
 };
 
-/**
- * ALRT is not a health authority, so no ALRT-authored health directives
- * (owner decision 2026-10-14, option b): one generic pointer to the state
- * air quality service, the fixed health close, and for the Critical band
- * only the standing "call your local emergency number" line (no digits).
- */
-const CHECK_UPDATES_LINE = "Check your state air quality service for updates.";
+const summaryFor = ({
+  stationName,
+  rating,
+}: {
+  stationName: string;
+  rating: string;
+}): string =>
+  `World Air Quality Index reports that air quality near ${stationName} is ${rating}.`;
 
+/**
+ * ALRT's own practical lines, no prefix (product owner, 16 Oct 2026):
+ * "Consider ..." wording, or a plain safety statement. The app labels
+ * them as general guidance from ALRT under the block.
+ */
 const CALLS_TO_ACTION_BY_BAND: Record<HazardSeverityBand, string[]> = {
   [HazardSeverityBand.info]: [],
-  [HazardSeverityBand.monitor]: [CHECK_UPDATES_LINE, MANDATORY_HEALTH_CLOSE],
-  [HazardSeverityBand.action]: [CHECK_UPDATES_LINE, MANDATORY_HEALTH_CLOSE],
+  [HazardSeverityBand.monitor]: [
+    "Consider keeping an eye on official air quality updates if you are sensitive to air pollution.",
+  ],
+  [HazardSeverityBand.action]: [
+    "Polluted air affects people with heart or lung conditions, older adults and children first. Consider limiting long or strenuous time outdoors.",
+    "If you have a breathing condition, consider keeping your usual medication within reach and following your care plan.",
+  ],
   [HazardSeverityBand.critical]: [
-    CHECK_UPDATES_LINE,
-    "If you have severe breathing difficulty or chest pain, call your local emergency number.",
-    MANDATORY_HEALTH_CLOSE,
+    "Polluted air at this level can affect anyone. Consider staying indoors with windows closed and limiting time outside.",
+    "Any official fire or evacuation directions take priority over this.",
+    "If breathing becomes difficult, a health professional can help.",
   ],
 };
 
-/** Extracts the numeric AQI value from parseWAQIToHazards's fixed-format description ("...AQI: 87..."). Returns null rather than throwing if the format ever changes. */
+/** Extracts the numeric AQI value from parseWAQIToHazards's description (machine field "AQI: 87"). Never shown to people; returns null if absent. */
 export const parseAqiValueFromDescription = (
   description: string,
 ): number | null => {
@@ -102,11 +98,19 @@ export const getDeterministicAirQualityContent = ({
   description: string;
   severityBand: HazardSeverityBand;
 }): AISummaryResponse => {
-  const aqiValue = parseAqiValueFromDescription(description);
   const stationName = parseStationNameFromDescription(description, title);
+  const ratingLine = /Air quality:\s*(.+?)\s*\(World Air Quality Index rating\)/.exec(
+    description,
+  )?.[1]?.trim();
+  const aqiValue = parseAqiValueFromDescription(description);
+  const rating = (
+    ratingLine ??
+    (aqiValue !== null ? waqiRatingFor(aqiValue) : null) ??
+    RATING_BY_BAND[severityBand]
+  ).toLowerCase();
   return {
     title,
-    summary: SUMMARY_BY_BAND[severityBand]({ stationName, aqiValue }),
+    summary: summaryFor({ stationName, rating }),
     callsToAction: CALLS_TO_ACTION_BY_BAND[severityBand],
     confidence: "high",
   };

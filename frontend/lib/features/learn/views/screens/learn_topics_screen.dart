@@ -591,13 +591,92 @@ class LearnTopicsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.extraLightGrey,
+    return const Scaffold(
+      backgroundColor: Color(0xFFF5F5F7),
       body: Column(
         children: [
-          const LearnHeader(title: 'Learn'),
-          const Expanded(child: LearnTopicsView()),
+          _LearnHubHeader(),
+          Expanded(child: LearnTopicsView()),
         ],
+      ),
+    );
+  }
+}
+
+/// The Learn board's header: no bar, a back chevron with "Learn" at 28 px,
+/// and the XP earned from guides in a white pill on the right.
+class _LearnHubHeader extends ConsumerWidget {
+  const _LearnHubHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final xp = ref.watch(providerOfLearn.select((s) => s.totalXpEarned));
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(8.spMin, 8.spMin, 16.spMin, 4.spMin),
+        child: Row(
+          children: [
+            InkWell(
+              onTap: () => context.pop(),
+              borderRadius: BorderRadius.circular(12.spMin),
+              child: Padding(
+                padding: EdgeInsets.all(4.spMin),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.chevronLeft,
+                      color: AppColors.black,
+                      size: 26.spMin,
+                    ),
+                    6.wSizedBox,
+                    Text(
+                      'Learn',
+                      style: TextStyle(
+                        fontSize: 28.spMin,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.4,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              height: 30.spMin,
+              padding: EdgeInsets.symmetric(horizontal: 12.spMin),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(15.spMin),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.star, size: 14.spMin, color: AppColors.orange),
+                  6.wSizedBox,
+                  Text(
+                    '$xp XP',
+                    style: TextStyle(
+                      fontSize: 13.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

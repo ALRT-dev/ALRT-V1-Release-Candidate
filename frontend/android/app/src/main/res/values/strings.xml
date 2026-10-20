@@ -4,7 +4,7 @@
     <!-- Home-screen widget picker entries. Without these the picker falls
          back to the app label, which carries the flavour prefix. -->
     <string name="widget_alerts_label">ALRT Nearby Alerts</string>
-    <string name="widget_alerts_description">Nearest alert, or all clear when there is nothing near you.</string>
+    <string name="widget_alerts_description">Nearest alert, or a quiet state when nothing official is near you.</string>
     <string name="widget_family_label">ALRT Family</string>
     <string name="widget_family_description">Your family circles: SOS, check-in requests and status at a glance.</string>
     <string name="shortcut_pin_alerts_short">Add Alerts widget</string>

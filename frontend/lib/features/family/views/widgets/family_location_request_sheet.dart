@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_widgets.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
-import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Shows the consent sheet for a "where are you" location request.
 ///
@@ -52,118 +50,43 @@ class _FamilyLocationRequestSheetState
   Widget build(BuildContext context) {
     final requester = widget.requesterName ?? 'A family member';
 
-    return SafeArea(
-      child: Container(
-        margin: EdgeInsets.all(12.spMin),
-        padding: EdgeInsets.all(24.spMin),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24.spMin),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 56.spMin,
-              height: 56.spMin,
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: FamilyColors.indigoLight,
-                shape: BoxShape.circle,
+    // The LocationRequest board: a plain sheet, the question, Share once
+    // on the family gradient and Not now. Nothing leaves the phone unless
+    // Share once is tapped.
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20.spMin, 12.spMin, 20.spMin, 16.spMin),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const FamilyBoardSheetHandle(),
+              SizedBox(height: 14.spMin),
+              FamilyBoardSheetTitle(
+                title: '$requester asked where you are',
+                subtitle:
+                    'Share a one-time snapshot of your location? It expires '
+                    'after 1 hour. Declining sends nothing.',
               ),
-              child: Icon(
-                LucideIcons.mapPin,
-                color: FamilyColors.indigo,
-                size: 28.spMin,
+              SizedBox(height: 16.spMin),
+              FamilyBoardPrimaryButton(
+                label: 'Share once',
+                isLoading: _isSharing,
+                onPressed: _shareOnce,
               ),
-            ),
-            SizedBox(height: 16.spMin),
-            Text(
-              '$requester asked where you are',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 19.spMin,
-                fontWeight: FontWeight.w800,
-                color: AppColors.black,
-              ),
-            ),
-            SizedBox(height: 8.spMin),
-            Text(
-              'Share a one-time snapshot of your current location with your '
-              'circle? It expires after 1 hour and is never updated '
-              'automatically.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14.spMin,
-                height: 1.45,
-                color: AppColors.grey,
-              ),
-            ),
-            SizedBox(height: 20.spMin),
-            SizedBox(
-              height: 52.spMin,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FamilyColors.indigo,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.spMin),
-                  ),
-                ),
-                onPressed: _isSharing ? null : _shareOnce,
-                child: _isSharing
-                    ? SizedBox(
-                        width: 20.spMin,
-                        height: 20.spMin,
-                        child: const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(
-                        'Share once',
-                        style: TextStyle(
-                          fontSize: 16.spMin,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-              ),
-            ),
-            SizedBox(height: 8.spMin),
-            SizedBox(
-              height: 48.spMin,
-              child: TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.grey,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.spMin),
-                  ),
-                ),
+              SizedBox(height: 10.spMin),
+              FamilyBoardSecondaryButton(
+                label: 'Not now',
                 onPressed: _isSharing ? null : _decline,
-                child: Text(
-                  'Not now',
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ),
-            ),
-            SizedBox(height: 8.spMin),
-            Text(
-              'Declining sends nothing. Location is shared only when '
-              'someone chooses it, and live sharing can be stopped at any '
-              'time.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11.spMin,
-                height: 1.4,
-                color: AppColors.grey,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -202,6 +125,10 @@ class _FamilyLocationRequestSheetState
     ref
         .read(providerOfFamily.notifier)
         .respondToLocationRequest(requestId: widget.requestId, share: false);
+    final root = ref.read(providerOfGlobalNavigatorKey).currentContext;
     Navigator.of(context).pop();
+    if (root != null && root.mounted) {
+      root.showSuccessToast(message: 'Declined. Nothing was sent.');
+    }
   }
 }

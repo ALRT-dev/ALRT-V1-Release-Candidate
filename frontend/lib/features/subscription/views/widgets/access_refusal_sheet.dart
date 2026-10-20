@@ -17,8 +17,6 @@ import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
 import 'package:hazard_app/features/subscription/utils/store_management.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_group_paywall_screen.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
-import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
-import 'package:hazard_app/features/subscription/views/widgets/plan_identity.dart';
 
 /// Shows [error] the right way: a coded access refusal gets its own sheet
 /// with the one or two actions that actually help; anything else stays a
@@ -134,10 +132,19 @@ Future<void> showAccessRefusalSheet(
   }
 }
 
+/// The refusal sheet in the boards' language (Refusal-SavedPlace,
+/// Refusal-IndividualRequired): grab handle, a 22 px title, the plain
+/// reason, one orange action, an optional outlined one, then "Not now".
 class _RefusalSheet extends StatelessWidget {
   const _RefusalSheet({required this.presentation});
 
   final RefusalPresentation presentation;
+
+  static const _ink = Color(0xFF1C1C1E);
+  static const _body = Color(0xFF3A3A42);
+  static const _muted = Color(0xFF5C5C66);
+  static const _handle = Color(0xFFD9D6D0);
+  static const _orange = Color(0xFFE8622A);
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +154,7 @@ class _RefusalSheet extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
       ),
-      padding: EdgeInsets.fromLTRB(22.spMin, 14.spMin, 22.spMin, 16.spMin),
+      padding: EdgeInsets.fromLTRB(16.spMin, 10.spMin, 16.spMin, 12.spMin),
       child: SafeArea(
         top: false,
         child: Column(
@@ -156,73 +163,103 @@ class _RefusalSheet extends StatelessWidget {
           children: [
             Center(
               child: Container(
-                width: 38.spMin,
-                height: 4.spMin,
+                width: 40.spMin,
+                height: 5.spMin,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3DFEA),
-                  borderRadius: BorderRadius.circular(2),
+                  color: _handle,
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
             ),
-            SizedBox(height: 18.spMin),
+            SizedBox(height: 14.spMin),
             Text(
               p.title,
               style: TextStyle(
-                fontSize: 18.spMin,
-                fontWeight: FontWeight.w800,
-                color: kPaywallInk,
+                fontSize: 22.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+                color: _ink,
               ),
             ),
-            SizedBox(height: 8.spMin),
+            SizedBox(height: 10.spMin),
             Text(
               p.body,
-              style: TextStyle(
-                fontSize: 14.spMin,
-                height: 1.5,
-                color: kPaywallInkSoft,
-              ),
+              style: TextStyle(fontSize: 14.spMin, height: 1.5, color: _body),
             ),
-            SizedBox(height: 20.spMin),
+            SizedBox(height: 16.spMin),
             if (p.primary != null)
-              PlanCta(
-                label: p.primaryLabel!,
-                identity: _identityFor(p.primary!),
-                onPressed: () => Navigator.of(context).pop(p.primary),
+              Container(
+                height: 54.spMin,
+                decoration: BoxDecoration(
+                  color: _orange,
+                  borderRadius: BorderRadius.circular(14.spMin),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _orange.withValues(alpha: 0.25),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14.spMin),
+                    onTap: () => Navigator.of(context).pop(p.primary),
+                    child: Center(
+                      child: Text(
+                        p.primaryLabel!,
+                        style: TextStyle(
+                          fontSize: 16.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             if (p.secondary != null) ...[
-              SizedBox(height: 8.spMin),
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(p.secondary),
-                style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 14.spMin),
-                  shape: const StadiumBorder(),
+              SizedBox(height: 10.spMin),
+              SizedBox(
+                height: 48.spMin,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(p.secondary),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _ink,
+                    side: const BorderSide(color: _handle),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.spMin),
+                    ),
+                  ),
+                  child: Text(
+                    p.secondaryLabel!,
+                    style: TextStyle(
+                      fontSize: 14.spMin,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                child: Text(p.secondaryLabel!),
               ),
             ],
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(p.primary == null ? 'OK' : 'Not now'),
+            SizedBox(height: 6.spMin),
+            SizedBox(
+              height: 44.spMin,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(foregroundColor: _muted),
+                child: Text(
+                  p.primary == null ? 'OK' : 'Not now',
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
   }
-
-  PlanIdentity _identityFor(final RefusalAction action) => switch (action) {
-    RefusalAction.seeAlrtPlus ||
-    RefusalAction.useOwnAlrtPlus => PlanIdentity.individual,
-    RefusalAction.coverGroup ||
-    RefusalAction.upgradeGroup ||
-    RefusalAction.renewInStore => PlanIdentity.group,
-    RefusalAction.inviteSomeone ||
-    RefusalAction.editSosList => const PlanIdentity(
-      name: '',
-      accent: Color(0xFF3D3DDF),
-      tint: Color(0xFFF0EEF5),
-      darkAccent: Color(0xFFA5A5FF),
-      gradient: [Color(0xFF3D3DDF), Color(0xFF3D3DDF)],
-    ),
-  };
 }

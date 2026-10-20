@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
-import 'package:hazard_app/features/family/utils/family_hub_labels.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_widgets.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
-import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
-import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
-import 'package:hazard_app/others/app_surface_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:intl/intl.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 /// What a tap on a member row opens: who they are, what their chip means,
 /// and every action the tapper is allowed to take on them — visible and
@@ -31,7 +29,7 @@ Future<void> showFamilyMemberDetailsSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: context.surfaceCard,
+    backgroundColor: Colors.white,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20.spMin)),
     ),
@@ -82,15 +80,6 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final chip = memberStatusChip(
-      member: member,
-      hasAnswered: hasAnswered,
-      isNearAlert: isNearAlert,
-    );
-    final safe = chip == 'Checked in';
-    final chipInk = safe ? FamilyColors.safeGreen : FamilyColors.amber;
-    final chipBackground =
-        safe ? FamilyColors.safeGreenLight : FamilyColors.amberLight;
     final media = MediaQuery.of(context);
     final bottom =
         media.viewInsets.bottom > media.viewPadding.bottom
@@ -102,242 +91,143 @@ class FamilyMemberDetailsSheet extends StatelessWidget {
       action();
     }
 
+    final name = isMe ? '${member.name} (you)' : member.name;
+    final title = member.role == FamilyRole.owner
+        ? '$name · hosts this circle'
+        : name;
+    final snapshot = member.locationLabel;
+    final expiresAt = member.locationExpiresAt;
+    final message = lastCheckIn?.message;
+
+    // The approved MemberSheet board: name, one line of facts, an optional
+    // last snapshot, then one outlined button per action and Close.
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.spMin, 18.spMin, 20.spMin, bottom + 20.spMin),
+      padding: EdgeInsets.fromLTRB(20.spMin, 12.spMin, 20.spMin, bottom + 12.spMin),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const FamilyBoardSheetHandle(),
+          SizedBox(height: 14.spMin),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FamilyMemberAvatar(
-                member: member,
-                size: 56.0,
-                isNearAlert: isNearAlert,
-              ),
-              SizedBox(width: 14.spMin),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isMe ? '${member.name} (You)' : member.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 18.spMin,
-                        fontWeight: FontWeight.w800,
-                        color: context.onSurface,
-                      ),
-                    ),
-                    SizedBox(height: 4.spMin),
-                    Text(
-                      _roleLine,
-                      style: TextStyle(
-                        fontSize: 12.5.spMin,
-                        color: context.onSurfaceMuted,
-                      ),
-                    ),
-                  ],
+                child: FamilyBoardSheetTitle(
+                  title: title,
+                  subtitle: '${_factLine(now)} · sharing '
+                      '${sharingLevelLabel(member.sharingLevel).toLowerCase()}',
                 ),
               ),
-              SizedBox(width: 8.spMin),
-              Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 6.spMin),
-                decoration: BoxDecoration(
-                  color: chipBackground,
-                  borderRadius: BorderRadius.circular(20.spMin),
-                ),
-                child: Text(
-                  chip,
+              if (_pill != null) ...[
+                SizedBox(width: 8.spMin),
+                _pill!,
+              ],
+            ],
+          ),
+          if (isNearAlert) ...[
+            SizedBox(height: 8.spMin),
+            const FamilyBoardMuted(
+              'Their last known area is near an active alert.',
+            ),
+          ],
+          if (lastCheckIn?.hazard != null) ...[
+            SizedBox(height: 8.spMin),
+            FamilyBoardMuted(
+              'Checked in near "${lastCheckIn!.hazard!.title}"',
+            ),
+          ],
+          if (message != null && message.isNotEmpty) ...[
+            SizedBox(height: 8.spMin),
+            FamilyBoardMuted('"$message"'),
+          ],
+          if (snapshot != null && snapshot.isNotEmpty) ...[
+            SizedBox(height: 12.spMin),
+            FamilyBoardCard(
+              children: [
+                Text(
+                  'Last snapshot',
                   style: TextStyle(
-                    color: chipInk,
-                    fontSize: 12.spMin,
+                    fontSize: 15.spMin,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-            ],
-          ),
+                FamilyBoardMuted(
+                  [
+                    snapshot,
+                    if (expiresAt != null && expiresAt.isAfter(now))
+                      'expires ${DateFormat('h:mm a').format(expiresAt.toLocal())}',
+                  ].join(' · '),
+                ),
+              ],
+            ),
+          ],
           SizedBox(height: 16.spMin),
-          _lineBuilder(
-            context,
-            icon: LucideIcons.clock,
-            text: memberStatusLine(
-              member: member,
-              hasAnswered: hasAnswered,
-              askedAt: askedAt,
-              now: now,
-            ),
-          ),
-          if (lastCheckIn?.hazard != null) ...[
-            SizedBox(height: 8.spMin),
-            _lineBuilder(
-              context,
-              icon: LucideIcons.triangleAlert,
-              text: 'Checked in near "${lastCheckIn!.hazard!.title}"',
-            ),
-          ],
-          if (lastCheckIn?.message case final String message
-              when message.isNotEmpty) ...[
-            SizedBox(height: 8.spMin),
-            _lineBuilder(
-              context,
-              icon: LucideIcons.messageSquare,
-              text: message,
-            ),
-          ],
-          SizedBox(height: 8.spMin),
-          _lineBuilder(
-            context,
-            icon: LucideIcons.mapPin,
-            text: 'Sharing level: ${sharingLevelLabel(member.sharingLevel)}',
-          ),
-          if (!isMe) ...[
-            SizedBox(height: 12.spMin),
-            Text(
-              memberStatusExplanation(
-                member: member,
-                hasAnswered: hasAnswered,
-                isNearAlert: isNearAlert,
-              ),
-              style: TextStyle(
-                fontSize: 13.spMin,
-                height: 1.45,
-                color: context.onSurfaceMuted,
-              ),
-            ),
-          ],
-          SizedBox(height: 18.spMin),
-          if (onAskToCheckIn != null)
-            _actionBuilder(
-              context,
-              icon: LucideIcons.bellRing,
+          if (onAskToCheckIn != null) ...[
+            FamilyBoardSecondaryButton(
               label: 'Ask ${member.name} to check in',
-              filled: true,
-              onTap: () => run(onAskToCheckIn!),
+              onPressed: () => run(onAskToCheckIn!),
             ),
-          if (onRequestLocation != null)
-            _actionBuilder(
-              context,
-              icon: LucideIcons.mapPin,
+            SizedBox(height: 10.spMin),
+          ],
+          if (onRequestLocation != null) ...[
+            FamilyBoardSecondaryButton(
               label: 'Request a one-time location',
-              filled: false,
-              onTap: () => run(onRequestLocation!),
+              onPressed: () => run(onRequestLocation!),
             ),
-          if (onChangeMySharing != null)
-            _actionBuilder(
-              context,
-              icon: LucideIcons.slidersHorizontal,
+            SizedBox(height: 10.spMin),
+          ],
+          if (onChangeMySharing != null) ...[
+            FamilyBoardSecondaryButton(
               label: 'Change my sharing level',
-              filled: false,
-              onTap: () => run(onChangeMySharing!),
+              onPressed: () => run(onChangeMySharing!),
             ),
-          if (onRemove != null)
-            _actionBuilder(
-              context,
-              icon: LucideIcons.userMinus,
+            SizedBox(height: 10.spMin),
+          ],
+          if (onRemove != null) ...[
+            FamilyBoardSecondaryButton(
               label: 'Remove from circle',
-              filled: false,
-              destructive: true,
-              onTap: () => run(onRemove!),
+              onPressed: () => run(onRemove!),
             ),
+            SizedBox(height: 10.spMin),
+          ],
           if (onAskToCheckIn == null &&
               onRequestLocation == null &&
               onChangeMySharing == null &&
-              onRemove == null)
-            Text(
-              'Nothing to do here right now.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13.spMin,
-                color: context.onSurfaceMuted,
-              ),
-            ),
+              onRemove == null) ...[
+            const FamilyBoardMuted('Nothing to do here right now.'),
+            SizedBox(height: 6.spMin),
+          ],
+          FamilyBoardGhostButton(
+            label: 'Close',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ],
       ),
     );
   }
 
-  String get _roleLine {
-    switch (member.role) {
-      case FamilyRole.owner:
-        return 'Hosts this circle';
-      case FamilyRole.guest:
-        return 'Guest · gets alerts and can check in';
-      case FamilyRole.adult:
-      case FamilyRole.child:
-        return 'Member of this circle';
+  /// "Asked 2 minutes ago", "Checked in 12:04 PM" or "No check-in yet".
+  String _factLine(final DateTime now) {
+    final asked = askedAt;
+    if (hasAnswered == false && asked != null) {
+      return 'Asked ${timeago.format(asked, clock: now)}';
     }
+    final last = member.lastCheckInAt;
+    if (last != null) {
+      return 'Checked in ${DateFormat('h:mm a').format(last.toLocal())}';
+    }
+    return 'No check-in yet';
   }
 
-  Widget _lineBuilder(
-    final BuildContext context, {
-    required final IconData icon,
-    required final String text,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(top: 2.spMin),
-          child: Icon(icon, size: 15.spMin, color: context.onSurfaceMuted),
-        ),
-        SizedBox(width: 8.spMin),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: 13.5.spMin, color: context.onSurface),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _actionBuilder(
-    final BuildContext context, {
-    required final IconData icon,
-    required final String label,
-    required final bool filled,
-    required final VoidCallback onTap,
-    final bool destructive = false,
-  }) {
-    final ink = destructive
-        ? FamilyColors.sosRed
-        : filled
-            ? Colors.white
-            : FamilyColors.indigo;
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8.spMin),
-      child: SizedBox(
-        height: 48.spMin,
-        child: TextButton.icon(
-          style: TextButton.styleFrom(
-            foregroundColor: ink,
-            backgroundColor: filled ? FamilyColors.indigo : Colors.transparent,
-            side: filled
-                ? null
-                : BorderSide(
-                    color: destructive
-                        ? FamilyColors.sosRed.withValues(alpha: 0.6)
-                        : FamilyColors.indigo.withValues(alpha: 0.5),
-                    width: 1.5,
-                  ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14.spMin),
-            ),
-          ),
-          onPressed: onTap,
-          icon: Icon(icon, size: 18.spMin),
-          label: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w800),
-          ),
-        ),
-      ),
-    );
+  /// "Waiting" only while a check-in was actually asked of them and not
+  /// answered (ruling 9 Oct 2026); "Checked in" once they have; nothing
+  /// otherwise.
+  Widget? get _pill {
+    if (hasAnswered == true) return const FamilyBoardPill.checkedIn();
+    if (hasAnswered == false && askedAt != null) {
+      return const FamilyBoardPill.waiting();
+    }
+    return null;
   }
 }

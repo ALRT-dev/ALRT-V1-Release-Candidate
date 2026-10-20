@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/profile/enums/my_hazards_tab_types.dart';
-import 'package:hazard_app/features/profile/views/widgets/accepted_hazards_widgets/my_accepted_hazards_list.dart';
-import 'package:hazard_app/features/profile/views/widgets/rejected_hazards_widgets/my_rejected_hazards_list.dart';
+import 'package:hazard_app/features/profile/providers/my_hazards_provider.dart';
+import 'package:hazard_app/features/profile/providers/states/my_hazards_provider_state.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_page_kit.dart';
+import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/shared/views/screens/view_hazard_screen.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-
-/// The V3 section label colour from the design screenshots.
-const _sectionLabelColor = Color(0xFFB84500);
 
 class MyHazardsScreenArgs {
   const MyHazardsScreenArgs({
     this.initialTab = MyHazardsTab.accepted,
   });
 
-  /// The initial tab to display when the screen is opened.
+  /// Which reports to list first. The prototype shows one list, so this
+  /// only decides whether reports that need changes sit on top.
   final MyHazardsTab initialTab;
 }
 
-class MyHazardsScreen extends ConsumerStatefulWidget {
+/// My ALRTs, as on the prototype "MyALRTs" board: white header with back
+/// arrow, title and "Reports you posted", then one white card per report
+/// with its title, "Live · confirmed by ×N" (or Ended / Needs changes) and
+/// a chevron into the alert. Empty: "You have not posted anything yet."
+class MyHazardsScreen extends ConsumerWidget {
   const MyHazardsScreen({
     super.key,
     required this.args,
@@ -31,171 +36,172 @@ class MyHazardsScreen extends ConsumerStatefulWidget {
   static const route = '/my-hazards';
 
   @override
-  ConsumerState<ConsumerStatefulWidget> createState() =>
-      _MyHazardsScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(providerOfMyHazards);
 
-class _MyHazardsScreenState extends ConsumerState<MyHazardsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: widget.args.initialTab.index,
+    return Scaffold(
+      backgroundColor: ProfilePageKit.page,
+      body: Column(
+        children: [
+          const ProfilePageHeader(
+            title: 'My ALRTs',
+            subtitle: 'Reports you posted',
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              color: AppColors.orange,
+              onRefresh: () async {
+                final notifier = ref.read(providerOfMyHazards.notifier);
+                await Future.wait([
+                  notifier.getMyAcceptedHazards(),
+                  notifier.getMyRejectedHazards(),
+                ]);
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  16.spMin,
+                  14.spMin,
+                  16.spMin,
+                  32.spMin,
+                ),
+                children: _buildBody(context, state),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-    });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  List<Widget> _buildBody(
+    final BuildContext context,
+    final MyHazardsProviderState state,
+  ) {
+    final acceptedLoading = state.getMyAcceptedHazardsState.maybeWhen(
+      loading: () => true,
+      orElse: () => false,
+    );
+    final rejectedLoading = state.getMyRejectedHazardsState.maybeWhen(
+      loading: () => true,
+      orElse: () => false,
+    );
+    final failed = state.getMyAcceptedHazardsState.maybeWhen(
+      error: (_) => true,
+      orElse: () => false,
+    );
+
+    final accepted = [
+      for (final h in state.myAcceptedHazards) _ReportRow(hazard: h),
+    ];
+    final rejected = [
+      for (final h in state.myRejectedHazards)
+        _ReportRow(hazard: h, needsChanges: true),
+    ];
+    final rows = args.initialTab == MyHazardsTab.rejected
+        ? [...rejected, ...accepted]
+        : [...accepted, ...rejected];
+
+    if (rows.isEmpty) {
+      if (acceptedLoading || rejectedLoading) {
+        return [
+          Padding(
+            padding: EdgeInsets.only(top: 32.spMin),
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+        ];
+      }
+      return [
+        ProfileCard(
+          children: [
+            ProfileMutedText(
+              failed
+                  ? 'Your reports could not be loaded. Pull down to try again.'
+                  : 'You have not posted anything yet.',
+            ),
+          ],
+        ),
+      ];
+    }
+
+    return [
+      for (var i = 0; i < rows.length; i++) ...[
+        if (i > 0) SizedBox(height: 10.spMin),
+        rows[i],
+      ],
+    ];
+  }
+}
+
+class _ReportRow extends StatelessWidget {
+  const _ReportRow({required this.hazard, this.needsChanges = false});
+
+  final Hazard hazard;
+  final bool needsChanges;
+
+  String get _title {
+    final title = hazard.title?.trim();
+    if (title != null && title.isNotEmpty) return title;
+    return hazard.category?.name ?? 'Your report';
+  }
+
+  String get _status {
+    if (needsChanges) return 'Needs changes';
+    final word = hazard.isExpired ? 'Ended' : 'Live';
+    return '$word · confirmed by ×${hazard.corroborationCount}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F4F6),
-      appBar: AppBar(title: const Text('My ALRTs')),
-      body: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(20.spMin, 14.spMin, 20.spMin, 0),
-            child: _segmentedControlBuilder(),
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(18.spMin),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18.spMin),
+        onTap: () => context.push(
+          ViewHazardScreen.route,
+          extra: ViewHazardScreenArgs(hazard: hazard),
+        ),
+        child: Container(
+          padding: EdgeInsets.all(16.spMin),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18.spMin),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F000000),
+                blurRadius: 3.0,
+                offset: Offset(0, 1),
+              ),
+            ],
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _tabBodyBuilder(
-                  label: 'Live and reviewed',
-                  description:
-                      'ALRTs you posted that are visible to the community.',
-                  child: MyAcceptedHazardsList(
-                    shinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                  ),
-                ),
-                _tabBodyBuilder(
-                  label: 'Needs changes',
-                  description:
-                      'These need an update before they can go live again.',
-                  child: const MyRejectedHazardsList(
-                    shinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// V3 pill segmented control driving the swipeable tab view.
-  Widget _segmentedControlBuilder() {
-    final selectedIndex = _tabController.index;
-    final segments = [
-      (LucideIcons.circleCheck, 'Accepted'),
-      (LucideIcons.circleAlert, 'Needs changes'),
-    ];
-
-    return Container(
-      padding: EdgeInsets.all(4.spMin),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        children: [
-          for (final (index, segment) in segments.indexed)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => _tabController.animateTo(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  height: 40.spMin,
-                  decoration: BoxDecoration(
-                    color: selectedIndex == index
-                        ? AppColors.black.withValues(alpha: 0.9)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12.spMin),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        segment.$1,
-                        size: 16.spMin,
-                        color: selectedIndex == index
-                            ? Colors.white
-                            : AppColors.grey,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _title,
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
                       ),
-                      SizedBox(width: 6.spMin),
-                      Text(
-                        segment.$2,
-                        style: TextStyle(
-                          fontSize: 13.spMin,
-                          fontWeight: FontWeight.w700,
-                          color: selectedIndex == index
-                              ? Colors.white
-                              : AppColors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    SizedBox(height: 2.spMin),
+                    ProfileMutedText(_status, size: 12),
+                  ],
                 ),
               ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabBodyBuilder({
-    required final String label,
-    required final String description,
-    required final Widget child,
-  }) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(20.spMin, 16.spMin, 20.spMin, 50.spMin),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10.5.spMin,
-              color: _sectionLabelColor,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
-            ),
+              SizedBox(width: 10.spMin),
+              Icon(
+                Icons.chevron_right,
+                size: 20.spMin,
+                color: ProfilePageKit.muted,
+              ),
+            ],
           ),
-          SizedBox(height: 4.spMin),
-          Text(
-            description,
-            style: TextStyle(fontSize: 12.5.spMin, color: AppColors.grey),
-          ),
-          SizedBox(height: 12.spMin),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(8.spMin),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.spMin),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.12)),
-            ),
-            child: child,
-          ),
-        ],
+        ),
       ),
     );
   }

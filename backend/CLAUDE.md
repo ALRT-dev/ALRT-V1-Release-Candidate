@@ -138,6 +138,35 @@ reintroduce seats, a group-count cap or a single global plan flag.
 
 ## AI alert-generation prompts (decided Stage 6A, 2026-08-22)
 
+### TEST template controls, product-owner update 13 October 2026
+
+For the approved TEST rollout, editable AIPrompt records remain the prompt authority.
+`Configuration.aiPrompts.alertTemplatesV1` stores drafts, published settings and immutable
+snapshots of those prompt records. A draft has no ingestion effect. Publish and restore
+are audited and revision checked. Do not reset existing prompt records to activate it.
+`agency_extraction.util.ts` is the mandatory validation/output contract, appended after
+editable instructions. It does not assign severity. Facts select exact source blocks;
+free-text instructions retain their complete source context. Native warning levels and
+all separate raw source instruction fields survive extraction failure.
+
+Code owns severity. Official AWS-style levels retain their mapping regardless of icon
+shape. Other native labels keep at least their existing code baseline; configured mappings
+may raise it. Whole-phrase ALRT wordbank rules apply only without a native warning label.
+Tests/drills/resolved incidents are Info. Source-authorised emergency phone wording may
+be retained only with an explicit source-specific exception. Otherwise use "your local
+emergency number" while preserving road, route, date and measurement numbers.
+
+Approved library suggestions use non-directive wording ("Consider ...", or a plain safety
+statement such as "Driving through flood water is dangerous. Consider your route before
+driving.") with NO "ALRT suggests:" prefix (product owner, 16 Oct 2026); the app labels
+them with a footer under What to do ("General guidance from ALRT, not part of the official
+warning"), telling them from agency lines by the "{agency} advises:" lead. They are used
+when extraction finds no agency instructions; an extraction failure does not
+guess that advice was absent. For You receives generic reviewed rows; personal selections
+stay on the phone. No square is produced. Required AWS and current community artwork stay.
+Source instruction content and native-level-only updates must change sourceContentHash.
+TEST deployment is authorised in this conversation; production deployment is not.
+
 - `src/utils/ai-prompt.util.ts` + `src/services/ai-prompt.service.ts`
   (the `DefaultAIPromptNames` / bracket-named prompts) is the **sole**
   authoritative alert-generation prompt system. A second, repo-versioned
@@ -160,11 +189,22 @@ reintroduce seats, a group-count cap or a single global plan flag.
   returned (`mapAiReviewStatus` in `hazard.util.ts`), never a hardcoded
   value — this gates real moderation (spam/abuse/instruction-injection/
   private data rejected, not silently accepted).
-- AQI hazards (`SubCategoryId.airQualityAlert`) never call the AI —
+- WAQI numeric AQI hazards (`SubCategoryId.airQualityAlert`, source `waqi`) never call the AI —
   `getDeterministicAirQualityContent` in `air_quality_template.util.ts`
   builds the card content directly from the already-deterministic
-  severity band and the AQI value/station name in the source text. Do
-  not route AQI back through `executePrompt`.
+  severity band and the station name in the source text. The card never
+  shows an index number (purge list; product owner 16 Oct 2026): the
+  summary is the source's statement in its own rating words ("World Air
+  Quality Index reports that air quality near X is unhealthy for
+  sensitive groups."), What we know carries the rating, the main
+  pollutant when the station feed names it, and a "What this means" line
+  (who may notice effects, from the rating's published meaning), and What
+  to do carries the agency's advice or ALRT's labelled suggestions. The
+  number stays only in the machine field "AQI: n" at the end of the
+  description, which the app hides. Do not route AQI back through
+  `executePrompt`.
+  Other agencies' air-quality warning text may use source extraction; never apply WAQI
+  numeric thresholds to an unknown index. A new measurement scale requires an adapter.
 
 ## Engineering conventions
 

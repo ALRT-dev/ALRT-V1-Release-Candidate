@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/viewed_journey_provider.dart';
+import 'package:hazard_app/features/family/views/widgets/family_app_bar.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_widgets.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
@@ -66,82 +68,16 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(providerOfViewedJourney);
 
+    // The SharedJourney board: white header, the indigo card naming who
+    // is sharing and how, the map, and one line on what you can see.
     return Scaffold(
-      backgroundColor: FamilyColors.v31Page,
-      body: Column(
-        children: [
-          _headerBuilder(state.journey),
-          Expanded(
-            child: state.loading
-                ? const Center(child: CircularProgressIndicator())
-                : state.journey != null
-                ? _journeyBuilder(state.journey!)
-                : _errorBuilder(state.error),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _headerBuilder(final FamilyJourney? journey) {
-    final name = journey?.memberName ?? 'Family journey';
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        // The shared family header blend (FamilyColors.headerGradient), so
-        // this screen matches the hub, the invite screen and the rest of
-        // the section instead of carrying its own copy of the stops.
-        gradient: FamilyColors.headerGradient,
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16.spMin, 8.spMin, 16.spMin, 22.spMin),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).maybePop(),
-                child: Container(
-                  width: 30.spMin,
-                  height: 30.spMin,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.16),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 15.spMin,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              14.hSizedBox,
-              Text(
-                'JOURNEY SHARED WITH YOU',
-                style: TextStyle(
-                  fontSize: 11.spMin,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
-              ),
-              4.hSizedBox,
-              Text(
-                name,
-                style: TextStyle(
-                  fontSize: 22.spMin,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                  height: 1.15,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      backgroundColor: kFamilyBoardPage,
+      appBar: const FamilyWhiteAppBar(title: 'Family journey'),
+      body: state.loading
+          ? const Center(child: CircularProgressIndicator())
+          : state.journey != null
+          ? _journeyBuilder(state.journey!)
+          : _errorBuilder(state.error),
     );
   }
 
@@ -151,189 +87,125 @@ class _SharedJourneyScreenState extends ConsumerState<SharedJourneyScreen> {
         ? LatLng(journey.latitude!, journey.longitude!)
         : null;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 28.spMin),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (position != null) ...[
-            _mapBuilder(position, isLive: isActive && journey.isLive),
-            14.hSizedBox,
-          ],
-          _statusCardBuilder(journey, isActive),
+    return ListView(
+      padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 120.spMin),
+      children: [
+        _heroBuilder(journey, isActive),
+        14.hSizedBox,
+        if (isActive) ...[
+          _mapBuilder(position, isLive: journey.isLive),
           14.hSizedBox,
-          _noteBuilder(
-            isActive
-                ? 'You can see this because ${journey.memberName} chose to '
-                      'share it with you. When it ends, their position is '
-                      'deleted. Only the time it ran stays visible.'
-                : 'This journey has ended. Its position data was deleted '
-                      'when it stopped; only the time it ran remains.',
+        ],
+        FamilyBoardMuted(
+          isActive
+              ? 'You see when they leave and arrive. Nobody is tracked '
+                    'after the journey ends.'
+              : 'This journey has ended. Its position was deleted when it '
+                    'stopped; only the time it ran remains.',
+        ),
+      ],
+    );
+  }
+
+  /// "JOURNEY SHARED WITH YOU / Alex / Sharing now · an update about every
+  /// 10 minutes · 30 min left".
+  Widget _heroBuilder(final FamilyJourney journey, final bool isActive) {
+    final minutesLeft = journey.remaining.inMinutes;
+    final line = isActive
+        ? [
+            journey.isLive
+                ? 'Sharing now · live'
+                : 'Sharing now · an update about every 10 minutes',
+            minutesLeft < 1 ? 'stopping now' : '$minutesLeft min left',
+          ].join(' · ')
+        : journey.endedAt != null
+        ? 'Journey ended ${timeago.format(journey.endedAt!)}'
+        : 'Journey ended';
+    return Container(
+      padding: EdgeInsets.all(18.spMin),
+      decoration: BoxDecoration(
+        gradient: FamilyColors.headerGradient,
+        borderRadius: BorderRadius.circular(18.spMin),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'JOURNEY SHARED WITH YOU',
+            style: TextStyle(
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+          ),
+          Text(
+            journey.memberName,
+            style: TextStyle(
+              fontSize: 26.spMin,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          4.hSizedBox,
+          Text(
+            line,
+            style: TextStyle(
+              fontSize: 13.spMin,
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _mapBuilder(final LatLng position, {required final bool isLive}) {
+  Widget _mapBuilder(final LatLng? position, {required final bool isLive}) {
+    final refresh = isLive ? 'refreshes every 45 s' : 'refreshes every 10 min';
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20.spMin),
+      borderRadius: BorderRadius.circular(16.spMin),
       child: SizedBox(
-        height: 220.spMin,
-        child: MapsAvailability.available
-            ? GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: position,
-                  zoom: 14.5,
+        height: 200.spMin,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: position == null
+                  ? const ColoredBox(color: Color(0xFFE8EAED))
+                  : MapsAvailability.available
+                  ? GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: position,
+                        zoom: 14.5,
+                      ),
+                      onMapCreated: (controller) => _mapController = controller,
+                      markers: {
+                        Marker(
+                          markerId: const MarkerId('journey'),
+                          position: position,
+                        ),
+                      },
+                      zoomControlsEnabled: false,
+                      myLocationButtonEnabled: false,
+                      // Lite mode is a static image: fine for periodic
+                      // updates, not for following someone live.
+                      liteModeEnabled: !isLive,
+                    )
+                  : const MapUnavailable(),
+            ),
+            Positioned(
+              left: 10.spMin,
+              bottom: 8.spMin,
+              child: Text(
+                position == null
+                    ? 'No update yet · $refresh'
+                    : 'Last update · $refresh',
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  color: AppColors.mediumGrey,
                 ),
-                onMapCreated: (controller) => _mapController = controller,
-                markers: {
-                  Marker(
-                    markerId: const MarkerId('journey'),
-                    position: position,
-                  ),
-                },
-                zoomControlsEnabled: false,
-                myLocationButtonEnabled: false,
-                // Lite mode is a static image: fine when position updates are
-                // occasional (snap points), not useful while following someone
-                // moving live.
-                liteModeEnabled: !isLive,
-              )
-            : const MapUnavailable(),
-      ),
-    );
-  }
-
-  Widget _statusCardBuilder(final FamilyJourney journey, final bool isActive) {
-    final minutesLeft = journey.remaining.inMinutes;
-    return _cardBuilder(
-      label: isActive ? 'Sharing now' : 'Journey ended',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isActive ? LucideIcons.navigation : LucideIcons.checkCheck,
-                size: 18.spMin,
-                color: isActive ? FamilyColors.v31Indigo : AppColors.mediumGrey,
-              ),
-              8.wSizedBox,
-              Expanded(
-                child: Text(
-                  isActive
-                      ? (minutesLeft < 1
-                            ? 'Stopping now'
-                            : 'Stops in $minutesLeft min')
-                      : journey.endedAt != null
-                      ? 'Ended ${timeago.format(journey.endedAt!)}'
-                      : 'No longer active',
-                  style: TextStyle(
-                    fontSize: 18.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.black,
-                  ),
-                ),
-              ),
-              if (isActive && journey.isLive) _liveChipBuilder(),
-            ],
-          ),
-          10.hSizedBox,
-          Text(
-            'Shared for up to ${journey.grantedMinutes} min in total.',
-            style: TextStyle(fontSize: 12.5.spMin, color: AppColors.mediumGrey),
-          ),
-          if (isActive) ...[
-            4.hSizedBox,
-            Text(
-              journey.isLive
-                  ? 'Live location: updates as they move.'
-                  : 'Periodic updates only: departure, roughly every 10 '
-                        'minutes, and arrival.',
-              style: TextStyle(
-                fontSize: 12.5.spMin,
-                fontWeight: FontWeight.w600,
-                color: FamilyColors.v31Indigo,
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _liveChipBuilder() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.spMin, vertical: 4.spMin),
-      decoration: BoxDecoration(
-        color: FamilyColors.sosRedLight,
-        borderRadius: BorderRadius.circular(20.spMin),
-      ),
-      child: Text(
-        'LIVE',
-        style: TextStyle(
-          fontSize: 10.spMin,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.4,
-          color: FamilyColors.sosRed,
-        ),
-      ),
-    );
-  }
-
-  Widget _cardBuilder({
-    required final String label,
-    required final Widget child,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        boxShadow: const [
-          BoxShadow(
-            color: FamilyColors.v31CardShadow,
-            blurRadius: 10.0,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.fromLTRB(15.spMin, 14.spMin, 15.spMin, 14.spMin),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(bottom: 12.spMin),
-            child: Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontSize: 10.spMin,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: FamilyColors.v31Label,
-              ),
-            ),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _noteBuilder(final String text) {
-    return Container(
-      decoration: BoxDecoration(
-        color: FamilyColors.v31NoteBackground,
-        borderRadius: BorderRadius.circular(14.spMin),
-        border: Border.all(color: FamilyColors.v31NoteBorder, width: 1.5),
-      ),
-      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 11.spMin),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12.spMin,
-          height: 1.4,
-          color: FamilyColors.v31NoteInk,
         ),
       ),
     );

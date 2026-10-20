@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_types.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 
@@ -8,7 +9,20 @@ import 'package:hazard_app/features/shared/models/hazard_model.dart';
 const kClusterMaxZoom = 12.5;
 
 /// Screen-space grid cell size used for clustering, in logical pixels.
-const kClusterGridPx = 90.0;
+/// 64 matches the density of the live app (about fifteen groups across
+/// metro Perth at city zoom); 90 merged the whole metro area into a
+/// handful of bubbles.
+const kClusterGridPx = 64.0;
+
+/// Above [kClusterMaxZoom] markers are drawn one by one, but two pins
+/// closer than this many logical pixels still hide each other, so they are
+/// grouped into a small count bubble until the camera is close enough to
+/// separate them.
+const kOverlapGridPx = 34.0;
+
+/// From this zoom nothing groups any more; pins sharing a spot are fanned
+/// out around it instead (see [fanOutOffsets]).
+const kNoGroupingZoom = 17.0;
 
 /// A group of hazards bucketed into one screen-space grid cell.
 class HazardCluster {
@@ -30,6 +44,19 @@ class HazardCluster {
 
   /// The single hazard when [isSingle].
   Hazard get single => hazards.first;
+
+  /// Highest band present in the cluster. Community reports carry no
+  /// severity, so they never raise it.
+  HazardSeverityBand? get dominantBand {
+    HazardSeverityBand? dominant;
+    for (final hazard in hazards) {
+      if (hazard.isUserReported) continue;
+      final band = hazard.severityBand;
+      if (band == null) continue;
+      if (dominant == null || band.index > dominant.index) dominant = band;
+    }
+    return dominant;
+  }
 
   /// Highest severity present in the cluster — drives the badge color.
   HazardSeverity get dominantSeverity {
@@ -55,20 +82,32 @@ class HazardCluster {
 List<HazardCluster> clusterHazards({
   required final List<Hazard> hazards,
   required final double zoom,
+  final double gridPx = kClusterGridPx,
 }) {
-  final cellDegrees = 360 / math.pow(2, zoom) * (kClusterGridPx / 256);
+  final cellDegrees = 360 / math.pow(2, zoom) * (gridPx / 256);
 
   final buckets = <String, List<Hazard>>{};
+  final standalone = <HazardCluster>[];
   for (final hazard in hazards) {
     final lat = hazard.latitude;
     final lng = hazard.longitude;
     if (lat == null || lng == null) continue;
+    // AWS Watch and Act and Emergency Warnings are never hidden inside a
+    // count bubble (locked map rule): they always draw as themselves.
+    if (isClusterExempt(hazard)) {
+      standalone.add(
+        HazardCluster(hazards: [hazard], latitude: lat, longitude: lng),
+      );
+      continue;
+    }
     final key =
         '${(lat / cellDegrees).floor()}_${(lng / cellDegrees).floor()}';
     buckets.putIfAbsent(key, () => []).add(hazard);
   }
 
-  return buckets.values.map((members) {
+  return [
+    ...standalone,
+    ...buckets.values.map((members) {
     var latSum = 0.0;
     var lngSum = 0.0;
     for (final hazard in members) {
@@ -80,5 +119,48 @@ List<HazardCluster> clusterHazards({
       latitude: latSum / members.length,
       longitude: lngSum / members.length,
     );
-  }).toList();
+  }),
+  ];
+}
+
+/// AWS Watch and Act / Emergency Warning: always drawn on its own.
+bool isClusterExempt(final Hazard hazard) {
+  if (hazard.isUserReported || hazard.isAwsCompliant != true) return false;
+  final band = hazard.severityBand;
+  return band == HazardSeverityBand.action ||
+      band == HazardSeverityBand.critical;
+}
+
+/// Pins that share (almost) the same coordinate at street zoom are spread
+/// on a small ring so every one stays visible and tappable. Returns a
+/// latitude/longitude offset per hazard id; hazards alone at their spot get
+/// none.
+Map<String, (double, double)> fanOutOffsets({
+  required final List<Hazard> hazards,
+  required final double zoom,
+}) {
+  // About 12 logical px: anything closer than this reads as one pin.
+  final cellDegrees = 360 / math.pow(2, zoom) * (12 / 256);
+  final spots = <String, List<Hazard>>{};
+  for (final hazard in hazards) {
+    final lat = hazard.latitude;
+    final lng = hazard.longitude;
+    if (lat == null || lng == null || hazard.id == null) continue;
+    final key = '${(lat / cellDegrees).round()}_${(lng / cellDegrees).round()}';
+    spots.putIfAbsent(key, () => []).add(hazard);
+  }
+  // Ring radius about 26 logical px, so diamonds sit side by side.
+  final radius = 360 / math.pow(2, zoom) * (26 / 256);
+  final offsets = <String, (double, double)>{};
+  for (final group in spots.values) {
+    if (group.length < 2) continue;
+    for (var i = 0; i < group.length; i++) {
+      final angle = 2 * math.pi * i / group.length;
+      offsets[group[i].id!] = (
+        radius * math.sin(angle),
+        radius * math.cos(angle),
+      );
+    }
+  }
+  return offsets;
 }

@@ -49,8 +49,10 @@ class _OnboardingAlertLevelScreenState
 
   static const _step = OnboardingStep.alertLevel;
 
-  static const _radioRing = Color(0xFFD9D6D0);
-  static const _infoPeach = Color(0xFFFFF1E8);
+  static const _radioRing = Color(0xFFD5D9DE);
+  static const _infoPeach = Color(0xFFFFF4EE);
+  static const _infoText = Color(0xFF5C3A20);
+  static const _cardLine = Color(0xFFE3E6EA);
 
   static const List<_AlertLevelOption> _levels = [
     _AlertLevelOption(
@@ -62,7 +64,7 @@ class _OnboardingAlertLevelScreenState
     ),
     _AlertLevelOption(
       preference: PushNotificationPreference.all,
-      label: 'All alerts',
+      label: 'Official and community',
       description:
           'The same, plus reports from people nearby once neighbours have '
           'confirmed them.',
@@ -70,7 +72,7 @@ class _OnboardingAlertLevelScreenState
     _AlertLevelOption(
       preference: PushNotificationPreference.quiet,
       label: 'Keep it quiet',
-      description: 'Only emergency warnings, as they happen.',
+      description: 'Only the most serious official warnings, as they happen.',
     ),
   ];
 
@@ -87,6 +89,17 @@ class _OnboardingAlertLevelScreenState
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
+    // The board opens on "Official and community" already picked.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final notifier = ref.read(providerOfOnboarding.notifier);
+      if (ref.read(providerOfOnboarding).selectedNotificationPreference ==
+          null) {
+        notifier.updateSelectedNotificationPreference(
+          PushNotificationPreference.all,
+        );
+      }
+    });
   }
 
   @override
@@ -109,8 +122,9 @@ class _OnboardingAlertLevelScreenState
             Text(
               'What do you want to hear about?',
               style: TextStyle(
-                fontSize: 26.spMin,
+                fontSize: 30.spMin,
                 fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
                 height: 1.15,
                 color: AppColors.ink,
               ),
@@ -125,10 +139,10 @@ class _OnboardingAlertLevelScreenState
                 color: AppColors.mediumGrey,
               ),
             ),
-            24.hSizedBox,
+            16.hSizedBox,
             for (final level in _levels) ...[
               _buildLevelCard(level),
-              12.hSizedBox,
+              10.hSizedBox,
             ],
             4.hSizedBox,
             _buildInfoBox(),
@@ -161,11 +175,20 @@ class _OnboardingAlertLevelScreenState
             padding: EdgeInsets.all(16.spMin),
             decoration: BoxDecoration(
               color: AppColors.white,
-              borderRadius: BorderRadius.circular(14.spMin),
+              borderRadius: BorderRadius.circular(16.spMin),
               border: Border.all(
-                color: isSelected ? AppColors.ink : AppColors.lightGrey,
-                width: isSelected ? 2 : 1,
+                color: isSelected ? AppColors.ink : _cardLine,
+                width: isSelected ? 2 : 1.5,
               ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,7 +203,7 @@ class _OnboardingAlertLevelScreenState
                         option.label,
                         style: TextStyle(
                           fontSize: 15.spMin,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                           height: 1.3,
                           color: AppColors.ink,
                         ),
@@ -190,8 +213,8 @@ class _OnboardingAlertLevelScreenState
                         option.description,
                         style: TextStyle(
                           fontSize: 13.spMin,
-                          color: AppColors.mediumGrey,
-                          height: 1.4,
+                          color: const Color(0xFF3A3A42),
+                          height: 1.45,
                         ),
                       ),
                     ],
@@ -207,10 +230,10 @@ class _OnboardingAlertLevelScreenState
 
   Widget _buildInfoBox() {
     return Container(
-      padding: EdgeInsets.all(14.spMin),
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
       decoration: BoxDecoration(
         color: _infoPeach,
-        borderRadius: BorderRadius.circular(12.spMin),
+        borderRadius: BorderRadius.circular(14.spMin),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,9 +245,9 @@ class _OnboardingAlertLevelScreenState
               'ALRT shows the warning as the agency issued it. It never '
               'raises or lowers a level because of the words inside.',
               style: TextStyle(
-                fontSize: 13.spMin,
-                height: 1.4,
-                color: AppColors.ink,
+                fontSize: 12.spMin,
+                height: 1.5,
+                color: _infoText,
               ),
             ),
           ),
@@ -242,22 +265,50 @@ class _OnboardingAlertLevelScreenState
           ),
         );
 
-        return GradientButton(
-          title: 'Turn on alerts',
-          onPressed: hasSelection ? _onTurnOnAlerts : null,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GradientButton(
+              title: 'Turn on alerts',
+              onPressed: hasSelection ? _onTurnOnAlerts : null,
+            ),
+            6.hSizedBox,
+            SizedBox(
+              height: 44.spMin,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.mediumGrey,
+                ),
+                onPressed: hasSelection ? _onNotNow : null,
+                child: Text(
+                  'Not now',
+                  style: TextStyle(
+                    fontSize: 14.spMin,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
-  Future<void> _onTurnOnAlerts() async {
+  /// "Not now": keep the level they picked, skip the phone's prompt. The
+  /// app asks again later, at a moment it is wanted.
+  Future<void> _onNotNow() => _saveAndContinue(askPermission: false);
+
+  Future<void> _onTurnOnAlerts() => _saveAndContinue(askPermission: true);
+
+  Future<void> _saveAndContinue({required final bool askPermission}) async {
     final selectedPref = ref
         .read(providerOfOnboarding)
         .selectedNotificationPreference;
 
     // Every level still delivers the most serious official warnings, so
     // the OS permission prompt is primed for all three.
-    if (selectedPref != null) {
+    if (askPermission && selectedPref != null) {
       await FirebaseMessaging.instance.requestPermission(
         carPlay: false,
       );
@@ -286,8 +337,8 @@ class _OnboardingAlertLevelScreenState
   }
 }
 
-/// The board's radio: a 22 px circle with a 2 px #D9D6D0 ring, filled
-/// #1C1C1E with a white dot when on.
+/// The board's radio: a 20 px circle with a 2 px #D5D9DE ring, a 6 px
+/// ink ring when on.
 class _Radio extends StatelessWidget {
   const _Radio({required this.selected});
 
@@ -297,30 +348,19 @@ class _Radio extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: 22.spMin,
-      height: 22.spMin,
+      width: 20.spMin,
+      height: 20.spMin,
+      margin: EdgeInsets.only(top: 2.spMin),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? AppColors.ink : AppColors.white,
+        color: AppColors.white,
         border: Border.all(
           color: selected
               ? AppColors.ink
               : _OnboardingAlertLevelScreenState._radioRing,
-          width: 2,
+          width: selected ? 6 : 2,
         ),
       ),
-      child: selected
-          ? Center(
-              child: Container(
-                width: 8.spMin,
-                height: 8.spMin,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.white,
-                ),
-              ),
-            )
-          : null,
     );
   }
 }

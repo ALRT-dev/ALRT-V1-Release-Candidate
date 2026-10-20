@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/map/views/widgets/places_sheet.dart';
 import 'package:hazard_app/features/notification/providers/accessible_alerts_provider.dart';
 import 'package:hazard_app/features/notification/views/screens/accessible_alerts_screen.dart';
-import 'package:hazard_app/features/notification/views/screens/manage_notifications_screen.dart';
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
 import 'package:hazard_app/features/profile/providers/safety_profile_provider.dart';
 import 'package:hazard_app/features/profile/providers/widget_step_provider.dart';
@@ -34,8 +34,8 @@ class MapFinishSetupStrip extends ConsumerWidget {
   const MapFinishSetupStrip({super.key});
 
   static const _label = Color(0xFF3A3A42);
-  static const _doneTile = Color(0xFFE6F7EC);
-  static const _done = AppColors.green;
+  static const _count = Color(0xFF5C5C66);
+  static const _ink = Color(0xFF1C1C1E);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -104,9 +104,7 @@ class MapFinishSetupStrip extends ConsumerWidget {
                 '$done of $total done',
                 style: TextStyle(
                   fontSize: 12.spMin,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
-                  color: _label,
+                  color: _count,
                 ),
               ),
             ],
@@ -118,48 +116,41 @@ class MapFinishSetupStrip extends ConsumerWidget {
           padding: EdgeInsets.symmetric(horizontal: 20.spMin),
           child: Row(
             children: [
-              // Finished steps drop out; only the open ones are shown.
-              if (!savedPlace) ...[
-                _cardBuilder(
-                  icon: LucideIcons.mapPin,
-                  label: 'Save a place',
-                  done: false,
-                  onTap: () => context.push(
-                    ManageNotificationsScreen.route,
-                    extra: const ManageNotificationsScreenArgs(initialTab: 1),
-                  ),
-                ),
+              // Finished steps stay, dimmed, as on the board; the count
+              // above says how many are left.
+              _cardBuilder(
+                icon: LucideIcons.mapPin,
+                label: 'Save a place',
+                done: savedPlace,
+                onTap: () => showPlacesSheet(context: context),
+              ),
+              SizedBox(width: 10.spMin),
+              _cardBuilder(
+                icon: LucideIcons.shield,
+                label: 'Safety profile',
+                done: safetyProfile,
+                onTap: () => context.push(SafetyProfileScreen.route),
+              ),
+              SizedBox(width: 10.spMin),
+              _cardBuilder(
+                icon: LucideIcons.volume2,
+                label: 'Sound and vibration',
+                done: accessibleAlerts,
+                onTap: () => context.push(AccessibleAlertsScreen.route),
+              ),
+              if (showWidgetStep) ...[
                 SizedBox(width: 10.spMin),
-              ],
-              if (!safetyProfile) ...[
-                _cardBuilder(
-                  icon: LucideIcons.shield,
-                  label: 'Safety profile',
-                  done: false,
-                  onTap: () => context.push(SafetyProfileScreen.route),
-                ),
-                SizedBox(width: 10.spMin),
-              ],
-              if (!accessibleAlerts) ...[
-                _cardBuilder(
-                  icon: LucideIcons.volume2,
-                  label: 'Sound and vibration',
-                  done: false,
-                  onTap: () => context.push(AccessibleAlertsScreen.route),
-                ),
-                SizedBox(width: 10.spMin),
-              ],
-              if (!widgetAdded)
                 _cardBuilder(
                   icon: LucideIcons.layoutGrid,
                   label: 'Add a widget',
-                  done: false,
+                  done: widgetAdded,
                   onTap: () {
                     // Opening the step finishes it for good.
                     unawaited(ref.read(providerOfWidgetStep.notifier).markDone());
                     context.push(AddWidgetScreen.route);
                   },
                 ),
+              ],
             ],
           ),
         ),
@@ -167,51 +158,54 @@ class MapFinishSetupStrip extends ConsumerWidget {
     );
   }
 
-  /// One 120 x 70 card: the orange outline icon top-left, the label
-  /// bottom-left. Done cards go pale green with a green check.
+  /// One 148 x 84 card (board "Main"): the orange outline icon top-left,
+  /// the label bottom-left. A finished step stays, dimmed.
   Widget _cardBuilder({
     required final IconData icon,
     required final String label,
     required final bool done,
     required final VoidCallback onTap,
   }) {
-    return Container(
-      width: 120.spMin,
-      height: 70.spMin,
-      padding: EdgeInsets.all(10.spMin),
-      decoration: BoxDecoration(
-        color: done ? _doneTile : AppColors.white,
-        borderRadius: BorderRadius.circular(14.spMin),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.10),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(
-            done ? LucideIcons.check : icon,
-            size: 20.spMin,
-            color: done ? _done : AppColors.orange,
-          ),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w700,
-              height: 1.1,
-              color: done ? _done : AppColors.black,
+    return Opacity(
+      opacity: done ? 0.55 : 1.0,
+      child: Container(
+        width: 148.spMin,
+        height: 84.spMin,
+        padding: EdgeInsets.all(12.spMin),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16.spMin),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: 0.10),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
             ),
-          ),
-        ],
-      ),
-    ).onPressed(onTap);
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Icon(
+              icon,
+              size: 22.spMin,
+              color: AppColors.orange,
+            ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14.spMin,
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+                color: _ink,
+              ),
+            ),
+          ],
+        ),
+      ).onPressed(onTap),
+    );
   }
 }
