@@ -48,8 +48,8 @@ else
   })
 
   # Xcconfig per build config
-  widget.build_configurations.find { |c| c.name == 'Debug' }&.build_settings&.[]= ('XCCONFIG_FILE', 'AlrtWidget/Widget.xcconfig')
-  widget.build_configurations.find { |c| c.name == 'Release' }&.build_settings&.[]= ('XCCONFIG_FILE', 'AlrtWidget/Widget.xcconfig')
+  widget.build_configurations.find { |c| c.name == 'Debug' }&.build_settings&.[]=('XCCONFIG_FILE', 'AlrtWidget/Widget.xcconfig')
+  widget.build_configurations.find { |c| c.name == 'Release' }&.build_settings&.[]=('XCCONFIG_FILE', 'AlrtWidget/Widget.xcconfig')
 
   # Source file group + build phase references
   widget_group = project.main_group.new_group('AlrtWidget', 'AlrtWidget')

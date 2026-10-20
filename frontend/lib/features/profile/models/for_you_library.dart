@@ -146,7 +146,7 @@ abstract final class ForYouLibrary {
     SafetyCohort.vision:
         'Humanitarian events can produce misinformation online. Checking official sources directly rather than shared images or posts may help.',
     SafetyCohort.visitor:
-        'If you are travelling near the affected area, checking with your accommodation and registering with your government\\'s travel service may help.',
+        'If you are travelling near the affected area, checking with your accommodation and registering with your government travel service may help.',
     SafetyCohort.worker:
         'If your work involves the affected region, checking with your employer on any supply or travel impacts may help.',
     SafetyCohort.pets:
