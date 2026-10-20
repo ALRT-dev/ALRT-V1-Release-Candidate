@@ -28,16 +28,25 @@ const escapeHtml = (value: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const severityLabel = (severity: string): string => {
-  switch (severity) {
-    case "emergency":
-      return "Emergency Warning";
-    case "watchAndAct":
-      return "Watch and Act";
-    case "advice":
-      return "Advice";
-    default:
-      return "Alert";
+/** Hardcoded fallback used when the DB hasn't been seeded yet. */
+const _severityLabelDefaults: Record<string, string> = {
+  emergency: "Emergency Warning",
+  watchAndAct: "Watch and Act",
+  advice: "Advice",
+  default: "Alert",
+};
+
+/**
+ * Resolves a severity key to its admin-configured label, falling back to the
+ * hardcoded defaults so share pages always render correctly even before
+ * the Configuration row is seeded.
+ */
+const severityLabel = async (severity: string): Promise<string> => {
+  try {
+    const labels = await getSeverityLabels();
+    return labels[severity] ?? labels["default"] ?? _severityLabelDefaults["default"]!;
+  } catch {
+    return _severityLabelDefaults[severity] ?? _severityLabelDefaults["default"]!;
   }
 };
 
@@ -173,8 +182,8 @@ type ShareableHazard = NonNullable<
   Awaited<ReturnType<typeof findShareableHazard>>
 >;
 
-const sharePage = (hazard: ShareableHazard): string => {
-  const label = severityLabel(hazard.severity);
+const sharePage = async (hazard: ShareableHazard): Promise<string> => {
+  const label = await severityLabel(hazard.severity);
   const color = severityColor(hazard.severity);
   const title = escapeHtml(hazard.title);
   const location = hazard.locationName ? escapeHtml(hazard.locationName) : "";
@@ -287,7 +296,7 @@ export const shareAlertPageController = async (
       return;
     }
 
-    res.status(200).send(sharePage(hazard));
+    res.status(200).send(await sharePage(hazard));
   } catch (error) {
     next(error);
   }
@@ -316,7 +325,7 @@ export const shareAlertCardController = async (
       updatedAt: hazard.updatedAt,
       title: hazard.title,
       severity: hazard.severity,
-      severityLabel: severityLabel(hazard.severity),
+      severityLabel: await severityLabel(hazard.severity),
       severityColor: severityColor(hazard.severity),
       locationName: hazard.locationName,
       issuedAtLabel: formatIssuedAt(hazard.occurredAt),

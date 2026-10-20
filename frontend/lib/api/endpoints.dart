@@ -104,8 +104,12 @@ String kUrlAccessIndividualFunding(final String circleId) =>
 
 // ---------------------------- APP ----------------------------
 
+/// Public app config (severity labels, etc.) — no auth.
+const kUrlAppConfig = '$kUrlApi/app/config';
+
 /// Public: the lowest app version each platform still supports.
 const kUrlAppVersionPolicy = '$kUrlApi/app/version-policy';
+
 
 // ---------------------------- FAMILY ----------------------------
 

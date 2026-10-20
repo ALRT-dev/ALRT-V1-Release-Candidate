@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hazard_app/features/shared/providers/app_config_provider.dart';
 import 'package:hazard_app/features/shared/providers/app_info_provider.dart';
 import 'package:hazard_app/features/shared/providers/base_url_provider.dart';
 import 'package:hazard_app/features/home_screen_widget/home_widget_service.dart';
@@ -36,6 +37,7 @@ class AppBootstrap {
       _initializeHomeWidget(),
       _initializeMapsAvailability(),
       AlrtPlusTestSwitch.load(),
+      fetchAppConfig(), // populates SeverityLabels from GET /api/app/config
     ]);
 
     StartupTrace.mark('bootstrap: plugins ready, starting app');
