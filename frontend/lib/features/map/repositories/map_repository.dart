@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:dio/dio.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,7 +7,6 @@ import 'package:hazard_app/features/map/models/google_place_model.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/shared/utils/async_call_helper.dart';
 import 'package:hazard_app/features/shared/utils/either.dart';
-import 'package:hazard_app/others/env.dart';
 
 abstract class MapRepository {
   Future<Either<void, AppError>> animateCamera({
@@ -48,12 +45,10 @@ class MapRepositoryImpl implements MapRepository {
     required Dio dio,
     required PolylinePoints polylinePoints,
   }) : _googleMapController = googleMapController,
-       _dio = dio,
-       _polylinePoints = polylinePoints;
+       _dio = dio;
 
   final GoogleMapController _googleMapController;
   final Dio _dio;
-  final PolylinePoints _polylinePoints;
 
   @override
   Future<Either<void, AppError>> animateCamera({
@@ -334,27 +329,5 @@ class MapRepositoryImpl implements MapRepository {
       },
       onError: Failure.new,
     );
-  }
-
-  /// Headers that let a Google-Cloud-Console Android/iOS "application
-  /// restriction" apply to a raw REST call the way it would to a native Maps
-  /// SDK call, which sends this proof automatically. Returns `null` (no
-  /// headers sent, current behavior unchanged) until the corresponding
-  /// `.env` values are configured alongside the actual Cloud Console
-  /// restriction — see the manual configuration steps in the reconciliation
-  /// report.
-  Map<String, String>? _appRestrictionHeaders() {
-    if (Platform.isAndroid &&
-        Env.googleMapsAndroidPackageName.isNotEmpty &&
-        Env.googleMapsAndroidCertSha1.isNotEmpty) {
-      return {
-        'X-Android-Package': Env.googleMapsAndroidPackageName,
-        'X-Android-Cert': Env.googleMapsAndroidCertSha1,
-      };
-    }
-    if (Platform.isIOS && Env.googleMapsIosBundleId.isNotEmpty) {
-      return {'X-Ios-Bundle-Identifier': Env.googleMapsIosBundleId};
-    }
-    return null;
   }
 }
