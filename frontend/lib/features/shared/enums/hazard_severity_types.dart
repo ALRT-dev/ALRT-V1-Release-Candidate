@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/services/severity_labels.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
 enum HazardSeverity {
@@ -8,19 +9,11 @@ enum HazardSeverity {
   watchAndAct, // For AWS: watchAndAct ------ For Non-AWS: moderate
   emergency; // For AWS: emergency ------ For Non-AWS: high
 
-  /// Returns the title string corresponding to the hazard severity following AWS standards.
-  String get titleAws {
-    return switch (this) {
-      HazardSeverity.unknown => 'Unknown',
-      // The Australian Warning System has three levels only: Advice, Watch
-      // and Act, Emergency Warning. There is no Info level, so an AWS alert
-      // that scans as Info is written as Advice (owner, 14 Oct 2026).
-      HazardSeverity.info => 'Advice',
-      HazardSeverity.advice => 'Advice',
-      HazardSeverity.watchAndAct => 'Watch and Act',
-      HazardSeverity.emergency => 'Emergency Warning',
-    };
-  }
+  /// Returns the title string corresponding to the hazard severity following
+  /// AWS standards.  Reads from [SeverityLabels] which is populated from
+  /// GET /api/app/config on startup; falls back to the hardcoded AWS defaults
+  /// until the network call completes or if the server is unreachable.
+  String get titleAws => SeverityLabels.forSeverity(this);
 
   /// Returns the title string corresponding to the hazard severity (not AWS standards).
   String get titleNonAws {

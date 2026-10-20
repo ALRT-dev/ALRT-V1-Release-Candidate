@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/shared/providers/main_categories_provider.dart';
+import 'package:hazard_app/features/shared/services/severity_labels.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_filter_chip.dart';
 import 'package:hazard_app/features/shared/views/widgets/hazard_shape_badge.dart';
 import 'package:hazard_app/others/app_colors.dart';
@@ -81,7 +82,7 @@ class AlertKeyContent extends ConsumerWidget {
 
   Widget _seriousnessBuilder() {
     const bands = [AppColors.info, AppColors.advice, AppColors.watchAndAct, AppColors.emergency];
-    const awsWords = ['Advice', 'Watch and Act', 'Emergency Warning'];
+    final awsWords = [SeverityLabels.advice(), SeverityLabels.watchAndAct(), SeverityLabels.emergency()];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         const Expanded(child: SizedBox.shrink()),
