@@ -6,7 +6,7 @@ services:
       - .env.prod
     ports:
       - "127.0.0.1:3001:9000"
-    command: sh -c "npx prisma migrate deploy && yarn start"
+    command: sh -c "npx prisma generate && bash scripts/prod-migrate.sh && yarn start"
     restart: unless-stopped
 
   app_green:
@@ -16,5 +16,5 @@ services:
       - .env.prod
     ports:
       - "127.0.0.1:3002:9000"
-    command: sh -c "npx prisma migrate deploy && yarn start"
+    command: sh -c "npx prisma generate && bash scripts/prod-migrate.sh && yarn start"
     restart: unless-stopped
