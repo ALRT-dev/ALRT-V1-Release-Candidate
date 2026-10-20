@@ -127,6 +127,32 @@ abstract final class ForYouLibrary {
     (['outbreak', 'measles', 'disease'], 'public_health'),
   ];
 
+  /// Region-agnostic cohort guidance for global/humanitarian alerts (GDACS
+  /// and similar). Used when [isGlobal] is true on the For You card so the
+  /// Australia-specific [rows] wording is not shown for overseas events.
+  /// One entry per [SafetyCohort]; never empty (the For You card hides
+  /// itself when no entry exists for the viewer's cohorts).
+  static const Map<SafetyCohort, String> globalRows = {
+    SafetyCohort.older:
+        'Older adults are often disproportionately affected by major disasters. Following official guidance early and letting someone know your plans may help.',
+    SafetyCohort.kids:
+        'Children can be unsettled by distant disasters. Keeping routines calm and explaining the event simply may help.',
+    SafetyCohort.mobility:
+        'Major disasters can disrupt accessible transport and infrastructure. Checking that your usual routes and services are unaffected may help.',
+    SafetyCohort.medical:
+        'Global disasters can affect international supply chains for medicines and medical equipment. Keeping a reasonable stock of essentials may help.',
+    SafetyCohort.deaf:
+        'Emergency broadcasts during major events may be audio-only. Keeping vibration alerts on and checking text sources may help.',
+    SafetyCohort.vision:
+        'Humanitarian events can produce misinformation online. Checking official sources directly rather than shared images or posts may help.',
+    SafetyCohort.visitor:
+        'If you are travelling near the affected area, checking with your accommodation and registering with your government\\'s travel service may help.',
+    SafetyCohort.worker:
+        'If your work involves the affected region, checking with your employer on any supply or travel impacts may help.',
+    SafetyCohort.pets:
+        'Major global events rarely affect pets directly, but disruption to supply chains can affect pet food and medication. Keeping a small stock may help.',
+  };
+
   /// hazard bucket -> cohort -> line (verbatim reviewed wording).
   static const Map<String, Map<SafetyCohort, String>> rows = {
     'bushfire': {
