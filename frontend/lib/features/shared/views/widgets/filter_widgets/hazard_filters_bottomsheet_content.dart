@@ -224,7 +224,6 @@ class _HazardFiltersBottomsheetContentState
               _alwaysOnRowBuilder(),
               10.hSizedBox,
               _switchBuilder(
-                icon: LucideIcons.diamond,
                 title: 'Official',
                 subtitle: 'Alerts from agencies.',
                 isEnabled: officialOn,
@@ -232,7 +231,6 @@ class _HazardFiltersBottomsheetContentState
               ),
               8.hSizedBox,
               _switchBuilder(
-                icon: LucideIcons.circle,
                 title: 'Community',
                 subtitle: 'Reports from people nearby. Always unverified.',
                 isEnabled: f.userReported,
@@ -240,7 +238,6 @@ class _HazardFiltersBottomsheetContentState
               ),
               8.hSizedBox,
               _switchBuilder(
-                icon: LucideIcons.shield,
                 title: 'ALRT Assessment',
                 subtitle: 'Named sources. Never restates a warning.',
                 isEnabled: f.alrtIntel,
@@ -520,8 +517,9 @@ class _HazardFiltersBottomsheetContentState
     );
   }
 
+  // Product ruling 16 Oct 2026: no shape icons (triangle/diamond/circle/
+  // shield) on the filter panel. _switchBuilder takes no icon parameter.
   Widget _switchBuilder({
-    required final IconData icon,
     required final String title,
     required final String subtitle,
     required final bool isEnabled,
@@ -543,17 +541,6 @@ class _HazardFiltersBottomsheetContentState
       ),
       child: Row(
         children: [
-          Container(
-            width: 34.spMin,
-            height: 34.spMin,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.extraLightGrey,
-              borderRadius: BorderRadius.circular(10.spMin),
-            ),
-            child: HazardShapeBadge.outlineGlyph(icon: icon, size: 18.spMin),
-          ),
-          12.wSizedBox,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

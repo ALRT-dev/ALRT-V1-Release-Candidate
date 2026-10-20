@@ -446,6 +446,10 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - name: Add iOS widget + watch targets to Xcode project
+        working-directory: frontend/ios
+        run: bundle exec ruby add_extension_targets.rb
+
       - name: Refresh CocoaPods specs (the runner's copy is out of date)
         working-directory: frontend/ios
         run: |
