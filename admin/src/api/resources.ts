@@ -199,6 +199,13 @@ export const updateAIPrompt = (
 
 export const listConfigurations = () => apiGet<AdminConfiguration[]>("/api/admin/configurations");
 
+export const createConfiguration = (data: {
+  key: string;
+  value: unknown;
+  title: string;
+  description?: string;
+}) => apiPost<AdminConfiguration>("/api/admin/configurations", data);
+
 export const updateConfiguration = (
   id: string,
   patch: { value?: unknown; title?: string; description?: string },

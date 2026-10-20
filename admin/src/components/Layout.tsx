@@ -18,6 +18,7 @@ const NAV_ITEMS: { to: string; label: string; roles?: AdminRole[] }[] = [
   { to: "/ask-alrt", label: "Ask ALRT" },
   { to: "/ask-alrt-library", label: "Ask ALRT Answers" },
   { to: "/emergency-numbers", label: "Emergency Numbers" },
+  { to: "/severity-labels", label: "Severity Labels", roles: ["superAdmin", "admin"] },
   { to: "/audit-log", label: "Audit Log", roles: ["superAdmin", "admin"] },
 ];
 

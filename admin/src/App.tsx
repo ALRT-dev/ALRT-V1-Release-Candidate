@@ -19,6 +19,7 @@ import { AskAlrtLibraryPage } from "./pages/AskAlrtLibraryPage";
 import { EmergencyNumbersPage } from "./pages/EmergencyNumbersPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
+import { SeverityLabelsPage } from "./pages/SeverityLabelsPage";
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
             <Route path="/ask-alrt-library" element={<AskAlrtLibraryPage />} />
             <Route path="/emergency-numbers" element={<EmergencyNumbersPage />} />
             <Route path="/audit-log" element={<AuditLogPage />} />
+            <Route path="/severity-labels" element={<SeverityLabelsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
