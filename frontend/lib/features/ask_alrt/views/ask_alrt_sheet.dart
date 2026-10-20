@@ -6,6 +6,7 @@ import 'package:hazard_app/features/ask_alrt/models/ask_alrt_message.dart';
 import 'package:hazard_app/features/ask_alrt/providers/ask_alrt_provider.dart';
 import 'package:hazard_app/features/ask_alrt/providers/states/ask_alrt_provider_state.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
+import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/subscription/views/screens/alrt_plus_paywall_screen.dart';
@@ -128,6 +129,14 @@ class _AskAlrtSheetState extends ConsumerState<AskAlrtSheet> {
               h.severityBand == HazardSeverityBand.action,
         )
         .where((h) => (h.title ?? '').trim().isNotEmpty)
+        // Strip TEST/dummy alerts so they never surface as suggestions.
+        .where((h) => !(h.title ?? '').toUpperCase().contains('TEST'))
+        .where((h) => h.source?.id != 'test-dummy')
+        .where(
+          (h) =>
+              h.reviewStatus == null ||
+              h.reviewStatus == HazardReviewStatus.accepted,
+        )
         .firstOrNull;
     String first = 'What is happening near me?';
     if (lead != null) {

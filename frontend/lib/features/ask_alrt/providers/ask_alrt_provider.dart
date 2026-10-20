@@ -9,6 +9,7 @@ import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/shared/providers/dio_instance_provider.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/ask_alrt/models/ask_alrt_local_answers.dart';
+import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/services/emergency_number.dart';
 
 final providerOfAskAlrt =
@@ -250,6 +251,15 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
           .read(providerOfMap)
           .hazards
           .where((hazard) => !hazard.isExpired)
+          // Strip TEST / dummy alerts from the AI context so they are never
+          // sent as grounding (known prod bug, Oct 2026).
+          .where((hazard) => !(hazard.title ?? '').toUpperCase().contains('TEST'))
+          .where((hazard) => hazard.source?.id != 'test-dummy')
+          .where(
+            (hazard) =>
+                hazard.reviewStatus == null ||
+                hazard.reviewStatus == HazardReviewStatus.accepted,
+          )
           .take(5)
           .toList();
     } catch (_) {

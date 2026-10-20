@@ -5,7 +5,9 @@ import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
+import 'package:hazard_app/features/notification/providers/alerts_display_provider.dart';
 import 'package:hazard_app/features/notification/views/widgets/offline_banner.dart';
+import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
@@ -49,10 +51,29 @@ class MapAreaAlertsList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final blocked = ref.watch(providerOfBlockedUserIds);
     final hazards = ref.watch(providerOfMap.select((value) => value.hazards));
+    final showSaved = ref.watch(providerOfShowSavedLocationsOnly);
+    final subs = showSaved
+        ? ref.watch(
+            providerOfMyLocationSubscriptions
+                .select((s) => s.locationSubscriptions),
+          )
+        : null;
+
     final visible = sortBySeverity(
-      hazards.where(
-        (h) => !h.isExpired && !blocked.contains(h.reportedBy?.id),
-      ),
+      hazards.where((h) {
+        if (h.isExpired || blocked.contains(h.reportedBy?.id)) return false;
+        if (!showSaved || subs == null || subs.isEmpty) return !showSaved;
+        final lat = h.latitude;
+        final lng = h.longitude;
+        if (lat == null || lng == null) return false;
+        return subs.any(
+          (sub) =>
+              lat >= sub.southwestLat &&
+              lat <= sub.northeastLat &&
+              lng >= sub.southwestLng &&
+              lng <= sub.northeastLng,
+        );
+      }),
     );
     // Freezed equality: the loading case has no fields, so this is a type
     // check. (This state class generates no when/maybeWhen helpers.)
