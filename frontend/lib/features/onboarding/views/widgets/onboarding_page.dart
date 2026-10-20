@@ -7,7 +7,7 @@ import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// The flat light page every onboarding step sits on (approved boards):
-/// white background, 20 px gutters, an optional back arrow, the segmented
+/// the boards' #F5F5F7 page, 20 px gutters, an optional back arrow, the segmented
 /// step bar, then the step's own content, scrolling once it stops fitting.
 class OnboardingPage extends StatelessWidget {
   const OnboardingPage({
@@ -29,7 +29,7 @@ class OnboardingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: const Color(0xFFF5F5F7),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
@@ -55,7 +55,7 @@ class OnboardingPage extends StatelessWidget {
                         currentStep: step.index + 1,
                         totalSteps: totalSteps,
                       ),
-                      SizedBox(height: 28.spMin),
+                      SizedBox(height: 18.spMin),
                       ...children,
                     ],
                   ),
@@ -78,7 +78,7 @@ class OnboardingPage extends StatelessWidget {
             width: 40.spMin,
             height: 40.spMin,
             decoration: const BoxDecoration(
-              color: AppColors.extraLightGrey,
+              color: AppColors.white,
               shape: BoxShape.circle,
             ),
             child: Icon(

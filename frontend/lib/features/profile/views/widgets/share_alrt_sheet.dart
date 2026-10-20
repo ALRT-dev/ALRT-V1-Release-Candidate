@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_page_kit.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/services/analytics_service.dart';
@@ -38,14 +39,24 @@ Future<void> showShareAlrtSheet(final BuildContext context) {
 /// a recipient to the production website or a store, so the sheet says so
 /// (the TEST APK is sent directly) instead of showing a QR or a share
 /// button (AppLinks.shareAppLinkForFlavor).
-class ShareAlrtSheet extends StatelessWidget {
+class ShareAlrtSheet extends StatefulWidget {
   const ShareAlrtSheet({super.key, required this.link});
 
   final String? link;
 
   @override
+  State<ShareAlrtSheet> createState() => _ShareAlrtSheetState();
+}
+
+/// Prototype "ShareALRT" sheet: title, "ALRT: safety alerts for where you
+/// are.", one note card, then "Share link" (orange), "Show QR code"
+/// (white) and Close. The QR and the copyable link appear on request.
+class _ShareAlrtSheetState extends State<ShareAlrtSheet> {
+  bool _showQr = false;
+
+  @override
   Widget build(BuildContext context) {
-    final link = this.link;
+    final link = widget.link;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -54,104 +65,80 @@ class ShareAlrtSheet extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(20.spMin, 10.spMin, 20.spMin, 16.spMin),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40.spMin,
-                height: 4.spMin,
-                decoration: BoxDecoration(
-                  color: AppColors.lightGrey,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            18.hSizedBox,
-            Text(
-              'Share ALRT',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20.spMin,
-                fontWeight: FontWeight.w800,
-                color: AppColors.black,
-              ),
-            ),
-            6.hSizedBox,
-            Text(
-              link == null
-                  ? 'Tell someone about the app.'
-                  : 'They scan this, or you send them the link.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13.spMin,
-                color: AppColors.mediumGrey,
-              ),
-            ),
-            12.hSizedBox,
-            _notAnInviteNoteBuilder(),
-            20.hSizedBox,
-            if (link == null)
-              _testBuildNoticeBuilder()
-            else ...[
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Center(
                 child: Container(
-                  padding: EdgeInsets.all(16.spMin),
+                  width: 40.spMin,
+                  height: 4.spMin,
                   decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(20.spMin),
-                    border: Border.all(color: AppColors.lightGrey),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.shadowColorLight,
-                        blurRadius: 12.0,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: QrImageView(
-                    data: link,
-                    size: 200.spMin,
-                    backgroundColor: AppColors.white,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: AppColors.black,
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: AppColors.black,
-                    ),
+                    color: AppColors.lightGrey,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              18.hSizedBox,
-              _linkRowBuilder(context, link),
               14.hSizedBox,
-              SizedBox(
-                height: 50.spMin,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orange,
-                    foregroundColor: AppColors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16.spMin),
+              const ProfileSheetTitle(
+                title: 'Share ALRT',
+                subtitle: 'ALRT: safety alerts for where you are.',
+              ),
+              12.hSizedBox,
+              _notAnInviteNoteBuilder(),
+              12.hSizedBox,
+              if (link == null)
+                _testBuildNoticeBuilder()
+              else ...[
+                if (_showQr) ...[
+                  Center(
+                    child: Container(
+                      padding: EdgeInsets.all(16.spMin),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(20.spMin),
+                        border: Border.all(color: AppColors.lightGrey),
+                      ),
+                      child: QrImageView(
+                        data: link,
+                        size: 200.spMin,
+                        backgroundColor: AppColors.white,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: AppColors.black,
+                        ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: AppColors.black,
+                        ),
+                      ),
                     ),
                   ),
+                  12.hSizedBox,
+                  _linkRowBuilder(context, link),
+                  12.hSizedBox,
+                ],
+                ProfileButton(
+                  key: const Key('share-link'),
+                  label: 'Share link',
                   onPressed: () => _share(context, link),
-                  icon: Icon(LucideIcons.share, size: 18.spMin),
-                  label: Text(
-                    'Share link',
-                    style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
                 ),
+                12.hSizedBox,
+                ProfileButton(
+                  label: _showQr ? 'Hide QR code' : 'Show QR code',
+                  kind: ProfileButtonKind.secondary,
+                  onPressed: () => setState(() => _showQr = !_showQr),
+                ),
+              ],
+              4.hSizedBox,
+              ProfileButton(
+                label: 'Close',
+                kind: ProfileButtonKind.ghost,
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -173,8 +160,8 @@ class ShareAlrtSheet extends StatelessWidget {
           SizedBox(width: 8.spMin),
           Expanded(
             child: Text(
-              'This shares the app itself. To add someone to your family '
-              'circle, use Family → Add member and give them an invite code.',
+              'This shares the app itself. To add someone to your group, use '
+              'Family, then Add a person, and give them an invite code.',
               style: TextStyle(
                 fontSize: 12.spMin,
                 height: 1.4,

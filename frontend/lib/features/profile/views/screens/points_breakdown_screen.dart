@@ -7,8 +7,9 @@ import 'package:hazard_app/features/profile/models/xp_summary_models.dart';
 import 'package:hazard_app/features/profile/providers/xp_breakdown_provider.dart';
 import 'package:hazard_app/features/profile/views/screens/how_points_work_screen.dart';
 import 'package:hazard_app/features/profile/views/screens/leaderboard_screen.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_badges_card.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_page_kit.dart';
 import 'package:hazard_app/features/shared/enums/user_badge_enum.dart';
-import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -42,88 +43,77 @@ class PointsBreakdownScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: _page,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        surfaceTintColor: AppColors.white,
-        foregroundColor: AppColors.black,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          onPressed: () => context.pop(),
-          icon: const Icon(LucideIcons.chevronLeft, color: AppColors.black),
-        ),
-        title: Text(
-          'Your points',
-          style: TextStyle(
-            fontSize: 22.spMin,
-            fontWeight: FontWeight.w700,
-            color: AppColors.black,
-          ),
-        ),
-      ),
-      body: breakdown.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Could not load your points.',
-                style: TextStyle(
-                  fontSize: 15.spMin,
-                  color: _muted,
+      body: Column(
+        children: [
+          const ProfilePageHeader(title: 'Your points'),
+          Expanded(
+            child: breakdown.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => ListView(
+                padding: EdgeInsets.all(16.spMin),
+                children: [
+                  ProfileCard(
+                    children: [
+                      const ProfileMutedText('Could not load your points.'),
+                      ProfileButton(
+                        label: 'Try again',
+                        kind: ProfileButtonKind.secondary,
+                        onPressed: () => ref.invalidate(providerOfXpBreakdown),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              data: (data) => RefreshIndicator(
+                onRefresh: () async => ref.refresh(providerOfXpBreakdown.future),
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    16.spMin,
+                    14.spMin,
+                    16.spMin,
+                    32.spMin,
+                  ),
+                  children: [
+                    _headerCardBuilder(data),
+                    SizedBox(height: 14.spMin),
+                    _sectionTitleBuilder('Where your points came from'),
+                    if (data.byType.isEmpty)
+                      const ProfileCard(
+                        children: [ProfileMutedText('Nothing yet.')],
+                      )
+                    else
+                      ProfileCard(
+                        children: data.byType.map(_typeRowBuilder).toList(),
+                      ),
+                    SizedBox(height: 14.spMin),
+                    _sectionTitleBuilder('How points work'),
+                    _howPointsWorkCardBuilder(),
+                    SizedBox(height: 14.spMin),
+                    _linksCardBuilder(context),
+                    SizedBox(height: 14.spMin),
+                    _sectionTitleBuilder('Your learning'),
+                    if ((data.learning?.guides.isEmpty ?? true) &&
+                        (data.learning?.challenges.isEmpty ?? true))
+                      _emptyBuilder('Finish a guide in the Learn tab and it '
+                          'appears here by name, like your reports do.')
+                    else ...[
+                      ...?data.learning?.guides.map(_guideRowBuilder),
+                      ...?data.learning?.challenges.map(_challengeRowBuilder),
+                    ],
+                    SizedBox(height: 14.spMin),
+                    _sectionTitleBuilder('Your reports'),
+                    if (data.reports.isEmpty)
+                      _emptyBuilder(
+                        'No reports have earned or cost points yet.',
+                      )
+                    else
+                      ...data.reports.map(_reportRowBuilder),
+                  ],
                 ),
               ),
-              SizedBox(height: 12.spMin),
-              TextButton(
-                onPressed: () => ref.refresh(providerOfXpBreakdown),
-                child: const Text('Try again'),
-              ),
-            ],
+            ),
           ),
-        ),
-        data: (data) => RefreshIndicator(
-          onRefresh: () async => ref.refresh(providerOfXpBreakdown.future),
-          child: ListView(
-            padding: EdgeInsets.all(16.spMin),
-            children: [
-              _headerCardBuilder(data),
-              SizedBox(height: 16.spMin),
-              if (data.stats != null) ...[
-                _statsRowBuilder(data.stats!),
-                SizedBox(height: 16.spMin),
-              ],
-              _sectionTitleBuilder('WHERE YOUR POINTS CAME FROM'),
-              if (data.byType.isEmpty)
-                _emptyBuilder('Nothing yet. Points arrive when a report is '
-                    'approved, when people nearby confirm it, and when you '
-                    'finish a safety guide.')
-              else
-                ...data.byType.map(_typeRowBuilder),
-              SizedBox(height: 16.spMin),
-              _sectionTitleBuilder('HOW POINTS WORK'),
-              _howPointsWorkCardBuilder(),
-              SizedBox(height: 16.spMin),
-              _linksCardBuilder(context),
-              SizedBox(height: 16.spMin),
-              _sectionTitleBuilder('YOUR LEARNING'),
-              if ((data.learning?.guides.isEmpty ?? true) &&
-                  (data.learning?.challenges.isEmpty ?? true))
-                _emptyBuilder('Finish a guide in the Learn tab and it '
-                    'appears here by name, like your reports do.')
-              else ...[
-                ...?data.learning?.guides.map(_guideRowBuilder),
-                ...?data.learning?.challenges.map(_challengeRowBuilder),
-              ],
-              SizedBox(height: 16.spMin),
-              _sectionTitleBuilder('YOUR REPORTS'),
-              if (data.reports.isEmpty)
-                _emptyBuilder('No reports have earned or cost points yet.')
-              else
-                ...data.reports.map(_reportRowBuilder),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -136,12 +126,12 @@ class PointsBreakdownScreen extends ConsumerWidget {
     final next = tier.nextBadge;
     final isTop = tier == UserBadge.values.last;
     final tierLine = isTop
-        ? '${tier.title} · top tier'
+        ? '${tier.title} · top level'
         : '${tier.title} · ${next.requiredXpPoints - xp} to ${next.title}';
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(20.spMin),
+      padding: EdgeInsets.all(18.spMin),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -158,60 +148,25 @@ class PointsBreakdownScreen extends ConsumerWidget {
             style: TextStyle(
               fontSize: 12.spMin,
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.0,
-              color: AppColors.white.withValues(alpha: 0.8),
+              letterSpacing: 0.6,
+              color: AppColors.white.withValues(alpha: 0.85),
             ),
           ),
-          SizedBox(height: 6.spMin),
+          SizedBox(height: 2.spMin),
           Text(
             '$xp',
             style: TextStyle(
-              fontSize: 36.spMin,
+              fontSize: 40.spMin,
               fontWeight: FontWeight.w700,
-              height: 1.0,
+              height: 1.1,
               color: AppColors.white,
             ),
           ),
-          SizedBox(height: 8.spMin),
           Text(
             tierLine,
             style: TextStyle(
-              fontSize: 14.spMin,
-              fontWeight: FontWeight.w600,
-              color: AppColors.white.withValues(alpha: 0.92),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// The scoring rules in one plain card (Points and Badge Logic v1.1).
-  Widget _howPointsWorkCardBuilder() {
-    return Container(
-      padding: EdgeInsets.all(16.spMin),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Report approved +10 · Confirmed by a neighbour +5 · Matches an '
-            'official warning +15 · Guide read +10 · Report rejected -15.',
-            style: TextStyle(
-              fontSize: 14.spMin,
-              fontWeight: FontWeight.w600,
-              height: 1.45,
-              color: AppColors.black,
-            ),
-          ),
-          SizedBox(height: 8.spMin),
-          Text(
-            'Confirming someone else\'s report earns nothing. Points reward '
-            'careful, accurate reports. No streaks.',
-            style: TextStyle(
               fontSize: 13.spMin,
-              height: 1.4,
-              color: _muted,
+              color: AppColors.white.withValues(alpha: 0.9),
             ),
           ),
         ],
@@ -219,97 +174,52 @@ class PointsBreakdownScreen extends ConsumerWidget {
     );
   }
 
-  Widget _linksCardBuilder(BuildContext context) {
-    return Container(
-      decoration: _cardDecoration(),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          _linkRowBuilder(
-            icon: LucideIcons.trophy,
-            title: 'Leaderboard',
-            subtitle: 'Ranks only. Names are never shown.',
-            onTap: () => context.push(LeaderboardScreen.route),
-          ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: _hairline,
-            indent: 16.spMin,
-            endIndent: 16.spMin,
-          ),
-          _linkRowBuilder(
-            icon: LucideIcons.info,
-            title: 'How points work',
-            subtitle: 'The full explainer',
-            onTap: () => context.push(HowPointsWorkScreen.route),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _linkRowBuilder({
-    required final IconData icon,
-    required final String title,
-    required final String subtitle,
-    required final VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
-      child: Row(
-        children: [
-          Icon(icon, size: 22.spMin, color: AppColors.black),
-          SizedBox(width: 14.spMin),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.black,
-                  ),
-                ),
-                SizedBox(height: 2.spMin),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 13.spMin, color: _muted),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 8.spMin),
-          Icon(LucideIcons.chevronRight, size: 18.spMin, color: _muted),
-        ],
-      ),
-    ).onPressed(onTap);
-  }
-
-  BoxDecoration _cardDecoration() => BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18.spMin),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 3.0,
-            offset: Offset(0, 1),
-          ),
-        ],
-      );
-
-  Widget _statsRowBuilder(XpBreakdownStats stats) {
-    // Views and votes used to sit here as if they earned something. They
-    // never did; what counts is approval and other people confirming.
-    return Row(
+  /// The scoring rules in one plain card (rules.json points).
+  Widget _howPointsWorkCardBuilder() {
+    return const ProfileCard(
       children: [
-        _statTileBuilder('${stats.totalHazardsReported}', 'Reports'),
-        SizedBox(width: 10.spMin),
-        _statTileBuilder('${stats.approvedReports}', 'Approved'),
-        SizedBox(width: 10.spMin),
-        _statTileBuilder('${stats.corroborationsReceived}', 'Confirmed by'),
+        ProfileMutedText(
+          'Report approved +10 · Confirmed by a neighbour +5 · Matches an '
+          'official warning +15 · Guide read +10 · Report rejected -15. '
+          "Confirming someone else's report earns nothing. Points reward "
+          'careful, accurate reports. No streaks.',
+          size: 14,
+        ),
+      ],
+    );
+  }
+
+  /// Leaderboard and Badges (prototype), then the full explainer.
+  Widget _linksCardBuilder(BuildContext context) {
+    return ProfileRowGroup(
+      rows: [
+        ProfileListRow(
+          key: const Key('points-leaderboard'),
+          title: 'Leaderboard',
+          subtitle: 'Ranks only. Names are never shown.',
+          onTap: () => context.push(LeaderboardScreen.route),
+        ),
+        ProfileListRow(
+          title: 'Badges',
+          subtitle: 'What you have earned and what is next',
+          onTap: () => showProfileSheet<void>(
+            context: context,
+            builder: (sheetContext) => [
+              const ProfileSheetTitle(title: 'Badges'),
+              const ProfileBadgesCard(),
+              ProfileButton(
+                label: 'Close',
+                kind: ProfileButtonKind.ghost,
+                onPressed: () => Navigator.of(sheetContext).pop(),
+              ),
+            ],
+          ),
+        ),
+        ProfileListRow(
+          title: 'How points work',
+          subtitle: 'The full explainer',
+          onTap: () => context.push(HowPointsWorkScreen.route),
+        ),
       ],
     );
   }
@@ -324,47 +234,15 @@ class PointsBreakdownScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statTileBuilder(String value, String label) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14.spMin),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14.spMin),
-          border: Border.all(color: _hairline),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18.spMin,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            SizedBox(height: 2.spMin),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.spMin,
-                color: _muted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _sectionTitleBuilder(String title) {
     return Padding(
       padding: EdgeInsets.only(bottom: 8.spMin, left: 4.spMin),
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          fontSize: 11.spMin,
+          fontSize: 12.spMin,
           fontWeight: FontWeight.w700,
-          letterSpacing: 1.0,
+          letterSpacing: 0.6,
           color: _sectionLabel,
         ),
       ),
@@ -374,53 +252,24 @@ class PointsBreakdownScreen extends ConsumerWidget {
   /// One kind of earning: what it is, how many times, and the total.
   Widget _typeRowBuilder(final XpTypeTotal row) {
     final isNegative = row.points < 0;
-    return Container(
-      margin: EdgeInsets.only(bottom: 8.spMin),
-      padding: EdgeInsets.symmetric(
-        horizontal: 14.spMin,
-        vertical: 12.spMin,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14.spMin),
-        border: Border.all(color: _hairline),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  row.type?.label ?? 'Other',
-                  style: TextStyle(
-                    fontSize: 14.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 2.spMin),
-                Text(
-                  row.count == 1 ? 'once' : '${row.count} times',
-                  style: TextStyle(
-                    fontSize: 11.5.spMin,
-                    color: _muted,
-                  ),
-                ),
-              ],
-            ),
+    final times = row.count == 1 ? 'once' : '${row.count} times';
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '${row.type?.label ?? 'Other'} ($times)',
+            style: TextStyle(fontSize: 15.spMin, color: AppColors.ink),
           ),
-          Text(
-            '${isNegative ? '' : '+'}${row.points}',
-            style: TextStyle(
-              fontSize: 15.spMin,
-              fontWeight: FontWeight.w800,
-              color: isNegative
-                  ? const Color(0xFFCC1010)
-                  : const Color(0xFF27AE60),
-            ),
+        ),
+        Text(
+          '${isNegative ? '' : '+'}${row.points}',
+          style: TextStyle(
+            fontSize: 15.spMin,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

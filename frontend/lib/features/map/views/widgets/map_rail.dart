@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
-import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
+import 'package:hazard_app/features/map/views/screens/check_route_screen.dart';
 import 'package:hazard_app/features/map/views/widgets/map_details_sheet.dart';
 import 'package:hazard_app/features/map/views/widgets/map_key_sheet.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
@@ -63,7 +62,7 @@ class _MapRailState extends ConsumerState<MapRail> {
           icon: LucideIcons.route,
           iconColor: _inkColor,
           semanticLabel: 'Check a route',
-          onPressed: () => context.push(SelectLocationScreen.route),
+          onPressed: _handleCheckRouteTap,
         ),
       ],
     );
@@ -164,6 +163,12 @@ class _MapRailState extends ConsumerState<MapRail> {
   /// Switches the home shell to the Alerts tab.
   void _handleAlertsTap() {
     ref.read(providerOfHomeTab.notifier).state = HomeTab.notifications;
+  }
+
+  /// Check a route: the full Check a route screen (prototype board
+  /// "Route"); pick where you are going there, then check the routes.
+  Future<void> _handleCheckRouteTap() async {
+    await CheckRouteScreen.open(context);
   }
 
   /// Animates the map to the user's current location (same behaviour as the

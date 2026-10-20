@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/utils/sos_record.dart';
-import 'package:hazard_app/features/family/utils/sos_timing.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/others/app_surface_colors.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// A member row for the family hub (approved Family board, 12 Oct 2026):
@@ -125,20 +125,25 @@ class FamilyMemberListItem extends StatelessWidget {
   }
 
   /// The one factual line under the name, in priority order: a live SOS,
-  /// an open ask, a check-in today, or "Not checked in today".
+  /// an open ask, a check-in today, or "No check-in asked" (ruling 9 Oct
+  /// 2026: until someone asks, nothing is waiting on anyone).
   String get _stateLine {
     final sos = liveSos;
     if (sos != null) return 'SOS live · ${_sosLocationLine(sos)}';
     if (hasAnswered == false && askedAt != null) {
-      return 'Asked to check in ${sosClock(askedAt!)}';
+      return 'Asked to check in ${_clock(askedAt!)}';
     }
     final last = member.lastCheckInAt;
     if (hasAnswered == true && last != null) {
-      return 'Checked in ${sosClock(last)}';
+      return 'Checked in ${_clock(last)}';
     }
-    if (isNearAlert) return 'Near an active alert · not checked in today';
-    return 'Not checked in today';
+    if (isNearAlert) return 'Near an active alert · no check-in asked';
+    return 'No check-in asked';
   }
+
+  /// "12:04 PM", in the phone's local time (the boards' clock).
+  static String _clock(final DateTime at) =>
+      DateFormat('h:mm a').format(at.toLocal());
 
   /// What the sender chose to share with their SOS, read from the event.
   static String _sosLocationLine(final FamilySosEvent sos) {
@@ -155,14 +160,14 @@ class FamilyMemberListItem extends StatelessWidget {
     if (liveSos != null) {
       return _pillBuilder(
         'SOS',
-        background: FamilyColors.sosRed,
-        foreground: Colors.white,
+        background: const Color(0xFFFDE8EA),
+        foreground: const Color(0xFFB3141F),
       );
     }
     if (hasAnswered == true) {
       return _pillBuilder(
         'Checked in',
-        background: FamilyColors.checkedInWash,
+        background: const Color(0xFFE6F6EC),
         foreground: FamilyColors.checkedInInk,
       );
     }
@@ -171,7 +176,7 @@ class FamilyMemberListItem extends StatelessWidget {
     if (hasAnswered == false && askedAt != null) {
       return _pillBuilder(
         'Waiting',
-        background: const Color(0xFFE6F7F5),
+        background: const Color(0x1F0D9488),
         foreground: FamilyColors.teal,
       );
     }
@@ -184,20 +189,21 @@ class FamilyMemberListItem extends StatelessWidget {
     }
     final onAsk = onAskToCheckIn;
     if (onAsk != null) {
-      return TextButton(
-        style: TextButton.styleFrom(
-          foregroundColor: FamilyColors.indigo,
-          padding: EdgeInsets.symmetric(horizontal: 10.spMin),
-          minimumSize: Size(0, 34.spMin),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10.spMin),
+      // The boards' indigo "Check on" pill: asks THIS person only.
+      return Semantics(
+        button: true,
+        label: 'Check on ${member.name}',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onAsk,
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 6.spMin),
+            child: _pillBuilder(
+              'Check on',
+              background: const Color(0xFFEEEEFB),
+              foreground: FamilyColors.indigo,
+            ),
           ),
-        ),
-        onPressed: onAsk,
-        child: Text(
-          'Check on',
-          style: TextStyle(fontSize: 13.spMin, fontWeight: FontWeight.w700),
         ),
       );
     }
@@ -214,10 +220,12 @@ class FamilyMemberListItem extends StatelessWidget {
     required final Color foreground,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 6.spMin),
+      height: 26.spMin,
+      alignment: Alignment.center,
+      padding: EdgeInsets.symmetric(horizontal: 10.spMin),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(20.spMin),
+        borderRadius: BorderRadius.circular(13.spMin),
       ),
       child: Text(
         text,

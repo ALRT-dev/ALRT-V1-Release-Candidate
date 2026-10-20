@@ -6,6 +6,8 @@ import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/learn/providers/learn_provider.dart';
+import 'package:hazard_app/features/learn/models/guide_models.dart';
+import 'package:hazard_app/features/learn/views/screens/guide_detail_screen.dart';
 import 'package:hazard_app/features/learn/views/screens/learn_topics_screen.dart';
 import 'package:hazard_app/features/notification/providers/manage_notifications_provider.dart';
 import 'package:hazard_app/features/notification/views/screens/manage_notifications_screen.dart';
@@ -13,7 +15,7 @@ import 'package:hazard_app/features/profile/providers/my_location_subscriptions_
 import 'package:hazard_app/features/profile/views/screens/safety_profile_screen.dart';
 import 'package:hazard_app/features/ready/providers/ready_provider.dart';
 import 'package:hazard_app/features/ready/views/screens/drill_list_screen.dart';
-import 'package:hazard_app/features/ready/views/screens/plan_list_screen.dart';
+import 'package:hazard_app/features/ready/views/screens/plan_edit_screen.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -26,12 +28,16 @@ class _ReadyStep {
     required this.body,
     required this.done,
     required this.onTap,
+    this.time,
   });
 
   final String title;
   final String body;
   final bool done;
   final VoidCallback onTap;
+
+  /// How long it takes ("2 min"), shown on the row while it is not done.
+  final String? time;
 }
 
 /// The Ready tab, rebuilt to the approved "Ready" board (9 Oct 2026):
@@ -50,8 +56,10 @@ class ReadyScreen extends ConsumerStatefulWidget {
 class _ReadyScreenState extends ConsumerState<ReadyScreen> {
   static const _page = Color(0xFFF5F5F7);
   static const _muted = Color(0xFF5C5C66);
-  static const _hairline = Color(0xFFE3E6EA);
+  static const _rowHairline = Color(0xFFECEEF1);
   static const _ringTrack = Color(0xFFE6E6EA);
+  static const _ringTodo = Color(0xFFD5D9DE);
+  static const _tileTint = Color(0xFFFFF4EE);
   static const _ready = Color(0xFF16A34A);
   static const _ink = Color(0xFF1C1C1E);
   static const _sectionLabel = Color(0xFFB84500);
@@ -142,15 +150,28 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
         body: 'Agree where to go if you are separated. Write it into your '
             'plan so everyone has it.',
         done: meetingPoint,
-        onTap: () => context.push(PlanListScreen.route),
+        onTap: _openPlan,
+        time: '2 min',
       ),
       _ReadyStep(
         title: 'Run a family drill',
         body: 'Practise the plan once so it is familiar when it counts.',
         done: drillDone,
         onTap: () => context.push(DrillListScreen.route),
+        time: '5 min',
       ),
     ];
+  }
+
+  /// "Set it now", "Pick a meeting point" and "My plan" all open the
+  /// plan itself (board Plan): the first saved plan, or a new one.
+  void _openPlan() {
+    final plans = ref.read(providerOfReady).plans;
+    context.push(
+      plans.isEmpty
+          ? PlanEditScreen.route
+          : PlanEditScreen.routeWithId(plans.first.id),
+    );
   }
 
   @override
@@ -168,21 +189,22 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
         children: [
           _buildHeader(),
           Padding(
-            padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 32.spMin),
+            padding: EdgeInsets.fromLTRB(16.spMin, 12.spMin, 16.spMin, 32.spMin),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildRingCard(done: done, total: total, pct: pct),
                 if (next != null) ...[
-                  SizedBox(height: 12.spMin),
+                  SizedBox(height: 14.spMin),
                   _buildNextStepCard(next),
                 ],
-                SizedBox(height: 20.spMin),
+                SizedBox(height: 14.spMin),
                 _buildSectionLabel('Your 5 steps'),
-                _buildStepsCard(steps),
-                SizedBox(height: 20.spMin),
+                _buildStepsCard(steps, next),
+                SizedBox(height: 14.spMin),
                 _buildSectionLabel('Everything to be ready'),
                 _buildEverythingGrid(),
+                _buildGuideStrip(),
               ],
             ),
           ),
@@ -195,27 +217,26 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
   // Header
   // ---------------------------------------------------------------
 
+  /// The board's header sits on the page itself: no white bar.
   Widget _buildHeader() {
-    return Container(
-      color: AppColors.white,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 16.spMin),
-          child: Row(
-            children: [
-              Icon(LucideIcons.shield, size: 28.spMin, color: AppColors.orange),
-              SizedBox(width: 10.spMin),
-              Text(
-                'Ready',
-                style: TextStyle(
-                  fontSize: 28.spMin,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.black,
-                ),
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 8.spMin),
+        child: Row(
+          children: [
+            Icon(LucideIcons.shieldCheck, size: 28.spMin, color: AppColors.orange),
+            SizedBox(width: 10.spMin),
+            Text(
+              'Ready',
+              style: TextStyle(
+                fontSize: 28.spMin,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
+                color: _ink,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -233,7 +254,7 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
     final title = pct < 40 ? 'Getting started' : 'Well on your way';
     final ringSize = 96.spMin;
     return Container(
-      padding: EdgeInsets.all(16.spMin),
+      padding: EdgeInsets.all(20.spMin),
       decoration: _cardDecoration(),
       child: Row(
         children: [
@@ -265,7 +286,7 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
               ],
             ),
           ),
-          SizedBox(width: 16.spMin),
+          SizedBox(width: 18.spMin),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +294,7 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 18.spMin,
+                    fontSize: 17.spMin,
                     fontWeight: FontWeight.w700,
                     color: AppColors.black,
                   ),
@@ -302,55 +323,78 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
 
   Widget _buildNextStepCard(final _ReadyStep step) {
     return Container(
-      padding: EdgeInsets.all(18.spMin),
+      padding: EdgeInsets.fromLTRB(20.spMin, 18.spMin, 20.spMin, 18.spMin),
       decoration: BoxDecoration(
-        color: _ink,
-        borderRadius: BorderRadius.circular(18.spMin),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2A2A30), Color(0xFF141416)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20.spMin),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'NEXT STEP · 2 MIN',
+            step.time == null
+                ? 'NEXT STEP'
+                : 'NEXT STEP · ${step.time!.toUpperCase()}',
             style: TextStyle(
               fontSize: 12.spMin,
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.0,
+              letterSpacing: 0.6,
               color: _nextStepLabel,
             ),
           ),
-          SizedBox(height: 8.spMin),
+          SizedBox(height: 12.spMin),
           Text(
             step.title,
             style: TextStyle(
               fontSize: 20.spMin,
               fontWeight: FontWeight.w700,
+              height: 1.2,
               color: AppColors.white,
             ),
           ),
-          SizedBox(height: 6.spMin),
+          SizedBox(height: 12.spMin),
           Text(
             step.body,
             style: TextStyle(
               fontSize: 14.spMin,
               height: 1.4,
-              color: AppColors.white.withValues(alpha: 0.72),
+              color: const Color(0xFFD0D0D6),
             ),
           ),
-          SizedBox(height: 16.spMin),
+          SizedBox(height: 12.spMin),
           Container(
-            height: 54.spMin,
+            height: 48.spMin,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [_brandStart, _brandEnd],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16.spMin),
+              borderRadius: BorderRadius.circular(14.spMin),
+              boxShadow: [
+                BoxShadow(
+                  color: _brandEnd.withValues(alpha: 0.22),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
             child: Text(
               'Set it now',
               style: TextStyle(
-                fontSize: 16.spMin,
+                fontSize: 15.spMin,
                 fontWeight: FontWeight.w700,
                 color: AppColors.white,
               ),
@@ -365,7 +409,10 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
   // Steps list
   // ---------------------------------------------------------------
 
-  Widget _buildStepsCard(final List<_ReadyStep> steps) {
+  Widget _buildStepsCard(
+    final List<_ReadyStep> steps,
+    final _ReadyStep? next,
+  ) {
     return Container(
       decoration: _cardDecoration(),
       clipBehavior: Clip.antiAlias,
@@ -376,45 +423,57 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
               Divider(
                 height: 1,
                 thickness: 1,
-                color: _hairline,
+                color: _rowHairline,
                 indent: 16.spMin,
                 endIndent: 16.spMin,
               ),
-            _buildStepRow(steps[i]),
+            _buildStepRow(steps[i], isNext: identical(steps[i], next)),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildStepRow(final _ReadyStep step) {
+  /// Done: a filled green disc with a white tick. The next step: an
+  /// orange ring and a bold title. Later steps: a grey ring, grey title.
+  Widget _buildStepRow(final _ReadyStep step, {required final bool isNext}) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
+      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 12.spMin),
       child: Row(
         children: [
-          if (step.done)
-            Icon(LucideIcons.circleCheck, size: 26.spMin, color: _ready)
-          else
-            Container(
-              width: 26.spMin,
-              height: 26.spMin,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: _ringTrack, width: 2),
-              ),
+          Container(
+            width: 24.spMin,
+            height: 24.spMin,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: step.done ? _ready : null,
+              border: step.done
+                  ? null
+                  : Border.all(
+                      color: isNext ? AppColors.orange : _ringTodo,
+                      width: 2,
+                    ),
             ),
-          SizedBox(width: 14.spMin),
+            child: step.done
+                ? Icon(LucideIcons.check, size: 14.spMin, color: AppColors.white)
+                : null,
+          ),
+          SizedBox(width: 12.spMin),
           Expanded(
             child: Text(
               step.title,
               style: TextStyle(
                 fontSize: 15.spMin,
-                fontWeight: FontWeight.w600,
-                color: AppColors.black,
+                fontWeight: isNext ? FontWeight.w700 : FontWeight.w500,
+                color: step.done || isNext ? _ink : _muted,
               ),
             ),
           ),
-          Icon(LucideIcons.chevronRight, size: 18.spMin, color: _muted),
+          if (!step.done && step.time != null)
+            Text(
+              step.time!,
+              style: TextStyle(fontSize: 12.spMin, color: _muted),
+            ),
         ],
       ),
     ).onPressed(step.onTap);
@@ -440,7 +499,7 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
               icon: LucideIcons.fileText,
               title: 'My plan',
               subtitle: 'If a warning, then we',
-              onTap: () => context.push(PlanListScreen.route),
+              onTap: _openPlan,
             ),
           ],
         ),
@@ -474,32 +533,112 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
   }) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.all(16.spMin),
-        decoration: _cardDecoration(),
+        padding: EdgeInsets.all(14.spMin),
+        decoration: _cardDecoration(radius: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 22.spMin, color: AppColors.orange),
-            SizedBox(height: 10.spMin),
+            Container(
+              width: 40.spMin,
+              height: 40.spMin,
+              decoration: BoxDecoration(
+                color: _tileTint,
+                borderRadius: BorderRadius.circular(12.spMin),
+              ),
+              child: Icon(icon, size: 20.spMin, color: AppColors.orange),
+            ),
+            SizedBox(height: 6.spMin),
             Text(
               title,
               style: TextStyle(
                 fontSize: 15.spMin,
                 fontWeight: FontWeight.w700,
-                color: AppColors.black,
+                color: _ink,
               ),
             ),
-            SizedBox(height: 2.spMin),
+            SizedBox(height: 6.spMin),
             Text(
               subtitle,
-              style: TextStyle(
-                fontSize: 13.spMin,
-                color: _muted,
-              ),
+              style: TextStyle(fontSize: 12.spMin, color: _muted),
             ),
           ],
         ),
       ).onPressed(onTap),
+    );
+  }
+
+  /// The guide strip at the foot of the board: the first guide not yet
+  /// read, from the Learn topics. Hidden until they load, and once every
+  /// guide is done.
+  Widget _buildGuideStrip() {
+    final learn = ref.watch(providerOfLearn);
+    GuideListItem? guide;
+    String? topicName;
+    for (final topic in learn.topics) {
+      for (final g in topic.guides) {
+        if (!g.completed) {
+          guide = g;
+          topicName = topic.name;
+          break;
+        }
+      }
+      if (guide != null) break;
+    }
+    if (guide == null) return const SizedBox.shrink();
+    final picked = guide;
+    return Padding(
+      padding: EdgeInsets.only(top: 14.spMin),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
+        decoration: _cardDecoration(radius: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 44.spMin,
+              height: 44.spMin,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFF7E29),
+              ),
+              child: Icon(
+                LucideIcons.bookOpen,
+                size: 20.spMin,
+                color: AppColors.white,
+              ),
+            ),
+            SizedBox(width: 12.spMin),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    picked.title,
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
+                    ),
+                  ),
+                  SizedBox(height: 2.spMin),
+                  Text(
+                    'Start here · +${picked.xpReward} XP',
+                    style: TextStyle(fontSize: 12.spMin, color: _muted),
+                  ),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, size: 18.spMin, color: _muted),
+          ],
+        ),
+      ).onPressed(
+        () => context.push(
+          GuideDetailScreen.route,
+          extra: GuideDetailScreenArgs(
+            slugOrId: picked.slug,
+            topicName: topicName,
+          ),
+        ),
+      ),
     );
   }
 
@@ -509,22 +648,22 @@ class _ReadyScreenState extends ConsumerState<ReadyScreen> {
 
   Widget _buildSectionLabel(final String label) {
     return Padding(
-      padding: EdgeInsets.only(left: 4.spMin, bottom: 8.spMin),
+      padding: EdgeInsets.only(bottom: 8.spMin),
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          fontSize: 11.spMin,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.0,
+          fontSize: 12.spMin,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
           color: _sectionLabel,
         ),
       ),
     );
   }
 
-  BoxDecoration _cardDecoration() => BoxDecoration(
+  BoxDecoration _cardDecoration({final double radius = 18}) => BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(18.spMin),
+        borderRadius: BorderRadius.circular(radius.spMin),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0F000000),

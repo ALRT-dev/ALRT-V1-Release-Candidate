@@ -6,8 +6,8 @@ import 'package:hazard_app/features/profile/providers/xp_summary_provider.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/others/app_colors.dart';
 
-/// The XP bar on the Profile ("Me") screen, approved board 9 Oct 2026:
-/// an orange fill on a grey track, the tier markers (Watcher, Scout 750,
+/// The XP bar on the Profile ("Me") screen, prototype Profile board:
+/// the brand gradient fill on a grey track with a tick at Scout, the tier markers (Watcher, Scout 750,
 /// Guardian 1500 from [UserBadge]) underneath, and one line saying how
 /// far the next tier is ("730 XP to Scout").
 ///
@@ -18,7 +18,10 @@ import 'package:hazard_app/others/app_colors.dart';
 class ProfileXpProgress extends ConsumerWidget {
   const ProfileXpProgress({super.key});
 
-  static const _track = Color(0xFFE6E6EA);
+  static const _track = Color(0xFFECEEF1);
+  static const _tick = Color(0xFFD5D9DE);
+  static const _fillStart = Color(0xFFFF6B00);
+  static const _fillEnd = Color(0xFFFF0004);
   static const _muted = Color(0xFF5C5C66);
 
   @override
@@ -40,16 +43,52 @@ class ProfileXpProgress extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(100.spMin),
-          child: SizedBox(
-            height: 8.spMin,
-            width: double.infinity,
-            child: LinearProgressIndicator(
-              value: fraction,
-              backgroundColor: _track,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.orange),
-            ),
+        SizedBox(
+          height: 14.spMin,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              return Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.centerLeft,
+                children: [
+                  Container(
+                    height: 8.spMin,
+                    width: width,
+                    decoration: BoxDecoration(
+                      color: _track,
+                      borderRadius: BorderRadius.circular(4.spMin),
+                    ),
+                  ),
+                  Container(
+                    height: 8.spMin,
+                    width: width * fraction,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [_fillStart, _fillEnd],
+                      ),
+                      borderRadius: BorderRadius.circular(4.spMin),
+                    ),
+                  ),
+                  // Tier ticks inside the bar (Scout sits at the middle).
+                  for (final badge in UserBadge.values)
+                    if (badge != UserBadge.values.first &&
+                        badge != UserBadge.values.last &&
+                        maxXpPoints > 0)
+                      Positioned(
+                        left: width * badge.requiredXpPoints / maxXpPoints - 1,
+                        top: 0,
+                        child: Container(
+                          width: 2,
+                          height: 14.spMin,
+                          color: _tick,
+                        ),
+                      ),
+                ],
+              );
+            },
           ),
         ),
         SizedBox(height: 8.spMin),
@@ -63,10 +102,9 @@ class ProfileXpProgress extends ConsumerWidget {
                     : '${badge.title} ${badge.requiredXpPoints}',
                 style: TextStyle(
                   fontSize: 11.spMin,
-                  fontWeight: FontWeight.w600,
-                  color: userBadge.index >= badge.index
-                      ? AppColors.orange
-                      : _muted,
+                  fontWeight:
+                      badge == userBadge ? FontWeight.w700 : FontWeight.w400,
+                  color: badge == userBadge ? AppColors.ink : _muted,
                 ),
               ),
           ],
@@ -76,11 +114,7 @@ class ProfileXpProgress extends ConsumerWidget {
           isLastBadge
               ? 'Top tier reached'
               : '${nextBadge.requiredXpPoints - xpPoints} XP to ${nextBadge.title}',
-          style: TextStyle(
-            fontSize: 13.spMin,
-            fontWeight: FontWeight.w600,
-            color: _muted,
-          ),
+          style: TextStyle(fontSize: 12.spMin, color: _muted),
         ),
       ],
     );

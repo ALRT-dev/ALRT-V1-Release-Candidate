@@ -79,6 +79,11 @@ abstract class Hazard with _$Hazard {
     /// The AI-generated summary of the hazard.
     final String? aiSummary,
 
+    /// Published extraction and reviewed guidance. Profile choices stay local.
+    final Map<String, dynamic>? contentDetails,
+    final String? nativeWarningLevel,
+    final String? jurisdictionCountry,
+
     /// The AI-determined confidence level of the hazard.
     final AIConfidence? aiConfidence,
 
@@ -191,9 +196,10 @@ abstract class Hazard with _$Hazard {
   /// AWS, circle for user reports, diamond for everything else (official).
   HazardSourceShape get effectiveMapShape {
     final explicit = source?.shape;
+    if (explicit == HazardSourceShape.square) return HazardSourceShape.diamond;
     if (explicit != null) return explicit;
     if (isAlrtIntel) return HazardSourceShape.shield;
-    if (isGlobalHumanitarian) return HazardSourceShape.square;
+    if (isGlobalHumanitarian) return HazardSourceShape.diamond;
     if (isUserReported) return HazardSourceShape.circle;
     if (isAwsCompliant == true) return HazardSourceShape.triangle;
     return HazardSourceShape.diamond;
@@ -209,12 +215,13 @@ abstract class Hazard with _$Hazard {
 
   /// Gets the appropriate BitmapDescriptor for the hazard marker.
   ///
-  /// V3: pins are drawn by shape (source system) × band colour. The old
-  /// category-image keys are kept as fallback for the fire-status overlays
-  /// which still need category-specific images.
+  /// Order: fire status, GDACS, the bundled event picture on its source
+  /// frame (template icon, admin icon, category, parent), the category
+  /// artwork the live app uses, and only then a bare shape × band pin.
   BitmapDescriptor? getMarkerBitmapDescriptor(
     Map<String, BitmapDescriptor> bitmapMap,
   ) {
+    final overrideId = templateIconCategoryId;
     // Fire-status pins keep the category-specific treatment.
     // A planned burn keeps its own dotted diamond whatever its fire status.
     if (fireStatus != null &&
@@ -247,12 +254,16 @@ abstract class Hazard with _$Hazard {
 
     // Event pictogram (bushfire, flood, crash...) on the source frame, in the
     // band colour. Own category first, then its parent. Falls through to the
-    // plain shape pin when there is no picture for this event and band.
+    // live app's category artwork when there is no picture for this event.
     if (!isUserReported) {
       final eventIds = <String>[
-        // The admin portal's chosen icon for this category comes first.
+        // A published alert template's chosen icon family comes first.
+        if (overrideId != null) overrideId,
+        // The admin portal's chosen icon for this category comes next.
         if (categoryId != null && EventIconAssets.overrides[categoryId] != null)
           EventIconAssets.overrides[categoryId]!,
+        if (categoryId != null && EventIconAssets.defaults[categoryId] != null)
+          EventIconAssets.defaults[categoryId]!,
         if (categoryId != null) categoryId!,
         if (category?.parentId != null) category!.parentId!,
       ];
@@ -272,19 +283,27 @@ abstract class Hazard with _$Hazard {
       }
     }
 
-    // V3 shaped pin: shape × band.
-    final shapeKey = 'shape_${effectiveMapShape.name}_${band.name}';
-    final shapeBitmap = bitmapMap[shapeKey];
-    if (shapeBitmap != null) return shapeBitmap;
-
-    // Fallback to the old category-image system.
-    if (isUserReported) {
-      return bitmapMap['${categoryId}_user'];
+    // Official alerts wear the category artwork, as the live app does: the
+    // band-coloured diamond (or national AWS triangle) with the hazard
+    // pictogram inside. The plain shape × band pin carried no pictogram and
+    // drew every official alert as the same grey triangle or diamond
+    // (product owner, 14 Oct 2026: "match prod").
+    if (!isUserReported) {
+      for (final id in [
+        if (overrideId != null) overrideId,
+        if (categoryId != null) categoryId!,
+      ]) {
+        final artwork = bitmapMap[
+            '${id}_${band.name}${isAwsCompliant == true ? '_aws' : '_non_aws'}'];
+        if (artwork != null) return artwork;
+      }
+    } else {
+      final userArtwork = bitmapMap['${categoryId}_user'];
+      if (userArtwork != null) return userArtwork;
     }
-    final severityBandName = band.name;
-    final severityKey =
-        '${categoryId}_$severityBandName${isAwsCompliant == true ? '_aws' : '_non_aws'}';
-    return bitmapMap[severityKey];
+
+    // Last resort only: a bare shape × band pin when no artwork resolved.
+    return bitmapMap['shape_${effectiveMapShape.name}_${band.name}'];
   }
 
   /// The color associated with the hazard's severity band.
@@ -300,6 +319,7 @@ abstract class Hazard with _$Hazard {
       return severityBand?.colorAws ?? HazardSeverityBand.info.colorAws;
     }
 
+    if (templateBandColor != null) return templateBandColor!;
     // Otherwise, use non-AWS colors
     return severityBand?.colorNonAws ?? HazardSeverityBand.info.colorNonAws;
   }
@@ -355,6 +375,52 @@ abstract class Hazard with _$Hazard {
   /// The category image of the hazard.
   CategoryImage? get categoryImage =>
       category?.categoryImageByType(categoryImageType);
+
+  /// A valid ALRT colour never recolours agency artwork or community reports.
+  Color? get templateBandColor {
+    if (isUserReported || isAwsCompliant == true) return null;
+    final presentation = contentDetails?['presentation'];
+    if (presentation is! Map || presentation['band'] != severityBand?.name) {
+      return null;
+    }
+    final hex = presentation['bandColor'];
+    if (hex is! String || !RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(hex)) {
+      return null;
+    }
+    return Color(int.parse('FF${hex.substring(1)}', radix: 16));
+  }
+
+  String? get templateIconCategoryId {
+    if (isUserReported || isAwsCompliant == true) return null;
+    final presentation = contentDetails?['presentation'];
+    final id = presentation is Map ? presentation['iconCategoryId'] : null;
+    return id is String && id.isNotEmpty && id != categoryId ? id : null;
+  }
+
+  Map<String, String>? get publishedProfileGuidance {
+    if (contentDetails == null) return null;
+    final rows = contentDetails?['profileGuidance'];
+    // No guidance list published at all (the template carries other
+    // content only) is not an EMPTY published library: returning {} here
+    // hid For You on every templated alert, the setup prompt included.
+    // Only a published, empty list means "show nothing".
+    if (rows is! List) return null;
+    final result = <String, String>{};
+    for (final row in rows) {
+      if (row is! Map ||
+          row['text'] is! String ||
+          row['profileTags'] is! List) {
+        continue;
+      }
+      for (final tag in row['profileTags'] as List) {
+        if (tag is String) {
+          final text = row['text'] as String;
+          result.update(tag, (existing) => '$existing\n\n$text', ifAbsent: () => text);
+        }
+      }
+    }
+    return result;
+  }
 
   /// The fallback icon path for the hazard.
   String get fallbackIconPath {

@@ -2,6 +2,7 @@ import {
   HazardReviewStatus,
   HazardSeverity,
   HazardSeverityBand,
+  Prisma,
   type Hazard,
   type HazardCategory,
 } from "@prisma/client";
@@ -14,6 +15,7 @@ import {
   cleanupGeocodingCache,
   convertHazardDataWithRelationsToCreateInput,
   parseWAQIToHazards,
+  enrichWaqiDominantPollutants,
   parseUVIndexAndPollenToHazards,
   getGeocodingCacheSize,
   parseWAWarningsToHazards,
@@ -28,6 +30,10 @@ import {
 } from "../utils/ingestion.util.js";
 import * as crypto from "crypto";
 import prisma from "../utils/prisma_client.util.js";
+import { getTemplateRegistry, type TemplateRelease } from './alert_templates.service.js';
+import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
+import { agencyExtractionFallback } from '../utils/agency_extraction.util.js';
+import { isAlwaysOnOfficialWarning } from '../utils/official_warning.util.js';
 import { summarizeHazard } from "./hazard.service.js";
 import { sendPushNotificationAboutNewHazard } from "./notification.service.js";
 import { sendSocketEventAboutHazardToSubscribers } from "./socket.service.js";
@@ -247,11 +253,15 @@ export const syncHazardsFromDifferentSources = async ({
             HazardSeverityBand.critical,
           ],
         },
-        parseFunction: (responseData: any) => {
+        parseFunction: async (responseData: any) => {
           if (!responseData.data || responseData.data.length === 0) {
             console.log("No WAQI data found for Australia.");
             return [];
           }
+          await enrichWaqiDominantPollutants(
+            responseData.data,
+            config.waqiApi.apiToken,
+          );
 
           const airQualityAlertCategory = availableCategories.find(
             (cat) => cat.id === "airQualityAlert",
@@ -526,10 +536,28 @@ export const summarizeAndPostHazards = async ({
       isUpdate: boolean;
     }> = [];
 
+    let templateRelease: TemplateRelease | null = null;
+    try { templateRelease = (await getTemplateRegistry()).published; }
+    catch (error) { console.error("Template registry unavailable; continuing existing source classification.", error); }
     for (const hazardData of hazardDatas) {
       if (!hazardData.id) continue;
+      if(templateRelease&&hazardData.source&&!(hazardData.category?.id==='airQualityAlert' && hazardData.source.id==='waqi')){
+        const resolved=resolveTemplate(templateRelease.pack,{country:templateCountry(hazardData.jurisdictionCountry,hazardData.source),sourceId:hazardData.source.id});
+        hazardData.severityBand=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info}).band;
+      }
 
       try {
+        hazardData.sourceContentHash = hazardContentHash({
+          title: hazardData.title, description: hazardData.description,
+          instructions: hazardData.sourceInstructionBlocks ?? [],
+          nativeLevel: hazardData.nativeWarningLevel ?? null,
+          country: hazardData.jurisdictionCountry ?? null,
+          severity: hazardData.severity ?? null, band: hazardData.severityBand ?? null,
+          occurredAt: hazardData.occurredAt ?? null, expiresAt: hazardData.expiresAt ?? null,
+          locationName: hazardData.locationName ?? null,
+          latitude: hazardData.latitude ?? null, longitude: hazardData.longitude ?? null,
+          templateVersion: templateRelease?.version ?? 0,
+        });
         const existing = await prisma.hazard.findUnique({
           where: { id: hazardData.id },
         });
@@ -544,7 +572,7 @@ export const summarizeAndPostHazards = async ({
           hazardData.severityBand || HazardSeverityBand.info;
 
         // Apply severity filter logic
-        if (hasSeverityFilter) {
+        if (hasSeverityFilter && !isAlwaysOnOfficialWarning(hazardData)) {
           const meetsMinimumSeverity =
             minimumSeverityBands.includes(currentSeverityBand);
 
@@ -588,7 +616,7 @@ export const summarizeAndPostHazards = async ({
           if (
             syncOption === SyncHazardsFromExternalSourceOption.ignoreExisting
           ) {
-            if (existing.description === hazardData.description) {
+            if (existing.sourceContentHash === hazardData.sourceContentHash) {
               console.log(
                 `${
                   hasSeverityFilter ? `[${hazardData.source?.id}] ` : ""
@@ -723,6 +751,8 @@ export const summarizeAndPostHazards = async ({
             severity: hazardData.severity ?? null,
             severityBand: hazardData.severityBand ?? null,
             isAwsCompliant: hazardData.isAwsCompliant ?? false,
+            sourceInstructions: hazardData.sourceInstructionBlocks ?? [],
+            nativeWarningLevel: hazardData.nativeWarningLevel ?? null,
           });
           const alreadyNotified = isUpdate
             ? await wasContentNotified(notifiedHash)
@@ -736,6 +766,10 @@ export const summarizeAndPostHazards = async ({
           let summarized: Awaited<ReturnType<typeof summarizeHazard>>;
           try {
             summarized = await summarizeHazard({
+              templateRelease,
+              jurisdictionCountry:hazardData.jurisdictionCountry,
+              nativeWarningLevel:hazardData.nativeWarningLevel,
+              sourceActions: hazardData.sourceInstructionBlocks ?? [],
               useDummy: false,
               title: hazardData.title,
               description: hazardData.description,
@@ -755,9 +789,18 @@ export const summarizeAndPostHazards = async ({
             summarized = {
               title: hazardData.title,
               summary: hazardData.description,
-              callsToAction: [],
+              callsToAction: Array.isArray(hazardData.callsToAction) ? hazardData.callsToAction : [],
               confidence: "low" as const,
             };
+            if (templateRelease && hazardData.source && hazardData.category) {
+              const country = templateCountry(hazardData.jurisdictionCountry, hazardData.source);
+              const band = hazardData.severityBand ?? HazardSeverityBand.info;
+              const {settings} = resolveTemplate(templateRelease.pack, {country, sourceId: hazardData.source.id});
+              const sourceActions = hazardData.sourceInstructionBlocks ?? [];
+              const sourceText = [hazardData.title, hazardData.description, hazardData.nativeWarningLevel ?? '', ...sourceActions].filter(Boolean).join('\n\n');
+              const fallback = agencyExtractionFallback({sourceText, sourceTitle: hazardData.title, sourceDescription: hazardData.description, sourceActions, nativeWarningLevel: hazardData.nativeWarningLevel, agency: hazardData.source.name, allowAgencyNumbers: settings.allowAgencyNumbers, templateVersion: templateRelease.version, ...selectLibraryGuidance(templateRelease.pack, {categoryId: hazardData.category.id, parentCategoryId: hazardData.category.parentId, country, band})});
+              summarized = {...fallback, contentDetails: {...fallback.contentDetails, presentation: {band, bandColor: settings.bandColors[band], iconCategoryId: hazardData.isAwsCompliant ? hazardData.category.id : (settings.iconCategoryId ?? hazardData.category.id), agencyArtwork: hazardData.isAwsCompliant ?? false}}};
+            }
           }
 
           // Calculate confidence score for ingested hazard (official source)
@@ -797,9 +840,10 @@ export const summarizeAndPostHazards = async ({
           const finalHazardData: HazardDataWithRelations = {
             ...hazardData,
             title: summarized.title || hazardData.title,
-            aiSummary: hazardData.aiSummary || summarized.summary,
+            aiSummary: templateRelease?summarized.summary:(hazardData.aiSummary || summarized.summary),
+            contentDetails: summarized.contentDetails??Prisma.DbNull,
             aiConfidence: summarized.confidence,
-            callsToAction: Array.isArray(hazardData.callsToAction)
+            callsToAction: templateRelease?summarized.callsToAction:Array.isArray(hazardData.callsToAction)
               ? hazardData.callsToAction
               : Array.isArray(summarized.callsToAction)
                 ? summarized.callsToAction
@@ -1032,9 +1076,12 @@ const fetchHazardsFromSource = async <T = any>(
       }
 
       const data = await response.json();
-      const hazards = (parseFunction as (data: T) => HazardDataWithRelations[])(
-        data,
-      );
+      // Awaited: a parser may be async (WAQI reads station feeds first).
+      const hazards = await (
+        parseFunction as (
+          data: T,
+        ) => HazardDataWithRelations[] | Promise<HazardDataWithRelations[]>
+      )(data);
       await recordSourceFetchResult(sourceId, {
         ok: true,
         hazardCount: hazards.length,
@@ -1064,11 +1111,11 @@ const fetchHazardsFromSource = async <T = any>(
           }
 
           const data = await response.json();
-          const hazards = (
+          const hazards = await (
             parseFunction as (
               data: T,
               source?: any,
-            ) => HazardDataWithRelations[]
+            ) => HazardDataWithRelations[] | Promise<HazardDataWithRelations[]>
           )(data, source);
 
           return hazards.map((hazard) => ({

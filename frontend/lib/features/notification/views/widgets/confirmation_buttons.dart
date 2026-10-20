@@ -23,19 +23,19 @@ class ConfirmationPrompt extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 11.spMin,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.0,
+            fontSize: 12.spMin,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
             color: AppColors.sectionLabel,
           ),
         ),
-        SizedBox(height: 4.spMin),
+        SizedBox(height: 8.spMin),
         Text(
           helper,
           style: TextStyle(
-            fontSize: 13.spMin,
-            height: 1.35,
-            color: AppColors.mediumGrey,
+            fontSize: 14.spMin,
+            height: 1.45,
+            color: const Color(0xFF3A3A42),
           ),
         ),
       ],
@@ -103,27 +103,28 @@ class _ConfirmationButtonsState extends ConsumerState<ConfirmationButtons> {
       children: [
         Row(
           children: [
-            // I see it: the primary, solid green (the colour the detail
-            // screen has always used for the positive answer).
+            // I see it: the primary, on the ALRT orange-to-red gradient
+            // (Community board, 16 Oct 2026).
             Expanded(
               child: _buttonBuilder(
                 label: 'I see it',
                 onTap: _handleUpvote,
-                background: isUpvoted ? AppColors.darkGreen : AppColors.green,
+                background: AppColors.orange,
+                gradient: _seeItGradient,
                 foreground: AppColors.white,
-                borderColor: isUpvoted ? AppColors.darkGreen : AppColors.green,
+                borderColor: AppColors.transparent,
                 leading: isUpvoted ? LucideIcons.check : null,
               ),
             ),
             SizedBox(width: 10.spMin),
-            // I don't see it: outlined white, 1 px #E3E6EA.
+            // I don't see it: outlined white, 1 px #D9D6D0.
             Expanded(
               child: _buttonBuilder(
                 label: "I don't see it",
                 onTap: _handleDownvote,
-                background: isDownvoted ? AppColors.red : AppColors.white,
+                background: isDownvoted ? AppColors.ink : AppColors.white,
                 foreground: isDownvoted ? AppColors.white : AppColors.ink,
-                borderColor: isDownvoted ? AppColors.red : AppColors.lightGrey,
+                borderColor: isDownvoted ? AppColors.ink : _secondaryBorder,
                 leading: isDownvoted ? LucideIcons.check : null,
               ),
             ),
@@ -151,16 +152,18 @@ class _ConfirmationButtonsState extends ConsumerState<ConfirmationButtons> {
     required final Color background,
     required final Color foreground,
     required final Color borderColor,
+    final Gradient? gradient,
     final IconData? leading,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        height: 44.spMin,
+        height: 52.spMin,
         decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(12.spMin),
+          color: gradient == null ? background : null,
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(14.spMin),
           border: Border.all(color: borderColor, width: 1.0),
         ),
         child: Row(
@@ -183,6 +186,13 @@ class _ConfirmationButtonsState extends ConsumerState<ConfirmationButtons> {
       ),
     );
   }
+
+  static const _secondaryBorder = Color(0xFFD9D6D0);
+  static const _seeItGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFF6B00), Color(0xFFFF0004)],
+  );
 
   void _handleUpvote() {
     if (widget.updateOnPressed) {

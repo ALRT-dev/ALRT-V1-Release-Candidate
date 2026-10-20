@@ -53,7 +53,7 @@ Future<void> showAddWidgetSheet(final BuildContext context) async {
                 icon: LucideIcons.triangleAlert,
                 color: AppColors.orange,
                 title: 'Nearby Alerts widget',
-                subtitle: 'Warnings near you, or a green all-clear',
+                subtitle: 'Warnings near you, or Nothing near you',
                 widget: PinnableWidget.alerts,
               ),
               SizedBox(height: 8.spMin),

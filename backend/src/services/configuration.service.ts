@@ -31,7 +31,7 @@ export interface UpdateConfigurationData {
 /**
  * Clear cache for a specific configuration key or all configs
  */
-const clearCache = (key?: string): void => {
+export const clearCache = (key?: string): void => {
   if (key) {
     configCache.delete(key);
     cacheTimestamps.delete(key);
@@ -202,6 +202,15 @@ export const updateConfiguration = async (
     throw new HttpError(404, "Configuration not found");
   }
 
+  // Alert templates have their own revision checks, publication and history.
+  if (data.value !== undefined && existingConfig.key === ConfigurationKey.aiPrompts) {
+    const current=(existingConfig.value as Record<string,unknown>)?.alertTemplatesV1;
+    const supplied=data.value?.alertTemplatesV1;
+    if (JSON.stringify(supplied)!==JSON.stringify(current)) {
+      throw new HttpError(400, 'Change alert templates in Alert templates so version history is preserved.');
+    }
+  }
+
   // Validate JSON value if provided
   if (data.value !== undefined) {
     if (typeof data.value !== "object" && data.value !== null) {
@@ -214,7 +223,9 @@ export const updateConfiguration = async (
   }
 
   const config = await prisma.configuration.update({
-    where: { id },
+    where: { id, updatedAt: existingConfig.updatedAt,
+      ...((existingConfig.value as any)?.alertTemplatesV1?{value:{path:['alertTemplatesV1','revision'],equals:(existingConfig.value as any).alertTemplatesV1.revision}}:{}),
+    },
     data: {
       ...(data.value !== undefined && { value: data.value }),
       ...(data.title && { title: data.title }),
@@ -269,6 +280,8 @@ export const deleteConfiguration = async (id: string): Promise<void> => {
   if (!existingConfig) {
     throw new HttpError(404, "Configuration not found");
   }
+
+  if((existingConfig.value as any)?.alertTemplatesV1)throw new HttpError(409,'This configuration contains versioned alert templates. Use Alert templates to change or restore them.');
 
   await prisma.configuration.delete({
     where: { id },

@@ -187,13 +187,26 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
   Widget build(BuildContext context) {
     final accessAsync = ref.watch(providerOfAccess);
     return Scaffold(
-      backgroundColor: kPaywallBody,
+      backgroundColor: const Color(0xFFF5F5F7),
       appBar: AppBar(
-        backgroundColor: kPaywallBody,
-        title: const Text('My plans'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 0,
+        title: Text(
+          'My plans',
+          style: TextStyle(
+            fontSize: 24.spMin,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+            color: const Color(0xFF1C1C1E),
+          ),
+        ),
         leading: IconButton(
           tooltip: 'Back',
-          icon: const Icon(LucideIcons.arrowLeft),
+          icon: const Icon(LucideIcons.chevronLeft),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go(HomeScreen.route),
         ),
@@ -296,9 +309,11 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
           child: OutlinedButton(
             key: const Key('my-plans-restore'),
             style: OutlinedButton.styleFrom(
-              shape: const StadiumBorder(),
-              side: const BorderSide(color: kPaywallLine, width: 1.5),
-              foregroundColor: kPaywallInk,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14.spMin),
+              ),
+              side: const BorderSide(color: Color(0xFFD9D6D0)),
+              foregroundColor: const Color(0xFF1C1C1E),
               backgroundColor: Colors.white,
             ),
             onPressed: _restoring ? null : _restore,
@@ -323,13 +338,13 @@ class _AlrtPlusManageScreenState extends ConsumerState<AlrtPlusManageScreen> {
   }
 
   Widget _label(final String text) => Padding(
-    padding: EdgeInsets.only(left: 4.spMin, bottom: 8.spMin),
+    padding: EdgeInsets.only(bottom: 8.spMin),
     child: Text(
       text.toUpperCase(),
       style: TextStyle(
-        fontSize: 11.spMin,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.0,
+        fontSize: 12.spMin,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.6,
         color: _sectionLabelColor,
       ),
     ),

@@ -33,6 +33,10 @@ afterEach(() => {
 });
 
 describe("Pages relay backend selection", () => {
+  it.each(["alrt-v1-release-candidate.pages.dev", "example.alrt-v1-release-candidate.pages.dev"])("pins the TEST hostname to TEST despite inherited production settings: %s", async (host) => {
+    const res = await onRequest({request: new Request(`https://${host}/api/__alrt-relay-origin`), env: {API_ORIGIN: LIVE}});
+    expect(await res.json()).toEqual({origin: TEST});
+  });
   it("defaults to TEST with no API_ORIGIN and no header", async () => {
     const { url } = await relay({});
     expect(url).toBe(`${TEST}/api/admin/hazards?page=2`);

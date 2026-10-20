@@ -27,6 +27,15 @@ class ForceUpdateScreen extends StatelessWidget {
     }
   }
 
+  // Prototype "ForceUpdate" board. Plain sizes (no ScreenUtil): this
+  // screen can be shown before anything else is set up, and its widget
+  // test pumps it on its own.
+  static const _ink = Color(0xFF1C1C1E);
+  static const _muted = Color(0xFF5C5C66);
+  static const _tile = Color(0xFFFFF1E8);
+  static const _noteBg = Color(0xFFF0EEEA);
+  static const _noteInk = Color(0xFF3A3A42);
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -34,63 +43,85 @@ class ForceUpdateScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Spacer(),
-                const Icon(
-                  Icons.system_update_rounded,
-                  size: 56,
-                  color: AppColors.black,
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: _tile,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: const Icon(
+                    Icons.download_rounded,
+                    size: 34,
+                    color: AppColors.orange,
+                  ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
                 const Text(
                   'Please update ALRT',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1D1D21),
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Text(
                   storeUrl == null
                       ? 'This version of ALRT is no longer supported. Open '
-                            'your app store and update ALRT to keep using it.'
+                            'your app store and update ALRT to keep receiving '
+                            'alerts.'
                       : 'This version of ALRT is no longer supported. Update '
-                            'to the latest version to keep using it.',
+                            'to keep receiving alerts.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 15,
-                    height: 1.5,
-                    color: Color(0xFF5F5C66),
+                    height: 1.45,
+                    color: _muted,
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'If you are in immediate danger, call your local '
-                  'emergency number.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: Color(0xFF5F5C66),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _noteBg,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Text(
+                    'If you are in immediate danger, call your local '
+                    'emergency number.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: _noteInk,
+                    ),
                   ),
                 ),
-                const Spacer(),
-                if (storeUrl != null)
+                if (storeUrl != null) ...[
+                  const SizedBox(height: 24),
                   SizedBox(
-                    height: 52,
+                    width: double.infinity,
+                    height: 54,
                     child: ElevatedButton(
                       key: const Key('force-update-open-store'),
                       onPressed: _open,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.black,
+                        backgroundColor: AppColors.orange,
                         foregroundColor: Colors.white,
-                        shape: const StadiumBorder(),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       child: const Text(
                         'Update ALRT',
@@ -101,6 +132,7 @@ class ForceUpdateScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+                ],
               ],
             ),
           ),

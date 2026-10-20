@@ -139,6 +139,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
     int? remainingToday;
     var limitReached = false;
     var notCounted = false;
+    var freeAnswer = false;
 
     try {
       final dio = ref.read(providerOfDioInstance(true));
@@ -168,6 +169,11 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
         answer = offlineAnswer();
       }
       final data = response.data;
+      if (parsedAnswer != null &&
+          data is Map &&
+          (data['source'] == 'library' || data['source'] == 'emergency_lookup')) {
+        freeAnswer = true;
+      }
       if (data is Map && data['remainingToday'] is num) {
         remainingToday = (data['remainingToday'] as num).toInt();
       }
@@ -205,6 +211,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
           role: AskAlrtRole.assistant,
           text: answer,
           groundingAlerts: citedAlerts,
+          freeAnswer: freeAnswer,
         ),
       ],
       isSending: false,

@@ -29,14 +29,19 @@ LatLngBounds _boundsAround(double lat, double lng, {double delta = 0.5}) =>
       northeast: LatLng(lat + delta, lng + delta),
     );
 
-Hazard _bushfireHazard({double? lat = _scarboroughLat, double? lng = _scarboroughLng}) =>
-    Hazard(
-      categoryId: 'bushfire',
-      category: const HazardCategory(id: 'bushfire', parentId: 'weatherAndEnvironment'),
-      latitude: lat,
-      longitude: lng,
-      isAwsCompliant: false,
-    );
+Hazard _bushfireHazard({
+  double? lat = _scarboroughLat,
+  double? lng = _scarboroughLng,
+}) => Hazard(
+  categoryId: 'bushfire',
+  category: const HazardCategory(
+    id: 'bushfire',
+    parentId: 'weatherAndEnvironment',
+  ),
+  latitude: lat,
+  longitude: lng,
+  isAwsCompliant: false,
+);
 
 void main() {
   group('hazardIsInMapBounds', () {
@@ -127,11 +132,14 @@ void main() {
       expect(hazardMatchesMapFilters(hazard, filters), isFalse);
     });
 
-    test('matches any category when the selection is empty (no filter applied)', () {
-      final hazard = _bushfireHazard();
-      const filters = HazardFiltersProviderState(selectedCategoryIds: {});
-      expect(hazardMatchesMapFilters(hazard, filters), isTrue);
-    });
+    test(
+      'matches any category when the selection is empty (no filter applied)',
+      () {
+        final hazard = _bushfireHazard();
+        const filters = HazardFiltersProviderState(selectedCategoryIds: {});
+        expect(hazardMatchesMapFilters(hazard, filters), isTrue);
+      },
+    );
   });
 
   group('hazardMatchesMapFilters - source-type filters', () {
@@ -143,32 +151,41 @@ void main() {
       expect(hazardMatchesMapFilters(hazard, blocked), isFalse);
     });
 
-    test('an AWS-compliant critical hazard is always visible, even with awsEmergency off', () {
-      final hazard = Hazard(
-        categoryId: 'bushfire',
-        category: const HazardCategory(id: 'bushfire', parentId: 'weatherAndEnvironment'),
-        latitude: _scarboroughLat,
-        longitude: _scarboroughLng,
-        isAwsCompliant: true,
-        severityBand: HazardSeverityBand.critical,
-      );
-      const allowed = HazardFiltersProviderState(awsEmergency: true);
-      const blocked = HazardFiltersProviderState(awsEmergency: false);
-      expect(hazardMatchesMapFilters(hazard, allowed), isTrue);
-      expect(hazardMatchesMapFilters(hazard, blocked), isTrue);
-    });
-  });
-
-  group('hazardMatchesMapFilters - official warnings are always visible', () {
-    Hazard aws({HazardSeverity? severity, HazardSeverityBand? band, String category = 'bushfire'}) =>
-        Hazard(
-          categoryId: category,
+    test(
+      'an AWS-compliant critical hazard is always visible, even with awsEmergency off',
+      () {
+        final hazard = Hazard(
+          categoryId: 'bushfire',
+          category: const HazardCategory(
+            id: 'bushfire',
+            parentId: 'weatherAndEnvironment',
+          ),
           latitude: _scarboroughLat,
           longitude: _scarboroughLng,
           isAwsCompliant: true,
-          severity: severity,
-          severityBand: band,
+          severityBand: HazardSeverityBand.critical,
         );
+        const allowed = HazardFiltersProviderState(awsEmergency: true);
+        const blocked = HazardFiltersProviderState(awsEmergency: false);
+        expect(hazardMatchesMapFilters(hazard, allowed), isTrue);
+        expect(hazardMatchesMapFilters(hazard, blocked), isTrue);
+      },
+    );
+  });
+
+  group('hazardMatchesMapFilters - official warnings are always visible', () {
+    Hazard aws({
+      HazardSeverity? severity,
+      HazardSeverityBand? band,
+      String category = 'bushfire',
+    }) => Hazard(
+      categoryId: category,
+      latitude: _scarboroughLat,
+      longitude: _scarboroughLng,
+      isAwsCompliant: true,
+      severity: severity,
+      severityBand: band,
+    );
 
     test('an AWS Emergency Warning ignores the category selection', () {
       final hazard = aws(severity: HazardSeverity.emergency);
@@ -179,20 +196,23 @@ void main() {
       expect(hazardMatchesMapFilters(hazard, filters), isTrue);
     });
 
-    test('an official critical alert survives Official off and a category mismatch', () {
-      final hazard = Hazard(
-        categoryId: 'bushfire',
-        latitude: _scarboroughLat,
-        longitude: _scarboroughLng,
-        isAwsCompliant: false,
-        severityBand: HazardSeverityBand.critical,
-      );
-      const filters = HazardFiltersProviderState(
-        selectedCategoryIds: {'securityAndCrime'},
-        officialNonAws: false,
-      );
-      expect(hazardMatchesMapFilters(hazard, filters), isTrue);
-    });
+    test(
+      'an official critical alert survives Official off and a category mismatch',
+      () {
+        final hazard = Hazard(
+          categoryId: 'bushfire',
+          latitude: _scarboroughLat,
+          longitude: _scarboroughLng,
+          isAwsCompliant: false,
+          severityBand: HazardSeverityBand.critical,
+        );
+        const filters = HazardFiltersProviderState(
+          selectedCategoryIds: {'securityAndCrime'},
+          officialNonAws: false,
+        );
+        expect(hazardMatchesMapFilters(hazard, filters), isTrue);
+      },
+    );
 
     test('a non-critical official alert is still hidden by Official off', () {
       final hazard = Hazard(
@@ -203,21 +223,45 @@ void main() {
         severityBand: HazardSeverityBand.action,
       );
       expect(
-        hazardMatchesMapFilters(hazard, const HazardFiltersProviderState(officialNonAws: false)),
+        hazardMatchesMapFilters(
+          hazard,
+          const HazardFiltersProviderState(officialNonAws: false),
+        ),
         isFalse,
       );
     });
 
-    test('an AWS Watch and Act still follows its switch and the category', () {
+    test('an AWS Watch and Act bypasses its switch and the category', () {
       final hazard = aws(severity: HazardSeverity.watchAndAct);
       expect(
-        hazardMatchesMapFilters(hazard, const HazardFiltersProviderState(awsWatchAndAct: false)),
-        isFalse,
+        hazardMatchesMapFilters(
+          hazard,
+          const HazardFiltersProviderState(awsWatchAndAct: false),
+        ),
+        isTrue,
       );
       expect(
         hazardMatchesMapFilters(
           hazard,
-          const HazardFiltersProviderState(selectedCategoryIds: {'securityAndCrime'}),
+          const HazardFiltersProviderState(
+            selectedCategoryIds: {'securityAndCrime'},
+          ),
+        ),
+        isTrue,
+      );
+    });
+    test('an AWS Info lifecycle update does not bypass disabled filters', () {
+      final hazard = aws(
+        severity: HazardSeverity.emergency,
+        band: HazardSeverityBand.info,
+      );
+      expect(
+        hazardMatchesMapFilters(
+          hazard,
+          const HazardFiltersProviderState(
+            awsEmergency: false,
+            selectedCategoryIds: {'securityAndCrime'},
+          ),
         ),
         isFalse,
       );
@@ -225,37 +269,72 @@ void main() {
   });
 
   group('hazardMatchesMapFilters - the same source switches as the feed', () {
-    Hazard official({final String? sourceId, final HazardSourceShape? shape}) => Hazard(
-      categoryId: 'bushfire',
-      category: const HazardCategory(id: 'bushfire', parentId: 'weatherAndEnvironment'),
-      latitude: _scarboroughLat,
-      longitude: _scarboroughLng,
-      isAwsCompliant: false,
-      source: HazardSource(id: sourceId ?? 'qldFire', name: 'src', shape: shape),
-    );
+    Hazard official({final String? sourceId, final HazardSourceShape? shape}) =>
+        Hazard(
+          categoryId: 'bushfire',
+          category: const HazardCategory(
+            id: 'bushfire',
+            parentId: 'weatherAndEnvironment',
+          ),
+          latitude: _scarboroughLat,
+          longitude: _scarboroughLng,
+          isAwsCompliant: false,
+          source: HazardSource(
+            id: sourceId ?? 'qldFire',
+            name: 'src',
+            shape: shape,
+          ),
+        );
 
-    test('Global humanitarian folded into Official: the old switch no longer hides GDACS', () {
-      final gdacs = official(sourceId: 'gdacsGlobal');
-      expect(
-        hazardMatchesMapFilters(gdacs, const HazardFiltersProviderState(globalHumanitarian: false)),
-        isTrue,
-      );
-    });
+    test(
+      'Global humanitarian folded into Official: the old switch no longer hides GDACS',
+      () {
+        final gdacs = official(sourceId: 'gdacsGlobal');
+        expect(
+          hazardMatchesMapFilters(
+            gdacs,
+            const HazardFiltersProviderState(globalHumanitarian: false),
+          ),
+          isTrue,
+        );
+      },
+    );
 
     test('ALRT Intel off hides a shield alert on the map too', () {
       final intel = official(shape: HazardSourceShape.shield);
-      expect(hazardMatchesMapFilters(intel, const HazardFiltersProviderState()), isTrue);
-      expect(hazardMatchesMapFilters(intel, const HazardFiltersProviderState(alrtIntel: false)), isFalse);
+      expect(
+        hazardMatchesMapFilters(intel, const HazardFiltersProviderState()),
+        isTrue,
+      );
+      expect(
+        hazardMatchesMapFilters(
+          intel,
+          const HazardFiltersProviderState(alrtIntel: false),
+        ),
+        isFalse,
+      );
     });
 
-    test('Official off hides state, humanitarian and Intel alerts alike (as the server does)', () {
-      const off = HazardFiltersProviderState(officialNonAws: false);
-      expect(hazardMatchesMapFilters(official(), off), isFalse);
-      expect(hazardMatchesMapFilters(official(sourceId: 'gdacsGlobal'), off), isFalse);
-      expect(hazardMatchesMapFilters(official(shape: HazardSourceShape.shield), off), isFalse);
-    });
+    test(
+      'Official off hides state, humanitarian and Intel alerts alike (as the server does)',
+      () {
+        const off = HazardFiltersProviderState(officialNonAws: false);
+        expect(hazardMatchesMapFilters(official(), off), isFalse);
+        expect(
+          hazardMatchesMapFilters(official(sourceId: 'gdacsGlobal'), off),
+          isFalse,
+        );
+        expect(
+          hazardMatchesMapFilters(
+            official(shape: HazardSourceShape.shield),
+            off,
+          ),
+          isFalse,
+        );
+      },
+    );
 
-    test('AWS levels follow the official severity, not the derived band', () {
+    test('active AWS Advice remains visible despite optional switches', () {
       final adviceWithActionBand = Hazard(
         categoryId: 'bushfire',
         latitude: _scarboroughLat,
@@ -265,27 +344,39 @@ void main() {
         severityBand: HazardSeverityBand.action,
       );
       expect(
-        hazardMatchesMapFilters(adviceWithActionBand, const HazardFiltersProviderState(awsAdvice: false)),
-        isFalse,
+        hazardMatchesMapFilters(
+          adviceWithActionBand,
+          const HazardFiltersProviderState(awsAdvice: false),
+        ),
+        isTrue,
       );
       expect(
-        hazardMatchesMapFilters(adviceWithActionBand, const HazardFiltersProviderState(awsWatchAndAct: false)),
+        hazardMatchesMapFilters(
+          adviceWithActionBand,
+          const HazardFiltersProviderState(awsWatchAndAct: false),
+        ),
         isTrue,
       );
     });
   });
 
-  test('a correctly-created Scarborough TEST alert is visible end-to-end when panned there', () {
-    // The exact scenario a "Create Test Alert" preset produces: accepted,
-    // Scarborough coordinates, a child category id, official (non-AWS,
-    // non-user-reported) source. If this ever fails, the Map tab's
-    // visibility rules - not category hierarchy or viewport bounds - are
-    // the place to look first.
-    final hazard = _bushfireHazard();
-    final scarboroughViewport = _boundsAround(_scarboroughLat, _scarboroughLng);
-    const filters = HazardFiltersProviderState();
+  test(
+    'a correctly-created Scarborough TEST alert is visible end-to-end when panned there',
+    () {
+      // The exact scenario a "Create Test Alert" preset produces: accepted,
+      // Scarborough coordinates, a child category id, official (non-AWS,
+      // non-user-reported) source. If this ever fails, the Map tab's
+      // visibility rules - not category hierarchy or viewport bounds - are
+      // the place to look first.
+      final hazard = _bushfireHazard();
+      final scarboroughViewport = _boundsAround(
+        _scarboroughLat,
+        _scarboroughLng,
+      );
+      const filters = HazardFiltersProviderState();
 
-    expect(hazardIsInMapBounds(hazard, scarboroughViewport), isTrue);
-    expect(hazardMatchesMapFilters(hazard, filters), isTrue);
-  });
+      expect(hazardIsInMapBounds(hazard, scarboroughViewport), isTrue);
+      expect(hazardMatchesMapFilters(hazard, filters), isTrue);
+    },
+  );
 }

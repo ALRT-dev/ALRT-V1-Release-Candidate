@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/map_search_text_editing_controller_provider.dart';
 import 'package:hazard_app/features/map/providers/places_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
-import 'package:hazard_app/features/shared/extensions/context_extension.dart';
+import 'package:hazard_app/features/map/views/screens/check_route_screen.dart';
 import 'package:hazard_app/features/shared/views/widgets/button.dart';
 import 'package:hazard_app/features/shared/views/widgets/round_button.dart';
 import 'package:hazard_app/others/app_colors.dart';
@@ -109,7 +108,7 @@ class _SelectedLocationPreviewState
             );
 
             return _buttonBuilder(
-              value: 'Get Directions',
+              value: 'Check a route',
               isLoading: isLoading,
               icon: Icon(
                 Icons.directions_rounded,
@@ -159,31 +158,16 @@ class _SelectedLocationPreviewState
     ref.read(providerOfMapSearchTextEditingController).clear();
   }
 
-  /// Gets the directions to the selected location. A failure is always
-  /// said out loud (it used to fail silently, which read as a dead button).
+  /// Opens Check a route for the selected place and checks the routes
+  /// straight away (prototype board "RouteOptions"). Failures are shown on
+  /// that screen.
   Future<void> _getDirections() async {
     final selectedLocation = ref.read(providerOfMap).selectedLocation;
     if (selectedLocation == null) return;
-
-    final currentUserLocation = ref.read(providerOfLocation).location;
-
-    await ref
-        .read(providerOfMap.notifier)
-        .getRoutePlan(
-          origin: currentUserLocation,
-          destination: selectedLocation,
-        );
-    if (!mounted) return;
-    final failure = ref.read(providerOfMap).getRouteState.maybeWhen(
-      error: (error) => error.message,
-      orElse: () => null,
+    await CheckRouteScreen.open(
+      context,
+      destination: selectedLocation,
+      checkOnOpen: true,
     );
-    if (failure != null) {
-      context.showErrorToast(
-        message: failure.isEmpty
-            ? 'Directions could not be loaded. Please try again.'
-            : 'Directions could not be loaded: $failure',
-      );
-    }
   }
 }

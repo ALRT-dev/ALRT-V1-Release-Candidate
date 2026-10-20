@@ -53,46 +53,68 @@ check("falls back to the title when the description format is unrecognised", () 
   );
 });
 
-check("produces zero-AI action-band content with no invented facts", () => {
+check("produces zero-AI action-band content in WAQI's words, never the number", () => {
   const content = getDeterministicAirQualityContent({
     title: "Air Quality Alert - Rockingham",
     description: sampleDescription,
     severityBand: HazardSeverityBand.action,
   });
   assert.equal(content.title, "Air Quality Alert - Rockingham");
-  assert.match(content.summary, /Rockingham/);
-  assert.doesNotMatch(content.summary, /\d/, "summary carries no number");
+  assert.equal(
+    content.summary,
+    "World Air Quality Index reports that air quality near Rockingham is unhealthy for sensitive groups.",
+  );
+  assert.doesNotMatch(content.summary, /142/);
   assert.ok(content.callsToAction.length > 0);
+  assert.ok(content.callsToAction.every((line) => !/^ALRT suggests/i.test(line)));
   assert.equal(content.confidence, "high");
 });
 
+check("prefers the rating line the parser wrote over the machine field", () => {
+  const content = getDeterministicAirQualityContent({
+    title: "Air Quality Alert - X",
+    description:
+      "Station: X\nAir quality: Very unhealthy (World Air Quality Index rating)\nMeasured: now\nAQI: 250",
+    severityBand: HazardSeverityBand.critical,
+  });
+  assert.match(content.summary, /is very unhealthy\.$/);
+});
+
 check(
-  "critical-band content branches on the actual AQI number (hazardous vs very unhealthy vs unhealthy), with no number shown",
+  "critical-band content takes WAQI's rating for the machine field (hazardous vs unhealthy), not a fixed string",
   () => {
     const hazardous = getDeterministicAirQualityContent({
       title: "Air Quality Alert - X",
       description: sampleDescription.replace("142", "350"),
       severityBand: HazardSeverityBand.critical,
     });
-    assert.match(hazardous.summary, /hazardous/);
+    assert.match(hazardous.summary, /is hazardous\.$/);
 
-    const veryPoor = getDeterministicAirQualityContent({
+    const unhealthy = getDeterministicAirQualityContent({
       title: "Air Quality Alert - X",
       description: sampleDescription.replace("142", "200"),
       severityBand: HazardSeverityBand.critical,
     });
-    assert.match(veryPoor.summary, /unhealthy for everyone/);
-    assert.doesNotMatch(veryPoor.summary, /\d/);
-    const veryUnhealthy = getDeterministicAirQualityContent({
+    assert.match(unhealthy.summary, /is unhealthy\.$/);
+
+    const noNumber = getDeterministicAirQualityContent({
       title: "Air Quality Alert - X",
-      description: sampleDescription.replace("142", "250"),
+      description: "Station: X",
       severityBand: HazardSeverityBand.critical,
     });
-    assert.match(veryUnhealthy.summary, /very unhealthy/);
+    assert.match(noNumber.summary, /is unhealthy\.$/);
   },
 );
 
-check("every reachable band's content includes the mandatory health disclosure close", () => {
+check("the info band gives no ALRT lines; the others give unprefixed ones", () => {
+  assert.deepEqual(
+    getDeterministicAirQualityContent({
+      title: "Air Quality Alert - X",
+      description: sampleDescription,
+      severityBand: HazardSeverityBand.info,
+    }).callsToAction,
+    [],
+  );
   for (const band of [
     HazardSeverityBand.monitor,
     HazardSeverityBand.action,
@@ -103,12 +125,11 @@ check("every reachable band's content includes the mandatory health disclosure c
       description: sampleDescription,
       severityBand: band,
     });
-    assert.ok(
-      content.callsToAction.some((line) =>
-        line.includes("not a substitute for personal medical advice"),
-      ),
-      `expected the mandatory health close for band ${band}`,
-    );
+    assert.ok(content.callsToAction.length > 0, `expected ALRT lines for band ${band}`);
+    for (const line of content.callsToAction) {
+      assert.doesNotMatch(line, /ALRT suggests/i);
+      assert.doesNotMatch(line, /\d{2,}/);
+    }
   }
 });
 

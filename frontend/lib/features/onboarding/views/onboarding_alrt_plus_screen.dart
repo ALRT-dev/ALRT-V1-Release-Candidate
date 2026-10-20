@@ -51,8 +51,9 @@ class OnboardingAlrtPlusScreen extends ConsumerWidget {
         Text(
           'ALRT is free to use',
           style: TextStyle(
-            fontSize: 26.spMin,
+            fontSize: 30.spMin,
             fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
             height: 1.15,
             color: AppColors.ink,
           ),
@@ -68,7 +69,7 @@ class OnboardingAlrtPlusScreen extends ConsumerWidget {
             color: AppColors.mediumGrey,
           ),
         ),
-        24.hSizedBox,
+        18.hSizedBox,
         _PlanCard(
           identity: PlanIdentity.individual,
           title: 'For myself',
@@ -77,21 +78,21 @@ class OnboardingAlrtPlusScreen extends ConsumerWidget {
               ? () => context.push(AlrtPlusPaywallScreen.route)
               : null,
         ),
-        12.hSizedBox,
+        10.hSizedBox,
         _PlanCard(
           identity: PlanIdentity.family,
           title: 'Cover a group of up to 6',
           body: 'Check in, Check on, SOS and Journey for everyone in it',
           onTap: () => context.push(AlrtPlusChooseScreen.route),
         ),
-        12.hSizedBox,
+        10.hSizedBox,
         _PlanCard(
           identity: PlanIdentity.group,
           title: 'Cover 20 or 50 people',
           body: 'Same, for a team, a street or a club',
           onTap: () => context.push(AlrtPlusChooseScreen.route),
         ),
-        16.hSizedBox,
+        14.hSizedBox,
         Text(
           'Prices are shown in the app store. Create or join a group in '
           'Family first if you want to cover one.',
@@ -103,24 +104,37 @@ class OnboardingAlrtPlusScreen extends ConsumerWidget {
         ),
         const Spacer(),
         24.hSizedBox,
-        if (showPlansLink) ...[
-          GradientButton(
-            title: 'Get ALRT +',
-            onPressed: () => context.push(AlrtPlusChooseScreen.route),
-          ),
-          10.hSizedBox,
-        ],
         GradientButton(
           title: 'Continue with ALRT Free',
           dark: true,
           onPressed: () => _next(context),
         ),
+        if (showPlansLink) ...[
+          6.hSizedBox,
+          SizedBox(
+            height: 44.spMin,
+            child: TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.mediumGrey,
+              ),
+              onPressed: () => context.push(AlrtPlusChooseScreen.route),
+              child: Text(
+                'See ALRT + plans',
+                style: TextStyle(
+                  fontSize: 14.spMin,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
-/// A white card with the plan's coloured pill, a bold title and one line.
+/// The board's plan row: a white card on a soft shadow with the plan's
+/// gradient pill on the left, then a bold line and one plain line.
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.identity,
@@ -138,64 +152,79 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(14.spMin);
     return Semantics(
       button: onTap != null,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14.spMin),
-        child: Ink(
-      padding: EdgeInsets.all(16.spMin),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(14.spMin),
-        border: Border.all(color: AppColors.lightGrey, width: 1),
-      ),
-      child: Row(children: [Expanded(child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 10.spMin,
-              vertical: 4.spMin,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
             ),
-            decoration: BoxDecoration(
-              color: identity.accent,
-              borderRadius: BorderRadius.circular(100),
-            ),
-            child: Text(
-              identity.label,
-              style: TextStyle(
-                fontSize: 11.spMin,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-                color: AppColors.white,
+          ],
+        ),
+        child: Material(
+          color: AppColors.white,
+          borderRadius: radius,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 14.spMin,
+                vertical: 12.spMin,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    height: 24.spMin,
+                    padding: EdgeInsets.symmetric(horizontal: 10.spMin),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: identity.linearGradient,
+                      borderRadius: BorderRadius.circular(12.spMin),
+                    ),
+                    child: Text(
+                      identity.label,
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                  12.wSizedBox,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 14.spMin,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        1.hSizedBox,
+                        Text(
+                          body,
+                          style: TextStyle(
+                            fontSize: 12.spMin,
+                            height: 1.35,
+                            color: AppColors.mediumGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          10.hSizedBox,
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 15.spMin,
-              fontWeight: FontWeight.w600,
-              height: 1.3,
-              color: AppColors.ink,
-            ),
-          ),
-          4.hSizedBox,
-          Text(
-            body,
-            style: TextStyle(
-              fontSize: 13.spMin,
-              height: 1.4,
-              color: AppColors.mediumGrey,
-            ),
-          ),
-        ],
-      )),
-      if (onTap != null)
-        Icon(Icons.chevron_right_rounded, color: AppColors.mediumGrey, size: 24.spMin),
-      ]),
         ),
       ),
     );

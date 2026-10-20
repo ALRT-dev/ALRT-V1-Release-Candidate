@@ -22,7 +22,7 @@ class MapWarningsBanner extends ConsumerWidget {
 
   static const _textColor = Color(0xFF1C1C1E);
   static const _chevronColor = Color(0xFF5C5C66);
-  static const _warningDotColor = Color(0xFFDA1F2D);
+  static const _warningDotColor = AppColors.emergency;
   static const _clearDotColor = Color(0xFF16A34A);
 
   /// Counts the loaded hazards that are warnings. Kept static and pure so
@@ -41,6 +41,8 @@ class MapWarningsBanner extends ConsumerWidget {
   }
 
   static String labelFor(final int count) {
+    // Board "Main" wording (16 Oct 2026). The count is of the warnings
+    // loaded for the map's view, which opens on where you are.
     if (count == 0) return 'No warnings near you right now';
     if (count == 1) return '1 warning near you. See what to do';
     return '$count warnings near you. See what to do';
@@ -57,7 +59,9 @@ class MapWarningsBanner extends ConsumerWidget {
       label: labelFor(count),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.94),
+          // Opaque: at 94% the map's own labels showed through and ran
+          // into the text and chevron on the right.
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12.spMin),
           boxShadow: [
             BoxShadow(

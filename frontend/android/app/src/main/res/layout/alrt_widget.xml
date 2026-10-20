@@ -150,7 +150,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="You\u2019re all clear"
+                    android:text="No warnings near you"
                     android:textColor="#FFFFFF"
                     android:textSize="17sp"
                     android:textStyle="bold" />
@@ -159,7 +159,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="1dp"
-                    android:text="No warnings near you."
+                    android:text="Nothing official in your area right now."
                     android:textColor="#C9C9D2"
                     android:textSize="12sp"
                     android:maxLines="1" />
@@ -182,7 +182,7 @@
                 android:paddingEnd="8dp"
                 android:paddingTop="2dp"
                 android:paddingBottom="2dp"
-                android:text="ALL CLEAR"
+                android:text="NO WARNINGS"
                 android:textColor="#0A3D28"
                 android:textSize="9sp"
                 android:textStyle="bold" />

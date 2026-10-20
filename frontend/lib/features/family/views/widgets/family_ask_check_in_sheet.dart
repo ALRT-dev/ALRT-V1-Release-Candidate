@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_widgets.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/others/app_colors.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// "Ask for a check-in": everyone in this group, or exactly the people you
 /// pick. The button always names who will be asked ("Ask Amy and Tom"),
@@ -102,31 +102,19 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
               ),
             ),
             SizedBox(height: 14.spMin),
-            Text(
-              'Ask for a check-in',
-              style: TextStyle(fontSize: 18.spMin, fontWeight: FontWeight.w800),
-            ),
-            SizedBox(height: 4.spMin),
-            Text(
-              'Pick who to ask, or ask everyone.',
-              style: TextStyle(
-                fontSize: 12.5.spMin,
-                height: 1.45,
-                color: AppColors.grey,
-              ),
+            const FamilyBoardSheetTitle(
+              title: 'Ask for a check-in',
+              subtitle: 'Pick who to ask, or ask everyone.',
             ),
             SizedBox(height: 14.spMin),
+            // The AskCheckIn board: one chip per person. Nobody picked
+            // means everyone, and the button says so.
             Wrap(
               spacing: 8.spMin,
               runSpacing: 8.spMin,
               children: [
-                _chipBuilder(
-                  label: 'Everyone',
-                  selected: everyone,
-                  onTap: () => setState(_selected.clear),
-                ),
                 for (final member in others)
-                  _chipBuilder(
+                  FamilyBoardChip(
                     label: member.name,
                     selected: _selected.contains(member.id),
                     onTap: () => setState(() {
@@ -143,45 +131,35 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
               textCapitalization: TextCapitalization.sentences,
               maxLength: 140,
               decoration: InputDecoration(
-                labelText: 'Message (optional)',
-                labelStyle: TextStyle(fontSize: 13.spMin, color: AppColors.grey),
+                hintText: 'Message (optional)',
+                hintStyle: TextStyle(
+                  fontSize: 15.spMin,
+                  color: AppColors.mediumGrey,
+                ),
                 counterText: '',
                 filled: true,
-                fillColor: FamilyColors.v31Page,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14.spMin),
-                  borderSide: BorderSide.none,
+                fillColor: Colors.white,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.spMin),
+                  borderSide: const BorderSide(
+                    color: AppColors.lightGrey,
+                    width: 1.5,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.spMin),
+                  borderSide: const BorderSide(
+                    color: FamilyColors.indigo,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
             SizedBox(height: 14.spMin),
-            SizedBox(
-              height: 52.spMin,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FamilyColors.indigo,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: FamilyColors.indigo.withValues(
-                    alpha: 0.35,
-                  ),
-                  disabledForegroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15.spMin),
-                  ),
-                ),
-                onPressed: canSend ? () => _send(circle, chosen) : null,
-                icon: Icon(LucideIcons.bell, size: 18.spMin),
-                label: Text(
-                  buttonLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+            FamilyBoardPrimaryButton(
+              label: buttonLabel,
+              isLoading: _sending,
+              onPressed: canSend ? () => _send(circle, chosen) : null,
             ),
             if (others.isEmpty) ...[
               SizedBox(height: 8.spMin),
@@ -192,56 +170,9 @@ class _AskCheckInSheetState extends ConsumerState<_AskCheckInSheet> {
               ),
             ],
             SizedBox(height: 4.spMin),
-            TextButton(
+            FamilyBoardGhostButton(
+              label: 'Cancel',
               onPressed: _sending ? null : () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 13.5.spMin,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.grey,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// One pick chip: indigo when selected, outlined otherwise. Selecting
-  /// "Everyone" clears the names; picking a name leaves "Everyone".
-  Widget _chipBuilder({
-    required final String label,
-    required final bool selected,
-    required final VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 9.spMin),
-        decoration: BoxDecoration(
-          color: selected ? FamilyColors.indigo : Colors.white,
-          borderRadius: BorderRadius.circular(20.spMin),
-          border: Border.all(
-            color: selected ? FamilyColors.indigo : FamilyColors.v31Border,
-            width: 1.4,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (selected) ...[
-              Icon(LucideIcons.check, size: 14.spMin, color: Colors.white),
-              SizedBox(width: 5.spMin),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13.5.spMin,
-                fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : FamilyColors.indigo,
-              ),
             ),
           ],
         ),

@@ -5,6 +5,7 @@ import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/views/screens/family_share_ending_screen.dart';
 import 'package:hazard_app/features/family/views/widgets/family_app_bar.dart';
+import 'package:hazard_app/features/family/views/widgets/family_board_widgets.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
@@ -61,14 +62,14 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
         .toList();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kFamilyBoardPage,
       appBar: const FamilyWhiteAppBar(title: 'Share my journey'),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
           16.spMin,
-          4.spMin,
+          14.spMin,
           16.spMin,
-          28.spMin + MediaQuery.viewPaddingOf(context).bottom,
+          120.spMin + MediaQuery.viewPaddingOf(context).bottom,
         ),
         child: activeJourney != null && activeJourney.isActive
             ? _runningBuilder(activeJourney)
@@ -114,104 +115,63 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
               SizedBox(height: 18.spMin),
               _labelBuilder('HOW LONG WILL YOU BE?'),
               SizedBox(height: 10.spMin),
-              Row(
+              Wrap(
+                spacing: 8.spMin,
+                runSpacing: 8.spMin,
                 children: [
-                  for (final minutes in _durations) ...[
-                    Expanded(child: _durationPillBuilder(minutes)),
-                    if (minutes != _durations.last) SizedBox(width: 8.spMin),
-                  ],
+                  for (final minutes in _durations)
+                    _durationPillBuilder(minutes),
                 ],
               ),
-              SizedBox(height: 16.spMin),
+              SizedBox(height: 14.spMin),
               _liveToggleBuilder(snapPointsOnly),
-              SizedBox(height: 16.spMin),
+              SizedBox(height: 10.spMin),
+              const FamilyBoardMuted(
+                'Periodic updates: your departure, an update about every 10 '
+                'minutes, and your arrival. Up to 4 hours in total.',
+                size: 12,
+              ),
+              SizedBox(height: 14.spMin),
               _startButtonBuilder(),
             ],
           ),
         ),
-        SizedBox(height: 12.spMin),
-        Text(
+        SizedBox(height: 14.spMin),
+        const FamilyBoardNote(
           'A journey is seen only by the people you pick. It ends on time '
           'or when you stop it, whichever comes first.',
-          style: TextStyle(
-            fontSize: 12.5.spMin,
-            height: 1.5,
-            color: AppColors.grey,
-          ),
         ),
       ],
     );
   }
 
   /// One chip per other member: the recipient picker. Selected chips take
-  /// the family indigo.
+  /// the family indigo outline and tint (the boards' chip).
   Widget _recipientChipBuilder(final FamilyMember member) {
     final isOn = _recipientIds.contains(member.id);
-    return Semantics(
+    return FamilyBoardChip(
+      key: Key('journey-recipient-${member.id}'),
+      label: member.name,
       selected: isOn,
-      child: GestureDetector(
-        key: Key('journey-recipient-${member.id}'),
-        onTap: () => setState(() {
-          if (isOn) {
-            _recipientIds.remove(member.id);
-          } else {
-            _recipientIds.add(member.id);
-          }
-        }),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: EdgeInsets.symmetric(
-            horizontal: 14.spMin,
-            vertical: 9.spMin,
-          ),
-          decoration: BoxDecoration(
-            color: isOn ? FamilyColors.indigo : Colors.white,
-            borderRadius: BorderRadius.circular(20.spMin),
-            border: Border.all(
-              color: isOn ? FamilyColors.indigo : FamilyColors.v31Border,
-              width: 1.5,
-            ),
-          ),
-          child: Text(
-            member.name,
-            style: TextStyle(
-              fontSize: 14.spMin,
-              fontWeight: FontWeight.w700,
-              color: isOn ? Colors.white : AppColors.ink,
-            ),
-          ),
-        ),
-      ),
+      onTap: () => setState(() {
+        if (isOn) {
+          _recipientIds.remove(member.id);
+        } else {
+          _recipientIds.add(member.id);
+        }
+      }),
     );
   }
 
-  /// 15 / 30 / 60 min. The selected pill takes a 2 px ink border.
+  /// 15 / 30 / 60 min chips. The selected chip takes a 2 px ink border.
   Widget _durationPillBuilder(final int minutes) {
-    final isSelected = _durationMinutes == minutes;
-    return GestureDetector(
+    return FamilyBoardChip(
       key: Key('journey-duration-$minutes'),
+      label: '$minutes min',
+      selected: _durationMinutes == minutes,
+      color: AppColors.ink,
+      tint: const Color(0xFFFAF9F7),
       onTap: () => setState(() => _durationMinutes = minutes),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        height: 44.spMin,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12.spMin),
-          border: Border.all(
-            color: isSelected ? AppColors.ink : FamilyColors.v31Border,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Text(
-          '$minutes min',
-          style: TextStyle(
-            fontSize: 14.spMin,
-            fontWeight: FontWeight.w700,
-            color: AppColors.ink,
-          ),
-        ),
-      ),
     );
   }
 
@@ -224,39 +184,33 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
     return Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Send live updates',
-                style: TextStyle(
-                  fontSize: 14.spMin,
-                  fontWeight: FontWeight.w700,
-                  color: snapPointsOnly ? FamilyColors.v31Ink : AppColors.ink,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Send live updates',
+                  style: TextStyle(
+                    fontSize: 15.spMin,
+                    color: snapPointsOnly ? FamilyColors.v31Ink : AppColors.ink,
+                  ),
                 ),
-              ),
-              SizedBox(height: 2.spMin),
-              Text(
-                snapPointsOnly
-                    ? 'This group uses periodic updates only'
-                    : _isLive
-                    ? 'Live location until the journey stops'
-                    : 'Periodic updates: departure, about every 10 minutes, '
-                          'arrival',
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  height: 1.35,
-                  color: FamilyColors.v31Ink,
-                ),
-              ),
-            ],
+                if (snapPointsOnly)
+                  TextSpan(
+                    text: ' (this group uses periodic updates only)',
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      color: AppColors.mediumGrey,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         Switch(
           key: const Key('journey-live'),
           value: _isLive && !snapPointsOnly,
-          activeTrackColor: FamilyColors.v31ToggleOn,
-          inactiveTrackColor: FamilyColors.v31ToggleOff,
+          activeTrackColor: AppColors.green,
+          inactiveTrackColor: const Color(0xFFD5D9DE),
           inactiveThumbColor: Colors.white,
           onChanged: snapPointsOnly
               ? null
@@ -279,19 +233,27 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [FamilyColors.v31Indigo, FamilyColors.v31HeaderMid],
+            colors: [FamilyColors.v31HeaderTop, FamilyColors.v31HeaderMid],
           ),
-          borderRadius: BorderRadius.circular(16.spMin),
+          borderRadius: BorderRadius.circular(14.spMin),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x4D2E2A9E),
+              blurRadius: 16.0,
+              offset: Offset(0, 6),
+            ),
+          ],
         ),
         child: SizedBox(
           height: 54.spMin,
+          width: double.infinity,
           child: TextButton(
             key: const Key('journey-start'),
             style: TextButton.styleFrom(
               foregroundColor: Colors.white,
               disabledForegroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.spMin),
+                borderRadius: BorderRadius.circular(14.spMin),
               ),
             ),
             onPressed: canStart ? _handleStart : null,
@@ -324,65 +286,47 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _cardBuilder(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Journey active',
-                style: TextStyle(
-                  fontSize: 20.spMin,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink,
-                ),
+        FamilyBoardCard(
+          children: [
+            Text(
+              'Journey active',
+              style: TextStyle(
+                fontSize: 16.spMin,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
               ),
-              SizedBox(height: 4.spMin),
-              Text(
-                '${minutesLeft < 1 ? 'Stopping now' : 'Stops in $minutesLeft min'}. '
-                '${journey.isLive ? 'Live location: updating as you move' : 'Periodic updates: about every 10 minutes'}.',
-                style: TextStyle(
-                  fontSize: 13.spMin,
-                  height: 1.45,
-                  color: FamilyColors.v31Ink,
-                ),
+            ),
+            FamilyBoardMuted(
+              '${minutesLeft < 1 ? 'Stopping now' : 'Stops in $minutesLeft min'}. '
+              '${journey.isLive ? 'Live sharing is on until it ends.' : 'Periodic updates: your departure, an update about every 10 minutes, and your arrival.'}',
+            ),
+            if (journey.recipients.isNotEmpty)
+              FamilyBoardMuted(
+                'Seen by ${journey.recipients.map((r) => r.name).join(', ')}',
+                size: 12,
               ),
-              if (journey.recipients.isNotEmpty) ...[
-                SizedBox(height: 6.spMin),
-                Text(
-                  'Seen by ${journey.recipients.map((r) => r.name).join(', ')}',
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    color: AppColors.mediumGrey,
+            Row(
+              children: [
+                if (journey.canExtend) ...[
+                  Expanded(
+                    child: _smallBuilder(
+                      key: 'journey-extend',
+                      label: 'Keep sharing 1 more hour',
+                      onPressed: _handleExtend,
+                    ),
+                  ),
+                  SizedBox(width: 8.spMin),
+                ],
+                Expanded(
+                  child: _smallBuilder(
+                    key: 'journey-stop',
+                    label: 'Stop sharing now',
+                    onPressed: _handleStop,
                   ),
                 ),
               ],
-              SizedBox(height: 16.spMin),
-              if (journey.canExtend) ...[
-                _outlinedBuilder(
-                  key: 'journey-extend',
-                  label: 'Keep sharing 1 more hour',
-                  onPressed: _handleExtend,
-                ),
-                SizedBox(height: 10.spMin),
-              ],
-              _outlinedBuilder(
-                key: 'journey-stop',
-                label: 'Stop sharing now',
-                color: AppColors.red,
-                onPressed: _handleStop,
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 12.spMin),
-        Text(
-          'When it stops, your last position is deleted. History keeps the '
-          'time and how long, never where you were.',
-          style: TextStyle(
-            fontSize: 12.5.spMin,
-            height: 1.5,
-            color: AppColors.grey,
-          ),
+            ),
+          ],
         ),
       ],
     );
@@ -390,59 +334,29 @@ class _FamilyJourneyScreenState extends ConsumerState<FamilyJourneyScreen> {
 
   // ── Shared pieces ────────────────────────────────────────────────────
 
-  Widget _outlinedBuilder({
+  /// The boards' small outlined button, keyed for tests.
+  Widget _smallBuilder({
     required final String key,
     required final String label,
     required final VoidCallback onPressed,
-    final Color color = AppColors.ink,
   }) {
-    return SizedBox(
-      height: 50.spMin,
-      child: OutlinedButton(
-        key: Key(key),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color,
-          backgroundColor: Colors.white,
-          side: const BorderSide(color: FamilyColors.v31Border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14.spMin),
-          ),
-        ),
-        onPressed: onPressed,
-        child: Text(
-          label,
-          style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w700),
-        ),
-      ),
+    return KeyedSubtree(
+      key: Key(key),
+      child: FamilyBoardSmallButton(label: label, onPressed: onPressed),
     );
   }
 
   Widget _cardBuilder({required final Widget child}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border.all(color: FamilyColors.v31Divider),
-        boxShadow: const [
-          BoxShadow(
-            color: FamilyColors.v31CardShadow,
-            blurRadius: 10.0,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(16.spMin),
-      child: child,
-    );
+    return FamilyBoardCard(children: [child]);
   }
 
   Widget _labelBuilder(final String text) {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 11.spMin,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.8,
+        fontSize: 12.spMin,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.6,
         color: AppColors.sectionLabel,
       ),
     );

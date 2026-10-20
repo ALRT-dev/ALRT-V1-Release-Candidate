@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
-import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/family/views/widgets/family_member_details_sheet.dart';
 
 // Member actions are visible and permission-checked: the sheet shows exactly
@@ -57,11 +56,11 @@ void main() {
     expect(find.text('Tom Nixon'), findsOneWidget);
     expect(find.text('Waiting'), findsOneWidget);
     expect(find.textContaining('Asked 2 minutes ago'), findsOneWidget);
-    expect(find.text('Sharing level: Approximate'), findsOneWidget);
+    expect(find.textContaining('sharing approximate'), findsOneWidget);
     expect(find.text('Ask Tom Nixon to check in'), findsOneWidget);
     expect(find.text('Request a one-time location'), findsOneWidget);
     expect(find.text('Remove from circle'), findsOneWidget);
-    expect(find.byType(FamilyMemberAvatar), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
 
     await tester.tap(find.text('Ask Tom Nixon to check in'));
     await tester.pumpAndSettle();
@@ -103,7 +102,7 @@ void main() {
       onChangeMySharing: () {},
     );
     await tester.pumpAndSettle();
-    expect(find.text('Tom Nixon (You)'), findsOneWidget);
+    expect(find.text('Tom Nixon (you)'), findsOneWidget);
     expect(find.text('Change my sharing level'), findsOneWidget);
     expect(find.text('Ask Tom Nixon to check in'), findsNothing);
     expect(find.text('Remove from circle'), findsNothing);

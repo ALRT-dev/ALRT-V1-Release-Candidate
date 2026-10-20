@@ -108,8 +108,12 @@ class _AlrtPlusGroupPaywallScreenState
 
   /// V3 section label rust, and the selected size tile's fill and border.
   static const _sectionLabelColor = Color(0xFFB84500);
-  static const _selectedTile = Color(0xFFE6F7EC);
-  static const _selectedBorder = Color(0xFF16A34A);
+  static const _ink = Color(0xFF1C1C1E);
+  static const _muted = Color(0xFF5C5C66);
+  static const _body = Color(0xFF3A3A42);
+  static const _line = Color(0xFFE3E6EA);
+  static const _groupIconTile = Color(0xFFEEEEFB);
+  static const _groupIcon = Color(0xFF3D3DDF);
 
   Offering? _offering;
   bool _loading = true;
@@ -372,7 +376,7 @@ class _AlrtPlusGroupPaywallScreenState
         (_dummy || packageForTier(_offering, tier) != null);
 
     return Scaffold(
-      backgroundColor: kPaywallBody,
+      backgroundColor: const Color(0xFFF5F5F7),
       body: Column(
         children: [
           PlanHero(
@@ -380,18 +384,16 @@ class _AlrtPlusGroupPaywallScreenState
             heading: kGroupHeading,
             intro: kGroupExplanation,
             badgeLabel: planTierName(tier),
-            coverLine: group == null
-                ? 'Covers everyone in one group'
-                : 'Covers everyone in ${group.name} · up to $capacity people',
+            benefits: kGroupBenefits,
             onClose: _busy ? null : () => Navigator.of(context).pop(false),
           ),
           Expanded(
             child: ListView(
               padding: EdgeInsets.fromLTRB(
+                20.spMin,
                 18.spMin,
-                16.spMin,
-                18.spMin,
-                24.spMin,
+                20.spMin,
+                32.spMin,
               ),
               children: [
                 _sectionLabel(kGroupSelectorLabel),
@@ -404,23 +406,9 @@ class _AlrtPlusGroupPaywallScreenState
                         'connection and try again.',
                     isError: true,
                   )
-                else if (access.coverableGroups.isEmpty)
-                  const PaywallNotice(
-                    text:
-                        'You need to host a group before you can cover it. '
-                        'Create one in Family, then come back here.',
-                  )
                 else
-                  PaywallCard(
-                    padding: EdgeInsets.symmetric(vertical: 4.spMin),
-                    child: Column(
-                      children: [
-                        for (final g in access.coverableGroups)
-                          _groupRow(g, selected: g.circleId == group?.circleId),
-                      ],
-                    ),
-                  ),
-                SizedBox(height: 16.spMin),
+                  _groupCard(group, access.coverableGroups),
+                SizedBox(height: 18.spMin),
                 _sectionLabel('Plan size'),
                 IntrinsicHeight(
                   child: Row(
@@ -435,24 +423,15 @@ class _AlrtPlusGroupPaywallScreenState
                     ],
                   ),
                 ),
-                SizedBox(height: 16.spMin),
-                PaywallCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final b in kGroupBenefits)
-                        PlanBenefit(text: b, identity: identity),
-                    ],
-                  ),
-                ),
                 SizedBox(height: 12.spMin),
-                if (group != null)
-                  PaywallFinePrint(
-                    groupScope(capacity: capacity, group: group.name),
+                _scopeNote(
+                  groupScope(
+                    capacity: capacity,
+                    group: group?.name ?? 'your group',
                   ),
-                SizedBox(height: 10.spMin),
-                PaywallFinePrint(kSosSafetyStatement),
-                SizedBox(height: 16.spMin),
+                  identity,
+                ),
+                SizedBox(height: 18.spMin),
                 if (_coveredByOther(group)) ...[
                   PaywallNotice(
                     text:
@@ -513,6 +492,8 @@ class _AlrtPlusGroupPaywallScreenState
                     'Preview build: not store prices, no real purchase.',
                     center: true,
                   ),
+                SizedBox(height: 8.spMin),
+                PaywallFinePrint(kSosSafetyStatement, center: true),
                 SizedBox(height: 14.spMin),
                 PaywallFooter(
                   busy: _busy,
@@ -529,78 +510,173 @@ class _AlrtPlusGroupPaywallScreenState
 
   /// V3 section label: #B84500, uppercase, letter-spaced.
   Widget _sectionLabel(final String text) => Padding(
-    padding: EdgeInsets.only(left: 4.spMin, bottom: 8.spMin),
+    padding: EdgeInsets.only(bottom: 12.spMin),
     child: Text(
       text.toUpperCase(),
       style: TextStyle(
-        fontSize: 11.spMin,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.0,
+        fontSize: 12.spMin,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.6,
         color: _sectionLabelColor,
       ),
     ),
   );
 
-  /// A 22 px radio: a 2 px #D9D6D0 ring, filled ink with a white dot when
-  /// selected. Replaces the Material radio glyphs.
-  Widget _radioBuilder({required final bool selected}) {
-    return Container(
-      width: 22.spMin,
-      height: 22.spMin,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: selected ? const Color(0xFF1C1C1E) : Colors.transparent,
-        border: selected
-            ? null
-            : Border.all(color: const Color(0xFFD9D6D0), width: 2.0),
-      ),
-      child: selected
-          ? Container(
-              width: 8.spMin,
-              height: 8.spMin,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
+  /// The board's "Group you will cover" card: the group's name and size
+  /// with a chevron. With more than one group you host, tapping it opens
+  /// a short list to pick from. With none, it says how to get one.
+  Widget _groupCard(
+    final GroupAccess? group,
+    final List<GroupAccess> groups,
+  ) {
+    final canPick = groups.length > 1;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14.spMin),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14.spMin),
+        onTap: canPick ? () => _pickGroup(groups) : null,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: 14.spMin,
+            vertical: 12.spMin,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14.spMin),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
               ),
-            )
-          : null,
-    );
-  }
-
-  Widget _groupRow(final GroupAccess g, {required final bool selected}) {
-    return InkWell(
-      onTap: () => setState(() => _circleId = g.circleId),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.spMin, vertical: 10.spMin),
-        child: Row(
-          children: [
-            _radioBuilder(selected: selected),
-            SizedBox(width: 10.spMin),
-            Expanded(
-              child: Text(
-                g.name,
-                style: TextStyle(
-                  fontSize: 14.spMin,
-                  fontWeight: FontWeight.w600,
-                  color: kPaywallInk,
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32.spMin,
+                height: 32.spMin,
+                decoration: BoxDecoration(
+                  color: _groupIconTile,
+                  borderRadius: BorderRadius.circular(10.spMin),
+                ),
+                child: Icon(
+                  LucideIcons.users,
+                  size: 18.spMin,
+                  color: _groupIcon,
                 ),
               ),
-            ),
-            Text(
-              g.peopleCount == 1 ? '1 person' : '${g.peopleCount} people',
-              style: TextStyle(fontSize: 12.5.spMin, color: kPaywallInkSoft),
-            ),
-          ],
+              SizedBox(width: 10.spMin),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      group?.name ?? 'No group yet',
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                      ),
+                    ),
+                    Text(
+                      group == null
+                          ? 'You need to host a group before you can cover '
+                                'it. Create a group in Family first.'
+                          : '${_people(group.peopleCount)} · '
+                                '${group.isHost ? 'you host' : 'you pay'}',
+                      style: TextStyle(fontSize: 12.spMin, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+              if (canPick)
+                Icon(
+                  LucideIcons.chevronDown,
+                  size: 20.spMin,
+                  color: _muted,
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// One of three equal tiles: the size name, "up to N", the store's
-  /// monthly price under it, and a state line when the plan can't simply
-  /// be bought (your current plan, upgrade, too small, change in store).
-  /// The selected tile fills #E6F7EC with a green border.
+  String _people(final int n) => n == 1 ? '1 person' : '$n people';
+
+  Future<void> _pickGroup(final List<GroupAccess> groups) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.spMin)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 16.spMin, 12.spMin),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Group you will cover',
+                style: TextStyle(
+                  fontSize: 22.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
+              ),
+              SizedBox(height: 8.spMin),
+              for (final g in groups)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    g.name,
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
+                    ),
+                  ),
+                  subtitle: Text(_people(g.peopleCount)),
+                  trailing: g.circleId == _circleId
+                      ? Icon(LucideIcons.check, color: _ink, size: 20.spMin)
+                      : null,
+                  onTap: () => Navigator.of(sheetContext).pop(g.circleId),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _circleId = picked);
+  }
+
+  /// The tinted note under the sizes: who the plan covers and what it
+  /// does not change.
+  Widget _scopeNote(final String text, final PlanIdentity identity) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
+      decoration: BoxDecoration(
+        color: identity.tint,
+        borderRadius: BorderRadius.circular(14.spMin),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 13.spMin, height: 1.5, color: _body),
+      ),
+    );
+  }
+
+  /// One of three equal tiles, centred: the size name, "up to N people",
+  /// the store's price and its period. The selected tile wears the plan's
+  /// gradient with white text. A state line shows when the plan can't
+  /// simply be bought (your current plan, upgrade, too small, change in
+  /// store).
   Widget _tierTile(
     final PlanTier tier,
     final GroupAccess? group, {
@@ -619,10 +695,13 @@ class _AlrtPlusGroupPaywallScreenState
       TierChoice.tooSmall => 'Too small for this group',
     };
     final on = selected && enabled;
+    final identity = PlanIdentity.of(tier);
+    final strong = on ? Colors.white : _ink;
+    final soft = on ? Colors.white.withValues(alpha: 0.85) : _muted;
     return Opacity(
       opacity: enabled || choice == TierChoice.current ? 1 : 0.5,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16.spMin),
+        borderRadius: BorderRadius.circular(14.spMin),
         onTap: enabled ? () => setState(() => _tier = tier) : null,
         child: Container(
           padding: EdgeInsets.symmetric(
@@ -630,61 +709,80 @@ class _AlrtPlusGroupPaywallScreenState
             vertical: 12.spMin,
           ),
           decoration: BoxDecoration(
-            color: on ? _selectedTile : Colors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            border: Border.all(
-              color: on ? _selectedBorder : kPaywallLine,
-              width: on ? 2 : 1,
-            ),
+            color: on ? null : Colors.white,
+            gradient: on ? identity.linearGradient : null,
+            borderRadius: BorderRadius.circular(14.spMin),
+            border: on ? null : Border.all(color: _line, width: 1.5),
+            boxShadow: on
+                ? [
+                    BoxShadow(
+                      color: identity.accent.withValues(alpha: 0.3),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      planTierName(tier),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14.spMin,
-                        fontWeight: FontWeight.w800,
-                        color: kPaywallInk,
-                      ),
-                    ),
-                  ),
-                  if (on)
-                    Icon(
-                      LucideIcons.circleCheck,
-                      color: _selectedBorder,
-                      size: 16.spMin,
-                    ),
-                ],
-              ),
-              SizedBox(height: 2.spMin),
               Text(
-                'up to ${sponsoredCapacity(tier)}',
-                style: TextStyle(fontSize: 12.spMin, color: kPaywallInkSoft),
-              ),
-              SizedBox(height: 8.spMin),
-              Text(
-                _loading ? '…' : (price.isEmpty ? '' : '$price/$period'),
+                planTierName(tier),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 12.5.spMin,
+                  fontSize: 13.spMin,
                   fontWeight: FontWeight.w700,
-                  color: kPaywallInk,
+                  color: strong,
                 ),
               ),
+              SizedBox(height: 2.spMin),
+              Wrap(
+                alignment: WrapAlignment.center,
+                children: [
+                  Text(
+                    'up to ${sponsoredCapacity(tier)}',
+                    style: TextStyle(fontSize: 12.spMin, color: soft),
+                  ),
+                  Text(
+                    ' people',
+                    style: TextStyle(fontSize: 12.spMin, color: soft),
+                  ),
+                ],
+              ),
+              SizedBox(height: 6.spMin),
+              if (_loading)
+                Text('…', style: TextStyle(fontSize: 16.spMin, color: strong))
+              else if (price.isNotEmpty)
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: price,
+                        style: TextStyle(
+                          fontSize: 16.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: strong,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '/$period',
+                        style: TextStyle(fontSize: 11.spMin, color: soft),
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               if (state != null) ...[
                 SizedBox(height: 4.spMin),
                 Text(
                   state,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11.spMin,
                     fontWeight: FontWeight.w600,
                     height: 1.3,
-                    color: kPaywallInkSoft,
+                    color: soft,
                   ),
                 ),
               ],

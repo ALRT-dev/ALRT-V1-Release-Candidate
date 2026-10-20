@@ -174,6 +174,7 @@ const processSingleHazard = async (
     hazardData.description,
     availableCategories,
   );
+  if(hazardData.nativeWarningLevel&&!hazardData.description.toLowerCase().includes(hazardData.nativeWarningLevel.toLowerCase()))throw new HttpError(400,'Native warning level must be quoted in the source description.');
 
   const {
     id,
@@ -242,6 +243,7 @@ const processSingleHazard = async (
     title: title || "",
     description,
     ...(aiSummary && { aiSummary }),
+    ...(hazardData.sourceInstructions && {sourceInstructionBlocks: hazardData.sourceInstructions}),
     severity: capped.severity,
     severityBand: capped.severityBand || HazardSeverityBand.info,
     ...(callsToAction && { callsToAction }),
@@ -256,6 +258,8 @@ const processSingleHazard = async (
     category,
     source,
     isAwsCompliant,
+    ...(hazardData.nativeWarningLevel&&{nativeWarningLevel:hazardData.nativeWarningLevel}),
+    ...(hazardData.jurisdictionCountry&&{jurisdictionCountry:hazardData.jurisdictionCountry}),
     ...(link && { link }),
     ...(occurredAt && { occurredAt: new Date(occurredAt) }),
     ...(expiresAt && { expiresAt: new Date(expiresAt) }),

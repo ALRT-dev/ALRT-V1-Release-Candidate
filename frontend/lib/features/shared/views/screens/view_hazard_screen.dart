@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
-import 'package:hazard_app/features/shared/utils/alert_guidance_library.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
+import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
@@ -39,12 +40,14 @@ import 'package:hazard_app/features/shared/providers/view_hazard_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/share_alert.dart';
+import 'package:hazard_app/features/shared/utils/general_guidance.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.dart';
 import 'package:hazard_app/features/shared/views/widgets/small_map_view.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/hazard_medias_carousel.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/send_to_group_sheet.dart';
+import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/share_link_sheet.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'dart:math' as math;
@@ -81,9 +84,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// Attribution shows one compact line until the reader asks for the
   /// licence and copyright detail.
   bool _attributionExpanded = false;
-  bool _whatToDoExpanded = false;
-  bool _whatWeKnowExpanded = false;
-  bool _fullAlertExpanded = false;
 
   /// Whether this alert is being read aloud right now. Drives the lit
   /// Listen button, and is cleared when the speech ends on its own.
@@ -294,8 +294,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               _roundControl(
                 icon: LucideIcons.share2,
                 semanticLabel: 'Share',
-                onTap: () =>
-                    shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+                onTap: () => _openShareLinkSheet(hazard),
               )
             else
               SizedBox(width: 40.spMin),
@@ -462,7 +461,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     Text(
                       _titleOf(hazard),
                       style: TextStyle(
-                        fontSize: 21.spMin,
+                        // Community board 22, Detail board 21.
+                        fontSize: hazard.isUserReported ? 22.spMin : 21.spMin,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
                         color: AppColors.black,
@@ -475,7 +475,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     ],
                     10.hSizedBox,
                     _buildLocationLine(hazard),
-                    if (!hazard.isUserReported) _buildKeyFactsStrip(hazard),
                   ],
                 ),
               ),
@@ -530,6 +529,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       if (sourceName != null && sourceName.isNotEmpty) sourceName,
       if (postedAt != null) postedAt.timeAgo,
     ].join(' · ');
+    final labelText = Text(
+      label,
+      style: TextStyle(
+        fontSize: 12.spMin,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.4,
+        color: labelInk,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
 
     return Row(
       children: [
@@ -539,29 +549,29 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           isGlobalHumanitarian: hazard.isGlobalHumanitarian,
           isAlrtIntel: hazard.isAlrtIntel,
           color: hazard.color,
-          size: 14.spMin,
+          // 14 read as a speck next to the source (phone review, 14 Oct).
+          size: 20.spMin,
         ),
         8.wSizedBox,
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-              color: labelInk,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        // The label is a short fixed word ("OFFICIAL", "EMERGENCY WARNING")
+        // and is always shown whole; the source line takes the rest. A
+        // flex split here gave the label a quarter of the row whatever
+        // the source used, cutting "EMERGENCY WARNING" short.
+        if (right.isEmpty) Expanded(child: labelText) else labelText,
         if (right.isNotEmpty) ...[
-          8.wSizedBox,
-          Text(
-            right,
-            style: TextStyle(
-              fontSize: 12.spMin,
-              color: AlertCardStyle.metaInk,
+          12.wSizedBox,
+          // A long agency name ("Department of Fire and Emergency Services
+          // WA · 6 hours ago") ran off the right edge; it now wraps.
+          Expanded(
+            child: Text(
+              right,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12.spMin,
+                color: AlertCardStyle.metaInk,
+              ),
             ),
           ),
         ],
@@ -583,19 +593,24 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 56.spMin,
-          height: 56.spMin,
-          decoration: BoxDecoration(
-            color: categoryColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14.spMin),
-          ),
-          alignment: Alignment.center,
-          child: category == null
-              ? Icon(LucideIcons.users, size: 24.spMin, color: categoryColor)
-              : CategoryGlyph(category: category, size: 40.spMin),
-        ),
-        12.wSizedBox,
+        // Community board: the 40 px category disc on its own.
+        category == null
+            ? Container(
+                width: 40.spMin,
+                height: 40.spMin,
+                decoration: BoxDecoration(
+                  color: categoryColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  LucideIcons.users,
+                  size: 20.spMin,
+                  color: categoryColor,
+                ),
+              )
+            : CategoryGlyph(category: category, size: 40.spMin),
+        10.wSizedBox,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,68 +664,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// The "Key facts" strip: a few headline specifics (distance, time window,
-  /// wind, size, water level) pulled verbatim from the source's own text, so
-  /// the essentials are scannable. Only what the agency wrote is shown —
-  /// never computed or invented. Renders nothing when there's nothing to show.
-  Widget _buildKeyFactsStrip(final Hazard hazard) {
-    final facts = AlertGuidanceLibrary.keyFacts(hazard.description);
-    if (facts.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(top: 12.spMin),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(12.spMin),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF6F0),
-          borderRadius: BorderRadius.circular(12.spMin),
-          border: Border.all(color: const Color(0xFFF0D3BC)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'KEY FACTS · from the source',
-              style: TextStyle(
-                fontSize: 10.5.spMin,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
-                color: const Color(0xFF9A4A00),
-              ),
-            ),
-            7.spMin.hSizedBox,
-            for (final (label, value) in facts)
-              Padding(
-                padding: EdgeInsets.only(bottom: 5.spMin),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$label ',
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF9A4A00),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 12.spMin,
-                          color: const Color(0xFF3A3A42),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// The "In plain terms" box on the dark surface.
   Widget _buildPlainTermsBox() {
     return Consumer(
@@ -732,7 +685,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           categoryName: hazard.category?.name,
           sourceName: hazard.source?.name,
           locationName: hazard.locationName,
-          hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
+          title: hazard.title,
+          hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
         );
         if (plainTerms == null) return const SizedBox.shrink();
 
@@ -741,11 +695,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           decoration: BoxDecoration(
             // The plain-terms surface is always the dark band (locked).
             color: AlertCardStyle.plainTermsBackground,
-            borderRadius: BorderRadius.circular(10.spMin),
+            borderRadius: BorderRadius.circular(12.spMin),
           ),
           padding: EdgeInsets.symmetric(
-            horizontal: 11.spMin,
-            vertical: 9.spMin,
+            horizontal: 12.spMin,
+            vertical: 10.spMin,
           ),
           child: Text.rich(
             TextSpan(
@@ -761,8 +715,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               ],
             ),
             style: TextStyle(
-              fontSize: 12.spMin,
-              height: 1.55,
+              fontSize: 14.spMin,
+              height: 1.5,
               color: Colors.white,
             ),
           ),
@@ -853,9 +807,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         );
         final distanceText = distance == null
             ? null
-            : distance < 1000
-            ? '${distance.toStringAsFixed(0)} m from you'
-            : '${(distance / 1000).toStringAsFixed(1)} km from you';
+            : '${AlertCardStyle.distanceLabel(distance)} from you';
 
         final place = hazard.locationName?.trim();
         final updatedAt = hazard.updatedAt;
@@ -923,21 +875,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         // What we know: the SOURCE's own description, verbatim. Not our
         // words and not an AI summary.
-        _buildOfficialDescriptionSection(),
-
-        // What To Do Section (verbatim from source)
-        _buildWhatToDoSection(),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4.spMin),
-          child: Text(
-            AlertTextUtil.standingEmergencyLine,
-            style: TextStyle(
-              fontSize: 13.spMin,
-              height: 1.4,
-              color: AppColors.mediumGrey,
-            ),
-          ),
-        ),
+        Consumer(builder: (context, ref, child) {
+          final hazard = ref.watch(provider.select((value) => value.hazard));
+          if (hazard?.contentDetails != null) {
+            return AgencyContentSections(content: hazard!.contentDetails!, sourceName: hazard.source?.name);
+          }
+          return Column(children: [_buildOfficialDescriptionSection(), _buildWhatToDoSection()]);
+        }),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
@@ -956,23 +900,22 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             final title = ref.watch(
               provider.select((value) => value.hazard?.title),
             );
-            final isGlobal = ref.watch(
-              provider.select(
-                (value) => value.hazard?.isGlobalHumanitarian ?? false,
-              ),
-            );
             return ForYouCard(
+              publishedRows: ref.watch(provider.select((value) => value.hazard?.publishedProfileGuidance)),
               categoryName: categoryName,
               parentCategoryName: parentCategoryName,
               title: title,
               isAws: isAws,
-              isGlobal: isGlobal,
             );
           },
         ),
 
-        // Tell your people: Send to my group, Check in, Share a link.
+        // Tell your people: Send to my group and Check in.
         _buildTellYourPeopleSection(),
+
+        // Share a link (Detail board): its own full-width button, so an
+        // alert can be shared with or without a group.
+        _buildShareLinkButton(),
 
         // Community alerts: I see it / I don't see it voting, the
         // unverified note, then Follow / Listen / Report.
@@ -981,6 +924,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         // Attribution
         _buildSourceSection(),
+        _buildSourceFootnote(),
         40.hSizedBox,
       ],
     );
@@ -1006,6 +950,66 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         message: 'That could not be sent. Please try again.',
       );
     }
+  }
+
+  /// The ShareLink sheet: the public link, Share, and Send to my family
+  /// circle when the user has a group.
+  void _openShareLinkSheet(final Hazard hazard) {
+    final hasGroup = ref.read(providerOfFamily).circle != null;
+    showShareLinkSheet(
+      context: context,
+      hazard: hazard,
+      onSendToGroup: hasGroup ? () => _sendAlertToGroup(hazard) : null,
+    );
+  }
+
+  /// "Share a link" under Tell your people (Detail board): white, full
+  /// width, outlined. Official alerts only; a community report shares from
+  /// the button in its header. Hidden until the alert has a public page.
+  Widget _buildShareLinkButton() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null ||
+            hazard.isUserReported ||
+            !isAlertShareable(hazard)) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: EdgeInsets.only(top: 12.spMin),
+          child: Material(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(14.spMin),
+            child: InkWell(
+              onTap: () => _openShareLinkSheet(hazard),
+              borderRadius: BorderRadius.circular(14.spMin),
+              child: Container(
+                height: 50.spMin,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14.spMin),
+                  border: Border.all(color: AppColors.lightGrey, width: 1.5),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(LucideIcons.share2, size: 18.spMin, color: AppColors.ink),
+                    8.wSizedBox,
+                    Text(
+                      'Share a link',
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   /// Sends a personal check-in near this alert to the user's family circle.
@@ -1052,14 +1056,15 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       categoryName: hazard.category?.name,
       sourceName: hazard.source?.name,
       locationName: hazard.locationName,
-      hasAdvice: hazard.callsToAction?.isNotEmpty ?? false,
+      title: hazard.title,
+      hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
     );
     final text = [
       hazard.isUserReported
           ? 'Community report, unverified.'
           : 'Official alert from ${hazard.source?.name ?? 'an official source'}.',
       hazard.title ?? '',
-      if (plainTerms != null) 'In plain terms: $plainTerms.',
+      if (plainTerms != null) 'In plain terms: $plainTerms',
       hazard.description ?? '',
     ].where((line) => line.trim().isNotEmpty).join(' ');
 
@@ -1072,9 +1077,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   // ── Tell your people ───────────────────────────────────────────────────
 
-  /// TELL YOUR PEOPLE (approved Detail board): the indigo group card with
-  /// "Send to my group", "Check in" and "Share a link". Nothing is shown
-  /// when the user has no group.
+  /// TELL YOUR PEOPLE on the indigo group card. Reworked after the 14 Oct
+  /// 2026 phone review, where three equal tiles under a small grey group
+  /// line left nothing reading as the main action. Now: who the group is
+  /// (faces and name, "Change" when there is more than one group), one
+  /// clear primary "Send this alert to {group}", then Check in and Share
+  /// as secondary actions. Nothing is shown when the user has no group.
   Widget _buildTellYourPeopleSection() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1086,8 +1094,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         );
         if (circleName == null) return const SizedBox.shrink();
 
-        final memberCount = ref.watch(
-          providerOfFamily.select((s) => s.circle?.members.length ?? 0),
+        final members = ref.watch(
+          providerOfFamily.select(
+            (s) => s.circle?.members ?? const <FamilyMember>[],
+          ),
         );
         final circleCount = ref.watch(
           providerOfFamily.select((s) => s.circles.length),
@@ -1095,17 +1105,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final isSending = ref.watch(
           providerOfFamily.select((s) => s.checkInState.isLoading),
         );
-        final canShare = isAlertShareable(hazard);
         final canPickGroup = circleCount > 1;
-        final peopleLine =
-            '$circleName · $memberCount ${memberCount == 1 ? 'person' : 'people'}';
+        final memberCount = members.length;
+        final countLine =
+            '$memberCount ${memberCount == 1 ? 'person' : 'people'}';
+        final faces = members.take(4).toList();
 
         return Padding(
           padding: EdgeInsets.only(top: 16.spMin),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // V3 section label
               Padding(
                 padding: EdgeInsets.only(bottom: 10.spMin),
                 child: Text(
@@ -1119,64 +1129,110 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 ),
               ),
               Container(
-                padding: EdgeInsets.all(14.spMin),
+                padding: EdgeInsets.fromLTRB(
+                  16.spMin,
+                  14.spMin,
+                  16.spMin,
+                  16.spMin,
+                ),
                 decoration: BoxDecoration(
                   gradient: FamilyColors.headerGradient,
                   borderRadius:
                       BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FamilyColors.indigo.withValues(alpha: 0.25),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Group line. More than one group: tap to change.
-                    InkWell(
-                      onTap: canPickGroup
-                          ? () => showChooseCircleSheet(context, ref)
-                          : null,
-                      borderRadius: BorderRadius.circular(8.spMin),
-                      child: Row(
-                        children: [
-                          Icon(
-                            LucideIcons.users,
-                            size: 15.spMin,
-                            color: AppColors.white.withValues(alpha: 0.9),
-                          ),
-                          8.wSizedBox,
-                          Expanded(
-                            child: Text(
-                              peopleLine,
-                              style: TextStyle(
-                                fontSize: 14.spMin,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.white,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (canPickGroup) ...[
-                            Text(
-                              'tap to change',
-                              style: TextStyle(
-                                fontSize: 12.spMin,
-                                color: AppColors.white.withValues(alpha: 0.85),
-                              ),
-                            ),
-                            Icon(
-                              LucideIcons.chevronRight,
-                              size: 14.spMin,
-                              color: AppColors.white.withValues(alpha: 0.85),
-                            ),
-                          ],
+                    // Who: faces, group name, how many.
+                    Row(
+                      children: [
+                        if (faces.isNotEmpty) ...[
+                          _facesStack(faces),
+                          10.wSizedBox,
                         ],
-                      ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                circleName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16.spMin,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.white,
+                                ),
+                              ),
+                              2.hSizedBox,
+                              Text(
+                                countLine,
+                                style: TextStyle(
+                                  fontSize: 12.5.spMin,
+                                  color:
+                                      AppColors.white.withValues(alpha: 0.75),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (canPickGroup)
+                          Semantics(
+                            button: true,
+                            label: 'Change group',
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.spMin,
+                                vertical: 7.spMin,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.white.withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(20.spMin),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Change',
+                                    style: TextStyle(
+                                      fontSize: 12.5.spMin,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.white,
+                                    ),
+                                  ),
+                                  2.wSizedBox,
+                                  Icon(
+                                    LucideIcons.chevronDown,
+                                    size: 14.spMin,
+                                    color: AppColors.white,
+                                  ),
+                                ],
+                              ),
+                            ).onPressed(
+                              () => showChooseCircleSheet(context, ref),
+                            ),
+                          ),
+                      ],
                     ),
                     14.hSizedBox,
-                    // One compact row: Check in, Send to group, Share.
+                    // The main action, full width, impossible to miss.
+                    _groupPrimaryButton(
+                      label: 'Send this alert to $circleName',
+                      loading: isSending,
+                      onTap: isSending ? null : () => _sendAlertToGroup(hazard),
+                    ),
+                    10.hSizedBox,
                     Row(
                       children: [
                         Expanded(
-                          child: _groupButton(
+                          child: _groupSecondaryButton(
                             label: _checkInSent ? 'Checked in' : 'Check in',
                             icon: _checkInSent
                                 ? LucideIcons.circleCheck
@@ -1186,33 +1242,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                                 : () => _sendCheckIn(hazard),
                           ),
                         ),
-                        8.wSizedBox,
-                        Expanded(
-                          child: _groupButton(
-                            label: 'Send to group',
-                            icon: LucideIcons.send,
-                            filled: true,
-                            loading: isSending,
-                            onTap: isSending
-                                ? null
-                                : () => _sendAlertToGroup(hazard),
-                          ),
-                        ),
-                        if (canShare) ...[
-                          8.wSizedBox,
-                          Expanded(
-                            child: _groupButton(
-                              label: 'Share',
-                              icon: LucideIcons.share2,
-                              onTap: () => shareAlert(
-                                ref: ref,
-                                hazard: hazard,
-                                from: 'detail',
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
+                    ),
+                    10.hSizedBox,
+                    Text(
+                      'Sends the alert and a one-line note. No location '
+                      'unless you choose to add it.',
+                      style: TextStyle(
+                        fontSize: 11.spMin,
+                        height: 1.4,
+                        color: AppColors.white.withValues(alpha: 0.75),
+                      ),
                     ),
                   ],
                 ),
@@ -1224,69 +1264,140 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// A compact tile on the indigo card: icon over a short label. White
-  /// with indigo ink when [filled], otherwise translucent white.
-  Widget _groupButton({
+  /// Up to four overlapping member faces.
+  Widget _facesStack(final List<FamilyMember> faces) {
+    // FamilyMemberAvatar scales its own size, so it takes design units;
+    // the layout here uses the scaled size. Passing a scaled size to the
+    // avatar scaled it twice and the faces overflowed this box.
+    const designSize = 32.0;
+    const ring = 1.5;
+    final size = designSize.spMin;
+    final step = size * 0.62;
+    return SizedBox(
+      width: size + step * (faces.length - 1),
+      height: size,
+      child: Stack(
+        children: [
+          for (var i = 0; i < faces.length; i++)
+            Positioned(
+              left: step * i,
+              child: Container(
+                padding: EdgeInsets.all(ring.spMin),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1E1780),
+                  shape: BoxShape.circle,
+                ),
+                child: FamilyMemberAvatar(
+                  member: faces[i],
+                  size: designSize - ring * 2,
+                  showStatusDot: false,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// White, full width, indigo ink: the one primary action on the card.
+  Widget _groupPrimaryButton({
     required final String label,
-    required final IconData icon,
-    final bool filled = false,
     final bool loading = false,
     final VoidCallback? onTap,
   }) {
-    const filledInk = Color(0xFF3229C4);
-    final ink = filled ? filledInk : AppColors.white;
-    final enabled = onTap != null;
-
+    const ink = Color(0xFF3229C4);
     return Opacity(
-      opacity: enabled || loading ? 1.0 : 0.6,
-      child: Container(
-        height: 56.spMin,
-        decoration: BoxDecoration(
-          color: filled
-              ? AppColors.white
-              : AppColors.white.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(12.spMin),
-        ),
-        child: Material(
-          color: AppColors.transparent,
-          borderRadius: BorderRadius.circular(12.spMin),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
+      opacity: onTap != null || loading ? 1.0 : 0.6,
+      child: Material(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14.spMin),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 50.spMin,
+            width: double.infinity,
             child: Center(
               child: loading
                   ? SizedBox(
-                      width: 18.spMin,
-                      height: 18.spMin,
-                      child: CircularProgressIndicator(
+                      width: 20.spMin,
+                      height: 20.spMin,
+                      child: const CircularProgressIndicator(
                         strokeWidth: 2,
                         color: ink,
                       ),
                     )
                   : Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4.spMin),
-                      child: Column(
+                      padding: EdgeInsets.symmetric(horizontal: 14.spMin),
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(icon, size: 18.spMin, color: ink),
-                          3.hSizedBox,
+                          Icon(LucideIcons.send, size: 18.spMin, color: ink),
+                          8.wSizedBox,
                           Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                label,
-                                style: TextStyle(
-                                  fontSize: 12.spMin,
-                                  fontWeight: FontWeight.w700,
-                                  color: ink,
-                                ),
-                                maxLines: 1,
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 15.spMin,
+                                fontWeight: FontWeight.w800,
+                                color: ink,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Translucent white pill, icon beside the label.
+  Widget _groupSecondaryButton({
+    required final String label,
+    required final IconData icon,
+    final VoidCallback? onTap,
+  }) {
+    return Opacity(
+      opacity: onTap != null ? 1.0 : 0.65,
+      child: Material(
+        color: AppColors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12.spMin),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            height: 44.spMin,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12.spMin),
+              border: Border.all(
+                color: AppColors.white.withValues(alpha: 0.22),
+              ),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 17.spMin, color: AppColors.white),
+                  7.wSizedBox,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1325,43 +1436,63 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               // One wording everywhere: the same label, helper, buttons
               // and count line as the feed card. The vote handler is the
               // same call the inline buttons made before.
-              const ConfirmationPrompt(),
-              10.hSizedBox,
-              ConfirmationButtons(
-                key: ValueKey('vote-$id'),
-                initialVoteType: voteType,
-                initialVoteCount: voteCount,
-                onVotePressed: (type) => ref
-                    .read(itemProvider.notifier)
-                    .voteHazard(voteType: type),
+              // Community board: "Can you see it?" sits in its own white
+              // card.
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(16.spMin),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius:
+                      BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
+                  boxShadow: const [AlertCardStyle.cardShadow],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const ConfirmationPrompt(),
+                    12.hSizedBox,
+                    ConfirmationButtons(
+                      key: ValueKey('vote-$id'),
+                      initialVoteType: voteType,
+                      initialVoteCount: voteCount,
+                      onVotePressed: (type) => ref
+                          .read(itemProvider.notifier)
+                          .voteHazard(voteType: type),
+                    ),
+                  ],
+                ),
               ),
               12.hSizedBox,
               // Community reports are never authority. Said once, plainly.
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(12.spMin),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 16.spMin,
+                  vertical: 14.spMin,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0EEEA),
-                  borderRadius: BorderRadius.circular(12.spMin),
+                  borderRadius: BorderRadius.circular(16.spMin),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       LucideIcons.info,
-                      size: 16.spMin,
+                      size: 18.spMin,
                       color: AppColors.mediumGrey,
                     ),
-                    8.wSizedBox,
+                    12.wSizedBox,
                     Expanded(
                       child: Text(
                         'Community reports are not verified by authorities '
                         'and can be wrong. Always follow official advice. '
                         'This report disappears when its time runs out.',
                         style: TextStyle(
-                          fontSize: 12.5.spMin,
-                          height: 1.4,
-                          color: AppColors.mediumGrey,
+                          fontSize: 13.spMin,
+                          height: 1.5,
+                          color: const Color(0xFF3A3A42),
                         ),
                       ),
                     ),
@@ -1413,34 +1544,39 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     required final VoidCallback onTap,
     final bool highlighted = false,
   }) {
-    final ink = highlighted ? _litInk : const Color(0xFF5F5C66);
+    // Community board: 48 high, radius 14, a hairline warm-grey border.
+    final ink = highlighted ? _litInk : AppColors.ink;
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(11.spMin),
+        borderRadius: BorderRadius.circular(14.spMin),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          height: 40.spMin,
+          height: 48.spMin,
           decoration: BoxDecoration(
             color: highlighted ? _litWash : AppColors.white,
-            borderRadius: BorderRadius.circular(11.spMin),
+            borderRadius: BorderRadius.circular(14.spMin),
             border: Border.all(
-              color: highlighted ? _litInk : const Color(0xFFD8D4DE),
-              width: highlighted ? 2.0 : 1.5,
+              color: highlighted ? _litInk : const Color(0xFFD9D6D0),
+              width: highlighted ? 2.0 : 1.0,
             ),
           ),
           child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 14.spMin, color: ink),
-                6.wSizedBox,
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
+                Icon(icon, size: 16.spMin, color: ink),
+                8.wSizedBox,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.spMin,
+                      fontWeight: FontWeight.w600,
+                      color: ink,
+                    ),
                   ),
                 ),
               ],
@@ -1495,158 +1631,101 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// drive through floodwater." - see the classification standard's
   /// directive-extraction rule (every relayed instruction is prefixed with
   /// the issuing agency's name and the word "advises:").
-  /// A "What to do" card. Used for DIRECTED (the agency's own ranked words),
-  /// CONSIDER (ALRT's general guidance when the agency gave no directive) and
-  /// community reports. A small pill says whose words these are, a "Show all"
-  /// expander reveals anything past the 3-point cap, and a "See full alert"
-  /// expander shows the complete original source text.
-  Widget _buildGuidanceCard({
-    required final String label,
-    required final Color color,
-    required final List<String> items,
-    required final int totalItems,
-    required final bool expanded,
-    required final VoidCallback onToggle,
-    required final bool showAll,
-    final String? pill,
-    final Color? pillBg,
-    final Color? pillFg,
-    final String? fullText,
-    final String? fullLink,
-    final String? lead,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColorLight,
-            blurRadius: 2.0,
-            offset: Offset(0.0, 0.0),
+  static final RegExp _attributedActionPattern = RegExp(
+    r'^(.{1,60}? advises:)\s*(.*)$',
+  );
+
+  /// Bolds the "{Agency} advises:" prefix of a What To Do line so an
+  /// attributed source directive reads visibly differently from ALRT's own
+  /// wording around it - the classification standard's "attribution
+  /// prefixes bold" rule. Falls back to plain text for a line that isn't in
+  /// that shape (community reports carry no instructions at all, and older
+  /// content may not follow the pattern).
+  Widget _attributedActionText(final String action) {
+    final match = _attributedActionPattern.firstMatch(action);
+    final baseStyle = TextStyle(
+      color: AppColors.black.withValues(alpha: 0.9),
+      fontSize: 14.spMin,
+      height: 1.5,
+    );
+    if (match == null) {
+      return Text(action, style: baseStyle);
+    }
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: match.group(1),
+            style: baseStyle.copyWith(fontWeight: FontWeight.w700),
           ),
+          TextSpan(text: ' ${match.group(2)}'),
         ],
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16.spMin),
-          border: Border(
-            left: BorderSide(color: color, width: 4),
-            right: BorderSide(color: color, width: 1),
-            bottom: BorderSide(color: color, width: 1),
-            top: BorderSide(color: color, width: 1),
-          ),
-        ),
-        padding: EdgeInsets.fromLTRB(16.spMin, 16.spMin, 8.spMin, 16.spMin),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      style: baseStyle,
+    );
+  }
+
+  Widget _buildWhatToDoSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        final isUserReported = hazard?.isUserReported ?? false;
+        // Community reports have no advice section at all.
+        if (hazard == null || isUserReported) return const SizedBox.shrink();
+
+        var callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction);
+        final fromAgency = callsToAction.isNotEmpty;
+        if (!fromAgency) {
+          // The agency published no instructions: ALRT's general guidance
+          // for this kind of alert, labelled as such below (product owner,
+          // 16 Oct 2026; replaces the "has not published advice" note).
+          callsToAction = GeneralGuidance.forAlert(
+            title: hazard.title,
+            categoryName: hazard.category?.name,
+            parentCategoryName: hazard.category?.parent?.name,
+          );
+        }
+        final agency = hazard.source?.name?.trim();
+
+        // Detail board: WHAT TO DO in a white card, "{agency}, word for
+        // word" under the label when the lines are the agency's own, and
+        // a band-coloured dot on each line.
+        return _detailSectionCard(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 13.spMin,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                if (pill != null)
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.spMin,
-                      vertical: 2.spMin,
-                    ),
-                    decoration: BoxDecoration(
-                      color: pillBg,
-                      borderRadius: BorderRadius.circular(6.spMin),
-                      border: Border.all(color: pillFg!.withValues(alpha: 0.5)),
-                    ),
-                    child: Text(
-                      pill,
-                      style: TextStyle(
-                        fontSize: 9.5.spMin,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.3,
-                        color: pillFg,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            12.spMin.hSizedBox,
-            if (lead != null) ...[ 
-              Padding(
-                padding: EdgeInsets.only(bottom: 10.spMin),
-                child: Text(
-                  lead,
-                  style: TextStyle(
-                    color: AppColors.black,
-                    fontSize: 14.spMin,
-                    fontWeight: FontWeight.w800,
-                    height: 1.5,
-                  ),
+            _detailSectionLabel('WHAT TO DO'),
+            if (fromAgency && agency != null && agency.isNotEmpty) ...[
+              2.hSizedBox,
+              Text(
+                '$agency, word for word',
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  color: AlertCardStyle.metaInk,
                 ),
               ),
             ],
-            ...items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return Padding(
+            8.hSizedBox,
+            for (var i = 0; i < callsToAction.length; i++)
+              Padding(
                 padding: EdgeInsets.only(
-                  bottom: index < items.length - 1 ? 8.spMin : 0,
+                  bottom: i < callsToAction.length - 1 ? 6.spMin : 0,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '• ',
-                      style: TextStyle(
-                        color: AppColors.black.withValues(alpha: 0.9),
-                        fontSize: 14.spMin,
-                        height: 1.5,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: TextStyle(
-                          color: AppColors.black.withValues(alpha: 0.9),
-                          fontSize: 14.spMin,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: _bulletRow(
+                  dot: hazard.color,
+                  child: _attributedActionText(callsToAction[i]),
                 ),
-              );
-            }),
-            if (showAll)
-              InkWell(
-                onTap: onToggle,
-                child: Padding(
-                  padding: EdgeInsets.only(top: 8.spMin),
-                  child: Row(
-                    children: [
-                      Text(
-                        expanded ? 'Show less' : 'Show all $totalItems',
-                        style: TextStyle(
-                          fontSize: 12.5.spMin,
-                          fontWeight: FontWeight.w700,
-                          color: AlertCardStyle.officialSectionHeaderColor,
-                        ),
-                      ),
-                      SizedBox(width: 4.spMin),
-                      Icon(
-                        expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                        size: 14.spMin,
-                        color: AlertCardStyle.officialSectionHeaderColor,
-                      ),
-                    ],
+              ),
+            // ALRT's own lines carry no prefix, so the block says whose
+            // words they are (product owner, 16 Oct 2026).
+            if (AlertCardStyle.hasAlrtGuidance(callsToAction))
+              Padding(
+                padding: EdgeInsets.only(top: 10.spMin),
+                child: Text(
+                  'General guidance from ALRT, not part of the '
+                  'official warning.',
+                  style: TextStyle(
+                    fontSize: 11.5.spMin,
+                    color: AlertCardStyle.metaInk,
+                    height: 1.35,
                   ),
                 ),
               ),
@@ -1654,250 +1733,14 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             Consumer(
               builder: (context, ref, child) {
                 final categoryId = ref.watch(
-                  provider.select((value) => value.hazard?.category?.id),
+                  provider.select(
+                    (value) => value.hazard?.category?.id,
+                  ),
                 );
                 return GuideStripCard(categoryId: categoryId);
               },
             ),
-            _buildSeeFullAlert(fullText, fullLink),
           ],
-        ),
-      ),
-    ).pB(16.0);
-  }
-
-  /// The "See full alert" expander: reveals the agency's complete original text
-  /// and links to the source page. Guarantees nothing the source published is
-  /// ever hidden by the 3-point cap.
-  Widget _buildSeeFullAlert(final String? fullText, final String? fullLink) {
-    if (fullText == null) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(top: 12.spMin),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _fullAlertExpanded = !_fullAlertExpanded),
-            child: Row(
-              children: [
-                Icon(
-                  _fullAlertExpanded
-                      ? LucideIcons.chevronUp
-                      : LucideIcons.chevronDown,
-                  size: 14.spMin,
-                  color: AppColors.blue,
-                ),
-                SizedBox(width: 4.spMin),
-                Text(
-                  'See full alert',
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.blue,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_fullAlertExpanded) ...[
-            8.spMin.hSizedBox,
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(12.spMin),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F7FA),
-                borderRadius: BorderRadius.circular(10.spMin),
-                border: Border.all(color: const Color(0xFFE5E5EC)),
-              ),
-              child: Text(
-                fullText,
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  height: 1.55,
-                  color: AppColors.mediumGrey,
-                ),
-              ),
-            ),
-            if (fullLink != null) ...[
-              7.spMin.hSizedBox,
-              InkWell(
-                onTap: () => openLink(context: context, link: fullLink),
-                child: Text(
-                  'View source page ↗',
-                  style: TextStyle(
-                    fontSize: 11.5.spMin,
-                    color: AppColors.blue,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptySectionCard({
-    required final String label,
-    required final String body,
-  }) {
-    final color = AppColors.orange200;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16.spMin),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16.spMin),
-        border: Border(
-          left: BorderSide(color: color.withValues(alpha: 0.6), width: 4),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColorLight,
-            blurRadius: 2.0,
-            offset: Offset.zero,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10.5.spMin,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-            ),
-          ),
-          8.hSizedBox,
-          Text(
-            body,
-            style: TextStyle(
-              fontSize: 13.5.spMin,
-              height: 1.45,
-              color: AppColors.mediumGrey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWhatToDoSection() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final allActions = ref.watch(
-          provider.select((value) => value.hazard?.callsToAction),
-        );
-        final isUserReported = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isUserReported ?? false,
-          ),
-        );
-        final categoryName = ref.watch(
-          provider.select((value) => value.hazard?.category?.name),
-        );
-        final parentCategoryName = ref.watch(
-          provider.select((value) => value.hazard?.category?.parent?.name),
-        );
-        final title = ref.watch(
-          provider.select((value) => value.hazard?.title),
-        );
-        final description = ref.watch(
-          provider.select((value) => value.hazard?.description),
-        );
-        final sourceLink = ref.watch(
-          provider.select(
-            (value) => value.hazard?.link ?? value.hazard?.source?.url,
-          ),
-        );
-        final sourceName = ref.watch(
-          provider.select((value) => value.hazard?.source?.name),
-        );
-
-        final rawActions = allActions ?? const <String>[];
-        final directed = !isUserReported && rawActions.isNotEmpty;
-        final bucket = AlertGuidanceLibrary.bucketFor(
-          categoryName: categoryName,
-          parentCategoryName: parentCategoryName,
-          title: title,
-        );
-        final consider = isUserReported
-            ? const <String>[]
-            : AlertGuidanceLibrary.considerRows(bucket);
-
-        // Community report carries no agency instruction: one standing line
-        // that points at the emergency services.
-        if (isUserReported) {
-          return _buildGuidanceCard(
-            label: 'WHAT TO DO',
-            color: AlertCardStyle.communitySectionHeaderColor,
-            items: <String>[AlertTextUtil.followAgencyLine(null)],
-            totalItems: 1,
-            expanded: false,
-            onToggle: () {},
-            showAll: false,
-            fullText: description,
-            fullLink: sourceLink,
-          );
-        }
-
-        // No agency directive and no ALRT guidance for this hazard: an honest
-        // neutral line (never the old "no further details" dead-end).
-        if (!directed && consider.isEmpty) {
-          return _buildEmptySectionCard(
-            label: 'WHAT TO DO',
-            body: AlertTextUtil.followAgencyLine(
-              ref.watch(
-                provider.select((value) => value.hazard?.source?.name),
-              ),
-            ),
-          );
-        }
-
-        // DIRECTED: the agency's own words, ranked Tier 1 first, capped at 3,
-        // topped up with ALRT guidance so there are always at least three
-        // actionable points. CONSIDER: ALRT's general guidance.
-        final items = directed
-            ? AlertTextUtil.ensureMinPoints(
-                AlertGuidanceLibrary.rankActions(rawActions),
-                bucket,
-                AlertTextUtil.maxPoints,
-              )
-            : consider;
-        final isConsider = !directed;
-        final agency = (sourceName ?? '').trim();
-        final lead = directed
-            ? '${agency.isEmpty ? 'The agency' : agency} advises:'
-            : "ALRT's general guidance:";
-        final visible = _whatToDoExpanded
-            ? items
-            : items.take(AlertTextUtil.maxPoints).toList();
-
-        return _buildGuidanceCard(
-          label: 'WHAT TO DO',
-          color: isConsider
-              ? const Color(0xFF17603A)
-              : AlertCardStyle.officialSectionHeaderColor,
-          items: visible,
-          totalItems: items.length,
-          expanded: _whatToDoExpanded,
-          onToggle: () =>
-              setState(() => _whatToDoExpanded = !_whatToDoExpanded),
-          showAll: items.length > AlertTextUtil.maxPoints,
-          pill: isConsider ? 'CONSIDER' : 'DIRECTED',
-          pillBg: isConsider
-              ? const Color(0xFFE7F6EC)
-              : const Color(0xFFFBE9E9),
-          pillFg: isConsider
-              ? const Color(0xFF17603A)
-              : const Color(0xFFA31F26),
-          fullText: description,
-          fullLink: sourceLink,
-          lead: lead,
         );
       },
     );
@@ -1912,240 +1755,121 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             (value) => value.hazard?.isUserReported ?? false,
           ),
         );
+        if (isUserReported) return const SizedBox.shrink();
+
         final description = ref.watch(
           provider.select((value) => value.hazard?.description),
         );
-        final reportTitle = ref.watch(
-          provider.select((value) => value.hazard?.title),
-        );
+        final title = ref.watch(provider.select((value) => value.hazard?.title));
+        final facts = AlertCardStyle.factLines(description, title: title);
 
-        // Facts only: the agency's own instructions and road notes have
-        // their own sections, so they are cut from here. A community report
-        // always gets at least one point, even with nothing written.
-        // The section always shows (owner, 15 Oct 2026): an official alert
-        // with nothing beyond its headline gets one honest line instead of
-        // no section at all.
-        final hasHazard = ref.watch(
-          provider.select((value) => value.hazard != null),
-        );
-        if (!hasHazard) return const SizedBox.shrink();
-        final sourceName = ref.watch(
-          provider.select((value) => value.hazard?.source?.name),
-        );
-        final incidentType = ref.watch(
-          provider.select((value) => value.hazard?.category?.name),
-        );
-        final locationName = ref.watch(
-          provider.select((value) => value.hazard?.locationName),
-        );
+        if (facts.isEmpty) return const SizedBox.shrink();
 
-        // Official alerts lead with who issued it and what it is, e.g.
-        // "DFES has issued a bushfire incident at Toodyay." (owner request:
-        // the incident type and agency in the first WHAT WE KNOW point).
-        // Community reports keep their existing "A community member has
-        // reported" wording and are never re-attributed to an agency.
-        final issued = isUserReported
-            ? null
-            : AlertTextUtil.issuedLine(sourceName, incidentType, locationName);
-
-        final parentCategoryName = ref.watch(
-          provider.select((value) => value.hazard?.category?.parent?.name),
-        );
-        final bucket = AlertGuidanceLibrary.bucketFor(
-          categoryName: incidentType,
-          parentCategoryName: parentCategoryName,
-          title: reportTitle,
-        );
-
-        final allFacts = isUserReported
-            ? AlertTextUtil.communityPoints(reportTitle, description)
-            : AlertTextUtil.whatWeKnowAllPoints(description);
-        // The issued line is the first point; it is never one of the source's
-        // own bullets, so it is added outside the cap.
-        final factsAfterIssued = allFacts.isEmpty
-            ? const <String>[]
-            : (_whatWeKnowExpanded
-                ? allFacts
-                : allFacts.take(AlertTextUtil.maxPoints).toList());
-        final base = <String>[
-          if (issued != null && issued.isNotEmpty) issued,
-          ...factsAfterIssued,
-        ];
-        // Never read as just "an incident has occurred": guarantee at least
-        // three relevant, actionable points, topping up with ALRT guidance
-        // when the source gave little. The vague "no further details" line is
-        // gone.
-        final points = isUserReported
-            ? base
-            : AlertTextUtil.ensureMinPoints(
-                base,
-                bucket,
-                AlertTextUtil.maxPoints,
-              );
-        final showAllFacts =
-            !isUserReported && allFacts.length > AlertTextUtil.maxPoints;
-
-        // Paired with WHAT TO DO, to the pixel. This used to be a blue
-        // card with a blue bar and a sentence-case heading: blue is the
-        // COMMUNITY colour, so an official agency's own words were wearing
-        // the unverified-report treatment, and the two halves of the alert
-        // read as parts of two different apps.
-        final color = AlertCardStyle.officialSectionHeaderColor;
-
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16.spMin),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowColorLight,
-                blurRadius: 2.0,
-                offset: Offset(0.0, 0.0),
-              ),
-            ],
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16.spMin),
-              border: Border(
-                left: BorderSide(color: color, width: 4),
-                right: BorderSide(color: color, width: 1),
-                bottom: BorderSide(color: color, width: 1),
-                top: BorderSide(color: color, width: 1),
-              ),
-            ),
-            padding: EdgeInsets.fromLTRB(
-              16.spMin,
-              16.spMin,
-              8.spMin,
-              16.spMin,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'WHAT WE KNOW',
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 13.spMin,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      12.spMin.hSizedBox,
-                      for (var i = 0; i < points.length; i++)
-                        Padding(
-                          padding: EdgeInsets.only(
-                            bottom: i < points.length - 1 ? 8.spMin : 0,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '\u2022 ',
-                                style: TextStyle(
-                                  color: AppColors.black.withValues(
-                                    alpha: 0.9,
-                                  ),
-                                  fontSize: 14.spMin,
-                                  height: 1.5,
-                                ),
-                              ),
-                              Expanded(
-                                child: i == 0 && issued != null
-                                    // The issued line leads WHAT WE KNOW and
-                                    // bolds the incident type so it reads as
-                                    // the headline fact.
-                                    ? _buildIssuedLine(
-                                        points[i],
-                                        incidentType ?? '',
-                                      )
-                                    : Text(
-                                        points[i],
-                                        style: TextStyle(
-                                          color: AppColors.black.withValues(
-                                            alpha: 0.9,
-                                          ),
-                                          fontSize: 14.spMin,
-                                          height: 1.5,
-                                        ),
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (showAllFacts)
-                        InkWell(
-                          onTap: () => setState(
-                            () => _whatWeKnowExpanded = !_whatWeKnowExpanded,
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 8.spMin),
-                            child: Row(
-                              children: [
-                                Text(
-                                  _whatWeKnowExpanded
-                                      ? 'Show less'
-                                      : 'Show all facts',
-                                  style: TextStyle(
-                                    fontSize: 12.5.spMin,
-                                    fontWeight: FontWeight.w700,
-                                    color: color,
-                                  ),
-                                ),
-                                SizedBox(width: 4.spMin),
-                                Icon(
-                                  _whatWeKnowExpanded
-                                      ? LucideIcons.chevronUp
-                                      : LucideIcons.chevronDown,
-                                  size: 14.spMin,
-                                  color: color,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
+        // Detail board: a white card, the orange V3 label, grey dots.
+        return _detailSectionCard(
+          children: [
+            _detailSectionLabel('WHAT WE KNOW'),
+            8.hSizedBox,
+            for (var i = 0; i < facts.length; i++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: i < facts.length - 1 ? 6.spMin : 0,
+                ),
+                child: _bulletRow(
+                  dot: _factDot,
+                  child: Text(
+                    facts[i],
+                    style: TextStyle(
+                      color: _factInk,
+                      fontSize: 14.spMin,
+                      height: 1.5,
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ).pB(16.0);
+              ),
+          ],
+        );
       },
     );
   }
 
-  /// The first "WHAT WE KNOW" point for an official alert, with the incident
-  /// type in bold so the headline fact reads first, e.g.
-  /// "DFES has issued a **bushfire** incident at Toodyay."
-  Widget _buildIssuedLine(final String line, final String incidentType) {
-    const base = TextStyle(
-      color: AppColors.black,
-      fontSize: 14,
-      height: 1.5,
-    );
-    if (incidentType.isEmpty) return Text(line, style: base);
-    final lower = line.toLowerCase();
-    final idx = lower.indexOf(incidentType.toLowerCase());
-    if (idx < 0) return Text(line, style: base);
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: line.substring(0, idx), style: base),
-          TextSpan(
-            text: line.substring(idx, idx + incidentType.length),
-            style: base.copyWith(fontWeight: FontWeight.w800),
-          ),
-          TextSpan(text: line.substring(idx + incidentType.length), style: base),
-        ],
+  static const _factDot = Color(0xFF9A9AA2);
+  static const _factInk = Color(0xFF3A3A42);
+
+  /// The white section card on the Detail board (radius 18, 14 x 16).
+  Widget _detailSectionCard({required final List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 10.spMin),
+      padding: EdgeInsets.symmetric(horizontal: 16.spMin, vertical: 14.spMin),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
+        boxShadow: const [AlertCardStyle.cardShadow],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
       ),
     );
   }
+
+  /// 12 px, bold, letter-spaced, V3 orange.
+  Widget _detailSectionLabel(final String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 12.spMin,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.6,
+        color: AppColors.sectionLabel,
+      ),
+    );
+  }
+
+  /// A 6 px dot and the line beside it.
+  Widget _bulletRow({required final Color dot, required final Widget child}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 6.spMin,
+          height: 6.spMin,
+          margin: EdgeInsets.only(top: 8.spMin),
+          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+        ),
+        8.wSizedBox,
+        Expanded(child: child),
+      ],
+    );
+  }
+
+  /// The board's closing line under an official alert: what ALRT adds and
+  /// that it never contacts emergency services.
+  Widget _buildSourceFootnote() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final isUserReported = ref.watch(
+          provider.select((value) => value.hazard?.isUserReported ?? false),
+        );
+        return Padding(
+          padding: EdgeInsets.fromLTRB(4.spMin, 10.spMin, 4.spMin, 0),
+          child: Text(
+            isUserReported
+                ? 'ALRT never contacts emergency services for you.'
+                : 'ALRT adds the plain-terms line, which is not official '
+                      'advice. ALRT never contacts emergency services for you.',
+            style: TextStyle(
+              fontSize: 11.spMin,
+              height: 1.5,
+              color: AlertCardStyle.metaInk,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildSourceSection() {
     return Consumer(
       builder: (context, ref, child) {

@@ -5,14 +5,14 @@ import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/auth/providers/service_providers.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/profile/providers/cancel_account_deletion_provider.dart';
+import 'package:hazard_app/features/profile/views/widgets/profile_page_kit.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
-import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
-import 'package:hazard_app/features/shared/views/widgets/button.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:hazard_app/others/app_wrapper.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// Prototype "AccountDeleted" board: days left, Recover my account,
+/// Sign out.
 class DeletedAccountInfoScreen extends ConsumerStatefulWidget {
   const DeletedAccountInfoScreen({super.key});
 
@@ -29,243 +29,63 @@ class _DeletedAccountInfoScreenState
   Widget build(BuildContext context) {
     _listenToCancelDeletionState();
 
+    final scheduledDeletionAt = ref.watch(
+      providerOfLoggedInUser.select((value) => value?.scheduledDeletionAt),
+    );
+    final daysRemaining = scheduledDeletionAt == null
+        ? 30
+        : scheduledDeletionAt.difference(DateTime.now()).inDays.clamp(0, 30);
+    final isLoading = ref.watch(
+      providerOfCancelAccountDeletion.select(
+        (value) => value.cancelState.maybeWhen(
+          loading: () => true,
+          orElse: () => false,
+        ),
+      ),
+    );
+
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(24.spMin),
-          child: Column(
-            children: [
-              40.hSizedBox,
-              _buildHeader(),
-              32.hSizedBox,
-              _buildDeletionInfoCard(),
-              24.hSizedBox,
-              _buildWhatHappensSection(),
-              32.hSizedBox,
-              _buildRecoverButton(),
-              16.hSizedBox,
-              _buildLogoutButton(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          width: 100.spMin,
-          height: 100.spMin,
-          decoration: BoxDecoration(
-            color: AppColors.orange.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            LucideIcons.clock,
-            color: AppColors.orange,
-            size: 50.spMin,
-          ),
-        ),
-        24.hSizedBox,
-        Text(
-          'Account Scheduled for Deletion',
-          style: TextStyle(
-            fontSize: 24.spMin,
-            fontWeight: FontWeight.bold,
-            color: AppColors.black,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        12.hSizedBox,
-        Text(
-          'Your account still works normally until the date below, when it '
-          'will be permanently deleted.',
-          style: TextStyle(
-            fontSize: 15.spMin,
-            color: AppColors.grey,
-            height: 1.5,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDeletionInfoCard() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final scheduledDeletionAt = ref.watch(
-          providerOfLoggedInUser.select((value) => value?.scheduledDeletionAt),
-        );
-
-        final daysRemaining = scheduledDeletionAt != null
-            ? scheduledDeletionAt.difference(DateTime.now()).inDays
-            : 0;
-
-        final formattedDate = scheduledDeletionAt != null
-            ? '${_getMonthName(scheduledDeletionAt.month)} ${scheduledDeletionAt.day}, ${scheduledDeletionAt.year}'
-            : 'Unknown';
-
-        return Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(20.spMin),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.red.withValues(alpha: 0.1),
-                AppColors.orange.withValues(alpha: 0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16.spMin),
-            border: Border.all(
-              color: AppColors.red.withValues(alpha: 0.3),
-              width: 1.5,
-            ),
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    LucideIcons.alarmClock,
-                    color: AppColors.red,
-                    size: 28.spMin,
-                  ),
-                  12.wSizedBox,
-                  Text(
-                    daysRemaining > 0
-                        ? '$daysRemaining days remaining'
-                        : 'Deletion imminent',
-                    style: TextStyle(
-                      fontSize: 20.spMin,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.red,
-                    ),
-                  ),
-                ],
-              ),
-              12.hSizedBox,
-              Text(
-                'Permanent deletion on $formattedDate',
-                style: TextStyle(
-                  fontSize: 14.spMin,
-                  color: AppColors.grey,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildWhatHappensSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              LucideIcons.info,
-              size: 20.spMin,
-              color: AppColors.grey,
-            ),
-            8.spMin.wSizedBox,
-            Text(
-              'Current Status',
-              style: TextStyle(
-                fontSize: 16.spMin,
-                fontWeight: FontWeight.bold,
-                color: AppColors.black,
-              ),
-            ),
-          ],
-        ),
-        16.hSizedBox,
-        _buildStatusItem(
-          icon: LucideIcons.eyeOff,
-          title: 'Content Hidden',
-          description:
-              "Your ALRTs are hidden from the public feed. Anyone you've "
-              'already shared one with directly keeps that link.',
-          color: AppColors.orange,
-        ),
-        12.hSizedBox,
-        _buildStatusItem(
-          icon: LucideIcons.bellOff,
-          title: 'Notifications Paused',
-          description: 'You are not receiving any notifications or alerts.',
-          color: AppColors.blue,
-        ),
-        12.hSizedBox,
-        _buildStatusItem(
-          icon: LucideIcons.refreshCw,
-          title: 'Recoverable',
-          description:
-              'You can recover your account and all data by clicking the button below.',
-          color: AppColors.green,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatusItem({
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(16.spMin),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12.spMin),
-        border: Border.all(
-          color: color.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: ProfilePageKit.page,
+      body: Column(
         children: [
-          Container(
-            width: 40.spMin,
-            height: 40.spMin,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10.spMin),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 22.spMin,
-            ),
+          const ProfilePageHeader(
+            title: 'Account scheduled for deletion',
+            showBack: false,
           ),
-          12.wSizedBox,
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(16.spMin, 14.spMin, 16.spMin, 32.spMin),
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.black,
-                  ),
+                ProfileCard(
+                  children: [
+                    Text(
+                      daysRemaining == 1
+                          ? '1 day left'
+                          : '$daysRemaining days left',
+                      style: TextStyle(
+                        fontSize: 18.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const ProfileMutedText(
+                      'Changed your mind? Recover your account and everything '
+                      'stays: places, points, your groups.',
+                    ),
+                  ],
                 ),
-                4.hSizedBox,
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 13.spMin,
-                    color: AppColors.grey,
-                    height: 1.4,
-                  ),
+                SizedBox(height: 14.spMin),
+                ProfileButton(
+                  key: const Key('recover-account'),
+                  label: 'Recover my account',
+                  busy: isLoading,
+                  onPressed: _handleRecoverAccount,
+                ),
+                SizedBox(height: 14.spMin),
+                ProfileButton(
+                  label: 'Sign out',
+                  kind: ProfileButtonKind.ghost,
+                  onPressed: _handleLogout,
                 ),
               ],
             ),
@@ -273,55 +93,6 @@ class _DeletedAccountInfoScreenState
         ],
       ),
     );
-  }
-
-  Widget _buildRecoverButton() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isLoading = ref.watch(
-          providerOfCancelAccountDeletion.select(
-            (value) => value.cancelState.maybeWhen(
-              loading: () => true,
-              orElse: () => false,
-            ),
-          ),
-        );
-
-        return Button.filled(
-          value: 'Recover My Account',
-          color: AppColors.green,
-          icon: Icon(LucideIcons.refreshCw),
-          isLoading: isLoading,
-          onPressed: _handleRecoverAccount,
-        );
-      },
-    );
-  }
-
-  Widget _buildLogoutButton() {
-    return Button.bordered(
-      value: 'Logout',
-      icon: Icon(LucideIcons.logOut),
-      onPressed: _handleLogout,
-    );
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return months[month - 1];
   }
 
   /// Listens to changes in the cancel deletion state.
@@ -332,13 +103,13 @@ class _DeletedAccountInfoScreenState
         next.maybeWhen(
           success: () {
             context.showSuccessToast(
-              message: 'Your account has been recovered successfully!',
+              message: 'Your account is recovered.',
             );
             context.go(HomeScreen.route);
           },
           error: (error) {
             context.showErrorToast(
-              message: 'Failed to recover account. Please try again.',
+              message: 'Your account could not be recovered. Try again.',
             );
           },
           orElse: () {},
@@ -360,7 +131,7 @@ class _DeletedAccountInfoScreenState
     result.when(
       (_) => context.go(AppWrapper.route),
       (error) => context.showErrorToast(
-        message: 'Failed to logout. Please try again.',
+        message: 'Could not sign out. Try again.',
       ),
     );
   }

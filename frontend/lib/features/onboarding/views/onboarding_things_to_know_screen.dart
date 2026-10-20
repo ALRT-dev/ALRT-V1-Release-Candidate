@@ -44,6 +44,9 @@ class _OnboardingThingsToKnowScreenState
 
   static const _step = OnboardingStep.thingsToKnow;
 
+  static const _tickGreen = Color(0xFF16A34A);
+  static const _boxBorder = Color(0xFFD5D9DE);
+
   @override
   void initState() {
     super.initState();
@@ -78,24 +81,25 @@ class _OnboardingThingsToKnowScreenState
           step: _step,
           children: [
             Text(
-              'Things to know',
+              'Three things to know',
               style: TextStyle(
-                fontSize: 26.spMin,
+                fontSize: 30.spMin,
                 fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
                 height: 1.15,
                 color: AppColors.ink,
               ),
             ),
             8.hSizedBox,
             Text(
-              'Tap each one to agree.',
+              'Tap each one. We keep a record of what you agreed to and when.',
               style: TextStyle(
                 fontSize: 15.spMin,
                 height: 1.45,
                 color: AppColors.mediumGrey,
               ),
             ),
-            24.hSizedBox,
+            18.hSizedBox,
             _buildTickItem(
               index: 0,
               title: 'ALRT is not an emergency service',
@@ -104,7 +108,7 @@ class _OnboardingThingsToKnowScreenState
                   'situation, call your local emergency number first. Do not '
                   'wait.',
             ),
-            12.hSizedBox,
+            10.hSizedBox,
             _buildTickItem(
               index: 1,
               title: 'Your location leaves your phone only when you send it',
@@ -112,7 +116,7 @@ class _OnboardingThingsToKnowScreenState
                   'No tracking in the background. A sent location expires '
                   'after an hour.',
             ),
-            12.hSizedBox,
+            10.hSizedBox,
             _buildTickItem(
               index: 2,
               title: 'Community reports are not verified by authorities',
@@ -120,65 +124,88 @@ class _OnboardingThingsToKnowScreenState
                   'They always say Unverified. Official warnings always come '
                   'first.',
             ),
-            12.hSizedBox,
+            14.hSizedBox,
             _buildTickItem(
               index: 3,
               title:
                   'I am 16 or older, or local law allows me to use this app',
               subtitle: null,
             ),
+            10.hSizedBox,
+            _buildFooter(),
             const Spacer(),
             24.hSizedBox,
-            _buildFooter(),
-            16.hSizedBox,
             GradientButton(
               title: 'Agree and continue',
               onPressed: _allTicked ? _onContinue : null,
             ),
+            if (!_allTicked) ...[
+              6.hSizedBox,
+              Text(
+                'Lights up once all four are ticked',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  color: AppColors.mediumGrey,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  /// A white card with a 22 px black check square: tapping anywhere on
-  /// the card toggles it.
+  /// A white card on a soft shadow with a 26 px check square: tapping
+  /// anywhere on the card toggles it. The three promises tick green; the
+  /// age line is a smaller row that ticks ink, as on the board.
   Widget _buildTickItem({
     required int index,
     required String title,
     required String? subtitle,
   }) {
     final isChecked = _ticks[index];
+    final isAge = subtitle == null;
+    final tickColour = isAge ? AppColors.ink : _tickGreen;
 
     return GestureDetector(
       onTap: () => setState(() => _ticks[index] = !_ticks[index]),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.all(16.spMin),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: 16.spMin,
+          vertical: (isAge ? 12 : 14).spMin,
+        ),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(14.spMin),
-          border: Border.all(
-            color: isChecked ? AppColors.ink : AppColors.lightGrey,
-            width: isChecked ? 1.5 : 1,
-          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: isAge
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 22.spMin,
-              height: 22.spMin,
+              width: 26.spMin,
+              height: 26.spMin,
               decoration: BoxDecoration(
-                color: isChecked ? AppColors.ink : AppColors.white,
-                borderRadius: BorderRadius.circular(6.spMin),
-                border: Border.all(color: AppColors.ink, width: 1.5),
+                color: isChecked ? tickColour : AppColors.white,
+                borderRadius: BorderRadius.circular(8.spMin),
+                border: isChecked
+                    ? null
+                    : Border.all(color: _boxBorder, width: 2),
               ),
               child: isChecked
                   ? Icon(
                       LucideIcons.check,
-                      size: 15.spMin,
+                      size: 16.spMin,
                       color: AppColors.white,
                     )
                   : null,
@@ -191,20 +218,20 @@ class _OnboardingThingsToKnowScreenState
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w600,
+                      fontSize: (isAge ? 14 : 15).spMin,
+                      fontWeight: isAge ? FontWeight.w400 : FontWeight.w700,
                       color: AppColors.ink,
-                      height: 1.3,
+                      height: isAge ? 1.4 : 1.3,
                     ),
                   ),
                   if (subtitle != null) ...[
-                    5.hSizedBox,
+                    3.hSizedBox,
                     Text(
                       subtitle,
                       style: TextStyle(
                         fontSize: 13.spMin,
                         color: AppColors.mediumGrey,
-                        height: 1.4,
+                        height: 1.45,
                       ),
                     ),
                   ],
@@ -224,9 +251,7 @@ class _OnboardingThingsToKnowScreenState
       fontSize: 12.spMin,
       height: 1.45,
       color: AppColors.ink,
-      fontWeight: FontWeight.w600,
-      decoration: TextDecoration.underline,
-      decorationColor: AppColors.ink,
+      fontWeight: FontWeight.w700,
       fontFamily: AppTheme.defaultFontFamily,
     );
     final normalStyle = TextStyle(
@@ -237,7 +262,7 @@ class _OnboardingThingsToKnowScreenState
     );
 
     return RichText(
-      textAlign: TextAlign.center,
+      textAlign: TextAlign.start,
       text: TextSpan(
         style: normalStyle,
         children: [

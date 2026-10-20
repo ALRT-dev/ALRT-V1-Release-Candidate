@@ -13,6 +13,7 @@ const NAV_ITEMS: { to: string; label: string; roles?: AdminRole[] }[] = [
   { to: "/users", label: "Users" },
   { to: "/admin-accounts", label: "Admin Accounts" },
   { to: "/ai-prompts", label: "AI Prompts" },
+  { to: '/alert-templates', label: 'Alert Templates' },
   { to: "/configuration", label: "Configuration" },
   { to: "/webhook-keys", label: "Webhook API Keys" },
   { to: "/ask-alrt", label: "Ask ALRT" },
