@@ -107,18 +107,47 @@ class AlertKeyContent extends ConsumerWidget {
   }
 
   Widget _onTheMapBuilder() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('The picture inside a pin says what happened. The outline colour says how serious.',
-        style: TextStyle(fontSize: 12.spMin, height: 1.45, color: _softInk)),
-      SizedBox(height: 12.spMin),
-      Row(children: [
-        _clusterPill('4', AppColors.black), SizedBox(width: 8.spMin),
-        _clusterPill('8', AppColors.watchAndAct), SizedBox(width: 8.spMin),
-        _clusterPill('3', AppColors.emergency), SizedBox(width: 12.spMin),
-        Expanded(child: Text('A number is a group of alerts. Orange or red means a serious warning is inside. Tap to zoom in.',
-          style: TextStyle(fontSize: 11.spMin, height: 1.45, color: _softInk))),
-      ]),
-    ]);
+    const examples = [
+      ('assets/images/hazards/non_aws/crash_action.png', 'Crash'),
+      ('assets/images/hazards/non_aws/trafficAndTransport_action.png', 'Transport'),
+      ('assets/images/hazards/non_aws/securityAndCrime_monitor.png', 'Security'),
+      ('assets/images/hazards/non_aws/communityInfo_info.png', 'Events'),
+      ('assets/images/hazards/aws/bushfire_action.png', 'Bushfire'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (final (asset, label) in examples)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(asset, width: 34.spMin, height: 34.spMin),
+                  SizedBox(height: 4.spMin),
+                  Text(label, style: TextStyle(fontSize: 10.5.spMin, color: _softInk)),
+                ],
+              ),
+          ],
+        ),
+        SizedBox(height: 8.spMin),
+        Text(
+          'The picture inside a pin says what happened. The outline colour says how serious.',
+          style: TextStyle(fontSize: 11.spMin, height: 1.4, color: _softInk),
+        ),
+        SizedBox(height: 10.spMin),
+        Row(children: [
+          _clusterPill('4', AppColors.black), SizedBox(width: 4.spMin),
+          _clusterPill('8', AppColors.watchAndAct), SizedBox(width: 4.spMin),
+          _clusterPill('3', AppColors.emergency), SizedBox(width: 10.spMin),
+          Expanded(child: Text(
+            'A number is a group of alerts. Orange or red means a serious warning is inside. Tap to zoom in.',
+            style: TextStyle(fontSize: 11.spMin, height: 1.4, color: _softInk),
+          )),
+        ]),
+      ],
+    );
   }
 
   Widget _clusterPill(final String label, final Color color) => Container(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:hazard_app/features/home/enums/home_tab_types.dart';
+import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/notification/providers/states/notifications_feed_provider_state.dart';
@@ -39,7 +41,7 @@ class HazardNotificationsList extends ConsumerWidget {
       });
 
     if (sorted.isEmpty) {
-      return _emptyBuilder();
+      return _emptyBuilder(context, ref);
     }
 
     return SliverList.separated(
@@ -55,7 +57,7 @@ class HazardNotificationsList extends ConsumerWidget {
     );
   }
 
-  Widget _emptyBuilder() {
+  Widget _emptyBuilder(BuildContext context, WidgetRef ref) {
     return SliverFillRemaining(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -69,17 +71,38 @@ class HazardNotificationsList extends ConsumerWidget {
             spacing: 5,
             children: [
               Text(
-                'No alerts in this area',
+                'No alerts in this map area',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
               Text(
-                'Move the map to an area with alerts, or zoom out to see more.',
+                'This list shows what the map is showing. Zoom out to see a wider area, or check your filters.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: 12,
+            children: [
+              OutlinedButton(
+                onPressed: () {
+                  ref.read(providerOfHomeTab.notifier).state = HomeTab.map;
+                  final pos = ref.read(providerOfMap).cameraPosition;
+                  final zoom = (pos.zoom - 3.0).clamp(3.0, 20.0);
+                  ref.read(providerOfMap.notifier).animateTo(
+                    position: pos.target,
+                    zoom: zoom,
+                  );
+                },
+                child: const Text('Zoom out'),
+              ),
+              TextButton(
+                onPressed: () {
+                  ref.read(providerOfHomeTab.notifier).state = HomeTab.map;
+                },
+                child: const Text('Open the map'),
               ),
             ],
           ),
