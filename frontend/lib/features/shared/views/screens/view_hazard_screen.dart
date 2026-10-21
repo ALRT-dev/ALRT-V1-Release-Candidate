@@ -7,11 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
-import 'package:hazard_app/features/family/views/widgets/family_check_in_consent_sheet.dart';
-import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
-import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
-import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/home/enums/home_tab_types.dart';
@@ -928,28 +924,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// "Send to my group": opens the send sheet for the active group.
-  /// Everyone in it gets the alert and the sender's optional note.
-  Future<void> _sendAlertToGroup(final Hazard hazard) async {
-    final circle = ref.read(providerOfFamily).circle;
-    if (circle == null) return;
-
-    final sent = await showSendToGroupSheet(
-      context: context,
-      hazard: hazard,
-      circleId: circle.id,
-      circleName: circle.name,
-    );
-    if (!mounted || sent == null) return;
-    if (sent) {
-      context.showSuccessToast(message: 'Sent to ${circle.name}.');
-    } else {
-      context.showErrorToast(message: 'That could not be sent. Please try again.');
-    }
-  }
-
-  /// The ShareLink sheet: the public link, Share, and Send to my family
-  /// circle when the user has a group.
   // ── Tell your people ───────────────────────────────────────────────────
 
   /// Speaks the alert aloud. Tapping Listen again stops it.
@@ -1238,9 +1212,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       ),
     );
   }
-
-  Widget _buildShareLinkButton() => const SizedBox.shrink();
-  void _openShareLinkSheet(final Hazard hazard) => SharePlus.instance.share(ShareParams(text: '${hazard.title ?? "Alert"} \u00b7 ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}'));
 
   // ── Community vote ─────────────────────────────────────────────────────
 
@@ -2120,7 +2091,6 @@ class _ImOkaySheet extends StatelessWidget {
   static const _orange = Color(0xFFE0561A);
   static const _orangeTint = Color(0xFFFFF4EE);
   static const _body = Color(0xFF5B5E6E);
-  static const _border = Color(0xFFE3E4EC);
 
   @override
   Widget build(final BuildContext context) {
