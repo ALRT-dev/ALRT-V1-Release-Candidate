@@ -53,7 +53,7 @@ class PlanIdentity {
     accent: Color(0xFF7B359A),
     tint: Color(0xFFF6EEFB),
     darkAccent: Color(0xFFD9A2EF),
-    gradient: [Color(0xFF4A1766), Color(0xFF8E3FB3)],
+    gradient: [Color(0xFF4A1D8C), Color(0xFF8C4FC8)],
   );
 
   static const family = PlanIdentity(

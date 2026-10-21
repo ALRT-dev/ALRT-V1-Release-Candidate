@@ -646,10 +646,17 @@ const kGroupPlansGradient = LinearGradient(
 
 /// The ALRT + (personal) gradient, #4A1766 -> #8E3FB3 (product owner
 /// 2026-09-28), for the chooser's personal card and the Profile entry.
+/// Purple used for the "Tell your people" card on the alert detail screen.
+const kTellYourPeopleGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF4A1D8C), Color(0xFF8C4FC8)],
+);
+
 const kAlrtPlusGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF4A1766), Color(0xFF8E3FB3)],
+  colors: [Color(0xFF4A1D8C), Color(0xFF8C4FC8)],
 );
 
 /// A choice between plans, on the plan's gradient: eyebrow (with the

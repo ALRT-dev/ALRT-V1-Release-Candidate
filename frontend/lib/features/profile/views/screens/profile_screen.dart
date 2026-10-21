@@ -115,8 +115,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const _doneTile = Color(0xFFE6F6EC);
   static const _tileBorder = Color(0x0D000000);
   static const _sectionLabel = Color(0xFFB84500);
-  static const _plusStart = Color(0xFF4A1766);
-  static const _plusEnd = Color(0xFF8E3FB3);
+  static const _plusStart = Color(0xFF4A1D8C);
+  static const _plusEnd = Color(0xFF8C4FC8);
   static const _danger = Color(0xFFB3141F);
   static const _chevron = Color(0xFF9A9AA2);
   static const _groupBorder = Color(0x0A000000);
