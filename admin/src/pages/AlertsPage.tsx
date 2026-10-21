@@ -45,7 +45,7 @@ export const AlertsPage = () => {
   const debouncedSearch = useDebouncedValue(search.trim());
   const [reviewStatus, setReviewStatus] = useState<HazardReviewStatus | "">("");
   const [origin, setOrigin] = useState<"" | "official" | "community">("");
-  const [showExpired, setShowExpired] = useState(false);
+  const [showExpired, setShowExpired] = useState(true);
   const [page, setPage] = usePageForFilters([debouncedSearch, reviewStatus, origin, showExpired]);
   const [selected, setSelected] = useState<AdminHazard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminHazard | null>(null);
