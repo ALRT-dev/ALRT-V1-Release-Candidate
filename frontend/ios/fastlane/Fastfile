@@ -104,7 +104,11 @@ platform :ios do
       type: "appstore",
       readonly: options[:generate].to_s != "true",
       api_key: api_key,
-      app_identifier: "com.safetyalrt.alrt.dev"
+      app_identifier: [
+        "com.safetyalrt.alrt.dev",
+        "com.safetyalrt.alrt.dev.AlrtWidget",
+        "com.safetyalrt.alrt.dev.watchkitapp"
+      ]
     )
     update_code_signing_settings(
       use_automatic_signing: false,
