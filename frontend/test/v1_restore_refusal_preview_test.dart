@@ -429,8 +429,8 @@ void main() {
       // ALRT + is purple end to end (product owner 2026-09-28): the hero
       // gradient is never the orange -> red wordmark colours.
       expect(PlanIdentity.individual.gradient, const [
-        Color(0xFF4A1766),
-        Color(0xFF8E3FB3),
+        Color(0xFF4A1D8C),
+        Color(0xFF8C4FC8),
       ]);
       expect(PlanIdentity.family.gradient, const [
         Color(0xFF05603B),

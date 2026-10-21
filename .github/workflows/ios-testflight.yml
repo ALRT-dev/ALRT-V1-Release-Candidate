@@ -73,8 +73,14 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
-          bundler-cache: true
+          bundler-cache: false
           working-directory: frontend/ios
+
+      - name: Update fastlane before signing
+        working-directory: frontend/ios
+        run: |
+          bundle config set frozen false
+          bundle update fastlane
 
       - name: Create .env from repo secrets
         run: |

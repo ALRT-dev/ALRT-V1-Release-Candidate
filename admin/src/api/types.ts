@@ -312,7 +312,7 @@ export interface AIPrompt {
 
 // --- Configuration -------------------------------------------------
 
-export type ConfigurationKey = "aiPrompts";
+export type ConfigurationKey = "aiPrompts" | "severityLabels";
 
 export interface AdminConfiguration {
   id: string;
