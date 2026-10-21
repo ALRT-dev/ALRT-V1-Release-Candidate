@@ -233,8 +233,14 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
-          bundler-cache: true
+          bundler-cache: false
           working-directory: frontend/ios
+
+      - name: Update fastlane before signing
+        working-directory: frontend/ios
+        run: |
+          bundle config set frozen false
+          bundle update fastlane
 
       # Only relevant when billing_mode=platform_sandbox - see the
       # billing_mode comment at the top of this file, and DO NOT put a
