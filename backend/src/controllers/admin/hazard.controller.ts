@@ -12,6 +12,7 @@ import type {
 } from "../../validators/admin/hazard.validator.js";
 import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 import { parseBoolean } from "../../utils/parse.util.js";
+
 import prisma from "../../utils/prisma_client.util.js";
 import { HttpError } from "../../models/http_error.js";
 import {
@@ -42,6 +43,12 @@ import {
   enrichHazardsWithPresignedUrls,
   enrichHazardWithPresignedUrls,
 } from "../../services/s3.service.js";
+
+const optionalNumber = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+};
 
 export const getHazardsForAdmin = async (
   req: Request,
@@ -93,10 +100,10 @@ export const getHazardsForAdmin = async (
       reportedById,
       severities,
       severityBands,
-      northeastLat: Number(northeastLat),
-      northeastLng: Number(northeastLng),
-      southwestLat: Number(southwestLat),
-      southwestLng: Number(southwestLng),
+      northeastLat: optionalNumber(northeastLat),
+      northeastLng: optionalNumber(northeastLng),
+      southwestLat: optionalNumber(southwestLat),
+      southwestLng: optionalNumber(southwestLng),
       ignoreHazardLatLngBounds: parseBoolean(ignoreHazardLatLngBounds),
       showExpired: parseBoolean(showExpired),
       sortSettings,
