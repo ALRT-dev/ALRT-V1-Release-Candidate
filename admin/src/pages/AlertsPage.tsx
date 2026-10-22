@@ -43,9 +43,9 @@ export const AlertsPage = () => {
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim());
-  const [reviewStatus, setReviewStatus] = useState<HazardReviewStatus | "">("");
+  const [reviewStatus, setReviewStatus] = useState<HazardReviewStatus | "">("accepted");
   const [origin, setOrigin] = useState<"" | "official" | "community">("");
-  const [showExpired, setShowExpired] = useState(true);
+  const [showExpired, setShowExpired] = useState(false);
   const [page, setPage] = usePageForFilters([debouncedSearch, reviewStatus, origin, showExpired]);
   const [selected, setSelected] = useState<AdminHazard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminHazard | null>(null);
@@ -143,6 +143,10 @@ export const AlertsPage = () => {
         <div>
           <h1>Alerts</h1>
           <p>Search and inspect hazards/alerts across all sources.</p>
+          <p style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
+            This screen now opens to what should be visible in the app: accepted alerts, current only.
+            Change the status filter or turn on Show expired when you want the full audit/history view.
+          </p>
         </div>
       </div>
 
