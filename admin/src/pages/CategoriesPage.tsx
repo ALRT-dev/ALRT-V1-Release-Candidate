@@ -12,6 +12,7 @@ interface EditDraft {
   name: string;
   description: string;
   color: string;
+  keywords: string;
   iconKey: string | null;
 }
 
@@ -79,7 +80,7 @@ export const CategoriesPage = () => {
   const canWrite = hasRole("superAdmin", "admin");
 
   const [editing, setEditing] = useState<HazardCategory | null>(null);
-  const [draft, setDraft] = useState<EditDraft>({ name: "", description: "", color: "", iconKey: null });
+  const [draft, setDraft] = useState<EditDraft>({ name: "", description: "", color: "", keywords: "", iconKey: null });
   const [saving, setSaving] = useState(false);
 
   const fetcher = useCallback(() => listCategories(), []);
@@ -91,6 +92,7 @@ export const CategoriesPage = () => {
       name: category.name,
       description: category.description ?? "",
       color: category.color ?? "",
+      keywords: (category.keywords ?? []).join(", "),
       iconKey: category.iconKey ?? null,
     });
   };
@@ -103,6 +105,7 @@ export const CategoriesPage = () => {
         name: draft.name,
         description: draft.description,
         color: draft.color || undefined,
+        keywords: draft.keywords.split(",").map((x) => x.trim()).filter(Boolean),
         iconKey: draft.iconKey,
       });
       notifySuccess(`Updated "${editing.name}".`);
@@ -121,9 +124,9 @@ export const CategoriesPage = () => {
         <div>
           <h1>Categories / Icons</h1>
           <p>
-            Hazard categories and their icon sets. Each category shows the map icon it
-            uses now. Press Edit to pick a different icon set; the app picks it
-            up the next time it loads categories.
+            Hazard categories, icon sets and matching keywords. Each category shows the map icon it
+            uses now. Press Edit to change the icon set, colour, description, or category matching keywords;
+            the app picks it up the next time it loads categories.
           </p>
         </div>
       </div>
@@ -238,6 +241,15 @@ export const CategoriesPage = () => {
                 value={draft.color}
                 placeholder="#RRGGBB"
                 onChange={(event) => setDraft({ ...draft, color: event.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="cat-keywords">Keywords</label>
+              <textarea
+                id="cat-keywords"
+                value={draft.keywords}
+                placeholder="Comma-separated keywords used for category matching"
+                onChange={(event) => setDraft({ ...draft, keywords: event.target.value })}
               />
             </div>
             <div className="modal-actions">

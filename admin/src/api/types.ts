@@ -246,6 +246,7 @@ export interface HazardCategory {
   name: string;
   description: string | null;
   color: string | null;
+  keywords?: string[];
   isFireRelated: boolean;
   parentId: string | null;
   // Map icon set chosen in this portal (null = the default for the category).

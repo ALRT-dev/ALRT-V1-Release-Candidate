@@ -246,7 +246,7 @@ export function AlertTemplatesPage() {
         <div>
           <h1>Alert templates</h1>
           <p>
-            One shared template, with country and source changes where needed.
+            One shared template, with country and source changes where needed. This is also where For You / safety-profile guidance is managed.
           </p>
         </div>
         <span className="template-version">
@@ -274,7 +274,7 @@ export function AlertTemplatesPage() {
       <nav className="template-tabs" aria-label="Template sections">
         {[
           ["settings", "Template settings"],
-          ["library", "Suggested actions / For You"],
+          ["library", "Suggested actions / For You / Safety profiles"],
           ["history", "Version history"],
         ].map(([key, label]) => (
           <button
