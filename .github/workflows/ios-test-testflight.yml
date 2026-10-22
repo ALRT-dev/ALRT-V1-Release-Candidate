@@ -456,9 +456,11 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
-      - name: Add iOS widget + watch targets to Xcode project
-        working-directory: frontend/ios
-        run: bundle exec ruby add_extension_targets.rb
+      - name: Skip iOS widget + watch targets in TEST CI until dev profiles exist
+        if: ${{ !inputs.simulator_smoke }}
+        run: |
+          echo "Skipping add_extension_targets.rb in TEST CI."
+          echo "Dev widget/watch App IDs and match profiles are not fully configured yet."
 
       - name: Refresh CocoaPods specs (the runner's copy is out of date)
         working-directory: frontend/ios
