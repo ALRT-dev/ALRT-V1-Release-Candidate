@@ -7,6 +7,7 @@ import 'package:hazard_app/features/map/models/route_step_model.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/utils/hazard_avoidance_helper.dart';
 import 'package:hazard_app/features/map/utils/transit_icons.dart';
+import 'package:hazard_app/features/map/views/widgets/navigation/route_option_format.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
@@ -62,6 +63,8 @@ class _NavigationRouteInfoCardsListItemState
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            _buildTravelModeBadge(),
+            SizedBox(height: 6.spMin),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -83,6 +86,40 @@ class _NavigationRouteInfoCardsListItemState
         ),
       ),
     ).onPressed(_handleRouteTap);
+  }
+
+  Widget _buildTravelModeBadge() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final mode = ref.watch(
+          providerOfMap.select(
+            (value) => value.currentRoutePlan?.selectedTravelMode,
+          ),
+        );
+        final label = RouteOptionFormat.modeLabel(
+          mode ?? TravelMode.driving,
+        ).toUpperCase();
+
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F7),
+            borderRadius: BorderRadius.circular(50.spMin),
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: 8.spMin,
+            vertical: 3.spMin,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 9.spMin,
+              color: AppColors.ink,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildHeaderHazardCount() {
@@ -218,8 +255,7 @@ class _NavigationRouteInfoCardsListItemState
         );
 
         final segments = _collapseIntoSegments(steps);
-        if (segments.length <= 1 &&
-            (segments.firstOrNull?.line == null)) {
+        if (segments.length <= 1 && (segments.firstOrNull?.line == null)) {
           // No transit line anywhere in this route — nothing to show.
           return const SizedBox.shrink();
         }
@@ -298,9 +334,12 @@ class _NavigationRouteInfoCardsListItemState
     final segments = <_RouteSegment>[];
     for (final step in steps) {
       final isTransit =
-          step.travelMode == TravelMode.transit && step.transitDetails?.line != null;
+          step.travelMode == TravelMode.transit &&
+          step.transitDetails?.line != null;
       final line = isTransit ? step.transitDetails!.line : null;
-      final vehicleType = isTransit ? step.transitDetails!.line!.vehicle.type : null;
+      final vehicleType = isTransit
+          ? step.transitDetails!.line!.vehicle.type
+          : null;
 
       final last = segments.lastOrNull;
       final sameAsLast =

@@ -177,7 +177,7 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
         color: _inkColor,
       ),
       decoration: InputDecoration(
-        hintText: 'Search a place or alert',
+        hintText: 'Search a place, route or alert',
         hintStyle: TextStyle(
           fontSize: 15.spMin,
           color: _hintColor,
@@ -298,7 +298,9 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
     final found = ref.read(providerOfPlacesForMap).places;
     if (found.isEmpty) {
       _handleVoiceSearchTranscript(place);
-      await ref.read(providerOfAlertSpeech).speak(
+      await ref
+          .read(providerOfAlertSpeech)
+          .speak(
             'I could not find $place. Pick it from the list, then Check a '
             'route to see each route and the alerts on it.',
           );
@@ -323,8 +325,8 @@ class _MapSearchbarState extends ConsumerState<MapSearchbar> {
     await notifier.ask(question);
     if (!mounted) return;
     final messages = ref.read(providerOfAskAlrt).messages;
-    final answer = messages.isNotEmpty &&
-            messages.last.role == AskAlrtRole.assistant
+    final answer =
+        messages.isNotEmpty && messages.last.role == AskAlrtRole.assistant
         ? messages.last.text
         : null;
     if (answer != null) await ref.read(providerOfAlertSpeech).speak(answer);

@@ -122,17 +122,16 @@ class _MapSearchSheetState extends ConsumerState<MapSearchSheet> {
     if (words.isEmpty) return const <Hazard>[];
     final matches = hazards.where((h) {
       if (h.isExpired) return false;
-      final text = '${h.title ?? ''} ${h.locationName ?? ''} '
-              '${h.category?.name ?? ''}'
-          .toLowerCase();
+      final text =
+          '${h.title ?? ''} ${h.locationName ?? ''} '
+                  '${h.category?.name ?? ''}'
+              .toLowerCase();
       return words.every(text.contains);
-    }).toList()
-      ..sort(_mostSeriousFirst);
+    }).toList()..sort(_mostSeriousFirst);
     return matches.take(4).toList();
   }
 
-  static String _alertsNow(final int n) =>
-      '$n alert${n == 1 ? '' : 's'} now';
+  static String _alertsNow(final int n) => '$n alert${n == 1 ? '' : 's'} now';
 
   static int _mostSeriousFirst(final Hazard a, final Hazard b) =>
       (b.severityBand?.index ?? 0).compareTo(a.severityBand?.index ?? 0);
@@ -242,7 +241,7 @@ class _MapSearchSheetState extends ConsumerState<MapSearchSheet> {
                       color: _ink,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Search a place or alert',
+                      hintText: 'Search a place, route or alert',
                       hintStyle: TextStyle(fontSize: 16.spMin, color: _muted),
                       isDense: true,
                       border: InputBorder.none,
@@ -545,5 +544,4 @@ class _MapSearchSheetState extends ConsumerState<MapSearchSheet> {
 List<Hazard> mapSearchMatchingAlerts(
   final String query,
   final List<Hazard> hazards,
-) =>
-    _MapSearchSheetState.matchingAlerts(query, hazards);
+) => _MapSearchSheetState.matchingAlerts(query, hazards);

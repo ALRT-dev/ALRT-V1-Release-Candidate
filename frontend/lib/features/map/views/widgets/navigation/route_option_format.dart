@@ -13,9 +13,9 @@ class RouteOptionFormat {
   /// The prototype's labels, in the prototype's order.
   static const modes = <(TravelMode, String)>[
     (TravelMode.driving, 'Drive'),
+    (TravelMode.transit, 'Public transport'),
     (TravelMode.walking, 'Walk'),
     (TravelMode.bicycling, 'Bike'),
-    (TravelMode.transit, 'Transit'),
   ];
 
   static String modeLabel(final TravelMode mode) {

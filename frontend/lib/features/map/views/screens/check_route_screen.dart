@@ -11,10 +11,12 @@ import 'package:hazard_app/features/home/enums/home_tab_types.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
 import 'package:hazard_app/features/map/models/alrt_location_model.dart';
 import 'package:hazard_app/features/map/models/route_plan_model.dart';
+import 'package:hazard_app/features/map/models/route_step_model.dart';
 import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/map/providers/states/map_provider_state.dart';
 import 'package:hazard_app/features/map/utils/directions_helper.dart';
+import 'package:hazard_app/features/map/utils/transit_icons.dart';
 import 'package:hazard_app/features/map/views/screens/select_location_screen.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/route_hazard_shape.dart';
 import 'package:hazard_app/features/map/views/widgets/navigation/route_option_format.dart';
@@ -121,7 +123,8 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
   @override
   Widget build(BuildContext context) {
     final plan = ref.watch(providerOfMap.select((s) => s.currentRoutePlan));
-    final loading = _checking ||
+    final loading =
+        _checking ||
         ref.watch(
           providerOfMap.select(
             (s) => s.getRouteState.maybeWhen(
@@ -130,7 +133,8 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
             ),
           ),
         );
-    final showResults = plan != null &&
+    final showResults =
+        plan != null &&
         _destination != null &&
         plan.destination == _destination;
 
@@ -210,7 +214,11 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
               IconButton(
                 onPressed: () => Navigator.of(context).maybePop(),
                 tooltip: 'Back',
-                icon: Icon(LucideIcons.chevronLeft, size: 26.spMin, color: _ink),
+                icon: Icon(
+                  LucideIcons.chevronLeft,
+                  size: 26.spMin,
+                  color: _ink,
+                ),
               ),
               Expanded(
                 child: Text(
@@ -443,6 +451,10 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
     final routes = options.allRoutes;
     final selected = options.currentRoute;
     final selectedIndex = math.max(0, routes.indexOf(selected));
+    final modeLabel = RouteOptionFormat.modeLabel(_mode);
+    final routeSteps = {
+      for (final route in routes) route: options.stepsForRoute(route),
+    };
     final hazardsByRoute = [
       for (final r in routes)
         RouteOptionFormat.hazardsOnRoute(
@@ -469,7 +481,14 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
         destination: plan.destination.latLng,
       ),
       SizedBox(height: 14.spMin),
-      _sectionLabel('Choose a route'),
+      _sectionLabel('$modeLabel options'),
+      if (_mode == TravelMode.transit) ...[
+        SizedBox(height: 8.spMin),
+        Text(
+          'Public transport options show the walking links and each line before you start.',
+          style: TextStyle(fontSize: 13.spMin, color: _muted, height: 1.45),
+        ),
+      ],
       for (var i = 0; i < routes.length; i++) ...[
         SizedBox(height: 10.spMin),
         _routeCard(
@@ -477,18 +496,30 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
           isSelected: i == selectedIndex,
           isFastest: routes[i] == options.fastestRoute,
           hazards: hazardsByRoute[i],
+          modeLabel: modeLabel,
           distanceAndVia: RouteOptionFormat.distanceAndVia(
             routes[i],
-            options.stepsForRoute(routes[i]),
+            routeSteps[routes[i]] ?? const <RouteStep>[],
           ),
+          steps: routeSteps[routes[i]] ?? const <RouteStep>[],
         ),
       ],
+      SizedBox(height: 14.spMin),
+      _sectionLabel('Ready to go'),
+      SizedBox(height: 8.spMin),
+      _note(
+        plan.isNavigating
+            ? 'Your selected ${modeLabel.toLowerCase()} route is active on the map.'
+            : 'Tap a route, then start navigation to begin this trip in ALRT.',
+      ),
       SizedBox(height: 14.spMin),
       Row(
         children: [
           Expanded(
             child: _primaryButton(
-              label: plan.isNavigating ? 'Back to travelling' : 'Go this way',
+              label: plan.isNavigating
+                  ? 'Back to navigation'
+                  : 'Start navigation',
               color: _routeBlue,
               onPressed: _goThisWay,
             ),
@@ -496,7 +527,7 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
           SizedBox(width: 10.spMin),
           Expanded(
             child: _secondaryButton(
-              label: 'Share journey',
+              label: 'Share with family',
               onPressed: () => context.push(FamilyJourneyScreen.route),
             ),
           ),
@@ -516,9 +547,16 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
     required final bool isSelected,
     required final bool isFastest,
     required final List<Hazard> hazards,
+    required final String modeLabel,
     required final String distanceAndVia,
+    required final List<RouteStep> steps,
   }) {
     const maxRows = 4;
+    final transitSegments = _collapseTransitSegments(steps);
+    final showTransitSegments =
+        _mode == TravelMode.transit &&
+        transitSegments.isNotEmpty &&
+        !(transitSegments.length == 1 && transitSegments.first.line == null);
     return Material(
       color: AppColors.white,
       borderRadius: BorderRadius.circular(18.spMin),
@@ -537,6 +575,20 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Wrap(
+                spacing: 8.spMin,
+                runSpacing: 8.spMin,
+                children: [
+                  _pill(modeLabel, const Color(0xFFF5F5F7), _ink),
+                  if (isSelected)
+                    _pill(
+                      'Selected route',
+                      const Color(0xFFEAF1FE),
+                      _routeBlue,
+                    ),
+                ],
+              ),
+              SizedBox(height: 10.spMin),
               Wrap(
                 spacing: 8.spMin,
                 runSpacing: 4.spMin,
@@ -565,6 +617,10 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
                     ),
                 ],
               ),
+              if (showTransitSegments) ...[
+                SizedBox(height: 10.spMin),
+                _transitSegments(transitSegments),
+              ],
               SizedBox(height: 10.spMin),
               if (hazards.isEmpty)
                 Text(
@@ -588,6 +644,116 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
         ),
       ),
     );
+  }
+
+  Widget _transitSegments(final List<_TransitRouteSegment> segments) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var i = 0; i < segments.length; i++) ...[
+            if (i > 0) ...[
+              SizedBox(width: 4.spMin),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 12.spMin,
+                color: _muted.withValues(alpha: 0.75),
+              ),
+              SizedBox(width: 4.spMin),
+            ],
+            _transitSegmentBadge(segments[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _transitSegmentBadge(final _TransitRouteSegment segment) {
+    final line = segment.line;
+    if (line == null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F5F7),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 8.spMin, vertical: 4.spMin),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.directions_walk_rounded,
+              size: 13.spMin,
+              color: _ink,
+            ),
+            SizedBox(width: 4.spMin),
+            Text(
+              'Walk',
+              style: TextStyle(
+                fontSize: 11.spMin,
+                fontWeight: FontWeight.w700,
+                color: _ink,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final background = line.color ?? _routeBlue.withValues(alpha: 0.12);
+    final foreground = line.textColor ?? _routeBlue;
+    return Container(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 8.spMin, vertical: 4.spMin),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            iconForTransitVehicleType(segment.vehicleType),
+            size: 13.spMin,
+            color: foreground,
+          ),
+          SizedBox(width: 4.spMin),
+          Text(
+            line.displayLabel,
+            style: TextStyle(
+              fontSize: 11.spMin,
+              fontWeight: FontWeight.w700,
+              color: foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<_TransitRouteSegment> _collapseTransitSegments(
+    final List<RouteStep> steps,
+  ) {
+    final segments = <_TransitRouteSegment>[];
+    for (final step in steps) {
+      final isTransit =
+          step.travelMode == TravelMode.transit &&
+          step.transitDetails?.line != null;
+      final line = isTransit ? step.transitDetails!.line : null;
+      final vehicleType = isTransit
+          ? step.transitDetails!.line!.vehicle.type
+          : null;
+
+      final last = segments.lastOrNull;
+      final sameAsLast =
+          last != null &&
+          ((line == null && last.line == null) ||
+              (line != null &&
+                  last.line != null &&
+                  line.displayLabel == last.line!.displayLabel));
+      if (sameAsLast) continue;
+
+      segments.add(_TransitRouteSegment(line: line, vehicleType: vehicleType));
+    }
+    return segments;
   }
 
   Widget _hazardRow(final Hazard hazard) {
@@ -784,7 +950,10 @@ class _RoutePreviewPainter extends CustomPainter {
 
   @override
   void paint(final Canvas canvas, final Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFE8EAED));
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFFE8EAED),
+    );
     final grid = Paint()
       ..color = const Color(0xFFDCDFE3)
       ..strokeWidth = 1;
@@ -816,9 +985,9 @@ class _RoutePreviewPainter extends CustomPainter {
     final offsetX = (size.width - spanX * scale) / 2;
     final offsetY = (size.height - spanY * scale) / 2;
     Offset project(final LatLng p) => Offset(
-          offsetX + (p.longitude - minLng) * lngScale * scale,
-          offsetY + (maxLat - p.latitude) * scale,
-        );
+      offsetX + (p.longitude - minLng) * lngScale * scale,
+      offsetY + (maxLat - p.latitude) * scale,
+    );
 
     Path pathOf(final List<LatLng> points) {
       final path = Path();
@@ -902,4 +1071,11 @@ class _RoutePreviewPainter extends CustomPainter {
       oldDelegate.hazards != hazards ||
       oldDelegate.origin != origin ||
       oldDelegate.destination != destination;
+}
+
+class _TransitRouteSegment {
+  const _TransitRouteSegment({this.line, this.vehicleType});
+
+  final TransitLineInfo? line;
+  final TransitVehicleType? vehicleType;
 }

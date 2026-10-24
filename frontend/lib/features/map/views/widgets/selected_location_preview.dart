@@ -96,28 +96,42 @@ class _SelectedLocationPreviewState
     return Row(
       spacing: 5.spMin,
       children: [
-        Consumer(
-          builder: (context, ref, child) {
-            final isLoading = ref.watch(
-              providerOfMap.select(
-                (value) => value.getRouteState.maybeWhen(
-                  orElse: () => false,
-                  loading: () => true,
+        Expanded(
+          child: Consumer(
+            builder: (context, ref, child) {
+              final isLoading = ref.watch(
+                providerOfMap.select(
+                  (value) => value.getRouteState.maybeWhen(
+                    orElse: () => false,
+                    loading: () => true,
+                  ),
                 ),
-              ),
-            );
+              );
 
-            return _buttonBuilder(
-              value: 'Check a route',
-              isLoading: isLoading,
-              icon: Icon(
-                Icons.directions_rounded,
-                size: 20.spMin,
-                color: AppColors.white,
-              ),
-              onPressed: _getDirections,
-            );
-          },
+              return _buttonBuilder(
+                value: 'Start journey',
+                isLoading: isLoading,
+                icon: Icon(
+                  Icons.navigation_rounded,
+                  size: 18.spMin,
+                  color: AppColors.white,
+                ),
+                onPressed: _startJourney,
+              );
+            },
+          ),
+        ),
+        Expanded(
+          child: _buttonBuilder(
+            value: 'Check route',
+            icon: Icon(
+              Icons.alt_route_rounded,
+              size: 18.spMin,
+              color: AppColors.ink,
+            ),
+            isFilled: false,
+            onPressed: _openCheckRoute,
+          ),
         ),
       ],
     );
@@ -128,24 +142,44 @@ class _SelectedLocationPreviewState
     final Widget? icon,
     final void Function()? onPressed,
     final bool isLoading = false,
+    final bool isFilled = true,
   }) {
     return SizedBox(
       height: 34.spMin,
-      child: Button.filled(
-        value: value,
-        isLoading: isLoading,
-        padding: EdgeInsets.symmetric(
-          vertical: 0.0,
-          horizontal: 20.spMin,
-        ),
-        valueStyle: TextStyle(
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w600,
-          color: AppColors.white,
-        ),
-        icon: icon,
-        onPressed: onPressed,
-      ),
+      child: isFilled
+          ? Button.filled(
+              value: value,
+              isLoading: isLoading,
+              padding: EdgeInsets.symmetric(
+                vertical: 0.0,
+                horizontal: 12.spMin,
+              ),
+              valueStyle: TextStyle(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+                color: AppColors.white,
+              ),
+              icon: icon,
+              onPressed: onPressed,
+            )
+          : Button.bordered(
+              value: value,
+              isLoading: isLoading,
+              padding: EdgeInsets.symmetric(
+                vertical: 0.0,
+                horizontal: 12.spMin,
+              ),
+              borderSide: BorderSide(
+                color: AppColors.ink.withValues(alpha: 0.2),
+              ),
+              valueStyle: TextStyle(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+              icon: icon,
+              onPressed: onPressed,
+            ),
     );
   }
 
@@ -158,10 +192,20 @@ class _SelectedLocationPreviewState
     ref.read(providerOfMapSearchTextEditingController).clear();
   }
 
-  /// Opens Check a route for the selected place and checks the routes
-  /// straight away (prototype board "RouteOptions"). Failures are shown on
-  /// that screen.
-  Future<void> _getDirections() async {
+  /// Opens Check a route for the selected place so the person can review the
+  /// modes and routes before deciding.
+  Future<void> _openCheckRoute() async {
+    final selectedLocation = ref.read(providerOfMap).selectedLocation;
+    if (selectedLocation == null) return;
+    await CheckRouteScreen.open(
+      context,
+      destination: selectedLocation,
+      checkOnOpen: false,
+    );
+  }
+
+  /// Jumps straight into the route flow for the selected place.
+  Future<void> _startJourney() async {
     final selectedLocation = ref.read(providerOfMap).selectedLocation;
     if (selectedLocation == null) return;
     await CheckRouteScreen.open(
