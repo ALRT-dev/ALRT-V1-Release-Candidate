@@ -127,7 +127,14 @@ class AuthInterceptor implements Interceptor {
     final accessToken = await _secureTokenStorage.read(
       SharedPrefsKey.accessToken,
     );
-    if (accessToken == null) return null;
+
+    // A valid refresh token should be enough to keep someone signed in.
+    // Before this, a missing access token meant we sent no Authorization
+    // header at all, even when a refresh token was present, so the app fell
+    // straight back to the sign-in screen on launch. Try a refresh first.
+    if (accessToken == null || accessToken.isEmpty) {
+      return await _refreshAccessToken();
+    }
 
     // A malformed token is treated as expired rather than crashing the call.
     bool isExpired;
