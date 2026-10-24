@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
@@ -88,7 +89,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   /// Whether the user has already checked in near this alert.
   bool _checkInSent = false;
-  String? _selectedCircleId; // tracks chosen chip in Tell Your People
 
   /// The lit state of Follow and Listen: the brand orange.
   static const _litInk = Color(0xFFFF6B01);
@@ -146,7 +146,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           _buildAppBar(),
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(20.spMin, 4.spMin, 20.spMin, 20.spMin),
+              padding: EdgeInsets.fromLTRB(
+                20.spMin,
+                4.spMin,
+                20.spMin,
+                20.spMin,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -233,8 +238,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         final id = hazard?.id;
         if (hazard == null || id == null) return const SizedBox.shrink();
-        final isFollowing =
-            ref.watch(providerOfFollowedAlerts).contains(id);
+        final isFollowing = ref.watch(providerOfFollowedAlerts).contains(id);
 
         return Row(
           children: [
@@ -292,7 +296,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               _roundControl(
                 icon: LucideIcons.share2,
                 semanticLabel: 'Share',
-                onTap: () => SharePlus.instance.share(ShareParams(text: '${hazard.title ?? "Alert"} \u00b7 ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}')),
+                onTap: () => SharePlus.instance.share(
+                  ShareParams(
+                    text:
+                        '${hazard.title ?? "Alert"} \u00b7 ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
+                  ),
+                ),
               )
             else
               SizedBox(width: 40.spMin),
@@ -583,8 +592,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// reports, never official verification).
   Widget _communitySourceRow(final Hazard hazard) {
     final category = hazard.category;
-    final categoryName =
-        (category?.parent?.name ?? category?.name ?? 'Other').toUpperCase();
+    final categoryName = (category?.parent?.name ?? category?.name ?? 'Other')
+        .toUpperCase();
     final postedAt = hazard.createdAt ?? hazard.occurredAt;
     final categoryColor = category?.resolvedColor ?? AppColors.grey;
 
@@ -855,7 +864,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       position: LatLng(latitude, longitude),
       zoom: 13.0,
     );
-    context.go(HomeScreen.route, extra: HomeScreenArgs(initialTab: HomeTab.map));
+    context.go(
+      HomeScreen.route,
+      extra: HomeScreenArgs(initialTab: HomeTab.map),
+    );
   }
 
   // ── Body ───────────────────────────────────────────────────────────────
@@ -873,13 +885,23 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
         // What we know: the SOURCE's own description, verbatim. Not our
         // words and not an AI summary.
-        Consumer(builder: (context, ref, child) {
-          final hazard = ref.watch(provider.select((value) => value.hazard));
-          if (hazard?.contentDetails != null) {
-            return AgencyContentSections(content: hazard!.contentDetails!, sourceName: hazard.source?.name);
-          }
-          return Column(children: [_buildOfficialDescriptionSection(), _buildWhatToDoSection()]);
-        }),
+        Consumer(
+          builder: (context, ref, child) {
+            final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (hazard?.contentDetails != null) {
+              return AgencyContentSections(
+                content: hazard!.contentDetails!,
+                sourceName: hazard.source?.name,
+              );
+            }
+            return Column(
+              children: [
+                _buildOfficialDescriptionSection(),
+                _buildWhatToDoSection(),
+              ],
+            );
+          },
+        ),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
@@ -899,7 +921,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               provider.select((value) => value.hazard?.title),
             );
             return ForYouCard(
-              publishedRows: ref.watch(provider.select((value) => value.hazard?.publishedProfileGuidance)),
+              publishedRows: ref.watch(
+                provider.select(
+                  (value) => value.hazard?.publishedProfileGuidance,
+                ),
+              ),
               categoryName: categoryName,
               parentCategoryName: parentCategoryName,
               title: title,
@@ -960,15 +986,23 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   static const _tellPurple = Color(0xFF4A1D8C);
 
-  Future<void> _sendAlertToCircle(final Hazard hazard, final FamilyCircleSummary circle) async {
+  Future<void> _sendAlertToCircle(
+    final Hazard hazard,
+    final FamilyCircleSummary circle,
+  ) async {
     final sent = await showSendToGroupSheet(
-      context: context, hazard: hazard, circleId: circle.circleId, circleName: circle.name,
+      context: context,
+      hazard: hazard,
+      circleId: circle.circleId,
+      circleName: circle.name,
     );
     if (!mounted || sent == null) return;
     if (sent) {
       context.showSuccessToast(message: 'Sent to ${circle.name}.');
     } else {
-      context.showErrorToast(message: 'That could not be sent. Please try again.');
+      context.showErrorToast(
+        message: 'That could not be sent. Please try again.',
+      );
     }
   }
 
@@ -982,35 +1016,59 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         circleName: circle.name,
         onJustOkay: () async {
           if (!mounted) return;
-          await ref.read(providerOfFamily.notifier).checkIn(
-            message: hazard.title == null ? 'Checked in' : 'Checked in near "${hazard.title}"',
-            shareLocation: false, hazardId: hazard.id,
-          );
+          await ref
+              .read(providerOfFamily.notifier)
+              .checkIn(
+                message: hazard.title == null
+                    ? 'Checked in'
+                    : 'Checked in near "${hazard.title}"',
+                shareLocation: false,
+                hazardId: hazard.id,
+              );
           if (!mounted) return;
           final r = ref.read(providerOfFamily).checkInState;
-          if (r.isError && r.error != null) { await showFamilyActionError(context, ref, r.error!); return; }
+          if (r.isError && r.error != null) {
+            await showFamilyActionError(context, ref, r.error!);
+            return;
+          }
           if (r.isSuccess) setState(() => _checkInSent = true);
         },
         onShareLocation: () async {
           if (!mounted) return;
-          await ref.read(providerOfFamily.notifier).checkIn(
-            message: hazard.title == null ? 'Checked in' : 'Checked in near "${hazard.title}"',
-            shareLocation: true, hazardId: hazard.id,
-          );
+          await ref
+              .read(providerOfFamily.notifier)
+              .checkIn(
+                message: hazard.title == null
+                    ? 'Checked in'
+                    : 'Checked in near "${hazard.title}"',
+                shareLocation: true,
+                hazardId: hazard.id,
+              );
           if (!mounted) return;
           final r = ref.read(providerOfFamily).checkInState;
-          if (r.isError && r.error != null) { await showFamilyActionError(context, ref, r.error!); return; }
+          if (r.isError && r.error != null) {
+            await showFamilyActionError(context, ref, r.error!);
+            return;
+          }
           if (r.isSuccess) setState(() => _checkInSent = true);
         },
         onShareSuburb: () async {
           if (!mounted) return;
-          await ref.read(providerOfFamily.notifier).checkIn(
-            message: hazard.title == null ? 'Checked in' : 'Checked in near "${hazard.title}"',
-            shareLocation: false, hazardId: hazard.id,
-          );
+          await ref
+              .read(providerOfFamily.notifier)
+              .checkIn(
+                message: hazard.title == null
+                    ? 'Checked in'
+                    : 'Checked in near "${hazard.title}"',
+                shareLocation: false,
+                hazardId: hazard.id,
+              );
           if (!mounted) return;
           final r = ref.read(providerOfFamily).checkInState;
-          if (r.isError && r.error != null) { await showFamilyActionError(context, ref, r.error!); return; }
+          if (r.isError && r.error != null) {
+            await showFamilyActionError(context, ref, r.error!);
+            return;
+          }
           if (r.isSuccess) setState(() => _checkInSent = true);
         },
       ),
@@ -1023,25 +1081,33 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final hazard = ref.watch(provider.select((v) => v.hazard));
         if (hazard == null) return const SizedBox.shrink();
         final circles = ref.watch(providerOfFamily.select((s) => s.circles));
+        final activeCircleId = ref.watch(
+          providerOfFamily.select((s) => s.circle?.id),
+        );
         if (circles.isEmpty) return const SizedBox.shrink();
         final selected = circles.firstWhere(
-          (c) => c.circleId == _selectedCircleId,
+          (c) => c.circleId == activeCircleId,
           orElse: () => circles.first,
         );
         return Padding(
-          padding: EdgeInsets.only(top: 28.spMin),
+          padding: EdgeInsets.only(top: 24.spMin),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: EdgeInsets.only(bottom: 10.spMin),
-                child: Text('TELL YOUR PEOPLE', style: TextStyle(
-                  fontSize: 12.spMin, fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0, color: const Color(0xFF5B5E6E),
-                )),
+                padding: EdgeInsets.only(bottom: 8.spMin),
+                child: Text(
+                  'TELL YOUR PEOPLE',
+                  style: TextStyle(
+                    fontSize: 12.spMin,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                    color: const Color(0xFF5B5E6E),
+                  ),
+                ),
               ),
-              _buildYourCircleCard(hazard, circles, selected),
-              12.hSizedBox,
+              _buildYourCircleCard(hazard, circles.length, selected),
+              10.hSizedBox,
               if (!hazard.isUserReported) _buildEveryoneElseCard(hazard),
             ],
           ),
@@ -1050,53 +1116,199 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  Widget _buildYourCircleCard(final Hazard hazard, final List<FamilyCircleSummary> circles, final FamilyCircleSummary selected) {
+  Widget _buildYourCircleCard(
+    final Hazard hazard,
+    final int circleCount,
+    final FamilyCircleSummary selected,
+  ) {
     return Container(
-      padding: EdgeInsets.all(18.spMin),
+      padding: EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
         gradient: kTellYourPeopleGradient,
-        borderRadius: BorderRadius.circular(20.spMin),
-        boxShadow: [BoxShadow(color: _tellPurple.withValues(alpha: 0.28), blurRadius: 18, offset: const Offset(0, 6))],
+        borderRadius: BorderRadius.circular(18.spMin),
+        boxShadow: [
+          BoxShadow(
+            color: _tellPurple.withValues(alpha: 0.22),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Text('Your circle', style: TextStyle(fontSize: 16.spMin, fontWeight: FontWeight.w700, color: AppColors.white)),
-            const Spacer(),
-            Text('In-app · private', style: TextStyle(fontSize: 12.spMin, color: AppColors.white.withValues(alpha: 0.80))),
-          ]),
-          14.hSizedBox,
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              for (var i = 0; i < circles.length; i++) ...[
-                if (i > 0) 8.wSizedBox,
-                _circleChip(circles[i], isSelected: circles[i].circleId == selected.circleId),
-              ],
-            ]),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your circle',
+                      style: TextStyle(
+                        fontSize: 15.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
+                      ),
+                    ),
+                    2.hSizedBox,
+                    Text(
+                      'In-app · private',
+                      style: TextStyle(
+                        fontSize: 11.5.spMin,
+                        color: AppColors.white.withValues(alpha: 0.80),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => showChooseCircleSheet(context, ref),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.white,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 10.spMin,
+                    vertical: 6.spMin,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  circleCount > 1 ? 'Change' : 'Choose group',
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
-          14.hSizedBox,
-          Row(children: [
-            Expanded(child: _tellActionButton(label: 'Send alert to ${selected.name}', icon: LucideIcons.send, isPrimary: true, onTap: () => _sendAlertToCircle(hazard, selected))),
-            10.wSizedBox,
-            Expanded(child: _tellActionButton(label: "I'm okay", icon: LucideIcons.heart, isPrimary: false, onTap: _checkInSent ? null : () => _showImOkaySheet(hazard, selected))),
-          ]),
-          12.hSizedBox,
+          10.hSizedBox,
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 10.spMin,
+              vertical: 10.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14.spMin),
+              border: Border.all(
+                color: AppColors.white.withValues(alpha: 0.24),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32.spMin,
+                  height: 32.spMin,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.white.withValues(alpha: 0.18),
+                  ),
+                  child: Center(
+                    child: Text(
+                      selected.name.isNotEmpty
+                          ? selected.name[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        fontSize: 13.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                10.wSizedBox,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selected.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.white,
+                        ),
+                      ),
+                      2.hSizedBox,
+                      Text(
+                        '${selected.memberCount} ${selected.memberCount == 1 ? 'person' : 'people'}',
+                        style: TextStyle(
+                          fontSize: 12.spMin,
+                          color: AppColors.white.withValues(alpha: 0.74),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          10.hSizedBox,
+          Row(
+            children: [
+              Expanded(
+                child: _tellActionButton(
+                  label: 'Send alert to ${selected.name}',
+                  icon: LucideIcons.send,
+                  isPrimary: true,
+                  onTap: () => _sendAlertToCircle(hazard, selected),
+                ),
+              ),
+              8.wSizedBox,
+              Expanded(
+                child: _tellActionButton(
+                  label: "I'm okay",
+                  icon: LucideIcons.heart,
+                  isPrimary: false,
+                  onTap: _checkInSent
+                      ? null
+                      : () => _showImOkaySheet(hazard, selected),
+                ),
+              ),
+            ],
+          ),
+          8.hSizedBox,
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(LucideIcons.lock, size: 14.spMin, color: AppColors.white),
-              8.wSizedBox,
-              Expanded(child: Text.rich(TextSpan(
-                style: TextStyle(fontSize: 13.spMin, height: 1.45, color: AppColors.white.withValues(alpha: 0.85)),
-                children: const [
-                  TextSpan(text: 'Send alert', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
-                  TextSpan(text: ' warns them. '),
-                  TextSpan(text: "I'm okay", style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
-                  TextSpan(text: ' sends the alert plus a check-in. No location unless you choose to add it.'),
-                ],
-              ))),
+              Icon(LucideIcons.lock, size: 13.spMin, color: AppColors.white),
+              6.wSizedBox,
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      height: 1.35,
+                      color: AppColors.white.withValues(alpha: 0.85),
+                    ),
+                    children: const [
+                      TextSpan(
+                        text: 'Send alert',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      TextSpan(text: ' warns them. '),
+                      TextSpan(
+                        text: "I'm okay",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      TextSpan(
+                        text:
+                            ' sends the alert plus a check-in. No location unless you choose to add it.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -1104,66 +1316,56 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  Widget _circleChip(final FamilyCircleSummary circle, {required final bool isSelected}) {
-    final count = circle.memberCount;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedCircleId = circle.circleId),
-      child: Container(
-        height: 40.spMin,
-        padding: EdgeInsets.only(left: 6.spMin, right: 12.spMin),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.white : AppColors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(20.spMin),
-          border: Border.all(color: isSelected ? AppColors.white : AppColors.white.withValues(alpha: 0.35), width: 1.5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 28.spMin, height: 28.spMin,
-              decoration: BoxDecoration(shape: BoxShape.circle,
-                color: isSelected ? _tellPurple : AppColors.white.withValues(alpha: 0.22)),
-              child: Center(child: Text(
-                circle.name.isNotEmpty ? circle.name[0].toUpperCase() : '?',
-                style: TextStyle(fontSize: 12.spMin, fontWeight: FontWeight.w700, color: AppColors.white),
-              )),
-            ),
-            6.wSizedBox,
-            Text(circle.name, style: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w600,
-              color: isSelected ? _tellPurple : AppColors.white)),
-            4.wSizedBox,
-            Text('$count', style: TextStyle(fontSize: 12.spMin,
-              color: isSelected ? _tellPurple.withValues(alpha: 0.70) : AppColors.white.withValues(alpha: 0.75))),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _tellActionButton({required final String label, required final IconData icon, required final bool isPrimary, final VoidCallback? onTap}) {
+  Widget _tellActionButton({
+    required final String label,
+    required final IconData icon,
+    required final bool isPrimary,
+    final VoidCallback? onTap,
+  }) {
     return Opacity(
       opacity: onTap != null ? 1.0 : 0.55,
       child: Material(
-        color: isPrimary ? AppColors.white : AppColors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(14.spMin),
+        color: isPrimary
+            ? AppColors.white
+            : AppColors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12.spMin),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Container(
-            height: 72.spMin,
-            decoration: isPrimary ? null : BoxDecoration(
-              borderRadius: BorderRadius.circular(14.spMin),
-              border: Border.all(color: AppColors.white.withValues(alpha: 0.45), width: 1.5),
-            ),
-            child: Column(
+            height: 58.spMin,
+            padding: EdgeInsets.symmetric(horizontal: 12.spMin),
+            decoration: isPrimary
+                ? null
+                : BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.spMin),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: 0.45),
+                      width: 1.25,
+                    ),
+                  ),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 20.spMin, color: isPrimary ? _tellPurple : AppColors.white),
-                5.hSizedBox,
-                Padding(padding: EdgeInsets.symmetric(horizontal: 6.spMin),
-                  child: Text(label, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13.spMin, fontWeight: isPrimary ? FontWeight.w700 : FontWeight.w600,
-                      color: isPrimary ? _tellPurple : AppColors.white))),
+                Icon(
+                  icon,
+                  size: 18.spMin,
+                  color: isPrimary ? _tellPurple : AppColors.white,
+                ),
+                8.wSizedBox,
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5.spMin,
+                      fontWeight: isPrimary ? FontWeight.w700 : FontWeight.w600,
+                      color: isPrimary ? _tellPurple : AppColors.white,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1176,35 +1378,76 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 18.spMin, vertical: 16.spMin),
       decoration: BoxDecoration(
-        color: AppColors.white, borderRadius: BorderRadius.circular(20.spMin),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20.spMin),
         border: Border.all(color: const Color(0xFFE6E7EE)),
       ),
       child: Row(
         children: [
           Container(
-            width: 44.spMin, height: 44.spMin,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFFFF0E6)),
-            child: Center(child: Icon(LucideIcons.share2, size: 20.spMin, color: const Color(0xFFE0561A))),
+            width: 44.spMin,
+            height: 44.spMin,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFFFFF0E6),
+            ),
+            child: Center(
+              child: Icon(
+                LucideIcons.share2,
+                size: 20.spMin,
+                color: const Color(0xFFE0561A),
+              ),
+            ),
           ),
           14.wSizedBox,
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Everyone else', style: TextStyle(fontSize: 16.spMin, fontWeight: FontWeight.w700, color: const Color(0xFF15151C))),
-              2.hSizedBox,
-              Text('Messages, WhatsApp, Messenger. Public link, suburb precision.',
-                style: TextStyle(fontSize: 13.spMin, color: const Color(0xFF5B5E6E))),
-            ],
-          )),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Everyone else',
+                  style: TextStyle(
+                    fontSize: 16.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF15151C),
+                  ),
+                ),
+                2.hSizedBox,
+                Text(
+                  'Messages, WhatsApp, Messenger. Public link, suburb precision.',
+                  style: TextStyle(
+                    fontSize: 13.spMin,
+                    color: const Color(0xFF5B5E6E),
+                  ),
+                ),
+              ],
+            ),
+          ),
           12.wSizedBox,
           Material(
-            color: const Color(0xFFE0561A), borderRadius: BorderRadius.circular(12.spMin), clipBehavior: Clip.antiAlias,
+            color: const Color(0xFFE0561A),
+            borderRadius: BorderRadius.circular(12.spMin),
+            clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: () => SharePlus.instance.share(ShareParams(text: '${hazard.title ?? "Alert"} \u00b7 ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}')),
+              onTap: () => SharePlus.instance.share(
+                ShareParams(
+                  text:
+                      '${hazard.title ?? "Alert"} \u00b7 ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
+                ),
+              ),
               child: Container(
                 height: 40.spMin,
                 padding: EdgeInsets.symmetric(horizontal: 16.spMin),
-                child: Center(child: Text('Share', style: TextStyle(fontSize: 15.spMin, fontWeight: FontWeight.w600, color: AppColors.white))),
+                child: Center(
+                  child: Text(
+                    'Share',
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.white,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1233,8 +1476,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final voteCount = ref.watch(
           itemProvider.select((value) => value.hazard?.voteCount ?? 0),
         );
-        final isFollowing =
-            ref.watch(providerOfFollowedAlerts).contains(id);
+        final isFollowing = ref.watch(providerOfFollowedAlerts).contains(id);
 
         return Padding(
           padding: EdgeInsets.only(top: 16.spMin),
@@ -1251,8 +1493,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 padding: EdgeInsets.all(16.spMin),
                 decoration: BoxDecoration(
                   color: AppColors.white,
-                  borderRadius:
-                      BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
+                  borderRadius: BorderRadius.circular(
+                    AlertCardStyle.cardRadius.spMin,
+                  ),
                   boxShadow: const [AlertCardStyle.cardShadow],
                 ),
                 child: Column(
@@ -1394,7 +1637,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       ),
     );
   }
-
 
   Widget _buildMediasSection() {
     return Consumer(
@@ -1568,7 +1810,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final description = ref.watch(
           provider.select((value) => value.hazard?.description),
         );
-        final title = ref.watch(provider.select((value) => value.hazard?.title));
+        final title = ref.watch(
+          provider.select((value) => value.hazard?.title),
+        );
         final facts = AlertCardStyle.factLines(description, title: title);
 
         if (facts.isEmpty) return const SizedBox.shrink();
@@ -2149,7 +2393,10 @@ class _ImOkaySheet extends StatelessWidget {
             if (hazardTitle != null) ...[
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: _orangeTint,
                   borderRadius: BorderRadius.circular(12),
@@ -2166,16 +2413,20 @@ class _ImOkaySheet extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text.rich(TextSpan(
-                        style: const TextStyle(fontSize: 13),
-                        children: [
-                          const TextSpan(text: 'About the alert: '),
-                          TextSpan(
-                            text: hazardTitle,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                      )),
+                      child: Text.rich(
+                        TextSpan(
+                          style: const TextStyle(fontSize: 13),
+                          children: [
+                            const TextSpan(text: 'About the alert: '),
+                            TextSpan(
+                              text: hazardTitle,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -2186,7 +2437,10 @@ class _ImOkaySheet extends StatelessWidget {
             _GradientButton(
               label: "Just say I'm okay",
               icon: LucideIcons.check,
-              onTap: () { Navigator.pop(context); onJustOkay(); },
+              onTap: () {
+                Navigator.pop(context);
+                onJustOkay();
+              },
             ),
             const SizedBox(height: 10),
             // Option 2 — Share exact location
@@ -2196,7 +2450,10 @@ class _ImOkaySheet extends StatelessWidget {
               iconColor: _purple,
               label: "I'm okay, share my location",
               sub: 'Exact position, this one time',
-              onTap: () { Navigator.pop(context); onShareLocation(); },
+              onTap: () {
+                Navigator.pop(context);
+                onShareLocation();
+              },
             ),
             const SizedBox(height: 10),
             // Option 3 — Share suburb
@@ -2206,7 +2463,10 @@ class _ImOkaySheet extends StatelessWidget {
               iconColor: const Color(0xFF7A7D8E),
               label: "I'm okay, share my suburb",
               sub: 'Suburb only, not your address',
-              onTap: () { Navigator.pop(context); onShareSuburb(); },
+              onTap: () {
+                Navigator.pop(context);
+                onShareSuburb();
+              },
             ),
             const SizedBox(height: 8),
             // Cancel
@@ -2217,7 +2477,11 @@ class _ImOkaySheet extends StatelessWidget {
                 onPressed: () => Navigator.pop(context),
                 child: const Text(
                   'Cancel',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _body),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _body,
+                  ),
                 ),
               ),
             ),
@@ -2229,7 +2493,11 @@ class _ImOkaySheet extends StatelessWidget {
 }
 
 class _GradientButton extends StatelessWidget {
-  const _GradientButton({required this.label, required this.icon, required this.onTap});
+  const _GradientButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
   final String label;
   final IconData icon;
   final VoidCallback onTap;
@@ -2253,9 +2521,14 @@ class _GradientButton extends StatelessWidget {
             children: [
               Icon(icon, size: 20, color: Colors.white),
               const SizedBox(width: 10),
-              Text(label, style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white,
-              )),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
         ),
@@ -2300,7 +2573,10 @@ class _LocationRow extends StatelessWidget {
               Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: iconBg),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: iconBg,
+                ),
                 child: Center(child: Icon(icon, size: 18, color: iconColor)),
               ),
               const SizedBox(width: 12),
@@ -2309,12 +2585,28 @@ class _LocationRow extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                    Text(sub, style: const TextStyle(fontSize: 13, color: Color(0xFF5B5E6E))),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      sub,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF5B5E6E),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Icon(LucideIcons.chevronRight, size: 18, color: Color(0xFFA3A5B5)),
+              const Icon(
+                LucideIcons.chevronRight,
+                size: 18,
+                color: Color(0xFFA3A5B5),
+              ),
             ],
           ),
         ),
