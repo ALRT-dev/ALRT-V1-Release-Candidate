@@ -56,14 +56,19 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
       parentCategoryName: widget.parentCategoryName,
       title: widget.title,
     );
-    final rows = widget.publishedRows != null
-        ? <SafetyCohort, String>{
+    final bundledRows = ForYouLibrary.rows[bucket] ?? const <SafetyCohort, String>{};
+    final publishedRows = widget.publishedRows == null
+        ? const <SafetyCohort, String>{}
+        : <SafetyCohort, String>{
             for (final cohort in SafetyCohort.values)
               if (widget.publishedRows!.containsKey(cohort.id))
                 cohort: widget.publishedRows![cohort.id]!,
-          }
-        : ForYouLibrary.rows[bucket];
-    if (rows == null || rows.isEmpty) return const SizedBox.shrink();
+          };
+    final rows = <SafetyCohort, String>{
+      ...bundledRows,
+      ...publishedRows,
+    };
+    if (rows.isEmpty) return const SizedBox.shrink();
 
     // Guidance exists for this hazard but nothing is ticked yet. Silence
     // here is why the feature looks missing: the card simply never appears

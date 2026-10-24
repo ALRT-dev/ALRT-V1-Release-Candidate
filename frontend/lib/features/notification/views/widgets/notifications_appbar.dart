@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hazard_app/features/ask_alrt/views/ask_alrt_sheet.dart';
+import 'package:hazard_app/features/map/providers/map_provider.dart';
 import 'package:hazard_app/features/notification/providers/alerts_display_provider.dart';
 import 'package:hazard_app/features/notification/providers/notifications_feed_provider.dart';
 import 'package:hazard_app/features/notification/views/screens/push_inbox_screen.dart';
@@ -94,9 +95,15 @@ class _NotificationsAppBarState extends ConsumerState<NotificationsAppBar> {
       builder: (context, ref, _) {
         final active = ref.watch(providerOfShowSavedLocationsOnly);
         return GestureDetector(
-          onTap: () =>
-              ref.read(providerOfShowSavedLocationsOnly.notifier).state =
-                  !active,
+          onTap: () {
+            final next = !active;
+            ref.read(providerOfShowSavedLocationsOnly.notifier).state = next;
+            if (next) {
+              ref
+                  .read(providerOfNotificationsFeed.notifier)
+                  .getNotificationsFeedHazards(silent: true);
+            }
+          },
           child: Container(
             padding: EdgeInsets.symmetric(
               horizontal: 12.spMin,
@@ -221,10 +228,15 @@ class _NotificationsAppBarState extends ConsumerState<NotificationsAppBar> {
     );
   }
 
-  /// Fetches the hazards for the notifications feed.
+  /// Fetches whichever Alerts list is currently shown.
   void _getHazards() {
-    ref
-        .read(providerOfNotificationsFeed.notifier)
-        .getNotificationsFeedHazards();
+    final showSaved = ref.read(providerOfShowSavedLocationsOnly);
+    if (showSaved) {
+      ref
+          .read(providerOfNotificationsFeed.notifier)
+          .getNotificationsFeedHazards();
+    } else {
+      ref.read(providerOfMap.notifier).getMapHazards();
+    }
   }
 }
