@@ -432,17 +432,46 @@ jobs:
             echo "::error::No installed provisioning profile found for com.safetyalrt.alrt.dev"
             exit 1
           fi
-          python3 - "$PROFILE_NAME" ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI-dev.plist <<'PY'
+          WIDGET_PROFILE_NAME=""
+          for DIR in "$NEW" "$OLD"; do
+            for PROFILE in "$DIR"/*.mobileprovision; do
+              [ -f "$PROFILE" ] || continue
+              DECODED="$(mktemp)"
+              if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
+                APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
+                if [[ "$APP_ID" == *".com.safetyalrt.alrt.dev.AlrtWidget" ]]; then
+                  WIDGET_PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED")"
+                  if [ "$DIR" != "$NEW" ]; then
+                    cp -f "$PROFILE" "$NEW/"
+                  fi
+                  rm -f "$DECODED"
+                  break 2
+                fi
+              fi
+              rm -f "$DECODED"
+            done
+          done
+          if [ -z "$WIDGET_PROFILE_NAME" ]; then
+            echo "::error::No installed provisioning profile found for com.safetyalrt.alrt.dev.AlrtWidget"
+            exit 1
+          fi
+          python3 - "$PROFILE_NAME" "$WIDGET_PROFILE_NAME" ios/Runner.xcodeproj/project.pbxproj ios/ExportOptionsCI-dev.plist <<'PY'
           import pathlib
           import sys
 
-          profile_name, *paths = sys.argv[1:]
-          expected_name = "match AppStore com.safetyalrt.alrt.dev"
+          app_profile_name, widget_profile_name, *paths = sys.argv[1:]
+          replacements = {
+              "match AppStore com.safetyalrt.alrt.dev": app_profile_name,
+              "match AppStore com.safetyalrt.alrt.dev.AlrtWidget": widget_profile_name,
+          }
           files = [(pathlib.Path(path), pathlib.Path(path).read_text()) for path in paths]
-          if any(expected_name not in contents for _, contents in files):
-              raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
+          for expected_name in replacements:
+              if any(expected_name not in contents for _, contents in files):
+                  raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
           for path, contents in files:
-              path.write_text(contents.replace(expected_name, profile_name))
+              for expected_name, actual_name in replacements.items():
+                  contents = contents.replace(expected_name, actual_name)
+              path.write_text(contents)
           PY
 
       - name: Select Xcode 26 (App Store Connect requires the iOS 26 SDK)
@@ -456,11 +485,12 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
-      - name: Skip iOS widget + watch targets in TEST CI until dev profiles exist
+      - name: Verify the iOS widget target is attached for TEST CI
         if: ${{ !inputs.simulator_smoke }}
         run: |
-          echo "Skipping add_extension_targets.rb in TEST CI."
-          echo "Dev widget/watch App IDs and match profiles are not fully configured yet."
+          grep -q "AlrtWidget.appex" ios/Runner.xcodeproj/project.pbxproj
+          grep -q "com.safetyalrt.alrt.dev.AlrtWidget" ios/Runner.xcodeproj/project.pbxproj
+          echo "AlrtWidget target is attached and ready for signing/export."
 
       - name: Refresh CocoaPods specs (the runner's copy is out of date)
         working-directory: frontend/ios
