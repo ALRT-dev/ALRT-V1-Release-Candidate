@@ -468,8 +468,9 @@ jobs:
           for expected_name in replacements:
               if any(expected_name not in contents for _, contents in files):
                   raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
+          ordered = sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True)
           for path, contents in files:
-              for expected_name, actual_name in replacements.items():
+              for expected_name, actual_name in ordered:
                   contents = contents.replace(expected_name, actual_name)
               path.write_text(contents)
           PY
