@@ -99,8 +99,10 @@ class FamilyColors {
   // Read straight off the approved prototype boards. The accent is the
   // reinstated indigo #3D3DDF from the 28 approved boards.
 
-  /// The prototype's indigo accent: buttons, selected chips, links.
-  static const v31Indigo = Color(0xFF3D3DDF);
+  /// The family/share purple accent used across buttons, selected chips and
+  /// family-primary surfaces. Aligned to the lighter Tell your people purple
+  /// direction so the family UI no longer clashes with the alert-share card.
+  static const v31Indigo = Color(0xFF4A1D8C);
 
   /// The light indigo page behind the cards (prototype body).
   static const v31Page = Color(0xFFEBEBF7);
@@ -136,16 +138,17 @@ class FamilyColors {
   /// blues. This is the single blend they all take: bright indigo at the
   /// top left falling through deep indigo into near-black.
   ///
-  /// The approved prototype's band: #2E2A9E through #1E1780 at 45% to
-  /// #120D4F.
+  /// The approved family/share purple band: the same lighter ALRT family
+  /// direction now used on the Tell your people card, kept in one token so
+  /// family surfaces stay consistent.
   static const headerGradient = LinearGradient(
     begin: Alignment(-0.7, -1),
     end: Alignment(0.6, 1),
     stops: [0.0, 0.45, 1.0],
     colors: [
-      Color(0xFF2E2A9E),
-      Color(0xFF1E1780),
-      Color(0xFF120D4F),
+      Color(0xFF4A1D8C),
+      Color(0xFF6A33B0),
+      Color(0xFF8C4FC8),
     ],
   );
 
@@ -158,12 +161,12 @@ class FamilyColors {
   );
 
   /// The three stops of the family header gradient (the prototype's band).
-  static const v31HeaderTop = Color(0xFF2E2A9E);
-  static const v31HeaderMid = Color(0xFF1E1780);
-  static const v31HeaderDeep = Color(0xFF120D4F);
+  static const v31HeaderTop = Color(0xFF4A1D8C);
+  static const v31HeaderMid = Color(0xFF6A33B0);
+  static const v31HeaderDeep = Color(0xFF8C4FC8);
 
   /// The soft blob of light in the top-right of the header.
-  static const v31HeaderGlow = Color(0xFF6B6BE8);
+  static const v31HeaderGlow = Color(0xFFB68AE6);
 
   /// Card shadow on the lavender page.
   static const v31CardShadow = Color(0x0D1E142D);
