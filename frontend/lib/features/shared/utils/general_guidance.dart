@@ -29,26 +29,23 @@ abstract final class GeneralGuidance {
       'burn-off', 'hazard reduction', 'smoke',
     ])) {
       return const [
-        'Smoke can travel a long way from a fire. If you can smell smoke, '
-            'consider keeping windows and doors closed.',
-        'Any official warning for this fire takes priority over this.',
-        _checkSource,
+        'If smoke is affecting you, keep windows and doors closed.',
+        'Limit time outside if smoke is making breathing uncomfortable.',
+        'Check official updates because conditions can change quickly.',
       ];
     }
     if (_any(all, ['flood', 'storm', 'cyclone', 'rain'])) {
       return const [
-        'Driving through flood water is dangerous. Consider your route '
-            'before driving.',
-        'Consider whether the affected area overlaps your travel or '
-            'outdoor plans.',
-        _checkSource,
+        'Do not drive through flood water or onto roads covered by water.',
+        'Reconsider travel through the area and allow extra time.',
+        'Check official updates before leaving or changing your route.',
       ];
     }
     if (_any(all, ['crash', 'traffic', 'transport', 'road', 'rail', 'bus', 'closure'])) {
       return const [
-        'If you are travelling around the area, consider your route and '
-            'allow extra time.',
-        _checkSource,
+        'Expect delays and reconsider your route around the affected area.',
+        'Allow extra travel time or delay your trip if needed.',
+        'Check official traffic or transport updates before leaving.',
       ];
     }
     if (_any(all, ['health', 'air', 'outbreak', 'pollen'])) {
@@ -60,9 +57,9 @@ abstract final class GeneralGuidance {
     }
     if (_any(all, ['police', 'security', 'crime', 'alarm', 'siege'])) {
       return const [
-        'Consider avoiding the area until police say it is clear. Any '
-            'directions from police take priority.',
-        _checkSource,
+        'Avoid the area until police say it is clear.',
+        'Follow any directions from police or emergency services.',
+        'Check official updates for changes in the affected area.',
       ];
     }
     if (_any(all, ['utilit', 'power', 'outage', 'water', 'gas', 'telecom'])) {
@@ -74,14 +71,15 @@ abstract final class GeneralGuidance {
     }
     if (_any(all, ['community', 'info', 'event'])) {
       return const [
-        'Consider checking with the named service or organiser before '
-            'changing your plans.',
-        _checkSource,
+        'Check with the organiser or service before changing your plans.',
+        'Reconfirm venue, route or timing before you leave.',
+        'Check official updates for any new instructions.',
       ];
     }
     return const [
-      'Consider whether the affected place is part of your plans today.',
-      _checkSource,
+      'Check whether the affected place is part of your plans today.',
+      'Reconsider travel or outdoor plans if the area may affect you.',
+      'Check official sources for updates.',
     ];
   }
 
