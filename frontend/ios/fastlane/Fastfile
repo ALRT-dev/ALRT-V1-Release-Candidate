@@ -74,7 +74,11 @@ platform :ios do
     match(
       type: "appstore",
       readonly: options[:generate].to_s != "true",
-      api_key: api_key
+      api_key: api_key,
+      app_identifier: [
+        "com.safetyalrt.alrt",
+        "com.safetyalrt.alrt.AlrtWidget"
+      ]
     )
     update_code_signing_settings(
       use_automatic_signing: false,

@@ -110,6 +110,66 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: bundle exec fastlane ci_certs generate:"${{ inputs.generate_certs }}"
 
+      - name: Configure Xcode/export to use the installed prod profiles
+        run: |
+          OLD="$HOME/Library/MobileDevice/Provisioning Profiles"
+          NEW="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$NEW"
+          APP_PROFILE_NAME=""
+          WIDGET_PROFILE_NAME=""
+          for DIR in "$NEW" "$OLD"; do
+            for PROFILE in "$DIR"/*.mobileprovision; do
+              [ -f "$PROFILE" ] || continue
+              DECODED="$(mktemp)"
+              if security cms -D -i "$PROFILE" > "$DECODED" 2>/dev/null; then
+                APP_ID="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$DECODED" 2>/dev/null || true)"
+                NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$DECODED" 2>/dev/null || true)"
+                if [[ "$APP_ID" == *".com.safetyalrt.alrt" ]] && [ -z "$APP_PROFILE_NAME" ]; then
+                  APP_PROFILE_NAME="$NAME"
+                  if [ "$DIR" != "$NEW" ]; then cp -f "$PROFILE" "$NEW/"; fi
+                fi
+                if [[ "$APP_ID" == *".com.safetyalrt.alrt.AlrtWidget" ]] && [ -z "$WIDGET_PROFILE_NAME" ]; then
+                  WIDGET_PROFILE_NAME="$NAME"
+                  if [ "$DIR" != "$NEW" ]; then cp -f "$PROFILE" "$NEW/"; fi
+                fi
+              fi
+              rm -f "$DECODED"
+            done
+          done
+          if [ -z "$APP_PROFILE_NAME" ]; then
+            echo "::error::No installed provisioning profile found for com.safetyalrt.alrt"
+            exit 1
+          fi
+          if [ -z "$WIDGET_PROFILE_NAME" ]; then
+            echo "::error::No installed provisioning profile found for com.safetyalrt.alrt.AlrtWidget"
+            exit 1
+          fi
+          python3 - "$APP_PROFILE_NAME" "$WIDGET_PROFILE_NAME" frontend/ios/Runner.xcodeproj/project.pbxproj frontend/ios/ExportOptionsCI.plist <<'PY'
+          import pathlib
+          import sys
+
+          app_profile_name, widget_profile_name, *paths = sys.argv[1:]
+          replacements = {
+              "match AppStore com.safetyalrt.alrt": "__ALRT_APP_PROFILE__",
+              "match AppStore com.safetyalrt.alrt.AlrtWidget": "__ALRT_WIDGET_PROFILE__",
+          }
+          resolved = {
+              "__ALRT_APP_PROFILE__": app_profile_name,
+              "__ALRT_WIDGET_PROFILE__": widget_profile_name,
+          }
+          files = [(pathlib.Path(path), pathlib.Path(path).read_text()) for path in paths]
+          for expected_name in replacements:
+              if any(expected_name not in contents for _, contents in files):
+                  raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
+          ordered = sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True)
+          for path, contents in files:
+              for expected_name, token in ordered:
+                  contents = contents.replace(expected_name, token)
+              for token, actual_name in resolved.items():
+                  contents = contents.replace(token, actual_name)
+              path.write_text(contents)
+          PY
+
       - name: Build the signed iPhone app (prod flavour)
         run: |
           BUILD_NUMBER="${{ inputs.build_number }}"
