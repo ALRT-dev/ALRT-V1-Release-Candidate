@@ -462,6 +462,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     else ...[
                       _officialSourceRow(hazard),
                       10.hSizedBox,
+                      _buildOfficialCategoryPill(hazard),
+                      10.hSizedBox,
                       _buildPlainTermsBox(),
                     ],
                     12.hSizedBox,
@@ -489,6 +491,45 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildOfficialCategoryPill(final Hazard hazard) {
+    final category = hazard.category;
+    final label = (category?.name ?? category?.parent?.name ?? 'Other').trim();
+    final color = category?.resolvedColor ?? AppColors.grey;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 10.spMin,
+        vertical: 6.spMin,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (category == null)
+            Icon(
+              LucideIcons.tag,
+              size: 14.spMin,
+              color: color,
+            )
+          else
+            CategoryGlyph(category: category, size: 16.spMin),
+          6.wSizedBox,
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
