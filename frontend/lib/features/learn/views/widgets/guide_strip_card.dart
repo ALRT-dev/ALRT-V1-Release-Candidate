@@ -74,7 +74,7 @@ class GuideStripCard extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        'Open the safety guide',
+                        'Read the safety guide',
                         style: TextStyle(
                           fontSize: 11.spMin,
                           color: AppColors.grey,

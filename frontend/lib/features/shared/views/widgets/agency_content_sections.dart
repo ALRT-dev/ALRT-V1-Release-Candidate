@@ -6,9 +6,11 @@ class AgencyContentSections extends StatelessWidget {
     super.key,
     required this.content,
     this.sourceName,
+    this.officialIntro,
   });
   final Map<String, dynamic> content;
   final String? sourceName;
+  final String? officialIntro;
 
   List<String> _lines(String key) {
     final value = content[key];
@@ -95,13 +97,18 @@ class AgencyContentSections extends StatelessWidget {
         suggestions = _lines('alrtSuggestions');
     final level = content['nativeLevel'];
     final agency = sourceName?.trim() ?? '';
+    final intro = officialIntro?.trim();
+    final factLines = [
+      if (intro != null && intro.isNotEmpty) intro,
+      ...facts.where((line) => line.trim() != intro),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (level is String && level.isNotEmpty)
           _section('AGENCY WARNING', [level]),
         if (areas.isNotEmpty) _section('AFFECTED AREA', areas),
-        if (facts.isNotEmpty) _section('WHAT WE KNOW', facts),
+        if (factLines.isNotEmpty) _section('WHAT WE KNOW', factLines),
         if (actions.isNotEmpty)
           _section(
             'WHAT TO DO',

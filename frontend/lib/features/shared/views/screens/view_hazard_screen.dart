@@ -38,6 +38,7 @@ import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/share_alert.dart';
 import 'package:hazard_app/features/shared/utils/general_guidance.dart';
+import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.dart';
@@ -933,6 +934,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               return AgencyContentSections(
                 content: hazard!.contentDetails!,
                 sourceName: hazard.source?.name,
+                officialIntro: AlertTextUtil.issuedLine(
+                  hazard.source?.name,
+                  hazard.category?.name ?? hazard.title,
+                  hazard.locationName,
+                ),
               );
             }
             return Column(
@@ -943,6 +949,21 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             );
           },
         ),
+
+        Consumer(
+          builder: (context, ref, child) {
+            final categoryId = ref.watch(
+              provider.select((value) => value.hazard?.category?.id),
+            );
+            final isUserReported = ref.watch(
+              provider.select((value) => value.hazard?.isUserReported ?? false),
+            );
+            if (isUserReported) return const SizedBox.shrink();
+            return GuideStripCard(categoryId: categoryId);
+          },
+        ),
+
+        _buildFollowingAlertReason(),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
@@ -1820,16 +1841,34 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   ),
                 ),
               ),
-            // Deep link into the matching safety guide, if any.
-            Consumer(
-              builder: (context, ref, child) {
-                final categoryId = ref.watch(
-                  provider.select(
-                    (value) => value.hazard?.category?.id,
-                  ),
-                );
-                return GuideStripCard(categoryId: categoryId);
-              },
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFollowingAlertReason() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        final id = hazard?.id;
+        if (hazard == null || id == null || hazard.isUserReported) {
+          return const SizedBox.shrink();
+        }
+        final isFollowing = ref.watch(providerOfFollowedAlerts).contains(id);
+        if (!isFollowing) return const SizedBox.shrink();
+
+        return _detailSectionCard(
+          children: [
+            _detailSectionLabel('FOLLOWING THIS ALERT'),
+            8.hSizedBox,
+            Text(
+              'You\'ll get updates for this alert on this device while it stays followed.',
+              style: TextStyle(
+                color: _factInk,
+                fontSize: 14.spMin,
+                height: 1.5,
+              ),
             ),
           ],
         );
@@ -1851,10 +1890,27 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final description = ref.watch(
           provider.select((value) => value.hazard?.description),
         );
-        final title = ref.watch(
-          provider.select((value) => value.hazard?.title),
+        final sourceName = ref.watch(
+          provider.select((value) => value.hazard?.source?.name),
         );
-        final facts = AlertCardStyle.factLines(description, title: title);
+        final locationName = ref.watch(
+          provider.select((value) => value.hazard?.locationName),
+        );
+        final incidentType = ref.watch(
+          provider.select(
+            (value) => value.hazard?.category?.name ?? value.hazard?.title,
+          ),
+        );
+        final rawFacts = AlertTextUtil.whatWeKnowPoints(description);
+        final issuedLine = AlertTextUtil.issuedLine(
+          sourceName,
+          incidentType,
+          locationName,
+        );
+        final facts = [
+          issuedLine,
+          ...rawFacts.where((line) => line.trim() != issuedLine),
+        ];
 
         if (facts.isEmpty) return const SizedBox.shrink();
 
