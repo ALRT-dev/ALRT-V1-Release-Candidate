@@ -174,8 +174,8 @@ void main() {
         categoryName: 'Crash',
         parentCategoryName: 'Traffic & Transport',
       );
-      expect(lines.first, contains('consider your route'));
-      expect(lines.last, 'Check official sources for updates.');
+      expect(lines.first, contains('reconsider your route'));
+      expect(lines.last, 'Check official traffic or transport updates before leaving.');
       expect(lines.any((l) => l.contains('ALRT suggests')), isFalse);
     });
 
@@ -185,14 +185,14 @@ void main() {
         categoryName: 'Rail',
         parentCategoryName: 'Traffic & Transport',
       );
-      expect(lines.first, contains('consider your route'));
+      expect(lines.first, contains('reconsider your route'));
       expect(lines.any((l) => l.contains('flood water')), isFalse);
     });
 
     test('a flood warns about flood water', () {
       expect(
         GeneralGuidance.forAlert(title: 'Flood Watch', categoryName: 'Flood').first,
-        startsWith('Driving through flood water is dangerous.'),
+        startsWith('Do not drive through flood water or onto roads covered by water.'),
       );
     });
   });
