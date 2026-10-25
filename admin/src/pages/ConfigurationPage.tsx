@@ -52,7 +52,7 @@ export const ConfigurationPage = () => {
           <p>
             Operational configuration rows. The Configuration.key column is
             structurally restricted by the backend to a fixed enum (today,
-            only "aiPrompts") - this screen can never hold an arbitrary
+            including rows such as "aiPrompts" and "severityLabels") - this screen can never hold an arbitrary
             key/secret.
           </p>
         </div>

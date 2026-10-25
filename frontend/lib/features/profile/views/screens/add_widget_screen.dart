@@ -40,7 +40,9 @@ class _AddWidgetScreenState extends ConsumerState<AddWidgetScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(ref.read(providerOfWidgetStep.notifier).markDone());
+    if (widgetStepAvailableOn(defaultTargetPlatform)) {
+      unawaited(ref.read(providerOfWidgetStep.notifier).markDone());
+    }
     _checkPinSupport();
   }
 
@@ -183,9 +185,9 @@ class _AddWidgetScreenState extends ConsumerState<AddWidgetScreen> {
   String _manualInstructions() {
     final isIos = !kIsWeb && Platform.isIOS;
     if (isIos) {
-      return 'Touch and hold an empty spot on your home screen, tap the + '
-          'button in the corner, search for ALRT, then choose the Nearby '
-          'Alerts or Family widget and tap Add Widget.';
+      return 'iPhone widgets are not available in this TEST build yet. '
+          'I am fixing the Apple widget packaging separately before this step '
+          'can be counted as done.';
     }
     return 'Touch and hold an empty spot on your home screen, tap Widgets, '
         'find ALRT, then touch and hold the Nearby Alerts or Family widget '

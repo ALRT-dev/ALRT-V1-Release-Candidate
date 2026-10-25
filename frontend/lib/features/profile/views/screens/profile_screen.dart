@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart' show appFlavor;
@@ -83,20 +85,22 @@ class _Readiness {
     required this.safetyProfile,
     required this.accessibleAlerts,
     required this.widgetAdded,
+    required this.widgetAvailable,
   });
 
   final bool savedPlace;
   final bool safetyProfile;
   final bool accessibleAlerts;
   final bool widgetAdded;
+  final bool widgetAvailable;
 
-  static const total = 4;
+  int get total => widgetAvailable ? 4 : 3;
 
   int get done =>
       (savedPlace ? 1 : 0) +
       (safetyProfile ? 1 : 0) +
       (accessibleAlerts ? 1 : 0) +
-      (widgetAdded ? 1 : 0);
+      (widgetAvailable && widgetAdded ? 1 : 0);
 
   int get left => total - done;
 
@@ -177,6 +181,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ---------------------------------------------------------------
 
   _Readiness _watchReadiness() {
+    final widgetAvailable = widgetStepAvailableOn(defaultTargetPlatform);
     final savedPlace = ref.watch(
       providerOfMyLocationSubscriptions.select(
         (s) => s.locationSubscriptions.any((l) => !l.isOwnLocation),
@@ -197,7 +202,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       savedPlace: savedPlace,
       safetyProfile: safetyProfile,
       accessibleAlerts: accessibleAlerts,
-      widgetAdded: widgetAdded,
+      widgetAdded: widgetAvailable ? widgetAdded : true,
+      widgetAvailable: widgetAvailable,
     );
   }
 
