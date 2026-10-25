@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -37,13 +39,12 @@ class AppBootstrap {
       _initializeHomeWidget(),
       _initializeMapsAvailability(),
       AlrtPlusTestSwitch.load(),
-      fetchAppConfig(), // populates SeverityLabels from GET /api/app/config
     ]);
 
     StartupTrace.mark('bootstrap: plugins ready, starting app');
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-    return runApp(
+    runApp(
       EasyLocalization(
         supportedLocales: [
           Locale('en'),
@@ -69,6 +70,8 @@ class AppBootstrap {
         ),
       ),
     );
+
+    unawaited(fetchAppConfig());
   }
 
   Future<void> _initializeEasyLocalization() async {
