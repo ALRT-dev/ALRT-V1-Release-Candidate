@@ -461,8 +461,12 @@ jobs:
 
           app_profile_name, widget_profile_name, *paths = sys.argv[1:]
           replacements = {
-              "match AppStore com.safetyalrt.alrt.dev": app_profile_name,
-              "match AppStore com.safetyalrt.alrt.dev.AlrtWidget": widget_profile_name,
+              "match AppStore com.safetyalrt.alrt.dev": "__ALRT_APP_PROFILE__",
+              "match AppStore com.safetyalrt.alrt.dev.AlrtWidget": "__ALRT_WIDGET_PROFILE__",
+          }
+          resolved = {
+              "__ALRT_APP_PROFILE__": app_profile_name,
+              "__ALRT_WIDGET_PROFILE__": widget_profile_name,
           }
           files = [(pathlib.Path(path), pathlib.Path(path).read_text()) for path in paths]
           for expected_name in replacements:
@@ -470,8 +474,10 @@ jobs:
                   raise SystemExit(f"Expected signing profile {expected_name!r} was not found")
           ordered = sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True)
           for path, contents in files:
-              for expected_name, actual_name in ordered:
-                  contents = contents.replace(expected_name, actual_name)
+              for expected_name, token in ordered:
+                  contents = contents.replace(expected_name, token)
+              for token, actual_name in resolved.items():
+                  contents = contents.replace(token, actual_name)
               path.write_text(contents)
           PY
 
