@@ -115,9 +115,9 @@ class AgencyContentSections extends StatelessWidget {
             actions,
             subtitle: agency.isEmpty ? null : '$agency, word for word',
           ),
-        if (suggestions.isNotEmpty)
+        if (suggestions.isNotEmpty && actions.isEmpty)
           _section(
-            'ALRT SUGGESTIONS',
+            'WHAT TO DO',
             suggestions,
             subtitle: 'General guidance from ALRT, not part of the official '
                 'warning.',

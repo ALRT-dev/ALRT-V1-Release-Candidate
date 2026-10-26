@@ -930,6 +930,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         Consumer(
           builder: (context, ref, child) {
             final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (hazard?.isUserReported ?? false) {
+              return _buildCommunityDescriptionSection();
+            }
             if (hazard?.contentDetails != null) {
               return AgencyContentSections(
                 content: hazard!.contentDetails!,
@@ -1915,6 +1918,46 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         if (facts.isEmpty) return const SizedBox.shrink();
 
         // Detail board: a white card, the orange V3 label, grey dots.
+        return _detailSectionCard(
+          children: [
+            _detailSectionLabel('WHAT WE KNOW'),
+            8.hSizedBox,
+            for (var i = 0; i < facts.length; i++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: i < facts.length - 1 ? 6.spMin : 0,
+                ),
+                child: _bulletRow(
+                  dot: _factDot,
+                  child: Text(
+                    facts[i],
+                    style: TextStyle(
+                      color: _factInk,
+                      fontSize: 14.spMin,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCommunityDescriptionSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null || !hazard.isUserReported) {
+          return const SizedBox.shrink();
+        }
+
+        final facts = AlertTextUtil.communityPoints(
+          hazard.title,
+          hazard.description,
+        );
+
         return _detailSectionCard(
           children: [
             _detailSectionLabel('WHAT WE KNOW'),

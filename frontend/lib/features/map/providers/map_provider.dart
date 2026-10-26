@@ -29,7 +29,7 @@ import 'package:hazard_app/features/map/providers/states/map_provider_state.dart
 import 'package:hazard_app/features/map/services/location_service.dart';
 import 'package:hazard_app/features/map/services/map_service.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
+import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/map/utils/hazard_cluster_util.dart';
 import 'package:hazard_app/features/map/utils/hazard_visibility_util.dart';
 import 'package:hazard_app/features/map/utils/maps_availability.dart';
@@ -52,6 +52,7 @@ import 'package:hazard_app/features/shared/providers/service_providers.dart';
 import 'package:hazard_app/features/shared/services/hazard_service.dart';
 import 'package:hazard_app/features/shared/utils/location_helper.dart';
 import 'package:hazard_app/features/shared/utils/community_disc_marker.dart';
+import 'package:hazard_app/features/family/views/widgets/family_member_avatar.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:widget_to_marker/widget_to_marker.dart';
 import 'package:hazard_app/features/shared/providers/community_safety_provider.dart';
@@ -1912,6 +1913,9 @@ class MapProvider extends StateNotifier<MapProviderState> {
     final currentUserLocationMarker = state.markers.firstWhereOrNull(
       (marker) => marker.markerId.value == 'user_location',
     );
+    final selfFamilyMarker = familyMarkers.firstWhereOrNull(
+      (marker) => marker.markerId.value == 'family_self',
+    );
 
     final allMarkers = <Marker>{
       ...individualMarkers,
@@ -1919,7 +1923,8 @@ class MapProvider extends StateNotifier<MapProviderState> {
       if (selectedPlaceMarker != null) selectedPlaceMarker,
       ...routeLabelMarkers,
       if (simulatedNavigationMarker != null) simulatedNavigationMarker,
-      if (currentUserLocationMarker != null) currentUserLocationMarker,
+      if (currentUserLocationMarker != null && selfFamilyMarker == null)
+        currentUserLocationMarker,
     };
 
     updateMarkers(allMarkers);
@@ -1939,6 +1944,32 @@ class MapProvider extends StateNotifier<MapProviderState> {
     return 0.52;
   }
 
+  Future<BitmapDescriptor> _familyMemberBitmap(
+    final FamilyMember member,
+    final double scale,
+  ) async {
+    final cacheKey = '${member.id}_${member.initials}_${member.profilePictureUrl}_$scale';
+    final cached = _familyPinBitmapCache[cacheKey];
+    if (cached != null) return cached;
+
+    final size = 44.0 * scale;
+    final widget = SizedBox(
+      width: size,
+      height: size,
+      child: FamilyMemberAvatar(
+        member: member,
+        size: size,
+        showStatusDot: false,
+      ),
+    );
+    final bitmap = await widget.toBitmapDescriptor(
+      logicalSize: Size(size, size),
+      imageSize: Size(size * 2.5, size * 2.5),
+    );
+    _familyPinBitmapCache[cacheKey] = bitmap;
+    return bitmap;
+  }
+
   /// Builds avatar pins for family members currently sharing a location
   /// (other than the user themself).
   Future<List<Marker>> _generateFamilyMemberMarkers() async {
@@ -1950,46 +1981,28 @@ class MapProvider extends StateNotifier<MapProviderState> {
       final scale = _familyPinScaleForZoom(state.cameraPosition.zoom);
 
       final markers = <Marker>[];
+      final me = circle.me;
+      if (me != null && me.hasLiveLocation) {
+        final bitmap = await _familyMemberBitmap(me, scale);
+        markers.add(
+          Marker(
+            markerId: const MarkerId('family_self'),
+            position: LatLng(me.latitude!, me.longitude!),
+            icon: bitmap,
+            zIndexInt: 3,
+            anchor: const Offset(0.5, 0.5),
+            infoWindow: InfoWindow(
+              title: me.name,
+              snippet: me.locationLabel,
+            ),
+          ),
+        );
+      }
+
       for (final member in circle.others) {
         if (!member.hasLiveLocation) continue;
 
-        final cacheKey = '${member.id}_${member.initials}_$scale';
-        var bitmap = _familyPinBitmapCache[cacheKey];
-        if (bitmap == null) {
-          final color = FamilyColors.memberColor(member.id);
-          final size = 44.0 * scale;
-          final widget = Container(
-            width: size,
-            height: size,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.white, width: 3 * scale),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x40000000),
-                  blurRadius: 5,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Text(
-              member.initials,
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 15 * scale,
-                fontWeight: FontWeight.w700,
-                decoration: TextDecoration.none,
-              ),
-            ),
-          );
-          bitmap = await widget.toBitmapDescriptor(
-            logicalSize: Size(size, size),
-            imageSize: Size(size * 2.5, size * 2.5),
-          );
-          _familyPinBitmapCache[cacheKey] = bitmap;
-        }
+        final bitmap = await _familyMemberBitmap(member, scale);
 
         markers.add(
           Marker(

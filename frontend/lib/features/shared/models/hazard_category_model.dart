@@ -143,10 +143,9 @@ Color? lockedCategoryColorFor(final String? categoryName) {
     return const Color(0xFFFF7E29);
   }
   if (name.contains('security') || name.contains('crime')) {
-    // Crimson-pink: the earlier magenta (#D946EF) sat too close to the
-    // Community magenta below to tell the two pills apart (owner, 8 Sep
-    // 2026: "make security and crime a bit more red"). Still distinct from
-    // the pure severity red (#DC2626) reserved for highest danger.
+    // Safety & Crime stays on the red side, not the pink/magenta side.
+    // Keep it visibly separate from Community / Information while still
+    // feeling like the stronger, security-oriented category family.
     return const Color(0xFFD9304F);
   }
   if (name.contains('traffic') || name.contains('transport')) {
