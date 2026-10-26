@@ -145,25 +145,27 @@ class FamilyBoardPrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.gradient = FamilyColors.headerGradient,
-    this.shadow = const Color(0x4D2E2A9E),
+    this.shadow,
     this.isLoading = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final Gradient gradient;
-  final Color shadow;
+  final Color? shadow;
   final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveShadow =
+        shadow ?? FamilyColors.v31HeaderTop.withValues(alpha: 0.30);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: gradient,
         borderRadius: BorderRadius.circular(14.spMin),
         boxShadow: [
           BoxShadow(
-            color: shadow,
+            color: effectiveShadow,
             blurRadius: 16.0,
             offset: const Offset(0, 6),
           ),
