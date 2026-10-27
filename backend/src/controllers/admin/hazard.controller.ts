@@ -31,6 +31,16 @@ import {
   buildHazardInclude,
   getHazardExpiryDateFromSeverity,
 } from "../../utils/hazard.util.js";
+import {
+  communityPushWaitsForConfirmation,
+  sendPushNotificationAboutNewHazard,
+  sendPushNotificationToUser,
+} from "../../services/notification.service.js";
+import { PushNotificationType } from "../../models/push_notification_types.js";
+import { sendSocketEventAboutHazardToSubscribers } from "../../services/socket.service.js";
+import { SocketEvent } from "../../models/socket_event_types.js";
+import { notifyFamiliesAboutNewHazard } from "../../services/family_alert.service.js";
+import { handleReportReviewOutcome } from "../../services/xp_ledger.service.js";
 import { syncHazardsFromDifferentSources } from "../../services/ingestion.service.js";
 import type { AdminRequest } from "../../middlewares/auth.admin.middleware.js";
 import { getHazardAttributesFromDescription } from "../../utils/ingestion.util.js";
@@ -464,6 +474,52 @@ export const reviewHazardForAdmin = async (
 
     const updatedHazardWithPresignedUrls =
       await enrichHazardWithPresignedUrls(updatedHazard);
+
+    const becameAccepted =
+      before.reviewStatus !== HazardReviewStatus.accepted &&
+      updatedHazard.reviewStatus === HazardReviewStatus.accepted;
+    const becameRejected =
+      before.reviewStatus !== HazardReviewStatus.rejected &&
+      updatedHazard.reviewStatus === HazardReviewStatus.rejected;
+
+    if (becameAccepted) {
+      if (!(await communityPushWaitsForConfirmation(updatedHazard))) {
+        sendPushNotificationAboutNewHazard(updatedHazard);
+      }
+      sendSocketEventAboutHazardToSubscribers({
+        hazard: updatedHazardWithPresignedUrls,
+        socketEvent: SocketEvent.newHazard,
+      });
+      notifyFamiliesAboutNewHazard(updatedHazardWithPresignedUrls);
+
+      if (updatedHazard.reportedById) {
+        sendPushNotificationToUser({
+          userId: updatedHazard.reportedById,
+          title: "ALRT Approved! 🎉",
+          body: "Your alert is now live - community notified",
+          data: updatedHazardWithPresignedUrls,
+          type: PushNotificationType.viewHazard,
+        });
+      }
+    }
+
+    if (becameRejected) {
+      await handleReportReviewOutcome(updatedHazard);
+      if (updatedHazard.reportedById) {
+        sendPushNotificationToUser({
+          userId: updatedHazard.reportedById,
+          title: "Invalid ALRT Report",
+          body: `Our review found your ALRT report to be invalid. ${updatedHazard.reviewFeedback ?? ""}`.trim(),
+          data: updatedHazardWithPresignedUrls,
+          type: PushNotificationType.viewHazard,
+        });
+      }
+    }
+
+    sendSocketEventAboutHazardToSubscribers({
+      hazard: updatedHazardWithPresignedUrls,
+      socketEvent: SocketEvent.updateHazard,
+    });
 
     res.status(200).json(updatedHazardWithPresignedUrls);
   } catch (error) {

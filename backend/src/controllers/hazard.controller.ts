@@ -880,10 +880,21 @@ export const updateHazard = async (
         "Your alrt is awaiting review because the attached media could not be automatically screened.";
     }
 
+    if (
+      review.reviewStatus === HazardReviewStatus.accepted &&
+      (typeof review.description !== "string" ||
+        containsRawIdentifiers(review.title, review.description))
+    ) {
+      review.reviewStatus = HazardReviewStatus.pending;
+      review.reviewFeedback =
+        "Your alrt is awaiting a quick check before it is republished.";
+    }
+
     const {
       reviewStatus,
       reviewFeedback,
       title: suggestedTitle,
+      description: cleanedDescription,
       summary: aiSummary,
       confidence: aiConfidence,
       callsToAction,
@@ -903,7 +914,10 @@ export const updateHazard = async (
         where: { id },
         data: {
           title: suggestedTitle || title || "An unverified incident",
-          description: description || "",
+          description:
+            typeof cleanedDescription === "string"
+              ? cleanedDescription
+              : description || "",
           reviewStatus: reviewStatus,
           reviewFeedback: mediaModerationFeedback || reviewFeedback,
           ...(reviewStatus === HazardReviewStatus.accepted && {
@@ -915,7 +929,9 @@ export const updateHazard = async (
           categoryId: category.id,
           ...(latitude && { latitude }),
           ...(longitude && { longitude }),
-          ...(locationName && { locationName }),
+          ...(locationName && {
+            locationName: toSuburbOnlyLocationName(locationName),
+          }),
           ...(occurredAt && { occurredAt: new Date(occurredAt) }),
           ...(reviewStatus === HazardReviewStatus.accepted && {
             expiresAt:
