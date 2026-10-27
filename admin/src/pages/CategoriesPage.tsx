@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { useApiQuery } from "../hooks/useApiQuery";
-import { listCategories, updateCategory } from "../api/resources";
+import { listCategories, updateCategory, updateCategoryWithImages } from "../api/resources";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import { ApiError } from "../api/client";
-import type { HazardCategory } from "../api/types";
+import type { HazardCategory, HazardCategoryImage } from "../api/types";
 import { ICON_KEYS, effectiveIconKey } from "../data/iconKeys";
 
 interface EditDraft {
@@ -17,6 +17,24 @@ interface EditDraft {
 }
 
 const iconSrc = (key: string) => `${import.meta.env.BASE_URL}icons/${key}.png`;
+const CATEGORY_IMAGE_SLOTS = [
+  { field: "infoImage", imageType: "info", label: "Info" },
+  { field: "monitorImage", imageType: "monitor", label: "Monitor" },
+  { field: "actionImage", imageType: "action", label: "Action" },
+  { field: "criticalImage", imageType: "critical", label: "Critical" },
+  { field: "adviceImage", imageType: "advice", label: "Advice" },
+  { field: "watchAndActImage", imageType: "watchAndAct", label: "Watch and Act" },
+  { field: "emergencyImage", imageType: "emergency", label: "Emergency" },
+  { field: "userImage", imageType: "user", label: "Community" },
+  { field: "fireActiveImage", imageType: "fireActive", label: "Fire active" },
+  { field: "fireBeingControlledImage", imageType: "fireBeingControlled", label: "Fire being controlled" },
+  { field: "fireUnderControlImage", imageType: "fireUnderControl", label: "Fire under control" },
+  { field: "fireClosedImage", imageType: "fireClosed", label: "Fire closed" },
+] as const;
+
+const imageByType = (images: HazardCategoryImage[] | undefined, imageType: string) =>
+  images?.find((image) => image.imageType === imageType) ?? null;
+
 
 const CategoryIcon = ({ category }: { category: HazardCategory }) => {
   const key = effectiveIconKey(category);
@@ -82,6 +100,7 @@ export const CategoriesPage = () => {
   const [editing, setEditing] = useState<HazardCategory | null>(null);
   const [draft, setDraft] = useState<EditDraft>({ name: "", description: "", color: "", keywords: "", iconKey: null });
   const [saving, setSaving] = useState(false);
+  const [imageFiles, setImageFiles] = useState<Record<string, File>>({});
 
   const fetcher = useCallback(() => listCategories(), []);
   const { data, error, loading, refetch } = useApiQuery(fetcher, []);
@@ -95,21 +114,28 @@ export const CategoriesPage = () => {
       keywords: (category.keywords ?? []).join(", "),
       iconKey: category.iconKey ?? null,
     });
+    setImageFiles({});
   };
 
   const saveEdit = async () => {
     if (!editing) return;
     setSaving(true);
     try {
-      await updateCategory(editing.id, {
+      const patch = {
         name: draft.name,
         description: draft.description,
         color: draft.color || undefined,
         keywords: draft.keywords.split(",").map((x) => x.trim()).filter(Boolean),
         iconKey: draft.iconKey,
-      });
+      };
+      if (Object.keys(imageFiles).length > 0) {
+        await updateCategoryWithImages(editing.id, patch, imageFiles);
+      } else {
+        await updateCategory(editing.id, patch);
+      }
       notifySuccess(`Updated "${editing.name}".`);
       setEditing(null);
+      setImageFiles({});
       refetch();
     } catch (err) {
       notifyError(err instanceof ApiError ? err.message : "Update failed.");
@@ -251,6 +277,66 @@ export const CategoriesPage = () => {
                 placeholder="Comma-separated keywords used for category matching"
                 onChange={(event) => setDraft({ ...draft, keywords: event.target.value })}
               />
+            </div>
+            <div className="field">
+              <label>Uploaded category images</label>
+              <p style={{ marginTop: 0, color: "#666" }}>
+                Upload replacement artwork for any severity/community slot. This goes through the existing backend upload path.
+              </p>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                  gap: 12,
+                }}
+              >
+                {CATEGORY_IMAGE_SLOTS.map((slot) => {
+                  const current = imageByType(editing.images, slot.imageType);
+                  const selected = imageFiles[slot.field];
+                  return (
+                    <div
+                      key={slot.field}
+                      style={{
+                        border: "1px solid #ddd",
+                        borderRadius: 8,
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      <strong>{slot.label}</strong>
+                      {current?.presignedUrl ? (
+                        <img
+                          src={current.presignedUrl}
+                          alt={slot.label}
+                          style={{ width: 56, height: 56, objectFit: "contain" }}
+                        />
+                      ) : (
+                        <span style={{ color: "#666" }}>No uploaded image</span>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          setImageFiles((prev) => {
+                            if (!file) {
+                              const next = { ...prev };
+                              delete next[slot.field];
+                              return next;
+                            }
+                            return { ...prev, [slot.field]: file };
+                          });
+                        }}
+                      />
+                      <span style={{ color: "#666", fontSize: 12 }}>
+                        {selected ? `Ready: ${selected.name}` : "Leave blank to keep current image."}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             <div className="modal-actions">
               <button type="button" className="btn" onClick={() => setEditing(null)}>

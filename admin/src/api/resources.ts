@@ -2,7 +2,7 @@
 // (backend/src/routes/admin/*.ts). One function per endpoint - no
 // generic "call anything" helper here, so every request this app can
 // make is visible by reading this one file.
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiPutForm } from "./client";
 import type {
   AdminAccountListItem,
   AdminAppUser,
@@ -146,6 +146,19 @@ export const updateCategory = (
   categoryId: string,
   patch: { name?: string; description?: string; color?: string; keywords?: string[]; isFireRelated?: boolean; iconKey?: string | null },
 ) => apiPut<HazardCategory>(`/api/admin/categories/${categoryId}`, patch);
+
+export const updateCategoryWithImages = (
+  categoryId: string,
+  patch: { name?: string; description?: string; color?: string; keywords?: string[]; isFireRelated?: boolean; iconKey?: string | null },
+  files: Record<string, File>,
+) => {
+  const form = new FormData();
+  form.set("data", JSON.stringify(patch));
+  for (const [field, file] of Object.entries(files)) {
+    form.set(field, file);
+  }
+  return apiPutForm<HazardCategory>(`/api/admin/categories/${categoryId}`, form);
+};
 
 // --- App users -------------------------------------------------------
 

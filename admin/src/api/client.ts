@@ -129,6 +129,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
+  isFormData?: boolean;
   /** Internal - marks a request as already-retried-after-refresh. */
   _isRetry?: boolean;
 }
@@ -177,16 +178,26 @@ export const apiRequest = async <T>(
   const tokens = loadTokens();
   const isAuthRoute = path.startsWith("/api/admin/auth/login");
 
+  const headers: Record<string, string> = {
+    ...RELAY_HEADERS,
+    ...(tokens && !isAuthRoute
+      ? { Authorization: `Bearer ${tokens.accessToken}` }
+      : {}),
+  };
+  if (!options.isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(`${BASE_URL}${path}`, {
     method: options.method ?? "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...RELAY_HEADERS,
-      ...(tokens && !isAuthRoute
-        ? { Authorization: `Bearer ${tokens.accessToken}` }
-        : {}),
-    },
-    ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+    headers,
+    ...(options.body !== undefined
+      ? {
+          body: options.isFormData
+            ? (options.body as BodyInit)
+            : JSON.stringify(options.body),
+        }
+      : {}),
   });
 
   if (res.status === 401 && !isAuthRoute && !options._isRetry && tokens) {
@@ -230,3 +241,6 @@ export const apiPatch = <T>(path: string, body?: unknown): Promise<T> =>
 
 export const apiDelete = <T>(path: string): Promise<T> =>
   apiRequest<T>(path, { method: "DELETE" });
+
+export const apiPutForm = <T>(path: string, body: FormData): Promise<T> =>
+  apiRequest<T>(path, { method: "PUT", body, isFormData: true });
