@@ -279,7 +279,9 @@ async function main() {
       const pushed = await pushUnder(selection.flags);
       for (const kind of KINDS) {
         const id = hazardIdByKind.get(kind.key)!;
-        const expected = selection.flags[kind.governedBy];
+        const expected = kind.key === "awsEmergency" || kind.key === "awsWatchAndAct" || kind.key === "awsAdvice"
+          ? true
+          : selection.flags[kind.governedBy];
         const isShown = shown.has(id);
         const isPushed = pushed.has(kind.key);
         cells.get(kind.key)!.push(`${isShown ? "shown" : "hidden"} / ${isPushed ? "push" : "no push"}`);
