@@ -352,7 +352,7 @@ class _MapSearchSheetState extends ConsumerState<MapSearchSheet> {
               title: p.name,
               subtitle: p.address,
               onTap: () => _pickPlace(p),
-              trailing: _saveButton(p),
+              trailing: _placeActions(p),
             ),
         ]),
         SizedBox(height: 14.spMin),
@@ -478,31 +478,58 @@ class _MapSearchSheetState extends ConsumerState<MapSearchSheet> {
     );
   }
 
-  Widget _saveButton(final GooglePlace place) {
-    return Material(
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(10.spMin),
-      child: InkWell(
-        onTap: _saving ? null : () => _savePlace(place),
-        borderRadius: BorderRadius.circular(10.spMin),
-        child: Container(
-          height: 36.spMin,
-          padding: EdgeInsets.symmetric(horizontal: 14.spMin),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
+  Widget _placeActions(final GooglePlace place) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: const Color(0xFFE8622A),
+          borderRadius: BorderRadius.circular(10.spMin),
+          child: InkWell(
+            onTap: () => _pickPlace(place),
             borderRadius: BorderRadius.circular(10.spMin),
-            border: Border.all(color: _line),
-          ),
-          child: Text(
-            'Save',
-            style: TextStyle(
-              fontSize: 13.spMin,
-              fontWeight: FontWeight.w600,
-              color: _ink,
+            child: Container(
+              height: 36.spMin,
+              padding: EdgeInsets.symmetric(horizontal: 14.spMin),
+              alignment: Alignment.center,
+              child: Text(
+                'Use',
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.white,
+                ),
+              ),
             ),
           ),
         ),
-      ),
+        SizedBox(width: 6.spMin),
+        Material(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(10.spMin),
+          child: InkWell(
+            onTap: _saving ? null : () => _savePlace(place),
+            borderRadius: BorderRadius.circular(10.spMin),
+            child: Container(
+              height: 36.spMin,
+              padding: EdgeInsets.symmetric(horizontal: 12.spMin),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10.spMin),
+                border: Border.all(color: _line),
+              ),
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  fontWeight: FontWeight.w600,
+                  color: _ink,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -531,8 +558,7 @@ class _MapSearchSheetState extends ConsumerState<MapSearchSheet> {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 4.spMin),
       child: Text(
-        'Place search goes through the ALRT backend, so no map key ships '
-        'in the app.',
+        'Tap Use to drop a place onto the map. Save it only if you want alerts for it.',
         style: TextStyle(fontSize: 12.spMin, color: _muted, height: 1.45),
       ),
     );
