@@ -757,7 +757,7 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
   }
 
   Widget _hazardRow(final Hazard hazard) {
-    final level = routeHazardLevelOf(hazard);
+    final meta = routeHazardMetaOf(hazard);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -767,18 +767,28 @@ class _CheckRouteScreenState extends ConsumerState<CheckRouteScreen> {
         ),
         SizedBox(width: 8.spMin),
         Expanded(
-          child: Text(
-            hazard.title ?? hazard.category?.name ?? 'Alert',
-            style: TextStyle(fontSize: 13.spMin, color: _ink, height: 1.35),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                hazard.title ?? hazard.category?.name ?? 'Alert',
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  color: _ink,
+                  height: 1.35,
+                ),
+              ),
+              if (meta.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(top: 2.spMin),
+                  child: Text(
+                    meta,
+                    style: TextStyle(fontSize: 11.5.spMin, color: _muted),
+                  ),
+                ),
+            ],
           ),
         ),
-        if (level.isNotEmpty) ...[
-          SizedBox(width: 8.spMin),
-          Text(
-            level,
-            style: TextStyle(fontSize: 13.spMin, color: _muted),
-          ),
-        ],
       ],
     );
   }

@@ -746,8 +746,8 @@ class _CreateUpdateReportScreenState
             ).pX(8.0),
             12.hSizedBox,
             Text(
-              'Your report is being checked. It shows as unverified until '
-              'others nearby confirm it.',
+              'Your report is being checked. It shows as a community report until '
+               'others nearby confirm it.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15.spMin,

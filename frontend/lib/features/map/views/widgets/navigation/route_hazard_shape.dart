@@ -16,12 +16,40 @@ RouteHazardShapeKind routeHazardShapeKindOf(final Hazard hazard) {
   return RouteHazardShapeKind.diamond;
 }
 
-/// The short level words shown at the right of a hazard row on the route
-/// screens: the AWS level, "Unverified" for community reports, else none.
+/// The short level words shown on the route surfaces: the AWS level only.
 String routeHazardLevelOf(final Hazard hazard) {
-  if (hazard.isUserReported) return 'Unverified';
   if (hazard.isAwsCompliant == true) return hazard.severityTitle;
   return '';
+}
+
+/// The source-system label shown beside or under a route hazard.
+String routeHazardSourceLabelOf(final Hazard hazard) {
+  if (hazard.isUserReported) return 'Community report';
+  if (hazard.isAlrtIntel) return 'ALRT assessment';
+  if (hazard.isGlobalHumanitarian) return 'GDACS';
+  if (hazard.isAwsCompliant == true) return 'AWS';
+  return 'Official';
+}
+
+/// The short identifying line for route-choice rows and travelling popups.
+/// Keeps the surface light while making it obvious who is speaking.
+String routeHazardMetaOf(final Hazard hazard) {
+  final parts = <String>[];
+  final level = routeHazardLevelOf(hazard).trim();
+  if (level.isNotEmpty) {
+    parts.add(level);
+  } else {
+    parts.add(routeHazardSourceLabelOf(hazard));
+  }
+  final agency = hazard.source?.name?.trim();
+  if (agency != null && agency.isNotEmpty) {
+    if (parts.first.toLowerCase() != agency.toLowerCase()) {
+      parts.add(agency);
+    }
+  } else if (hazard.isAwsCompliant == true) {
+    parts.add('AWS');
+  }
+  return parts.join(' · ');
 }
 
 /// A filled source shape in the hazard's band colour, as the prototype

@@ -198,7 +198,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         final String label;
         final Color labelInk;
         if (isUserReported) {
-          label = 'COMMUNITY · UNVERIFIED';
+          label = 'COMMUNITY REPORT';
           labelInk = AlertCardStyle.labelInkCommunity;
         } else if (hazard.isAlrtIntel) {
           label = 'ALRT ASSESSMENT';

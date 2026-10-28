@@ -408,7 +408,7 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
   }
 
   Widget _hazardRow(final Hazard hazard) {
-    final level = routeHazardLevelOf(hazard);
+    final meta = routeHazardMetaOf(hazard);
     return InkWell(
       onTap: () => context.push(
         ViewHazardScreen.route,
@@ -421,18 +421,24 @@ class _NavigationModeOverlayState extends ConsumerState<NavigationModeOverlay> {
             RouteHazardShape(hazard: hazard, size: 22.spMin),
             SizedBox(width: 10.spMin),
             Expanded(
-              child: Text(
-                hazard.title ?? hazard.category?.name ?? 'Alert',
-                style: TextStyle(fontSize: 14.spMin, color: _ink),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hazard.title ?? hazard.category?.name ?? 'Alert',
+                    style: TextStyle(fontSize: 14.spMin, color: _ink),
+                  ),
+                  if (meta.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.only(top: 2.spMin),
+                      child: Text(
+                        meta,
+                        style: TextStyle(fontSize: 12.spMin, color: _muted),
+                      ),
+                    ),
+                ],
               ),
             ),
-            if (level.isNotEmpty) ...[
-              SizedBox(width: 8.spMin),
-              Text(
-                level,
-                style: TextStyle(fontSize: 12.spMin, color: _muted),
-              ),
-            ],
           ],
         ),
       ),

@@ -86,8 +86,8 @@ abstract final class AskAlrtLocalAnswers {
           'The shape tells you who issued the alert. Triangle: an AWS '
           'warning, the only source that states a level in words (Advice, '
           'Watch and Act, Emergency Warning). Diamond: an official source, '
-          'including state agencies and global feeds. Circle: an unverified '
-          'community report. '
+          'including state agencies and global feeds. Circle: a community '
+          'report from a nearby person. '
           "Shield: ALRT's own assessment. The full key is on the map under "
           'the layers button.',
     ),
@@ -145,7 +145,7 @@ abstract final class AskAlrtLocalAnswers {
       keywords: ['community', 'report', 'unverified', 'trust', 'confirm'],
       answer:
           'A community report (a circle on the map) is posted by a person '
-          'nearby and is unverified. Others can confirm or dispute it. '
+          'nearby. Others can confirm or dispute it. '
           'Treat it as a heads-up, not an official warning, and check '
           'official alerts for the confirmed picture. You can post one '
           'yourself from the ALRT button in the footer.',

@@ -43,13 +43,7 @@ class _TakeAlternateRouteState extends ConsumerState<TakeAlternateRoute> {
     final plain = (hazard.aiSummary ?? '').trim().isNotEmpty
         ? hazard.aiSummary!.trim()
         : (hazard.description ?? '').trim();
-    final agency = hazard.source?.name ?? '';
-    final meta = [
-      if (hazard.isUserReported) ...['Community report', 'Unverified'],
-      if (!hazard.isUserReported && hazard.isAwsCompliant == true)
-        hazard.severityTitle,
-      if (agency.isNotEmpty) agency,
-    ].join(' · ');
+    final meta = routeHazardMetaOf(hazard);
 
     return Container(
       width: double.infinity,
