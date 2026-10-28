@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
-import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
 import 'package:hazard_app/features/home/providers/home_tab_provider.dart';
@@ -45,7 +44,6 @@ import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.da
 import 'package:hazard_app/features/shared/views/widgets/small_map_view.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/hazard_medias_carousel.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/send_to_group_sheet.dart';
-import 'package:hazard_app/features/subscription/views/widgets/paywall_parts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
@@ -88,8 +86,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// Listen button, and is cleared when the speech ends on its own.
   bool _isSpeaking = false;
 
-  /// Whether the user has already checked in near this alert.
-  bool _checkInSent = false;
 
   /// The lit state of Follow and Listen: the brand orange.
   static const _litInk = Color(0xFFFF6B01);
@@ -1071,75 +1067,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     }
   }
 
-  void _showImOkaySheet(final Hazard hazard, final FamilyCircleSummary circle) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ImOkaySheet(
-        hazardTitle: hazard.title,
-        circleName: circle.name,
-        onJustOkay: () async {
-          if (!mounted) return;
-          await ref
-              .read(providerOfFamily.notifier)
-              .checkIn(
-                message: hazard.title == null
-                    ? 'Checked in'
-                    : 'Checked in near "${hazard.title}"',
-                shareLocation: false,
-                hazardId: hazard.id,
-              );
-          if (!mounted) return;
-          final r = ref.read(providerOfFamily).checkInState;
-          if (r.isError && r.error != null) {
-            await showFamilyActionError(context, ref, r.error!);
-            return;
-          }
-          if (r.isSuccess) setState(() => _checkInSent = true);
-        },
-        onShareLocation: () async {
-          if (!mounted) return;
-          await ref
-              .read(providerOfFamily.notifier)
-              .checkIn(
-                message: hazard.title == null
-                    ? 'Checked in'
-                    : 'Checked in near "${hazard.title}"',
-                shareLocation: true,
-                hazardId: hazard.id,
-              );
-          if (!mounted) return;
-          final r = ref.read(providerOfFamily).checkInState;
-          if (r.isError && r.error != null) {
-            await showFamilyActionError(context, ref, r.error!);
-            return;
-          }
-          if (r.isSuccess) setState(() => _checkInSent = true);
-        },
-        onShareSuburb: () async {
-          if (!mounted) return;
-          await ref
-              .read(providerOfFamily.notifier)
-              .checkIn(
-                message: hazard.title == null
-                    ? 'Checked in'
-                    : 'Checked in near "${hazard.title}"',
-                shareLocation: false,
-                hazardId: hazard.id,
-              );
-          if (!mounted) return;
-          final r = ref.read(providerOfFamily).checkInState;
-          if (r.isError && r.error != null) {
-            await showFamilyActionError(context, ref, r.error!);
-            return;
-          }
-          if (r.isSuccess) setState(() => _checkInSent = true);
-        },
-      ),
-    );
-  }
-
   Widget _buildTellYourPeopleSection() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1172,8 +1099,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 ),
               ),
               _buildYourCircleCard(hazard, circles.length, selected),
-              10.hSizedBox,
-              if (!hazard.isUserReported) _buildEveryoneElseCard(hazard),
             ],
           ),
         );
@@ -1189,15 +1114,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     return Container(
       padding: EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
-        gradient: kTellYourPeopleGradient,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(18.spMin),
-        boxShadow: [
-          BoxShadow(
-            color: _tellPurple.withValues(alpha: 0.22),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        border: Border.all(color: const Color(0xFFE6E7EE)),
+        boxShadow: const [AlertCardStyle.cardShadow],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1209,19 +1129,19 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your circle',
+                      'Tell your people',
                       style: TextStyle(
                         fontSize: 15.spMin,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.white,
+                        color: AppColors.ink,
                       ),
                     ),
                     2.hSizedBox,
                     Text(
-                      'Private check-in inside ALRT',
+                      'Choose your group, then send or share this alert',
                       style: TextStyle(
                         fontSize: 11.5.spMin,
-                        color: AppColors.white.withValues(alpha: 0.80),
+                        color: AppColors.mediumGrey,
                       ),
                     ),
                   ],
@@ -1230,7 +1150,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               TextButton(
                 onPressed: () => showChooseCircleSheet(context, ref),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.white,
+                  foregroundColor: AppColors.ink,
                   padding: EdgeInsets.symmetric(
                     horizontal: 10.spMin,
                     vertical: 6.spMin,
@@ -1239,7 +1159,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  circleCount > 1 ? 'Change' : 'Choose group',
+                  circleCount > 1 ? 'Change group' : 'Choose group',
                   style: TextStyle(
                     fontSize: 12.5.spMin,
                     fontWeight: FontWeight.w700,
@@ -1255,10 +1175,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               vertical: 10.spMin,
             ),
             decoration: BoxDecoration(
-              color: AppColors.white.withValues(alpha: 0.12),
+              color: const Color(0xFFF7F7FA),
               borderRadius: BorderRadius.circular(14.spMin),
               border: Border.all(
-                color: AppColors.white.withValues(alpha: 0.24),
+                color: const Color(0xFFE6E7EE),
               ),
             ),
             child: Row(
@@ -1268,7 +1188,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   height: 32.spMin,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.white.withValues(alpha: 0.18),
+                    color: const Color(0xFFEDEAF6),
                   ),
                   child: Center(
                     child: Text(
@@ -1278,7 +1198,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                       style: TextStyle(
                         fontSize: 13.spMin,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.white,
+                        color: AppColors.ink,
                       ),
                     ),
                   ),
@@ -1295,7 +1215,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         style: TextStyle(
                           fontSize: 14.spMin,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.white,
+                          color: const Color(0xFF4A1D8C),
                         ),
                       ),
                       2.hSizedBox,
@@ -1303,7 +1223,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         '${selected.memberCount} ${selected.memberCount == 1 ? 'person' : 'people'}',
                         style: TextStyle(
                           fontSize: 12.spMin,
-                          color: AppColors.white.withValues(alpha: 0.74),
+                          color: AppColors.mediumGrey,
                         ),
                       ),
                     ],
@@ -1314,55 +1234,26 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           ),
           10.hSizedBox,
           _tellActionButton(
-            label: 'Send alert',
+            label: 'Send to ${selected.name}',
             icon: LucideIcons.send,
             isPrimary: true,
             onTap: () => _sendAlertToCircle(hazard, selected),
           ),
           8.hSizedBox,
-          _tellActionButton(
-            label: _checkInSent ? 'Check-in sent' : "I'm okay",
-            icon: LucideIcons.heart,
-            isPrimary: false,
-            onTap: _checkInSent
-                ? null
-                : () => _showImOkaySheet(hazard, selected),
-          ),
+          _tellSecondaryShareButton(hazard),
           8.hSizedBox,
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(LucideIcons.lock, size: 13.spMin, color: AppColors.white),
+              Icon(LucideIcons.info, size: 13.spMin, color: AppColors.mediumGrey),
               6.wSizedBox,
               Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      height: 1.35,
-                      color: AppColors.white.withValues(alpha: 0.85),
-                    ),
-                    children: const [
-                      TextSpan(
-                        text: 'Send alert',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      TextSpan(text: ' sends this alert to your group. '),
-                      TextSpan(
-                        text: "I'm okay",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      TextSpan(
-                        text:
-                            ' opens your private check-in choices. No location is shared unless you choose it.',
-                      ),
-                    ],
+                child: Text(
+                  'Send to group opens the group sheet where you can add an optional message before sending.',
+                  style: TextStyle(
+                    fontSize: 12.spMin,
+                    height: 1.35,
+                    color: AppColors.mediumGrey,
                   ),
                 ),
               ),
@@ -1431,84 +1322,45 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  Widget _buildEveryoneElseCard(final Hazard hazard) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 18.spMin, vertical: 16.spMin),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(20.spMin),
-        border: Border.all(color: const Color(0xFFE6E7EE)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44.spMin,
-            height: 44.spMin,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFFFFF0E6),
-            ),
-            child: Center(
-              child: Icon(
+  Widget _tellSecondaryShareButton(final Hazard hazard) {
+    return Material(
+      color: const Color(0xFFFFF7F1),
+      borderRadius: BorderRadius.circular(12.spMin),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => SharePlus.instance.share(
+          ShareParams(
+            text:
+                '${hazard.title ?? "Alert"} · ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
+          ),
+        ),
+        child: Container(
+          height: 52.spMin,
+          padding: EdgeInsets.symmetric(horizontal: 12.spMin),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12.spMin),
+            border: Border.all(color: const Color(0xFFF1D9C8)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
                 LucideIcons.share2,
-                size: 20.spMin,
+                size: 18.spMin,
                 color: const Color(0xFFE0561A),
               ),
-            ),
-          ),
-          14.wSizedBox,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Outside ALRT',
-                  style: TextStyle(
-                    fontSize: 16.spMin,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF15151C),
-                  ),
-                ),
-                2.hSizedBox,
-                Text(
-                  'Share this alert by text, WhatsApp or Messenger.',
-                  style: TextStyle(
-                    fontSize: 13.spMin,
-                    color: const Color(0xFF5B5E6E),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          12.wSizedBox,
-          Material(
-            color: const Color(0xFFE0561A),
-            borderRadius: BorderRadius.circular(12.spMin),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => SharePlus.instance.share(
-                ShareParams(
-                  text:
-                      '${hazard.title ?? "Alert"} \u00b7 ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
+              8.wSizedBox,
+              Text(
+                'Share outside ALRT',
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFE0561A),
                 ),
               ),
-              child: Container(
-                height: 40.spMin,
-                padding: EdgeInsets.symmetric(horizontal: 16.spMin),
-                child: Center(
-                  child: Text(
-                    'Share',
-                    style: TextStyle(
-                      fontSize: 15.spMin,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2441,308 +2293,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           'Are you sure you want to delete this report? This action cannot be undone.',
       onPressedConfirmAsync: (context, ref) =>
           ref.read(provider.notifier).deleteHazard(),
-    );
-  }
-}
-
-/// Redesigned "I'm okay" bottom sheet — shown from the Tell Your People card.
-/// Three options: just okay, share exact location, share suburb only.
-class _ImOkaySheet extends StatelessWidget {
-  const _ImOkaySheet({
-    required this.circleName,
-    required this.onJustOkay,
-    required this.onShareLocation,
-    required this.onShareSuburb,
-    this.hazardTitle,
-  });
-
-  final String circleName;
-  final String? hazardTitle;
-  final VoidCallback onJustOkay;
-  final VoidCallback onShareLocation;
-  final VoidCallback onShareSuburb;
-
-  static const _purple = Color(0xFF4A1D8C);
-  static const _purpleTint = Color(0xFFEFE6F8);
-  static const _orange = Color(0xFFE0561A);
-  static const _orangeTint = Color(0xFFFFF4EE);
-  static const _body = Color(0xFF5B5E6E);
-
-  @override
-  Widget build(final BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 5,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD9DAE3),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-            // Title row
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _purpleTint,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Center(
-                    child: Icon(LucideIcons.heart, size: 20, color: _purple),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  "I'm okay",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Subtitle
-            Text(
-              'Sends $circleName the alert and tells them you are okay. Location is only sent if you choose it.',
-              style: const TextStyle(fontSize: 15, color: _body),
-            ),
-            // Alert chip
-            if (hazardTitle != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: _orangeTint,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _orange,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          style: const TextStyle(fontSize: 13),
-                          children: [
-                            const TextSpan(text: 'About the alert: '),
-                            TextSpan(
-                              text: hazardTitle,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 20),
-            // Option 1 — Just say I'm okay
-            _GradientButton(
-              label: "Just say I'm okay",
-              icon: LucideIcons.check,
-              onTap: () {
-                Navigator.pop(context);
-                onJustOkay();
-              },
-            ),
-            const SizedBox(height: 10),
-            // Option 2 — Share exact location
-            _LocationRow(
-              icon: LucideIcons.mapPin,
-              iconBg: _purpleTint,
-              iconColor: _purple,
-              label: "I'm okay, share my location",
-              sub: 'Exact position, this one time',
-              onTap: () {
-                Navigator.pop(context);
-                onShareLocation();
-              },
-            ),
-            const SizedBox(height: 10),
-            // Option 3 — Share suburb
-            _LocationRow(
-              icon: LucideIcons.home,
-              iconBg: const Color(0xFFEDEDF2),
-              iconColor: const Color(0xFF7A7D8E),
-              label: "I'm okay, share my suburb",
-              sub: 'Suburb only, not your address',
-              onTap: () {
-                Navigator.pop(context);
-                onShareSuburb();
-              },
-            ),
-            const SizedBox(height: 8),
-            // Cancel
-            SizedBox(
-              height: 44,
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: _body,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GradientButton extends StatelessWidget {
-  const _GradientButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(final BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Ink(
-          height: 56,
-          decoration: const BoxDecoration(
-            gradient: kTellYourPeopleGradient,
-            borderRadius: BorderRadius.all(Radius.circular(14)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 20, color: Colors.white),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LocationRow extends StatelessWidget {
-  const _LocationRow({
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.label,
-    required this.sub,
-    required this.onTap,
-  });
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final String label;
-  final String sub;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(final BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE3E4EC), width: 1.5),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: iconBg,
-                ),
-                child: Center(child: Icon(icon, size: 18, color: iconColor)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      sub,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF5B5E6E),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                LucideIcons.chevronRight,
-                size: 18,
-                color: Color(0xFFA3A5B5),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
