@@ -21,6 +21,7 @@ class ForYouCard extends ConsumerStatefulWidget {
     this.parentCategoryName,
     this.title,
     this.isAws = false,
+    this.isGlobal = false,
     this.publishedRows,
   });
 
@@ -36,6 +37,9 @@ class ForYouCard extends ConsumerStatefulWidget {
 
   /// Whether the alert is an AWS warning (drives the visitor explainer).
   final bool isAws;
+
+  /// Whether the alert is a global / humanitarian alert (GDACS etc).
+  final bool isGlobal;
 
   /// Server supplies generic reviewed rows; selected cohorts stay on phone.
   final Map<String, String>? publishedRows;
@@ -56,7 +60,9 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
       parentCategoryName: widget.parentCategoryName,
       title: widget.title,
     );
-    final bundledRows = ForYouLibrary.rows[bucket] ?? const <SafetyCohort, String>{};
+    final bundledRows = widget.isGlobal
+        ? ForYouLibrary.globalRows
+        : (ForYouLibrary.rows[bucket] ?? const <SafetyCohort, String>{});
     final publishedRows = widget.publishedRows == null
         ? const <SafetyCohort, String>{}
         : <SafetyCohort, String>{
