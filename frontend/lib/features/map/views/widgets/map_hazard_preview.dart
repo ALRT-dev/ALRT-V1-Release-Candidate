@@ -31,6 +31,8 @@ class _MapHazardPreviewState extends ConsumerState<MapHazardPreview> {
       showCloseButton: true,
       onClosePressed: _handleClosePressed,
       isInfoWindow: true,
+      showTrustMeter: false,  // Hide trust meter on map
+      simplifiedView: true,  // Simplified for map
     );
   }
 

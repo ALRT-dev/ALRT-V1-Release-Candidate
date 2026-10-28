@@ -7,10 +7,12 @@ class AgencyContentSections extends StatelessWidget {
     required this.content,
     this.sourceName,
     this.officialIntro,
+    this.severityColor,
   });
   final Map<String, dynamic> content;
   final String? sourceName;
   final String? officialIntro;
+  final Color? severityColor;
 
   List<String> _lines(String key) {
     final value = content[key];
@@ -64,22 +66,23 @@ class AgencyContentSections extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 6,
-                      height: 6,
-                      margin: const EdgeInsets.only(top: 8),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF9A9AA2),
+                      width: 7,
+                      height: 7,
+                      margin: const EdgeInsets.only(top: 7),
+                      decoration: BoxDecoration(
+                        color: severityColor ?? const Color(0xFFFF7900),
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         text,
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 14.5,
                           height: 1.5,
-                          color: Color(0xFF3A3A42),
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF1A1A22),
                         ),
                       ),
                     ),

@@ -39,6 +39,7 @@ class CommonHazardsListItem extends ConsumerStatefulWidget {
     this.showSourceHeader = true,
     this.horizontalPadding = 20.0,
     this.isInfoWindow = false,
+    this.simplifiedView = false,
   });
 
   /// The hazard to display in this list item.
@@ -61,6 +62,9 @@ class CommonHazardsListItem extends ConsumerStatefulWidget {
 
   /// Whether this list item is being shown inside an InfoWindow.
   final bool isInfoWindow;
+
+  /// Whether to show a simplified version (for map popups).
+  final bool simplifiedView;
 
   @override
   ConsumerState<ConsumerStatefulWidget> createState() =>
@@ -137,7 +141,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                     _sourceRowBuilder(),
                     10.hSizedBox,
                     _titleBuilder(),
-                    if (!isUserReported) ...[
+                    if (!isUserReported && !widget.simplifiedView) ...[
                       6.hSizedBox,
                       _summaryBuilder(),
                     ],
@@ -145,7 +149,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                     _metaRowBuilder(),
                     // Every card opens, so every card says so (product
                     // owner, 16 Oct 2026).
-                    _tapForMoreBuilder(),
+                    if (!widget.simplifiedView) _tapForMoreBuilder(),
                     if (widget.showTrustMeter &&
                         isUserReported &&
                         !widget.isInfoWindow)
