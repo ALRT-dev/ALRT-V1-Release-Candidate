@@ -938,6 +938,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   hazard.category?.name ?? hazard.title,
                   hazard.locationName,
                 ),
+                severityColor: hazard.color,
               );
             }
             return Column(
