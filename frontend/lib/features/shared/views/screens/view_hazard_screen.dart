@@ -1218,7 +1218,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     ),
                     2.hSizedBox,
                     Text(
-                      'In-app · private',
+                      'Private check-in inside ALRT',
                       style: TextStyle(
                         fontSize: 11.5.spMin,
                         color: AppColors.white.withValues(alpha: 0.80),
@@ -1313,28 +1313,20 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             ),
           ),
           10.hSizedBox,
-          Row(
-            children: [
-              Expanded(
-                child: _tellActionButton(
-                  label: 'Send alert to ${selected.name}',
-                  icon: LucideIcons.send,
-                  isPrimary: true,
-                  onTap: () => _sendAlertToCircle(hazard, selected),
-                ),
-              ),
-              8.wSizedBox,
-              Expanded(
-                child: _tellActionButton(
-                  label: "I'm okay",
-                  icon: LucideIcons.heart,
-                  isPrimary: false,
-                  onTap: _checkInSent
-                      ? null
-                      : () => _showImOkaySheet(hazard, selected),
-                ),
-              ),
-            ],
+          _tellActionButton(
+            label: 'Send alert',
+            icon: LucideIcons.send,
+            isPrimary: true,
+            onTap: () => _sendAlertToCircle(hazard, selected),
+          ),
+          8.hSizedBox,
+          _tellActionButton(
+            label: _checkInSent ? 'Check-in sent' : "I'm okay",
+            icon: LucideIcons.heart,
+            isPrimary: false,
+            onTap: _checkInSent
+                ? null
+                : () => _showImOkaySheet(hazard, selected),
           ),
           8.hSizedBox,
           Row(
@@ -1358,7 +1350,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                           color: Colors.white,
                         ),
                       ),
-                      TextSpan(text: ' warns them. '),
+                      TextSpan(text: ' sends this alert to your group. '),
                       TextSpan(
                         text: "I'm okay",
                         style: TextStyle(
@@ -1368,7 +1360,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                       ),
                       TextSpan(
                         text:
-                            ' sends the alert plus a check-in. No location unless you choose to add it.',
+                            ' opens your private check-in choices. No location is shared unless you choose it.',
                       ),
                     ],
                   ),
@@ -1470,7 +1462,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Everyone else',
+                  'Outside ALRT',
                   style: TextStyle(
                     fontSize: 16.spMin,
                     fontWeight: FontWeight.w700,
@@ -1479,7 +1471,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 ),
                 2.hSizedBox,
                 Text(
-                  'Messages, WhatsApp, Messenger. Public link, suburb precision.',
+                  'Share this alert by text, WhatsApp or Messenger.',
                   style: TextStyle(
                     fontSize: 13.spMin,
                     color: const Color(0xFF5B5E6E),
