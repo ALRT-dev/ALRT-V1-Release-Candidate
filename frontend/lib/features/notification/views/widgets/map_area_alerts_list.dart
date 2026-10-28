@@ -10,6 +10,8 @@ import 'package:hazard_app/features/notification/views/widgets/offline_banner.da
 import 'package:hazard_app/features/profile/providers/my_location_subscriptions_provider.dart';
 import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.dart';
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
+import 'package:hazard_app/features/map/views/widgets/places_sheet.dart';
+import 'package:hazard_app/features/shared/models/location_subscription_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/providers/community_safety_provider.dart';
 import 'package:hazard_app/features/shared/views/widgets/common_hazards_list_item.dart';
@@ -104,9 +106,13 @@ class MapAreaAlertsList extends ConsumerWidget {
         const SliverToBoxAdapter(child: OfflineAlertsCard()),
         SliverToBoxAdapter(
           child: Text(
-            visible.length == 1
-                ? '1 alert in this map area, most serious first'
-                : '${visible.length} alerts in this map area, most serious first',
+            showSaved
+                ? (visible.length == 1
+                    ? '1 alert across your saved locations, grouped by place'
+                    : '${visible.length} alerts across your saved locations, grouped by place')
+                : (visible.length == 1
+                    ? '1 alert in this map area, most serious first'
+                    : '${visible.length} alerts in this map area, most serious first'),
             style: TextStyle(
               fontSize: 13.spMin,
               fontWeight: FontWeight.w500,
@@ -114,20 +120,94 @@ class MapAreaAlertsList extends ConsumerWidget {
             ),
           ).pX(20.0).pB(12.0),
         ),
+        if (showSaved && subs != null && subs.isNotEmpty)
+          ..._groupedSavedLocationSlivers(visible, subs.where((s) => !s.isOwnLocation).toList())
+        else
+          SliverList.separated(
+            itemCount: visible.length,
+            itemBuilder: (context, index) {
+              final hazard = visible[index];
+              return CommonHazardsListItem(
+                key: ValueKey(hazard.id),
+                hazard: hazard,
+              );
+            },
+            separatorBuilder: (context, index) => 20.hSizedBox,
+          ),
+        const SliverToBoxAdapter(child: OfflineAlertsFootnote()),
+      ],
+    );
+  }
+
+
+
+  List<Widget> _groupedSavedLocationSlivers(
+    List<Hazard> visible,
+    List<LocationSubscription> savedSubs,
+  ) {
+    final slivers = <Widget>[];
+    var firstGroup = true;
+    for (final sub in savedSubs) {
+      final groupHazards = visible.where((h) {
+        final lat = h.latitude;
+        final lng = h.longitude;
+        if (lat == null || lng == null) return false;
+        return lat >= sub.southwestLat &&
+            lat <= sub.northeastLat &&
+            lng >= sub.southwestLng &&
+            lng <= sub.northeastLng;
+      }).toList();
+      if (groupHazards.isEmpty) continue;
+      if (!firstGroup) {
+        slivers.add(SliverToBoxAdapter(child: 16.hSizedBox));
+      }
+      firstGroup = false;
+      final title = (sub.name?.trim().isNotEmpty ?? false) ? sub.name! : 'Saved place';
+      final subtitle = [
+        if (sub.address?.trim().isNotEmpty ?? false) sub.address!,
+        '${alertsInsideSubscription(sub, visible)} alert${alertsInsideSubscription(sub, visible) == 1 ? '' : 's'} now',
+      ].join(' · ');
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 17.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
+              ),
+              4.hSizedBox,
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.mediumGrey,
+                ),
+              ),
+            ],
+          ).pX(20.0).pB(12.0),
+        ),
+      );
+      slivers.add(
         SliverList.separated(
-          itemCount: visible.length,
+          itemCount: groupHazards.length,
           itemBuilder: (context, index) {
-            final hazard = visible[index];
+            final hazard = groupHazards[index];
             return CommonHazardsListItem(
-              key: ValueKey(hazard.id),
+              key: ValueKey('${sub.id}-${hazard.id}'),
               hazard: hazard,
             );
           },
           separatorBuilder: (context, index) => 20.hSizedBox,
         ),
-        const SliverToBoxAdapter(child: OfflineAlertsFootnote()),
-      ],
-    );
+      );
+    }
+    return slivers;
   }
 
   /// Widens the map view by two zoom levels and reloads, so the list fills
