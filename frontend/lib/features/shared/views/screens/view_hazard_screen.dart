@@ -674,8 +674,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               3.hSizedBox,
               Text(
                 postedAt == null
-                    ? 'Unverified'
-                    : 'Unverified · ${postedAt.timeAgo}',
+                    ? 'Community report'
+                    : 'Community report · ${postedAt.timeAgo}',
                 style: TextStyle(
                   fontSize: 12.spMin,
                   color: AlertCardStyle.metaInk,

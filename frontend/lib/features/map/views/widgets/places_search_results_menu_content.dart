@@ -203,7 +203,7 @@ class _AlertResultRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final where = alert.locationName?.trim();
     final kind = alert.isUserReported
-        ? 'Community report, unverified'
+        ? 'Community report'
         : alert.isAwsCompliant == true
             ? alert.severityTitle
             : 'Official';

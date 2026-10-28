@@ -1321,7 +1321,7 @@ class _CreateUpdateReportScreenState
               ),
               4.hSizedBox,
               Text(
-                'Unverified · posted anonymously',
+                'Community report · posted anonymously',
                 style: TextStyle(
                   fontSize: 12.5.spMin,
                   color: AppColors.mediumGrey,
@@ -1539,7 +1539,7 @@ class _CreateUpdateReportScreenState
                 8.hSizedBox,
                 Text(
                   isReady
-                      ? 'Shows as unverified until others nearby confirm it.'
+                      ? 'Shows as a community report until others nearby confirm it.'
                       : 'Add ${missing.join(' and ')} to submit.',
                   textAlign: TextAlign.center,
                   style: TextStyle(

@@ -27,7 +27,7 @@ class AlertFeedRow extends ConsumerWidget {
   static const _ink = Color(0xFF1C1C1E);
 
   String _label() {
-    if (hazard.isUserReported) return 'COMMUNITY · UNVERIFIED';
+    if (hazard.isUserReported) return 'COMMUNITY REPORT';
     if (hazard.isAlrtIntel) return 'ALRT ASSESSMENT';
     if (hazard.isGlobalHumanitarian) return 'GDACS';
     final level = hazard.severityTitle;

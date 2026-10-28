@@ -296,7 +296,7 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
           'severity': clip(alert.severityTitle, maxAlertSeverityLength),
         'source': (sourceName != null && sourceName.isNotEmpty)
             ? clip(sourceName, maxAlertSourceLength)
-            : 'community report, unverified',
+            : 'community report',
       });
     }
     return payload;
