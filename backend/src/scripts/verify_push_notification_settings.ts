@@ -332,11 +332,11 @@ async function main() {
       assert.ok(tokens.has(tok(optedOut.id)));
       expectChannel(msgs, "alrt_alerts_urgent");
     });
-    await check("Advice (monitor band): all-on user only, normal channel", async () => {
+    await check("Advice (monitor band): both users, normal channel", async () => {
       const h = await makeHazard({ severity: HazardSeverity.advice, band: HazardSeverityBand.monitor, aws: true });
       const { msgs, tokens } = await sendAndCollect(h);
       assert.ok(tokens.has(tok(allOn.id)));
-      assert.ok(!tokens.has(tok(optedOut.id)), "Advice is off for the opted-out user");
+      assert.ok(tokens.has(tok(optedOut.id)), "Advice stays always-on for the opted-out user");
       expectChannel(msgs, "alrt_alerts");
     });
     await check("Official non-AWS (info band): all-on user only, normal channel", async () => {
