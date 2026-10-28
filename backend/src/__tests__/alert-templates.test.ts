@@ -211,6 +211,38 @@ describe("grounded agency extraction", () => {
       "Example agency advises: Prepare to leave if you are in Example Town.",
     ]);
   });
+  it("preserves an explicit fire ban fact even when the model omits it", () => {
+    const fireBanSource =
+      "Watch and Act for Example Town.\n\n" +
+      "Total Fire Ban in effect for Example District.\n\n" +
+      "Smoke affects Example Road.\n\n" +
+      "Prepare to leave if you are in Example Town.";
+    const result = parseAgencyExtraction(
+      {
+        ...response,
+        facts: [
+          {
+            text: "Smoke affects Example Road.",
+            evidence: "Smoke affects Example Road.",
+          },
+        ],
+      },
+      {
+        sourceText: fireBanSource,
+        sourceActions: response.officialActions.map(x => x.text),
+        agency: "Example agency",
+        allowAgencyNumbers: false,
+        templateVersion: 2,
+        alrtSuggestions: [],
+        profileGuidance: [],
+      },
+    );
+    expect(result.contentDetails.facts).toEqual([
+      "Total Fire Ban in effect for Example District.",
+      "Smoke affects Example Road.",
+    ]);
+    expect(result.summary).toContain("Total Fire Ban in effect for Example District.");
+  });
   it("refuses invented evidence, places, severity and unsourced instructions", () => {
     const opts = {
       sourceText: source,

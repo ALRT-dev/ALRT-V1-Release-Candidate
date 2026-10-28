@@ -20,6 +20,26 @@ const extractionSchema = z
 const normalise = (s: string) =>
   s.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 const plain = (s: string) => s.replace(/[\u2013\u2014]/g, "-").trim();
+const FIRE_BAN_PATTERN =
+  /\b(?:total\s+fire\s+ban|fire\s+ban|fire\s+weather|fire\s+danger)\b/i;
+
+function preserveFireBanFacts(
+  facts: string[],
+  blocks: string[],
+  replaceNumber: (s: string) => string,
+): string[] {
+  const fireBanBlocks = blocks
+    .filter((block) => FIRE_BAN_PATTERN.test(block))
+    .map((block) => replaceNumber(block));
+  if (!fireBanBlocks.length) return facts;
+  const out: string[] = [];
+  for (const line of [...fireBanBlocks, ...facts]) {
+    if (out.some((existing) => normalise(existing) === normalise(line))) continue;
+    out.push(line);
+  }
+  return out.slice(0, 3);
+}
+
 export function removeUnattributedNumbers(text: string): string {
   const dates: string[] = [];
   let value = text.replace(
@@ -87,7 +107,11 @@ export function parseAgencyExtraction(
     ...(freeTextAction ? [options.sourceDescription ?? options.sourceText] : []),
     ...suppliedActions,
   ].map(replaceNumber))];
-  const facts = parsed.facts.map((x) => replaceNumber(blockByText.get(normalise(x.evidence))!));
+  const facts = preserveFireBanFacts(
+    parsed.facts.map((x) => replaceNumber(blockByText.get(normalise(x.evidence))!)),
+    blocks,
+    replaceNumber,
+  );
   const title = replaceNumber(options.sourceTitle ?? blocks[0] ?? "Agency update");
   const alrtSuggestions = officialActions.length ? [] : options.alrtSuggestions;
   const details = {
