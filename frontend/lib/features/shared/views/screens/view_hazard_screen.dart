@@ -219,7 +219,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final timeDiff = hazard.updatedAt!.difference(hazard.createdAt!);
         if (timeDiff.inMinutes <= 5) return const SizedBox.shrink();
         
-        final updatedTime = hazard.updatedAt!.formatRelative();
+        final updatedTime = hazard.updatedAt!.timeAgo;
         
         return Container(
           margin: EdgeInsets.only(bottom: 16.spMin),
@@ -2070,13 +2070,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               4.hSizedBox,
               _attributionRow(
                 'Posted',
-                hazard.createdAt?.formatRelative() ?? 'Unknown',
+                hazard.createdAt?.timeAgo ?? 'Unknown',
               ),
               if (hasUpdate) ...[
                 4.hSizedBox,
                 _attributionRow(
                   'Updated',
-                  hazard.updatedAt!.formatRelative(),
+                  hazard.updatedAt!.timeAgo,
                 ),
               ],
               4.hSizedBox,
