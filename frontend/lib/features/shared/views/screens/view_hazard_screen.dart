@@ -2087,14 +2087,14 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     style: TextStyle(
                       fontSize: 11.spMin,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.darkGrey,
+                      color: AppColors.grey,
                     ),
                   ),
                   if (source?.url != null)
                     GestureDetector(
                       onTap: () => openLink(
                         context: context,
-                        link: source!.url,
+                        link: source.url!,
                       ),
                       child: Text(
                         source!.name ?? 'Source',
@@ -2150,7 +2150,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           style: TextStyle(
             fontSize: 11.spMin,
             fontWeight: FontWeight.w600,
-            color: AppColors.darkGrey,
+            color: AppColors.grey,
           ),
         ),
         Expanded(
