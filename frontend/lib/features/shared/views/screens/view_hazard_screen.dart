@@ -158,6 +158,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   ],
                   _buildHeaderCard(),
                   16.hSizedBox,
+                  
+                  // Updated notification box
+                  _buildUpdatedNotificationBox(),
 
                   // Review feedback section (if applicable)
                   Consumer(
@@ -200,8 +203,82 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       ),
     );
   }
+  
+  /// Shows "Updated" notification box when alert has been updated recently
+  Widget _buildUpdatedNotificationBox() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null) return const SizedBox.shrink();
+        
+        // Check if updated more than 5 minutes after created
+        if (hazard.updatedAt == null || hazard.createdAt == null) {
+          return const SizedBox.shrink();
+        }
+        
+        final timeDiff = hazard.updatedAt!.difference(hazard.createdAt!);
+        if (timeDiff.inMinutes <= 5) return const SizedBox.shrink();
+        
+        final updatedTime = hazard.updatedAt!.formatRelative();
+        
+        return Container(
+          margin: EdgeInsets.only(bottom: 16.spMin),
+          padding: EdgeInsets.all(14.spMin),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF0E4), // Light orange wash
+            borderRadius: BorderRadius.circular(14.spMin),
+            border: Border.all(
+              color: const Color(0xFFFF6B01).withOpacity(0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32.spMin,
+                height: 32.spMin,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF6B01),
+                  borderRadius: BorderRadius.circular(8.spMin),
+                ),
+                child: Icon(
+                  LucideIcons.refreshCw,
+                  size: 16.spMin,
+                  color: Colors.white,
+                ),
+              ),
+              12.wSizedBox,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Updated',
+                      style: TextStyle(
+                        fontSize: 13.spMin,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFFF6B01),
+                      ),
+                    ),
+                    2.hSizedBox,
+                    Text(
+                      'This alert was updated $updatedTime with new information',
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        color: const Color(0xFF6B4423),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-  // ── Top controls ───────────────────────────────────────────────────────
+  // ── White content sections ──────────────────────────────────────────────
 
   /// Page-coloured bar with floating white round controls (approved Detail
   /// board, 12 Oct 2026). Official: back left; Follow pill and Listen
@@ -347,50 +424,101 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   }
 
   /// The Follow pill: bell plus "Follow", filled orange-tint once followed.
+  /// Shows pulsing orange dot when alert has been updated.
   Widget _followPill({
     required final bool isFollowing,
     required final VoidCallback onTap,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      height: 40.spMin,
-      decoration: BoxDecoration(
-        color: isFollowing ? _litWash : AppColors.white,
-        borderRadius: BorderRadius.circular(20.spMin),
-        border: isFollowing ? Border.all(color: _litInk, width: 1.5) : null,
-        boxShadow: const [AlertCardStyle.cardShadow],
-      ),
-      child: Material(
-        color: AppColors.transparent,
-        borderRadius: BorderRadius.circular(20.spMin),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.spMin),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  LucideIcons.bell,
-                  size: 16.spMin,
-                  color: isFollowing ? _litInk : AppColors.ink,
-                ),
-                6.wSizedBox,
-                Text(
-                  isFollowing ? 'Following' : 'Follow',
-                  style: TextStyle(
-                    fontSize: 13.spMin,
-                    fontWeight: FontWeight.w600,
-                    color: isFollowing ? _litInk : AppColors.ink,
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        final hasUpdate = hazard != null && _hasUnseenUpdate(hazard);
+        
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: 40.spMin,
+              decoration: BoxDecoration(
+                color: isFollowing ? _litWash : AppColors.white,
+                borderRadius: BorderRadius.circular(20.spMin),
+                border: isFollowing ? Border.all(color: _litInk, width: 1.5) : null,
+                boxShadow: const [AlertCardStyle.cardShadow],
+              ),
+              child: Material(
+                color: AppColors.transparent,
+                borderRadius: BorderRadius.circular(20.spMin),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14.spMin),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.bell,
+                          size: 16.spMin,
+                          color: isFollowing ? _litInk : AppColors.ink,
+                        ),
+                        6.wSizedBox,
+                        Text(
+                          isFollowing ? 'Following' : 'Follow',
+                          style: TextStyle(
+                            fontSize: 13.spMin,
+                            fontWeight: FontWeight.w600,
+                            color: isFollowing ? _litInk : AppColors.ink,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
+            if (hasUpdate && isFollowing)
+              Positioned(
+                top: -2.spMin,
+                right: -2.spMin,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.6, end: 1.0),
+                  duration: const Duration(seconds: 2),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return Opacity(
+                      opacity: value,
+                      child: Container(
+                        width: 10.spMin,
+                        height: 10.spMin,
+                        decoration: BoxDecoration(
+                          color: _litInk,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  onEnd: () {
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ),
+          ],
+        );
+      },
     );
+  }
+  
+  /// Check if alert has updates the user hasn't seen yet.
+  bool _hasUnseenUpdate(Hazard hazard) {
+    // Simple check: if updated time is more than 5 minutes after created time
+    if (hazard.updatedAt == null || hazard.createdAt == null) return false;
+    final timeDiff = hazard.updatedAt!.difference(hazard.createdAt!);
+    return timeDiff.inMinutes > 5;
   }
 
   Widget _buildEditDeleteRow() {
@@ -1007,6 +1135,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // Attribution
         _buildSourceSection(),
         _buildSourceFootnote(),
+        
+        // Data Attribution Footer (new)
+        _buildDataAttributionFooter(),
+        
         40.hSizedBox,
       ],
     );
@@ -1904,6 +2036,133 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           ),
         );
       },
+    );
+  }
+  
+  /// Data attribution footer with source, timestamps, and disclaimer
+  Widget _buildDataAttributionFooter() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null) return const SizedBox.shrink();
+        
+        final source = hazard.source;
+        final hasUpdate = hazard.updatedAt != null && 
+            hazard.createdAt != null &&
+            hazard.updatedAt!.difference(hazard.createdAt!).inMinutes > 5;
+        
+        return Container(
+          margin: EdgeInsets.only(top: 16.spMin),
+          padding: EdgeInsets.all(14.spMin),
+          decoration: BoxDecoration(
+            color: AppColors.lightGrey.withOpacity(0.3),
+            border: Border(
+              top: BorderSide(color: AppColors.lightGrey),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _attributionRow(
+                'Source',
+                source?.name ?? 'Unknown',
+              ),
+              4.hSizedBox,
+              _attributionRow(
+                'Posted',
+                hazard.createdAt?.formatRelative() ?? 'Unknown',
+              ),
+              if (hasUpdate) ...[
+                4.hSizedBox,
+                _attributionRow(
+                  'Updated',
+                  hazard.updatedAt!.formatRelative(),
+                ),
+              ],
+              4.hSizedBox,
+              Row(
+                children: [
+                  Text(
+                    'Data: ',
+                    style: TextStyle(
+                      fontSize: 11.spMin,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.darkGrey,
+                    ),
+                  ),
+                  if (source?.url != null)
+                    GestureDetector(
+                      onTap: () => openLink(
+                        context: context,
+                        link: source!.url,
+                      ),
+                      child: Text(
+                        source!.name ?? 'Source',
+                        style: TextStyle(
+                          fontSize: 11.spMin,
+                          color: const Color(0xFF5B4FC9),
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      source?.name ?? 'Unknown',
+                      style: TextStyle(
+                        fontSize: 11.spMin,
+                        color: AppColors.grey,
+                      ),
+                    ),
+                  Text(
+                    ' · Refreshed every 5 min',
+                    style: TextStyle(
+                      fontSize: 11.spMin,
+                      color: AppColors.grey,
+                    ),
+                  ),
+                ],
+              ),
+              8.hSizedBox,
+              Text(
+                'The plain-language summary is generated by ALRT and is not '
+                'official ${source?.name ?? 'agency'} advice. Always follow '
+                'agency instructions.',
+                style: TextStyle(
+                  fontSize: 11.spMin,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.grey,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _attributionRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontSize: 11.spMin,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkGrey,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 11.spMin,
+              color: AppColors.grey,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
