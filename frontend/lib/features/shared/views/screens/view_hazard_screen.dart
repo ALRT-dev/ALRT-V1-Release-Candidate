@@ -228,7 +228,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             color: const Color(0xFFFFF0E4), // Light orange wash
             borderRadius: BorderRadius.circular(14.spMin),
             border: Border.all(
-              color: const Color(0xFFFF6B01).withOpacity(0.3),
+              color: const Color(0xFFFF6B01).withValues(alpha: 0.3),
             ),
           ),
           child: Row(
@@ -2055,7 +2055,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           margin: EdgeInsets.only(top: 16.spMin),
           padding: EdgeInsets.all(14.spMin),
           decoration: BoxDecoration(
-            color: AppColors.lightGrey.withOpacity(0.3),
+            color: AppColors.lightGrey.withValues(alpha: 0.3),
             border: Border(
               top: BorderSide(color: AppColors.lightGrey),
             ),
