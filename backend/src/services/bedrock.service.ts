@@ -139,7 +139,12 @@ export const executePrompt = ({
   return retryWithBackoff(async () => {
     const command = new ConverseCommand({
       modelId,
-      system: [{ text: systemPromptContent }],
+      system: [
+        {
+          text: systemPromptContent,
+          cachePoint: { type: "default" },
+        },
+      ],
       messages: [
         {
           role: "user",
