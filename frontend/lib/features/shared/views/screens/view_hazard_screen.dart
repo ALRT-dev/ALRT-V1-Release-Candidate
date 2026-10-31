@@ -1412,7 +1412,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     final FamilyCircleSummary selected,
   ) {
     return Container(
-      padding: EdgeInsets.all(14.spMin),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(18.spMin),
@@ -1422,144 +1421,284 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tell your people',
-                      style: TextStyle(
-                        fontSize: 15.spMin,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    2.hSizedBox,
-                    Text(
-                      'Choose your group, then send or share this alert',
-                      style: TextStyle(
-                        fontSize: 11.5.spMin,
-                        color: AppColors.mediumGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () => showChooseCircleSheet(context, ref),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.ink,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10.spMin,
-                    vertical: 6.spMin,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  circleCount > 1 ? 'Change group' : 'Choose group',
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          10.hSizedBox,
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 10.spMin,
-              vertical: 10.spMin,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F7FA),
-              borderRadius: BorderRadius.circular(14.spMin),
-              border: Border.all(
-                color: const Color(0xFFE6E7EE),
-              ),
-            ),
+          // Header
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.spMin, 14.spMin, 14.spMin, 10.spMin),
             child: Row(
               children: [
-                Container(
-                  width: 32.spMin,
-                  height: 32.spMin,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFEDEAF6),
-                  ),
-                  child: Center(
-                    child: Text(
-                      selected.name.isNotEmpty
-                          ? selected.name[0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        fontSize: 13.spMin,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ),
-                ),
-                10.wSizedBox,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        selected.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        'Tell your people',
                         style: TextStyle(
-                          fontSize: 14.spMin,
+                          fontSize: 15.spMin,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF4A1D8C),
+                          color: AppColors.ink,
                         ),
                       ),
                       2.hSizedBox,
                       Text(
-                        '${selected.memberCount} ${selected.memberCount == 1 ? 'person' : 'people'}',
+                        'Let the people who matter know',
                         style: TextStyle(
-                          fontSize: 12.spMin,
+                          fontSize: 11.5.spMin,
                           color: AppColors.mediumGrey,
                         ),
                       ),
                     ],
                   ),
                 ),
+                TextButton(
+                  onPressed: () => showChooseCircleSheet(context, ref),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.ink,
+                    padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 6.spMin),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    circleCount > 1 ? 'Change group' : 'Choose group',
+                    style: TextStyle(fontSize: 12.5.spMin, fontWeight: FontWeight.w700),
+                  ),
+                ),
               ],
             ),
           ),
-          10.hSizedBox,
-          _tellActionButton(
-            label: 'Send to ${selected.name}',
-            icon: LucideIcons.send,
-            isPrimary: true,
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F5)),
+          // Option 1: Your Circle (ALRT+)
+          _tellOption(
+            icon: LucideIcons.users,
+            iconBackground: const LinearGradient(
+              colors: [Color(0xFF5B4FC9), Color(0xFF7C3AED)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            title: 'Your circle',
+            isPremium: true,
+            description: 'Send this alert to everyone in ${selected.name}',
+            benefit: '⚡ Notifies ${selected.memberCount} ${selected.memberCount == 1 ? 'person' : 'people'} now',
+            benefitColor: const Color(0xFF10B981),
             onTap: () => _sendAlertToCircle(hazard, selected),
+            isFirst: true,
           ),
-          8.hSizedBox,
-          _tellSecondaryShareButton(hazard),
-          8.hSizedBox,
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(LucideIcons.info, size: 13.spMin, color: AppColors.mediumGrey),
-              6.wSizedBox,
-              Expanded(
-                child: Text(
-                  'Send to group opens the group sheet where you can add an optional message before sending.',
-                  style: TextStyle(
-                    fontSize: 12.spMin,
-                    height: 1.35,
-                    color: AppColors.mediumGrey,
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F5)),
+          // Option 2: Alert + Check In (ALRT+)
+          _tellOption(
+            icon: LucideIcons.checkCircle,
+            iconBackground: const LinearGradient(
+              colors: [Color(0xFFFF6B2C), Color(0xFFFF3D00)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            title: 'Alert & check in',
+            isPremium: true,
+            description: "Sends the alert plus 'I'm okay' to your group",
+            benefit: '💬 Reduces worried messages',
+            benefitColor: const Color(0xFFFF6B2C),
+            onTap: () {
+              _sendAlertToCircle(hazard, selected);
+            },
+          ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F5)),
+          // Option 3: Share with Anyone (FREE)
+          _tellOption(
+            icon: LucideIcons.link,
+            iconBackground: null,
+            iconBackgroundColor: const Color(0xFFF3F4F6),
+            iconColor: const Color(0xFF6B7280),
+            title: 'Share with anyone',
+            isFree: true,
+            description: 'Public link — no ALRT account needed',
+            benefit: '📱 Works via SMS, WhatsApp, email',
+            benefitColor: const Color(0xFF9CA3AF),
+            onTap: () => SharePlus.instance.share(
+              ShareParams(
+                text:
+                    '${hazard.title ?? "Alert"} · ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
+              ),
+            ),
+            isLast: true,
+          ),
+          // Invite card
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.spMin, 0, 14.spMin, 12.spMin),
+            child: Container(
+              padding: EdgeInsets.all(12.spMin),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF5B4FC9), Color(0xFF7C3AED)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12.spMin),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '⭐ Get them on ALRT',
+                          style: TextStyle(
+                            fontSize: 13.spMin,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        4.hSizedBox,
+                        Text(
+                          'Invite them so they get alerts automatically next time',
+                          style: TextStyle(
+                            fontSize: 12.spMin,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(LucideIcons.chevronRight, color: Colors.white, size: 18.spMin),
+                ],
+              ),
+            ),
+          ),
+          // Privacy note
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.spMin, 0, 14.spMin, 14.spMin),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(LucideIcons.lock, size: 12.spMin, color: AppColors.mediumGrey),
+                6.wSizedBox,
+                Expanded(
+                  child: Text(
+                    'Private to your group. No location shared unless you add it.',
+                    style: TextStyle(fontSize: 11.spMin, color: AppColors.mediumGrey, height: 1.4),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _tellOption({
+    required IconData icon,
+    LinearGradient? iconBackground,
+    Color? iconBackgroundColor,
+    Color? iconColor,
+    required String title,
+    bool isPremium = false,
+    bool isFree = false,
+    required String description,
+    required String benefit,
+    required Color benefitColor,
+    required VoidCallback onTap,
+    bool isFirst = false,
+    bool isLast = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
+        child: Row(
+          children: [
+            Container(
+              width: 44.spMin,
+              height: 44.spMin,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: iconBackground,
+                color: iconBackgroundColor,
+              ),
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: 20.spMin,
+                  color: iconColor ?? Colors.white,
+                ),
+              ),
+            ),
+            12.wSizedBox,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14.spMin,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      if (isPremium) ...[
+                        6.wSizedBox,
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 5.spMin, vertical: 2.spMin),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF6B00), Color(0xFFFF3D00)],
+                            ),
+                            borderRadius: BorderRadius.circular(4.spMin),
+                          ),
+                          child: Text(
+                            'ALRT+',
+                            style: TextStyle(
+                              fontSize: 9.spMin,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (isFree) ...[
+                        6.wSizedBox,
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 5.spMin, vertical: 2.spMin),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(4.spMin),
+                          ),
+                          child: Text(
+                            'FREE',
+                            style: TextStyle(
+                              fontSize: 9.spMin,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF10B981),
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  3.hSizedBox,
+                  Text(
+                    description,
+                    style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
+                  ),
+                  4.hSizedBox,
+                  Text(
+                    benefit,
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      fontWeight: FontWeight.w600,
+                      color: benefitColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, size: 16.spMin, color: const Color(0xFFD1D5DB)),
+          ],
+        ),
       ),
     );
   }

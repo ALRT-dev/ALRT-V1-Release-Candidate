@@ -39,6 +39,8 @@ import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
 import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
 import { getDeterministicDfesContent } from "../utils/dfes_template.util.js";
+import { getDeterministicNSWRFSContent } from "../utils/nsw_rfs_template.util.js";
+import { getDeterministicNSWSESContent } from "../utils/nsw_ses_template.util.js";
 import { getDeterministicGdacsContent } from "../utils/gdacs_template.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import { getTemplateRegistry, getReleasePrompt, type TemplateRelease } from './alert_templates.service.js';
@@ -709,6 +711,21 @@ export const summarizeHazard = async ({
   if (source.id === "waDfes") {
     const dfesContent = getDeterministicDfesContent({ title, description });
     if (dfesContent) return dfesContent;
+  }
+
+  // NSW RFS fire warnings: deterministic content keyed by severity band.
+  // RFS publishes structured warning levels (Emergency Warning, Watch and Act,
+  // Advice) rather than a parseable prose block, so content is selected from
+  // the band rather than extracted from the description text.
+  if (source.id === ExternalSourceId.rfs) {
+    return getDeterministicNSWRFSContent({ title, severityBand });
+  }
+
+  // NSW SES flood warnings: deterministic content keyed by severity band.
+  // SES uses the same three-tier level structure as RFS (Emergency Warning,
+  // Flood Warning, Flood Watch), mapped here from the ingested severity band.
+  if (source.id === ExternalSourceId.nswSes) {
+    return getDeterministicNSWSESContent({ title, severityBand });
   }
 
   // GDACS is a pass-through source: level and hazard come straight from the
