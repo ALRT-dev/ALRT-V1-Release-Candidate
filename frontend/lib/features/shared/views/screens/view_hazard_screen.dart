@@ -161,6 +161,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   
                   // Updated notification box
                   _buildUpdatedNotificationBox(),
+                  
+                  // Timeline section
+                  _buildTimelineSection(),
 
                   // Review feedback section (if applicable)
                   Consumer(
@@ -276,6 +279,170 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         );
       },
     );
+  }
+  
+  /// Shows structured timeline with event/posted/updated/expiry times
+  Widget _buildTimelineSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        if (hazard == null) return const SizedBox.shrink();
+        
+        // Only show if we have meaningful timestamps
+        final hasOccurredAt = hazard.occurredAt != null;
+        final hasUpdated = hazard.updatedAt != null && 
+            hazard.createdAt != null &&
+            hazard.updatedAt!.difference(hazard.createdAt!).inMinutes > 5;
+        final hasExpiry = hazard.expiresAt != null;
+        
+        // Skip if we only have createdAt (already shown elsewhere)
+        if (!hasOccurredAt && !hasUpdated && !hasExpiry) {
+          return const SizedBox.shrink();
+        }
+        
+        return Container(
+          margin: EdgeInsets.only(bottom: 16.spMin),
+          padding: EdgeInsets.all(16.spMin),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(14.spMin),
+            border: Border.all(color: AppColors.lightGrey),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TIMELINE',
+                style: TextStyle(
+                  fontSize: 11.spMin,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.mediumGrey,
+                ),
+              ),
+              12.hSizedBox,
+              
+              // Event time (when the event occurred/will occur)
+              if (hasOccurredAt)
+                _timelineRow(
+                  icon: LucideIcons.zap,
+                  label: _eventLabel(hazard.occurredAt!),
+                  value: _formatTimestamp(hazard.occurredAt!),
+                  color: hazard.color,
+                ),
+              
+              // Posted time
+              if (hazard.createdAt != null) ...[
+                if (hasOccurredAt) 8.hSizedBox,
+                _timelineRow(
+                  icon: LucideIcons.send,
+                  label: 'Posted',
+                  value: _formatTimestamp(hazard.createdAt!),
+                  color: AppColors.mediumGrey,
+                ),
+              ],
+              
+              // Updated time
+              if (hasUpdated) ...[
+                8.hSizedBox,
+                _timelineRow(
+                  icon: LucideIcons.refreshCw,
+                  label: 'Updated',
+                  value: _formatTimestamp(hazard.updatedAt!),
+                  color: const Color(0xFFFF6B01),
+                ),
+              ],
+              
+              // Expiry time
+              if (hasExpiry) ...[
+                8.hSizedBox,
+                _timelineRow(
+                  icon: LucideIcons.clock,
+                  label: 'Expires',
+                  value: _formatTimestamp(hazard.expiresAt!),
+                  color: AppColors.mediumGrey,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  /// Timeline row with icon, label, and formatted time
+  Widget _timelineRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16.spMin,
+          color: color,
+        ),
+        8.wSizedBox,
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13.spMin,
+                  color: AppColors.mediumGrey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  
+  /// Format timestamp as "Today 2:15 PM" or "Tomorrow 6:00 PM" or "Thu, 2 Nov 3:45 PM"
+  String _formatTimestamp(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final dtDate = DateTime(dt.year, dt.month, dt.day);
+    
+    final timeStr = '${dt.hour % 12 == 0 ? 12 : dt.hour % 12}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour >= 12 ? 'PM' : 'AM'}';
+    
+    if (dtDate == today) {
+      return 'Today $timeStr';
+    } else if (dtDate == tomorrow) {
+      return 'Tomorrow $timeStr';
+    } else if (dt.isBefore(now) && now.difference(dt).inHours < 24) {
+      return dt.timeAgo;
+    } else {
+      final weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][dt.weekday - 1];
+      final month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dt.month - 1];
+      return '$weekday, ${dt.day} $month $timeStr';
+    }
+  }
+  
+  /// Event label: "Event" for past, "Active now" for current, "Starts" for future
+  String _eventLabel(DateTime occurredAt) {
+    final now = DateTime.now();
+    if (occurredAt.isBefore(now.subtract(const Duration(hours: 1)))) {
+      return 'Event';
+    } else if (occurredAt.isAfter(now.add(const Duration(hours: 1)))) {
+      return 'Starts';
+    } else {
+      return 'Active now';
+    }
   }
 
   // ── White content sections ──────────────────────────────────────────────

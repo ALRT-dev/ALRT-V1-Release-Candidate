@@ -19,6 +19,7 @@ import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/hazard_artwork.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
+import 'package:hazard_app/features/shared/extensions/date_time_extension.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 /// The feed card (approved Feed board, 12 Oct 2026). One card everywhere
@@ -430,6 +431,12 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
             fragments.add(sourceName);
           }
         }
+        
+        // Add "Posted X ago" timestamp
+        if (hazard.createdAt != null) {
+          fragments.add('Posted ${hazard.createdAt!.timeAgo}');
+        }
+        
         if (distanceText != null) fragments.add(distanceText);
         if (fragments.isEmpty) return const SizedBox.shrink();
 
