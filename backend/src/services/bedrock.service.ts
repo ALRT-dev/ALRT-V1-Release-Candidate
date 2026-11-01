@@ -140,10 +140,11 @@ export const executePrompt = ({
     const command = new ConverseCommand({
       modelId,
       system: [
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         {
           text: systemPromptContent,
           cachePoint: { type: "default" },
-        },
+        } as any,
       ],
       messages: [
         {
