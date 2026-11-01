@@ -279,7 +279,8 @@ export const getAirQualityAlertCategoryPrompt = (
 
   ${defaultCallToActionGuidelines}
   - Use Australian spellings.
-  - Always include: "Seek medical help if breathing worsens" for higher levels.
+  - Use suggestive/informational wording: "Consider...", "may help", "can help". Never use directive language ("should", "must", "avoid all") unless quoting an agency.
+  - For higher levels, include informational guidance about when health professionals can help.
   ${callToActionExamplesText}
       
   ${defaultConfidenceLevelGuidelines}
