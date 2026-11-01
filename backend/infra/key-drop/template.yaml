@@ -1,0 +1,229 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  ALRT one-time secret drop. Stores a secret (default: the GDACS Prod owner
+  webhook key) in Secrets Manager and exposes it through a single-use,
+  short-lived link: GET /gdacs/key?request_id=<token>. Each token is consumed
+  atomically in DynamoDB and expires via TTL, so a leaked or replayed link
+  returns nothing.
+
+Parameters:
+  SecretName:
+    Type: String
+    Default: safetyalrt/gdacs-prod/webhook-key
+    Description: Secrets Manager secret name. Created with a placeholder; set the real value with set_key.sh.
+  TableName:
+    Type: String
+    Default: gdacs_key_access
+    Description: DynamoDB table that records one-time request tokens.
+  FunctionName:
+    Type: String
+    Default: gdacs-get-key
+  AuthMode:
+    Type: String
+    Default: NONE
+    AllowedValues: [NONE, AWS_IAM]
+    Description: >-
+      NONE: the 256-bit single-use request_id is the only credential (lets a
+      party without AWS access retrieve once). AWS_IAM: callers must also
+      SigV4-sign the request.
+  LogRetentionDays:
+    Type: Number
+    Default: 90
+
+Conditions:
+  UseIam: !Equals [!Ref AuthMode, AWS_IAM]
+
+Resources:
+  KeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Ref SecretName
+      Description: GDACS Prod owner webhook key (X-Webhook-Api-Key) for ALRT ingest. Set via set_key.sh, never via chat.
+      SecretString: '{"X-Webhook-Api-Key":"REPLACE_ME"}'
+      Tags:
+        - Key: app
+          Value: alrt
+        - Key: purpose
+          Value: one-time-key-drop
+
+  AccessTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: request_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: request_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      Tags:
+        - Key: app
+          Value: alrt
+        - Key: purpose
+          Value: one-time-key-drop
+
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FunctionName}
+      RetentionInDays: !Ref LogRetentionDays
+
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: key-drop-least-privilege
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt FunctionLogGroup.Arn
+              - Effect: Allow
+                Action: dynamodb:UpdateItem
+                Resource: !GetAtt AccessTable.Arn
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref KeySecret
+
+  GetKeyFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: FunctionLogGroup
+    Properties:
+      FunctionName: !Ref FunctionName
+      Description: Releases the stored secret exactly once per valid, unexpired request_id.
+      Runtime: python3.12
+      Handler: index.handler
+      Architectures: [arm64]
+      MemorySize: 256
+      Timeout: 10
+      ReservedConcurrentExecutions: 2
+      Role: !GetAtt FunctionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AccessTable
+          SECRET_ID: !Ref KeySecret
+      Code:
+        ZipFile: |
+          import json, os, time, boto3
+          from botocore.exceptions import ClientError
+
+          TABLE = os.environ["TABLE_NAME"]
+          SECRET_ID = os.environ["SECRET_ID"]
+          PLACEHOLDER = "REPLACE_ME"
+          ddb = boto3.client("dynamodb")
+          sm = boto3.client("secretsmanager")
+
+          def resp(code, body):
+              return {"statusCode": code,
+                      "headers": {"Content-Type": "application/json",
+                                  "Cache-Control": "no-store"},
+                      "body": json.dumps(body)}
+
+          def handler(event, context):
+              qs = event.get("queryStringParameters") or {}
+              rid = qs.get("request_id") or ""
+              if not (32 <= len(rid) <= 128) or not rid.replace("-", "").replace("_", "").isalnum():
+                  return resp(400, {"error": "missing or malformed request_id"})
+              ip = ((event.get("requestContext") or {}).get("http") or {}).get("sourceIp", "unknown")
+              now = int(time.time())
+
+              # Read the secret first so an unpopulated secret never burns a token.
+              try:
+                  secret = sm.get_secret_value(SecretId=SECRET_ID)["SecretString"]
+              except ClientError:
+                  print(json.dumps({"event": "secret_read_failed", "rid": rid[:8]}))
+                  return resp(503, {"error": "secret unavailable"})
+              if PLACEHOLDER in secret:
+                  return resp(409, {"error": "secret not populated yet; run set_key.sh"})
+
+              # Atomic single-use: the conditional update succeeds for exactly one caller.
+              try:
+                  ddb.update_item(
+                      TableName=TABLE,
+                      Key={"request_id": {"S": rid}},
+                      UpdateExpression="SET #c = :t, consumed_at = :now, consumer_ip = :ip",
+                      ConditionExpression="attribute_exists(request_id) AND #c = :f AND expires_at > :now",
+                      ExpressionAttributeNames={"#c": "consumed"},
+                      ExpressionAttributeValues={
+                          ":t": {"BOOL": True}, ":f": {"BOOL": False},
+                          ":now": {"N": str(now)}, ":ip": {"S": ip}})
+              except ClientError as e:
+                  if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                      print(json.dumps({"event": "key_denied", "rid": rid[:8], "ip": ip}))
+                      return resp(410, {"error": "link invalid, expired, or already used"})
+                  raise
+
+              print(json.dumps({"event": "key_released", "rid": rid[:8], "ip": ip}))
+              try:
+                  body = json.loads(secret)
+              except ValueError:
+                  body = {"X-Webhook-Api-Key": secret}
+              return resp(200, body)
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-api
+      ProtocolType: HTTP
+      Description: One-time secret retrieval endpoint.
+
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt GetKeyFunction.Arn
+      PayloadFormatVersion: "2.0"
+      TimeoutInMillis: 10000
+
+  GetKeyRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /gdacs/key
+      AuthorizationType: !If [UseIam, AWS_IAM, NONE]
+      Target: !Sub integrations/${Integration}
+
+  ProdStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: prod
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 5
+        ThrottlingRateLimit: 2
+
+  InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetKeyFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/gdacs/key
+
+Outputs:
+  KeyUrl:
+    Description: Append ?request_id=<token> from issue_link.py
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/prod/gdacs/key
+  TableName:
+    Value: !Ref AccessTable
+  SecretName:
+    Value: !Ref SecretName
+  SecretArn:
+    Value: !Ref KeySecret
+  FunctionName:
+    Value: !Ref GetKeyFunction
