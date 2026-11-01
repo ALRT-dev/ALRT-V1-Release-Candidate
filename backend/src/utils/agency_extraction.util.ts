@@ -138,12 +138,81 @@ export function parseAgencyExtraction(
 }
 export type AgencyExtractionResult = ReturnType<typeof parseAgencyExtraction>;
 
+/**
+ * Split text into individual sentences on `. `, `! `, `? ` boundaries or newlines.
+ * Minimum 12 characters to skip fragments.
+ */
+function splitSentences(text: string): string[] {
+  return text
+    .replace(/\r\n/g, "\n")
+    // Insert a split marker after sentence-ending punctuation followed by a capital letter
+    .replace(/([.!?])\s+(?=[A-Z])/g, "$1\n")
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 12);
+}
+
+/**
+ * Remove near-duplicate sentences by comparing the first 55 normalised characters.
+ * Preserves original ordering.
+ */
+function deduplicateSentences(sentences: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const s of sentences) {
+    const key = normalise(s).slice(0, 55);
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(s);
+    }
+  }
+  return result;
+}
+
+/** Sentences that start or contain a directive action verb. */
+const ACTION_VERB_RE =
+  /\b(avoid|close|stay|leave|evacuate|shelter|prepare|contact|call|follow|monitor|check|do\s+not|don't|move|protect|wear|turn\s+off|report|remain)\b/i;
+
+/** Sentences that carry concrete facts (numbers, measurements, named states). */
+const FACT_SIGNAL_RE =
+  /\b(\d+|km|metre|meter|hour|percent|%|tonne|litre|hectare|closed|open|damaged|affected|estimated|confirmed|approximately|about)\b/i;
+
 /** Source-only fallback. A failed model must not remove separate agency instructions. */
 export function agencyExtractionFallback(options: Parameters<typeof parseAgencyExtraction>[1] & { sourceDescription: string; nativeWarningLevel?: string | null | undefined }) {
   const description = options.sourceDescription.trim();
   const value = parseAgencyExtraction({title: "Agency update", facts: [], affectedAreas: [], nativeLevel: options.nativeWarningLevel ?? null, officialActions: [], confidence: "low"}, {...options, alrtSuggestions: []});
-  // Keep the entire original warning on failure, including instructions that
-  // were embedded in later paragraphs. Do not guess whether advice was absent.
-  const text = options.allowAgencyNumbers ? plain(description) : removeUnattributedNumbers(plain(description));
-  return {...value, summary: text, contentDetails: {...value.contentDetails, facts: [text], evidence: [description]}};
+
+  const replaceNumber = (s: string) =>
+    options.allowAgencyNumbers ? plain(s) : removeUnattributedNumbers(plain(s));
+
+  // Keep the full original text as the summary (preserves embedded instructions).
+  const text = replaceNumber(description);
+
+  // Split description into sentences and deduplicate for structured extraction.
+  const rawSentences = splitSentences(description);
+  const cleanedSentences = deduplicateSentences(rawSentences.map(replaceNumber));
+
+  // Prefer sentences with concrete signals (numbers, status words) for facts;
+  // fall back to remaining sentences.
+  const factSentences = cleanedSentences.filter((s) => FACT_SIGNAL_RE.test(s));
+  const otherSentences = cleanedSentences.filter((s) => !FACT_SIGNAL_RE.test(s));
+  const orderedFacts = [...factSentences, ...otherSentences];
+  const facts = orderedFacts.length > 0 ? orderedFacts.slice(0, 5) : [text];
+
+  // Prefer sentences with action verbs for callsToAction.
+  const actionSentences = cleanedSentences
+    .filter((s) => ACTION_VERB_RE.test(s))
+    .slice(0, 3)
+    .map((s) => `${options.agency} advises: ${s}`);
+
+  return {
+    ...value,
+    summary: text,
+    callsToAction: actionSentences.length > 0 ? actionSentences : value.callsToAction,
+    contentDetails: {
+      ...value.contentDetails,
+      facts,
+      evidence: rawSentences.length > 0 ? rawSentences.slice(0, 5) : [description],
+    },
+  };
 }

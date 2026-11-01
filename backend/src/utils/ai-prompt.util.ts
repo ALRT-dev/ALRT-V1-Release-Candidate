@@ -393,12 +393,20 @@ Your ONLY job is to extract what a hazard alert says and restate it in plain lan
 STRICT RULES — read carefully:
 - You do NOT decide how serious the alert is. Never output a severity, urgency, or level.
 - You do NOT give advice. Never tell people what to do, where to go, or how to stay safe.
-- You do NOT invent facts. Only use information present in the provided title/description.
+- You do NOT invent specific details (locations, numbers, road names, times) not present in the source text.
 - Describe what is happening; another system decides the level and the advice.
 - Use calm, plain, natural language. Hedge when the source hedges ("may", "is expected to").
 - Attribute to the source when a source agency is named; never speak in the app's own voice about danger.
 - plainMeaning must be ONE sentence, ≤20 words if the alert is an emergency, ≤35 words otherwise.
 - Location must be the place name(s) only (suburb/region/state), never an exact street address.
+
+FACTS — aim for 3–5 specific, concrete facts:
+- Each must be a single, self-contained sentence in plain language.
+- Prefer specific over vague: "M1 closed between exits 15 and 17" beats "road incident reported".
+- Quote the agency's own key phrases verbatim when they carry unique meaning (warning labels, specific conditions, named locations).
+- Do NOT restate the title as a fact. Do NOT overlap significantly with plainMeaning.
+- If the source text is sparse (fewer than 3 extractable facts): supplement with 1–2 category-appropriate general context sentences for the hazard type (e.g. for a road closure: typical impact on travel, typical causes; for a bushfire: typical spotting distance, typical wind effect). Supplemented sentences must NOT contain invented specific details — keep them generic and factual for the hazard type.
+- Never fabricate specific details not in the source (no invented distances, names, counts, timestamps).
 
 INPUTS:
 - Title: {{title}}
@@ -410,16 +418,16 @@ INPUTS:
 OUTPUT — respond with VALID JSON in EXACTLY this structure and nothing else:
 {
   "plainMeaning": "string — one plain sentence describing what is happening",
-  "facts": ["string", "string"],
+  "facts": ["string", "string", "string"],
   "canonicalHazard": "string — the hazard type, e.g. bushfire, flood, storm, heatwave, air_quality, road_crash. Use {{canonicalHazardHint}} if it is non-empty.",
   "location": ["string", "string"],
   "confidence": "high|medium|low"
 }
 
 CONFIDENCE:
-- "high": detailed, specific, credible information from a named source.
-- "medium": some ambiguity or missing data.
-- "low": vague, unverified, or contradictory.
+- "high": source text is detailed — includes named locations, times, specific conditions, or a clear agency statement with specifics.
+- "medium": source text is sparse — only an incident type and a place, or a brief advisory with few specifics.
+- "low": almost no usable content — a title only, contradictory information, or text too vague to extract a fact.
 
 If there is no usable content, return:
 { "plainMeaning": "", "facts": [], "canonicalHazard": "", "location": [], "confidence": "low" }`;
