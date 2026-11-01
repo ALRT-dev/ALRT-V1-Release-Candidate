@@ -21,9 +21,11 @@ class HazardShapeBadge extends StatelessWidget {
     super.key,
     required this.isAws,
     required this.isOfficial,
-    required this.band,
     this.isGlobalHumanitarian = false,
     this.isAlrtIntel = false,
+    this.isGdacs = false,
+    this.nativeWarningLevel,
+    required this.band,
     this.size = 30,
     this.outline = false,
   });
@@ -42,6 +44,13 @@ class HazardShapeBadge extends StatelessWidget {
   /// shape. It never writes the band word and never restates or overrides
   /// an official warning; it takes the same band hexes as everything else.
   final bool isAlrtIntel;
+
+  /// Whether this alert is from the GDACS feed; uses GDACS own colours
+  /// (Green/Orange/Red) instead of the standard band hexes.
+  final bool isGdacs;
+
+  /// The native warning level from GDACS (e.g. 'green', 'orange', 'red').
+  final String? nativeWarningLevel;
 
   /// The severity band, which supplies the tint and the glyph ink.
   final HazardSeverityBand? band;
@@ -83,7 +92,9 @@ class HazardShapeBadge extends StatelessWidget {
       );
     }
 
-    final tint = AlertCardStyle.bandShapeColor(band);
+    final tint = isGdacs
+        ? AlertCardStyle.gdacsShapeColor(nativeWarningLevel)
+        : AlertCardStyle.bandShapeColor(band);
     // The glyph takes the band's dark stop, not the bright band hex, which
     // has too little contrast against its own wash.
     final ink = AlertCardStyle.bandDarkStop(band);

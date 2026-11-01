@@ -181,6 +181,11 @@ abstract class Hazard with _$Hazard {
     return id != null && globalHumanitarianSourceIds.contains(id);
   }
 
+  /// Whether this alert came from the GDACS international humanitarian feed.
+  /// GDACS colours (Green/Orange/Red) are never mapped onto the internal
+  /// band system — they are carried verbatim via [nativeWarningLevel].
+  bool get isGdacs => source?.id == 'gdacsGlobal';
+
   /// ALRT's own assessment: the shield.
   ///
   /// Driven entirely by the source registry the backend already keeps, so

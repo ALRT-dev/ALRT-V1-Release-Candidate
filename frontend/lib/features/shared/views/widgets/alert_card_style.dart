@@ -55,6 +55,22 @@ abstract final class AlertCardStyle {
     return LucideIcons.circle;
   }
 
+  // ── GDACS colours (international humanitarian, System 4) ───────────────
+  // GDACS uses its own scale (Green/Orange/Red = likelihood of international
+  // aid needed) — never mapped onto the band hex system. Green is GDACS-only;
+  // orange and red share the band hexes but are resolved here for clarity.
+  static const gdacsGreen = Color(0xFF00B383);
+  static const gdacsOrange = Color(0xFFFF6B01);
+  static const gdacsRed = Color(0xFFFF2020);
+
+  /// The display colour for a GDACS alert, from its nativeWarningLevel.
+  static Color gdacsShapeColor(final String? nativeWarningLevel) {
+    final level = (nativeWarningLevel ?? '').toLowerCase();
+    if (level == 'red') return gdacsRed;
+    if (level == 'orange') return gdacsOrange;
+    return gdacsGreen;
+  }
+
   // ── Pre-coloured severity sets (shape-severity/, locked hexes) ─────────
   // Diamond/shield render at the band hex; the shield carries colour only -
   // the band word is never written next to it. Community circles take the

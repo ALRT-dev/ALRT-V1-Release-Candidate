@@ -92,7 +92,9 @@ class AlertFeedRow extends ConsumerWidget {
               if (!hazard.isUserReported)
                 Container(
                   height: AlertCardStyle.feedBandStripHeight.spMin,
-                  color: hazard.color,
+                  color: hazard.isGdacs
+                      ? AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel)
+                      : hazard.color,
                 ),
               Padding(
                 padding: EdgeInsets.symmetric(
@@ -112,7 +114,10 @@ class AlertFeedRow extends ConsumerWidget {
                             isOfficial: hazard.source != null,
                             isGlobalHumanitarian: hazard.isGlobalHumanitarian,
                             isAlrtIntel: hazard.isAlrtIntel,
-                            color: hazard.color,
+                            color: hazard.isGdacs
+                                ? AlertCardStyle.gdacsShapeColor(
+                                    hazard.nativeWarningLevel)
+                                : hazard.color,
                             size: 14.spMin,
                           ),
                         SizedBox(width: 8.spMin),

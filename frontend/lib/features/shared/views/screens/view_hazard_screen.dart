@@ -742,7 +742,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 Container(
                   width: double.infinity,
                   height: AlertCardStyle.detailBandStripHeight.spMin,
-                  color: hazard.color,
+                  color: hazard.isGdacs
+                      ? AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel)
+                      : hazard.color,
                 ),
               Padding(
                 padding: EdgeInsets.all(16.spMin),
@@ -888,7 +890,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           isOfficial: hazard.source != null,
           isGlobalHumanitarian: hazard.isGlobalHumanitarian,
           isAlrtIntel: hazard.isAlrtIntel,
-          color: hazard.color,
+          color: hazard.isGdacs
+              ? AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel)
+              : hazard.color,
           // 14 read as a speck next to the source (phone review, 14 Oct).
           size: 20.spMin,
         ),

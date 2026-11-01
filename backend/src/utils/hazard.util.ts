@@ -1189,7 +1189,13 @@ export const adjustExpirationTime = (
 export const mapAiReviewStatus = (value: unknown): HazardReviewStatus => {
   if (value === "accepted") return HazardReviewStatus.accepted;
   if (value === "rejected") return HazardReviewStatus.rejected;
-  return HazardReviewStatus.pending;
+  // Product rule (Nov 2026): community reports post immediately after AI
+  // screening. Only explicit "rejected" holds a report. When the AI is
+  // uncertain (returns anything other than the two literal values above),
+  // the safety nets below in the controller still run — raw identifiers
+  // (phone numbers, emails, addresses) and unscreened media force pending.
+  // Truly bad content is caught by "rejected". Ambiguous = accept.
+  return HazardReviewStatus.accepted;
 };
 
 export const getFormattedHazardSeverity = (

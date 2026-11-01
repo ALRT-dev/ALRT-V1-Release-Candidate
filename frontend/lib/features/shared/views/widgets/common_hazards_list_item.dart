@@ -170,9 +170,10 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
   Widget _bandStripBuilder() {
     return Consumer(
       builder: (context, ref, child) {
-        final bandColor = ref.watch(
-          provider.select((value) => value.hazard?.color ?? AppColors.info),
-        );
+        final hazard = ref.watch(provider.select((value) => value.hazard));
+        final bandColor = hazard?.isGdacs == true
+            ? AlertCardStyle.gdacsShapeColor(hazard?.nativeWarningLevel)
+            : (hazard?.color ?? AppColors.info);
         return Container(
           width: double.infinity,
           height: AlertCardStyle.feedBandStripHeight.spMin,
@@ -230,7 +231,9 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                 isOfficial: isOfficial,
                 isGlobalHumanitarian: hazard.isGlobalHumanitarian,
                 isAlrtIntel: hazard.isAlrtIntel,
-                color: hazard.color,
+                color: hazard.isGdacs
+                    ? AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel)
+                    : hazard.color,
                 // Was 14: too small to read (phone review, 14 Oct 2026).
                 size: 20.spMin,
               );
