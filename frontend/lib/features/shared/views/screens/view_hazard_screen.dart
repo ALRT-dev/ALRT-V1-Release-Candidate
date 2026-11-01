@@ -1345,8 +1345,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     if (mounted) setState(() => _isSpeaking = false);
   }
 
-  static const _tellPurple = Color(0xFF4A1D8C);
-
   Future<void> _sendAlertToCircle(
     final Hazard hazard,
     final FamilyCircleSummary circle,
