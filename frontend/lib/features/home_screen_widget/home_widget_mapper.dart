@@ -81,9 +81,13 @@ class HomeWidgetMapper {
     // nothing and looks broken; the band we already computed is the
     // honest label for a source that publishes no level of its own.
     final title = hazard.severityTitle.trim();
-    final label = (title.isEmpty || title.toLowerCase() == 'unknown')
-        ? band.widgetLabel
-        : title;
+    // Only AWS alerts write a level. Diamonds and community reports stay
+    // colour-only, so the chip gets no word for them.
+    final label = hazard.isAwsCompliant == true &&
+            title.isNotEmpty &&
+            title.toLowerCase() != 'unknown'
+        ? title
+        : (hazard.isAwsCompliant == true ? band.widgetLabel : '');
     return HomeWidgetAlert(
       band: band,
       severityLabel: label,

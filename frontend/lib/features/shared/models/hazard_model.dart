@@ -334,7 +334,9 @@ abstract class Hazard with _$Hazard {
     if (isAwsCompliant == true) {
       return severity?.titleAws ?? HazardSeverity.info.titleAws;
     }
-    return severity?.titleNonAws ?? HazardSeverity.info.titleNonAws;
+    // Only AWS writes its level. Diamonds (official non-AWS) are colour-only
+    // and community reports carry no severity rating, so no word here.
+    return '';
   }
 
   /// The category image type of the hazard based on the severity and AWS compliance.

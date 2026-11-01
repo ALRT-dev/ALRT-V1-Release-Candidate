@@ -231,14 +231,14 @@ void main() {
       );
     });
 
-    test('an AWS Watch and Act bypasses its switch and the category', () {
+    test('an AWS Watch and Act follows its switch and the category filter', () {
       final hazard = aws(severity: HazardSeverity.watchAndAct);
       expect(
         hazardMatchesMapFilters(
           hazard,
           const HazardFiltersProviderState(awsWatchAndAct: false),
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         hazardMatchesMapFilters(
@@ -247,10 +247,10 @@ void main() {
             selectedCategoryIds: {'securityAndCrime'},
           ),
         ),
-        isTrue,
+        isFalse,
       );
     });
-    test('an AWS Info lifecycle update does not bypass disabled filters', () {
+    test('an AWS Emergency stays visible even when its band reads Info', () {
       final hazard = aws(
         severity: HazardSeverity.emergency,
         band: HazardSeverityBand.info,
@@ -263,7 +263,7 @@ void main() {
             selectedCategoryIds: {'securityAndCrime'},
           ),
         ),
-        isFalse,
+        isTrue,
       );
     });
   });
@@ -334,7 +334,7 @@ void main() {
       },
     );
 
-    test('active AWS Advice remains visible despite optional switches', () {
+    test('AWS Advice follows its optional switches (only Emergency is forced)', () {
       final adviceWithActionBand = Hazard(
         categoryId: 'bushfire',
         latitude: _scarboroughLat,
@@ -348,7 +348,7 @@ void main() {
           adviceWithActionBand,
           const HazardFiltersProviderState(awsAdvice: false),
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         hazardMatchesMapFilters(

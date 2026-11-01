@@ -95,14 +95,13 @@ bool hazardMatchesMapFilters(
 /// by a filter. User-reported alerts are not official, so they stay filterable.
 bool _isAlwaysVisibleOfficialWarning(Hazard hazard) {
   if (hazard.isUserReported) return false;
-  if (hazard.isAwsCompliant == true &&
-      hazard.severityBand != HazardSeverityBand.info &&
-      const {
-        HazardSeverity.advice,
-        HazardSeverity.watchAndAct,
-        HazardSeverity.emergency,
-      }.contains(hazard.severity)) {
-    return true;
+  if (hazard.isAwsCompliant == true) {
+    // Emergency Warning is the only AWS level that can never be filtered out.
+    if (hazard.severity != null) {
+      return hazard.severity == HazardSeverity.emergency;
+    }
+    return hazard.severityBand == HazardSeverityBand.critical;
   }
+  // Official non-AWS critical band (the emergency-equivalent tier).
   return hazard.severityBand == HazardSeverityBand.critical;
 }
