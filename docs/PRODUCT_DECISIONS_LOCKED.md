@@ -39,5 +39,11 @@ Never mapped onto the internal band system.
 - Second corroboration: +5 XP
 - False report (rejected): −15 XP
 
-## Source types
+## Pricing (AUD, V1 monthly only)
+- Individual: from store (set in Play Console / App Store Connect)
+- Family: A$15.99/mo
+- Group 20: A$24.99/mo
+- Group 50: A$49.99/mo
+- Free trial: 1 month for everyone, then paid
+- Yearly: to be added post-launch
 - official, community, global (sensor parked for V2)
