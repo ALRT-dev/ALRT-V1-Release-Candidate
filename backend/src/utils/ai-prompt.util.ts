@@ -240,12 +240,12 @@ export const getAirQualityAlertCategoryPrompt = (
         return [];
       case HazardSeverityBand.action:
         return [
-          "Limit outdoor activities if you have breathing conditions. Monitor updates from health authorities.",
+          "Consider limiting outdoor activities if you have a breathing condition. For health advice, your state EPA or Department of Health can help.",
         ];
       case HazardSeverityBand.critical:
         return [
-          "Avoid outdoor activities. Stay indoors with windows closed. Seek medical help if breathing worsens.",
-          "Stay indoors immediately. Do not go outside. Call your local emergency number if you have severe breathing difficulty or chest pain.",
+          "Consider staying indoors with windows closed. If you have a breathing condition, consider following your care plan.",
+          "Staying indoors may help reduce exposure. If breathing becomes difficult, health professionals can help.",
         ];
       default:
         return [];
