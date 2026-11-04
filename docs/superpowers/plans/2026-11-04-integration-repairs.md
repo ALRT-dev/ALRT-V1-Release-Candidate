@@ -41,3 +41,9 @@ CFS replacement CAP feed responds XML 200 while current JSON URL responds HTML 2
 - Backend full suite 179 passed across 23 files. Type check still blocked only by absent serviceAccountKey.json. No credentials copied or checks suppressed.
 - TEST impersonates fcm-sender@alrt-test.iam.gserviceaccount.com against project alrt-a6539. Existing validate-only probe gets cloudmessaging.messages.create permission denied after authentication normalization. Production credential cannot read project IAM policy (403); no permissions granted.
 - Neither repair is deployed. Physical push, Firestore writes, provider IAM acceptance, clean install and release gates remain open.
+
+## Live admin host alignment
+
+Verified the actual live JavaScript forces relay on the AWS/nginx-hosted admin; its Pages origin helper returns404. Production build now selects the configured live API directly. Pages hostnames retain relay selection automatically; a future custom-domain Pages deployment explicitly sets VITE_USE_RELAY=true and API_ORIGIN. No hosting/domain change.
+
+New origin regression failed on old configuration, then passed. Corrected three stale test selectors while retaining pagination/filter and inherited-settings assertions; existing Accepted default and product behavior unchanged. Full admin84 passed/19 files; production tsc/Vite build passed. Independent review cleared the connection change. Backend clean npm ci --ignore-scripts succeeded in isolated directory (778 packages), not a native/container build.
