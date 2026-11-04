@@ -47,3 +47,9 @@ CFS replacement CAP feed responds XML 200 while current JSON URL responds HTML 2
 Verified the actual live JavaScript forces relay on the AWS/nginx-hosted admin; its Pages origin helper returns404. Production build now selects the configured live API directly. Pages hostnames retain relay selection automatically; a future custom-domain Pages deployment explicitly sets VITE_USE_RELAY=true and API_ORIGIN. No hosting/domain change.
 
 New origin regression failed on old configuration, then passed. Corrected three stale test selectors while retaining pagination/filter and inherited-settings assertions; existing Accepted default and product behavior unchanged. Full admin84 passed/19 files; production tsc/Vite build passed. Independent review cleared the connection change. Backend clean npm ci --ignore-scripts succeeded in isolated directory (778 packages), not a native/container build.
+
+## Production mobile workflow configuration
+
+Root production Android and iOS workflows created .env but omitted --dart-define-from-file=.env, unlike their nested copies. Env.dart uses compile-time constants: this could leave Dart Google sign-in, RevenueCat and API-key consumers blank despite a successful binary build. Added the missing flag to both root build commands. Expanded the existing environment regression to inspect actual root workflows too. Observed Flutter regression fail with old root configuration, then5/5 pass after restoration of the fix. Independent review found no regression.
+
+Build-only Android run41816308023 and no-upload iPhone simulator run41816590313 were started at prior commitdf8f861. Android artifact from that revision is signing evidence only and must not be promoted as the corrected runtime candidate. Neither run publishes a store build.
