@@ -215,11 +215,12 @@ export function chooseTemplateBand(
     isAws: boolean;
     severity?: string | null;
     nativeLevel?: string | null;
+    sourceLifecycle?: 'active' | 'test' | 'resolved' | undefined;
     description: string;
     fallback: TemplateBand;
   },
 ) {
-  if (isInfoOverride(input.description))
+  if ((input.sourceLifecycle && input.sourceLifecycle!=='active') || (!input.sourceLifecycle && isInfoOverride(input.description)))
     return {
       band: "info" as TemplateBand,
       reason: "Source text marks a test, drill or resolved incident.",

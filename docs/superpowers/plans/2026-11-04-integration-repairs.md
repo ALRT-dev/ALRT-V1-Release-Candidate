@@ -33,3 +33,11 @@
 ## Remaining audit remediation
 
 CFS replacement CAP feed responds XML 200 while current JSON URL responds HTML 200. Port and verify its cancellation/lifecycle parser separately; do not cherry-pick a mixed historic commit. n8n public host currently returns Cloudflare Tunnel error 530. Local Docker daemon is unavailable, blocking isolated PostGIS scheduler takeover tests. TEST release alignment, duplicate scheduler ownership, Intel delivery, Firebase workload authentication, admin helper, store/update policy and physical acceptance remain open. No production, TEST, account, billing or credential changes have been made by this batch.
+
+## Second repair batch — 4 November
+
+- CFS current CAP-AU adapter ported separately from historic mixed commit; explicit fast-xml-parser 5.5.8 dependency already resolved in both locks. Twenty-six synthetic cases cover official bands, test/resolved lifecycle, area-specific instructions, cancellation references/newer updates, stable IDs and transient fields. Current public feed read-only smoke: 19,377 characters, three CFS rows, finite coordinates, no cancellations. No records ingested.
+- Firebase TEST IMDS role credential JSON normalization is limited to successful text/plain role-credential responses on AWS link-local metadata. Uses real GoogleAuth signing flow in isolated tests. Admin ADC identity retained; Firestore explicitly gets the same configured auth before use. Reviewer-found Firestore regression reproduced and repaired.
+- Backend full suite 179 passed across 23 files. Type check still blocked only by absent serviceAccountKey.json. No credentials copied or checks suppressed.
+- TEST impersonates fcm-sender@alrt-test.iam.gserviceaccount.com against project alrt-a6539. Existing validate-only probe gets cloudmessaging.messages.create permission denied after authentication normalization. Production credential cannot read project IAM policy (403); no permissions granted.
+- Neither repair is deployed. Physical push, Firestore writes, provider IAM acceptance, clean install and release gates remain open.
