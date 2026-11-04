@@ -8,7 +8,7 @@ import {
   normaliseCountry,
   templateCountry,
 } from "../utils/alert_templates.util.js";
-import { parseAgencyExtraction, removeUnattributedNumbers } from "../utils/agency_extraction.util.js";
+import { agencyExtractionFallback, parseAgencyExtraction, removeUnattributedNumbers } from "../utils/agency_extraction.util.js";
 
 describe("editable alert templates", () => {
   it("preserves all existing profile rows as drafts until category and wording review", () => {
@@ -173,6 +173,13 @@ describe("editable alert templates", () => {
 });
 
 describe("grounded agency extraction", () => {
+  it("accepts four sourced key points without adding filler to a sparse alert", () => {
+    const facts = ["Road closed at Example Bridge.", "Repairs start on Monday.", "The northbound lane is affected.", "The next update is due at noon."];
+    const result = parseAgencyExtraction({ title: "Road update", facts: facts.map(text => ({text, evidence:text})), officialActions: [], affectedAreas: [], nativeLevel: null, confidence: "high" }, {sourceText: facts.join("\n\n"), agency: "Agency", allowAgencyNumbers: false, templateVersion: 1, alrtSuggestions: [], profileGuidance: []});
+    expect(result.contentDetails.facts).toEqual(facts);
+    const sparse = parseAgencyExtraction({ title: "Road update", facts: [{text:facts[0],evidence:facts[0]}], officialActions: [], affectedAreas: [], nativeLevel: null, confidence: "low" }, {sourceText: facts[0]!, agency: "Agency", allowAgencyNumbers: false, templateVersion: 1, alrtSuggestions: [], profileGuidance: []});
+    expect(sparse.contentDetails.facts).toEqual([facts[0]]);
+  });
   const source =
     "Watch and Act for Example Town.\n\nSmoke affects Example Road.\n\nPrepare to leave if you are in Example Town.";
   const response = {
@@ -242,6 +249,7 @@ describe("grounded agency extraction", () => {
       "Smoke affects Example Road.",
     ]);
     expect(result.summary).toContain("Total Fire Ban in effect for Example District.");
+    expect(result.contentDetails.evidence).toEqual(result.contentDetails.facts);
   });
   it("refuses invented evidence, places, severity and unsourced instructions", () => {
     const opts = {
@@ -318,5 +326,18 @@ describe("grounded agency extraction", () => {
     const sourceText="For residents in Example Town only, and only if the route is safe:\n\nLeave now via Example Road.";
     const value=parseAgencyExtraction({...response,facts:[],affectedAreas:[],nativeLevel:null,officialActions:[{text:"Leave now via Example Road.",evidence:"Leave now via Example Road."}]},{sourceText,agency:"Example agency",allowAgencyNumbers:false,templateVersion:1,alrtSuggestions:[],profileGuidance:[]});
     expect(value.contentDetails.officialActions).toEqual([sourceText]);
+  });
+  it("keeps fallback instructions with their conditions and separately supplied actions", () => {
+    const description = "For residents in Example Town only, and only if the route is safe:\n\nLeave now via Example Road.";
+    const result = agencyExtractionFallback({ sourceText: description, sourceDescription: description, sourceActions: ["Keep Example Road clear."], agency: "Agency", allowAgencyNumbers: false, templateVersion: 1, alrtSuggestions: [], profileGuidance: [] });
+    expect(result.contentDetails.officialActions).toEqual([description, "Keep Example Road clear."]);
+    expect(result.callsToAction).toEqual([`Agency advises: ${description}`, "Agency advises: Keep Example Road clear."]);
+  });
+  it("retains the source lead-in when it scopes several instruction paragraphs", () => {
+    const sourceText = "For Example Town residents only, if the route is safe:\n\nPrepare your vehicle.\n\nLeave via Example Road.";
+    const options = {sourceText, sourceDescription: sourceText, agency: "Agency", allowAgencyNumbers: false, templateVersion: 1, alrtSuggestions: [], profileGuidance: []};
+    const result = parseAgencyExtraction({...response, facts:[], affectedAreas:[], nativeLevel:null, officialActions:[{text:"Leave via Example Road.", evidence:"Leave via Example Road."}]}, options);
+    expect(result.contentDetails.officialActions).toEqual([sourceText]);
+    expect(agencyExtractionFallback(options).contentDetails.officialActions).toContain(sourceText);
   });
 });
