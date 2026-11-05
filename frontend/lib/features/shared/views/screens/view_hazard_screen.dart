@@ -44,7 +44,6 @@ import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.da
 import 'package:hazard_app/features/shared/views/widgets/small_map_view.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/hazard_medias_carousel.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/send_to_group_sheet.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'dart:math' as math;
@@ -537,12 +536,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               _roundControl(
                 icon: LucideIcons.share2,
                 semanticLabel: 'Share',
-                onTap: () => SharePlus.instance.share(
-                  ShareParams(
-                    text:
-                        '${hazard.title ?? "Alert"} \u00b7 ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
-                  ),
-                ),
+                onTap: () => shareAlert(ref: ref, hazard: hazard, from: 'detail'),
               )
             else
               SizedBox(width: 40.spMin),
@@ -1514,12 +1508,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             description: 'Public link — no ALRT account needed',
             benefit: '📱 Works via SMS, WhatsApp, email',
             benefitColor: const Color(0xFF9CA3AF),
-            onTap: () => SharePlus.instance.share(
-              ShareParams(
-                text:
-                    '${hazard.title ?? "Alert"} · ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
-              ),
-            ),
+            onTap: () => shareAlert(ref: ref, hazard: hazard, from: 'detail'),
             isLast: true,
           ),
           // Invite card
