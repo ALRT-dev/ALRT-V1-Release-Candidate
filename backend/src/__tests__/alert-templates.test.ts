@@ -316,8 +316,8 @@ describe("grounded agency extraction", () => {
     expect(removeUnattributedNumbers("Call 000 if you need emergency help.")).toBe("Call your local emergency number if you need emergency help.");
     expect(removeUnattributedNumbers("Emergency number: 112.")).toBe("Emergency number: your local emergency number.");
     expect(removeUnattributedNumbers("call police on 000")).toBe("call police on your local emergency number");
-    expect(removeUnattributedNumbers("Phone: (08) 1234 5678")).toBe("Phone: your local emergency number");
-    expect(removeUnattributedNumbers("contact DFAT on 1300 555 135")).toBe("contact DFAT on your local emergency number");
+    expect(removeUnattributedNumbers("Phone: (08) 1234 5678")).toBe("Phone: the contact number in the linked source");
+    expect(removeUnattributedNumbers("contact DFAT on 1300 555 135")).toBe("contact DFAT on the contact number in the linked source");
     expect(removeUnattributedNumbers("Call for help at Exit 112.")).toBe("Call for help at Exit 112.");
     expect(removeUnattributedNumbers("Contact staff at Gate 112.")).toBe("Contact staff at Gate 112.");
     expect(removeUnattributedNumbers("Phone staff in Room 911.")).toBe("Phone staff in Room 911.");
@@ -377,4 +377,12 @@ it('applies the source phone-number policy to the visible fallback details',()=>
 it('does not lend broad utilities guidance to a structure fire without explicit category review',()=>{
  const pack=defaultTemplatePack();
  expect(selectLibraryGuidance(pack,{categoryId:'structureFire',parentCategoryId:'utilitiesAndInfrastructure',band:'action'}).alrtSuggestions).toEqual([]);
+});
+it('never turns a non-emergency service contact into an emergency number',()=>{
+ expect(removeUnattributedNumbers('Call 131 700 to speak to a towing operator.')).toBe('Call the contact number in the linked source to speak to a towing operator.');
+});
+it('keeps availability text separate from both emergency and service phones',()=>{
+ expect(removeUnattributedNumbers('Call 000 (24 hours).')).toBe('Call your local emergency number (24 hours).');
+ expect(removeUnattributedNumbers('Call 112 (24/7).')).toBe('Call your local emergency number (24/7).');
+ expect(removeUnattributedNumbers('Call 131 700 (24 hours).')).toBe('Call the contact number in the linked source (24 hours).');
 });
