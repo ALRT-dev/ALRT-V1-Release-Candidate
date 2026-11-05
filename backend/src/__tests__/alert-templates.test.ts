@@ -390,5 +390,5 @@ it('caps a fallback at four available source facts without duplicating a sparse 
  const facts=['Smoke affects Example Road.','Crews are on scene.','The next update is due at noon.','The source reports visible smoke.','The incident is near Example Bridge.'];
  const options={sourceText:facts.join('\n\n'),sourceDescription:facts.join('\n\n'),agency:'Agency',allowAgencyNumbers:false,templateVersion:4,alrtSuggestions:[],profileGuidance:[]};
  expect(agencyExtractionFallback(options).contentDetails.facts).toEqual(facts.slice(0,4));
- expect(agencyExtractionFallback({...options,sourceText:facts[0],sourceDescription:facts[0]}).contentDetails.facts).toEqual([facts[0]]);
+ expect(agencyExtractionFallback({...options,sourceText:facts[0]!,sourceDescription:facts[0]!}).contentDetails.facts).toEqual([facts[0]]);
 });
