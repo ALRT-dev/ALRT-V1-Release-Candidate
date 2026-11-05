@@ -341,3 +341,40 @@ describe("grounded agency extraction", () => {
     expect(agencyExtractionFallback(options).contentDetails.officialActions).toContain(sourceText);
   });
 });
+
+describe("5 November owner wording rules", () => {
+  const options = { sourceText: "Smoke affects Example Road.", agency: "Agency", allowAgencyNumbers: false, templateVersion: 3, alrtSuggestions: ["Consider reviewing your travel plans.", "Checking local updates may help."], profileGuidance: [] };
+  const input = {title:"Update",facts:[{text: options.sourceText,evidence:options.sourceText}],affectedAreas:[],nativeLevel:null,officialActions:[],confidence:"high"};
+  it("supplements one complete agency instruction to two advice points", () => {
+    const result = parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road until it reopens."]});
+    expect(result.contentDetails.alrtSuggestions).toEqual([options.alrtSuggestions[0]]);
+    expect(result.callsToAction).toEqual(["Agency advises: Avoid Example Road until it reopens.", options.alrtSuggestions[0]]);
+  });
+  it("does not add filler when two agency instructions already exist", () => {
+    expect(parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road.","Use Example Bridge."]}).contentDetails.alrtSuggestions).toEqual([]);
+  });
+  it("uses two sourced facts rather than the full fallback description", () => {
+    const description = "Smoke affects Example Road. Crews are on scene. The next update is due at noon.";
+    const result = agencyExtractionFallback({...options,sourceText:description,sourceDescription:description});
+    expect(result.contentDetails.facts).toEqual(["Smoke affects Example Road.","Crews are on scene."]);
+    expect(result.summary).toBe("• Smoke affects Example Road.\n• Crews are on scene.");
+    expect(result.contentDetails.alrtSuggestions).toHaveLength(2);
+  });
+});
+
+describe('fallback source retention',()=>{
+ it('keeps the complete original description and excludes adapter metadata from facts',()=>{
+  const sourceDescription='Type: Bushfire\n\nSource status: Going\n\nWarning level: Watch and Act\n\nFire near Example Road.\n\nCrews are on scene.\n\nDrink water regularly.\n\nSeek medical attention if symptoms persist.';
+  const result=agencyExtractionFallback({sourceText:sourceDescription,sourceDescription,agency:'Agency',allowAgencyNumbers:false,templateVersion:3,alrtSuggestions:[],profileGuidance:[]});
+  expect(result.contentDetails.facts).toEqual(['Fire near Example Road.','Crews are on scene.']);
+  expect(result.contentDetails.sourceDescription).toBe(sourceDescription);
+ });
+});
+it('applies the source phone-number policy to the visible fallback details',()=>{
+ const result=agencyExtractionFallback({sourceText:'Call 000 for assistance.',sourceDescription:'Call 000 for assistance.',agency:'Agency',allowAgencyNumbers:false,templateVersion:3,alrtSuggestions:[],profileGuidance:[]});
+ expect(result.contentDetails.sourceDescription).toBe('Call your local emergency number for assistance.');
+});
+it('does not lend broad utilities guidance to a structure fire without explicit category review',()=>{
+ const pack=defaultTemplatePack();
+ expect(selectLibraryGuidance(pack,{categoryId:'structureFire',parentCategoryId:'utilitiesAndInfrastructure',band:'action'}).alrtSuggestions).toEqual([]);
+});

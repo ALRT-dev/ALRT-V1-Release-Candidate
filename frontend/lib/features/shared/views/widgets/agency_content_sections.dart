@@ -99,12 +99,10 @@ class AgencyContentSections extends StatelessWidget {
     final actions = _lines('officialActions'),
         suggestions = _lines('alrtSuggestions');
     final level = content['nativeLevel'];
+    final originalSource = content['sourceDescription'];
     final agency = sourceName?.trim() ?? '';
-    final intro = officialIntro?.trim();
-    final factLines = [
-      if (intro != null && intro.isNotEmpty) intro,
-      ...facts.where((line) => line.trim() != intro),
-    ];
+    // Facts already come from grounded extraction; do not repeat a generated intro.
+    final factLines = facts.take(2).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -112,17 +110,22 @@ class AgencyContentSections extends StatelessWidget {
           _section('AGENCY WARNING', [level]),
         if (areas.isNotEmpty) _section('AFFECTED AREA', areas),
         if (factLines.isNotEmpty) _section('WHAT WE KNOW', factLines),
+        // Fallback extraction cannot prove it recognised every instruction.
+        // Retain all original paragraphs visibly, below the concise facts.
+        if (originalSource is String && originalSource.trim().isNotEmpty)
+          _section('ORIGINAL SOURCE DETAILS', [originalSource]),
         if (actions.isNotEmpty)
           _section(
             'WHAT TO DO',
             actions,
             subtitle: agency.isEmpty ? null : '$agency, word for word',
           ),
-        if (suggestions.isNotEmpty && actions.isEmpty)
+        if (suggestions.isNotEmpty && actions.length < 2)
           _section(
-            'WHAT TO DO',
-            suggestions,
-            subtitle: 'General guidance from ALRT, not part of the official '
+            'ALRT SUGGESTIONS',
+            suggestions.take((2 - actions.length).clamp(0, 2)).toList(),
+            subtitle:
+                'General guidance from ALRT, not part of the official '
                 'warning.',
           ),
       ],

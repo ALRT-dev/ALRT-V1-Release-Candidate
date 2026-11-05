@@ -208,7 +208,8 @@ export const completeGuide = async (userId: string, slugOrId: string) => {
 
 /**
  * Returns the first published guide linked to the given hazard category
- * (or its parent category), used for the guide strip on alert cards.
+ * explicitly, used for the guide strip on alert cards. Broad parent matches
+ * can select a different hazard's guide and are deliberately excluded.
  * Returns null when there is no matching guide.
  */
 export const getGuideForHazardCategory = async (categoryId: string) => {
@@ -221,15 +222,10 @@ export const getGuideForHazardCategory = async (categoryId: string) => {
     return null;
   }
 
-  const candidateCategoryIds = [
-    category.id,
-    ...(category.parentId ? [category.parentId] : []),
-  ];
-
   const guide = await prisma.safetyGuide.findFirst({
     where: {
       isPublished: true,
-      categoryIds: { hasSome: candidateCategoryIds },
+      categoryIds: { has: category.id },
     },
     orderBy: { sortOrder: "asc" },
     select: {
