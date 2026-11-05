@@ -8,6 +8,6 @@ describe("hazard-specific learning guides",()=>{
   it("only searches published guides explicitly linked to the actual category",async()=>{
     db.safetyGuide.findFirst.mockResolvedValue(null);
     expect(await getGuideForHazardCategory("structureFire")).toBeNull();
-    expect(db.safetyGuide.findFirst.mock.calls[0][0].where).toEqual({isPublished:true,categoryIds:{has:"structureFire"}});
+    expect(db.safetyGuide.findFirst).toHaveBeenCalledWith(expect.objectContaining({where:{isPublished:true,categoryIds:{has:"structureFire"}}}));
   });
 });
