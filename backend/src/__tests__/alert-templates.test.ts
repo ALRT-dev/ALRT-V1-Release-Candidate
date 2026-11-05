@@ -353,11 +353,11 @@ describe("5 November owner wording rules", () => {
   it("does not add filler when two agency instructions already exist", () => {
     expect(parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road.","Use Example Bridge."]}).contentDetails.alrtSuggestions).toEqual([]);
   });
-  it("uses two sourced facts rather than the full fallback description", () => {
+  it("retains up to four sourced facts without padding a three-fact alert", () => {
     const description = "Smoke affects Example Road. Crews are on scene. The next update is due at noon.";
     const result = agencyExtractionFallback({...options,sourceText:description,sourceDescription:description});
-    expect(result.contentDetails.facts).toEqual(["Smoke affects Example Road.","Crews are on scene."]);
-    expect(result.summary).toBe("• Smoke affects Example Road.\n• Crews are on scene.");
+    expect(result.contentDetails.facts).toEqual(["Smoke affects Example Road.","Crews are on scene.","The next update is due at noon."]);
+    expect(result.summary).toBe("• Smoke affects Example Road.\n• Crews are on scene.\n• The next update is due at noon.");
     expect(result.contentDetails.alrtSuggestions).toHaveLength(2);
   });
 });
@@ -385,4 +385,10 @@ it('keeps availability text separate from both emergency and service phones',()=
  expect(removeUnattributedNumbers('Call 000 (24 hours).')).toBe('Call your local emergency number (24 hours).');
  expect(removeUnattributedNumbers('Call 112 (24/7).')).toBe('Call your local emergency number (24/7).');
  expect(removeUnattributedNumbers('Call 131 700 (24 hours).')).toBe('Call the contact number in the linked source (24 hours).');
+});
+it('caps a fallback at four available source facts without duplicating a sparse source',()=>{
+ const facts=['Smoke affects Example Road.','Crews are on scene.','The next update is due at noon.','The source reports visible smoke.','The incident is near Example Bridge.'];
+ const options={sourceText:facts.join('\n\n'),sourceDescription:facts.join('\n\n'),agency:'Agency',allowAgencyNumbers:false,templateVersion:4,alrtSuggestions:[],profileGuidance:[]};
+ expect(agencyExtractionFallback(options).contentDetails.facts).toEqual(facts.slice(0,4));
+ expect(agencyExtractionFallback({...options,sourceText:facts[0],sourceDescription:facts[0]}).contentDetails.facts).toEqual([facts[0]]);
 });

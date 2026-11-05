@@ -102,7 +102,7 @@ class AgencyContentSections extends StatelessWidget {
     final originalSource = content['sourceDescription'];
     final agency = sourceName?.trim() ?? '';
     // Facts already come from grounded extraction; do not repeat a generated intro.
-    final factLines = facts.take(2).toList();
+    final factLines = facts.take(4).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

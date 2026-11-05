@@ -18,7 +18,13 @@ void main() {
               content: {
                 'sourceDescription':
                     'Complete original source, including all conditions.',
-                'facts': ['A sourced fact.', 'A second fact.', 'A third fact.'],
+                'facts': [
+                  'A sourced fact.',
+                  'A second fact.',
+                  'A third fact.',
+                  'A fourth fact.',
+                  'A fifth fact.',
+                ],
                 'officialActions': ['Avoid Example Road.'],
                 'alrtSuggestions': ['Consider reviewing your travel plans.'],
               },
@@ -31,7 +37,8 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Agency issued an incident.'), findsNothing);
-      expect(find.text('A third fact.'), findsNothing);
+      expect(find.text('A fourth fact.'), findsOneWidget);
+      expect(find.text('A fifth fact.'), findsNothing);
       expect(
         find.text('Complete original source, including all conditions.'),
         findsOneWidget,

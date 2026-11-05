@@ -29,7 +29,7 @@ export function AlertContentSections({
         <section>
           <h3>What we know</h3>
           <ul>
-            {content.facts.slice(0, 2).map((x, i) => (
+            {content.facts.slice(0, 4).map((x, i) => (
               <li key={i}>{x}</li>
             ))}
           </ul>

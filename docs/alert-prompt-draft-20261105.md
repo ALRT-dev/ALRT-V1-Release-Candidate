@@ -45,3 +45,6 @@ A larger combined source / extracted / exact mobile preview is still a proposal 
 - Independent code review found lost fallback paragraphs, metadata facts and a number-policy bypass; regression checks were added and fixes prepared.
 - Full source-to-card visual preview remains a proposal. Only the existing editor's content preview and its explanatory notice were changed.
 - No category database rows, published templates, production prompts, accounts or store releases were changed.
+
+## Owner amendment — 6 November 2026
+Up to four relevant, source-supported facts are allowed. Fewer are appropriate for sparse sources; never pad to reach four. This supersedes the earlier exact two-fact target. The separate 2–4 practical-advice target and agency-first/non-directive ALRT rules remain unchanged. Current standalone draft: official-extraction-draft-20261106.txt.
