@@ -151,7 +151,7 @@ describe("Alerts page filters", () => {
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 
-    await userEvent.selectOptions(screen.getByDisplayValue("All statuses"), "pending");
+    await userEvent.selectOptions(screen.getByDisplayValue("Accepted"), "pending");
     await waitFor(() => {
       const last = params(hazards.urls.at(-1)!);
       expect(last.get("reviewStatus")).toBe("pending");

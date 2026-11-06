@@ -401,12 +401,12 @@ STRICT RULES — read carefully:
 - plainMeaning must be ONE sentence, ≤20 words if the alert is an emergency, ≤35 words otherwise.
 - Location must be the place name(s) only (suburb/region/state), never an exact street address.
 
-FACTS — aim for 3–5 specific, concrete facts:
+FACTS — select 2–4 specific, concrete facts from the source:
 - Each must be a single, self-contained sentence in plain language.
 - Prefer specific over vague: "M1 closed between exits 15 and 17" beats "road incident reported".
 - Quote the agency's own key phrases verbatim when they carry unique meaning (warning labels, specific conditions, named locations).
 - Do NOT restate the title as a fact. Do NOT overlap significantly with plainMeaning.
-- If the source text is sparse (fewer than 3 extractable facts): supplement with 1–2 category-appropriate general context sentences for the hazard type (e.g. for a road closure: typical impact on travel, typical causes; for a bushfire: typical spotting distance, typical wind effect). Supplemented sentences must NOT contain invented specific details — keep them generic and factual for the hazard type.
+- If the source text is sparse, return fewer facts. Never pad with generic context, typical causes, typical duration, predictions or safety advice. Such material belongs in a separate guidance section, not incident facts.
 - Never fabricate specific details not in the source (no invented distances, names, counts, timestamps).
 
 INPUTS:

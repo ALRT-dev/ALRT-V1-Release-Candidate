@@ -68,7 +68,7 @@ void main() {
       expect(
         line,
         'Department of Fire and Emergency Services WA has reported a crash '
-        'in Warwick. They have not published advice yet.',
+        'in Warwick.',
       );
     });
 
@@ -84,8 +84,7 @@ void main() {
       );
       expect(
         line,
-        'DFES has reported an active alarm in Metro Central, Perth. '
-        'They have not published advice yet.',
+        'DFES has reported an active alarm in Metro Central, Perth.',
       );
     });
   });

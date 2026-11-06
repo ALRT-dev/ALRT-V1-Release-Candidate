@@ -1,3 +1,4 @@
+import { buildDfesIncidentContent } from './dfes_incident_content.util.js';
 import {
   HazardReviewStatus,
   HazardSeverity,
@@ -540,6 +541,17 @@ export const withPublicCoords = <
   hazard: T,
   viewerId?: string,
 ): T => {
+  // Repair recognised stored DFES incident content at the read boundary only.
+  // Native warnings and other source formats remain untouched.
+  const record = hazard as T & { sourceId?: string; title?: string; description?: string; contentDetails?: any; aiSummary?: string; callsToAction?: string[]; locationName?: string };
+  if (record.sourceId === 'waDfes' && typeof record.title === 'string' && typeof record.description === 'string') {
+    const prior = record.contentDetails;
+    const incident = buildDfesIncidentContent({ title: record.title, description: record.description,
+      agency: 'DFES', templateVersion: typeof prior?.templateVersion === 'number' ? prior.templateVersion : 0,
+      sourceActions: (Array.isArray(prior?.originalSourceActions) ? prior.originalSourceActions : Array.isArray(prior?.officialActions) ? prior.officialActions : []).filter((x: unknown): x is string => typeof x === 'string') });
+    if (incident) hazard = { ...hazard, aiSummary: incident.summary, callsToAction: incident.callsToAction,
+      contentDetails: { ...prior, ...incident.contentDetails }, locationName: incident.contentDetails.displayLocation };
+  }
   if (!hazard?.reportedById || hazard.reportedById === viewerId) {
     return hazard;
   }

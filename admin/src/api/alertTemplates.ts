@@ -54,6 +54,7 @@ export type TemplateSource = {
   severitySystem: string | null;
 };
 export type AlertContent = {
+  sourceDescription?: string;
   schemaVersion: number;
   templateVersion: number;
   facts: string[];

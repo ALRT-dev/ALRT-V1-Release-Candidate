@@ -139,13 +139,9 @@ export const executePrompt = ({
   return retryWithBackoff(async () => {
     const command = new ConverseCommand({
       modelId,
-      system: [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        {
-          text: systemPromptContent,
-          cachePoint: { type: "default" },
-        } as any,
-      ],
+      // SystemContentBlock is a union: text and cachePoint cannot share a block.
+      // Keep extraction usable for short prompts and models without caching.
+      system: [{ text: systemPromptContent }],
       messages: [
         {
           role: "user",

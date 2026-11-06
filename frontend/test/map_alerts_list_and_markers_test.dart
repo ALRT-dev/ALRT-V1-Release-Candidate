@@ -25,7 +25,7 @@ void main() {
       expect(
         line,
         'Department of Fire and Emergency Services WA has reported a '
-        'vehicle fire at Salter Point. They have not published advice yet.',
+        'vehicle fire at Salter Point.',
       );
     });
 

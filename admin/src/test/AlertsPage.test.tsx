@@ -62,7 +62,7 @@ describe("AlertsPage search/filter", () => {
       expect(seenUrls.some((u) => u.includes("searchString=flood"))).toBe(true),
     );
 
-    await userEvent.selectOptions(screen.getByDisplayValue(/all statuses/i), "pending");
+    await userEvent.selectOptions(screen.getByDisplayValue("Accepted"), "pending");
     await waitFor(() =>
       expect(
         seenUrls.some((u) => u.includes("searchString=flood") && u.includes("reviewStatus=pending")),

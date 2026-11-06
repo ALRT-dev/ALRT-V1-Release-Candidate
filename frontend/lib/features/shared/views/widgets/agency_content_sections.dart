@@ -31,6 +31,11 @@ class AgencyContentSections extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: title == 'WHAT WE KNOW'
+                ? const Color(0xFFD8E3EC)
+                : const Color(0xFFF1D8C3),
+          ),
           boxShadow: const [
             BoxShadow(
               color: Color(0x0F000000),
@@ -62,7 +67,9 @@ class AgencyContentSections extends StatelessWidget {
             for (final text in lines)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
+                child: (text == 'ALRT suggestions' || text == 'Agency instructions' || text.endsWith(' advises'))
+                    ? Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5C5C66)))
+                    : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
@@ -99,32 +106,50 @@ class AgencyContentSections extends StatelessWidget {
     final actions = _lines('officialActions'),
         suggestions = _lines('alrtSuggestions');
     final level = content['nativeLevel'];
+    final typedIncident = content['extractionMethod'] == 'dfes-incident-fields';
+    final originalSource =
+        content['originalSourceText'] ?? content['sourceDescription'];
     final agency = sourceName?.trim() ?? '';
-    final intro = officialIntro?.trim();
-    final factLines = [
-      if (intro != null && intro.isNotEmpty) intro,
-      ...facts.where((line) => line.trim() != intro),
-    ];
+    // Facts already come from grounded extraction; do not repeat a generated intro.
+    final factLines = facts.take(4).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (level is String && level.isNotEmpty)
           _section('AGENCY WARNING', [level]),
-        if (areas.isNotEmpty) _section('AFFECTED AREA', areas),
+        if (areas.isNotEmpty && !typedIncident)
+          _section('AFFECTED AREA', areas),
         if (factLines.isNotEmpty) _section('WHAT WE KNOW', factLines),
-        if (actions.isNotEmpty)
+        if (actions.isNotEmpty || suggestions.isNotEmpty)
           _section(
             'WHAT TO DO',
-            actions,
-            subtitle: agency.isEmpty ? null : '$agency, word for word',
+            [
+              if (actions.isNotEmpty) ...[
+                agency.isEmpty ? 'Agency instructions' : '$agency advises',
+                ...actions,
+              ],
+              if (suggestions.isNotEmpty && actions.length < 2) ...[
+                'ALRT suggestions',
+                ...suggestions.take((2 - actions.length).clamp(0, 2)),
+              ],
+            ],
+            subtitle: suggestions.isNotEmpty && actions.length < 2
+                ? 'ALRT suggestions are general guidance, separate from agency instructions.'
+                : null,
           ),
-        if (suggestions.isNotEmpty && actions.isEmpty)
-          _section(
-            'WHAT TO DO',
-            suggestions,
-            subtitle: 'General guidance from ALRT, not part of the official '
-                'warning.',
-          ),
+        if (originalSource is String && originalSource.trim().isNotEmpty)
+          if (typedIncident)
+            Card(
+              elevation: 0,
+              color: Colors.white,
+              child: ExpansionTile(
+                title: const Text('Original source details'),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [Text(originalSource)],
+              ),
+            )
+          else
+            _section('ORIGINAL SOURCE DETAILS', [originalSource]),
       ],
     );
   }

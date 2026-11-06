@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hazard_app/features/family/providers/family_provider.dart';
+
 import 'package:hazard_app/features/family/repositories/family_repository.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
@@ -62,9 +62,7 @@ class _SendToGroupSheetState extends ConsumerState<_SendToGroupSheet> {
     super.dispose();
   }
 
-  /// POST /api/family/hazards/{hazardId}/share. While that route is not
-  /// deployed the backend answers 404; the group is still told, through
-  /// the check-in call that carries the alert and the note today.
+  /// Share only: an unavailable endpoint must never imply a check-in.
   Future<void> _send() async {
     final hazardId = widget.hazard.id;
     if (hazardId == null || _busy) return;
@@ -80,30 +78,9 @@ class _SendToGroupSheetState extends ConsumerState<_SendToGroupSheet> {
         );
     if (!mounted) return;
 
-    final sent = await result.when(
-      (_) async => true,
-      (error) async {
-        if (error.code != '404') return false;
-        return _fallBackToCheckIn(hazardId: hazardId, note: note);
-      },
-    );
+    final sent = result.isSuccess;
     if (!mounted) return;
     Navigator.of(context).pop(sent);
-  }
-
-  Future<bool> _fallBackToCheckIn({
-    required final String hazardId,
-    required final String note,
-  }) async {
-    final title = widget.hazard.title;
-    final alertLine = title == null ? 'Alert shared' : 'Alert: "$title"';
-    await ref.read(providerOfFamily.notifier).checkIn(
-          message: note.isEmpty ? alertLine : '$alertLine. $note',
-          shareLocation: false,
-          hazardId: hazardId,
-        );
-    if (!mounted) return false;
-    return ref.read(providerOfFamily).checkInState.isSuccess;
   }
 
   @override

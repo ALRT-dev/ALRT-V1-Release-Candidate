@@ -146,7 +146,10 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
 
   /// Starts the live loop for [sosEventId]. [remember] records that this
   /// phone chose it, so a restart resumes it here (and only here).
-  void _startSosLiveShare(final String sosEventId, {final bool remember = true}) {
+  void _startSosLiveShare(
+    final String sosEventId, {
+    final bool remember = true,
+  }) {
     if (remember) unawaited(_owned.addSos(sosEventId));
     _sosLiveTimer?.cancel();
     _sosLiveEventId = sosEventId;
@@ -1317,8 +1320,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     double? latitude;
     double? longitude;
     if (share) {
-      final position = await _familyLocationService
-          .getCurrentPositionOrNull();
+      final position = await _familyLocationService.getCurrentPositionOrNull();
       if (position == null) return false;
       latitude = position.latitude;
       longitude = position.longitude;
@@ -1377,6 +1379,44 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// (notification quick actions) pass false. A check-in never requires
   /// or implies location, so nothing is fetched unless the person said
   /// yes in this very moment.
+  /// Alert-detail check-ins are scoped to the group the person chose.
+  /// They must never inherit the hub's broadcast or another group's request.
+  Future<bool> checkInToCircle({
+    required String circleId,
+    required String hazardId,
+    required bool shareLocation,
+    FamilyCheckInStatus status = FamilyCheckInStatus.safe,
+  }) async {
+    if (!state.circles.any((circle) => circle.circleId == circleId)) {
+      return false;
+    }
+    state = state.copyWith(checkInState: const FamilyActionState.loading());
+    final position = shareLocation
+        ? await _familyLocationService.getCurrentPositionOrNull()
+        : null;
+    if (!mounted) return false;
+    final result = await _familyService.sendFamilyCheckIn(
+      circleId: circleId,
+      hazardId: hazardId,
+      status: status,
+      latitude: position?.latitude,
+      longitude: position?.longitude,
+    );
+    if (!mounted) return false;
+    return result.when(
+      (checkIn) {
+        AnalyticsService.familyCheckIn();
+        if (state.circle?.id == circleId) _appendCheckIn(checkIn);
+        state = state.copyWith(checkInState: const FamilyActionState.success());
+        return true;
+      },
+      (error) {
+        state = state.copyWith(checkInState: FamilyActionState.error(error));
+        return false;
+      },
+    );
+  }
+
   Future<void> checkIn({
     final FamilyCheckInStatus status = FamilyCheckInStatus.safe,
     final String? message,
@@ -1822,12 +1862,12 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// missed point is not worth a banner mid-trip, and the next one is due
   /// shortly. Only a CURRENT position is ever sent.
   Future<void> _postJourneyPoint(final String journeyId) async {
-    final journey = _myJourneys[journeyId] ??
+    final journey =
+        _myJourneys[journeyId] ??
         (state.activeJourney?.id == journeyId ? state.activeJourney : null);
     if (journey == null || !journey.isActive) return;
 
-    final position = await _familyLocationService
-        .getCurrentPositionOrNull();
+    final position = await _familyLocationService.getCurrentPositionOrNull();
     if (position == null || !mounted) return;
 
     final result = await _familyService.postFamilyJourneyPoint(
@@ -2198,7 +2238,8 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
     // defaulting to their group sharing setting. SOS consent is separate
     // from ordinary group sharing (open decision R12 on precedence).
     final precise =
-        (precision ?? SosPrecisionChoice.defaultFor(state.circle?.me?.sharingLevel)) ==
+        (precision ??
+            SosPrecisionChoice.defaultFor(state.circle?.me?.sharingLevel)) ==
         SosPrecisionChoice.exact;
 
     final result = await _familyService.triggerFamilySos(
@@ -2518,9 +2559,7 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
           ? DateTime.tryParse(capturedAtRaw)
           : existing.locationCapturedAt,
       locationMode: locationMode ?? existing.locationMode,
-      isLive: locationMode != null
-          ? locationMode == 'live'
-          : existing.isLive,
+      isLive: locationMode != null ? locationMode == 'live' : existing.isLive,
     );
 
     state = state.copyWith(

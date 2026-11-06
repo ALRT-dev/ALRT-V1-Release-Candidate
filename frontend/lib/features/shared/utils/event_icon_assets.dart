@@ -7,6 +7,14 @@
 /// AWS artwork is used exactly as supplied.
 abstract final class EventIconAssets {
   static const Set<String> names = {
+    'non_aws/bushfire_info',
+    'non_aws/bushfire_monitor',
+    'non_aws/bushfire_action',
+    'non_aws/bushfire_critical',
+    'non_aws/fireAlarm_info',
+    'non_aws/fireAlarm_monitor',
+    'non_aws/fireAlarm_action',
+    'non_aws/fireAlarm_critical',
     'aws/landslide_action',
     'aws/landslide_critical',
     'aws/landslide_monitor',

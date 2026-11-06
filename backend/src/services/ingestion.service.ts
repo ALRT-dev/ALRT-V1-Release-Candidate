@@ -1,3 +1,5 @@
+import { withSourceHistory } from '../utils/source_history.util.js';
+import {CFS_CAP_URL,fetchCFSCap,readCFSCapCancellations} from '../utils/cfs_cap.util.js';
 import {
   HazardReviewStatus,
   HazardSeverity,
@@ -7,7 +9,7 @@ import {
   type HazardCategory,
 } from "@prisma/client";
 import {
-  parseCFSFeedToHazards,
+  parseCFSCapToHazards,
   parseGeoJsonToHazards,
   parseNTFireAndRescueToHazards,
   parseRSSFeedToHazards,
@@ -206,13 +208,13 @@ export const syncHazardsFromDifferentSources = async ({
       },
       {
         id: ExternalSourceId.cfs,
-        apiUrl:
-          "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json",
-        parseFunction: (responseData: any) =>
-          parseCFSFeedToHazards({
-            data: responseData,
-            availableCategories,
-          }),
+        apiUrl: CFS_CAP_URL,
+        parseFunction: async () => {
+          const xml=await fetchCFSCap();
+          const cancellations=readCFSCapCancellations(xml);
+          const previousHazards=cancellations.length?await prisma.hazard.findMany({where:{sourceId:'cfs',id:{in:cancellations.map(x=>x.id)}},include:{category:true,source:true}}):[];
+          return parseCFSCapToHazards({xml,availableCategories,previousHazards});
+        },
       },
       {
         id: ExternalSourceId.viceFire,
@@ -536,6 +538,7 @@ export const summarizeAndPostHazards = async ({
       isUpdate: boolean;
     }> = [];
 
+    const priorSourceDetails = new Map<string, unknown>();
     let templateRelease: TemplateRelease | null = null;
     try { templateRelease = (await getTemplateRegistry()).published; }
     catch (error) { console.error("Template registry unavailable; continuing existing source classification.", error); }
@@ -543,11 +546,12 @@ export const summarizeAndPostHazards = async ({
       if (!hazardData.id) continue;
       if(templateRelease&&hazardData.source&&!(hazardData.category?.id==='airQualityAlert' && hazardData.source.id==='waqi')){
         const resolved=resolveTemplate(templateRelease.pack,{country:templateCountry(hazardData.jurisdictionCountry,hazardData.source),sourceId:hazardData.source.id});
-        hazardData.severityBand=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info}).band;
+        hazardData.severityBand=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,sourceLifecycle:hazardData.sourceLifecycle,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info}).band;
       }
 
       try {
         hazardData.sourceContentHash = hazardContentHash({
+          ...(hazardData.sourceLifecycle?{sourceLifecycle:hazardData.sourceLifecycle}:{}),
           title: hazardData.title, description: hazardData.description,
           instructions: hazardData.sourceInstructionBlocks ?? [],
           nativeLevel: hazardData.nativeWarningLevel ?? null,
@@ -561,6 +565,8 @@ export const summarizeAndPostHazards = async ({
         const existing = await prisma.hazard.findUnique({
           where: { id: hazardData.id },
         });
+
+        if (existing && existing.sourceId === hazardData.source?.id) priorSourceDetails.set(hazardData.id, existing.contentDetails);
 
         // Check if this source has severity band filtering configured
         const sourceId = hazardData.source?.id as ExternalSourceId;
@@ -841,7 +847,15 @@ export const summarizeAndPostHazards = async ({
             ...hazardData,
             title: summarized.title || hazardData.title,
             aiSummary: templateRelease?summarized.summary:(hazardData.aiSummary || summarized.summary),
-            contentDetails: summarized.contentDetails??Prisma.DbNull,
+            contentDetails: hazardData.source?.id === 'waDfes' ? withSourceHistory(
+              (summarized.contentDetails ?? {}) as unknown as Record<string, unknown>,
+              priorSourceDetails.get(hazardData.id!),
+              {sourceId:hazardData.source!.id,eventId:hazardData.id!,title:hazardData.title,
+                description:hazardData.description,nativeLevel:hazardData.nativeWarningLevel ?? null,
+                channel:hazardData.isAwsCompliant || hazardData.nativeWarningLevel ? 'warning' : 'incident',
+                instructions:hazardData.sourceInstructionBlocks ?? []},
+              new Date(),
+            ) as unknown as Prisma.InputJsonObject : summarized.contentDetails ?? Prisma.DbNull,
             aiConfidence: summarized.confidence,
             callsToAction: templateRelease?summarized.callsToAction:Array.isArray(hazardData.callsToAction)
               ? hazardData.callsToAction

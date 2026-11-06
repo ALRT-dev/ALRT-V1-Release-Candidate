@@ -8,7 +8,7 @@ import {
   normaliseCountry,
   templateCountry,
 } from "../utils/alert_templates.util.js";
-import { parseAgencyExtraction, removeUnattributedNumbers } from "../utils/agency_extraction.util.js";
+import { agencyExtractionFallback, parseAgencyExtraction, removeUnattributedNumbers } from "../utils/agency_extraction.util.js";
 
 describe("editable alert templates", () => {
   it("preserves all existing profile rows as drafts until category and wording review", () => {
@@ -173,6 +173,13 @@ describe("editable alert templates", () => {
 });
 
 describe("grounded agency extraction", () => {
+  it("accepts four sourced key points without adding filler to a sparse alert", () => {
+    const facts = ["Road closed at Example Bridge.", "Repairs start on Monday.", "The northbound lane is affected.", "The next update is due at noon."];
+    const result = parseAgencyExtraction({ title: "Road update", facts: facts.map(text => ({text, evidence:text})), officialActions: [], affectedAreas: [], nativeLevel: null, confidence: "high" }, {sourceText: facts.join("\n\n"), agency: "Agency", allowAgencyNumbers: false, templateVersion: 1, alrtSuggestions: [], profileGuidance: []});
+    expect(result.contentDetails.facts).toEqual(facts);
+    const sparse = parseAgencyExtraction({ title: "Road update", facts: [{text:facts[0],evidence:facts[0]}], officialActions: [], affectedAreas: [], nativeLevel: null, confidence: "low" }, {sourceText: facts[0]!, agency: "Agency", allowAgencyNumbers: false, templateVersion: 1, alrtSuggestions: [], profileGuidance: []});
+    expect(sparse.contentDetails.facts).toEqual([facts[0]]);
+  });
   const source =
     "Watch and Act for Example Town.\n\nSmoke affects Example Road.\n\nPrepare to leave if you are in Example Town.";
   const response = {
@@ -242,6 +249,7 @@ describe("grounded agency extraction", () => {
       "Smoke affects Example Road.",
     ]);
     expect(result.summary).toContain("Total Fire Ban in effect for Example District.");
+    expect(result.contentDetails.evidence).toEqual(result.contentDetails.facts);
   });
   it("refuses invented evidence, places, severity and unsourced instructions", () => {
     const opts = {
@@ -308,8 +316,8 @@ describe("grounded agency extraction", () => {
     expect(removeUnattributedNumbers("Call 000 if you need emergency help.")).toBe("Call your local emergency number if you need emergency help.");
     expect(removeUnattributedNumbers("Emergency number: 112.")).toBe("Emergency number: your local emergency number.");
     expect(removeUnattributedNumbers("call police on 000")).toBe("call police on your local emergency number");
-    expect(removeUnattributedNumbers("Phone: (08) 1234 5678")).toBe("Phone: your local emergency number");
-    expect(removeUnattributedNumbers("contact DFAT on 1300 555 135")).toBe("contact DFAT on your local emergency number");
+    expect(removeUnattributedNumbers("Phone: (08) 1234 5678")).toBe("Phone: the contact number in the linked source");
+    expect(removeUnattributedNumbers("contact DFAT on 1300 555 135")).toBe("contact DFAT on the contact number in the linked source");
     expect(removeUnattributedNumbers("Call for help at Exit 112.")).toBe("Call for help at Exit 112.");
     expect(removeUnattributedNumbers("Contact staff at Gate 112.")).toBe("Contact staff at Gate 112.");
     expect(removeUnattributedNumbers("Phone staff in Room 911.")).toBe("Phone staff in Room 911.");
@@ -319,4 +327,68 @@ describe("grounded agency extraction", () => {
     const value=parseAgencyExtraction({...response,facts:[],affectedAreas:[],nativeLevel:null,officialActions:[{text:"Leave now via Example Road.",evidence:"Leave now via Example Road."}]},{sourceText,agency:"Example agency",allowAgencyNumbers:false,templateVersion:1,alrtSuggestions:[],profileGuidance:[]});
     expect(value.contentDetails.officialActions).toEqual([sourceText]);
   });
+  it("keeps fallback instructions with their conditions and separately supplied actions", () => {
+    const description = "For residents in Example Town only, and only if the route is safe:\n\nLeave now via Example Road.";
+    const result = agencyExtractionFallback({ sourceText: description, sourceDescription: description, sourceActions: ["Keep Example Road clear."], agency: "Agency", allowAgencyNumbers: false, templateVersion: 1, alrtSuggestions: [], profileGuidance: [] });
+    expect(result.contentDetails.officialActions).toEqual([description, "Keep Example Road clear."]);
+    expect(result.callsToAction).toEqual([`Agency advises: ${description}`, "Agency advises: Keep Example Road clear."]);
+  });
+  it("retains the source lead-in when it scopes several instruction paragraphs", () => {
+    const sourceText = "For Example Town residents only, if the route is safe:\n\nPrepare your vehicle.\n\nLeave via Example Road.";
+    const options = {sourceText, sourceDescription: sourceText, agency: "Agency", allowAgencyNumbers: false, templateVersion: 1, alrtSuggestions: [], profileGuidance: []};
+    const result = parseAgencyExtraction({...response, facts:[], affectedAreas:[], nativeLevel:null, officialActions:[{text:"Leave via Example Road.", evidence:"Leave via Example Road."}]}, options);
+    expect(result.contentDetails.officialActions).toEqual([sourceText]);
+    expect(agencyExtractionFallback(options).contentDetails.officialActions).toContain(sourceText);
+  });
+});
+
+describe("5 November owner wording rules", () => {
+  const options = { sourceText: "Smoke affects Example Road.", agency: "Agency", allowAgencyNumbers: false, templateVersion: 3, alrtSuggestions: ["Consider reviewing your travel plans.", "Checking local updates may help."], profileGuidance: [] };
+  const input = {title:"Update",facts:[{text: options.sourceText,evidence:options.sourceText}],affectedAreas:[],nativeLevel:null,officialActions:[],confidence:"high"};
+  it("supplements one complete agency instruction to two advice points", () => {
+    const result = parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road until it reopens."]});
+    expect(result.contentDetails.alrtSuggestions).toEqual([options.alrtSuggestions[0]]);
+    expect(result.callsToAction).toEqual(["Agency advises: Avoid Example Road until it reopens.", options.alrtSuggestions[0]]);
+  });
+  it("does not add filler when two agency instructions already exist", () => {
+    expect(parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road.","Use Example Bridge."]}).contentDetails.alrtSuggestions).toEqual([]);
+  });
+  it("retains up to four sourced facts without padding a three-fact alert", () => {
+    const description = "Smoke affects Example Road. Crews are on scene. The next update is due at noon.";
+    const result = agencyExtractionFallback({...options,sourceText:description,sourceDescription:description});
+    expect(result.contentDetails.facts).toEqual(["Smoke affects Example Road.","Crews are on scene.","The next update is due at noon."]);
+    expect(result.summary).toBe("• Smoke affects Example Road.\n• Crews are on scene.\n• The next update is due at noon.");
+    expect(result.contentDetails.alrtSuggestions).toHaveLength(2);
+  });
+});
+
+describe('fallback source retention',()=>{
+ it('keeps the complete original description and excludes adapter metadata from facts',()=>{
+  const sourceDescription='Type: Bushfire\n\nSource status: Going\n\nWarning level: Watch and Act\n\nFire near Example Road.\n\nCrews are on scene.\n\nDrink water regularly.\n\nSeek medical attention if symptoms persist.';
+  const result=agencyExtractionFallback({sourceText:sourceDescription,sourceDescription,agency:'Agency',allowAgencyNumbers:false,templateVersion:3,alrtSuggestions:[],profileGuidance:[]});
+  expect(result.contentDetails.facts).toEqual(['Fire near Example Road.','Crews are on scene.']);
+  expect(result.contentDetails.sourceDescription).toBe(sourceDescription);
+ });
+});
+it('applies the source phone-number policy to the visible fallback details',()=>{
+ const result=agencyExtractionFallback({sourceText:'Call 000 for assistance.',sourceDescription:'Call 000 for assistance.',agency:'Agency',allowAgencyNumbers:false,templateVersion:3,alrtSuggestions:[],profileGuidance:[]});
+ expect(result.contentDetails.sourceDescription).toBe('Call your local emergency number for assistance.');
+});
+it('does not lend broad utilities guidance to a structure fire without explicit category review',()=>{
+ const pack=defaultTemplatePack();
+ expect(selectLibraryGuidance(pack,{categoryId:'structureFire',parentCategoryId:'utilitiesAndInfrastructure',band:'action'}).alrtSuggestions).toEqual([]);
+});
+it('never turns a non-emergency service contact into an emergency number',()=>{
+ expect(removeUnattributedNumbers('Call 131 700 to speak to a towing operator.')).toBe('Call the contact number in the linked source to speak to a towing operator.');
+});
+it('keeps availability text separate from both emergency and service phones',()=>{
+ expect(removeUnattributedNumbers('Call 000 (24 hours).')).toBe('Call your local emergency number (24 hours).');
+ expect(removeUnattributedNumbers('Call 112 (24/7).')).toBe('Call your local emergency number (24/7).');
+ expect(removeUnattributedNumbers('Call 131 700 (24 hours).')).toBe('Call the contact number in the linked source (24 hours).');
+});
+it('caps a fallback at four available source facts without duplicating a sparse source',()=>{
+ const facts=['Smoke affects Example Road.','Crews are on scene.','The next update is due at noon.','The source reports visible smoke.','The incident is near Example Bridge.'];
+ const options={sourceText:facts.join('\n\n'),sourceDescription:facts.join('\n\n'),agency:'Agency',allowAgencyNumbers:false,templateVersion:4,alrtSuggestions:[],profileGuidance:[]};
+ expect(agencyExtractionFallback(options).contentDetails.facts).toEqual(facts.slice(0,4));
+ expect(agencyExtractionFallback({...options,sourceText:facts[0]!,sourceDescription:facts[0]!}).contentDetails.facts).toEqual([facts[0]]);
 });

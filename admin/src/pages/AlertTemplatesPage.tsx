@@ -721,6 +721,7 @@ export function AlertTemplatesPage() {
                 </strong>
                 <p>{preview.reason}</p>
                 <p className="muted">Template: {preview.applied.join(" → ")}</p>
+                <p className="muted">Preview of the current editor draft. Published version: {state.published ? `v${state.published.version}` : "none"}. This is a content preview, not an exact mobile screenshot. Saving a draft does not publish it.</p>
                 {preview.output && (
                   <>
                     <h2>{preview.output.title}</h2>
@@ -750,7 +751,7 @@ export function AlertTemplatesPage() {
         <section className="card">
           <h2>Reviewed guidance library</h2>
           <p>
-            General suggestions fill a gap when an agency gives no actions. For
+            General suggestions supplement agency advice to two relevant points when reviewed matching wording exists. For
             You rows match a category and selected profile. Unapproved rows stay
             out of alerts.
           </p>
