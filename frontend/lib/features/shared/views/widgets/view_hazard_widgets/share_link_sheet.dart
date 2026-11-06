@@ -111,7 +111,7 @@ class ShareLinkSheet extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hazard.title ?? 'Alert',
+                  hazard.displayTitle,
                   style: TextStyle(
                     fontSize: 15.spMin,
                     fontWeight: FontWeight.w700,

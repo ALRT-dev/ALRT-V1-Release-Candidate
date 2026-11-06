@@ -73,7 +73,7 @@ class AlertFeedRow extends ConsumerWidget {
 
     return Semantics(
       button: true,
-      label: hazard.title,
+      label: hazard.displayTitle,
       child: Material(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AlertCardStyle.cardRadius.spMin),
@@ -146,7 +146,7 @@ class AlertFeedRow extends ConsumerWidget {
                     ),
                     SizedBox(height: 6.spMin),
                     Text(
-                      hazard.title ?? 'Alert',
+                      hazard.displayTitle,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

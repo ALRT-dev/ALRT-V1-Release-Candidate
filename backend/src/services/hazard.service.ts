@@ -1,3 +1,4 @@
+import { buildDfesIncidentContent } from '../utils/dfes_incident_content.util.js';
 import {
   type Prisma,
   type LocationSubscription,
@@ -711,6 +712,10 @@ export const summarizeHazard = async ({
   if (source.id === "waDfes") {
     const dfesContent = getDeterministicDfesContent({ title, description });
     if (dfesContent) return dfesContent;
+    const published = templateRelease === undefined ? (await getTemplateRegistry()).published : templateRelease;
+    const incident = buildDfesIncidentContent({ title, description, agency: source.name, sourceActions,
+      templateVersion: published?.version ?? 0 });
+    if (incident) return incident;
   }
 
   // NSW RFS fire warnings: deterministic content keyed by severity band.

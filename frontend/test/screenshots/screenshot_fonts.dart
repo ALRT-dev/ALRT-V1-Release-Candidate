@@ -27,7 +27,13 @@ Future<void> loadScreenshotFonts() async {
     await loader.load();
   }
 
-  // The theme asks for Arial; on a phone that resolves to the system sans.
+  // The app may fall back to the platform sans while Google Fonts loads.
+  // Goldens use that deterministic Roboto fallback, not downloaded Figtree.
+  await load('Figtree', [
+    '$materialFonts/Roboto-Regular.ttf',
+    '$materialFonts/Roboto-Medium.ttf',
+    '$materialFonts/Roboto-Bold.ttf',
+  ]);
   await load('Arial', [
     '$materialFonts/Roboto-Regular.ttf',
     '$materialFonts/Roboto-Medium.ttf',
@@ -47,7 +53,7 @@ Future<void> loadScreenshotFonts() async {
       Directory('$pub/hosted/pub.dev')
           .listSync()
           .whereType<Directory>()
-          .where((d) => d.path.contains('/lucide_icons_flutter-'))
+          .where((d) => d.path.replaceAll('\\', '/').contains('/lucide_icons_flutter-'))
           .map((d) => d.path)
           .toList()
         ..sort();

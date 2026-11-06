@@ -236,5 +236,8 @@ export const getGuideForHazardCategory = async (categoryId: string) => {
     },
   });
 
+  // An erroneous database association must not imply bushfire advice for
+  // a generic or structural fire. The category match remains exact above.
+  if (guide && /\bbushfire\b/i.test(guide.title + ' ' + guide.slug) && !/bushfire/i.test(category.id)) return null;
   return guide;
 };

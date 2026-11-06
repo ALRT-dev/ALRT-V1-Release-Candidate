@@ -1,3 +1,4 @@
+import { withSourceHistory } from '../utils/source_history.util.js';
 import {CFS_CAP_URL,fetchCFSCap,readCFSCapCancellations} from '../utils/cfs_cap.util.js';
 import {
   HazardReviewStatus,
@@ -537,6 +538,7 @@ export const summarizeAndPostHazards = async ({
       isUpdate: boolean;
     }> = [];
 
+    const priorSourceDetails = new Map<string, unknown>();
     let templateRelease: TemplateRelease | null = null;
     try { templateRelease = (await getTemplateRegistry()).published; }
     catch (error) { console.error("Template registry unavailable; continuing existing source classification.", error); }
@@ -563,6 +565,8 @@ export const summarizeAndPostHazards = async ({
         const existing = await prisma.hazard.findUnique({
           where: { id: hazardData.id },
         });
+
+        if (existing && existing.sourceId === hazardData.source?.id) priorSourceDetails.set(hazardData.id, existing.contentDetails);
 
         // Check if this source has severity band filtering configured
         const sourceId = hazardData.source?.id as ExternalSourceId;
@@ -843,7 +847,15 @@ export const summarizeAndPostHazards = async ({
             ...hazardData,
             title: summarized.title || hazardData.title,
             aiSummary: templateRelease?summarized.summary:(hazardData.aiSummary || summarized.summary),
-            contentDetails: summarized.contentDetails??Prisma.DbNull,
+            contentDetails: hazardData.source?.id === 'waDfes' ? withSourceHistory(
+              (summarized.contentDetails ?? {}) as unknown as Record<string, unknown>,
+              priorSourceDetails.get(hazardData.id!),
+              {sourceId:hazardData.source!.id,eventId:hazardData.id!,title:hazardData.title,
+                description:hazardData.description,nativeLevel:hazardData.nativeWarningLevel ?? null,
+                channel:hazardData.isAwsCompliant || hazardData.nativeWarningLevel ? 'warning' : 'incident',
+                instructions:hazardData.sourceInstructionBlocks ?? []},
+              new Date(),
+            ) as unknown as Prisma.InputJsonObject : summarized.contentDetails ?? Prisma.DbNull,
             aiConfidence: summarized.confidence,
             callsToAction: templateRelease?summarized.callsToAction:Array.isArray(hazardData.callsToAction)
               ? hazardData.callsToAction
