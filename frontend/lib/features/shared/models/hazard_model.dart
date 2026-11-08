@@ -136,6 +136,13 @@ abstract class Hazard with _$Hazard {
     return value.toLowerCase() == 'other fire' ? 'Fire' : value;
   }
 
+  /// Category navigation uses the owner's seven main groups. Incident names
+  /// remain separate, for titles, exact hazard artwork and guidance matching.
+  String get displayMainCategoryName {
+    final mainId = category?.parentId ?? category?.parent?.id ?? category?.id ?? categoryId;
+    return categoryPillNames[mainId] ?? 'Category unavailable';
+  }
+
   static String _readablePlace(String place) => place
       .split(' ')
       .map(

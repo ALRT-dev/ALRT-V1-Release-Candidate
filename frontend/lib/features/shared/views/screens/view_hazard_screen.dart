@@ -314,7 +314,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               if (hazard.createdAt != null)
                 _timelineRow(
                   icon: LucideIcons.send,
-                  label: 'Added to ALRT',
+                  label: 'Posted',
                   value: _formatTimestamp(hazard.createdAt!),
                   color: AppColors.mediumGrey,
                 ),
@@ -775,8 +775,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   }
 
   Widget _buildOfficialCategoryPill(final Hazard hazard) {
-    final category = hazard.category;
-    final label = hazard.displayCategoryName;
+    final label = hazard.displayMainCategoryName;
+    final category = hazard.category?.copyWith(name: label);
     final color = category?.resolvedColor ?? AppColors.grey;
     return Container(
       padding: EdgeInsets.symmetric(
@@ -844,11 +844,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       labelInk = AlertCardStyle.labelInkNeutral;
     }
 
-    final postedAt = hazard.createdAt ?? hazard.occurredAt;
+    final postedAt = hazard.createdAt;
     final sourceName = hazard.displaySourceName;
     final right = [
       if (sourceName.isNotEmpty) sourceName,
-      if (postedAt != null) postedAt.timeAgo,
+      if (postedAt != null) 'Posted ${postedAt.timeAgo}',
     ].join(' · ');
     final labelText = Text(
       label,
@@ -1320,9 +1320,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   Future<void> _sendAlertToCircle(
     final Hazard hazard,
-    final FamilyCircleSummary circle, {
-    bool checkInAfter = false,
-  }) async {
+    final FamilyCircleSummary circle,
+  ) async {
     if (_sendingToGroup || hazard.id == null) return;
     setState(() => _sendingToGroup = true);
     try {
@@ -1333,9 +1332,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         circleName: circle.name,
       );
       if (!mounted || sent == null) return;
-      if (sent && !checkInAfter) {
-        context.showSuccessToast(message: 'Sent to ${circle.name}.');
-      } else if (!sent) {
+      if (!sent) {
         context.showErrorToast(
           message: 'That could not be sent. Please try again.',
         );
@@ -1467,23 +1464,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             _shareAction(
               icon: Icons.group_outlined,
               label: 'Send alert to group',
-              detail: 'Send to ${selected.name}',
+              detail: 'Send to ${selected.name} · Optional check-in',
               onTap: _sendingToGroup
                   ? null
                   : () => _sendAlertToCircle(hazard, selected),
-            ),
-            const Divider(height: 16, color: Color(0xFFECECF0)),
-            _shareAction(
-              icon: Icons.check_circle_outline,
-              label: 'Send alert & check in',
-              detail: 'Choose your check-in after sending',
-              onTap: _sendingToGroup
-                  ? null
-                  : () => _sendAlertToCircle(
-                      hazard,
-                      selected,
-                      checkInAfter: true,
-                    ),
             ),
             const Divider(height: 16, color: Color(0xFFECECF0)),
             _shareAction(

@@ -6,6 +6,14 @@ import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 
 void main() {
+  test('main category label uses the seven stable parent IDs, not incident type', () {
+    const smoke = Hazard(category: HazardCategory(id: 'airQualityAlert', name: 'Air Quality Alert', parentId: 'healthAndAir'));
+    const fire = Hazard(category: HazardCategory(id: 'bushfire', name: 'Bushfire', parentId: 'weatherAndEnvironment'));
+    expect(smoke.displayMainCategoryName, 'Health & Air');
+    expect(fire.displayMainCategoryName, 'Weather & Environment');
+    expect(const Hazard(category: HazardCategory(id: 'securityAndCrime', name: 'Security & Crime')).displayMainCategoryName, 'Safety & Crime');
+    expect(const Hazard(category: HazardCategory(id: 'other', name: 'Other')).displayMainCategoryName, 'Other');
+  });
   test('specific DFES incident type is not lost behind Other', () {
     const alarm = Hazard(
       source: HazardSource(id: 'waDfes'),

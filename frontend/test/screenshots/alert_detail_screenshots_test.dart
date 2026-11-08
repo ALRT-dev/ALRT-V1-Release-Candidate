@@ -64,6 +64,7 @@ void main() {
         categoryId: category,
         category: HazardCategory(
           id: category,
+          parentId: smoke ? 'healthAndAir' : 'weatherAndEnvironment',
           name: smoke ? 'Air Quality Alert' : generic ? 'Other Fire' : 'Bushfire',
         ),
         source: const HazardSource(
@@ -159,9 +160,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('WHAT TO DO'), findsOneWidget);
-      expect(find.text('Send alert & check in'), findsOneWidget);
+      expect(find.text('Send alert to group'), findsOneWidget);
+      expect(find.text('Send alert & check in'), findsNothing);
       expect(find.text('Change detected'), smoke ? findsNothing : findsOneWidget);
       if (smoke) {
+        expect(find.text('Health & Air'), findsOneWidget);
         expect(find.text('FOR YOU'), findsOneWidget);
         expect(find.text('Smoke alert in Karragullen, Roleystone'), findsOneWidget);
         expect(find.text('More agency instructions (1)'), findsOneWidget);
@@ -179,7 +182,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(),isNull);
       await expectLater(find.byType(MaterialApp),matchesGoldenFile('goldens/alert-$kind-phone-top.png'));
-      await tester.ensureVisible(find.text('Send alert & check in'));
+      await tester.ensureVisible(find.text('Send alert to group'));
       await tester.pumpAndSettle();
       expect(tester.takeException(),isNull);
       await expectLater(find.byType(MaterialApp),matchesGoldenFile('goldens/alert-$kind-phone-share.png'));
