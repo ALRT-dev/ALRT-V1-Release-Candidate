@@ -60,9 +60,15 @@ abstract class Hazard with _$Hazard {
 
   AlertSourceUpdate? get latestSourceUpdate => sourceUpdates.firstOrNull;
 
-  String get displaySourceName => source?.id == 'waDfes'
-      ? 'DFES WA'
-      : source?.name?.trim() ?? 'Official source';
+  String get displaySourceName {
+    if (source?.id == 'waDfes') {
+      return contentDetails?['issuingAgency'] ==
+              'Parks and Wildlife Service (DBCA)'
+          ? 'DBCA Parks and Wildlife'
+          : 'DFES WA';
+    }
+    return source?.name?.trim() ?? 'Official source';
+  }
 
   /// Presentation only: preserve the original agency title in the model.
   String get displayTitle {
@@ -70,10 +76,22 @@ abstract class Hazard with _$Hazard {
     if (value.isEmpty) return displayCategoryName;
     if (isUserReported) return value;
     final match = RegExp(
-      r'^(bushfire|other fire|fire|structure fire|structural fire|vehicle fire|road crash|crash|grass fire)( advice| watch and act| emergency warning)?\s+[-–—]\s+(.+)$',
+      r'^(bushfire|other fire|fire|structure fire|structural fire|vehicle fire|road crash|crash|grass fire|active alarm|fuel leak)( advice| watch and act| emergency warning)?\s+[-–—]\s+(.+)$',
       caseSensitive: false,
     ).firstMatch(value);
-    if (match == null) return value;
+    if (match == null) {
+      final smoke = RegExp(
+        r'^smoke alert\s+for\s+(.+)$',
+        caseSensitive: false,
+      ).firstMatch(value);
+      if (source?.id == 'waDfes' && smoke != null) {
+        final places = smoke[1]!
+            .split(RegExp(r'\s+and surrounding areas', caseSensitive: false))
+            .first;
+        return 'Smoke alert in ${_readablePlace(places)}';
+      }
+      return value;
+    }
     final kind = match[1]!.toLowerCase() == 'other fire'
         ? 'fire'
         : match[1]!.toLowerCase();
@@ -94,10 +112,38 @@ abstract class Hazard with _$Hazard {
   }
 
   String get displayCategoryName {
+    if (!isUserReported && source?.id == 'waDfes') {
+      final incident = contentDetails?['sourceIncidentType'];
+      if (incident is String && incident.trim().isNotEmpty) {
+        return incident.trim();
+      }
+      final type = RegExp(
+        r'^(active alarm|fuel leak)\s+[-–—]\s+',
+        caseSensitive: false,
+      ).firstMatch(title ?? '')?[1];
+      if (type != null) {
+        return '${type[0].toUpperCase()}${type.substring(1).toLowerCase()}';
+      }
+      if (RegExp(
+        r'^smoke alert\b',
+        caseSensitive: false,
+      ).hasMatch(title ?? '')) {
+        return 'Smoke alert';
+      }
+    }
     final value =
         category?.name?.trim() ?? category?.parent?.name?.trim() ?? 'Alert';
     return value.toLowerCase() == 'other fire' ? 'Fire' : value;
   }
+
+  static String _readablePlace(String place) => place
+      .split(' ')
+      .map(
+        (word) => word.isEmpty || word != word.toUpperCase()
+            ? word
+            : '${word[0]}${word.substring(1).toLowerCase()}',
+      )
+      .join(' ');
 
   const factory Hazard({
     /// The id of the hazard.

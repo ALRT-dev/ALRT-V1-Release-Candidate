@@ -6,6 +6,17 @@ import 'package:hazard_app/features/profile/views/widgets/for_you_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('sparse source explains missing advice instead of hiding section', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(
+      body: AgencyContentSections(content: {
+        'facts': ['An active alarm was reported in Claremont.'],
+        'officialActions': [], 'alrtSuggestions': [],
+      }),
+    )));
+    expect(find.text('WHAT TO DO'), findsOneWidget);
+    expect(find.textContaining('Agency instructions are not available in this view.'), findsOneWidget);
+    expect(find.textContaining('has not published'), findsNothing);
+  });
   testWidgets(
     'agency instructions first, supplemental guidance visibly separate',
     (tester) async {
@@ -40,8 +51,8 @@ void main() {
       expect(find.text('A fourth fact.'), findsOneWidget);
       expect(find.text('A fifth fact.'), findsNothing);
       expect(
-        find.text('Complete original source, including all conditions.'),
-        findsOneWidget,
+        find.text('Complete original source, including all conditions.').hitTestable(),
+        findsNothing,
       );
       expect(
         tester.getTopLeft(find.text('Avoid Example Road.')).dy,

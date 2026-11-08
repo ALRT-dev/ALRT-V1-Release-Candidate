@@ -81,6 +81,9 @@ abstract final class ForYouLibrary {
 
   /// Hazards that deliberately show no For You lines.
   static const _noGuidanceKeywords = <String>[
+    'fuel leak',
+    'active alarm',
+    'fire alarm',
     'smell of gas',
     'gas smell',
     'gas leak',

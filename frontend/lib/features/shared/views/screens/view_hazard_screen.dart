@@ -162,9 +162,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   _buildHeaderCard(),
                   16.hSizedBox,
 
-                  // Timeline section
-                  _buildTimelineSection(),
-
                   // Review feedback section (if applicable)
                   Consumer(
                     builder: (context, ref, child) {
@@ -1008,10 +1005,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           isAws: hazard.isAwsCompliant ?? false,
           severity: hazard.severity,
           band: hazard.severityBand,
-          categoryName: hazard.category?.name,
+          categoryName: hazard.displayCategoryName,
           sourceName: hazard.displaySourceName,
           locationName: hazard.locationName,
-          title: hazard.title,
+          title: hazard.displayTitle,
           hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
         );
         if (plainTerms == null) return const SizedBox.shrink();
@@ -1228,19 +1225,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           },
         ),
 
-        Consumer(
-          builder: (context, ref, child) {
-            final categoryId = ref.watch(
-              provider.select((value) => value.hazard?.category?.id),
-            );
-            final isUserReported = ref.watch(
-              provider.select((value) => value.hazard?.isUserReported ?? false),
-            );
-            if (isUserReported) return const SizedBox.shrink();
-            return GuideStripCard(categoryId: categoryId);
-          },
-        ),
-
         _buildFollowingAlertReason(),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
@@ -1274,7 +1258,14 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           },
         ),
 
-        // Tell your people: purple card + Everyone else card.
+        Consumer(
+          builder: (context, ref, child) {
+            final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (hazard?.isUserReported ?? true) return const SizedBox.shrink();
+            return GuideStripCard(categoryId: hazard?.category?.id);
+          },
+        ),
+
         _buildTellYourPeopleSection(),
 
         // Community alerts: I see it / I don't see it voting, the
@@ -1283,6 +1274,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         12.hSizedBox,
 
         // Attribution
+        _buildTimelineSection(),
         _buildSourceSection(),
         _buildSourceFootnote(),
 
@@ -1447,6 +1439,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   ) {
     return Card(
       elevation: 0,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: const BorderSide(color: Color(0xFFDDD7ED)),
@@ -1470,35 +1463,38 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 ),
               ],
             ),
-            FilledButton(
-              onPressed: _sendingToGroup
+            const Divider(height: 16, color: Color(0xFFECECF0)),
+            _shareAction(
+              icon: Icons.group_outlined,
+              label: 'Send alert to group',
+              detail: 'Send to ${selected.name}',
+              onTap: _sendingToGroup
                   ? null
                   : () => _sendAlertToCircle(hazard, selected),
-              child: const Text('Send alert to group'),
             ),
-            OutlinedButton(
-              onPressed: _sendingToGroup
+            const Divider(height: 16, color: Color(0xFFECECF0)),
+            _shareAction(
+              icon: Icons.check_circle_outline,
+              label: 'Send alert & check in',
+              detail: 'Choose your check-in after sending',
+              onTap: _sendingToGroup
                   ? null
                   : () => _sendAlertToCircle(
                       hazard,
                       selected,
                       checkInAfter: true,
                     ),
-              child: const Text('Send alert & check in'),
             ),
+            const Divider(height: 16, color: Color(0xFFECECF0)),
+            _shareAction(
+              icon: Icons.share_outlined,
+              label: 'Share externally',
+              detail: 'Messages, WhatsApp, email or copy link',
+              onTap: () => shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+            ),
+            const SizedBox(height: 16),
             const Text(
-              'Check-in asks for your choice after the alert is sent.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF5B5E6E)),
-            ),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  shareAlert(ref: ref, hazard: hazard, from: 'detail'),
-              icon: const Icon(Icons.share_outlined),
-              label: const Text('Share externally'),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Group sharing keeps your location private unless you choose to include it.',
+              'Your location is private unless you choose to share it.',
               style: TextStyle(fontSize: 12, color: Color(0xFF5B5E6E)),
             ),
           ],
@@ -1506,6 +1502,46 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       ),
     );
   }
+
+  Widget _shareAction({
+    required IconData icon,
+    required String label,
+    required String detail,
+    required VoidCallback? onTap,
+  }) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    minVerticalPadding: 8,
+    leading: Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2EFF8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: const Color(0xFF684B9F), size: 23),
+    ),
+    title: Text(
+      label,
+      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+    ),
+    subtitle: Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        detail,
+        style: const TextStyle(
+          fontSize: 12,
+          height: 1.4,
+          color: Color(0xFF5B5E6E),
+        ),
+      ),
+    ),
+    trailing: const Icon(
+      Icons.chevron_right,
+      size: 20,
+      color: Color(0xFF8A8C96),
+    ),
+    onTap: onTap,
+    enabled: onTap != null,
+  );
 
   Widget _buildCommunityVoteSection() {
     return Consumer(

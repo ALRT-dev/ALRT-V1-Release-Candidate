@@ -67,34 +67,44 @@ class AgencyContentSections extends StatelessWidget {
             for (final text in lines)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: (text == 'ALRT suggestions' || text == 'Agency instructions' || text.endsWith(' advises'))
-                    ? Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5C5C66)))
-                    : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      margin: const EdgeInsets.only(top: 7),
-                      decoration: BoxDecoration(
-                        color: severityColor ?? const Color(0xFFFF7900),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
+                child:
+                    (text == 'ALRT suggestions' ||
+                        text == 'Agency instructions' ||
+                        text.endsWith(' advises'))
+                    ? Text(
                         text,
                         style: const TextStyle(
-                          fontSize: 14.5,
-                          height: 1.5,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1A1A22),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF5C5C66),
                         ),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            margin: const EdgeInsets.only(top: 7),
+                            decoration: BoxDecoration(
+                              color: severityColor ?? const Color(0xFFFF7900),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              text,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                height: 1.5,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF1A1A22),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
           ],
         ),
@@ -109,7 +119,12 @@ class AgencyContentSections extends StatelessWidget {
     final typedIncident = content['extractionMethod'] == 'dfes-incident-fields';
     final originalSource =
         content['originalSourceText'] ?? content['sourceDescription'];
-    final agency = sourceName?.trim() ?? '';
+    final agency =
+        (content['issuingAgency'] is String
+                ? content['issuingAgency'] as String
+                : sourceName)
+            ?.trim() ??
+        '';
     // Facts already come from grounded extraction; do not repeat a generated intro.
     final factLines = facts.take(4).toList();
     return Column(
@@ -120,36 +135,45 @@ class AgencyContentSections extends StatelessWidget {
         if (areas.isNotEmpty && !typedIncident)
           _section('AFFECTED AREA', areas),
         if (factLines.isNotEmpty) _section('WHAT WE KNOW', factLines),
-        if (actions.isNotEmpty || suggestions.isNotEmpty)
-          _section(
-            'WHAT TO DO',
-            [
-              if (actions.isNotEmpty) ...[
-                agency.isEmpty ? 'Agency instructions' : '$agency advises',
-                ...actions,
-              ],
-              if (suggestions.isNotEmpty && actions.length < 2) ...[
-                'ALRT suggestions',
-                ...suggestions.take((2 - actions.length).clamp(0, 2)),
-              ],
+        _section(
+          'WHAT TO DO',
+          [
+            if (actions.isNotEmpty) ...[
+              agency.isEmpty ? 'Agency instructions' : '$agency advises',
+              ...actions.take(4),
             ],
-            subtitle: suggestions.isNotEmpty && actions.length < 2
-                ? 'ALRT suggestions are general guidance, separate from agency instructions.'
-                : null,
+            if (suggestions.isNotEmpty && actions.length < 2) ...[
+              'ALRT suggestions',
+              ...suggestions.take((2 - actions.length).clamp(0, 2)),
+            ],
+            if (actions.isEmpty && suggestions.isEmpty)
+              'Agency instructions are not available in this view. Check the original source details for the full information.',
+          ],
+          subtitle: suggestions.isNotEmpty && actions.length < 2
+              ? 'ALRT suggestions are general guidance, separate from agency instructions.'
+              : null,
+        ),
+        if (actions.length > 4)
+          Card(
+            elevation: 0,
+            color: Colors.white,
+            child: ExpansionTile(
+              title: Text('More agency instructions (${actions.length - 4})'),
+              children: [
+                _section('AGENCY INSTRUCTIONS', actions.skip(4).toList()),
+              ],
+            ),
           ),
         if (originalSource is String && originalSource.trim().isNotEmpty)
-          if (typedIncident)
-            Card(
-              elevation: 0,
-              color: Colors.white,
-              child: ExpansionTile(
-                title: const Text('Original source details'),
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                children: [Text(originalSource)],
-              ),
-            )
-          else
-            _section('ORIGINAL SOURCE DETAILS', [originalSource]),
+          Card(
+            elevation: 0,
+            color: Colors.white,
+            child: ExpansionTile(
+              title: const Text('Original source details'),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [Text(originalSource)],
+            ),
+          ),
       ],
     );
   }

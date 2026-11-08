@@ -2,9 +2,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
+import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 
 void main() {
+  test('specific DFES incident type is not lost behind Other', () {
+    const alarm = Hazard(
+      source: HazardSource(id: 'waDfes'),
+      title: 'Active Alarm - CLAREMONT',
+      category: HazardCategory(id: 'other', name: 'Other'),
+    );
+    expect(alarm.displayCategoryName, 'Active alarm');
+    expect(alarm.displayTitle, 'Active alarm in Claremont');
+    expect(const Hazard(title: 'Fuel Leak - BEDFORDALE').displayTitle,
+        'Fuel leak in Bedfordale');
+    expect(alarm.category?.id, 'other');
+  });
   test('plain terms also normalises Other Fire from the source title', () {
     expect(
       AlertCardStyle.plainTermsOf(

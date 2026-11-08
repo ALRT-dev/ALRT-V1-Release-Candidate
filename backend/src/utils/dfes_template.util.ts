@@ -1,4 +1,5 @@
 import type { AISummaryResponse } from "../models/ai_summary_response_interface.js";
+import { buildDfesSmokeBulletin } from './dfes_bulletin.util.js';
 
 /**
  * Deterministic, zero-AI content for WA DFES warnings. DFES publishes one
@@ -58,6 +59,8 @@ export const getDeterministicDfesContent = ({
   title: string;
   description: string;
 }): AISummaryResponse | null => {
+  const smoke = buildDfesSmokeBulletin(title, description);
+  if (smoke) return smoke;
   const parsed = parseDfesWarning(description);
   if (!parsed || parsed.facts.length === 0) return null;
   return {

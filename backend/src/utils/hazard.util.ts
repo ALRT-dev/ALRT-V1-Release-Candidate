@@ -1,4 +1,5 @@
 import { buildDfesIncidentContent } from './dfes_incident_content.util.js';
+import { buildDfesSmokeBulletin } from './dfes_bulletin.util.js';
 import {
   HazardReviewStatus,
   HazardSeverity,
@@ -546,6 +547,9 @@ export const withPublicCoords = <
   const record = hazard as T & { sourceId?: string; title?: string; description?: string; contentDetails?: any; aiSummary?: string; callsToAction?: string[]; locationName?: string };
   if (record.sourceId === 'waDfes' && typeof record.title === 'string' && typeof record.description === 'string') {
     const prior = record.contentDetails;
+    const smoke = buildDfesSmokeBulletin(record.title, record.description, typeof prior?.templateVersion === 'number' ? prior.templateVersion : 0);
+    if (smoke) hazard = { ...hazard, aiSummary: smoke.summary, callsToAction: smoke.callsToAction,
+      contentDetails: { ...prior, ...smoke.contentDetails } };
     const incident = buildDfesIncidentContent({ title: record.title, description: record.description,
       agency: 'DFES', templateVersion: typeof prior?.templateVersion === 'number' ? prior.templateVersion : 0,
       sourceActions: (Array.isArray(prior?.originalSourceActions) ? prior.originalSourceActions : Array.isArray(prior?.officialActions) ? prior.officialActions : []).filter((x: unknown): x is string => typeof x === 'string') });

@@ -48,21 +48,23 @@ void main() {
           (call) async => call.method == 'getVoices' ? [] : 1,
         );
   });
-  for (final generic in [false, true]) {
-    testWidgets('real alert detail ${generic ? 'generic fire' : 'bushfire'}', (
+  for (final kind in ['bushfire', 'fire', 'smoke']) {
+    final generic = kind == 'fire';
+    final smoke = kind == 'smoke';
+    testWidgets('real alert detail $kind', (
       tester,
     ) async {
       await tester.runAsync(loadScreenshotFonts);
-      final category = generic ? 'otherFire' : 'bushfire';
-      final place = generic ? 'Bassendean' : 'Scarborough';
+      final category = smoke ? 'airQualityAlert' : generic ? 'otherFire' : 'bushfire';
+      final place = smoke ? 'Karragullen and Roleystone' : generic ? 'Bassendean' : 'Scarborough';
       final hazard = Hazard(
         id: 'fixture-$category',
         title:
-            '${generic ? 'Other Fire' : 'Bushfire'} - ${place.toUpperCase()}',
+            smoke ? 'Smoke Alert FOR KARRAGULLEN, ROLEYSTONE AND SURROUNDING AREAS IN THE CITY OF ARMADALE' : '${generic ? 'Other Fire' : 'Bushfire'} - ${place.toUpperCase()}',
         categoryId: category,
         category: HazardCategory(
           id: category,
-          name: generic ? 'Other Fire' : 'Bushfire',
+          name: smoke ? 'Air Quality Alert' : generic ? 'Other Fire' : 'Bushfire',
         ),
         source: const HazardSource(
           id: 'waDfes',
@@ -72,19 +74,33 @@ void main() {
         createdAt: DateTime(2026, 11, 7, 8),
         contentDetails: {
           'schemaVersion': 1,
-          'extractionMethod': 'dfes-incident-fields',
+          'extractionMethod': smoke ? 'dfes-smoke-bulletin' : 'dfes-incident-fields',
+          if (smoke) 'issuingAgency': 'Parks and Wildlife Service (DBCA)',
+          if (smoke) 'sourceIncidentType': 'Smoke alert',
           'facts': [
+            if (smoke) ...[
+              'A Smoke Alert has been issued for people in Karragullen, Roleystone and surrounding areas in the City of Armadale.',
+              'The smoke is the result of prescribed burning being carried out in the area.',
+              'Smoke may affect roads in the area and settle in low lying areas overnight before clearing Monday morning.',
+            ] else ...[
             'A ${generic ? 'fire' : 'bushfire'} was reported in $place.',
             'Reported on 7 November at 8:00 am AWST.',
+            ],
           ],
-          'officialActions': [],
-          'alrtSuggestions': [
+          'officialActions': smoke ? [
+            'Shut doors and windows and turn off air-conditioners.',
+            'If driving through the area, turn on headlights and drive slowly. If you cannot see clearly, pull over to the left, keep your headlights and hazard lights on, and wait until the smoke clears.',
+            'People with asthma and pre-existing respiratory or cardiovascular illnesses should follow their pre-prepared treatment plan.',
+            'Watch for emergency services personnel and follow their directions.',
+            'Motorists are asked to avoid the area, reduce speed and drive carefully.',
+          ] : [],
+          'alrtSuggestions': smoke ? [] : [
             'Consider checking Emergency WA for official incident updates.',
             'Consider reviewing your ${generic ? 'emergency' : 'bushfire emergency'} plan.',
           ],
           'profileGuidance': [],
           if (!generic) 'profileGuidancePolicy': 'bundledFallback',
-          'sourceUpdate': {
+          if (!smoke) 'sourceUpdate': {
             'summary':
                 'Location details changed from the broader region to $place.',
             'detectedAt': '2026-11-07T00:05:00Z',
@@ -144,24 +160,29 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('WHAT TO DO'), findsOneWidget);
       expect(find.text('Send alert & check in'), findsOneWidget);
-      expect(find.text('Change detected'), findsOneWidget);
+      expect(find.text('Change detected'), smoke ? findsNothing : findsOneWidget);
+      if (smoke) {
+        expect(find.text('FOR YOU'), findsOneWidget);
+        expect(find.text('Smoke alert in Karragullen, Roleystone'), findsOneWidget);
+        expect(find.text('More agency instructions (1)'), findsOneWidget);
+      }
       expect(find.text('Get them on ALRT'), findsNothing);
       expect(tester.takeException(), isNull);
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile(
-          'goldens/alert-${generic ? 'fire' : 'bushfire'}-detail.png',
+          'goldens/alert-$kind-detail.png',
         ),
       );
       await tester.binding.setSurfaceSize(const Size(390,844));
       tester.view.physicalSize=const Size(780,1688);
       await tester.pumpAndSettle();
       expect(tester.takeException(),isNull);
-      await expectLater(find.byType(MaterialApp),matchesGoldenFile('goldens/alert-${generic ? 'fire' : 'bushfire'}-phone-top.png'));
+      await expectLater(find.byType(MaterialApp),matchesGoldenFile('goldens/alert-$kind-phone-top.png'));
       await tester.ensureVisible(find.text('Send alert & check in'));
       await tester.pumpAndSettle();
       expect(tester.takeException(),isNull);
-      await expectLater(find.byType(MaterialApp),matchesGoldenFile('goldens/alert-${generic ? 'fire' : 'bushfire'}-phone-share.png'));
+      await expectLater(find.byType(MaterialApp),matchesGoldenFile('goldens/alert-$kind-phone-share.png'));
     }, skip: !enabled);
   }
 }
