@@ -77,7 +77,7 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
   const officialActions = [...new Set(originalSourceActions.filter(text => text.trim()).map(clean))];
   const reviewed = kind.value.toLowerCase() === 'bushfire' ? bushfirePlanning
     : /^(?:fire|other fire)$/i.test(kind.value) ? firePlanning : [];
-  const guidanceReferences = reviewed.slice(0, Math.max(0, 2 - officialActions.length)).map(item => ({ ...item }));
+  const guidanceReferences = (officialActions.length ? [] : reviewed.slice(0, 4)).map(item => ({ ...item }));
   const alrtSuggestions = guidanceReferences.map(item => item.text);
   const cleanedFacts = facts.map(clean);
   return {

@@ -37,7 +37,6 @@ import 'package:hazard_app/features/shared/providers/view_hazard_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/share_alert.dart';
-import 'package:hazard_app/features/shared/utils/general_guidance.dart';
 import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
@@ -1439,7 +1438,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFFDDD7ED)),
+        side: const BorderSide(color: Color(0xFF9473BC), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1790,18 +1789,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // Community reports have no advice section at all.
         if (hazard == null || isUserReported) return const SizedBox.shrink();
 
-        var callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction);
+        final callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction)
+            .where(AlertCardStyle.isAgencyAction).toList();
         final fromAgency = callsToAction.isNotEmpty;
-        if (!fromAgency) {
-          // The agency published no instructions: ALRT's general guidance
-          // for this kind of alert, labelled as such below (product owner,
-          // 16 Oct 2026; replaces the "has not published advice" note).
-          callsToAction = GeneralGuidance.forAlert(
-            title: hazard.title,
-            categoryName: hazard.category?.name,
-            parentCategoryName: hazard.category?.parent?.name,
-          );
-        }
         final agency = hazard.source?.name?.trim();
 
         // Detail board: WHAT TO DO in a white card, "{agency}, word for
@@ -1813,7 +1803,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             if (fromAgency && agency != null && agency.isNotEmpty) ...[
               2.hSizedBox,
               Text(
-                '$agency, word for word',
+                '$agency advises',
                 style: TextStyle(
                   fontSize: 12.spMin,
                   color: AlertCardStyle.metaInk,
@@ -1821,6 +1811,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               ),
             ],
             8.hSizedBox,
+            if (!fromAgency)
+              const Text('Advice could not be verified in this view. Check the official source for the full information.'),
             for (var i = 0; i < callsToAction.length; i++)
               Padding(
                 padding: EdgeInsets.only(

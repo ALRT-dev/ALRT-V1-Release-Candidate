@@ -18,7 +18,7 @@ void main() {
     expect(find.textContaining('has not published'), findsNothing);
   });
   testWidgets(
-    'agency instructions first, supplemental guidance visibly separate',
+    'agency instructions suppress ALRT fallback even on older mixed records',
     (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -45,7 +45,7 @@ void main() {
       );
       expect(
         find.text('Consider reviewing your travel plans.'),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('Agency issued an incident.'), findsNothing);
       expect(find.text('A fourth fact.'), findsOneWidget);
@@ -54,14 +54,7 @@ void main() {
         find.text('Complete original source, including all conditions.').hitTestable(),
         findsNothing,
       );
-      expect(
-        tester.getTopLeft(find.text('Avoid Example Road.')).dy,
-        lessThan(
-          tester
-              .getTopLeft(find.text('Consider reviewing your travel plans.'))
-              .dy,
-        ),
-      );
+      expect(find.text('Avoid Example Road.'), findsOneWidget);
     },
   );
   testWidgets('no selected Safety Profile needs means no For You promotion', (

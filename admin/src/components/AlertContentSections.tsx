@@ -46,12 +46,12 @@ export function AlertContentSections({
           </ul>
         </section>
       )}
-      {content.alrtSuggestions.length > 0 && content.officialActions.length < 2 && (
+      {content.alrtSuggestions.length > 0 && content.officialActions.length === 0 && (
         <section>
           <h3>ALRT suggestions</h3>
           <p>General guidance from ALRT, not part of the official warning.</p>
           <ul>
-            {content.alrtSuggestions.slice(0, Math.max(0, 2 - content.officialActions.length)).map((x, i) => (
+            {content.alrtSuggestions.slice(0, 4).map((x, i) => (
               <li key={i}>{x}</li>
             ))}
           </ul>

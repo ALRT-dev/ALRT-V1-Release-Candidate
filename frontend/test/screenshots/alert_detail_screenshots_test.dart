@@ -48,9 +48,10 @@ void main() {
           (call) async => call.method == 'getVoices' ? [] : 1,
         );
   });
-  for (final kind in ['bushfire', 'fire', 'smoke']) {
+  for (final kind in ['bushfire', 'fire', 'smoke', 'legacy']) {
     final generic = kind == 'fire';
     final smoke = kind == 'smoke';
+    final legacy = kind == 'legacy';
     testWidgets('real alert detail $kind', (
       tester,
     ) async {
@@ -73,7 +74,8 @@ void main() {
         ),
         locationName: place,
         createdAt: DateTime(2026, 11, 7, 8),
-        contentDetails: {
+        callsToAction: legacy ? ['DFES advises: Keep Example Road clear.', 'Consider checking local updates.'] : null,
+        contentDetails: legacy ? null : {
           'schemaVersion': 1,
           'extractionMethod': smoke ? 'dfes-smoke-bulletin' : 'dfes-incident-fields',
           if (smoke) 'issuingAgency': 'Parks and Wildlife Service (DBCA)',
@@ -162,7 +164,12 @@ void main() {
       expect(find.text('WHAT TO DO'), findsOneWidget);
       expect(find.text('Send alert to group'), findsOneWidget);
       expect(find.text('Send alert & check in'), findsNothing);
-      expect(find.text('Change detected'), smoke ? findsNothing : findsOneWidget);
+      expect(find.text('Change detected'), smoke || legacy ? findsNothing : findsOneWidget);
+      if (legacy) {
+        expect(find.textContaining('Keep Example Road clear.'), findsOneWidget);
+        expect(find.text('Consider checking local updates.'), findsNothing);
+        expect(find.textContaining('word for word'), findsNothing);
+      }
       if (smoke) {
         expect(find.text('Health & Air'), findsOneWidget);
         expect(find.text('FOR YOU'), findsOneWidget);

@@ -18,17 +18,22 @@ If driving
 • Turn your headlights on and drive slowly.`;
 
 describe("DFES warning template", () => {
+  it('declines an unknown audience heading rather than dropping its condition', () => {
+    expect(parseDfesWarning('Warning Type: Smoke Alert\n• Smoke is present.\nWHAT TO DO\nPeople with asthma:\n• Follow your plan.')).toBeNull();
+  });
   it("splits facts from the agency's own instructions, verbatim", () => {
     const r = getDeterministicDfesContent({ title: "t", description: PALMER });
     expect(r).not.toBeNull();
-    expect(r!.summary.split("\n")).toHaveLength(3);
+    expect(r!.summary.split("\n")).toHaveLength(4);
     expect(r!.summary).toContain("A Bushfire Advice is in place");
     expect(r!.summary).not.toMatch(/WHAT TO DO/i);
     expect(r!.callsToAction).toEqual([
       "The threat of the fire has reduced however you should take care in the area.",
       "Stay alert for potential dangers such as smoke and fallen trees and power poles.",
       "If you do not have a plan, make one now on Emergency WA.",
+      "If driving Turn your headlights on and drive slowly.",
     ]);
+    expect(r!.contentDetails?.officialActions).toEqual(r!.callsToAction);
   });
 
   it("gives no instructions when the agency gave none", () => {

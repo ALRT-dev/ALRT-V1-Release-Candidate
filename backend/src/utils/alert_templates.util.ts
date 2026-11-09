@@ -278,7 +278,7 @@ export function selectLibraryGuidance(
     alrtSuggestions: entries
       .filter((x) => !x.profileTags.length)
       .map((x) => x.text)
-      .slice(0, 3),
+      .slice(0, 4),
     profileGuidance: entries
       .filter((x) => x.profileTags.length)
       .map((x) => ({

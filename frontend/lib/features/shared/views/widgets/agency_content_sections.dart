@@ -33,8 +33,9 @@ class AgencyContentSections extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: title == 'WHAT WE KNOW'
-                ? const Color(0xFFD8E3EC)
-                : const Color(0xFFF1D8C3),
+                ? const Color(0xFF799AB5)
+                : const Color(0xFFE7813C),
+            width: 1.5,
           ),
           boxShadow: const [
             BoxShadow(
@@ -142,14 +143,14 @@ class AgencyContentSections extends StatelessWidget {
               agency.isEmpty ? 'Agency instructions' : '$agency advises',
               ...actions.take(4),
             ],
-            if (suggestions.isNotEmpty && actions.length < 2) ...[
+            if (suggestions.isNotEmpty && actions.isEmpty) ...[
               'ALRT suggestions',
-              ...suggestions.take((2 - actions.length).clamp(0, 2)),
+              ...suggestions.take(4),
             ],
             if (actions.isEmpty && suggestions.isEmpty)
               'Agency instructions are not available in this view. Check the original source details for the full information.',
           ],
-          subtitle: suggestions.isNotEmpty && actions.length < 2
+          subtitle: suggestions.isNotEmpty && actions.isEmpty
               ? 'ALRT suggestions are general guidance, separate from agency instructions.'
               : null,
         ),

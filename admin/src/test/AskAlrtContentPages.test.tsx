@@ -88,6 +88,8 @@ describe("AskAlrtLibraryPage", () => {
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
   });
 
+  // Three keyboard-entry sequences can exceed five seconds on Windows.
+  // Preserve all validation/publish assertions while allowing typing to finish.
   it("blocks saving an answer with a dash or phone number, then saves a good one after confirming", async () => {
     const user = userEvent.setup();
     const { calls } = installMockFetch([
@@ -137,7 +139,7 @@ describe("AskAlrtLibraryPage", () => {
         enabled: true,
       });
     });
-  });
+  }, 15000);
 });
 
 const row = (over: Record<string, unknown> = {}) => ({

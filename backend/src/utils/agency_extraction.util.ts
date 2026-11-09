@@ -166,7 +166,9 @@ export function parseAgencyExtraction(
 }
 /** Only pre-reviewed library suggestions enter here. Never displace agency instructions. */
 export function supplementAgencyAdvice(actions: string[], reviewed: string[]): string[] {
-  const needed = Math.max(0, 2 - actions.length);
+  // Owner clarification, 9 November: ALRT is a fallback, never a top-up.
+  if (actions.some(text => text.trim().length > 0)) return [];
+  const needed = 4;
   const seen = new Set(actions.map(normalise));
   return reviewed.filter(text => {
     const key = normalise(text);

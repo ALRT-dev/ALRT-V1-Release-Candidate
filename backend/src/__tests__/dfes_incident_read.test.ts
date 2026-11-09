@@ -7,6 +7,14 @@ const record = { sourceId: 'waDfes', title: 'Other Fire - BASSENDEAN', descripti
   reportedById: null as string | null, status: 'expired', expiresAt: '2026-11-06',
   contentDetails: { templateVersion: 7, presentation: { band: 'low', iconCategoryId: 'fire' }, officialActions: ['Stay away from the affected building.'] } };
 describe('DFES incident public read repair', () => {
+  it('recovers native warning advice into structured fields without losing conditions or history', () => {
+    const source = {...record, title:'Bushfire Advice', description:'Warning Type: Bushfire Advice\n• Smoke is present.\nWHAT TO DO\nIf driving\n• Turn on headlights.',
+      contentDetails:{...record.contentDetails,sourceUpdate:{summary:'Agency changed advice',detectedAt:'2026-11-09T00:00:00Z'}}};
+    const value=withPublicCoords(source);
+    expect(value.contentDetails.officialActions).toEqual(['If driving Turn on headlights.']);
+    expect(value.contentDetails.sourceUpdate).toEqual(source.contentDetails.sourceUpdate);
+    expect(value.status).toBe(source.status);
+  });
   it('retains original source instructions even when displayed wording removes a number', () => {
     const source = {...record,contentDetails:{...record.contentDetails,
       originalSourceActions:['Call 000 if there is an immediate threat.'],
@@ -35,6 +43,7 @@ describe('DFES incident public read repair', () => {
     const other = { ...record, sourceId: 'other' };
     expect(withPublicCoords(other)).toBe(other);
     const warning = { ...record, title: 'Bushfire Advice', description: 'Warning Type: Bushfire Advice\nWHAT TO DO:\nStay informed.' };
+    // Unbulleted advice is ambiguous to this adapter and stays untouched.
     expect(withPublicCoords(warning)).toBe(warning);
   });
 });
