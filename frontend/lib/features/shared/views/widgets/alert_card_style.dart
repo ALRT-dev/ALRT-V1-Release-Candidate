@@ -416,7 +416,13 @@ abstract final class AlertCardStyle {
             HazardSeverity.emergency => 'Emergency Warning',
             HazardSeverity.watchAndAct => 'Watch and Act',
             HazardSeverity.advice => 'Advice',
-            _ => null,
+            // An AWS warning always states its level (owner, 9 November
+            // 2026): without a mapped severity, use its locked AWS band.
+            _ => switch (band) {
+              HazardSeverityBand.critical => 'Emergency Warning',
+              HazardSeverityBand.action => 'Watch and Act',
+              _ => 'Advice',
+            },
           }
         : null;
 

@@ -751,7 +751,7 @@ export function AlertTemplatesPage() {
         <section className="card">
           <h2>Reviewed guidance library</h2>
           <p>
-            General suggestions supplement agency advice to two relevant points when reviewed matching wording exists. For
+            General suggestions are a fallback only: they show when the agency gave no instructions and the source text contains none, and are never mixed in to top up agency advice. For
             You rows match a category and selected profile. Unapproved rows stay
             out of alerts.
           </p>

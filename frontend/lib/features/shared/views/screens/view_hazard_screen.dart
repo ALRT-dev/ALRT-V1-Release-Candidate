@@ -1207,6 +1207,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               return AgencyContentSections(
                 content: hazard!.contentDetails!,
                 sourceName: hazard.displaySourceName,
+                warningLevel: hazard.displayWarningLevel,
                 officialIntro: AlertTextUtil.issuedLine(
                   hazard.source?.name,
                   hazard.category?.name ?? hazard.title,
@@ -1352,7 +1353,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           context.showSuccessToast(message: 'Alert sent. No check-in sent.');
           return;
         }
-        final checkedIn = await ref
+        final outcome = await ref
             .read(providerOfFamily.notifier)
             .checkInToCircle(
               circleId: circle.circleId,
@@ -1364,14 +1365,21 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   choice == CheckInConsentChoice.checkInAndShareLocation,
             );
         if (!mounted) return;
-        if (checkedIn) {
-          context.showSuccessToast(
-            message: 'Alert and check-in sent to ${circle.name}.',
-          );
-        } else {
-          context.showErrorToast(
-            message: 'Alert sent, but your check-in could not be sent.',
-          );
+        switch (outcome) {
+          case AlertCheckInOutcome.sent:
+            context.showSuccessToast(
+              message: 'Alert and check-in sent to ${circle.name}.',
+            );
+          case AlertCheckInOutcome.sentWithoutLocation:
+            context.showErrorToast(
+              message:
+                  'Alert and check-in sent to ${circle.name}, but your location '
+                  'could not be found, so it was not shared.',
+            );
+          case AlertCheckInOutcome.failed:
+            context.showErrorToast(
+              message: 'Alert sent, but your check-in could not be sent.',
+            );
         }
       }
     } finally {

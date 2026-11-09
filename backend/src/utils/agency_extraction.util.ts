@@ -65,14 +65,44 @@ export function removeUnattributedNumbers(text: string): string {
 export const agencySourceBlocks = (text: string): string[] =>
   text.replace(/\r\n/g, "\n").split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
 
-/** Conservatively retain a source lead-in and its intervening paragraphs.
- * A safety condition can govern several actions, not just its next paragraph. */
-function instructionWithContext(blocks: string[], index: number): string {
+/** A sentence or line that tells the reader to do something: it starts with an
+ * imperative (optionally after a short "If ...," condition), or it says who
+ * should/must act. Mentioning an action verb mid-sentence ("Roads remain
+ * closed", "Crews will protect homes") is a fact, not an instruction. */
+const DIRECTIVE_START =
+  /^(?:[•·*-]\s*)?(?:(?:if|when|while|before|after|once|unless|until)\b[^.!?]{0,160}?,\s*)?(?:please\s+)?(?:avoid|close(?!\s+to\b)|stay|leave|evacuate|shelter|prepare|call|dial|phone|contact|follow|monitor|check|do\s+not|don't|never|move|protect|wear|turn\s+off|keep|seek|drink|drive|travel|go|return|listen|use|take|report|remain|plan|limit|reduce|boil|tell|let|get|head|pack|bring|secure|switch\s+off|shut|look\s+out|notify|warn|be\s+(?:ready|aware|prepared|alert|careful)|make\s+sure|ensure|consider)\b/i;
+const DIRECTIVE_SUBJECT =
+  /\b(?:you|residents|people|motorists|drivers|the community|community members|visitors|everyone)\s+(?:should|must|need\s+to|are\s+(?:advised|asked|urged|told|requested)\s+to)\b/i;
+const sentencesOf = (block: string): string[] =>
+  block.split(/\n+|(?<=[.!?])\s+(?=[A-Z•·*-])/).map(x => x.trim()).filter(Boolean);
+/** True when any line or sentence in the text is an instruction. */
+export const isDirectiveText = (text: string): boolean =>
+  sentencesOf(text).some(s => DIRECTIVE_START.test(s) || DIRECTIVE_SUBJECT.test(s));
+const isLeadIn = (block: string) => /:\s*$/.test(block);
+/** A bare section heading adds nothing to the instruction it introduces. */
+const isBareHeading = (block: string) =>
+  /^(?:what to do|what you should do|what you need to do|advice|actions?|instructions?|safety advice)\s*:?\s*$/i.test(block.trim());
+
+/** The span of source blocks one instruction needs: the instruction itself
+ * and, when it sits under a lead-in ("For residents of X, if safe:"), that
+ * lead-in plus the instruction paragraphs between them. The walk stops at
+ * the first non-instruction paragraph, so facts are never swept in. */
+function instructionSpan(blocks: string[], index: number): [number, number] {
   for (let preceding = index - 1; preceding >= 0; preceding--) {
-    if (/:\s*$/.test(blocks[preceding]!))
-      return blocks.slice(preceding, index + 1).join("\n\n");
+    const block = blocks[preceding]!;
+    if (isLeadIn(block)) return [isBareHeading(block) ? preceding + 1 : preceding, index];
+    if (!isDirectiveText(block)) break;
   }
-  return blocks[index]!;
+  return [index, index];
+}
+
+/** One entry per lead-in group: a span inside a larger selected span is the
+ * same instruction again and is dropped, so a list never repeats itself. */
+function collapseSpans(blocks: string[], spans: [number, number][]): string[] {
+  const unique = [...new Map(spans.map(s => [`${s[0]}:${s[1]}`, s])).values()]
+    .sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  const kept = unique.filter(s => !unique.some(o => o !== s && o[0] <= s[0] && o[1] >= s[1]));
+  return kept.map(([start, end]) => blocks.slice(start, end + 1).join("\n\n"));
 }
 
 export const AGENCY_EXTRACTION_CONTRACT = `AGENCY EXTRACTION CONTRACT (takes precedence over older output-format or length instructions):
@@ -108,14 +138,14 @@ export function parseAgencyExtraction(
     if (!normalise(fact.evidence).includes(normalise(fact.text)))
       throw Error("Fact text must be a sourced excerpt, not an unsupported rewrite.");
   }
-  const groundedActions = parsed.officialActions.map(item => {
+  const groundedActions = collapseSpans(blocks, parsed.officialActions.map(item => {
     const index = blocks.findIndex(block => normalise(block) === normalise(item.evidence));
     if (index < 0 || normalise(item.text) !== normalise(item.evidence))
       throw Error("Official instructions must retain the complete source paragraph.");
     // A preceding colon paragraph can scope the instruction geographically or
     // condition it on route safety. Keep it attached instead of losing it.
-    return instructionWithContext(blocks, index);
-  });
+    return instructionSpan(blocks, index);
+  }));
   for (const place of parsed.affectedAreas)
     if (!source.includes(normalise(place)))
       throw Error("Affected area is not present in the source.");
@@ -132,7 +162,10 @@ export function parseAgencyExtraction(
   // Plain-language facts are already summarized by the model
   const facts = preserveFireBanFacts(parsed.facts.map(x => replaceNumber(x.text)), blocks, replaceNumber).slice(0, 4);
   const title = replaceNumber(options.sourceTitle ?? blocks[0] ?? "Agency update");
-  const alrtSuggestions = supplementAgencyAdvice(officialActions, options.alrtSuggestions);
+  // An empty extraction does not prove the agency gave no advice: when the
+  // source itself contains instruction text, show no ALRT fallback.
+  const sourceHasInstructions = blocks.some(isDirectiveText);
+  const alrtSuggestions = supplementAgencyAdvice(officialActions, options.alrtSuggestions, sourceHasInstructions);
   const details = {
     schemaVersion: 1,
     templateVersion: options.templateVersion,
@@ -165,9 +198,12 @@ export function parseAgencyExtraction(
   };
 }
 /** Only pre-reviewed library suggestions enter here. Never displace agency instructions. */
-export function supplementAgencyAdvice(actions: string[], reviewed: string[]): string[] {
+export function supplementAgencyAdvice(actions: string[], reviewed: string[], sourceHasInstructions = false): string[] {
   // Owner clarification, 9 November: ALRT is a fallback, never a top-up.
   if (actions.some(text => text.trim().length > 0)) return [];
+  // Nothing was extracted, but the source does give directions: the app sends
+  // the reader to the original source instead of substituting ALRT wording.
+  if (sourceHasInstructions) return [];
   const needed = 4;
   const seen = new Set(actions.map(normalise));
   return reviewed.filter(text => {
@@ -210,10 +246,6 @@ function deduplicateSentences(sentences: string[]): string[] {
   return result;
 }
 
-/** Sentences that start or contain a directive action verb. */
-const ACTION_VERB_RE =
-  /\b(avoid|close|stay|leave|evacuate|drink|seek|shelter|prepare|contact|call|follow|monitor|check|do\s+not|don't|move|protect|wear|turn\s+off|report|remain)\b/i;
-
 /** Sentences that carry concrete facts (numbers, measurements, named states). */
 const FACT_SIGNAL_RE =
   /\b(\d+|km|metre|meter|hour|percent|%|tonne|litre|hectare|closed|open|damaged|affected|estimated|confirmed|approximately|about)\b/i;
@@ -235,29 +267,31 @@ export function agencyExtractionFallback(options: Parameters<typeof parseAgencyE
   const factSentences = cleanedSentences.filter((s) => FACT_SIGNAL_RE.test(s));
   const otherSentences = cleanedSentences.filter((s) => !FACT_SIGNAL_RE.test(s));
   const orderedFacts = [...factSentences, ...otherSentences].filter(s =>
-    !ACTION_VERB_RE.test(s) && !/^(?:type|incident type|source status|warning level|source|reported|region|local government area):/i.test(s));
+    !isDirectiveText(s) && !/^(?:type|incident type|source status|warning level|source|reported|region|local government area):/i.test(s));
   const facts = preserveFireBanFacts(orderedFacts, agencySourceBlocks(description), replaceNumber).slice(0, 4);
 
-  // Prefer sentences with action verbs for callsToAction.
+  // Only paragraphs that actually instruct the reader become agency advice;
+  // a fact that merely contains an action word stays a fact.
   const sourceBlocks = agencySourceBlocks(description);
   const officialActions = [...new Set([
-    ...sourceBlocks.flatMap((block, index) => {
-      if (!ACTION_VERB_RE.test(block) || /:\s*$/.test(block)) return [];
-      return [replaceNumber(instructionWithContext(sourceBlocks, index))];
-    }),
+    ...collapseSpans(sourceBlocks, sourceBlocks.flatMap((block, index): [number, number][] =>
+      isLeadIn(block) || !isDirectiveText(block) ? [] : [instructionSpan(sourceBlocks, index)],
+    )).map(replaceNumber),
     ...value.contentDetails.officialActions,
   ])];
+  const sourceHasInstructions = agencySourceBlocks(options.sourceText).some(isDirectiveText);
+  const alrtSuggestions = supplementAgencyAdvice(officialActions, options.alrtSuggestions, sourceHasInstructions);
 
   return {
     ...value,
     summary: facts.length ? facts.map(fact => `• ${fact}`).join("\n") : value.title,
-    callsToAction: [...officialActions.map(action => `${options.agency} advises: ${action}`), ...supplementAgencyAdvice(officialActions, options.alrtSuggestions)],
+    callsToAction: [...officialActions.map(action => `${options.agency} advises: ${action}`), ...alrtSuggestions],
     contentDetails: {
       ...value.contentDetails,
       sourceDescription: replaceNumber(description),
       facts,
       officialActions,
-      alrtSuggestions: supplementAgencyAdvice(officialActions, options.alrtSuggestions),
+      alrtSuggestions,
       evidence: facts.map(fact => rawSentences.find(sentence => replaceNumber(sentence) === fact)
         ?? sourceBlocks.find(block => replaceNumber(block) === fact) ?? description),
     },

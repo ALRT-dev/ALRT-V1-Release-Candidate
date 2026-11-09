@@ -51,7 +51,23 @@ export function readCFSCapCancellations(xml:string){
 /** Read the agency's current public CAP-AU feed. The feed also carries MFS
  * records; those must not be attributed to the existing CFS source. */
 export function readCFSCap(xml:string) {
-  return entries(xml).flatMap(entry=>{
+  // One malformed record must not take every South Australian alert offline.
+  // Skip it and log; if no record in the feed is readable, fail the fetch.
+  const errors:unknown[]=[];
+  let readable=0;
+  const rows=entries(xml).flatMap(entry=>{
+    try{const result=readCFSCapEntry(entry);readable++;return result;}
+    catch(error){errors.push(error);return [];}
+  });
+  if(errors.length){
+    if(!readable)throw errors[0];
+    console.error(`CFS CAP: skipped ${errors.length} malformed record(s).`,errors);
+  }
+  return rows;
+}
+
+function readCFSCapEntry(entry:any){
+  {
     const alert=entry.content?.alert;
     if(!alert)throw Error('CFS CAP entry has no alert payload.');
     if(text(alert.scope)!=='Public')return [];
@@ -133,7 +149,7 @@ export function readCFSCap(xml:string) {
       latitude:points.length?(north+south)/2:null,longitude:points.length?(east+west)/2:null,
       ...((hasExtent||points.length>1)?{northeastLat:north,northeastLng:east,southwestLat:south,southwestLng:west}:{}),
       link:/^https:\/\//i.test(url)?url:null,jurisdictionCountry:'AU'}];
-  });
+  }
 }
 
 export async function fetchCFSCap():Promise<string>{
