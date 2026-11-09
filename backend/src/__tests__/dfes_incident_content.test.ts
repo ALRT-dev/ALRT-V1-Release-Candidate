@@ -8,7 +8,7 @@ describe('DFES incident content', () => {
     const source = description.replace('Bushfire', kind);
     const value = buildDfesIncidentContent({...input, description:source});
     expect(value?.contentDetails.alrtSuggestions.length).toBeGreaterThanOrEqual(2);
-    expect(value?.contentDetails.guidanceReferences.every(x=>x.reviewedAt==='2026-11-09')).toBe(true);
+    expect(value?.contentDetails.guidanceReferences.every(x=>x.reviewedAt==='2026-11-10')).toBe(true);
     expect(value?.contentDetails).toHaveProperty('sourceLimitations');
     expect(value?.contentDetails.officialActions).toEqual([]);
     const official = buildDfesIncidentContent({...input, description:source,sourceActions:['If affected, follow the marked detour.']});
@@ -43,13 +43,13 @@ describe('DFES incident content', () => {
     expect(value?.contentDetails.profileGuidancePolicy).not.toBe('bundledFallback');
     expect(value?.contentDetails.profileGuidance).toHaveLength(9);
     expect(value?.contentDetails.officialActions).toEqual([]);
-    expect(value?.contentDetails.alrtSuggestions).toHaveLength(2);
+    expect(value?.contentDetails.alrtSuggestions).toHaveLength(3);
     expect(value?.contentDetails.originalSourceText).toBe(description);
-    expect(value?.contentDetails.guidanceReferences).toHaveLength(2);
+    expect(value?.contentDetails.guidanceReferences).toHaveLength(3);
   });
   it('does not treat generic fire as bushfire', () => {
     const value = buildDfesIncidentContent({ ...input, description: description.replace('Bushfire', 'Fire') });
-    expect(value?.contentDetails.alrtSuggestions).toHaveLength(2);
+    expect(value?.contentDetails.alrtSuggestions).toHaveLength(3);
     expect(value?.contentDetails.alrtSuggestions.join(' ')).not.toMatch(/bushfire|evacuat|leave/i);
     expect(value?.summary).not.toMatch(/bushfire/i);
     expect(value?.contentDetails.profileGuidancePolicy).toBe('publishedIncidentPlanning');
@@ -60,13 +60,15 @@ describe('DFES incident content', () => {
     expect(value?.contentDetails.officialActions).toEqual(['If you see smoke, call your local emergency number and give your location.']);
     expect(value?.contentDetails.originalSourceActions).toEqual(['If you see smoke, call 000 and give your location.']);
   });
-  it('supports other fire without bushfire advice and leaves unknown hazards without reviewed advice', () => {
+  it('supports other fire without bushfire advice and gives unknown incidents general safety lines only', () => {
     const other = buildDfesIncidentContent({ ...input, description: description.replace('Bushfire', 'Other Fire') });
     expect(other?.summary).toContain('A fire was reported');
     expect(other?.summary).not.toMatch(/other fire/i);
-    expect(other?.contentDetails.alrtSuggestions).toHaveLength(2);
+    expect(other?.contentDetails.alrtSuggestions).toHaveLength(3);
     const unknown = buildDfesIncidentContent({ ...input, description: description.replace('Bushfire', 'Unknown Incident') });
-    expect(unknown?.contentDetails.alrtSuggestions).toEqual([]);
+    // Owner, 10 Nov 2026: safety advice on every alert; general incident lines only.
+    expect(unknown?.contentDetails.alrtSuggestions).toHaveLength(2);
+    expect(unknown?.contentDetails.alrtSuggestions.join(' ')).not.toMatch(/bushfire|smoke|evacuat|leave/i);
   });
   it.each(['Fri, 31 Feb 2026 19:27:33 +0800', 'not a date', 'Fri, 06 Nov 2026 19:27:33 +1100'])('omits invalid or unconfirmed WA timestamp %s', timestamp => {
     const source = description.replace('Fri, 06 Nov 2026 19:27:33 +0800', timestamp);

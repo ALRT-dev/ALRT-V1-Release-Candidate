@@ -10,29 +10,39 @@ export interface DfesIncidentInput {
   allowAgencyNumbers?: boolean;
 }
 
-/** ALRT wording reviewed against the primary sources below, 2026-11-06.
- * Exact bushfire scope: never use these for generic or structure fires. */
+/** ALRT safety advice for DFES incident reports (owner, 10 November 2026:
+ * practical points, not "may help" wording). The feed carries only the
+ * incident type, place and time, so the first line points to the live
+ * incident and warnings; the rest are practical safety points from the ALRT
+ * hazard safety library's sources. No leave, evacuate or shelter wording:
+ * only the agency gives those. Exact kinds only: a smoke report or a crash
+ * never proves a fire or a closure. */
+const EMERGENCY_WA = 'https://www.emergency.wa.gov.au/';
+const REVIEWED = '2026-11-10';
 const bushfirePlanning = [
-  { text: 'Consider checking Emergency WA for official incident updates.', url: 'https://www.emergency.wa.gov.au/', reviewedAt: '2026-11-06' },
-  { text: 'Consider reviewing your bushfire emergency plan.', url: 'https://dfes.wa.gov.au/hazard-information/bushfire/prepare', reviewedAt: '2026-11-06' },
+  { text: 'Check Emergency WA for the latest on this fire and any warnings for your area.', url: EMERGENCY_WA, reviewedAt: REVIEWED },
+  { text: 'Fire conditions can change quickly. Review your bushfire plan and talk it through with your household.', url: 'https://dfes.wa.gov.au/hazard-information/bushfire/prepare', reviewedAt: REVIEWED },
+  { text: 'If smoke reaches you, keep windows and doors closed.', url: 'https://www.health.nsw.gov.au/environment/bushfire/Pages/bushfire-illness.aspx', reviewedAt: REVIEWED },
 ];
-// General incident information/planning only; no assumption of fire behaviour.
-// DFES Emergency WA FAQ supports updates and travel-destination plans.
 const firePlanning = [
-  { text: 'Consider checking Emergency WA for official warnings near the reported incident.', url: 'https://www.dfes.wa.gov.au/emergencywa/faq', reviewedAt: '2026-11-06' },
-  { text: 'Consider reviewing your emergency plan for places you intend to visit.', url: 'https://www.dfes.wa.gov.au/emergencywa/faq', reviewedAt: '2026-11-06' },
+  { text: 'Check Emergency WA for the latest on this incident and any warnings for your area.', url: EMERGENCY_WA, reviewedAt: REVIEWED },
+  { text: 'Keep clear of the area so emergency crews can work.', url: EMERGENCY_WA, reviewedAt: REVIEWED },
+  { text: 'If smoke reaches you, keep windows and doors closed.', url: 'https://www.health.nsw.gov.au/environment/bushfire/Pages/bushfire-illness.aspx', reviewedAt: REVIEWED },
 ];
-
-// Reviewed ALRT fallback, not incident-specific agency instructions. Exact WA
-// incident kinds only; neither a smoke report nor a crash proves a fire/closure.
 const smokePlanning = [
-  { text: 'Checking Emergency WA for warnings linked to this smoke report may help you find any newer advice.', url: 'https://www.dfes.wa.gov.au/emergencywa/faq', reviewedAt: '2026-11-09' },
-  { text: 'If smoke affects your home, closing doors and windows and turning off air-conditioners may help reduce smoke indoors.', url: 'https://www.dfes.wa.gov.au/emergencywa/faq', reviewedAt: '2026-11-09' },
-  { text: 'If your journey passes through the area, checking Main Roads Travel Map for reported road impacts may help you plan.', url: 'https://www.mainroads.wa.gov.au/travelmap/', reviewedAt: '2026-11-09' },
+  { text: 'Check Emergency WA for any warning linked to this smoke.', url: EMERGENCY_WA, reviewedAt: REVIEWED },
+  { text: 'If smoke reaches your home, close doors and windows and turn off air conditioning that draws in outside air.', url: 'https://www.health.nsw.gov.au/environment/bushfire/Pages/bushfire-illness.aspx', reviewedAt: REVIEWED },
+  { text: 'If you have asthma or a heart or lung condition, keep your medicines and action plan close by.', url: 'https://www.health.nsw.gov.au/environment/bushfire/Pages/bushfire-illness.aspx', reviewedAt: REVIEWED },
+];
+// Any other DFES incident kind: safe for every incident report.
+const incidentPlanning = [
+  { text: 'Check Emergency WA for the latest on this incident and any warnings for your area.', url: EMERGENCY_WA, reviewedAt: REVIEWED },
+  { text: 'Keep clear of the area so emergency crews can work.', url: EMERGENCY_WA, reviewedAt: REVIEWED },
 ];
 const crashPlanning = [
-  { text: 'Checking Main Roads Travel Map for confirmed road closures near the incident may help you plan your journey.', url: 'https://www.mainroads.wa.gov.au/travel-information/driving-in-wa/roadworks-closures/', reviewedAt: '2026-11-09' },
-  { text: 'Comparing the map\'s live traffic and listed detours with your planned route may help you assess travel options.', url: 'https://www.mainroads.wa.gov.au/travelmap/', reviewedAt: '2026-11-09' },
+  { text: 'Expect delays near the crash and allow extra travel time.', url: 'https://www.mainroads.wa.gov.au/travelmap/', reviewedAt: REVIEWED },
+  { text: 'Check Main Roads Travel Map for closures and detours before you go.', url: 'https://www.mainroads.wa.gov.au/travelmap/', reviewedAt: REVIEWED },
+  { text: 'Follow directions from police and traffic controllers at the scene.', url: 'https://www.mainroads.wa.gov.au/travelmap/', reviewedAt: REVIEWED },
 ];
 
 type IncidentContent = AgencyExtractionResult & { contentDetails: {
@@ -93,8 +103,8 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
   const originalSourceActions = [...(input.sourceActions ?? [])];
   const officialActions = [...new Set(originalSourceActions.filter(text => text.trim()).map(clean))];
   const reviewed = kind.value.toLowerCase() === 'bushfire' ? bushfirePlanning
-    : /^(?:fire|other fire)$/i.test(kind.value) ? firePlanning
-    : isSmoke ? smokePlanning : isCrash ? crashPlanning : [];
+    : /^(?:fire|other fire|structure fire|structural fire|vehicle fire|car fire|building fire)$/i.test(kind.value) ? firePlanning
+    : isSmoke ? smokePlanning : isCrash ? crashPlanning : incidentPlanning;
   const sourceLimitations = officialActions.length ? undefined : isSmoke
     ? 'A smoke report alone does not establish its cause or measured air quality at your location.'
     : isCrash ? 'A crash report alone does not confirm current road access or traffic delays.'
