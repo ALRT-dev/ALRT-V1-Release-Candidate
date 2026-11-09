@@ -4,6 +4,32 @@ import { buildDfesIncidentContent } from '../utils/dfes_incident_content.util.js
 const description = 'Incident Type: Bushfire\nLocation: Scarborough\nLocal government area: City Of Stirling\nRegion: Metro North Coastal\nReported: Fri, 06 Nov 2026 19:27:33 +0800\nSource: Department of Fire and Emergency Services WA incident feed';
 const input = { title: 'Bushfire - SCARBOROUGH', description, agency: 'DFES', templateVersion: 2 };
 describe('DFES incident content', () => {
+  it.each(['Report of Smoke', 'Road Crash'])('supplies reviewed fallback for %s without inventing incident impacts', kind => {
+    const source = description.replace('Bushfire', kind);
+    const value = buildDfesIncidentContent({...input, description:source});
+    expect(value?.contentDetails.alrtSuggestions.length).toBeGreaterThanOrEqual(2);
+    expect(value?.contentDetails.guidanceReferences.every(x=>x.reviewedAt==='2026-11-09')).toBe(true);
+    expect(value?.contentDetails).toHaveProperty('sourceLimitations');
+    expect(value?.contentDetails.officialActions).toEqual([]);
+    const official = buildDfesIncidentContent({...input, description:source,sourceActions:['If affected, follow the marked detour.']});
+    expect(official?.contentDetails.alrtSuggestions).toEqual([]);
+    expect(official?.contentDetails.officialActions).toEqual(['If affected, follow the marked detour.']);
+  });
+  it('describes smoke naturally and states the limits of the metadata feed', () => {
+    const value=buildDfesIncidentContent({...input,description:description.replace('Bushfire','Report of Smoke')});
+    expect(value?.contentDetails.facts[0]).toBe('Smoke was reported in Scarborough (City of Stirling).');
+    expect(value?.contentDetails).toHaveProperty('sourceLimitations',expect.stringMatching(/cause.*air quality/i));
+    expect(value?.contentDetails.profileGuidancePolicy).toBe('bundledFallback');
+  });
+  it('never denies a road name or impact supplied in the entry', () => {
+    const source=description.replace('Bushfire','Road Crash').replace('Location: Scarborough','Location: Mitchell Freeway');
+    const value=buildDfesIncidentContent({...input,description:source});
+    expect(value?.contentDetails.facts.join(' ')).toContain('Mitchell Freeway');
+    expect(value?.contentDetails.sourceLimitations).not.toContain('does not give a road name');
+    const advised=buildDfesIncidentContent({...input,description:source,sourceActions:['Mitchell Freeway is closed. Use the marked detour.']});
+    expect(advised?.contentDetails.sourceLimitations).toBeUndefined();
+    expect(advised?.contentDetails.officialActions).toEqual(['Mitchell Freeway is closed. Use the marked detour.']);
+  });
   it('renders readable sourced facts and separately attributed reviewed planning suggestions', () => {
     const value = buildDfesIncidentContent(input);
     expect(value?.contentDetails.facts).toEqual(['A bushfire was reported in Scarborough (City of Stirling).', 'Reported on 6 November at 7:27 pm AWST.']);

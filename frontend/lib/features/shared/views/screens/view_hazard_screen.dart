@@ -722,7 +722,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!hazard.isUserReported)
+              if (!hazard.isUserReported &&
+                  hazard.contentDetails?['extractionMethod'] !=
+                      'dfes-incident-fields')
                 Container(
                   width: double.infinity,
                   height: AlertCardStyle.detailBandStripHeight.spMin,
@@ -1207,6 +1209,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             if (hazard?.hasStructuredAgencyContent ?? false) {
               return AgencyContentSections(
                 content: hazard!.contentDetails!,
+                showOriginalSource: false,
                 sourceName: hazard.displaySourceName,
                 officialIntro: AlertTextUtil.issuedLine(
                   hazard.source?.name,
@@ -1274,6 +1277,20 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         12.hSizedBox,
 
         // Attribution
+        Consumer(
+          builder: (context, ref, child) {
+            final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (!(hazard?.hasStructuredAgencyContent ?? false)) {
+              return const SizedBox.shrink();
+            }
+            final source =
+                hazard!.contentDetails?['originalSourceText'] ??
+                hazard.contentDetails?['sourceDescription'];
+            return source is String
+                ? AgencyOriginalSourceDetails(text: source)
+                : const SizedBox.shrink();
+          },
+        ),
         _buildTimelineSection(),
         _buildSourceSection(),
         _buildSourceFootnote(),

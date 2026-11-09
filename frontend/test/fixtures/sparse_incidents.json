@@ -1,0 +1,110 @@
+{
+  "smoke-report": {
+    "title": "Report of Smoke - INNALOO",
+    "summary": "• Smoke was reported in Innaloo (City of Stirling).\n• Reported on 9 November at 5:07 pm AWST.",
+    "callsToAction": [
+      "Checking Emergency WA for warnings linked to this smoke report may help you find any newer advice.",
+      "If smoke affects your home, closing doors and windows and turning off air-conditioners may help reduce smoke indoors.",
+      "If your journey passes through the area, checking Main Roads Travel Map for reported road impacts may help you plan."
+    ],
+    "confidence": "high",
+    "contentDetails": {
+      "schemaVersion": 1,
+      "templateVersion": 1,
+      "facts": [
+        "Smoke was reported in Innaloo (City of Stirling).",
+        "Reported on 9 November at 5:07 pm AWST."
+      ],
+      "affectedAreas": [
+        "Innaloo"
+      ],
+      "nativeLevel": null,
+      "officialActions": [],
+      "alrtSuggestions": [
+        "Checking Emergency WA for warnings linked to this smoke report may help you find any newer advice.",
+        "If smoke affects your home, closing doors and windows and turning off air-conditioners may help reduce smoke indoors.",
+        "If your journey passes through the area, checking Main Roads Travel Map for reported road impacts may help you plan."
+      ],
+      "profileGuidance": [],
+      "evidence": [
+        "Incident Type: Report of Smoke\nLocation: Innaloo\nLocal government area: City Of Stirling",
+        "Reported: Mon, 09 Nov 2026 17:07:02 +0800"
+      ],
+      "originalSourceText": "Incident Type: Report of Smoke\nLocation: Innaloo\nLocal government area: City Of Stirling\nRegion: Metro North Coastal\nReported: Mon, 09 Nov 2026 17:07:02 +0800\nSource: Department of Fire and Emergency Services WA incident feed",
+      "originalSourceActions": [],
+      "guidanceReferences": [
+        {
+          "text": "Checking Emergency WA for warnings linked to this smoke report may help you find any newer advice.",
+          "url": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "text": "If smoke affects your home, closing doors and windows and turning off air-conditioners may help reduce smoke indoors.",
+          "url": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "text": "If your journey passes through the area, checking Main Roads Travel Map for reported road impacts may help you plan.",
+          "url": "https://www.mainroads.wa.gov.au/travelmap/",
+          "reviewedAt": "2026-11-09"
+        }
+      ],
+      "extractionMethod": "dfes-incident-fields",
+      "sourceReportedAt": "2026-11-09T09:07:02.000Z",
+      "displayLocation": "Innaloo",
+      "sourceLimitations": "A smoke report alone does not establish its cause or measured air quality at your location.",
+      "sourceAdviceStatus": "not-in-incident-feed",
+      "profileGuidancePolicy": "bundledFallback"
+    }
+  },
+  "crash": {
+    "title": "Road Crash - WOODLANDS",
+    "summary": "• A road crash was reported in Woodlands (City of Stirling).\n• Reported on 9 November at 1:12 pm AWST.",
+    "callsToAction": [
+      "Checking Main Roads Travel Map for confirmed road closures near the incident may help you plan your journey.",
+      "Comparing the map's live traffic and listed detours with your planned route may help you assess travel options."
+    ],
+    "confidence": "high",
+    "contentDetails": {
+      "schemaVersion": 1,
+      "templateVersion": 1,
+      "facts": [
+        "A road crash was reported in Woodlands (City of Stirling).",
+        "Reported on 9 November at 1:12 pm AWST."
+      ],
+      "affectedAreas": [
+        "Woodlands"
+      ],
+      "nativeLevel": null,
+      "officialActions": [],
+      "alrtSuggestions": [
+        "Checking Main Roads Travel Map for confirmed road closures near the incident may help you plan your journey.",
+        "Comparing the map's live traffic and listed detours with your planned route may help you assess travel options."
+      ],
+      "profileGuidance": [],
+      "evidence": [
+        "Incident Type: Road Crash\nLocation: Woodlands\nLocal government area: City Of Stirling",
+        "Reported: Mon, 09 Nov 2026 13:12:00 +0800"
+      ],
+      "originalSourceText": "Incident Type: Road Crash\nLocation: Woodlands\nLocal government area: City Of Stirling\nRegion: Metro North Coastal\nReported: Mon, 09 Nov 2026 13:12:00 +0800\nSource: Department of Fire and Emergency Services WA incident feed",
+      "originalSourceActions": [],
+      "guidanceReferences": [
+        {
+          "text": "Checking Main Roads Travel Map for confirmed road closures near the incident may help you plan your journey.",
+          "url": "https://www.mainroads.wa.gov.au/travel-information/driving-in-wa/roadworks-closures/",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "text": "Comparing the map's live traffic and listed detours with your planned route may help you assess travel options.",
+          "url": "https://www.mainroads.wa.gov.au/travelmap/",
+          "reviewedAt": "2026-11-09"
+        }
+      ],
+      "extractionMethod": "dfes-incident-fields",
+      "sourceReportedAt": "2026-11-09T05:12:00.000Z",
+      "displayLocation": "Woodlands",
+      "sourceLimitations": "A crash report alone does not confirm current road access or traffic delays.",
+      "sourceAdviceStatus": "not-in-incident-feed"
+    }
+  }
+}

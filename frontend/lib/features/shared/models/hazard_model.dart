@@ -75,6 +75,13 @@ abstract class Hazard with _$Hazard {
     final value = title?.trim() ?? '';
     if (value.isEmpty) return displayCategoryName;
     if (isUserReported) return value;
+    final smokeReport = RegExp(
+      r'^report of smoke\s+[-–—]\s+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (smokeReport != null) {
+      return 'Smoke reported in ${_readablePlace(smokeReport[1]!)}';
+    }
     final match = RegExp(
       r'^(bushfire|other fire|fire|structure fire|structural fire|vehicle fire|road crash|crash|grass fire|active alarm|fuel leak)( advice| watch and act| emergency warning)?\s+[-–—]\s+(.+)$',
       caseSensitive: false,
@@ -139,7 +146,11 @@ abstract class Hazard with _$Hazard {
   /// Category navigation uses the owner's seven main groups. Incident names
   /// remain separate, for titles, exact hazard artwork and guidance matching.
   String get displayMainCategoryName {
-    final mainId = category?.parentId ?? category?.parent?.id ?? category?.id ?? categoryId;
+    final mainId =
+        category?.parentId ??
+        category?.parent?.id ??
+        category?.id ??
+        categoryId;
     return categoryPillNames[mainId] ?? 'Category unavailable';
   }
 

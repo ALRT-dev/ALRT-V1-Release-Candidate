@@ -393,6 +393,9 @@ abstract final class AlertCardStyle {
     final where = fromTitle?.$2 ?? _calmCase((locationName ?? '').trim());
     // Keep the agency's own word: "at Salter Point", "in Northbridge".
     final preposition = fromTitle?.$1 ?? 'near';
+    if (what == 'smoke' || what == 'report of smoke') {
+      return '$who reports smoke${where.isEmpty ? '' : ' $preposition $where'}.';
+    }
     final article = what.isEmpty
         ? ''
         : 'aeiou'.contains(what[0])

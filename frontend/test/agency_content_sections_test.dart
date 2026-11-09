@@ -8,6 +8,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 
 void main() {
+  testWidgets(
+    'recognised sparse source explains limits without implying extraction failed',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: AgencyContentSections(
+              content: {
+                'facts': ['Smoke was reported in Innaloo.'],
+                'sourceLimitations':
+                    'The cause and extent are not supplied in this feed.',
+                'sourceAdviceStatus': 'not-in-incident-feed',
+                'officialActions': [],
+                'alrtSuggestions': [],
+              },
+            ),
+          ),
+        ),
+      );
+      expect(
+        find.text('The cause and extent are not supplied in this feed.'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          'This incident feed contains no agency instructions.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('not available in this view'), findsNothing);
+    },
+  );
   testWidgets('render actual Scarborough content for visual review', (
     tester,
   ) async {
@@ -20,7 +52,8 @@ void main() {
         ),
       );
     await tester.runAsync(loader.load);
-    final icons = FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    final icons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await tester.runAsync(icons.load);
     tester.view.physicalSize = const Size(430, 1050);
     tester.view.devicePixelRatio = 1;

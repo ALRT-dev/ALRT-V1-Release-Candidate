@@ -8,11 +8,13 @@ class AgencyContentSections extends StatelessWidget {
     this.sourceName,
     this.officialIntro,
     this.severityColor,
+    this.showOriginalSource = true,
   });
   final Map<String, dynamic> content;
   final String? sourceName;
   final String? officialIntro;
   final Color? severityColor;
+  final bool showOriginalSource;
 
   List<String> _lines(String key) {
     final value = content[key];
@@ -128,6 +130,7 @@ class AgencyContentSections extends StatelessWidget {
         '';
     // Facts already come from grounded extraction; do not repeat a generated intro.
     final factLines = facts.take(4).toList();
+    final limitations = content['sourceLimitations'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -135,7 +138,21 @@ class AgencyContentSections extends StatelessWidget {
           _section('AGENCY WARNING', [level]),
         if (areas.isNotEmpty && !typedIncident)
           _section('AFFECTED AREA', areas),
-        if (factLines.isNotEmpty) _section('WHAT WE KNOW', factLines),
+        if (factLines.isNotEmpty) ...[
+          _section('WHAT WE KNOW', factLines),
+          if (limitations is String && limitations.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Text(
+                limitations,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: Color(0xFF5C5C66),
+                ),
+              ),
+            ),
+        ],
         _section(
           'WHAT TO DO',
           [
@@ -148,10 +165,12 @@ class AgencyContentSections extends StatelessWidget {
               ...suggestions.take(4),
             ],
             if (actions.isEmpty && suggestions.isEmpty)
-              'Agency instructions are not available in this view. Check the original source details for the full information.',
+              content['sourceAdviceStatus'] == 'not-in-incident-feed'
+                  ? 'This incident feed contains no agency instructions. Open the source for any newer warning or advice.'
+                  : 'Agency instructions are not available in this view. Check the original source details for the full information.',
           ],
           subtitle: suggestions.isNotEmpty && actions.isEmpty
-              ? 'ALRT suggestions are general guidance, separate from agency instructions.'
+              ? 'General guidance from ALRT; not agency instructions.'
               : null,
         ),
         if (actions.length > 4)
@@ -165,17 +184,26 @@ class AgencyContentSections extends StatelessWidget {
               ],
             ),
           ),
-        if (originalSource is String && originalSource.trim().isNotEmpty)
-          Card(
-            elevation: 0,
-            color: Colors.white,
-            child: ExpansionTile(
-              title: const Text('Original source details'),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              children: [Text(originalSource)],
-            ),
-          ),
+        if (showOriginalSource && originalSource is String)
+          AgencyOriginalSourceDetails(text: originalSource),
       ],
     );
   }
+}
+
+class AgencyOriginalSourceDetails extends StatelessWidget {
+  const AgencyOriginalSourceDetails({super.key, required this.text});
+  final String text;
+  @override
+  Widget build(BuildContext context) => text.trim().isEmpty
+      ? const SizedBox.shrink()
+      : Card(
+          elevation: 0,
+          color: Colors.white,
+          child: ExpansionTile(
+            title: const Text('Original source details'),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [Text(text)],
+          ),
+        );
 }

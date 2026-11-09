@@ -10,6 +10,13 @@ This supersedes the earlier supplementation rule in the 5–8 November plans.
 - Section outlines must be visible: blue-grey facts, orange advice, existing orange profile card and purple sharing. Category/severity colours remain the existing locked system.
 - Sharing: one group-send action, optional check-in within that flow, external share separate. Failed/cancelled sends cannot initiate check-in; location remains explicitly consented.
 - Posted uses ALRT creation time. Source updated uses actual source-update evidence. Detection/refresh/expiry metadata remains clearly distinct.
+- Official-source street names, street numbers, road names and precise source coordinates may be displayed. Community-report public location privacy is separate; it must not redact official source detail.
+
+## Screenshot repair follow-up
+
+Exact metadata-only smoke reports and road crashes now receive dated, referenced ALRT fallback guidance only if agency actions are absent. Smoke reports enable selected local profile matching with neutral planning text. Incident limitations explain what a report alone cannot establish, without denying a road name or impact supplied in the source. Original source disclosure follows sharing; metadata-only headers have no grey severity strip. Seven parent categories and lifecycle rules are unchanged.
+
+Validation: backend 228 tests across 28 files; 32 focused Flutter checks including seven full-screen fixtures; targeted Dart analysis clean. New smoke/crash fixtures use the adapter's extracted output. Native maps and actual device/provider delivery are excluded from these renders. These latest screenshot repairs require a new TEST rollout and phone build; build 277 predates them.
 
 ## Review findings still blocking a complete release claim
 
