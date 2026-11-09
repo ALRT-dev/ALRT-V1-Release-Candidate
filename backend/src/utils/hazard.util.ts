@@ -545,22 +545,25 @@ export const withPublicCoords = <
 ): T => {
   // Repair recognised stored DFES incident content at the read boundary only.
   // Native warnings and other source formats remain untouched.
-  const record = hazard as T & { sourceId?: string; title?: string; description?: string; contentDetails?: any; aiSummary?: string; callsToAction?: string[]; locationName?: string };
+  const record = hazard as T & { sourceId?: string; title?: string; description?: string; contentDetails?: any; aiSummary?: string; callsToAction?: string[]; locationName?: string; nativeWarningLevel?: string | null };
   if (record.sourceId === 'waDfes' && typeof record.title === 'string' && typeof record.description === 'string') {
     const prior = record.contentDetails;
+    // A rebuilt card never drops a warning level the source or stored record carried.
+    const keepLevel = (level: string | null | undefined) =>
+      level ?? (typeof prior?.nativeLevel === 'string' ? prior.nativeLevel : null) ?? record.nativeWarningLevel ?? null;
     const smoke = buildDfesSmokeBulletin(record.title, record.description, typeof prior?.templateVersion === 'number' ? prior.templateVersion : 0);
     if (smoke) hazard = { ...hazard, aiSummary: smoke.summary, callsToAction: smoke.callsToAction,
-      contentDetails: { ...prior, ...smoke.contentDetails } };
+      contentDetails: { ...prior, ...smoke.contentDetails, nativeLevel: keepLevel(smoke.contentDetails.nativeLevel) } };
     if (!smoke) {
-      const native = getDeterministicDfesContent({title:record.title,description:record.description});
+      const native = getDeterministicDfesContent({title:record.title,description:record.description,nativeWarningLevel:record.nativeWarningLevel ?? (typeof prior?.nativeLevel === 'string' ? prior.nativeLevel : null)});
       if (native?.contentDetails) hazard = {...hazard, aiSummary:native.summary,
         callsToAction:native.callsToAction, contentDetails:{...prior,...native.contentDetails}};
     }
     const incident = buildDfesIncidentContent({ title: record.title, description: record.description,
-      agency: 'DFES', templateVersion: typeof prior?.templateVersion === 'number' ? prior.templateVersion : 0,
+      agency: typeof (record as { source?: { name?: unknown } }).source?.name === 'string' ? String((record as { source?: { name?: unknown } }).source!.name) : 'DFES', templateVersion: typeof prior?.templateVersion === 'number' ? prior.templateVersion : 0,
       sourceActions: (Array.isArray(prior?.originalSourceActions) ? prior.originalSourceActions : Array.isArray(prior?.officialActions) ? prior.officialActions : []).filter((x: unknown): x is string => typeof x === 'string') });
     if (incident) hazard = { ...hazard, aiSummary: incident.summary, callsToAction: incident.callsToAction,
-      contentDetails: { ...prior, ...incident.contentDetails }, locationName: incident.contentDetails.displayLocation };
+      contentDetails: { ...prior, ...incident.contentDetails, nativeLevel: keepLevel(incident.contentDetails.nativeLevel) }, locationName: incident.contentDetails.displayLocation };
   }
   if (!hazard?.reportedById || hazard.reportedById === viewerId) {
     return hazard;

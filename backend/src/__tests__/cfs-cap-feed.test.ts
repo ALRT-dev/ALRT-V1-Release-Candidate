@@ -97,3 +97,9 @@ describe('current CFS CAP-AU feed (synthetic fixtures)',()=>{
   expect(rows).toHaveLength(1);expect(rows[0]?.severityBand).toBe('critical');
  });
 });
+describe('one malformed CFS record',()=>{
+ it('is skipped while the other South Australian alerts still load',()=>{
+  const rows=parse(entry()+entry({id:'F2610159999-2026-10-15T19:51:35+10:30',area:'<circle>invalid</circle>'}));
+  expect(rows.map(x=>x.id)).toEqual(['cfs-F2610150124']);
+ });
+});

@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -146,7 +145,7 @@ void main() {
       ),
     );
     expect(find.text('WHAT TO DO'), findsOneWidget);
-    expect(find.text('ALRT suggestions'), findsOneWidget);
+    expect(find.text('ALRT safety advice'), findsOneWidget);
     expect(find.text('AFFECTED AREA'), findsNothing);
     expect(
       find.text('Incident Type: Fire\nLocation: Bassendean').hitTestable(),

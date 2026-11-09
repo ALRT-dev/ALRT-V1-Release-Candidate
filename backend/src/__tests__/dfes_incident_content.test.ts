@@ -12,7 +12,10 @@ describe('DFES incident content', () => {
     expect(value?.contentDetails).toHaveProperty('sourceLimitations');
     expect(value?.contentDetails.officialActions).toEqual([]);
     const official = buildDfesIncidentContent({...input, description:source,sourceActions:['If affected, follow the marked detour.']});
-    expect(official?.contentDetails.alrtSuggestions).toEqual([]);
+    // Owner, 9 Nov 2026 evening: one agency instruction is topped up to two to four points.
+    const total=(official?.contentDetails.officialActions.length??0)+(official?.contentDetails.alrtSuggestions.length??0);
+    expect(total).toBeGreaterThanOrEqual(2);
+    expect(total).toBeLessThanOrEqual(4);
     expect(official?.contentDetails.officialActions).toEqual(['If affected, follow the marked detour.']);
   });
   it('describes smoke naturally and states the limits of the metadata feed', () => {

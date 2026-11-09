@@ -145,8 +145,11 @@ For the approved TEST rollout, editable AIPrompt records remain the prompt autho
 snapshots of those prompt records. A draft has no ingestion effect. Publish and restore
 are audited and revision checked. Do not reset existing prompt records to activate it.
 `agency_extraction.util.ts` is the mandatory validation/output contract, appended after
-editable instructions. It does not assign severity. Facts select exact source blocks;
-free-text instructions retain their complete source context. Native warning levels and
+editable instructions. It does not assign severity. Product owner, 9 November 2026
+(evening): facts are 2 to 4 plain-language points and agency instructions are practical
+summaries, each grounded in an exact source quote (evidence) and checked in code (numbers
+and most content words must come from the evidence; a summary may not drop a source
+condition; a lead-in paragraph stays attached). See docs/alert-rules-20261109.md. Native warning levels and
 all separate raw source instruction fields survive extraction failure.
 
 Code owns severity. Official AWS-style levels retain their mapping regardless of icon
@@ -156,13 +159,14 @@ Tests/drills/resolved incidents are Info. Source-authorised emergency phone word
 be retained only with an explicit source-specific exception. Otherwise use "your local
 emergency number" while preserving road, route, date and measurement numbers.
 
-Approved library suggestions use non-directive wording ("Consider ...", or a plain safety
-statement such as "Driving through flood water is dangerous. Consider your route before
-driving.") with NO "ALRT suggests:" prefix (product owner, 16 Oct 2026); the app labels
-them with a footer under What to do ("General guidance from ALRT, not part of the official
-warning"), telling them from agency lines by the "{agency} advises:" lead. They are used
-when extraction finds no agency instructions; an extraction failure does not
-guess that advice was absent. For You receives generic reviewed rows; personal selections
+ALRT safety advice (product owner, 9 November 2026 evening, superseding 16 Oct and the
+9 Nov fallback-only rule): What to do holds 2 to 4 points. ALRT safety advice, written by
+the model under the contract or taken from the reviewed library, tops up agency advice
+when the agency gives fewer than two instructions (at most two extra points otherwise),
+carries NO "ALRT suggests:" prefix, and is labelled by the app as ALRT safety advice.
+ALRT never originates a leave/evacuate/shelter/stay/return direction and never carries a
+number; none on test, cancellation or resolved alerts. Source instructions the model
+missed are kept as written, never replaced by ALRT wording. For You receives generic reviewed rows; personal selections
 stay on the phone. No square is produced. Required AWS and current community artwork stay.
 Source instruction content and native-level-only updates must change sourceContentHash.
 TEST deployment is authorised in this conversation; production deployment is not.

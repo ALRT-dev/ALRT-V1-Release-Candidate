@@ -99,7 +99,8 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
     ? 'A smoke report alone does not establish its cause or measured air quality at your location.'
     : isCrash ? 'A crash report alone does not confirm current road access or traffic delays.'
     : 'An incident report alone does not establish its current impact or a warning level.';
-  const guidanceReferences = (officialActions.length ? [] : reviewed.slice(0, 4)).map(item => ({ ...item }));
+  // ALRT safety advice makes What to do two to four points (owner, 9 Nov 2026).
+  const guidanceReferences = (officialActions.length >= 2 ? [] : reviewed.slice(0, 4 - officialActions.length)).map(item => ({ ...item }));
   const alrtSuggestions = guidanceReferences.map(item => item.text);
   const cleanedFacts = facts.map(clean);
   return {

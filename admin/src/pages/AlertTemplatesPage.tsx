@@ -69,6 +69,7 @@ export function AlertTemplatesPage() {
   const [librarySearch, setLibrarySearch] = useState("");
   const [jurisdictionCountry,setJurisdictionCountry]=useState('');
   const [sourceInstructions,setSourceInstructions]=useState('');
+  const [safetyLibrary, setSafetyLibrary] = useState<TemplatePack["library"]>([]);
   const load = useCallback(async () => {
     setBusy(true);
     setError("");
@@ -81,6 +82,7 @@ export function AlertTemplatesPage() {
       setState(data.state);
       setPack(data.state.draft);
       setSources(data.sources);
+      setSafetyLibrary(data.safetyLibrary ?? []);
       setCategories(
         cats
           .flatMap((c) => [c, ...(c.subCategories ?? [])])
@@ -751,7 +753,7 @@ export function AlertTemplatesPage() {
         <section className="card">
           <h2>Reviewed guidance library</h2>
           <p>
-            General suggestions supplement agency advice to two relevant points when reviewed matching wording exists. For
+            General safety advice makes What to do two to four points: it tops up agency advice when the agency gives fewer than two instructions, is always labelled as ALRT's, and never gives a leave, evacuate or shelter direction the agency did not give. For
             You rows match a category and selected profile. Unapproved rows stay
             out of alerts.
           </p>
@@ -762,6 +764,17 @@ export function AlertTemplatesPage() {
           <button className="btn" disabled={!canWrite} onClick={newEntry}>
             Add guidance
           </button>
+          {(() => {
+            // Owner direction, 9 Nov 2026: load ALRT's hazard safety library
+            // into this draft. Entries already in the draft (same id) are kept
+            // as edited; nothing is published until preview and publish.
+            const missing = safetyLibrary.filter(x => !pack.library.some(y => y.id === x.id));
+            return missing.length > 0 && (
+              <button className="btn" disabled={!canWrite} onClick={() => update({ ...pack, library: [...pack.library, ...missing] })}>
+                Add ALRT safety library to draft ({missing.length} new)
+              </button>
+            );
+          })()}
           {pack.library.length === 0 && (
             <p>No guidance has been added to this draft.</p>
           )}
