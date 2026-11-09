@@ -46,6 +46,10 @@ explicit instruction from the product owner in the current session.
   alert's pin artwork at the right of the title and "Tap for more" on
   every card. Map details' map-type tiles are painted thumbnails, not
   line icons (product owner, 15 and 16 Oct 2026).
+- What to do (product owner, 9 Nov 2026 evening, supersedes the next lines
+  where they differ): 2 to 4 points; agency instructions first, then
+  ALRT safety advice labelled as ALRT's whenever the agency gives fewer
+  than two (at most two extra otherwise). See docs/alert-rules-20261109.md.
 - What to do (product owner, 16 Oct 2026): agency instructions first, each
   led by "{Agency} advises:". When the agency published none, ALRT's
   general guidance for that kind of alert (GeneralGuidance, mirroring the

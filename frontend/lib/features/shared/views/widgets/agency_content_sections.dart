@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Source facts, official actions and ALRT suggestions render separately.
+/// Source facts, official actions and ALRT safety advice render separately.
 class AgencyContentSections extends StatelessWidget {
   const AgencyContentSections({
     super.key,
@@ -77,7 +77,7 @@ class AgencyContentSections extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child:
-                    (text == 'ALRT suggestions' ||
+                    (text == 'ALRT safety advice' ||
                         text == 'Agency instructions' ||
                         text.endsWith(' advises'))
                     ? Text(
@@ -154,15 +154,18 @@ class AgencyContentSections extends StatelessWidget {
               agency.isEmpty ? 'Agency instructions' : '$agency advises',
               ...actions.take(4),
             ],
-            if (suggestions.isNotEmpty && actions.isEmpty) ...[
-              'ALRT suggestions',
-              ...suggestions.take(4),
+            // Owner, 9 November 2026 (evening): What to do holds two to four
+            // points; ALRT safety advice tops up thin agency advice and is
+            // always labelled as ALRT's, below the agency's own lines.
+            if (suggestions.isNotEmpty) ...[
+              'ALRT safety advice',
+              ...suggestions.take(actions.length >= 2 ? 2 : 4),
             ],
             if (actions.isEmpty && suggestions.isEmpty)
               'Agency instructions are not available in this view. Check the original source details for the full information.',
           ],
-          subtitle: suggestions.isNotEmpty && actions.isEmpty
-              ? 'ALRT suggestions are general guidance, separate from agency instructions.'
+          subtitle: suggestions.isNotEmpty
+              ? 'ALRT safety advice is general guidance, separate from agency instructions.'
               : null,
         ),
         if (actions.length > 4)
