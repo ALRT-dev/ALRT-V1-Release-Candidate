@@ -192,6 +192,7 @@ jobs:
       - name: Verify TEST-only read-only signing access
         env:
           TEST_IOS_CERTS_SSH_KEY: ${{ secrets.TEST_IOS_CERTS_SSH_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/test_signing_access.py
       - name: Remove temporary TEST signing key
         if: ${{ always() }}
@@ -419,6 +420,7 @@ jobs:
         working-directory: .
         env:
           TEST_IOS_CERTS_SSH_KEY: ${{ secrets.TEST_IOS_CERTS_SSH_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
           GENERATE_CERTS: ${{ inputs.generate_certs }}
         run: python3 .github/scripts/test_signing_access.py
 
