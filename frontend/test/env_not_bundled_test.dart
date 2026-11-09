@@ -5,6 +5,7 @@
 /// 2. No Dart source imports flutter_dotenv (the package that reads assets).
 /// 3. env.dart uses compile-time String.fromEnvironment, not dotenv.env.
 /// 4. Every CI workflow passes --dart-define-from-file to flutter build.
+library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
