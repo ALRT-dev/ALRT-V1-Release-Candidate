@@ -1,5 +1,6 @@
 import type { GuidanceEntry } from "./alert_templates.util.js";
 import { standingGuidanceDrafts } from "./standing_guidance_drafts.util.js";
+import { hazardSafetyLibrary } from "./hazard_safety_library.util.js";
 
 // Product-requested ALRT suggestions, reviewed during implementation. These
 // are explicitly not attributed to the incident agency. Profile rows are
@@ -16,6 +17,7 @@ export const initialGuidance = (): GuidanceEntry[] => {
   };
   return [
     ...standingGuidanceDrafts(),
+    ...hazardSafetyLibrary(),
     {
       ...base,
       id: "transport-preparation",
