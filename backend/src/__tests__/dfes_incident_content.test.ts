@@ -19,7 +19,8 @@ describe('DFES incident content', () => {
     const value=buildDfesIncidentContent({...input,description:description.replace('Bushfire','Report of Smoke')});
     expect(value?.contentDetails.facts[0]).toBe('Smoke was reported in Scarborough (City of Stirling).');
     expect(value?.contentDetails).toHaveProperty('sourceLimitations',expect.stringMatching(/cause.*air quality/i));
-    expect(value?.contentDetails.profileGuidancePolicy).toBe('bundledFallback');
+    expect(value?.contentDetails.profileGuidancePolicy).not.toBe('bundledFallback');
+    expect(value?.contentDetails.profileGuidance).toHaveLength(9);
   });
   it('never denies a road name or impact supplied in the entry', () => {
     const source=description.replace('Bushfire','Road Crash').replace('Location: Scarborough','Location: Mitchell Freeway');
@@ -36,7 +37,8 @@ describe('DFES incident content', () => {
     expect(value?.contentDetails.sourceReportedAt).toBe('2026-11-06T11:27:33.000Z');
     expect(value?.contentDetails.displayLocation).toBe('Scarborough');
     expect(value?.contentDetails.extractionMethod).toBe('dfes-incident-fields');
-    expect(value?.contentDetails.profileGuidancePolicy).toBe('bundledFallback');
+    expect(value?.contentDetails.profileGuidancePolicy).not.toBe('bundledFallback');
+    expect(value?.contentDetails.profileGuidance).toHaveLength(9);
     expect(value?.contentDetails.officialActions).toEqual([]);
     expect(value?.contentDetails.alrtSuggestions).toHaveLength(2);
     expect(value?.contentDetails.originalSourceText).toBe(description);
@@ -47,7 +49,7 @@ describe('DFES incident content', () => {
     expect(value?.contentDetails.alrtSuggestions).toHaveLength(2);
     expect(value?.contentDetails.alrtSuggestions.join(' ')).not.toMatch(/bushfire|evacuat|leave/i);
     expect(value?.summary).not.toMatch(/bushfire/i);
-    expect(value?.contentDetails.profileGuidancePolicy).toBeUndefined();
+    expect(value?.contentDetails.profileGuidancePolicy).toBe('publishedIncidentPlanning');
     expect(value?.contentDetails.profileGuidance).toEqual([]);
   });
   it('preserves complete separate source instructions and phone policy', () => {

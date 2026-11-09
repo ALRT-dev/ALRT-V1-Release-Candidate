@@ -6,6 +6,7 @@ Use the existing isolated worktree and owner's approved source-first rules. Repa
 - [x] Extend exact metadata-only adapter with dated primary-source references and source-limitations metadata; preserve original actions, evidence, timestamp and lifecycle.
 - [x] Normalize Report of Smoke separately from Smoke Alert; distinguish no instructions in a recognised metadata feed from extraction that could not be verified.
 - [x] Replace bundled bushfire/smoke profile wording implying evacuation with conditional planning language, retaining selected-only matching; enable exact smoke incident profile fallback.
-- [x] Run backend and focused Flutter regressions and inspect actual rendered content. Backend 228 passed; Flutter 32 passed incl seven full-screen fixtures; targeted analysis clean. Native maps omitted. No production deployment.
+- [x] Run backend and focused Flutter regressions and inspect actual rendered content. Backend 228 passed; Flutter 33 passed incl seven full-screen fixtures and profile mapper/text parity; targeted analysis clean. Native maps omitted. No production deployment.
+- [x] Publish neutral smoke/bushfire profile rows generically for existing clients; local selection still controls display. Unsupported incident types publish explicit empty rows to suppress stale fallback.
 
 Owner reminder: preserve official street names, street numbers and precise coordinates. Regression explicitly proves this; community public coordinate rounding remains independently tested.

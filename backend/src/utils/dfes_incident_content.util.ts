@@ -1,4 +1,5 @@
 import { removeUnattributedNumbers, type AgencyExtractionResult } from './agency_extraction.util.js';
+import { incidentPlanningProfiles } from './dfes_incident_profiles.util.js';
 
 export interface DfesIncidentInput {
   title: string;
@@ -43,7 +44,7 @@ type IncidentContent = AgencyExtractionResult & { contentDetails: {
   displayLocation: string;
   sourceLimitations?: string;
   sourceAdviceStatus: 'provided' | 'not-in-incident-feed';
-  profileGuidancePolicy?: 'bundledFallback';
+  profileGuidancePolicy: 'publishedIncidentPlanning';
 } };
 
 const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -106,9 +107,10 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
     callsToAction: [...officialActions.map(text => `${input.agency} advises: ${text}`), ...alrtSuggestions], confidence: 'high',
     contentDetails: { schemaVersion: 1, templateVersion: input.templateVersion, facts: cleanedFacts,
       affectedAreas: [place.value], nativeLevel: null, officialActions, alrtSuggestions,
-      profileGuidance: [], evidence, originalSourceText: input.description, originalSourceActions, guidanceReferences,
+      profileGuidance: kind.value.toLowerCase() === 'bushfire' ? incidentPlanningProfiles('bushfire') : isSmoke ? incidentPlanningProfiles('smoke') : [],
+      evidence, originalSourceText: input.description, originalSourceActions, guidanceReferences,
       extractionMethod: 'dfes-incident-fields', sourceReportedAt: timestamp?.iso ?? null, displayLocation: place.value,
       ...(sourceLimitations ? { sourceLimitations } : {}), sourceAdviceStatus: officialActions.length ? 'provided' : 'not-in-incident-feed',
-      ...(kind.value.toLowerCase() === 'bushfire' || isSmoke ? { profileGuidancePolicy: 'bundledFallback' as const } : {}) },
+      profileGuidancePolicy: 'publishedIncidentPlanning' },
   };
 }

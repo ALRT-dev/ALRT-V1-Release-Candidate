@@ -1,4 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:hazard_app/features/profile/models/for_you_library.dart';
+import 'package:hazard_app/features/profile/models/safety_cohort.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
@@ -6,6 +10,30 @@ import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 
 void main() {
+  test(
+    'published incident profiles override stale bundled text on existing clients',
+    () {
+      final fixtures =
+          jsonDecode(
+                File('test/fixtures/sparse_incidents.json').readAsStringSync(),
+              )
+              as Map;
+      for (final entry in {
+        'smoke-report': 'smoke',
+        'bushfire-report': 'bushfire',
+      }.entries) {
+        final content = Map<String, dynamic>.from(
+          fixtures[entry.key]['contentDetails'] as Map,
+        );
+        final rows = Hazard(contentDetails: content).publishedProfileGuidance;
+        expect(rows, isNotNull);
+        expect(rows!.length, 9);
+        for (final cohort in SafetyCohort.values) {
+          expect(rows[cohort.id], ForYouLibrary.rows[entry.value]![cohort]);
+        }
+      }
+    },
+  );
   test('report of smoke keeps its incident identity with readable wording', () {
     expect(
       const Hazard(title: 'Report of Smoke - INNALOO').displayTitle,
