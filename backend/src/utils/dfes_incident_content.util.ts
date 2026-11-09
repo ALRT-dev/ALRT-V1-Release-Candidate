@@ -108,7 +108,7 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
       affectedAreas: [place.value], nativeLevel: null, officialActions, alrtSuggestions,
       profileGuidance: [], evidence, originalSourceText: input.description, originalSourceActions, guidanceReferences,
       extractionMethod: 'dfes-incident-fields', sourceReportedAt: timestamp?.iso ?? null, displayLocation: place.value,
-      sourceLimitations, sourceAdviceStatus: officialActions.length ? 'provided' : 'not-in-incident-feed',
+      ...(sourceLimitations ? { sourceLimitations } : {}), sourceAdviceStatus: officialActions.length ? 'provided' : 'not-in-incident-feed',
       ...(kind.value.toLowerCase() === 'bushfire' || isSmoke ? { profileGuidancePolicy: 'bundledFallback' as const } : {}) },
   };
 }

@@ -8,8 +8,8 @@ const record = { sourceId: 'waDfes', title: 'Other Fire - BASSENDEAN', descripti
   contentDetails: { templateVersion: 7, presentation: { band: 'low', iconCategoryId: 'fire' }, officialActions: ['Stay away from the affected building.'] } };
 describe('DFES incident public read repair', () => {
   it('preserves street names, street numbers and precise coordinates from official sources', () => {
-    const source={...record,description:description.replace('Location: Bassendean','Location: 25 Example Road, Bassendean'),
-      contentDetails:{...record.contentDetails,officialActions:['Keep Example Road clear between First Street and Second Street.']}};
+    const source={...record,locationName:'25 Example Road, Bassendean',description:description.replace('Location: Bassendean','Location: 25 Example Road, Bassendean'),
+      contentDetails:{...record.contentDetails,facts:[] as string[],officialActions:['Keep Example Road clear between First Street and Second Street.']}};
     const actual=withPublicCoords(source, 'another-viewer');
     expect(actual.locationName).toBe('25 Example Road, Bassendean');
     expect(actual.contentDetails.facts.join(' ')).toContain('25 Example Road, Bassendean');
