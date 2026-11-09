@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
 import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -721,7 +722,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!hazard.isUserReported)
+              if (!hazard.isUserReported &&
+                  hazard.contentDetails?['extractionMethod'] !=
+                      'dfes-incident-fields')
                 Container(
                   width: double.infinity,
                   height: AlertCardStyle.detailBandStripHeight.spMin,
@@ -1206,6 +1209,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             if (hazard?.hasStructuredAgencyContent ?? false) {
               return AgencyContentSections(
                 content: hazard!.contentDetails!,
+                showOriginalSource: false,
                 sourceName: hazard.displaySourceName,
                 warningLevel: hazard.displayWarningLevel,
                 officialIntro: AlertTextUtil.issuedLine(
@@ -1274,6 +1278,20 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         12.hSizedBox,
 
         // Attribution
+        Consumer(
+          builder: (context, ref, child) {
+            final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (!(hazard?.hasStructuredAgencyContent ?? false)) {
+              return const SizedBox.shrink();
+            }
+            final source =
+                hazard!.contentDetails?['originalSourceText'] ??
+                hazard.contentDetails?['sourceDescription'];
+            return source is String
+                ? AgencyOriginalSourceDetails(text: source)
+                : const SizedBox.shrink();
+          },
+        ),
         _buildTimelineSection(),
         _buildSourceSection(),
         _buildSourceFootnote(),
@@ -1399,11 +1417,26 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         if (circles.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: OutlinedButton.icon(
-              onPressed: () =>
-                  shareAlert(ref: ref, hazard: hazard, from: 'detail'),
-              icon: const Icon(Icons.share_outlined),
-              label: const Text('Share alert externally'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => showChooseCircleSheet(context, ref),
+                  icon: const Icon(Icons.group_outlined),
+                  label: const Text('Share with a group'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+                  icon: const Icon(Icons.share_outlined),
+                  label: const Text('Share alert externally'),
+                ),
+                TextButton(
+                  onPressed: () => context.push(AlrtPlusChooseScreen.route),
+                  child: const Text('Explore ALRT+ plans'),
+                ),
+              ],
             ),
           );
         }
@@ -1797,8 +1830,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         // Community reports have no advice section at all.
         if (hazard == null || isUserReported) return const SizedBox.shrink();
 
-        final callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction)
-            .where(AlertCardStyle.isAgencyAction).toList();
+        final callsToAction = AlertCardStyle.agencyActions(
+          hazard.callsToAction,
+        ).where(AlertCardStyle.isAgencyAction).toList();
         final fromAgency = callsToAction.isNotEmpty;
         final agency = hazard.source?.name?.trim();
 
@@ -1820,7 +1854,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             ],
             8.hSizedBox,
             if (!fromAgency)
-              const Text('Advice could not be verified in this view. Check the official source for the full information.'),
+              const Text(
+                'Advice could not be verified in this view. Check the official source for the full information.',
+              ),
             for (var i = 0; i < callsToAction.length; i++)
               Padding(
                 padding: EdgeInsets.only(

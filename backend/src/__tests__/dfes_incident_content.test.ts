@@ -4,13 +4,44 @@ import { buildDfesIncidentContent } from '../utils/dfes_incident_content.util.js
 const description = 'Incident Type: Bushfire\nLocation: Scarborough\nLocal government area: City Of Stirling\nRegion: Metro North Coastal\nReported: Fri, 06 Nov 2026 19:27:33 +0800\nSource: Department of Fire and Emergency Services WA incident feed';
 const input = { title: 'Bushfire - SCARBOROUGH', description, agency: 'DFES', templateVersion: 2 };
 describe('DFES incident content', () => {
+  it.each(['Report of Smoke', 'Road Crash'])('supplies reviewed fallback for %s without inventing incident impacts', kind => {
+    const source = description.replace('Bushfire', kind);
+    const value = buildDfesIncidentContent({...input, description:source});
+    expect(value?.contentDetails.alrtSuggestions.length).toBeGreaterThanOrEqual(2);
+    expect(value?.contentDetails.guidanceReferences.every(x=>x.reviewedAt==='2026-11-09')).toBe(true);
+    expect(value?.contentDetails).toHaveProperty('sourceLimitations');
+    expect(value?.contentDetails.officialActions).toEqual([]);
+    const official = buildDfesIncidentContent({...input, description:source,sourceActions:['If affected, follow the marked detour.']});
+    // Owner, 9 Nov 2026 evening: one agency instruction is topped up to two to four points.
+    const total=(official?.contentDetails.officialActions.length??0)+(official?.contentDetails.alrtSuggestions.length??0);
+    expect(total).toBeGreaterThanOrEqual(2);
+    expect(total).toBeLessThanOrEqual(4);
+    expect(official?.contentDetails.officialActions).toEqual(['If affected, follow the marked detour.']);
+  });
+  it('describes smoke naturally and states the limits of the metadata feed', () => {
+    const value=buildDfesIncidentContent({...input,description:description.replace('Bushfire','Report of Smoke')});
+    expect(value?.contentDetails.facts[0]).toBe('Smoke was reported in Scarborough (City of Stirling).');
+    expect(value?.contentDetails).toHaveProperty('sourceLimitations',expect.stringMatching(/cause.*air quality/i));
+    expect(value?.contentDetails.profileGuidancePolicy).not.toBe('bundledFallback');
+    expect(value?.contentDetails.profileGuidance).toHaveLength(9);
+  });
+  it('never denies a road name or impact supplied in the entry', () => {
+    const source=description.replace('Bushfire','Road Crash').replace('Location: Scarborough','Location: Mitchell Freeway');
+    const value=buildDfesIncidentContent({...input,description:source});
+    expect(value?.contentDetails.facts.join(' ')).toContain('Mitchell Freeway');
+    expect(value?.contentDetails.sourceLimitations).not.toContain('does not give a road name');
+    const advised=buildDfesIncidentContent({...input,description:source,sourceActions:['Mitchell Freeway is closed. Use the marked detour.']});
+    expect(advised?.contentDetails.sourceLimitations).toBeUndefined();
+    expect(advised?.contentDetails.officialActions).toEqual(['Mitchell Freeway is closed. Use the marked detour.']);
+  });
   it('renders readable sourced facts and separately attributed reviewed planning suggestions', () => {
     const value = buildDfesIncidentContent(input);
     expect(value?.contentDetails.facts).toEqual(['A bushfire was reported in Scarborough (City of Stirling).', 'Reported on 6 November at 7:27 pm AWST.']);
     expect(value?.contentDetails.sourceReportedAt).toBe('2026-11-06T11:27:33.000Z');
     expect(value?.contentDetails.displayLocation).toBe('Scarborough');
     expect(value?.contentDetails.extractionMethod).toBe('dfes-incident-fields');
-    expect(value?.contentDetails.profileGuidancePolicy).toBe('bundledFallback');
+    expect(value?.contentDetails.profileGuidancePolicy).not.toBe('bundledFallback');
+    expect(value?.contentDetails.profileGuidance).toHaveLength(9);
     expect(value?.contentDetails.officialActions).toEqual([]);
     expect(value?.contentDetails.alrtSuggestions).toHaveLength(2);
     expect(value?.contentDetails.originalSourceText).toBe(description);
@@ -21,7 +52,7 @@ describe('DFES incident content', () => {
     expect(value?.contentDetails.alrtSuggestions).toHaveLength(2);
     expect(value?.contentDetails.alrtSuggestions.join(' ')).not.toMatch(/bushfire|evacuat|leave/i);
     expect(value?.summary).not.toMatch(/bushfire/i);
-    expect(value?.contentDetails.profileGuidancePolicy).toBeUndefined();
+    expect(value?.contentDetails.profileGuidancePolicy).toBe('publishedIncidentPlanning');
     expect(value?.contentDetails.profileGuidance).toEqual([]);
   });
   it('preserves complete separate source instructions and phone policy', () => {

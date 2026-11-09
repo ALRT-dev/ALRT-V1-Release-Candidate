@@ -1,4 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:hazard_app/features/profile/models/for_you_library.dart';
+import 'package:hazard_app/features/profile/models/safety_cohort.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
@@ -6,14 +10,80 @@ import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 
 void main() {
-  test('main category label uses the seven stable parent IDs, not incident type', () {
-    const smoke = Hazard(category: HazardCategory(id: 'airQualityAlert', name: 'Air Quality Alert', parentId: 'healthAndAir'));
-    const fire = Hazard(category: HazardCategory(id: 'bushfire', name: 'Bushfire', parentId: 'weatherAndEnvironment'));
-    expect(smoke.displayMainCategoryName, 'Health & Air');
-    expect(fire.displayMainCategoryName, 'Weather & Environment');
-    expect(const Hazard(category: HazardCategory(id: 'securityAndCrime', name: 'Security & Crime')).displayMainCategoryName, 'Safety & Crime');
-    expect(const Hazard(category: HazardCategory(id: 'other', name: 'Other')).displayMainCategoryName, 'Other');
+  test(
+    'published incident profiles override stale bundled text on existing clients',
+    () {
+      final fixtures =
+          jsonDecode(
+                File('test/fixtures/sparse_incidents.json').readAsStringSync(),
+              )
+              as Map;
+      for (final entry in {
+        'smoke-report': 'smoke',
+        'bushfire-report': 'bushfire',
+      }.entries) {
+        final content = Map<String, dynamic>.from(
+          fixtures[entry.key]['contentDetails'] as Map,
+        );
+        final rows = Hazard(contentDetails: content).publishedProfileGuidance;
+        expect(rows, isNotNull);
+        expect(rows!.length, 9);
+        for (final cohort in SafetyCohort.values) {
+          expect(rows[cohort.id], ForYouLibrary.rows[entry.value]![cohort]);
+        }
+      }
+    },
+  );
+  test('report of smoke keeps its incident identity with readable wording', () {
+    expect(
+      const Hazard(title: 'Report of Smoke - INNALOO').displayTitle,
+      'Smoke reported in Innaloo',
+    );
+    final line = AlertCardStyle.plainTermsOf(
+      isOfficial: true,
+      isAws: false,
+      categoryName: 'Smoke',
+      sourceName: 'DFES WA',
+      title: 'Report of Smoke - INNALOO',
+    );
+    expect(line, 'DFES WA reports smoke in Innaloo.');
   });
+  test(
+    'main category label uses the seven stable parent IDs, not incident type',
+    () {
+      const smoke = Hazard(
+        category: HazardCategory(
+          id: 'airQualityAlert',
+          name: 'Air Quality Alert',
+          parentId: 'healthAndAir',
+        ),
+      );
+      const fire = Hazard(
+        category: HazardCategory(
+          id: 'bushfire',
+          name: 'Bushfire',
+          parentId: 'weatherAndEnvironment',
+        ),
+      );
+      expect(smoke.displayMainCategoryName, 'Health & Air');
+      expect(fire.displayMainCategoryName, 'Weather & Environment');
+      expect(
+        const Hazard(
+          category: HazardCategory(
+            id: 'securityAndCrime',
+            name: 'Security & Crime',
+          ),
+        ).displayMainCategoryName,
+        'Safety & Crime',
+      );
+      expect(
+        const Hazard(
+          category: HazardCategory(id: 'other', name: 'Other'),
+        ).displayMainCategoryName,
+        'Other',
+      );
+    },
+  );
   test('specific DFES incident type is not lost behind Other', () {
     const alarm = Hazard(
       source: HazardSource(id: 'waDfes'),
@@ -22,8 +92,10 @@ void main() {
     );
     expect(alarm.displayCategoryName, 'Active alarm');
     expect(alarm.displayTitle, 'Active alarm in Claremont');
-    expect(const Hazard(title: 'Fuel Leak - BEDFORDALE').displayTitle,
-        'Fuel leak in Bedfordale');
+    expect(
+      const Hazard(title: 'Fuel Leak - BEDFORDALE').displayTitle,
+      'Fuel leak in Bedfordale',
+    );
     expect(alarm.category?.id, 'other');
   });
   test('plain terms also normalises Other Fire from the source title', () {

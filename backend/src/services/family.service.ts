@@ -1821,6 +1821,8 @@ export const shareHazardWithCircle = async (
     throw error;
   }
 
+  await assertConnectionAccess(userId, membership.circleId);
+
   // Visible alerts only: an accepted hazard, or one from an official
   // source (sourceId set; ingestion writes those as accepted anyway). A
   // pending or rejected community report cannot be pushed to a group.

@@ -12,6 +12,18 @@ REPOSITORY = "git@github.com:ALRT-dev/ios-certificates.git"
 KEY_NAME = "alrt-test-signing-key"
 
 
+def github_metadata_request():
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not token:
+        raise SystemExit("GitHub job token is required for the public host-key check")
+    return urllib.request.Request(
+        "https://api.github.com/meta",
+        headers={"User-Agent": "ALRT-TEST-signing",
+                 "Accept": "application/vnd.github+json",
+                 "Authorization": "Bearer " + token},
+    )
+
+
 def main():
     secret = os.environ.get("TEST_IOS_CERTS_SSH_KEY", "").strip()
     if not secret.startswith("-----BEGIN OPENSSH PRIVATE KEY-----"):
@@ -23,9 +35,7 @@ def main():
     ssh_dir = Path.home() / ".ssh"
     ssh_dir.mkdir(mode=0o700, exist_ok=True)
     # Fetch public host keys over verified HTTPS rather than trusting ssh-keyscan.
-    request = urllib.request.Request(
-        "https://api.github.com/meta", headers={"User-Agent": "ALRT-TEST-signing"}
-    )
+    request = github_metadata_request()
     with urllib.request.urlopen(request, timeout=30) as response:
         host_keys = json.load(response).get("ssh_keys", [])
     if not host_keys or not all(k.startswith(("ssh-", "ecdsa-")) for k in host_keys):

@@ -7,6 +7,25 @@ import 'package:hazard_app/features/profile/models/safety_cohort.dart';
 /// because the bug this guards against was a silent one: every hazard
 /// matched on its broad parent, so a flood got generic weather advice.
 void main() {
+  test('bundled bushfire and smoke profiles never invent evacuation advice', () {
+    for (final bucket in ['bushfire', 'smoke']) {
+      final lines = ForYouLibrary.rows[bucket]!;
+      expect(lines.keys.toSet(), SafetyCohort.values.toSet());
+      for (final line in lines.values) {
+        expect(
+          line,
+          isNot(
+            matches(
+              RegExp(
+                r'\b(leave|leaving|evacuat\w*|stay|staying|indoors|ember attacks)\b',
+                caseSensitive: false,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+  });
   test('fuel leaks and alarms never borrow fuel shortage or fire guidance', () {
     expect(
       ForYouLibrary.bucketFor(

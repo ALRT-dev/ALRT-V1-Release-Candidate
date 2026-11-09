@@ -7,6 +7,16 @@ const record = { sourceId: 'waDfes', title: 'Other Fire - BASSENDEAN', descripti
   reportedById: null as string | null, status: 'expired', expiresAt: '2026-11-06',
   contentDetails: { templateVersion: 7, presentation: { band: 'low', iconCategoryId: 'fire' }, officialActions: ['Stay away from the affected building.'] } };
 describe('DFES incident public read repair', () => {
+  it('preserves street names, street numbers and precise coordinates from official sources', () => {
+    const source={...record,locationName:'25 Example Road, Bassendean',description:description.replace('Location: Bassendean','Location: 25 Example Road, Bassendean'),
+      contentDetails:{...record.contentDetails,facts:[] as string[],officialActions:['Keep Example Road clear between First Street and Second Street.']}};
+    const actual=withPublicCoords(source, 'another-viewer');
+    expect(actual.locationName).toBe('25 Example Road, Bassendean');
+    expect(actual.contentDetails.facts.join(' ')).toContain('25 Example Road, Bassendean');
+    expect(actual.contentDetails.officialActions).toEqual(source.contentDetails.officialActions);
+    expect(actual.latitude).toBe(source.latitude);
+    expect(actual.longitude).toBe(source.longitude);
+  });
   it('recovers native warning advice into structured fields without losing conditions or history', () => {
     const source = {...record, title:'Bushfire Advice', description:'Warning Type: Bushfire Advice\n• Smoke is present.\nWHAT TO DO\nIf driving\n• Turn on headlights.',
       contentDetails:{...record.contentDetails,sourceUpdate:{summary:'Agency changed advice',detectedAt:'2026-11-09T00:00:00Z'}}};

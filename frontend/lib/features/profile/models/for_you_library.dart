@@ -156,27 +156,30 @@ abstract final class ForYouLibrary {
         'Major global events rarely affect pets directly, but disruption to supply chains can affect pet food and medication. Keeping a small stock may help.',
   };
 
-  /// hazard bucket -> cohort -> line (verbatim reviewed wording).
+  /// hazard bucket -> cohort -> line. Bushfire planning wording revised
+  /// 9 Nov 2026: no inferred behaviour or self-authored evacuation direction.
+  /// References: https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare
+  /// and https://www.dfes.wa.gov.au/emergencywa/faq (smoke, revised 9 Nov).
   static const Map<String, Map<SafetyCohort, String>> rows = {
     'bushfire': {
       SafetyCohort.older:
-          'Ember attacks and fast changes are hardest on people who move more slowly. Deciding early whether to leave, rather than waiting to see may help.',
+          'Checking who can help you carry out your bushfire plan, and keeping their contact details handy, may help.',
       SafetyCohort.kids:
-          'Children breathe faster and worry spreads quickly. Packing early, keeping kids indoors and explaining the plan calmly may help.',
+          'Checking your school or childcare emergency arrangements and agreeing who will contact them may help.',
       SafetyCohort.mobility:
-          'Evacuating with mobility needs takes longer than warnings allow for. Leaving well before an Emergency Warning, and telling someone your route may help.',
+          'Checking that your bushfire plan includes accessible transport, equipment and someone who can assist may help.',
       SafetyCohort.medical:
-          'If a medical condition applies, smoke and exertion can both make it worse. Keeping medication within reach and avoiding heavy work like yard clearing may help.',
+          'Checking that your emergency kit covers the supplies and equipment in your usual care plan may help.',
       SafetyCohort.deaf:
-          'Sirens and doorknocks may not reach you. Keeping strong vibration and screen flash alerts on, and asking a neighbour to check in may help.',
+          'Checking written official updates and agreeing how a trusted person will contact you may help.',
       SafetyCohort.vision:
-          'Smoke lowers visibility for everyone, and unfamiliar evacuation routes are harder without sight. Arranging transport with a sighted person early may help.',
+          'Reviewing your bushfire plan in an accessible format with someone who can assist may help.',
       SafetyCohort.visitor:
-          'Australian bushfires move faster than most visitors expect. Following the official warning level for this area and leaving early if advised may help.',
+          'Asking your accommodation provider about its bushfire plan and how it receives official warnings may help.',
       SafetyCohort.worker:
-          'If you are required on site, confirming your workplace\'s fire plan and a route in and out before travelling may help.',
+          'Checking your workplace bushfire plan and how your employer will communicate changes may help.',
       SafetyCohort.pets:
-          'Animals are easier to find and load before smoke arrives. Knowing where carriers and leads are now may save time later.',
+          'Including carriers, leads, supplies and a suitable place for your animals in your bushfire plan may help.',
     },
     'grass_fire': {
       SafetyCohort.older:
@@ -240,23 +243,23 @@ abstract final class ForYouLibrary {
     },
     'smoke': {
       SafetyCohort.older:
-          'Smoke settles hardest on older lungs. Staying indoors with windows shut, and cooling the house rather than airing it may help.',
+          'If you rely on someone for support, agreeing how you will check smoke updates together may help.',
       SafetyCohort.kids:
-          'Smoke affects small lungs first. Keeping windows shut and staying indoors may help while smoke is nearby.',
+          'If smoke affects school or childcare activities, checking their current arrangements may help you coordinate care.',
       SafetyCohort.mobility:
-          'If leaving the area is a big effort, one well sealed room beats a late move. Choosing your cleanest room and keeping doors shut may help.',
+          'Checking that your emergency plan includes the support and equipment you rely on may help if smoke affects you.',
       SafetyCohort.medical:
-          'If a medical condition applies, having medication on hand and limiting exertion may help while smoke is nearby.',
+          'Having your existing care plan and usual health-service contact details available may help if smoke affects you.',
       SafetyCohort.deaf:
-          'Smoke can arrive before any visible fire. Keeping vibration and screen flash alerts on while smoke is in your area may help.',
+          'Checking written official smoke updates and agreeing how a trusted person will contact you may help.',
       SafetyCohort.vision:
-          'Smoke irritates eyes and flattens what vision remains. Staying indoors and postponing unfamiliar journeys until it clears may help.',
+          'Using accessible official updates, or asking a trusted person to read them with you, may help.',
       SafetyCohort.visitor:
-          'Bushfire smoke can blanket areas far from any fire. Checking air quality before outdoor plans and keeping windows shut may help.',
+          'Checking official smoke and road updates for the places you plan to visit may help.',
       SafetyCohort.worker:
-          'If working outdoors, a properly fitted P2 mask and regular indoor breaks may help while smoke is present.',
+          'If your work is outdoors, checking your employer\'s arrangements for smoky conditions may help.',
       SafetyCohort.pets:
-          'Smoke affects animals too, especially birds and older pets. Bringing them indoors and limiting exercise while smoke is nearby may help.',
+          'Checking that your household emergency plan includes animal supplies and care arrangements may help.',
     },
     'chemical': {
       SafetyCohort.older:

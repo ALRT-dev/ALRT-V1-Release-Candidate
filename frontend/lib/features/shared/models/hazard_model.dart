@@ -75,6 +75,13 @@ abstract class Hazard with _$Hazard {
     final value = title?.trim() ?? '';
     if (value.isEmpty) return displayCategoryName;
     if (isUserReported) return value;
+    final smokeReport = RegExp(
+      r'^report of smoke\s+[-–—]\s+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (smokeReport != null) {
+      return 'Smoke reported in ${_readablePlace(smokeReport[1]!)}';
+    }
     final match = RegExp(
       r'^(bushfire|other fire|fire|structure fire|structural fire|vehicle fire|road crash|crash|grass fire|active alarm|fuel leak)( advice| watch and act| emergency warning)?\s+[-–—]\s+(.+)$',
       caseSensitive: false,

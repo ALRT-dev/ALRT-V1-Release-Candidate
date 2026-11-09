@@ -1,4 +1,5 @@
 import { removeUnattributedNumbers, type AgencyExtractionResult } from './agency_extraction.util.js';
+import { incidentPlanningProfiles } from './dfes_incident_profiles.util.js';
 
 export interface DfesIncidentInput {
   title: string;
@@ -22,6 +23,18 @@ const firePlanning = [
   { text: 'Consider reviewing your emergency plan for places you intend to visit.', url: 'https://www.dfes.wa.gov.au/emergencywa/faq', reviewedAt: '2026-11-06' },
 ];
 
+// Reviewed ALRT fallback, not incident-specific agency instructions. Exact WA
+// incident kinds only; neither a smoke report nor a crash proves a fire/closure.
+const smokePlanning = [
+  { text: 'Checking Emergency WA for warnings linked to this smoke report may help you find any newer advice.', url: 'https://www.dfes.wa.gov.au/emergencywa/faq', reviewedAt: '2026-11-09' },
+  { text: 'If smoke affects your home, closing doors and windows and turning off air-conditioners may help reduce smoke indoors.', url: 'https://www.dfes.wa.gov.au/emergencywa/faq', reviewedAt: '2026-11-09' },
+  { text: 'If your journey passes through the area, checking Main Roads Travel Map for reported road impacts may help you plan.', url: 'https://www.mainroads.wa.gov.au/travelmap/', reviewedAt: '2026-11-09' },
+];
+const crashPlanning = [
+  { text: 'Checking Main Roads Travel Map for confirmed road closures near the incident may help you plan your journey.', url: 'https://www.mainroads.wa.gov.au/travel-information/driving-in-wa/roadworks-closures/', reviewedAt: '2026-11-09' },
+  { text: 'Comparing the map\'s live traffic and listed detours with your planned route may help you assess travel options.', url: 'https://www.mainroads.wa.gov.au/travelmap/', reviewedAt: '2026-11-09' },
+];
+
 type IncidentContent = AgencyExtractionResult & { contentDetails: {
   originalSourceText: string;
   originalSourceActions: string[];
@@ -29,7 +42,9 @@ type IncidentContent = AgencyExtractionResult & { contentDetails: {
   extractionMethod: 'dfes-incident-fields';
   sourceReportedAt: string | null;
   displayLocation: string;
-  profileGuidancePolicy?: 'bundledFallback';
+  sourceLimitations?: string;
+  sourceAdviceStatus: 'provided' | 'not-in-incident-feed';
+  profileGuidancePolicy: 'publishedIncidentPlanning';
 } };
 
 const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -65,18 +80,25 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
   const kind = fields.get('incident type'), place = fields.get('location');
   if (!kind || !place || !/Department of Fire and Emergency Services WA incident feed/i.test(fields.get('source')?.value ?? '')) return null;
   const clean = (text: string) => input.allowAgencyNumbers ? text : removeUnattributedNumbers(text);
-  const readableKind = /^other fire$/i.test(kind.value) ? 'fire' : kind.value.toLowerCase();
+  const isSmoke = /^(?:report of smoke|smoke)$/i.test(kind.value);
+  const isCrash = /^(?:road crash|crash)$/i.test(kind.value);
+  const readableKind = isSmoke ? 'smoke' : /^other fire$/i.test(kind.value) ? 'fire' : kind.value.toLowerCase();
   const article = /^[aeiou]/i.test(readableKind) ? 'An' : 'A';
   const lga = fields.get('local government area'), reported = fields.get('reported');
   const readableLga = lga?.value.replace(/\bOf\b/g, 'of');
-  const facts = [`${article} ${readableKind} was reported in ${place.value}${readableLga ? ` (${readableLga})` : ''}.`];
+  const facts = [`${isSmoke ? 'Smoke' : `${article} ${readableKind}`} was reported in ${place.value}${readableLga ? ` (${readableLga})` : ''}.`];
   const evidence = [[kind.evidence, place.evidence, lga?.evidence].filter(Boolean).join('\n')];
   const timestamp = reported ? reportedTime(reported.value) : null;
   if (timestamp && reported) { facts.push(timestamp.fact); evidence.push(reported.evidence); }
   const originalSourceActions = [...(input.sourceActions ?? [])];
   const officialActions = [...new Set(originalSourceActions.filter(text => text.trim()).map(clean))];
   const reviewed = kind.value.toLowerCase() === 'bushfire' ? bushfirePlanning
-    : /^(?:fire|other fire)$/i.test(kind.value) ? firePlanning : [];
+    : /^(?:fire|other fire)$/i.test(kind.value) ? firePlanning
+    : isSmoke ? smokePlanning : isCrash ? crashPlanning : [];
+  const sourceLimitations = officialActions.length ? undefined : isSmoke
+    ? 'A smoke report alone does not establish its cause or measured air quality at your location.'
+    : isCrash ? 'A crash report alone does not confirm current road access or traffic delays.'
+    : 'An incident report alone does not establish its current impact or a warning level.';
   // ALRT safety advice makes What to do two to four points (owner, 9 Nov 2026).
   const guidanceReferences = (officialActions.length >= 2 ? [] : reviewed.slice(0, 4 - officialActions.length)).map(item => ({ ...item }));
   const alrtSuggestions = guidanceReferences.map(item => item.text);
@@ -86,8 +108,10 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
     callsToAction: [...officialActions.map(text => `${input.agency} advises: ${text}`), ...alrtSuggestions], confidence: 'high',
     contentDetails: { schemaVersion: 1, templateVersion: input.templateVersion, facts: cleanedFacts,
       affectedAreas: [place.value], nativeLevel: null, officialActions, alrtSuggestions,
-      profileGuidance: [], evidence, originalSourceText: input.description, originalSourceActions, guidanceReferences,
+      profileGuidance: kind.value.toLowerCase() === 'bushfire' ? incidentPlanningProfiles('bushfire') : isSmoke ? incidentPlanningProfiles('smoke') : [],
+      evidence, originalSourceText: input.description, originalSourceActions, guidanceReferences,
       extractionMethod: 'dfes-incident-fields', sourceReportedAt: timestamp?.iso ?? null, displayLocation: place.value,
-      ...(kind.value.toLowerCase() === 'bushfire' ? { profileGuidancePolicy: 'bundledFallback' as const } : {}) },
+      ...(sourceLimitations ? { sourceLimitations } : {}), sourceAdviceStatus: officialActions.length ? 'provided' : 'not-in-incident-feed',
+      profileGuidancePolicy: 'publishedIncidentPlanning' },
   };
 }
