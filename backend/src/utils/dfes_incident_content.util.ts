@@ -77,7 +77,8 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
   const officialActions = [...new Set(originalSourceActions.filter(text => text.trim()).map(clean))];
   const reviewed = kind.value.toLowerCase() === 'bushfire' ? bushfirePlanning
     : /^(?:fire|other fire)$/i.test(kind.value) ? firePlanning : [];
-  const guidanceReferences = (officialActions.length ? [] : reviewed.slice(0, 4)).map(item => ({ ...item }));
+  // ALRT safety advice makes What to do two to four points (owner, 9 Nov 2026).
+  const guidanceReferences = (officialActions.length >= 2 ? [] : reviewed.slice(0, 4 - officialActions.length)).map(item => ({ ...item }));
   const alrtSuggestions = guidanceReferences.map(item => item.text);
   const cleanedFacts = facts.map(clean);
   return {

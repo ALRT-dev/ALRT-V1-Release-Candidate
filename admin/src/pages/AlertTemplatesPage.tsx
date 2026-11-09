@@ -751,7 +751,7 @@ export function AlertTemplatesPage() {
         <section className="card">
           <h2>Reviewed guidance library</h2>
           <p>
-            General suggestions are a fallback only: they show when the agency gave no instructions and the source text contains none, and are never mixed in to top up agency advice. For
+            General safety advice makes What to do two to four points: it tops up agency advice when the agency gives fewer than two instructions, is always labelled as ALRT's, and never gives a leave, evacuate or shelter direction the agency did not give. For
             You rows match a category and selected profile. Unapproved rows stay
             out of alerts.
           </p>

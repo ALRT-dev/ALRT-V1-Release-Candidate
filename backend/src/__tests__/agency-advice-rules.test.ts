@@ -23,14 +23,14 @@ describe("instruction detection", () => {
 });
 
 describe("ALRT advice is only a fallback when the agency gave none", () => {
-  it("shows no ALRT suggestions when extraction is empty but the source gives directions", () => {
+  it("keeps source directions the model missed instead of letting ALRT wording replace them", () => {
     const sourceText = "Smoke affects Example Road.\n\nIf you are near the fire, leave now if the path is clear.";
     const value = parseAgencyExtraction(
       { ...empty, facts: [{ text: "Smoke affects Example Road.", evidence: "Smoke affects Example Road." }] },
       { ...base, sourceText, alrtSuggestions: reviewed },
     );
-    expect(value.contentDetails.officialActions).toEqual([]);
-    expect(value.contentDetails.alrtSuggestions).toEqual([]);
+    expect(value.contentDetails.officialActions).toEqual(["If you are near the fire, leave now if the path is clear."]);
+    expect(value.callsToAction[0]).toBe("Agency advises: If you are near the fire, leave now if the path is clear.");
   });
   it("still uses reviewed ALRT suggestions when the source has no directions", () => {
     const sourceText = "Smoke affects Example Road.\n\nCrews are on scene.";
@@ -78,7 +78,10 @@ describe("instructions are listed once, not repeated", () => {
       ] },
       { ...base, sourceText, alrtSuggestions: [] },
     );
-    expect(value.contentDetails.officialActions).toEqual([sourceText]);
+    expect(value.contentDetails.officialActions).toEqual([
+      "For Example Town residents only, if the route is safe: Prepare your vehicle.",
+      "For Example Town residents only, if the route is safe: Leave via Example Road.",
+    ]);
   });
 });
 
@@ -95,5 +98,42 @@ describe("an AWS warning always states its level", () => {
     const description = "Warning Type: Bushfire Watch and Act\nRegion: EXAMPLE\n• Fire near Example Road.\nWHAT TO DO\n• Leave now if the path is clear.";
     const value = getDeterministicDfesContent({ title: "Bushfire - Example", description });
     expect((value?.contentDetails as { nativeLevel?: unknown } | undefined)?.nativeLevel).toBe("Watch and Act");
+  });
+});
+
+import { alrtSafetyAdvice } from "../utils/agency_extraction.util.js";
+describe("owner direction, 9 November evening: plain facts and practical advice", () => {
+  const sourceText = "A bushfire is burning near Example Road in Example Town. It is out of control.\n\nResidents are advised to keep doors and windows closed if smoke is present.";
+  it("accepts a plain-language fact grounded in its quoted evidence", () => {
+    const value = parseAgencyExtraction(
+      { ...empty, facts: [{ text: "A bushfire is burning near Example Road in Example Town.", evidence: "A bushfire is burning near Example Road in Example Town." }, { text: "The fire is out of control.", evidence: "It is out of control." }],
+        officialActions: [{ text: "Keep doors and windows closed if smoke is present.", evidence: "Residents are advised to keep doors and windows closed if smoke is present." }] },
+      { ...base, sourceText, alrtSuggestions: [] },
+    );
+    expect(value.contentDetails.facts).toEqual(["A bushfire is burning near Example Road in Example Town.", "The fire is out of control."]);
+    expect(value.contentDetails.officialActions).toEqual(["Keep doors and windows closed if smoke is present."]);
+  });
+  it("rejects a fact that its evidence does not support", () => {
+    expect(() => parseAgencyExtraction(
+      { ...empty, facts: [{ text: "Twelve homes have been destroyed.", evidence: "It is out of control." }] },
+      { ...base, sourceText, alrtSuggestions: [] })).toThrow();
+    expect(() => parseAgencyExtraction(
+      { ...empty, facts: [{ text: "The fire is 5 km from Example Town.", evidence: "A bushfire is burning near Example Road in Example Town." }] },
+      { ...base, sourceText, alrtSuggestions: [] })).toThrow();
+  });
+  it("rejects an advice summary that drops the agency's condition", () => {
+    expect(() => parseAgencyExtraction(
+      { ...empty, facts: [], officialActions: [{ text: "Keep doors and windows closed.", evidence: "Residents are advised to keep doors and windows closed if smoke is present." }] },
+      { ...base, sourceText, alrtSuggestions: [] })).toThrow();
+  });
+  it("tops What to do up to two to four points, and only two extra when the agency gives two", () => {
+    expect(alrtSafetyAdvice({ actions: [], generated: ["Check official updates.", "Keep your phone charged.", "Prepare your emergency kit.", "Keep pets inside.", "Extra point."], reviewed: [] })).toHaveLength(4);
+    expect(alrtSafetyAdvice({ actions: ["A.", "B."], generated: ["Check official updates.", "Keep your phone charged.", "Prepare your emergency kit."], reviewed: [] })).toHaveLength(2);
+    expect(alrtSafetyAdvice({ actions: [], generated: [], reviewed: ["Consider checking official updates.", "Consider reviewing your plan."] })).toHaveLength(2);
+  });
+  it("never lets ALRT originate a movement direction, a number, or advice on an ended alert", () => {
+    expect(alrtSafetyAdvice({ actions: [], generated: ["Leave now.", "Evacuate to the oval.", "Call 000 now.", "Check official updates."], reviewed: [] })).toEqual(["Check official updates."]);
+    expect(alrtSafetyAdvice({ actions: ["Leave now if the path is clear."], generated: ["Leave early rather than late."], reviewed: [] })).toEqual(["Leave early rather than late."]);
+    expect(alrtSafetyAdvice({ actions: [], generated: ["Check official updates."], reviewed: [], alertType: "resolved" })).toEqual([]);
   });
 });

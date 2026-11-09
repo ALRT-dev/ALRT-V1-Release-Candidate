@@ -794,6 +794,8 @@ Standardize the following hazard report using the rules and templates in the sys
   - ${locationName && `location: ${locationName}`}
   - category: ${category.name}
   - agency: ${source.name}
+  - native warning level: ${nativeWarningLevel || "none stated"}
+  - ALRT level (set by ALRT code; never change it): ${severityBand}
 
 Source blocks (use complete blocks for extraction):
 ${sourceText}`;
