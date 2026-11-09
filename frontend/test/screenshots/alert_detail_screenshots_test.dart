@@ -48,10 +48,11 @@ void main() {
           (call) async => call.method == 'getVoices' ? [] : 1,
         );
   });
-  for (final kind in ['bushfire', 'fire', 'smoke', 'legacy']) {
+  for (final kind in ['bushfire', 'fire', 'smoke', 'legacy', 'no-group']) {
     final generic = kind == 'fire';
     final smoke = kind == 'smoke';
     final legacy = kind == 'legacy';
+    final noGroup = kind == 'no-group';
     testWidgets('real alert detail $kind', (
       tester,
     ) async {
@@ -137,8 +138,8 @@ void main() {
               (ref) => FamilyProvider(
                 ref: ref,
                 bootstrap: false,
-                state: const FamilyProviderState(
-                  circles: [
+                state: FamilyProviderState(
+                  circles: noGroup ? const [] : const [
                     FamilyCircleSummary(
                       circleId: 'family',
                       name: 'Bella',
@@ -162,7 +163,12 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('WHAT TO DO'), findsOneWidget);
-      expect(find.text('Send alert to group'), findsOneWidget);
+      expect(find.text('Send alert to group'), noGroup ? findsNothing : findsOneWidget);
+      if (noGroup) {
+        expect(find.text('Share with a group'), findsOneWidget);
+        expect(find.text('Explore ALRT+ plans'), findsOneWidget);
+        expect(find.text('Share alert externally'), findsOneWidget);
+      }
       expect(find.text('Send alert & check in'), findsNothing);
       expect(find.text('Change detected'), smoke || legacy ? findsNothing : findsOneWidget);
       if (legacy) {
@@ -189,7 +195,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(),isNull);
       await expectLater(find.byType(MaterialApp),matchesGoldenFile('goldens/alert-$kind-phone-top.png'));
-      await tester.ensureVisible(find.text('Send alert to group'));
+      await tester.ensureVisible(find.text(noGroup ? 'Explore ALRT+ plans' : 'Send alert to group'));
       await tester.pumpAndSettle();
       expect(tester.takeException(),isNull);
       await expectLater(find.byType(MaterialApp),matchesGoldenFile('goldens/alert-$kind-phone-share.png'));

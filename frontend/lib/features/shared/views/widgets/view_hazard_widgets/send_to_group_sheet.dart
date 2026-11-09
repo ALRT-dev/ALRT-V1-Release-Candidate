@@ -7,6 +7,8 @@ import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 
 /// "Send to my group" on an alert (approved Detail board, 12 Oct 2026):
 /// everyone in the chosen group gets the alert and the sender's optional
@@ -78,6 +80,17 @@ class _SendToGroupSheetState extends ConsumerState<_SendToGroupSheet> {
         );
     if (!mounted) return;
 
+    if (!result.isSuccess && AccessRefusal.fromError(result.failure) != null) {
+      setState(() => _busy = false);
+      await showFamilyActionError(
+        context,
+        ref,
+        result.failure,
+        circleId: widget.circleId,
+      );
+      return;
+    }
+
     final sent = result.isSuccess;
     if (!mounted) return;
     Navigator.of(context).pop(sent);
@@ -86,9 +99,7 @@ class _SendToGroupSheetState extends ConsumerState<_SendToGroupSheet> {
   @override
   Widget build(BuildContext context) {
     final title = widget.hazard.title?.trim();
-    final alertLine = (title == null || title.isEmpty)
-        ? 'This alert'
-        : title;
+    final alertLine = (title == null || title.isEmpty) ? 'This alert' : title;
 
     return SafeArea(
       top: false,
