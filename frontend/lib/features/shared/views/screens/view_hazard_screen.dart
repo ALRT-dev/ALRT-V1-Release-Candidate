@@ -2007,7 +2007,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             _detailSectionLabel('FOLLOWING THIS ALERT'),
             8.hSizedBox,
             Text(
-              'You\'ll get updates for this alert on this device while it stays followed.',
+              'Saved on this phone so you can find it fast. Push updates '
+              'come for alerts near you and your saved places.',
               style: TextStyle(
                 color: _factInk,
                 fontSize: 14.spMin,
