@@ -394,7 +394,7 @@ abstract final class AlertCardStyle {
     // Keep the agency's own word: "at Salter Point", "in Northbridge".
     final preposition = fromTitle?.$1 ?? 'near';
     if (what == 'smoke' || what == 'report of smoke') {
-      return '$who reports smoke${where.isEmpty ? '' : ' $preposition $where'}.';
+      return 'Smoke was reported${where.isEmpty ? '' : ' $preposition $where'} by $who.';
     }
     final article = what.isEmpty
         ? ''
@@ -426,7 +426,8 @@ abstract final class AlertCardStyle {
     if (level != null) {
       return '$who has issued a $level for $subject.$adviceLine';
     }
-    return '$who has reported $subject.$adviceLine';
+    final reported = '${subject[0].toUpperCase()}${subject.substring(1)}';
+    return '$reported was reported by $who.$adviceLine';
   }
 
   /// The place named at the end of an agency title, as in "Vehicle Fire at

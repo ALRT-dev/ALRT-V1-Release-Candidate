@@ -37,6 +37,7 @@ const crashPlanning = [
 
 type IncidentContent = AgencyExtractionResult & { contentDetails: {
   originalSourceText: string;
+  issuingAgency: string;
   originalSourceActions: string[];
   guidanceReferences: { text: string; url: string; reviewedAt: string }[];
   extractionMethod: 'dfes-incident-fields';
@@ -86,7 +87,7 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
   const article = /^[aeiou]/i.test(readableKind) ? 'An' : 'A';
   const lga = fields.get('local government area'), reported = fields.get('reported');
   const readableLga = lga?.value.replace(/\bOf\b/g, 'of');
-  const facts = [`${isSmoke ? 'Smoke' : `${article} ${readableKind}`} was reported in ${place.value}${readableLga ? ` (${readableLga})` : ''}.`];
+  const facts = [`${isSmoke ? 'Smoke' : `${article} ${readableKind}`} was reported in ${place.value}${readableLga ? ` (${readableLga})` : ''} by ${input.agency}.`];
   const evidence = [[kind.evidence, place.evidence, lga?.evidence].filter(Boolean).join('\n')];
   const timestamp = reported ? reportedTime(reported.value) : null;
   if (timestamp && reported) { facts.push(timestamp.fact); evidence.push(reported.evidence); }
@@ -108,7 +109,7 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
     contentDetails: { schemaVersion: 1, templateVersion: input.templateVersion, facts: cleanedFacts,
       affectedAreas: [place.value], nativeLevel: null, officialActions, alrtSuggestions,
       profileGuidance: kind.value.toLowerCase() === 'bushfire' ? incidentPlanningProfiles('bushfire') : isSmoke ? incidentPlanningProfiles('smoke') : [],
-      evidence, originalSourceText: input.description, originalSourceActions, guidanceReferences,
+      evidence, issuingAgency: input.agency, originalSourceText: input.description, originalSourceActions, guidanceReferences,
       extractionMethod: 'dfes-incident-fields', sourceReportedAt: timestamp?.iso ?? null, displayLocation: place.value,
       ...(sourceLimitations ? { sourceLimitations } : {}), sourceAdviceStatus: officialActions.length ? 'provided' : 'not-in-incident-feed',
       profileGuidancePolicy: 'publishedIncidentPlanning' },

@@ -9,6 +9,8 @@ import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
 import { ApiError } from "../api/client";
 import type { AdminHazardSource } from "../api/types";
+import { observationDate, sourceHealthObservation } from '../lib/sourceHealth';
+import { Link } from 'react-router-dom';
 
 const PAGE_SIZE = 50;
 
@@ -101,6 +103,13 @@ export const SourcesPage = () => {
         the ingestion code still decides which feeds run. Secret values are
         never entered here; use a secret reference only. Every change is
         recorded in the Audit Log.
+        <p>
+          Source checks describe recorded feed observations; this does not verify n8n workflow delivery.
+          A successful check may cover only part of a source with several feeds.
+          Missing dates or schedules mean health is unverified. A check is stale after two scheduled
+          intervals (minimum 10 minutes). These observations are assessed when this page loads.
+          Active hazards is an unexpired count, not the total received.
+        </p>
       </div>
 
       <div className="toolbar">
@@ -125,8 +134,11 @@ export const SourcesPage = () => {
               <th>URL</th>
               <th>License</th>
               <th>Status</th>
-              <th>Health</th>
-              <th>Last fetch</th>
+              <th>Source check</th>
+              <th>Last check</th>
+              <th>Last successful fetch</th>
+              <th>Last alert observed</th>
+              <th>Last recorded error</th>
               <th>Review due</th>
               <th>Adapter</th>
               <th>Schedule</th>
@@ -145,12 +157,11 @@ export const SourcesPage = () => {
                 </td>
                 <td>{source.license?.badgeText ?? "-"}</td>
                 <td>{source.lifecycleStatus}</td>
-                <td title={source.lastHealthError ?? undefined}>{source.healthStatus}</td>
-                <td>
-                  {source.lastSuccessfulFetch
-                    ? new Date(source.lastSuccessfulFetch).toLocaleString()
-                    : "-"}
-                </td>
+                <td title={source.lastHealthError ?? undefined}>{sourceHealthObservation(source)}</td>
+                <td>{observationDate(source.lastHealthCheck)}</td>
+                <td>{observationDate(source.lastSuccessfulFetch)}</td>
+                <td>{observationDate(source.lastAlertSeen)}</td>
+                <td>{source.lastHealthError ?? 'None recorded'}</td>
                 <td>
                   {source.expiryReviewAt
                     ? `${toDateInput(source.expiryReviewAt)}${isReviewOverdue(source.expiryReviewAt) ? " (overdue)" : ""}`
@@ -160,6 +171,7 @@ export const SourcesPage = () => {
                 <td>{source.scheduleMinutes ? `${source.scheduleMinutes} min` : "-"}</td>
                 <td>{source.hazardsCount}</td>
                 <td>
+                  <Link to={`/alerts?view=all-received&sourceIds=${encodeURIComponent(source.id)}`}>View all received</Link>{' '}
                   {canWrite && (
                     <button
                       type="button"

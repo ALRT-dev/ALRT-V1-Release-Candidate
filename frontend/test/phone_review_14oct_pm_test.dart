@@ -49,7 +49,8 @@ void main() {
     });
 
     test('real agency instructions survive', () {
-      const real = 'Avoid the area and follow directions from emergency services.';
+      const real =
+          'Avoid the area and follow directions from emergency services.';
       expect(AlertCardStyle.agencyActions([real]), [real]);
     });
   });
@@ -67,8 +68,8 @@ void main() {
       );
       expect(
         line,
-        'Department of Fire and Emergency Services WA has reported a crash '
-        'in Warwick.',
+        'A crash in Warwick was reported by '
+        'Department of Fire and Emergency Services WA.',
       );
     });
 
@@ -84,7 +85,7 @@ void main() {
       );
       expect(
         line,
-        'DFES has reported an active alarm in Metro Central, Perth.',
+        'An active alarm in Metro Central, Perth was reported by DFES.',
       );
     });
   });
@@ -174,7 +175,10 @@ void main() {
         parentCategoryName: 'Traffic & Transport',
       );
       expect(lines.first, contains('reconsider your route'));
-      expect(lines.last, 'Check official traffic or transport updates before leaving.');
+      expect(
+        lines.last,
+        'Check official traffic or transport updates before leaving.',
+      );
       expect(lines.any((l) => l.contains('ALRT suggests')), isFalse);
     });
 
@@ -190,8 +194,13 @@ void main() {
 
     test('a flood warns about flood water', () {
       expect(
-        GeneralGuidance.forAlert(title: 'Flood Watch', categoryName: 'Flood').first,
-        startsWith('Do not drive through flood water or onto roads covered by water.'),
+        GeneralGuidance.forAlert(
+          title: 'Flood Watch',
+          categoryName: 'Flood',
+        ).first,
+        startsWith(
+          'Do not drive through flood water or onto roads covered by water.',
+        ),
       );
     });
   });

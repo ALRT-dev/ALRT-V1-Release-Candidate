@@ -138,8 +138,20 @@ class AgencyContentSections extends StatelessWidget {
           _section('AGENCY WARNING', [level]),
         if (areas.isNotEmpty && !typedIncident)
           _section('AFFECTED AREA', areas),
-        if (factLines.isNotEmpty) ...[
-          _section('WHAT WE KNOW', factLines),
+        ...[
+          _section(
+            'WHAT WE KNOW',
+            factLines.isNotEmpty
+                ? factLines
+                : [
+                    'Verified details could not be extracted here. Open the official source for the original report.',
+                  ],
+            subtitle:
+                agency.isNotEmpty &&
+                    !factLines.any((text) => text.contains(' by $agency.'))
+                ? 'Reported by $agency'
+                : null,
+          ),
           if (limitations is String && limitations.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),

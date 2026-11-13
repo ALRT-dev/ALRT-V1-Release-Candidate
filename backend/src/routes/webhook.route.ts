@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createHazardViaWebhook } from "../controllers/webhook.controller.js";
+import { getWebhookCategories } from "../controllers/integration_catalog.controller.js";
 import {
   requireWebhookAuth,
   webhookRateLimiter,
@@ -11,6 +12,18 @@ import { validate } from "../middlewares/validation.middleware.js";
 import { createHazardsWebhookBodySchema } from "../validators/webhook.validator.js";
 
 const router = Router();
+
+// Read-only catalog for ingestion workers. Reuse the existing key and every
+// quota guard; no RDS credentials or cross-VPC write access are required.
+router.get(
+  "/categories",
+  requireWebhookAuth,
+  webhookBurstProtection,
+  webhookRateLimiter,
+  webhookSpeedLimiter,
+  webhookDailyQuota,
+  getWebhookCategories,
+);
 
 /**
  * @route   POST /api/webhook/hazards
