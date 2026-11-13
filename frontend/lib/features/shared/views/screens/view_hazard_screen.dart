@@ -25,6 +25,7 @@ import 'package:hazard_app/features/shared/enums/ai_confidence_types.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
+import 'package:hazard_app/features/shared/utils/alert_guidance_library.dart';
 import 'package:hazard_app/features/shared/enums/video_priority_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/states/view_hazard_provider_state.dart';
@@ -1237,25 +1238,22 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             if (hazard?.isUserReported ?? false) {
               return _buildCommunityDescriptionSection();
             }
-            if (hazard?.hasStructuredAgencyContent ?? false) {
-              return AgencyContentSections(
-                content: hazard!.contentDetails!,
-                showOriginalSource: false,
-                sourceName: hazard.displaySourceName,
-                warningLevel: hazard.displayWarningLevel,
-                officialIntro: AlertTextUtil.issuedLine(
-                  hazard.source?.name,
-                  hazard.category?.name ?? hazard.title,
-                  hazard.locationName,
-                ),
-                severityColor: hazard.color,
-              );
-            }
-            return Column(
-              children: [
-                _buildOfficialDescriptionSection(),
-                _buildWhatToDoSection(),
-              ],
+            if (hazard == null) return const SizedBox.shrink();
+            // One alert display (owner review, 13 November 2026): every
+            // official alert renders through the same structured card.
+            // Older records without structured content are adapted on the
+            // phone, so no alert falls back to a different layout.
+            return AgencyContentSections(
+              content: _displayContentOf(hazard),
+              showOriginalSource: false,
+              sourceName: hazard.displaySourceName,
+              warningLevel: hazard.displayWarningLevel,
+              officialIntro: AlertTextUtil.issuedLine(
+                hazard.source?.name,
+                hazard.category?.name ?? hazard.title,
+                hazard.locationName,
+              ),
+              severityColor: hazard.color,
             );
           },
         ),
@@ -1318,12 +1316,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         Consumer(
           builder: (context, ref, child) {
             final hazard = ref.watch(provider.select((value) => value.hazard));
-            if (!(hazard?.hasStructuredAgencyContent ?? false)) {
+            if (hazard == null || hazard.isUserReported) {
               return const SizedBox.shrink();
             }
+            final content = _displayContentOf(hazard);
             final source =
-                hazard!.contentDetails?['originalSourceText'] ??
-                hazard.contentDetails?['sourceDescription'];
+                content['originalSourceText'] ?? content['sourceDescription'];
             return source is String
                 ? AgencyOriginalSourceDetails(text: source)
                 : const SizedBox.shrink();
@@ -1432,6 +1430,28 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     } finally {
       if (mounted) setState(() => _sendingToGroup = false);
     }
+  }
+
+  /// The structured content the alert card reads: the stored content when
+  /// the alert has it, otherwise the same shape built from the older fields.
+  Map<String, dynamic> _displayContentOf(final Hazard hazard) {
+    if (hazard.hasStructuredAgencyContent) return hazard.contentDetails!;
+    return AlertTextUtil.legacyDisplayContent(
+      description: hazard.description,
+      aiSummary: hazard.aiSummary,
+      callsToAction: hazard.callsToAction,
+      nativeLevel: hazard.displayWarningLevel,
+      issuedLine: AlertTextUtil.issuedLine(
+        hazard.source?.name,
+        hazard.category?.name ?? hazard.title,
+        hazard.locationName,
+      ),
+      hazardBucket: AlertGuidanceLibrary.bucketFor(
+        categoryName: hazard.category?.name,
+        parentCategoryName: hazard.category?.parent?.name,
+        title: hazard.title,
+      ),
+    );
   }
 
   Widget _buildTellYourPeopleSection() {
@@ -1886,111 +1906,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// Matches a What To Do line the backend built as an attribution prefix
-  /// relaying a source's own instruction, e.g. "NSW SES advises: do not
-  /// drive through floodwater." - see the classification standard's
-  /// directive-extraction rule (every relayed instruction is prefixed with
-  /// the issuing agency's name and the word "advises:").
-  static final RegExp _attributedActionPattern = RegExp(
-    r'^(.{1,60}? advises:)\s*(.*)$',
-  );
-
-  /// Bolds the "{Agency} advises:" prefix of a What To Do line so an
-  /// attributed source directive reads visibly differently from ALRT's own
-  /// wording around it - the classification standard's "attribution
-  /// prefixes bold" rule. Falls back to plain text for a line that isn't in
-  /// that shape (community reports carry no instructions at all, and older
-  /// content may not follow the pattern).
-  Widget _attributedActionText(final String action) {
-    final match = _attributedActionPattern.firstMatch(action);
-    final baseStyle = TextStyle(
-      color: AppColors.black.withValues(alpha: 0.9),
-      fontSize: 14.spMin,
-      height: 1.5,
-    );
-    if (match == null) {
-      return Text(action, style: baseStyle);
-    }
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: match.group(1),
-            style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-          ),
-          TextSpan(text: ' ${match.group(2)}'),
-        ],
-      ),
-      style: baseStyle,
-    );
-  }
-
-  Widget _buildWhatToDoSection() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final hazard = ref.watch(provider.select((value) => value.hazard));
-        final isUserReported = hazard?.isUserReported ?? false;
-        // Community reports have no advice section at all.
-        if (hazard == null || isUserReported) return const SizedBox.shrink();
-
-        final callsToAction = AlertCardStyle.agencyActions(
-          hazard.callsToAction,
-        ).where(AlertCardStyle.isAgencyAction).toList();
-        final fromAgency = callsToAction.isNotEmpty;
-        final agency = hazard.source?.name?.trim();
-
-        // Detail board: WHAT TO DO in a white card, "{agency}, word for
-        // word" under the label when the lines are the agency's own, and
-        // a band-coloured dot on each line.
-        return _detailSectionCard(
-          children: [
-            _detailSectionLabel('WHAT TO DO'),
-            if (fromAgency && agency != null && agency.isNotEmpty) ...[
-              2.hSizedBox,
-              Text(
-                '$agency advises',
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  color: AlertCardStyle.metaInk,
-                ),
-              ),
-            ],
-            8.hSizedBox,
-            if (!fromAgency)
-              const Text(
-                'Advice could not be verified in this view. Check the official source for the full information.',
-              ),
-            for (var i = 0; i < callsToAction.length; i++)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: i < callsToAction.length - 1 ? 6.spMin : 0,
-                ),
-                child: _bulletRow(
-                  dot: hazard.color,
-                  child: _attributedActionText(callsToAction[i]),
-                ),
-              ),
-            // ALRT's own lines carry no prefix, so the block says whose
-            // words they are (product owner, 16 Oct 2026).
-            if (AlertCardStyle.hasAlrtGuidance(callsToAction))
-              Padding(
-                padding: EdgeInsets.only(top: 10.spMin),
-                child: Text(
-                  'General guidance from ALRT, not part of the '
-                  'official warning.',
-                  style: TextStyle(
-                    fontSize: 11.5.spMin,
-                    color: AlertCardStyle.metaInk,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildFollowingAlertReason() {
     return Consumer(
       builder: (context, ref, child) {
@@ -2015,72 +1930,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 height: 1.5,
               ),
             ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// The agency's own words, under the V3 "WHAT WE KNOW" label.
-  Widget _buildOfficialDescriptionSection() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isUserReported = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isUserReported ?? false,
-          ),
-        );
-        if (isUserReported) return const SizedBox.shrink();
-
-        final description = ref.watch(
-          provider.select((value) => value.hazard?.description),
-        );
-        final sourceName = ref.watch(
-          provider.select((value) => value.hazard?.source?.name),
-        );
-        final locationName = ref.watch(
-          provider.select((value) => value.hazard?.locationName),
-        );
-        final incidentType = ref.watch(
-          provider.select(
-            (value) => value.hazard?.category?.name ?? value.hazard?.title,
-          ),
-        );
-        final rawFacts = AlertTextUtil.whatWeKnowPoints(description);
-        final issuedLine = AlertTextUtil.issuedLine(
-          sourceName,
-          incidentType,
-          locationName,
-        );
-        final facts = [
-          issuedLine,
-          ...rawFacts.where((line) => line.trim() != issuedLine),
-        ];
-
-        if (facts.isEmpty) return const SizedBox.shrink();
-
-        // Detail board: a white card, the orange V3 label, grey dots.
-        return _detailSectionCard(
-          children: [
-            _detailSectionLabel('WHAT WE KNOW'),
-            8.hSizedBox,
-            for (var i = 0; i < facts.length; i++)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: i < facts.length - 1 ? 6.spMin : 0,
-                ),
-                child: _bulletRow(
-                  dot: _factDot,
-                  child: Text(
-                    facts[i],
-                    style: TextStyle(
-                      color: _factInk,
-                      fontSize: 14.spMin,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ),
           ],
         );
       },

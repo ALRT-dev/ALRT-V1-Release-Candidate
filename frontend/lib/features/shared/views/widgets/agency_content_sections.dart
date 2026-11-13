@@ -126,10 +126,6 @@ class AgencyContentSections extends StatelessWidget {
     final facts = _lines('facts'), areas = _lines('affectedAreas');
     final actions = _lines('officialActions'),
         suggestions = _lines('alrtSuggestions');
-    final stored = content['nativeLevel'];
-    final level = stored is String && stored.trim().isNotEmpty
-        ? stored.trim()
-        : warningLevel?.trim();
     final typedIncident = content['extractionMethod'] == 'dfes-incident-fields';
     final originalSource =
         content['originalSourceText'] ?? content['sourceDescription'];
@@ -140,15 +136,27 @@ class AgencyContentSections extends StatelessWidget {
             ?.trim() ??
         '';
     // Facts already come from grounded extraction; do not repeat a generated intro.
+    // One alert display (owner review, 13 November 2026): the affected area
+    // is one line inside What we know, not a card some alerts have and
+    // others do not.
     final factLines = facts.take(4).toList();
+    if (areas.isNotEmpty && !typedIncident && factLines.length < 4) {
+      final named = areas.take(6).join(', ');
+      final mentioned = factLines.any(
+        (fact) => fact.toLowerCase().contains(areas.first.toLowerCase()),
+      );
+      if (!mentioned) {
+        factLines.add(
+          areas.length > 6 ? 'Areas: $named and more.' : 'Areas: $named.',
+        );
+      }
+    }
     final limitations = content['sourceLimitations'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (level != null && level.isNotEmpty)
-          _section('AGENCY WARNING', [level]),
-        if (areas.isNotEmpty && !typedIncident)
-          _section('AFFECTED AREA', areas),
+        // The level is on the pill at the top of every alert, so there is
+        // no separate warning card here (owner review, 13 November 2026).
         if (factLines.isNotEmpty) ...[
           _section('WHAT WE KNOW', factLines),
           if (limitations is String && limitations.isNotEmpty)
