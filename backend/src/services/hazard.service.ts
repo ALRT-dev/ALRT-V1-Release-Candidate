@@ -703,7 +703,14 @@ export const summarizeHazard = async ({
     const country=templateCountry(jurisdictionCountry,source);
     const {settings}=resolveTemplate(published.pack,{country,sourceId:source.id});
     const guidance=selectLibraryGuidance(published.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand});
-    return {...value,callsToAction:guidance.alrtSuggestions.map(x=>x.replace(/^ALRT suggests:\s*/i,"")),contentDetails:{schemaVersion:1,templateVersion:published.version,facts:[value.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:null,officialActions:[],...guidance,evidence:[],presentation:{band:severityBand,bandColor:settings.bandColors[severityBand],iconCategoryId:settings.iconCategoryId??category.id,agencyArtwork:false}}};
+    // Owner review, 13 November 2026: What we know has the rating and what
+    // it means (two points, not one), and What to do keeps the reviewed
+    // air quality advice, topped up from the library only when it is thin,
+    // so a non-smoke reading never says "while smoke is around".
+    const meaning=value.callsToAction.filter(x=>/^Air pollution at this level\b/i.test(x));
+    const airAdvice=value.callsToAction.filter(x=>!meaning.includes(x));
+    const alrtSuggestions=(airAdvice.length>=2?airAdvice:[...airAdvice,...guidance.alrtSuggestions.map(x=>x.replace(/^ALRT suggests:\s*/i,""))]).slice(0,4);
+    return {...value,callsToAction:alrtSuggestions,contentDetails:{schemaVersion:1,templateVersion:published.version,facts:[value.summary,...meaning].slice(0,4),affectedAreas:locationName?[locationName]:[],nativeLevel:null,officialActions:[],...guidance,alrtSuggestions,evidence:[],presentation:{band:severityBand,bandColor:settings.bandColors[severityBand],iconCategoryId:settings.iconCategoryId??category.id,agencyArtwork:false}}};
   }
 
   // WA DFES warnings: the agency's facts and its own instructions, word for

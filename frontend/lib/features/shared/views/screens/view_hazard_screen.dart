@@ -834,38 +834,42 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     final hasAwsLevel =
         isAws && severityTitle.isNotEmpty && severityTitle != 'Unknown';
 
-    // Owner review, 13 November 2026: the level is always written, on a
-    // solid pill in the level's own colour, so nobody has to decode a
-    // colour. AWS and other designated scales use their own words; any
-    // other alert uses ALRT's band word (Info, Monitor, Action, Critical),
-    // the same word the home screen widget writes.
-    final String label;
-    final Color pillColor;
+    // Owner review, 13 November 2026: a level is written only when the
+    // source designates one (an AWS level, the source's own level, a GDACS
+    // level, or the WAQI air quality rating). It then sits on a solid pill
+    // in the level colour. Anything else writes no level word: the band
+    // colour on the card and map shape carries it, and the label is the
+    // plain "OFFICIAL" it always was.
+    String label;
+    Color? pillColor;
     if (hazard.isAlrtIntel) {
       label = 'ALRT ASSESSMENT';
-      pillColor = AlertCardStyle.labelInkNeutral;
     } else if (hazard.isGlobalHumanitarian) {
       final level = hazard.nativeWarningLevel?.trim();
-      label = level == null || level.isEmpty
-          ? 'GDACS'
-          : (level.toUpperCase().startsWith('GDACS')
-                ? level.toUpperCase()
-                : 'GDACS ${level.toUpperCase()}');
-      pillColor = AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel);
+      if (level == null || level.isEmpty) {
+        label = 'GDACS';
+      } else {
+        label = level.toUpperCase().startsWith('GDACS')
+            ? level.toUpperCase()
+            : 'GDACS ${level.toUpperCase()}';
+        pillColor = AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel);
+      }
     } else {
-      final named = hazard.displayWarningLevel;
       final band = hazard.severityBand ?? HazardSeverityBand.info;
-      label = (named != null && named.isNotEmpty && named != 'Unknown')
-          ? named.toUpperCase()
-          : (hasAwsLevel
-                ? severityTitle.toUpperCase()
-                : switch (band) {
-                    HazardSeverityBand.info => 'INFO',
-                    HazardSeverityBand.monitor => 'MONITOR',
-                    HazardSeverityBand.action => 'ACTION',
-                    HazardSeverityBand.critical => 'CRITICAL',
-                  });
-      pillColor = isAws ? band.colorAws : band.colorNonAws;
+      final named = hazard.displayWarningLevel;
+      final airRating = _airQualityRating(hazard);
+      if (named != null && named.isNotEmpty && named != 'Unknown') {
+        label = named.toUpperCase();
+        pillColor = isAws ? band.colorAws : band.colorNonAws;
+      } else if (hasAwsLevel) {
+        label = severityTitle.toUpperCase();
+        pillColor = band.colorAws;
+      } else if (airRating != null) {
+        label = 'AIR QUALITY: ${airRating.toUpperCase()}';
+        pillColor = band.colorNonAws;
+      } else {
+        label = isAws ? 'AWS' : 'OFFICIAL';
+      }
     }
 
     final postedAt = hazard.createdAt;
@@ -874,27 +878,39 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       if (sourceName.isNotEmpty) sourceName,
       if (postedAt != null) 'Posted ${postedAt.timeAgo}',
     ].join(' · ');
-    final labelText = Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 10.spMin,
-        vertical: 5.spMin,
-      ),
-      decoration: BoxDecoration(
-        color: pillColor,
-        borderRadius: BorderRadius.circular(8.spMin),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12.spMin,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.5,
-          color: AlertCardStyle.inkOn(pillColor),
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
+    final Widget labelText = pillColor == null
+        ? Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: AlertCardStyle.labelInkNeutral,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )
+        : Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 10.spMin,
+              vertical: 5.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: pillColor,
+              borderRadius: BorderRadius.circular(8.spMin),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+                color: AlertCardStyle.inkOn(pillColor),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
 
     return Row(
       children: [
@@ -934,6 +950,18 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         ],
       ],
     );
+  }
+
+  /// The WAQI rating the source publishes ("Air quality: poor (World Air
+  /// Quality Index rating)"), which is a designated scale. Null otherwise.
+  static String? _airQualityRating(final Hazard hazard) {
+    if (hazard.source?.id != 'waqi') return null;
+    final match = RegExp(
+      r'Air quality:\s*(.+?)\s*\(World Air Quality Index rating\)',
+      caseSensitive: false,
+    ).firstMatch(hazard.description ?? '');
+    final rating = match?.group(1)?.trim();
+    return rating == null || rating.isEmpty ? null : rating;
   }
 
   /// Community: the category disc in a rounded square, the category name
