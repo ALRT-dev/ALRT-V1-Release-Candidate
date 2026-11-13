@@ -68,10 +68,11 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
               if (widget.publishedRows!.containsKey(cohort.id))
                 cohort: widget.publishedRows![cohort.id]!,
           };
-    final rows = <SafetyCohort, String>{
-      if (widget.publishedRows == null) ...bundledRows,
-      ...publishedRows,
-    };
+    // Owner review, 13 November 2026 ("there isn't the safety profile"):
+    // the reviewed on-device rows always apply, and published rows replace
+    // them group by group. A published template with no profile rows used
+    // to hide For You on every templated alert.
+    final rows = <SafetyCohort, String>{...bundledRows, ...publishedRows};
     if (rows.isEmpty) return const SizedBox.shrink();
 
     // Only explicitly selected needs belong on alert detail.

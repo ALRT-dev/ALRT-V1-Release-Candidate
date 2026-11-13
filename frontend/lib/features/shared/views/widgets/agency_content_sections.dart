@@ -157,8 +157,20 @@ class AgencyContentSections extends StatelessWidget {
       children: [
         // The level is on the pill at the top of every alert, so there is
         // no separate warning card here (owner review, 13 November 2026).
-        if (factLines.isNotEmpty) ...[
-          _section('WHAT WE KNOW', factLines),
+        ...[
+          _section(
+            'WHAT WE KNOW',
+            factLines.isNotEmpty
+                ? factLines
+                : [
+                    'Verified details could not be extracted here. Open the official source for the original report.',
+                  ],
+            subtitle:
+                agency.isNotEmpty &&
+                    !factLines.any((text) => text.contains(' by $agency.'))
+                ? 'Reported by $agency'
+                : null,
+          ),
           if (limitations is String && limitations.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -179,19 +191,20 @@ class AgencyContentSections extends StatelessWidget {
               agency.isEmpty ? 'Agency instructions' : '$agency advises',
               ...actions.take(4),
             ],
-            // Owner, 9 November 2026 (evening): What to do holds two to four
-            // points; ALRT safety advice tops up thin agency advice and is
-            // always labelled as ALRT's, below the agency's own lines.
-            if (suggestions.isNotEmpty) ...[
+            // Owner, 9 November 2026 (evening), reconfirmed 13 November:
+            // What to do holds two to four points; ALRT safety advice tops
+            // up thin agency advice and is always labelled as ALRT's, below
+            // the agency's own lines.
+            if (suggestions.isNotEmpty && actions.length < 4) ...[
               'ALRT safety advice',
-              ...suggestions.take(actions.length >= 2 ? 2 : 4),
+              ...suggestions.take(actions.length >= 2 ? 2 : 4 - actions.length),
             ],
             if (actions.isEmpty && suggestions.isEmpty)
               content['sourceAdviceStatus'] == 'not-in-incident-feed'
                   ? 'This incident feed contains no agency instructions. Open the source for any newer warning or advice.'
                   : 'Agency instructions are not available in this view. Check the original source details for the full information.',
           ],
-          subtitle: suggestions.isNotEmpty
+          subtitle: suggestions.isNotEmpty && actions.length < 4
               ? 'ALRT safety advice is general guidance, separate from agency instructions.'
               : null,
         ),

@@ -35,7 +35,7 @@ describe('DFES incident public read repair', () => {
   });
   it('repairs stored metadata through the shared read boundary without mutating data or lifecycle', () => {
     const actual = withPublicCoords(record);
-    expect(actual.aiSummary).toContain('A fire was reported in Bassendean (Town of Bassendean).');
+    expect(actual.aiSummary).toContain('A fire was reported in Bassendean (Town of Bassendean) by DFES.');
     expect(actual.callsToAction).toContain('DFES advises: Stay away from the affected building.');
     expect(actual.contentDetails.presentation).toEqual(record.contentDetails.presentation);
     expect(actual.contentDetails.templateVersion).toBe(7);

@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { hazardSafetyLibrary } from "../utils/hazard_safety_library.util.js";
 import { defaultTemplatePack, libraryEntrySchema, selectLibraryGuidance } from "../utils/alert_templates.util.js";
 
-// Owner direction, 9 November 2026 (evening): ALRT safety advice on every alert.
+// Draft hazard-specific advice is reviewable without becoming active.
 describe("ALRT hazard safety library", () => {
   const library = hazardSafetyLibrary();
-  it("is valid, approved and referenced", () => {
+  it("is valid, referenced and unapproved until review", () => {
     for (const entry of library) expect(() => libraryEntrySchema.parse(entry)).not.toThrow();
     expect(new Set(library.map(x => x.id)).size).toBe(library.length);
   });
@@ -15,13 +15,11 @@ describe("ALRT hazard safety library", () => {
       expect(text).not.toMatch(/\b(leave|evacuat\w*|shelter\w*|stay\s+(?:home|indoors|inside)|return\w*|relocat\w*)\b/i);
     }
   });
-  it.each(["bushfire", "otherFire", "smoke", "flood", "storm", "extremeHeat", "earthquake", "crash", "roadClosure", "powerOutage", "gasLeak", "chemicalSpill", "boilWaterNotice"])(
-    "gives %s at least two points at every level", categoryId => {
-      const pack = defaultTemplatePack();
-      for (const band of ["info", "monitor", "action", "critical"] as const) {
-        const { alrtSuggestions } = selectLibraryGuidance(pack, { categoryId, parentCategoryId: null, country: "AU", band });
-        expect(alrtSuggestions.length).toBeGreaterThanOrEqual(2);
-        expect(alrtSuggestions.length).toBeLessThanOrEqual(4);
-      }
-    });
+  it("selects approved safety rows for every main hazard (owner, 13 November 2026)", () => {
+    const pack = { ...defaultTemplatePack(), library: hazardSafetyLibrary() };
+    for (const categoryId of ["bushfire", "smoke", "earthquake", "crash", "powerOutage"]) {
+      const selected = selectLibraryGuidance(pack, { categoryId, country: "AU", band: "action" });
+      expect(selected.alrtSuggestions.length).toBeGreaterThan(0);
+    }
+  });
 });

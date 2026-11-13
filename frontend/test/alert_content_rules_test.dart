@@ -72,4 +72,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Container), findsNothing);
   });
+  testWidgets(
+    'a published template with no profile rows still shows For You (owner, 13 Nov 2026)',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'safety_profile_cohorts': ['older'],
+      });
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: ForYouCard(
+                  categoryName: 'Air Quality Alert',
+                  publishedRows: {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('FOR YOU'), findsOneWidget);
+    },
+  );
 }

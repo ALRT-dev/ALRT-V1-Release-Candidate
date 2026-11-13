@@ -9,11 +9,11 @@ import type { GuidanceEntry } from "./alert_templates.util.js";
  * direction (only the agency gives those); always shown labelled as ALRT's.
  *
  * Drafted 9 November 2026 from the official guidance named in each
- * reference, for the product owner's review. Merging this library into the
- * published template is the owner's approval step (Alert Templates, then
- * preview and publish).
+ * reference. Approved as drafted by the product owner on 13 November 2026
+ * ("Top up (9 Nov)... library approved as drafted"). Publishing the Alert
+ * Templates snapshot puts it live; any row can still be edited there.
  */
-const REVIEWED = "2026-11-09";
+const REVIEWED = "2026-11-13";
 const AU = ["AU"];
 
 const groups = {

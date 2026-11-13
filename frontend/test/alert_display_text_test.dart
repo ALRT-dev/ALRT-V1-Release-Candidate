@@ -11,6 +11,30 @@ import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 
 void main() {
   test(
+    'official plain terms attributes the reported incident to the real source',
+    () {
+      expect(
+        AlertCardStyle.plainTermsOf(
+          isOfficial: true,
+          isAws: false,
+          categoryName: 'Smoke',
+          sourceName: 'DFES WA',
+          title: 'Report of Smoke - INNALOO',
+        ),
+        'Smoke was reported in Innaloo by DFES WA.',
+      );
+      expect(
+        AlertCardStyle.plainTermsOf(
+          isOfficial: false,
+          isAws: false,
+          categoryName: 'Smoke',
+          sourceName: 'DFES WA',
+        ),
+        isNull,
+      );
+    },
+  );
+  test(
     'published incident profiles override stale bundled text on existing clients',
     () {
       final fixtures =
@@ -46,7 +70,7 @@ void main() {
       sourceName: 'DFES WA',
       title: 'Report of Smoke - INNALOO',
     );
-    expect(line, 'DFES WA reports smoke in Innaloo.');
+    expect(line, 'Smoke was reported in Innaloo by DFES WA.');
   });
   test(
     'main category label uses the seven stable parent IDs, not incident type',
@@ -108,7 +132,7 @@ void main() {
         title: 'Other Fire - BASSENDEAN',
         hasAdvice: false,
       ),
-      'DFES has reported a fire in Bassendean.',
+      'A fire in Bassendean was reported by DFES.',
     );
   });
   test('agency dash titles are calm and generic Other Fire becomes Fire', () {

@@ -47,6 +47,7 @@ const crashPlanning = [
 
 type IncidentContent = AgencyExtractionResult & { contentDetails: {
   originalSourceText: string;
+  issuingAgency: string;
   originalSourceActions: string[];
   guidanceReferences: { text: string; url: string; reviewedAt: string }[];
   extractionMethod: 'dfes-incident-fields';
@@ -96,7 +97,7 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
   const article = /^[aeiou]/i.test(readableKind) ? 'An' : 'A';
   const lga = fields.get('local government area'), reported = fields.get('reported');
   const readableLga = lga?.value.replace(/\bOf\b/g, 'of');
-  const facts = [`${isSmoke ? 'Smoke' : `${article} ${readableKind}`} was reported in ${place.value}${readableLga ? ` (${readableLga})` : ''}.`];
+  const facts = [`${isSmoke ? 'Smoke' : `${article} ${readableKind}`} was reported in ${place.value}${readableLga ? ` (${readableLga})` : ''} by ${input.agency}.`];
   const evidence = [[kind.evidence, place.evidence, lga?.evidence].filter(Boolean).join('\n')];
   const timestamp = reported ? reportedTime(reported.value) : null;
   if (timestamp && reported) { facts.push(timestamp.fact); evidence.push(reported.evidence); }
@@ -109,8 +110,8 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
     ? 'A smoke report alone does not establish its cause or measured air quality at your location.'
     : isCrash ? 'A crash report alone does not confirm current road access or traffic delays.'
     : 'An incident report alone does not establish its current impact or a warning level.';
-  // ALRT safety advice makes What to do two to four points (owner, 9 Nov 2026).
-  const guidanceReferences = (officialActions.length >= 2 ? [] : reviewed.slice(0, 4 - officialActions.length)).map(item => ({ ...item }));
+  // ALRT advice is a fallback only when no agency instructions were supplied.
+  const guidanceReferences = (officialActions.length ? [] : reviewed.slice(0, 4)).map(item => ({ ...item }));
   const alrtSuggestions = guidanceReferences.map(item => item.text);
   const cleanedFacts = facts.map(clean);
   return {
@@ -119,7 +120,7 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
     contentDetails: { schemaVersion: 1, templateVersion: input.templateVersion, facts: cleanedFacts,
       affectedAreas: [place.value], nativeLevel: null, officialActions, alrtSuggestions,
       profileGuidance: kind.value.toLowerCase() === 'bushfire' ? incidentPlanningProfiles('bushfire') : isSmoke ? incidentPlanningProfiles('smoke') : [],
-      evidence, originalSourceText: input.description, originalSourceActions, guidanceReferences,
+      evidence, issuingAgency: input.agency, originalSourceText: input.description, originalSourceActions, guidanceReferences,
       extractionMethod: 'dfes-incident-fields', sourceReportedAt: timestamp?.iso ?? null, displayLocation: place.value,
       ...(sourceLimitations ? { sourceLimitations } : {}), sourceAdviceStatus: officialActions.length ? 'provided' : 'not-in-incident-feed',
       profileGuidancePolicy: 'publishedIncidentPlanning' },

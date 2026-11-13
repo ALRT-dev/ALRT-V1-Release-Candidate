@@ -40,7 +40,7 @@ import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
 import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
 import { getDeterministicDfesContent } from "../utils/dfes_template.util.js";
-import { getDeterministicGdacsContent, parseGdacsLevel } from "../utils/gdacs_template.util.js";
+import { getDeterministicGdacsContent, parseGdacsHazard, parseGdacsLevel } from "../utils/gdacs_template.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import { getTemplateRegistry, getReleasePrompt, type TemplateRelease } from './alert_templates.service.js';
 import { resolveTemplate, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
@@ -756,7 +756,13 @@ export const summarizeHazard = async ({
       const eventLine=description.split(/(?<=[.!?])\s+/).map(x=>x.trim()).find(x=>x.length>=20&&x.length<=220&&!/^alert level/i.test(x)&&!/^[A-Za-z][A-Za-z /&()'-]{1,30}:\s/.test(x));
       const facts=[gdacsContent.summary,...(eventLine&&eventLine!==gdacsContent.summary?[eventLine]:[])];
       const alrtSuggestions=[...new Set([...libraryGuidance.alrtSuggestions.slice(0,2),...gdacsContent.callsToAction])].slice(0,4);
-      return {...gdacsContent,callsToAction:alrtSuggestions,contentDetails:{schemaVersion:1,templateVersion:release?.version??0,facts,affectedAreas:locationName?[locationName]:[],nativeLevel:`GDACS ${gdacsLevel}`,officialActions:[],alrtSuggestions,profileGuidance:libraryGuidance.profileGuidance,evidence:[],presentation}};
+      // A plain title (owner review, 13 November 2026: "orange earthquake
+      // doesn't make sense"): the hazard and the place, not GDACS's colour.
+      const hazardWord=parseGdacsHazard(`${title}\n${description}`);
+      const inPlace=/\bin\s+([^.\n]+)$/i.exec(title.trim())?.[1]?.trim();
+      const where=locationName?` near ${locationName}`:inPlace?` in ${inPlace}`:'';
+      const plainTitle=hazardWord?`${hazardWord.charAt(0).toUpperCase()}${hazardWord.slice(1)}${where}`:gdacsContent.title;
+      return {...gdacsContent,title:plainTitle,callsToAction:alrtSuggestions,contentDetails:{schemaVersion:1,templateVersion:release?.version??0,facts,affectedAreas:locationName?[locationName]:[],nativeLevel:`GDACS ${gdacsLevel}`,officialActions:[],alrtSuggestions,profileGuidance:libraryGuidance.profileGuidance,evidence:[],presentation}};
     }
   }
 

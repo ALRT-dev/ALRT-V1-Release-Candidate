@@ -7,6 +7,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 
 void main() {
+  testWidgets('always retains facts heading when extraction has no verified facts', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body:
+      AgencyContentSections(sourceName:'DFES WA',content:{'facts':[],
+        'officialActions':[], 'alrtSuggestions':[]}))));
+    expect(find.text('WHAT WE KNOW'), findsOneWidget);
+    expect(find.text('Reported by DFES WA'), findsOneWidget);
+  });
   testWidgets(
     'recognised sparse source explains limits without implying extraction failed',
     (tester) async {
@@ -146,6 +153,8 @@ void main() {
     );
     expect(find.text('WHAT TO DO'), findsOneWidget);
     expect(find.text('ALRT safety advice'), findsOneWidget);
+    expect(find.text('Consider checking Emergency WA.'), findsOneWidget);
+    expect(find.text('Consider reviewing your emergency plan.'), findsOneWidget);
     expect(find.text('AFFECTED AREA'), findsNothing);
     expect(
       find.text('Incident Type: Fire\nLocation: Bassendean').hitTestable(),

@@ -51,6 +51,8 @@ describe("GDACS card (owner review, 13 November 2026)", () => {
     expect(d.facts).toHaveLength(2);
     expect(d.facts[1]).toMatch(/magnitude 6\.8 occurred near Port Vila/);
     expect(d.nativeLevel).toBe("GDACS Orange");
+    expect(value.title).toBe("Earthquake near Port Vila, Vanuatu");
+    expect(d.facts[0]).toMatch(/^GDACS expects medium humanitarian impact from this earthquake near Port Vila, Vanuatu \(Orange alert\)\./);
     expect(d.alrtSuggestions[0]).toMatch(/Drop, Cover and Hold On/);
     expect(d.alrtSuggestions.length).toBeLessThanOrEqual(4);
   });

@@ -79,6 +79,23 @@ const source = {
 };
 
 describe("SourcesPage registry governance", () => {
+  it('shows source observations and errors as text, with a link to all retained source alerts', async () => {
+    const error = '<script>feed failure</script>';
+    installMockFetch([meRoute, {
+      match: (url: string) => url.includes('/api/admin/hazard-sources'),
+      respond: () => ({ status: 200, body: [{ ...source, lastHealthError: error }] }),
+    }]);
+    const { container } = renderWith(<SourcesPage />);
+    await screen.findByText(source.name);
+    expect(screen.getByText(error)).toBeInTheDocument();
+    expect(container.querySelector('script')).toBeNull();
+    expect(screen.getByRole('link', { name: 'View all received' })).toHaveAttribute('href', '/alerts?view=all-received&sourceIds=rfs');
+    expect(screen.getByText('Last successful fetch')).toBeInTheDocument();
+    expect(screen.getByText('Last check')).toBeInTheDocument();
+    expect(screen.getByText('Last alert observed')).toBeInTheDocument();
+    expect(screen.getByText(/does not verify n8n workflow delivery/i)).toBeInTheDocument();
+    expect(screen.getByText(/minimum 10 minutes/i)).toBeInTheDocument();
+  });
   it("flags an overdue review, shows health, and saves review dates and licensing notes", async () => {
     const { calls } = installMockFetch([
       {

@@ -34,3 +34,20 @@ Validation: backend 228 tests across 28 files; 33 focused Flutter checks includi
 - Level: a designated scale (Australian Warning System, health or air quality, humanitarian such as GDACS, or the agency's own label) is copied exactly. Otherwise the level is the existing ALRT keyword wordbank level, which already sets the outer-shape colour. The AI is given that level and never changes it.
 - Source instructions the model failed to extract are kept as written, never replaced by ALRT wording.
 - Smartraveller is not used (copyright).
+
+
+## Release reconciliation, 13 November 2026
+
+The owner was asked directly on 13 November 2026 which advice rule is current and
+chose the 9 November evening top-up rule above, with the safety library approved as
+drafted. The fallback-only rule recorded here earlier that day is superseded; the
+copy-only extraction below stays.
+The merge preserves warning levels, source adapters, original-source disclosure,
+sharing and reviewable draft library rows. ALRT safety advice tops up thin agency advice under the 2 to 4 rule.
+
+Validation reproduced reversed source negation and dropped instruction clauses under
+word-overlap grounding. Facts therefore select complete clear source sentences/lines;
+agency instructions retain complete source paragraphs, conditions and lead-ins.
+Structured source adapters still produce readable facts and attribution. Safety
+rows are approved as drafted (owner, 13 November 2026) and stay editable in Alert Templates.
+No claim of universal practical-advice or selected-profile coverage is made.

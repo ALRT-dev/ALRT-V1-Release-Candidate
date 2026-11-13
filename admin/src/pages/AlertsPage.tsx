@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useApiQuery } from "../hooks/useApiQuery";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePageForFilters } from "../hooks/usePageForFilters";
@@ -37,16 +38,20 @@ const testAlertsEnabled = import.meta.env.VITE_ENABLE_DUMMY_ALERTS === "true";
 const PAGE_SIZE = 50;
 
 export const AlertsPage = () => {
+  const [searchParams] = useSearchParams();
+  const startsWithAllReceived = searchParams.get('view') === 'all-received';
   const { hasRole } = useAuth();
   const { notifySuccess, notifyError } = useToast();
   const canWrite = hasRole("superAdmin", "admin");
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim());
-  const [reviewStatus, setReviewStatus] = useState<HazardReviewStatus | "">("accepted");
+  const [reviewStatus, setReviewStatus] = useState<HazardReviewStatus | "">(startsWithAllReceived ? '' : 'accepted');
   const [origin, setOrigin] = useState<"" | "official" | "community">("");
-  const [showExpired, setShowExpired] = useState(false);
-  const [page, setPage] = usePageForFilters([debouncedSearch, reviewStatus, origin, showExpired]);
+  const [showExpired, setShowExpired] = useState(startsWithAllReceived);
+  const [sourceIds, setSourceIds] = useState(searchParams.get('sourceIds') ?? '');
+  const debouncedSourceIds = useDebouncedValue(sourceIds.trim());
+  const [page, setPage] = usePageForFilters([debouncedSearch, reviewStatus, origin, showExpired, debouncedSourceIds]);
   const [selected, setSelected] = useState<AdminHazard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminHazard | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -57,6 +62,7 @@ export const AlertsPage = () => {
     () =>
       listHazards({
         searchString: debouncedSearch || undefined,
+        sourceIds: debouncedSourceIds || undefined,
         reviewStatus: reviewStatus || undefined,
         // false = official only, true = community only (backend honours both).
         userReported: origin === "" ? undefined : origin === "community",
@@ -64,13 +70,14 @@ export const AlertsPage = () => {
         page,
         pageSize: PAGE_SIZE,
       }),
-    [debouncedSearch, reviewStatus, origin, showExpired, page],
+    [debouncedSearch, reviewStatus, origin, showExpired, debouncedSourceIds, page],
   );
   const { data, error, loading, refetch } = useApiQuery(fetcher, [
     debouncedSearch,
     reviewStatus,
     origin,
     showExpired,
+    debouncedSourceIds,
     page,
   ]);
 
@@ -144,19 +151,28 @@ export const AlertsPage = () => {
           <h1>Alerts</h1>
           <p>Search and inspect hazards/alerts across all sources.</p>
           <p style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
-            This screen now opens to what should be visible in the app: accepted alerts, current only.
-            Change the status filter or turn on Show expired when you want the full audit/history view.
+            Current accepted shows accepted alerts whose expiry has not passed.
+            All received includes all retained alert records, across review states and expiry dates.
+            Upstream items that never reached storage are not included.
           </p>
         </div>
       </div>
 
       <div className="toolbar">
+        <button type="button" className="btn btn-sm" onClick={() => {
+          setReviewStatus(''); setShowExpired(true); setOrigin(''); setSearch(''); setPage(1);
+        }}>All received</button>
+        <button type="button" className="btn btn-sm" onClick={() => {
+          setReviewStatus('accepted'); setShowExpired(false); setOrigin(''); setSearch(''); setPage(1);
+        }}>Current accepted</button>
         <input
           type="search"
           placeholder="Search title/description..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
+        <input aria-label="Source ID" placeholder="Source ID (optional)" value={sourceIds}
+          onChange={event => setSourceIds(event.target.value)} />
         <select
           value={reviewStatus}
           onChange={(event) => setReviewStatus(event.target.value as HazardReviewStatus | "")}
@@ -219,6 +235,7 @@ export const AlertsPage = () => {
               <th>Status</th>
               <th>Corroboration</th>
               <th>Created</th>
+              <th>Expiry</th>
               <th></th>
             </tr>
           </thead>
@@ -236,6 +253,9 @@ export const AlertsPage = () => {
                 </td>
                 <td>{hazard.corroborationCount}</td>
                 <td>{new Date(hazard.createdAt).toLocaleDateString()}</td>
+                <td>{hazard.expiresAt && Number.isFinite(Date.parse(hazard.expiresAt))
+                  ? `${Date.parse(hazard.expiresAt) <= Date.now() ? 'Expired' : 'Expires'} ${new Date(hazard.expiresAt).toLocaleString()}`
+                  : 'Not set'}</td>
                 <td style={{ display: "flex", gap: 6 }}>
                   <button
                     type="button"

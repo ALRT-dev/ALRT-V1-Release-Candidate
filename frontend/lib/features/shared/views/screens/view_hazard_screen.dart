@@ -857,7 +857,20 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       final band = hazard.severityBand ?? HazardSeverityBand.info;
       final named = hazard.displayWarningLevel;
       final airRating = _airQualityRating(hazard);
-      if (named != null && named.isNotEmpty && named != 'Unknown') {
+      final gdacsImpact = hazard.isGdacs
+          ? switch ((named ?? hazard.nativeWarningLevel ?? '').toLowerCase()) {
+              final v when v.contains('red') => 'HIGH IMPACT',
+              final v when v.contains('orange') => 'MEDIUM IMPACT',
+              final v when v.contains('green') => 'LOW IMPACT',
+              _ => null,
+            }
+          : null;
+      if (gdacsImpact != null) {
+        // GDACS colours mean humanitarian impact, so the pill says so
+        // ("orange earthquake doesn't make sense", owner, 13 Nov 2026).
+        label = 'GDACS: $gdacsImpact';
+        pillColor = AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel);
+      } else if (named != null && named.isNotEmpty && named != 'Unknown') {
         label = named.toUpperCase();
         pillColor = isAws ? band.colorAws : band.colorNonAws;
       } else if (hasAwsLevel) {

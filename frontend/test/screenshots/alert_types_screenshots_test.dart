@@ -86,7 +86,7 @@ void main() {
     ),
     'gdacs': Hazard(
       id: 'fixture-gdacs',
-      title: 'Orange earthquake alert in Vanuatu',
+      title: 'Earthquake near Port Vila, Vanuatu',
       description:
           'On 13 November 2026 an earthquake of magnitude 6.8 occurred near Port Vila, Vanuatu. Alert level: Orange.',
       categoryId: 'earthquake',
@@ -104,7 +104,7 @@ void main() {
         'schemaVersion': 1,
         'templateVersion': 4,
         'facts': [
-          'GDACS rates this earthquake near Port Vila, Vanuatu as orange, medium humanitarian impact. People in the area are affected; others generally are not.',
+          'GDACS expects medium humanitarian impact from this earthquake near Port Vila, Vanuatu (Orange alert). People in the area are affected; others generally are not.',
           'On 13 November 2026 an earthquake of magnitude 6.8 occurred near Port Vila, Vanuatu.',
         ],
         'affectedAreas': ['Port Vila, Vanuatu'],

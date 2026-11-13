@@ -10,4 +10,9 @@ describe('owner alert preview rules',()=>{
   expect(screen.getByText('Consider reviewing travel plans.')).toBeInTheDocument();
   expect(screen.getByText('ALRT safety advice')).toBeInTheDocument();
  });
+ it('shows reviewed ALRT fallback when no agency instructions exist',()=>{
+  render(<AlertContentSections content={{schemaVersion:1,templateVersion:3,facts:['First fact.'],affectedAreas:[],nativeLevel:null,officialActions:[],alrtSuggestions:['Consider reviewing travel plans.'],profileGuidance:[]}} profileTags={[]}/>);
+  expect(screen.getByText('Consider reviewing travel plans.')).toBeInTheDocument();
+  expect(screen.getByText('ALRT safety advice')).toBeInTheDocument();
+ });
 });

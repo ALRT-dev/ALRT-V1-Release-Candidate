@@ -55,6 +55,7 @@ export const requireWebhookAuth = async (
         reason: "Missing API key",
         clientIp,
         endpoint: req.path,
+        method: req.method,
       });
       throw new HttpError(401, "Webhook API key is missing");
     }
@@ -66,6 +67,7 @@ export const requireWebhookAuth = async (
         reason: "Invalid API key format",
         clientIp,
         endpoint: req.path,
+        method: req.method,
       });
       throw new HttpError(401, "Invalid API key format");
     }
@@ -80,6 +82,7 @@ export const requireWebhookAuth = async (
         reason: "Invalid API key",
         clientIp,
         endpoint: req.path,
+        method: req.method,
       });
 
       // Track suspicious attempts
@@ -96,6 +99,7 @@ export const requireWebhookAuth = async (
         reason: "API key is disabled",
         clientIp,
         endpoint: req.path,
+        method: req.method,
         apiKeyId: validApiKey.id,
       });
       throw new HttpError(403, "This API key has been disabled");
@@ -109,6 +113,7 @@ export const requireWebhookAuth = async (
         reason: "API key has expired",
         clientIp,
         endpoint: req.path,
+        method: req.method,
         apiKeyId: validApiKey.id,
       });
       throw new HttpError(403, "This API key has expired");
@@ -123,6 +128,7 @@ export const requireWebhookAuth = async (
         reason: "API key temporarily blocked due to suspicious activity",
         clientIp,
         endpoint: req.path,
+        method: req.method,
         apiKeyId: validApiKey.id,
       });
       throw new HttpError(
@@ -140,6 +146,7 @@ export const requireWebhookAuth = async (
       statusCode: 200,
       clientIp,
       endpoint: req.path,
+        method: req.method,
       responseTime: Date.now() - startTime,
       apiKeyId: validApiKey.id,
     });
@@ -186,6 +193,7 @@ export const webhookRateLimiter = rateLimit({
       reason: "Hourly rate limit exceeded",
       clientIp,
       endpoint: req.path,
+        method: req.method,
     };
     if (apiKey?.id) logData.apiKeyId = apiKey.id;
 
@@ -252,6 +260,7 @@ export const webhookDailyQuota = rateLimit({
       reason: "Daily quota exceeded",
       clientIp,
       endpoint: req.path,
+        method: req.method,
     };
     if (apiKey?.id) logData.apiKeyId = apiKey.id;
 
@@ -299,6 +308,7 @@ export const webhookBurstProtection = rateLimit({
       reason: "Burst protection triggered",
       clientIp,
       endpoint: req.path,
+        method: req.method,
     };
     if (apiKey?.id) logData.apiKeyId = apiKey.id;
 
@@ -411,6 +421,7 @@ async function logWebhookAttempt(data: {
   reason?: string;
   clientIp: string;
   endpoint: string;
+  method?: string;
   apiKeyId?: string;
   responseTime?: number;
   hazardId?: string;
@@ -446,7 +457,7 @@ async function logWebhookAttempt(data: {
         ...(data.reason && { reason: data.reason }),
         clientIp: data.clientIp,
         endpoint: data.endpoint,
-        method: "POST",
+        method: data.method ?? "POST",
         ...(data.responseTime && { responseTime: data.responseTime }),
         ...(data.hazardId && { hazardId: data.hazardId }),
       },
