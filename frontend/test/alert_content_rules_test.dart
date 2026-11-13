@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 import 'package:hazard_app/features/profile/views/widgets/for_you_card.dart';
@@ -79,13 +80,16 @@ void main() {
         'safety_profile_cohorts': ['older'],
       });
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: ForYouCard(
-                  categoryName: 'Air Quality Alert',
-                  publishedRows: {},
+        ProviderScope(
+          child: ScreenUtilInit(
+            designSize: const Size(375, 812),
+            builder: (_, __) => const MaterialApp(
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: ForYouCard(
+                    categoryName: 'Air Quality Alert',
+                    publishedRows: {},
+                  ),
                 ),
               ),
             ),
