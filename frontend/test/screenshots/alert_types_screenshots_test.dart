@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/providers/states/family_provider_state.dart';
+import 'package:hazard_app/features/learn/models/guide_models.dart';
 import 'package:hazard_app/features/learn/providers/guide_for_category_provider.dart';
 import 'package:hazard_app/features/shared/models/app_user_model.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
@@ -51,6 +52,43 @@ void main() {
   });
 
   final kinds = <String, Hazard>{
+    'bushfire-watch-act': Hazard(
+      id: 'fixture-bushfire-wa',
+      title: 'Bushfire near Melaleuca and Bullsbrook',
+      description:
+          'A bushfire is burning in Melaleuca, moving south-east towards Bullsbrook.',
+      categoryId: 'bushfire',
+      category: const HazardCategory(
+        id: 'bushfire',
+        parentId: 'weatherAndEnvironment',
+        name: 'Bushfire',
+      ),
+      source: const HazardSource(id: 'waDfes', name: 'Department of Fire and Emergency Services WA'),
+      isAwsCompliant: true,
+      severityBand: HazardSeverityBand.action,
+      nativeWarningLevel: 'Watch and Act',
+      locationName: 'Melaleuca',
+      createdAt: DateTime(2026, 11, 13, 16),
+      contentDetails: const {
+        'schemaVersion': 1,
+        'templateVersion': 4,
+        'nativeLevel': 'Watch and Act',
+        'facts': [
+          'A bushfire is burning in Melaleuca, moving south-east towards Bullsbrook.',
+          'The fire is out of control and spreading.',
+          'Chittering Road is closed between Muchea and Bullsbrook.',
+        ],
+        'affectedAreas': ['Melaleuca', 'Bullsbrook'],
+        'officialActions': [
+          'If you are not prepared or plan to leave, leave now if the way is clear.',
+        ],
+        'alrtSuggestions': [
+          'Keep your emergency kit, medicines and phone charger ready to go.',
+          'Check official updates often. Fire conditions can change quickly.',
+        ],
+        'profileGuidance': [],
+      },
+    ),
     'air-quality': Hazard(
       id: 'fixture-air-quality',
       title: 'Air quality alert - Duncraig',
@@ -120,6 +158,13 @@ void main() {
       },
     ),
   };
+  // The guide each alert links to (backend exact category table, stage by
+  // level). Air quality has no guide yet.
+  const guides = <String, String?>{
+    'bushfire-watch-act': 'Bushfire: during a fire',
+    'air-quality': null,
+    'gdacs': 'Earthquakes',
+  };
   for (final entry in kinds.entries) {
     testWidgets('alert type ${entry.key}', (tester) async {
       await tester.runAsync(loadScreenshotFonts);
@@ -144,7 +189,15 @@ void main() {
             ).overrideWith((ref) => FixtureAlertProvider(ref, hazard)),
             providerOfGuideForCategory(
               guideForCategoryKey(hazard.categoryId!, hazard.displayWarningLevel),
-            ).overrideWith((ref) async => null),
+            ).overrideWith(
+              (ref) async => guides[entry.key] == null
+                  ? null
+                  : GuideForCategory(
+                      id: 'guide',
+                      slug: 'guide',
+                      title: guides[entry.key]!,
+                    ),
+            ),
             providerOfFamily.overrideWith(
               (ref) => FamilyProvider(
                 ref: ref,
