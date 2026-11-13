@@ -1494,8 +1494,18 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
+                // A small link, never louder than the group it changes
+                // (owner review, 13 Nov 2026).
                 TextButton(
                   onPressed: () => showChooseCircleSheet(context, ref),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF5B47A0),
+                    minimumSize: const Size(44, 44),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   child: const Text('Change group'),
                 ),
               ],

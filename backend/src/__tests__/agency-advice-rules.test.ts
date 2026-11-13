@@ -137,3 +137,14 @@ describe("owner direction, 9 November evening: plain facts and practical advice"
     expect(alrtSafetyAdvice({ actions: [], generated: ["Check official updates."], reviewed: [], alertType: "resolved" })).toEqual([]);
   });
 });
+
+describe("NSW RFS and SES use the same structured card (owner review, 13 November 2026)", () => {
+  it("takes facts and instructions from the source and never invents leave or shelter directions", () => {
+    const description = "A grass fire is burning near Example Road. The fire is being controlled.\n\nMonitor conditions and know what you will do if the fire starts to threaten you.";
+    const value = agencyExtractionFallback({ ...base, sourceText: description, sourceDescription: description, nativeWarningLevel: null, alrtSuggestions: ["Check official updates often. Fire conditions can change quickly.", "Review your bushfire plan and talk it through with your household."] });
+    expect(value.contentDetails.facts.join(" ")).toContain("A grass fire is burning near Example Road.");
+    expect(value.contentDetails.officialActions).toEqual(["Monitor conditions and know what you will do if the fire starts to threaten you."]);
+    expect(value.callsToAction.join(" ")).not.toMatch(/\bleave now\b|take shelter|132 500/i);
+    expect(value.contentDetails.officialActions.length + value.contentDetails.alrtSuggestions.length).toBeGreaterThanOrEqual(2);
+  });
+});

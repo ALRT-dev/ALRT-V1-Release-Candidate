@@ -40,13 +40,11 @@ import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
 import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
 import { getDeterministicDfesContent } from "../utils/dfes_template.util.js";
-import { getDeterministicNSWRFSContent } from "../utils/nsw_rfs_template.util.js";
-import { getDeterministicNSWSESContent } from "../utils/nsw_ses_template.util.js";
-import { getDeterministicGdacsContent } from "../utils/gdacs_template.util.js";
+import { getDeterministicGdacsContent, parseGdacsLevel } from "../utils/gdacs_template.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import { getTemplateRegistry, getReleasePrompt, type TemplateRelease } from './alert_templates.service.js';
 import { resolveTemplate, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
-import { AGENCY_EXTRACTION_CONTRACT, parseAgencyExtraction } from '../utils/agency_extraction.util.js';
+import { AGENCY_EXTRACTION_CONTRACT, agencyExtractionFallback, parseAgencyExtraction } from '../utils/agency_extraction.util.js';
 import {
   SOURCE_REGISTRY_DEFAULTS,
   type SourceSystemKey,
@@ -718,38 +716,38 @@ export const summarizeHazard = async ({
     if (incident) return incident;
   }
 
-  // NSW RFS fire warnings: deterministic content keyed by severity band.
-  // RFS publishes structured warning levels (Emergency Warning, Watch and Act,
-  // Advice) rather than a parseable prose block, so content is selected from
-  // the band rather than extracted from the description text.
-  if (source.id === ExternalSourceId.rfs) {
-    return getDeterministicNSWRFSContent({ title, severityBand });
-  }
-
-  // NSW SES flood warnings: deterministic content keyed by severity band.
-  // SES uses the same three-tier level structure as RFS (Emergency Warning,
-  // Flood Warning, Flood Watch), mapped here from the ingested severity band.
-  if (source.id === ExternalSourceId.nswSes) {
-    return getDeterministicNSWSESContent({ title, severityBand });
-  }
-
-  // GDACS is a pass-through source: level and hazard come straight from the
-  // feed text, so the card is a template (no model call). Falls through to the
-  // normal path if the level or hazard cannot be read.
-  if (source.id === "gdacsGlobal") {
-    const gdacsContent = getDeterministicGdacsContent({
-      title,
-      description,
-      locationName,
-    });
-    if (gdacsContent) return gdacsContent;
-  }
-
   const release=templateRelease===undefined?(await getTemplateRegistry()).published:templateRelease;
   const country=templateCountry(jurisdictionCountry,source);
   const resolved=release?resolveTemplate(release.pack,{country,sourceId:source.id}):null;
-  const prompt=release&&resolved?getReleasePrompt(release,{promptId:resolved.settings.promptId,sourceId:source.id,categoryId:category.id,isAws:isAwsCompliant,band:severityBand}):await getAIPromptForHazard({isAwsCompliant,severityBand,category,source});
   const sourceText=[title,description,locationName??'',nativeWarningLevel??'',...sourceActions].filter(Boolean).join('\n\n');
+  const libraryGuidance=release?selectLibraryGuidance(release.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand}):{alrtSuggestions:[] as string[],profileGuidance:[] as any[]};
+  const presentation={band:severityBand,bandColor:resolved?.settings.bandColors[severityBand],iconCategoryId:isAwsCompliant?category.id:(resolved?.settings.iconCategoryId??category.id),agencyArtwork:isAwsCompliant};
+
+  // NSW RFS and NSW SES (owner review, 13 November 2026): the old band
+  // templates stated facts the source never gave and wrote ALRT's own
+  // leave/shelter directions and a hard-coded phone number. Both now use the
+  // same structured card as every other agency: facts and instructions taken
+  // from the source text itself (no model call), the native level kept, and
+  // reviewed ALRT safety advice only to top What to do up to two to four.
+  if (source.id === ExternalSourceId.rfs || source.id === ExternalSourceId.nswSes) {
+    const value=agencyExtractionFallback({sourceText,sourceTitle:title,sourceDescription:description,sourceActions,agency:source.name,allowAgencyNumbers:resolved?.settings.allowAgencyNumbers??false,templateVersion:release?.version??0,nativeWarningLevel,...libraryGuidance});
+    return {...value,contentDetails:{...value.contentDetails,presentation}};
+  }
+
+  // GDACS is a pass-through source: level and hazard come straight from the
+  // feed text, so the card is a template (no model call), now in the same
+  // structured card as every other alert. Falls through to the normal path
+  // if the level or hazard cannot be read.
+  if (source.id === "gdacsGlobal") {
+    const gdacsContent = getDeterministicGdacsContent({ title, description, locationName });
+    const gdacsLevel = parseGdacsLevel(`${title}\n${description}`);
+    if (gdacsContent && gdacsLevel) {
+      const alrtSuggestions=[...gdacsContent.callsToAction];
+      return {...gdacsContent,contentDetails:{schemaVersion:1,templateVersion:release?.version??0,facts:[gdacsContent.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:`GDACS ${gdacsLevel}`,officialActions:[],alrtSuggestions,profileGuidance:libraryGuidance.profileGuidance,evidence:[],presentation}};
+    }
+  }
+
+  const prompt=release&&resolved?getReleasePrompt(release,{promptId:resolved.settings.promptId,sourceId:source.id,categoryId:category.id,isAws:isAwsCompliant,band:severityBand}):await getAIPromptForHazard({isAwsCompliant,severityBand,category,source});
   const contentHash = hazardContentHash({
     templateVersion:release?.version??0,
     jurisdictionCountry:country,
