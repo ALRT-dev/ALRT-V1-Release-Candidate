@@ -750,8 +750,13 @@ export const summarizeHazard = async ({
     const gdacsContent = getDeterministicGdacsContent({ title, description, locationName });
     const gdacsLevel = parseGdacsLevel(`${title}\n${description}`);
     if (gdacsContent && gdacsLevel) {
-      const alrtSuggestions=[...gdacsContent.callsToAction];
-      return {...gdacsContent,contentDetails:{schemaVersion:1,templateVersion:release?.version??0,facts:[gdacsContent.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:`GDACS ${gdacsLevel}`,officialActions:[],alrtSuggestions,profileGuidance:libraryGuidance.profileGuidance,evidence:[],presentation}};
+      // Owner review, 13 November 2026: two to four facts (GDACS's rating
+      // plus the event's own first sentence) and the reviewed hazard advice
+      // ahead of the general GDACS lines.
+      const eventLine=description.split(/(?<=[.!?])\s+/).map(x=>x.trim()).find(x=>x.length>=20&&x.length<=220&&!/^alert level/i.test(x)&&!/^[A-Za-z][A-Za-z /&()'-]{1,30}:\s/.test(x));
+      const facts=[gdacsContent.summary,...(eventLine&&eventLine!==gdacsContent.summary?[eventLine]:[])];
+      const alrtSuggestions=[...new Set([...libraryGuidance.alrtSuggestions.slice(0,2),...gdacsContent.callsToAction])].slice(0,4);
+      return {...gdacsContent,callsToAction:alrtSuggestions,contentDetails:{schemaVersion:1,templateVersion:release?.version??0,facts,affectedAreas:locationName?[locationName]:[],nativeLevel:`GDACS ${gdacsLevel}`,officialActions:[],alrtSuggestions,profileGuidance:libraryGuidance.profileGuidance,evidence:[],presentation}};
     }
   }
 

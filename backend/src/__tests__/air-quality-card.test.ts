@@ -36,3 +36,22 @@ describe("air quality card (owner review, 13 November 2026)", () => {
     expect(d.alrtSuggestions.join(" ")).not.toMatch(/Air pollution at this level/);
   });
 });
+
+describe("GDACS card (owner review, 13 November 2026)", () => {
+  it("has two facts and puts the reviewed hazard advice first", async () => {
+    const value: any = await summarizeHazard({
+      title: "Orange earthquake alert in Vanuatu",
+      description: "On 13 November 2026 an earthquake of magnitude 6.8 occurred near Port Vila, Vanuatu. Alert level: Orange.",
+      locationName: "Port Vila, Vanuatu",
+      category: { id: "earthquake", parentId: "weatherAndEnvironment", name: "Earthquake" } as any,
+      source: { id: "gdacsGlobal", name: "GDACS", country: null } as any,
+      isAwsCompliant: false, severityBand: "action" as any, templateRelease: release, jurisdictionCountry: "VU",
+    });
+    const d = value.contentDetails;
+    expect(d.facts).toHaveLength(2);
+    expect(d.facts[1]).toMatch(/magnitude 6\.8 occurred near Port Vila/);
+    expect(d.nativeLevel).toBe("GDACS Orange");
+    expect(d.alrtSuggestions[0]).toMatch(/Drop, Cover and Hold On/);
+    expect(d.alrtSuggestions.length).toBeLessThanOrEqual(4);
+  });
+});

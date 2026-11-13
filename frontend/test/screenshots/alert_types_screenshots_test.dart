@@ -105,11 +105,14 @@ void main() {
         'templateVersion': 4,
         'facts': [
           'GDACS rates this earthquake near Port Vila, Vanuatu as orange, medium humanitarian impact. People in the area are affected; others generally are not.',
+          'On 13 November 2026 an earthquake of magnitude 6.8 occurred near Port Vila, Vanuatu.',
         ],
         'affectedAreas': ['Port Vila, Vanuatu'],
         'nativeLevel': 'GDACS Orange',
         'officialActions': [],
         'alrtSuggestions': [
+          'If the ground shakes, Drop, Cover and Hold On until the shaking stops.',
+          'Be ready for aftershocks, which can follow minutes or days later.',
           'Local authority guidance is the reliable reference for anyone in the affected area.',
           'If you have family or contacts in the region, establishing contact is a good idea.',
         ],
