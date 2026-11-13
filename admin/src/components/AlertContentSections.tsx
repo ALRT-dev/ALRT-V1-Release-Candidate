@@ -29,12 +29,13 @@ export function AlertContentSections({
         <section>
           <h3>What we know</h3>
           <ul>
-            {content.facts.map((x, i) => (
+            {content.facts.slice(0, 4).map((x, i) => (
               <li key={i}>{x}</li>
             ))}
           </ul>
         </section>
       )}
+      {content.sourceDescription && <section><h3>Original source details</h3><p style={{whiteSpace:'pre-wrap'}}>{content.sourceDescription}</p></section>}
       {content.officialActions.length > 0 && (
         <section>
           <h3>What the agency says to do</h3>
@@ -45,11 +46,12 @@ export function AlertContentSections({
           </ul>
         </section>
       )}
-      {content.alrtSuggestions.length > 0 && (
+      {content.alrtSuggestions.length > 0 && content.officialActions.length === 0 && (
         <section>
-          <h3>ALRT suggestions</h3>
+          <h3>ALRT safety advice</h3>
+          <p>General guidance from ALRT, not part of the official warning.</p>
           <ul>
-            {content.alrtSuggestions.map((x, i) => (
+            {content.alrtSuggestions.slice(0, 4).map((x, i) => (
               <li key={i}>{x}</li>
             ))}
           </ul>

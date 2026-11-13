@@ -145,9 +145,12 @@ For the approved TEST rollout, editable AIPrompt records remain the prompt autho
 snapshots of those prompt records. A draft has no ingestion effect. Publish and restore
 are audited and revision checked. Do not reset existing prompt records to activate it.
 `agency_extraction.util.ts` is the mandatory validation/output contract, appended after
-editable instructions. It does not assign severity. Facts select exact source blocks;
-free-text instructions retain their complete source context. Native warning levels and
-all separate raw source instruction fields survive extraction failure.
+editable instructions. It does not assign severity. Release validation on 13 November
+found that word-overlap checks could reverse source negation or drop conditions.
+Facts now select complete clear source sentences/lines; agency actions retain complete
+source paragraphs and lead-ins. Dedicated adapters render known structured feeds into
+readable facts. Never use content-word overlap as proof of a safe paraphrase.
+Native warning levels and all separate source instructions survive extraction failure.
 
 Code owns severity. Official AWS-style levels retain their mapping regardless of icon
 shape. Other native labels keep at least their existing code baseline; configured mappings
@@ -156,14 +159,15 @@ Tests/drills/resolved incidents are Info. Source-authorised emergency phone word
 be retained only with an explicit source-specific exception. Otherwise use "your local
 emergency number" while preserving road, route, date and measurement numbers.
 
-Approved library suggestions use non-directive wording ("Consider ...", or a plain safety
-statement such as "Driving through flood water is dangerous. Consider your route before
-driving.") with NO "ALRT suggests:" prefix (product owner, 16 Oct 2026); the app labels
-them with a footer under What to do ("General guidance from ALRT, not part of the official
-warning"), telling them from agency lines by the "{agency} advises:" lead. They are used
-when extraction finds no agency instructions; an extraction failure does not
-guess that advice was absent. For You receives generic reviewed rows; personal selections
-stay on the phone. No square is produced. Required AWS and current community artwork stay.
+ALRT safety advice follows the owner's direct conversation rule: practical,
+hazard-relevant reviewed-library fallback only when the agency provides no instructions.
+Do not top up agency advice, originate model-written advice, or auto-approve drafted
+library rows. The 9 November evening amendment in older saved notes conflicts with
+that direct instruction and is not the active rule. The target is 2 to 4 useful points
+where supported; preserve all essential agency instructions behind expansion rather
+than padding, deleting conditions or inventing facts to meet a count. No advice for
+test, cancellation or resolved alerts. For You matches reviewed hazard-specific rows
+against private local selections. Keep required artwork and native warning levels.
 Source instruction content and native-level-only updates must change sourceContentHash.
 TEST deployment is authorised in this conversation; production deployment is not.
 

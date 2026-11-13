@@ -54,6 +54,7 @@ export type TemplateSource = {
   severitySystem: string | null;
 };
 export type AlertContent = {
+  sourceDescription?: string;
   schemaVersion: number;
   templateVersion: number;
   facts: string[];
@@ -92,7 +93,7 @@ export type TemplatePreview = {
   } | null;
 };
 export const getAlertTemplates = () =>
-  apiGet<{ state: TemplateRegistry; sources: TemplateSource[] }>(
+  apiGet<{ state: TemplateRegistry; sources: TemplateSource[]; safetyLibrary?: TemplatePack["library"] }>(
     "/api/admin/alert-templates",
   );
 export const saveAlertTemplates = (data: {

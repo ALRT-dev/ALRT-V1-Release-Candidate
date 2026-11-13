@@ -57,6 +57,8 @@ export const getDashboardStats = () => apiGet<DashboardStats>("/api/admin/stats/
 
 export interface ListHazardsParams {
   searchString?: string;
+  /** Existing admin backend filter; comma-separated source IDs. */
+  sourceIds?: string;
   reviewStatus?: HazardReviewStatus;
   /** true = community reports only, false = official alerts only. */
   userReported?: boolean;

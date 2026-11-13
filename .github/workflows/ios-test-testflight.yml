@@ -133,6 +133,10 @@ name: iOS Dev TestFlight
 on:
   workflow_dispatch:
     inputs:
+      signing_access_only:
+        description: "Read-only diagnosis of the existing signing-repository credential; no build or certificate changes"
+        type: boolean
+        default: false
       generate_certs:
         description: "First run only: generate the com.safetyalrt.alrt.dev signing certificate/profile"
         type: boolean
@@ -174,6 +178,26 @@ defaults:
     working-directory: frontend
 
 jobs:
+  signing-access:
+    if: ${{ inputs.signing_access_only }}
+    environment: test
+    defaults:
+      run:
+        working-directory: .
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify TEST-only read-only signing access
+        env:
+          TEST_IOS_CERTS_SSH_KEY: ${{ secrets.TEST_IOS_CERTS_SSH_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/test_signing_access.py
+      - name: Remove temporary TEST signing key
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/alrt-test-signing-key"
+
   crash-logs:
     if: ${{ inputs.crash_logs_only }}
     runs-on: ubuntu-latest
@@ -212,7 +236,7 @@ jobs:
           done
 
   build:
-    if: ${{ !inputs.crash_logs_only }}
+    if: ${{ !inputs.crash_logs_only && !inputs.signing_access_only }}
     runs-on: macos-15
     timeout-minutes: 90
     environment: test
@@ -391,6 +415,15 @@ jobs:
       # or touch any Apple certificate/profile/App/key beyond what running
       # this exact step already required before this file existed at the
       # live location.
+      - name: Prepare TEST-only read-only signing access
+        if: ${{ !inputs.simulator_smoke }}
+        working-directory: .
+        env:
+          TEST_IOS_CERTS_SSH_KEY: ${{ secrets.TEST_IOS_CERTS_SSH_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GENERATE_CERTS: ${{ inputs.generate_certs }}
+        run: python3 .github/scripts/test_signing_access.py
+
       - name: Install signing certificate and profile (ALRT Dev / com.safetyalrt.alrt.dev)
         if: ${{ !inputs.simulator_smoke }}
         working-directory: frontend/ios
@@ -398,10 +431,8 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-        run: bundle exec fastlane ci_certs_dev generate:"${{ inputs.generate_certs }}"
+        run: bundle exec fastlane ci_certs_dev generate:false
 
       - name: Configure Xcode to use the installed dev profile
         if: ${{ !inputs.simulator_smoke }}
@@ -652,3 +683,8 @@ jobs:
           name: ALRT-ios-dev-ipa
           path: frontend/build/ios/ipa/*.ipa
           retention-days: 14
+
+      - name: Remove temporary TEST signing key
+        if: ${{ always() }}
+        working-directory: .
+        run: rm -f "$RUNNER_TEMP/alrt-test-signing-key"

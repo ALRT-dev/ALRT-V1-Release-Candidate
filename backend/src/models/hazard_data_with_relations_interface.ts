@@ -8,4 +8,6 @@ export type HazardDataWithRelations = Omit<
   source?: HazardSource | null;
   /** Transient verbatim agency instruction fields. Never sent to Prisma directly. */
   sourceInstructionBlocks?: string[];
+  /** Agency lifecycle, excluded from persisted Prisma fields. */
+  sourceLifecycle?: 'active' | 'test' | 'resolved';
 };

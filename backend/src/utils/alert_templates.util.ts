@@ -137,7 +137,7 @@ export const defaultTemplatePack = (): TemplatePack => ({
     language: "en-AU",
     promptId: null,
     additionalInstructions:
-      "Extract 2-3 concise facts supported by the agency source. Retain the affected area, original warning level and all essential official instructions. Do not invent missing facts. ALRT suggestions and For You guidance come from the approved library.",
+      "Extract up to four relevant concise facts where supported by the agency source. Retain the affected area, original warning level and all essential official instructions. Do not invent missing facts. ALRT suggestions and For You guidance come from the approved library.",
     bandColors: {
       info: "#8A93A0",
       monitor: "#FBE032",
@@ -215,11 +215,12 @@ export function chooseTemplateBand(
     isAws: boolean;
     severity?: string | null;
     nativeLevel?: string | null;
+    sourceLifecycle?: 'active' | 'test' | 'resolved' | undefined;
     description: string;
     fallback: TemplateBand;
   },
 ) {
-  if (isInfoOverride(input.description))
+  if ((input.sourceLifecycle && input.sourceLifecycle!=='active') || (!input.sourceLifecycle && isInfoOverride(input.description)))
     return {
       band: "info" as TemplateBand,
       reason: "Source text marks a test, drill or resolved incident.",
@@ -268,11 +269,7 @@ export function selectLibraryGuidance(
       x.approved &&
       x.reviewedAt &&
       x.reference &&
-      (x.categoryIds.includes(input.categoryId) ||
-        Boolean(
-          input.parentCategoryId &&
-            x.categoryIds.includes(input.parentCategoryId),
-        )) &&
+      x.categoryIds.includes(input.categoryId) &&
       (!x.countries.length ||
         Boolean(country && x.countries.includes(country))) &&
       (!x.bands.length || x.bands.includes(input.band)),
@@ -281,7 +278,7 @@ export function selectLibraryGuidance(
     alrtSuggestions: entries
       .filter((x) => !x.profileTags.length)
       .map((x) => x.text)
-      .slice(0, 3),
+      .slice(0, 4),
     profileGuidance: entries
       .filter((x) => x.profileTags.length)
       .map((x) => ({

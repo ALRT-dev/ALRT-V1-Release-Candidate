@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hazard_app/features/family/providers/family_provider.dart';
+
 import 'package:hazard_app/features/family/repositories/family_repository.dart';
 import 'package:hazard_app/features/family/views/widgets/family_colors.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 
 /// "Send to my group" on an alert (approved Detail board, 12 Oct 2026):
 /// everyone in the chosen group gets the alert and the sender's optional
@@ -62,9 +64,7 @@ class _SendToGroupSheetState extends ConsumerState<_SendToGroupSheet> {
     super.dispose();
   }
 
-  /// POST /api/family/hazards/{hazardId}/share. While that route is not
-  /// deployed the backend answers 404; the group is still told, through
-  /// the check-in call that carries the alert and the note today.
+  /// Share only: an unavailable endpoint must never imply a check-in.
   Future<void> _send() async {
     final hazardId = widget.hazard.id;
     if (hazardId == null || _busy) return;
@@ -80,38 +80,26 @@ class _SendToGroupSheetState extends ConsumerState<_SendToGroupSheet> {
         );
     if (!mounted) return;
 
-    final sent = await result.when(
-      (_) async => true,
-      (error) async {
-        if (error.code != '404') return false;
-        return _fallBackToCheckIn(hazardId: hazardId, note: note);
-      },
-    );
+    if (!result.isSuccess && AccessRefusal.fromError(result.failure) != null) {
+      setState(() => _busy = false);
+      await showFamilyActionError(
+        context,
+        ref,
+        result.failure,
+        circleId: widget.circleId,
+      );
+      return;
+    }
+
+    final sent = result.isSuccess;
     if (!mounted) return;
     Navigator.of(context).pop(sent);
-  }
-
-  Future<bool> _fallBackToCheckIn({
-    required final String hazardId,
-    required final String note,
-  }) async {
-    final title = widget.hazard.title;
-    final alertLine = title == null ? 'Alert shared' : 'Alert: "$title"';
-    await ref.read(providerOfFamily.notifier).checkIn(
-          message: note.isEmpty ? alertLine : '$alertLine. $note',
-          shareLocation: false,
-          hazardId: hazardId,
-        );
-    if (!mounted) return false;
-    return ref.read(providerOfFamily).checkInState.isSuccess;
   }
 
   @override
   Widget build(BuildContext context) {
     final title = widget.hazard.title?.trim();
-    final alertLine = (title == null || title.isEmpty)
-        ? 'This alert'
-        : title;
+    final alertLine = (title == null || title.isEmpty) ? 'This alert' : title;
 
     return SafeArea(
       top: false,

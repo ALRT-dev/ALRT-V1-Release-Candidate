@@ -3,6 +3,16 @@ import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 
 void main() {
+  test('history-only metadata does not replace legacy alert content', () {
+    expect(const Hazard(contentDetails: {'sourceSnapshot': {}}).hasStructuredAgencyContent, isFalse);
+    expect(const Hazard(contentDetails: {'schemaVersion': 1, 'facts': ['Source fact']}).hasStructuredAgencyContent, isTrue);
+  });
+  test('source detection time is explicitly distinguished from agency time', () {
+    final hazard = Hazard(contentDetails: {'sourceUpdate': {'summary': 'Location changed.', 'detectedAt':'2026-11-07T01:00:00Z'}});
+    expect(hazard.latestSourceUpdate?.summary, 'Location changed.');
+    expect(hazard.latestSourceUpdate?.isAgencyTime, isFalse);
+    expect(const Hazard(contentDetails: {'sourceUpdate': {'summary': 'Fake refresh', 'updatedAt':'2026-11-07T01:00:00Z'}}).latestSourceUpdate, isNull);
+  });
   final payload = <String, dynamic>{
     'schemaVersion': 1,
     'facts': ['An agency fact.'],
@@ -50,6 +60,9 @@ void main() {
       isEmpty,
     );
     expect(const Hazard().publishedProfileGuidance, isNull);
+  });
+  test('explicit reviewed incident fallback permits local profile guidance', () {
+    expect(const Hazard(contentDetails: {'profileGuidance': [], 'profileGuidancePolicy': 'bundledFallback'}).publishedProfileGuidance, isNull);
   });
   test('all matching guidance for a cohort is retained in source order', () {
     final hazard = Hazard(

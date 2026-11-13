@@ -5,6 +5,7 @@
 /// 2. No Dart source imports flutter_dotenv (the package that reads assets).
 /// 3. env.dart uses compile-time String.fromEnvironment, not dotenv.env.
 /// 4. Every CI workflow passes --dart-define-from-file to flutter build.
+library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -93,17 +94,14 @@ void main() {
     });
 
     test('CI workflows pass --dart-define-from-file to flutter build', () {
-      final workflowDir =
-          Directory('${frontendDir.path}/.github/workflows');
-      if (!workflowDir.existsSync()) {
-        // Workflows live in the repo but may not be present locally.
-        return;
-      }
-
-      final workflows = workflowDir
-          .listSync()
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.yml'));
+      final workflowDirs = [
+        Directory('${frontendDir.path}/.github/workflows'),
+        Directory('${frontendDir.parent.path}/.github/workflows'),
+      ];
+      final workflows = workflowDirs
+          .where((dir) => dir.existsSync())
+          .expand((dir) => dir.listSync().whereType<File>())
+          .where((file) => file.path.endsWith('.yml'));
 
       for (final wf in workflows) {
         final content = wf.readAsStringSync();

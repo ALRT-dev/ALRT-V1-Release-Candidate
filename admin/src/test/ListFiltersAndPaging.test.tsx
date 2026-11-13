@@ -91,6 +91,36 @@ beforeEach(() => {
 });
 
 describe("Alerts page filters", () => {
+  it('shows all retained records with a read-only preset and resets pagination', async () => {
+    const hazards = recordingRoute('/api/admin/hazards', url => params(url).get('page') === '1'
+      ? Array.from({ length: 50 }, (_, i) => hazard(i)) : [hazard(100)]);
+    const { calls } = installMockFetch([me(), hazards.route]);
+    renderWithAuth(<AlertsPage />);
+    await screen.findByText('Alert 0');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(params(hazards.urls.at(-1)!).get('page')).toBe('2'));
+    await userEvent.click(screen.getByRole('button', { name: 'All received' }));
+    await waitFor(() => {
+      const last = params(hazards.urls.at(-1)!);
+      expect(last.get('reviewStatus')).toBeNull();
+      expect(last.get('showExpired')).toBe('true');
+      expect(last.get('userReported')).toBeNull();
+      expect(last.get('page')).toBe('1');
+    });
+    expect(screen.getByText(/all retained alert records/i)).toBeInTheDocument();
+    expect(calls.every(call => call.method === 'GET')).toBe(true);
+  }, 15_000);
+
+  it('opens source links in all-received mode and sends the existing sourceIds filter', async () => {
+    const hazards = recordingRoute('/api/admin/hazards', () => []);
+    installMockFetch([me(), hazards.route]);
+    render(<MemoryRouter initialEntries={['/alerts?view=all-received&sourceIds=waDfes']}><AuthProvider><ToastProvider><AlertsPage /></ToastProvider></AuthProvider></MemoryRouter>);
+    await screen.findByText(/no alerts match/i);
+    expect(params(hazards.urls.at(-1)!).get('sourceIds')).toBe('waDfes');
+    expect(params(hazards.urls.at(-1)!).get('showExpired')).toBe('true');
+    expect(params(hazards.urls.at(-1)!).get('reviewStatus')).toBeNull();
+    expect(screen.getByLabelText('Source ID')).toHaveValue('waDfes');
+  });
   it("sends userReported=false for Official only and showExpired=true for Show expired", async () => {
     const hazards = recordingRoute("/api/admin/hazards", () => []);
     installMockFetch([me(), hazards.route]);
@@ -151,7 +181,7 @@ describe("Alerts page filters", () => {
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 
-    await userEvent.selectOptions(screen.getByDisplayValue("All statuses"), "pending");
+    await userEvent.selectOptions(screen.getByDisplayValue("Accepted"), "pending");
     await waitFor(() => {
       const last = params(hazards.urls.at(-1)!);
       expect(last.get("reviewStatus")).toBe("pending");

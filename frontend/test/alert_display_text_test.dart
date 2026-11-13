@@ -1,0 +1,177 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:hazard_app/features/profile/models/for_you_library.dart';
+import 'package:hazard_app/features/profile/models/safety_cohort.dart';
+import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/shared/models/app_user_model.dart';
+import 'package:hazard_app/features/shared/models/hazard_category_model.dart';
+import 'package:hazard_app/features/shared/models/hazard_source_model.dart';
+import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
+
+void main() {
+  test(
+    'official plain terms attributes the reported incident to the real source',
+    () {
+      expect(
+        AlertCardStyle.plainTermsOf(
+          isOfficial: true,
+          isAws: false,
+          categoryName: 'Smoke',
+          sourceName: 'DFES WA',
+          title: 'Report of Smoke - INNALOO',
+        ),
+        'Smoke was reported in Innaloo by DFES WA.',
+      );
+      expect(
+        AlertCardStyle.plainTermsOf(
+          isOfficial: false,
+          isAws: false,
+          categoryName: 'Smoke',
+          sourceName: 'DFES WA',
+        ),
+        isNull,
+      );
+    },
+  );
+  test(
+    'published incident profiles override stale bundled text on existing clients',
+    () {
+      final fixtures =
+          jsonDecode(
+                File('test/fixtures/sparse_incidents.json').readAsStringSync(),
+              )
+              as Map;
+      for (final entry in {
+        'smoke-report': 'smoke',
+        'bushfire-report': 'bushfire',
+      }.entries) {
+        final content = Map<String, dynamic>.from(
+          fixtures[entry.key]['contentDetails'] as Map,
+        );
+        final rows = Hazard(contentDetails: content).publishedProfileGuidance;
+        expect(rows, isNotNull);
+        expect(rows!.length, 9);
+        for (final cohort in SafetyCohort.values) {
+          expect(rows[cohort.id], ForYouLibrary.rows[entry.value]![cohort]);
+        }
+      }
+    },
+  );
+  test('report of smoke keeps its incident identity with readable wording', () {
+    expect(
+      const Hazard(title: 'Report of Smoke - INNALOO').displayTitle,
+      'Smoke reported in Innaloo',
+    );
+    final line = AlertCardStyle.plainTermsOf(
+      isOfficial: true,
+      isAws: false,
+      categoryName: 'Smoke',
+      sourceName: 'DFES WA',
+      title: 'Report of Smoke - INNALOO',
+    );
+    expect(line, 'Smoke was reported in Innaloo by DFES WA.');
+  });
+  test(
+    'main category label uses the seven stable parent IDs, not incident type',
+    () {
+      const smoke = Hazard(
+        category: HazardCategory(
+          id: 'airQualityAlert',
+          name: 'Air Quality Alert',
+          parentId: 'healthAndAir',
+        ),
+      );
+      const fire = Hazard(
+        category: HazardCategory(
+          id: 'bushfire',
+          name: 'Bushfire',
+          parentId: 'weatherAndEnvironment',
+        ),
+      );
+      expect(smoke.displayMainCategoryName, 'Health & Air');
+      expect(fire.displayMainCategoryName, 'Weather & Environment');
+      expect(
+        const Hazard(
+          category: HazardCategory(
+            id: 'securityAndCrime',
+            name: 'Security & Crime',
+          ),
+        ).displayMainCategoryName,
+        'Safety & Crime',
+      );
+      expect(
+        const Hazard(
+          category: HazardCategory(id: 'other', name: 'Other'),
+        ).displayMainCategoryName,
+        'Other',
+      );
+    },
+  );
+  test('specific DFES incident type is not lost behind Other', () {
+    const alarm = Hazard(
+      source: HazardSource(id: 'waDfes'),
+      title: 'Active Alarm - CLAREMONT',
+      category: HazardCategory(id: 'other', name: 'Other'),
+    );
+    expect(alarm.displayCategoryName, 'Active alarm');
+    expect(alarm.displayTitle, 'Active alarm in Claremont');
+    expect(
+      const Hazard(title: 'Fuel Leak - BEDFORDALE').displayTitle,
+      'Fuel leak in Bedfordale',
+    );
+    expect(alarm.category?.id, 'other');
+  });
+  test('plain terms also normalises Other Fire from the source title', () {
+    expect(
+      AlertCardStyle.plainTermsOf(
+        isOfficial: true,
+        isAws: false,
+        sourceName: 'DFES',
+        categoryName: 'Other Fire',
+        title: 'Other Fire - BASSENDEAN',
+        hasAdvice: false,
+      ),
+      'A fire in Bassendean was reported by DFES.',
+    );
+  });
+  test('agency dash titles are calm and generic Other Fire becomes Fire', () {
+    expect(
+      const Hazard(title: 'Bushfire - MELALEUCA').displayTitle,
+      'Bushfire in Melaleuca',
+    );
+    expect(
+      const Hazard(title: 'Other Fire - BASSENDEAN').displayTitle,
+      'Fire in Bassendean',
+    );
+    expect(
+      const Hazard(title: 'Road Crash – WARWICK').displayTitle,
+      'Road crash in Warwick',
+    );
+    expect(
+      const Hazard(title: 'Fire - McLaren Vale').displayTitle,
+      'Fire in McLaren Vale',
+    );
+    expect(
+      const Hazard(
+        category: HazardCategory(id: 'otherFire', name: 'Other Fire'),
+      ).displayCategoryName,
+      'Fire',
+    );
+  });
+  test('original source and community titles remain intact', () {
+    const official = Hazard(title: 'Bushfire - MELALEUCA');
+    expect(official.title, 'Bushfire - MELALEUCA');
+    expect(
+      const Hazard(
+        title: 'Smoke at ACME - Gate B',
+        reportedBy: AppUser(id: 'me'),
+      ).displayTitle,
+      'Smoke at ACME - Gate B',
+    );
+    expect(
+      const Hazard(title: 'DFES advises: Leave now').displayTitle,
+      'DFES advises: Leave now',
+    );
+  });
+}

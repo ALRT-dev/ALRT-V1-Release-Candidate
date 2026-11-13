@@ -133,7 +133,7 @@ RefusalPresentation refusalPresentation(
       return RefusalPresentation(
         title: 'ALRT + needed in this group',
         body:
-            'Check in, Check on, SOS and Journey here need ALRT + for each '
+            'Group alert sharing, Check in, Check on, SOS and Journey here need ALRT + for each '
             'person, or a plan covering the group.'
             '${isHost ? ' As the host, you can cover everyone instead.' : ''}',
         primary: RefusalAction.seeAlrtPlus,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Source facts, official actions and ALRT suggestions render separately.
+/// Source facts, official actions and ALRT safety advice render separately.
 class AgencyContentSections extends StatelessWidget {
   const AgencyContentSections({
     super.key,
@@ -8,11 +8,19 @@ class AgencyContentSections extends StatelessWidget {
     this.sourceName,
     this.officialIntro,
     this.severityColor,
+    this.warningLevel,
+    this.showOriginalSource = true,
   });
   final Map<String, dynamic> content;
   final String? sourceName;
   final String? officialIntro;
   final Color? severityColor;
+  final bool showOriginalSource;
+
+  /// The agency warning level for this alert ([Hazard.displayWarningLevel]).
+  /// An AWS warning always states its level, even when extraction left the
+  /// stored label empty.
+  final String? warningLevel;
 
   List<String> _lines(String key) {
     final value = content[key];
@@ -31,6 +39,14 @@ class AgencyContentSections extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            // Facts (what we know, the warning level, the affected area)
+            // are blue-grey; advice is orange (owner, 9 November 2026).
+            color: title == 'WHAT TO DO' || title == 'AGENCY INSTRUCTIONS'
+                ? const Color(0xFFE7813C)
+                : const Color(0xFF799AB5),
+            width: 1.5,
+          ),
           boxShadow: const [
             BoxShadow(
               color: Color(0x0F000000),
@@ -62,32 +78,44 @@ class AgencyContentSections extends StatelessWidget {
             for (final text in lines)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      margin: const EdgeInsets.only(top: 7),
-                      decoration: BoxDecoration(
-                        color: severityColor ?? const Color(0xFFFF7900),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
+                child:
+                    (text == 'ALRT safety advice' ||
+                        text == 'Agency instructions' ||
+                        text.endsWith(' advises'))
+                    ? Text(
                         text,
                         style: const TextStyle(
-                          fontSize: 14.5,
-                          height: 1.5,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1A1A22),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF5C5C66),
                         ),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            margin: const EdgeInsets.only(top: 7),
+                            decoration: BoxDecoration(
+                              color: severityColor ?? const Color(0xFFFF7900),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              text,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                height: 1.5,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF1A1A22),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
           ],
         ),
@@ -98,34 +126,109 @@ class AgencyContentSections extends StatelessWidget {
     final facts = _lines('facts'), areas = _lines('affectedAreas');
     final actions = _lines('officialActions'),
         suggestions = _lines('alrtSuggestions');
-    final level = content['nativeLevel'];
-    final agency = sourceName?.trim() ?? '';
-    final intro = officialIntro?.trim();
-    final factLines = [
-      if (intro != null && intro.isNotEmpty) intro,
-      ...facts.where((line) => line.trim() != intro),
-    ];
+    final stored = content['nativeLevel'];
+    final level = stored is String && stored.trim().isNotEmpty
+        ? stored.trim()
+        : warningLevel?.trim();
+    final typedIncident = content['extractionMethod'] == 'dfes-incident-fields';
+    final originalSource =
+        content['originalSourceText'] ?? content['sourceDescription'];
+    final agency =
+        (content['issuingAgency'] is String
+                ? content['issuingAgency'] as String
+                : sourceName)
+            ?.trim() ??
+        '';
+    // Facts already come from grounded extraction; do not repeat a generated intro.
+    final factLines = facts.take(4).toList();
+    final limitations = content['sourceLimitations'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (level is String && level.isNotEmpty)
+        if (level != null && level.isNotEmpty)
           _section('AGENCY WARNING', [level]),
-        if (areas.isNotEmpty) _section('AFFECTED AREA', areas),
-        if (factLines.isNotEmpty) _section('WHAT WE KNOW', factLines),
-        if (actions.isNotEmpty)
+        if (areas.isNotEmpty && !typedIncident)
+          _section('AFFECTED AREA', areas),
+        ...[
           _section(
-            'WHAT TO DO',
-            actions,
-            subtitle: agency.isEmpty ? null : '$agency, word for word',
+            'WHAT WE KNOW',
+            factLines.isNotEmpty
+                ? factLines
+                : [
+                    'Verified details could not be extracted here. Open the official source for the original report.',
+                  ],
+            subtitle:
+                agency.isNotEmpty &&
+                    !factLines.any((text) => text.contains(' by $agency.'))
+                ? 'Reported by $agency'
+                : null,
           ),
-        if (suggestions.isNotEmpty && actions.isEmpty)
-          _section(
-            'WHAT TO DO',
-            suggestions,
-            subtitle: 'General guidance from ALRT, not part of the official '
-                'warning.',
+          if (limitations is String && limitations.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Text(
+                limitations,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: Color(0xFF5C5C66),
+                ),
+              ),
+            ),
+        ],
+        _section(
+          'WHAT TO DO',
+          [
+            if (actions.isNotEmpty) ...[
+              agency.isEmpty ? 'Agency instructions' : '$agency advises',
+              ...actions.take(4),
+            ],
+            // ALRT advice is a fallback only when agency instructions are
+            // absent, including when an older stored record contains both.
+            if (suggestions.isNotEmpty && actions.isEmpty) ...[
+              'ALRT safety advice',
+              ...suggestions.take(4),
+            ],
+            if (actions.isEmpty && suggestions.isEmpty)
+              content['sourceAdviceStatus'] == 'not-in-incident-feed'
+                  ? 'This incident feed contains no agency instructions. Open the source for any newer warning or advice.'
+                  : 'Agency instructions are not available in this view. Check the original source details for the full information.',
+          ],
+          subtitle: suggestions.isNotEmpty && actions.isEmpty
+              ? 'ALRT safety advice is general guidance, separate from agency instructions.'
+              : null,
+        ),
+        if (actions.length > 4)
+          Card(
+            elevation: 0,
+            color: Colors.white,
+            child: ExpansionTile(
+              title: Text('More agency instructions (${actions.length - 4})'),
+              children: [
+                _section('AGENCY INSTRUCTIONS', actions.skip(4).toList()),
+              ],
+            ),
           ),
+        if (showOriginalSource && originalSource is String)
+          AgencyOriginalSourceDetails(text: originalSource),
       ],
     );
   }
+}
+
+class AgencyOriginalSourceDetails extends StatelessWidget {
+  const AgencyOriginalSourceDetails({super.key, required this.text});
+  final String text;
+  @override
+  Widget build(BuildContext context) => text.trim().isEmpty
+      ? const SizedBox.shrink()
+      : Card(
+          elevation: 0,
+          color: Colors.white,
+          child: ExpansionTile(
+            title: const Text('Original source details'),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [Text(text)],
+          ),
+        );
 }

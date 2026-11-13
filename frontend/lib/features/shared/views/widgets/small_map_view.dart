@@ -135,7 +135,7 @@ class _SmallMapViewState extends ConsumerState<SmallMapView> {
                         widget.hazard.latitude!,
                         widget.hazard.longitude!,
                       ),
-                      zoom: 7.0,
+                      zoom: 13.0,
                     ),
                     markers: _markers,
                     zoomControlsEnabled: false,

@@ -69,6 +69,7 @@ export function AlertTemplatesPage() {
   const [librarySearch, setLibrarySearch] = useState("");
   const [jurisdictionCountry,setJurisdictionCountry]=useState('');
   const [sourceInstructions,setSourceInstructions]=useState('');
+  const [safetyLibrary, setSafetyLibrary] = useState<TemplatePack["library"]>([]);
   const load = useCallback(async () => {
     setBusy(true);
     setError("");
@@ -81,6 +82,7 @@ export function AlertTemplatesPage() {
       setState(data.state);
       setPack(data.state.draft);
       setSources(data.sources);
+      setSafetyLibrary(data.safetyLibrary ?? []);
       setCategories(
         cats
           .flatMap((c) => [c, ...(c.subCategories ?? [])])
@@ -721,6 +723,7 @@ export function AlertTemplatesPage() {
                 </strong>
                 <p>{preview.reason}</p>
                 <p className="muted">Template: {preview.applied.join(" → ")}</p>
+                <p className="muted">Preview of the current editor draft. Published version: {state.published ? `v${state.published.version}` : "none"}. This is a content preview, not an exact mobile screenshot. Saving a draft does not publish it.</p>
                 {preview.output && (
                   <>
                     <h2>{preview.output.title}</h2>
@@ -750,7 +753,7 @@ export function AlertTemplatesPage() {
         <section className="card">
           <h2>Reviewed guidance library</h2>
           <p>
-            General suggestions fill a gap when an agency gives no actions. For
+            General safety advice makes What to do two to four points: it tops up agency advice when the agency gives fewer than two instructions, is always labelled as ALRT's, and never gives a leave, evacuate or shelter direction the agency did not give. For
             You rows match a category and selected profile. Unapproved rows stay
             out of alerts.
           </p>
@@ -761,6 +764,17 @@ export function AlertTemplatesPage() {
           <button className="btn" disabled={!canWrite} onClick={newEntry}>
             Add guidance
           </button>
+          {(() => {
+            // Owner direction, 9 Nov 2026: load ALRT's hazard safety library
+            // into this draft. Entries already in the draft (same id) are kept
+            // as edited; nothing is published until preview and publish.
+            const missing = safetyLibrary.filter(x => !pack.library.some(y => y.id === x.id));
+            return missing.length > 0 && (
+              <button className="btn" disabled={!canWrite} onClick={() => update({ ...pack, library: [...pack.library, ...missing] })}>
+                Add ALRT safety library to draft ({missing.length} new)
+              </button>
+            );
+          })()}
           {pack.library.length === 0 && (
             <p>No guidance has been added to this draft.</p>
           )}

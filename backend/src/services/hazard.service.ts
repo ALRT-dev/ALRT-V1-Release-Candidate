@@ -1,3 +1,4 @@
+import { buildDfesIncidentContent } from '../utils/dfes_incident_content.util.js';
 import {
   type Prisma,
   type LocationSubscription,
@@ -709,8 +710,12 @@ export const summarizeHazard = async ({
   // WA DFES warnings: the agency's facts and its own instructions, word for
   // word, no model call (a failed call used to leave raw text and no advice).
   if (source.id === "waDfes") {
-    const dfesContent = getDeterministicDfesContent({ title, description });
+    const dfesContent = getDeterministicDfesContent({ title, description, nativeWarningLevel });
     if (dfesContent) return dfesContent;
+    const published = templateRelease === undefined ? (await getTemplateRegistry()).published : templateRelease;
+    const incident = buildDfesIncidentContent({ title, description, agency: source.name, sourceActions,
+      templateVersion: published?.version ?? 0 });
+    if (incident) return incident;
   }
 
   // NSW RFS fire warnings: deterministic content keyed by severity band.
@@ -789,6 +794,8 @@ Standardize the following hazard report using the rules and templates in the sys
   - ${locationName && `location: ${locationName}`}
   - category: ${category.name}
   - agency: ${source.name}
+  - native warning level: ${nativeWarningLevel || "none stated"}
+  - ALRT level (set by ALRT code; never change it): ${severityBand}
 
 Source blocks (use complete blocks for extraction):
 ${sourceText}`;

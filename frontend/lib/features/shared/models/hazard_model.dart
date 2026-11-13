@@ -21,9 +21,163 @@ import 'package:hazard_app/features/shared/utils/event_icon_assets.dart';
 part 'hazard_model.freezed.dart';
 part 'hazard_model.g.dart';
 
+class AlertSourceUpdate {
+  const AlertSourceUpdate(this.summary, this.at, this.isAgencyTime);
+  final String summary;
+  final DateTime at;
+  final bool isAgencyTime;
+  static AlertSourceUpdate? parse(dynamic value) {
+    if (value is! Map || value['summary'] is! String) return null;
+    final summary = (value['summary'] as String).trim();
+    final agencyTime = value['sourceUpdatedAt'];
+    final detectedTime = value['detectedAt'];
+    final at = agencyTime is String
+        ? DateTime.tryParse(agencyTime)
+        : detectedTime is String
+        ? DateTime.tryParse(detectedTime)
+        : null;
+    return summary.isEmpty || at == null
+        ? null
+        : AlertSourceUpdate(summary, at, agencyTime is String);
+  }
+}
+
 @freezed
 abstract class Hazard with _$Hazard {
   const Hazard._();
+
+  bool get hasStructuredAgencyContent =>
+      contentDetails?['schemaVersion'] == 1 && contentDetails?['facts'] is List;
+
+  List<AlertSourceUpdate> get sourceUpdates {
+    final rows = contentDetails?['sourceUpdates'];
+    final values = rows is List ? rows : [contentDetails?['sourceUpdate']];
+    return values
+        .map(AlertSourceUpdate.parse)
+        .whereType<AlertSourceUpdate>()
+        .toList();
+  }
+
+  AlertSourceUpdate? get latestSourceUpdate => sourceUpdates.firstOrNull;
+
+  String get displaySourceName {
+    if (source?.id == 'waDfes') {
+      return contentDetails?['issuingAgency'] ==
+              'Parks and Wildlife Service (DBCA)'
+          ? 'DBCA Parks and Wildlife'
+          : 'DFES WA';
+    }
+    return source?.name?.trim() ?? 'Official source';
+  }
+
+  /// Presentation only: preserve the original agency title in the model.
+  String get displayTitle {
+    final value = title?.trim() ?? '';
+    if (value.isEmpty) return displayCategoryName;
+    if (isUserReported) return value;
+    final smokeReport = RegExp(
+      r'^report of smoke\s+[-–—]\s+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (smokeReport != null) {
+      return 'Smoke reported in ${_readablePlace(smokeReport[1]!)}';
+    }
+    final match = RegExp(
+      r'^(bushfire|other fire|fire|structure fire|structural fire|vehicle fire|road crash|crash|grass fire|active alarm|fuel leak)( advice| watch and act| emergency warning)?\s+[-–—]\s+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (match == null) {
+      final smoke = RegExp(
+        r'^smoke alert\s+for\s+(.+)$',
+        caseSensitive: false,
+      ).firstMatch(value);
+      if (source?.id == 'waDfes' && smoke != null) {
+        final places = smoke[1]!
+            .split(RegExp(r'\s+and surrounding areas', caseSensitive: false))
+            .first;
+        return 'Smoke alert in ${_readablePlace(places)}';
+      }
+      return value;
+    }
+    final kind = match[1]!.toLowerCase() == 'other fire'
+        ? 'fire'
+        : match[1]!.toLowerCase();
+    final heading =
+        '${kind[0].toUpperCase()}${kind.substring(1)}${match[2]?.toLowerCase() ?? ''}';
+    final place = match[3]!;
+    final calmPlace = place != place.toUpperCase()
+        ? place
+        : place
+              .split(' ')
+              .map(
+                (word) => word.isEmpty
+                    ? word
+                    : word[0] + word.substring(1).toLowerCase(),
+              )
+              .join(' ');
+    return '$heading in $calmPlace';
+  }
+
+  String get displayCategoryName {
+    if (!isUserReported && source?.id == 'waDfes') {
+      final incident = contentDetails?['sourceIncidentType'];
+      if (incident is String && incident.trim().isNotEmpty) {
+        return incident.trim();
+      }
+      final type = RegExp(
+        r'^(active alarm|fuel leak)\s+[-–—]\s+',
+        caseSensitive: false,
+      ).firstMatch(title ?? '')?[1];
+      if (type != null) {
+        return '${type[0].toUpperCase()}${type.substring(1).toLowerCase()}';
+      }
+      if (RegExp(
+        r'^smoke alert\b',
+        caseSensitive: false,
+      ).hasMatch(title ?? '')) {
+        return 'Smoke alert';
+      }
+    }
+    final value =
+        category?.name?.trim() ?? category?.parent?.name?.trim() ?? 'Alert';
+    return value.toLowerCase() == 'other fire' ? 'Fire' : value;
+  }
+
+  /// The agency warning level to show on the card. An Australian Warning
+  /// System alert always states its level (owner, 9 November 2026): the
+  /// extracted label first, then the record's native label, then the level
+  /// its locked AWS band stands for. Non-AWS alerts show only a real label.
+  String? get displayWarningLevel {
+    final extracted = contentDetails?['nativeLevel'];
+    if (extracted is String && extracted.trim().isNotEmpty) {
+      return extracted.trim();
+    }
+    final native = nativeWarningLevel?.trim();
+    if (native != null && native.isNotEmpty) return native;
+    if (isAwsCompliant != true) return null;
+    return switch (severityBand) {
+      HazardSeverityBand.critical => 'Emergency Warning',
+      HazardSeverityBand.action => 'Watch and Act',
+      _ => 'Advice',
+    };
+  }
+
+  /// Category navigation uses the owner's seven main groups. Incident names
+  /// remain separate, for titles, exact hazard artwork and guidance matching.
+  String get displayMainCategoryName {
+    final mainId = category?.parentId ?? category?.parent?.id ?? category?.id ?? categoryId;
+    // An unknown parent shows the incident's own name, never a placeholder.
+    return categoryPillNames[mainId] ?? displayCategoryName;
+  }
+
+  static String _readablePlace(String place) => place
+      .split(' ')
+      .map(
+        (word) => word.isEmpty || word != word.toUpperCase()
+            ? word
+            : '${word[0]}${word.substring(1).toLowerCase()}',
+      )
+      .join(' ');
 
   const factory Hazard({
     /// The id of the hazard.
@@ -252,8 +406,9 @@ abstract class Hazard with _$Hazard {
     // GDACS: a diamond in the GDACS level colour (green, orange, red).
     if (source?.id == 'gdacsGlobal') {
       final name = EventIconAssets.gdacsName(title);
-      final gdacsBitmap =
-          name == null ? null : bitmapMap[EventIconAssets.bitmapKey(name)];
+      final gdacsBitmap = name == null
+          ? null
+          : bitmapMap[EventIconAssets.bitmapKey(name)];
       if (gdacsBitmap != null) return gdacsBitmap;
     }
 
@@ -273,17 +428,18 @@ abstract class Hazard with _$Hazard {
         if (category?.parentId != null) category!.parentId!,
       ];
       for (final id in eventIds) {
-        final eventBitmap = bitmapMap[EventIconAssets.lookupKey(
-          isAws: isAwsCompliant == true,
-          categoryId: id,
-          // AWS has three levels only (Advice, Watch and Act, Emergency
-          // Warning), so an Info band on an AWS alert shows the Advice
-          // (yellow) picture. There is no AWS Info triangle.
-          bandName: (isAwsCompliant == true &&
-                  band == HazardSeverityBand.info)
-              ? HazardSeverityBand.monitor.name
-              : band.name,
-        )];
+        final eventBitmap =
+            bitmapMap[EventIconAssets.lookupKey(
+              isAws: isAwsCompliant == true,
+              categoryId: id,
+              // AWS has three levels only (Advice, Watch and Act, Emergency
+              // Warning), so an Info band on an AWS alert shows the Advice
+              // (yellow) picture. There is no AWS Info triangle.
+              bandName:
+                  (isAwsCompliant == true && band == HazardSeverityBand.info)
+                  ? HazardSeverityBand.monitor.name
+                  : band.name,
+            )];
         if (eventBitmap != null) return eventBitmap;
       }
     }
@@ -298,8 +454,8 @@ abstract class Hazard with _$Hazard {
         if (overrideId != null) overrideId,
         if (categoryId != null) categoryId!,
       ]) {
-        final artwork = bitmapMap[
-            '${id}_${band.name}${isAwsCompliant == true ? '_aws' : '_non_aws'}'];
+        final artwork =
+            bitmapMap['${id}_${band.name}${isAwsCompliant == true ? '_aws' : '_non_aws'}'];
         if (artwork != null) return artwork;
       }
     } else {
@@ -406,6 +562,9 @@ abstract class Hazard with _$Hazard {
 
   Map<String, String>? get publishedProfileGuidance {
     if (contentDetails == null) return null;
+    if (contentDetails?['profileGuidancePolicy'] == 'bundledFallback') {
+      return null;
+    }
     final rows = contentDetails?['profileGuidance'];
     // No guidance list published at all (the template carries other
     // content only) is not an EMPTY published library: returning {} here
@@ -422,7 +581,11 @@ abstract class Hazard with _$Hazard {
       for (final tag in row['profileTags'] as List) {
         if (tag is String) {
           final text = row['text'] as String;
-          result.update(tag, (existing) => '$existing\n\n$text', ifAbsent: () => text);
+          result.update(
+            tag,
+            (existing) => '$existing\n\n$text',
+            ifAbsent: () => text,
+          );
         }
       }
     }

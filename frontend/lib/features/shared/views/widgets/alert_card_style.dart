@@ -20,10 +20,10 @@ abstract final class AlertCardStyle {
 
   /// Outer glow that accompanies the solid red treatment.
   static BoxShadow get criticalGlow => BoxShadow(
-        color: const Color(0xFFE01B0F).withValues(alpha: 0.45),
-        blurRadius: 18,
-        offset: const Offset(0, 4),
-      );
+    color: const Color(0xFFE01B0F).withValues(alpha: 0.45),
+    blurRadius: 18,
+    offset: const Offset(0, 4),
+  );
 
   /// Dashed needs-attention outline.
   static const dashedBorderColor = Color(0xFFE5928D);
@@ -129,7 +129,10 @@ abstract final class AlertCardStyle {
   /// (coordinates, timestamps the card already shows), lines that just
   /// repeat the title or an earlier line; and brings shouted capitals back
   /// to normal case. It never adds a fact (phone review, 15 Oct 2026).
-  static List<String> factLines(final String? description, {final String? title}) {
+  static List<String> factLines(
+    final String? description, {
+    final String? title,
+  }) {
     final raw = (description ?? '').split(RegExp(r'\r?\n'));
     final titleLower = (title ?? '').toLowerCase();
     final out = <String>[];
@@ -140,7 +143,9 @@ abstract final class AlertCardStyle {
 
       String? key;
       String value = line;
-      final m = RegExp(r'^([A-Za-z][A-Za-z /&()]{1,40}):\s*(.*)$').firstMatch(line);
+      final m = RegExp(
+        r'^([A-Za-z][A-Za-z /&()]{1,40}):\s*(.*)$',
+      ).firstMatch(line);
       if (m != null) {
         key = m.group(1)!.trim();
         value = m.group(2)!.trim();
@@ -171,8 +176,16 @@ abstract final class AlertCardStyle {
   }
 
   static const _emptyValues = {
-    'not applicable', 'n/a', 'na', 'unknown', 'none', 'null', '-', 'tbc',
-    'not specified', 'not available',
+    'not applicable',
+    'n/a',
+    'na',
+    'unknown',
+    'none',
+    'null',
+    '-',
+    'tbc',
+    'not specified',
+    'not available',
   };
 
   static const _machineKeys = {
@@ -185,9 +198,34 @@ abstract final class AlertCardStyle {
   };
 
   static const _keepUpper = {
-    'NSW', 'WA', 'QLD', 'VIC', 'SA', 'NT', 'ACT', 'TAS', 'AQI', 'UV',
-    'PM2.5', 'PM10', 'CBD', 'M1', 'M2', 'M4', 'M5', 'M7', 'M31', 'SES',
-    'RFS', 'DFES', 'BOM', 'AWS', 'LGA', 'UK', 'US', 'NZ',
+    'NSW',
+    'WA',
+    'QLD',
+    'VIC',
+    'SA',
+    'NT',
+    'ACT',
+    'TAS',
+    'AQI',
+    'UV',
+    'PM2.5',
+    'PM10',
+    'CBD',
+    'M1',
+    'M2',
+    'M4',
+    'M5',
+    'M7',
+    'M31',
+    'SES',
+    'RFS',
+    'DFES',
+    'BOM',
+    'AWS',
+    'LGA',
+    'UK',
+    'US',
+    'NZ',
   };
 
   /// "ALERT LEVEL" -> "Alert level"; "Incident Kind" -> "Incident kind".
@@ -198,8 +236,8 @@ abstract final class AlertCardStyle {
         _keepUpper.contains(words[i].toUpperCase()) && words[i].length <= 4
             ? words[i].toUpperCase()
             : i == 0
-                ? words[i][0].toUpperCase() + words[i].substring(1).toLowerCase()
-                : words[i].toLowerCase(),
+            ? words[i][0].toUpperCase() + words[i].substring(1).toLowerCase()
+            : words[i].toLowerCase(),
     ].join(' ');
   }
 
@@ -226,7 +264,9 @@ abstract final class AlertCardStyle {
       final lower = w.toLowerCase();
       final i = lower.indexOf(RegExp(r'[a-z]'));
       if (i < 0) return w;
-      return lower.substring(0, i) + lower[i].toUpperCase() + lower.substring(i + 1);
+      return lower.substring(0, i) +
+          lower[i].toUpperCase() +
+          lower.substring(i + 1);
     }
 
     if (words.every((w) => !RegExp(r'[a-z]').hasMatch(w))) {
@@ -272,7 +312,10 @@ abstract final class AlertCardStyle {
   /// Whether [action] is the agency's own instruction: those lead with
   /// "{Agency} advises:" (or "The source advises:", the prompt contract).
   /// Anything else under What to do is ALRT's own general guidance.
-  static final _agencyLead = RegExp(r'^.{1,60}? advises:', caseSensitive: false);
+  static final _agencyLead = RegExp(
+    r'^.{1,60}? advises:',
+    caseSensitive: false,
+  );
   static bool isAgencyAction(final String action) =>
       _agencyLead.hasMatch(action.trim());
 
@@ -329,14 +372,20 @@ abstract final class AlertCardStyle {
     // Metro Central", "Police operation in Northbridge"), so those words
     // are used; only with no usable title does it read as "an alert" or
     // "a security and crime alert" (phone review, 14 Oct 2026).
-    final isBucket = rawWhat.isEmpty || rawWhat == 'other' || rawWhat.contains('&');
+    final isBucket =
+        rawWhat.isEmpty ||
+        rawWhat == 'other' ||
+        rawWhat == 'other fire' ||
+        rawWhat.contains('&');
     final titleHazard = isBucket ? _hazardFromTitle(title) : null;
-    final what = titleHazard ??
+    final inferredWhat =
+        titleHazard ??
         (rawWhat == 'other'
             ? 'alert'
             : rawWhat.contains('&')
-                ? '${rawWhat.replaceAll('&', 'and').replaceAll(RegExp(r'\s+'), ' ')} alert'
-                : rawWhat);
+            ? '${rawWhat.replaceAll('&', 'and').replaceAll(RegExp(r'\s+'), ' ')} alert'
+            : rawWhat);
+    final what = inferredWhat == 'other fire' ? 'fire' : inferredWhat;
     // The place: the agency's own title names it ("Vehicle Fire at Salter
     // Point", "Road Crash – Warwick") far better than the feed's region
     // code ("METRO SOUTH EAST"), so the title's place wins when it has one.
@@ -344,22 +393,24 @@ abstract final class AlertCardStyle {
     final where = fromTitle?.$2 ?? _calmCase((locationName ?? '').trim());
     // Keep the agency's own word: "at Salter Point", "in Northbridge".
     final preposition = fromTitle?.$1 ?? 'near';
+    if (what == 'smoke' || what == 'report of smoke') {
+      return 'Smoke was reported${where.isEmpty ? '' : ' $preposition $where'} by $who.';
+    }
     final article = what.isEmpty
         ? ''
         : 'aeiou'.contains(what[0])
-            ? 'an'
-            : 'a';
+        ? 'an'
+        : 'a';
     final subject = what.isEmpty
         ? 'this'
         : where.isEmpty
-            ? '$article $what'
-            : '$article $what $preposition $where';
+        ? '$article $what'
+        : '$article $what $preposition $where';
 
-    // Never promise advice that is not there: when the agency published
-    // none, say so, matching the What to do section below it.
-    final adviceLine = hasAdvice == false
-        ? 'They have not published advice yet.'
-        : 'Their advice is in this alert.';
+    // Empty extraction does not prove that the agency published no advice.
+    final adviceLine = hasAdvice == true
+        ? ' Their advice is in this alert.'
+        : '';
 
     // The source's own level word, verbatim, never reworded. Only AWS
     // publishes one.
@@ -368,14 +419,21 @@ abstract final class AlertCardStyle {
             HazardSeverity.emergency => 'Emergency Warning',
             HazardSeverity.watchAndAct => 'Watch and Act',
             HazardSeverity.advice => 'Advice',
-            _ => null,
+            // An AWS warning always states its level (owner, 9 November
+            // 2026): without a mapped severity, use its locked AWS band.
+            _ => switch (band) {
+              HazardSeverityBand.critical => 'Emergency Warning',
+              HazardSeverityBand.action => 'Watch and Act',
+              _ => 'Advice',
+            },
           }
         : null;
 
     if (level != null) {
-      return '$who has issued a $level for $subject. $adviceLine';
+      return '$who has issued a $level for $subject.$adviceLine';
     }
-    return '$who has reported $subject. $adviceLine';
+    final reported = '${subject[0].toUpperCase()}${subject.substring(1)}';
+    return '$reported was reported by $who.$adviceLine';
   }
 
   /// The place named at the end of an agency title, as in "Vehicle Fire at
@@ -468,9 +526,8 @@ abstract final class AlertCardStyle {
     return value
         .split(' ')
         .map(
-          (word) => word.isEmpty
-              ? word
-              : word[0] + word.substring(1).toLowerCase(),
+          (word) =>
+              word.isEmpty ? word : word[0] + word.substring(1).toLowerCase(),
         )
         .join(' ');
   }

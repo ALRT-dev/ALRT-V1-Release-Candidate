@@ -17,7 +17,7 @@ const show=()=>render(<MemoryRouter><AlertTemplatesPage/></MemoryRouter>);
 describe('alert template editor',()=>{
   it('shows inherited country settings for a source override',async()=>{
     expect(editorSettings(pack(),pack().overrides[1],sources).language).toBe('en-NZ');
-    show();const user=userEvent.setup();await screen.findByText('One shared template, with country and source changes where needed.');
+    show();const user=userEvent.setup();await screen.findByRole('button',{name:'Save draft'});
     await user.selectOptions(screen.getByRole('combobox',{name:/Editing/}),'agency');
     expect(screen.getByDisplayValue('en-NZ')).toBeInTheDocument();
   });
