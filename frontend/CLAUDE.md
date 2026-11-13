@@ -46,10 +46,10 @@ explicit instruction from the product owner in the current session.
   alert's pin artwork at the right of the title and "Tap for more" on
   every card. Map details' map-type tiles are painted thumbnails, not
   line icons (product owner, 15 and 16 Oct 2026).
-- Release validation, 13 Nov 2026: the owner's direct instruction is agency
-  advice when present; ALRT reviewed fallback only when no agency instructions
-  exist. Do not top up short agency lists. Hide ALRT fallback on mixed stored
-  records too. Keep additional essential agency instructions expandable.
+- What to do (owner, 9 Nov 2026 evening, reconfirmed 13 Nov 2026): 2 to 4
+  points; agency instructions first, then ALRT safety advice labelled as
+  ALRT's whenever the agency gives fewer than two (at most two extra
+  otherwise). Keep additional essential agency instructions expandable.
 - What to do (product owner, 16 Oct 2026): agency instructions first, each
   led by "{Agency} advises:". When the agency published none, ALRT's
   general guidance for that kind of alert (GeneralGuidance, mirroring the

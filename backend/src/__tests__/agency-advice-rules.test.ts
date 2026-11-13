@@ -125,14 +125,25 @@ describe("source-preserving facts and reviewed fallback advice", () => {
       { ...empty, facts: [], officialActions: [{ text: "Keep doors and windows closed.", evidence: "Residents are advised to keep doors and windows closed if smoke is present." }] },
       { ...base, sourceText, alrtSuggestions: [] })).toThrow();
   });
-  it("ignores generated advice and returns reviewed fallback only without agency instructions", () => {
-    expect(alrtSafetyAdvice({ actions: [], generated: ["Check official updates.", "Keep your phone charged.", "Prepare your emergency kit.", "Keep pets inside.", "Extra point."], reviewed: [] })).toHaveLength(0);
-    expect(alrtSafetyAdvice({ actions: ["A.", "B."], generated: ["Check official updates.", "Keep your phone charged.", "Prepare your emergency kit."], reviewed: [] })).toHaveLength(0);
+  it("tops thin agency advice up to two to four points (owner, 9 Nov, reconfirmed 13 Nov 2026)", () => {
+    expect(alrtSafetyAdvice({ actions: [], generated: ["Check official updates.", "Keep your phone charged.", "Prepare your emergency kit.", "Keep pets inside.", "Extra point."], reviewed: [] })).toHaveLength(4);
+    expect(alrtSafetyAdvice({ actions: ["Avoid the area."], generated: [], reviewed: ["Consider checking official updates.", "Consider reviewing your plan."] }).length).toBeGreaterThanOrEqual(1);
+    expect(alrtSafetyAdvice({ actions: ["A.", "B."], generated: ["Check official updates.", "Keep your phone charged.", "Prepare your emergency kit."], reviewed: [] }).length).toBeLessThanOrEqual(2);
     expect(alrtSafetyAdvice({ actions: [], generated: [], reviewed: ["Consider checking official updates.", "Consider reviewing your plan."] })).toHaveLength(2);
   });
   it("never lets ALRT originate a movement direction, a number, or advice on an ended alert", () => {
-    expect(alrtSafetyAdvice({ actions: [], generated: ["Leave now.", "Evacuate to the oval.", "Call 000 now.", "Check official updates."], reviewed: [] })).toEqual([]);
-    expect(alrtSafetyAdvice({ actions: ["Leave now if the path is clear."], generated: ["Leave early rather than late."], reviewed: [] })).toEqual([]);
+    expect(alrtSafetyAdvice({ actions: [], generated: ["Leave now.", "Evacuate to the oval.", "Call 000 now.", "Check official updates."], reviewed: [] })).toEqual(["Check official updates."]);
     expect(alrtSafetyAdvice({ actions: [], generated: ["Check official updates."], reviewed: [], alertType: "resolved" })).toEqual([]);
+  });
+});
+
+describe("NSW RFS and SES use the same structured card (owner review, 13 November 2026)", () => {
+  it("takes facts and instructions from the source and never invents leave or shelter directions", () => {
+    const description = "A grass fire is burning near Example Road. The fire is being controlled.\n\nMonitor conditions and know what you will do if the fire starts to threaten you.";
+    const value = agencyExtractionFallback({ ...base, sourceText: description, sourceDescription: description, nativeWarningLevel: null, alrtSuggestions: ["Check official updates often. Fire conditions can change quickly.", "Review your bushfire plan and talk it through with your household."] });
+    expect(value.contentDetails.facts.join(" ")).toContain("A grass fire is burning near Example Road.");
+    expect(value.contentDetails.officialActions).toEqual(["Monitor conditions and know what you will do if the fire starts to threaten you."]);
+    expect(value.callsToAction.join(" ")).not.toMatch(/\bleave now\b|take shelter|132 500/i);
+    expect(value.contentDetails.officialActions.length + value.contentDetails.alrtSuggestions.length).toBeGreaterThanOrEqual(2);
   });
 });

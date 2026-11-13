@@ -40,13 +40,12 @@ import { MainCategoryId, SubCategoryId } from "./hazard_category.service.js";
 import { ExternalSourceId } from "./ingestion.service.js";
 import { getDeterministicAirQualityContent } from "../utils/air_quality_template.util.js";
 import { getDeterministicDfesContent } from "../utils/dfes_template.util.js";
-import { getDeterministicNSWRFSContent } from "../utils/nsw_rfs_template.util.js";
-import { getDeterministicNSWSESContent } from "../utils/nsw_ses_template.util.js";
-import { getDeterministicGdacsContent } from "../utils/gdacs_template.util.js";
+import { getDeterministicGdacsContent, parseGdacsHazard, parseGdacsLevel } from "../utils/gdacs_template.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import { getTemplateRegistry, getReleasePrompt, type TemplateRelease } from './alert_templates.service.js';
 import { resolveTemplate, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
-import { AGENCY_EXTRACTION_CONTRACT, parseAgencyExtraction } from '../utils/agency_extraction.util.js';
+import { AGENCY_EXTRACTION_CONTRACT, agencyExtractionFallback, parseAgencyExtraction } from '../utils/agency_extraction.util.js';
+import { TEMPLATE_FIRST_SOURCE_IDS, buildUsgsEarthquakeContent, templateFirstAgencyCard } from '../utils/template_first.util.js';
 import {
   SOURCE_REGISTRY_DEFAULTS,
   type SourceSystemKey,
@@ -704,7 +703,14 @@ export const summarizeHazard = async ({
     const country=templateCountry(jurisdictionCountry,source);
     const {settings}=resolveTemplate(published.pack,{country,sourceId:source.id});
     const guidance=selectLibraryGuidance(published.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand});
-    return {...value,callsToAction:guidance.alrtSuggestions.map(x=>x.replace(/^ALRT suggests:\s*/i,"")),contentDetails:{schemaVersion:1,templateVersion:published.version,facts:[value.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:null,officialActions:[],...guidance,evidence:[],presentation:{band:severityBand,bandColor:settings.bandColors[severityBand],iconCategoryId:settings.iconCategoryId??category.id,agencyArtwork:false}}};
+    // Owner review, 13 November 2026: What we know has the rating and what
+    // it means (two points, not one), and What to do keeps the reviewed
+    // air quality advice, topped up from the library only when it is thin,
+    // so a non-smoke reading never says "while smoke is around".
+    const meaning=value.callsToAction.filter(x=>/^Air pollution at this level\b/i.test(x));
+    const airAdvice=value.callsToAction.filter(x=>!meaning.includes(x));
+    const alrtSuggestions=(airAdvice.length>=2?airAdvice:[...airAdvice,...guidance.alrtSuggestions.map(x=>x.replace(/^ALRT suggests:\s*/i,""))]).slice(0,4);
+    return {...value,callsToAction:alrtSuggestions,contentDetails:{schemaVersion:1,templateVersion:published.version,facts:[value.summary,...meaning].slice(0,4),affectedAreas:locationName?[locationName]:[],nativeLevel:null,officialActions:[],...guidance,alrtSuggestions,evidence:[],presentation:{band:severityBand,bandColor:settings.bandColors[severityBand],iconCategoryId:settings.iconCategoryId??category.id,agencyArtwork:false}}};
   }
 
   // WA DFES warnings: the agency's facts and its own instructions, word for
@@ -718,38 +724,62 @@ export const summarizeHazard = async ({
     if (incident) return incident;
   }
 
-  // NSW RFS fire warnings: deterministic content keyed by severity band.
-  // RFS publishes structured warning levels (Emergency Warning, Watch and Act,
-  // Advice) rather than a parseable prose block, so content is selected from
-  // the band rather than extracted from the description text.
-  if (source.id === ExternalSourceId.rfs) {
-    return getDeterministicNSWRFSContent({ title, severityBand });
-  }
-
-  // NSW SES flood warnings: deterministic content keyed by severity band.
-  // SES uses the same three-tier level structure as RFS (Emergency Warning,
-  // Flood Warning, Flood Watch), mapped here from the ingested severity band.
-  if (source.id === ExternalSourceId.nswSes) {
-    return getDeterministicNSWSESContent({ title, severityBand });
-  }
-
-  // GDACS is a pass-through source: level and hazard come straight from the
-  // feed text, so the card is a template (no model call). Falls through to the
-  // normal path if the level or hazard cannot be read.
-  if (source.id === "gdacsGlobal") {
-    const gdacsContent = getDeterministicGdacsContent({
-      title,
-      description,
-      locationName,
-    });
-    if (gdacsContent) return gdacsContent;
-  }
-
   const release=templateRelease===undefined?(await getTemplateRegistry()).published:templateRelease;
   const country=templateCountry(jurisdictionCountry,source);
   const resolved=release?resolveTemplate(release.pack,{country,sourceId:source.id}):null;
-  const prompt=release&&resolved?getReleasePrompt(release,{promptId:resolved.settings.promptId,sourceId:source.id,categoryId:category.id,isAws:isAwsCompliant,band:severityBand}):await getAIPromptForHazard({isAwsCompliant,severityBand,category,source});
   const sourceText=[title,description,locationName??'',nativeWarningLevel??'',...sourceActions].filter(Boolean).join('\n\n');
+  const libraryGuidance=release?selectLibraryGuidance(release.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand}):{alrtSuggestions:[] as string[],profileGuidance:[] as any[]};
+  const presentation={band:severityBand,bandColor:resolved?.settings.bandColors[severityBand],iconCategoryId:isAwsCompliant?category.id:(resolved?.settings.iconCategoryId??category.id),agencyArtwork:isAwsCompliant};
+
+  // NSW RFS and NSW SES (owner review, 13 November 2026): the old band
+  // templates stated facts the source never gave and wrote ALRT's own
+  // leave/shelter directions and a hard-coded phone number. Both now use the
+  // same structured card as every other agency: facts and instructions taken
+  // from the source text itself (no model call), the native level kept, and
+  // reviewed ALRT safety advice only to top What to do up to two to four.
+  if (source.id === ExternalSourceId.rfs || source.id === ExternalSourceId.nswSes) {
+    const value=agencyExtractionFallback({sourceText,sourceTitle:title,sourceDescription:description,sourceActions,agency:source.name,allowAgencyNumbers:resolved?.settings.allowAgencyNumbers??false,templateVersion:release?.version??0,nativeWarningLevel,...libraryGuidance});
+    return {...value,contentDetails:{...value.contentDetails,presentation}};
+  }
+
+  // GDACS is a pass-through source: level and hazard come straight from the
+  // feed text, so the card is a template (no model call), now in the same
+  // structured card as every other alert. Falls through to the normal path
+  // if the level or hazard cannot be read.
+  if (source.id === "gdacsGlobal") {
+    const gdacsContent = getDeterministicGdacsContent({ title, description, locationName });
+    const gdacsLevel = parseGdacsLevel(`${title}\n${description}`);
+    if (gdacsContent && gdacsLevel) {
+      // Owner review, 13 November 2026: two to four facts (GDACS's rating
+      // plus the event's own first sentence) and the reviewed hazard advice
+      // ahead of the general GDACS lines.
+      const eventLine=description.split(/(?<=[.!?])\s+/).map(x=>x.trim()).find(x=>x.length>=20&&x.length<=220&&!/^alert level/i.test(x)&&!/^[A-Za-z][A-Za-z /&()'-]{1,30}:\s/.test(x));
+      const facts=[gdacsContent.summary,...(eventLine&&eventLine!==gdacsContent.summary?[eventLine]:[])];
+      const alrtSuggestions=[...new Set([...libraryGuidance.alrtSuggestions.slice(0,2),...gdacsContent.callsToAction])].slice(0,4);
+      // A plain title (owner review, 13 November 2026: "orange earthquake
+      // doesn't make sense"): the hazard and the place, not GDACS's colour.
+      const hazardWord=parseGdacsHazard(`${title}\n${description}`);
+      const inPlace=/\bin\s+([^.\n]+)$/i.exec(title.trim())?.[1]?.trim();
+      const where=locationName?` near ${locationName}`:inPlace?` in ${inPlace}`:'';
+      const plainTitle=hazardWord?`${hazardWord.charAt(0).toUpperCase()}${hazardWord.slice(1)}${where}`:gdacsContent.title;
+      return {...gdacsContent,title:plainTitle,callsToAction:alrtSuggestions,contentDetails:{schemaVersion:1,templateVersion:release?.version??0,facts,affectedAreas:locationName?[locationName]:[],nativeLevel:`GDACS ${gdacsLevel}`,officialActions:[],alrtSuggestions,profileGuidance:libraryGuidance.profileGuidance,evidence:[],presentation}};
+    }
+  }
+
+  // USGS earthquakes: fixed fields, so a fixed plain card and no model call.
+  if (source.id === ExternalSourceId.earthquakeUsgs) {
+    const value=buildUsgsEarthquakeContent({title,description,templateVersion:release?.version??0,...libraryGuidance});
+    if (value) return {...value,contentDetails:{...value.contentDetails,presentation}};
+  }
+
+  // Agency feeds with their own sentences and instructions: the code
+  // template first; the model only when that card would not read plainly.
+  if (TEMPLATE_FIRST_SOURCE_IDS.has(source.id)) {
+    const value=templateFirstAgencyCard({sourceText,sourceTitle:title,sourceDescription:description,sourceActions,agency:source.name,allowAgencyNumbers:resolved?.settings.allowAgencyNumbers??false,templateVersion:release?.version??0,nativeWarningLevel,...libraryGuidance});
+    if (value) return {...value,contentDetails:{...value.contentDetails,presentation}};
+  }
+
+  const prompt=release&&resolved?getReleasePrompt(release,{promptId:resolved.settings.promptId,sourceId:source.id,categoryId:category.id,isAws:isAwsCompliant,band:severityBand}):await getAIPromptForHazard({isAwsCompliant,severityBand,category,source});
   const contentHash = hazardContentHash({
     templateVersion:release?.version??0,
     jurisdictionCountry:country,

@@ -63,7 +63,12 @@ export const getGuideForHazardCategoryController = async (
     requireUserId(res);
     const { categoryId } = req.params;
     if (!categoryId) throw new HttpError(400, "categoryId is required");
-    const guide = await guideService.getGuideForHazardCategory(categoryId);
+    const level =
+      typeof req.query.level === "string" ? req.query.level.slice(0, 80) : null;
+    const guide = await guideService.getGuideForHazardCategory(
+      categoryId,
+      level,
+    );
     res.status(200).json(guide);
   } catch (error) {
     next(error);

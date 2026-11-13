@@ -126,10 +126,6 @@ class AgencyContentSections extends StatelessWidget {
     final facts = _lines('facts'), areas = _lines('affectedAreas');
     final actions = _lines('officialActions'),
         suggestions = _lines('alrtSuggestions');
-    final stored = content['nativeLevel'];
-    final level = stored is String && stored.trim().isNotEmpty
-        ? stored.trim()
-        : warningLevel?.trim();
     final typedIncident = content['extractionMethod'] == 'dfes-incident-fields';
     final originalSource =
         content['originalSourceText'] ?? content['sourceDescription'];
@@ -140,15 +136,27 @@ class AgencyContentSections extends StatelessWidget {
             ?.trim() ??
         '';
     // Facts already come from grounded extraction; do not repeat a generated intro.
+    // One alert display (owner review, 13 November 2026): the affected area
+    // is one line inside What we know, not a card some alerts have and
+    // others do not.
     final factLines = facts.take(4).toList();
+    if (areas.isNotEmpty && !typedIncident && factLines.length < 4) {
+      final named = areas.take(6).join(', ');
+      final mentioned = factLines.any(
+        (fact) => fact.toLowerCase().contains(areas.first.toLowerCase()),
+      );
+      if (!mentioned) {
+        factLines.add(
+          areas.length > 6 ? 'Areas: $named and more.' : 'Areas: $named.',
+        );
+      }
+    }
     final limitations = content['sourceLimitations'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (level != null && level.isNotEmpty)
-          _section('AGENCY WARNING', [level]),
-        if (areas.isNotEmpty && !typedIncident)
-          _section('AFFECTED AREA', areas),
+        // The level is on the pill at the top of every alert, so there is
+        // no separate warning card here (owner review, 13 November 2026).
         ...[
           _section(
             'WHAT WE KNOW',
@@ -183,18 +191,20 @@ class AgencyContentSections extends StatelessWidget {
               agency.isEmpty ? 'Agency instructions' : '$agency advises',
               ...actions.take(4),
             ],
-            // ALRT advice is a fallback only when agency instructions are
-            // absent, including when an older stored record contains both.
-            if (suggestions.isNotEmpty && actions.isEmpty) ...[
+            // Owner, 9 November 2026 (evening), reconfirmed 13 November:
+            // What to do holds two to four points; ALRT safety advice tops
+            // up thin agency advice and is always labelled as ALRT's, below
+            // the agency's own lines.
+            if (suggestions.isNotEmpty && actions.length < 4) ...[
               'ALRT safety advice',
-              ...suggestions.take(4),
+              ...suggestions.take(actions.length >= 2 ? 2 : 4 - actions.length),
             ],
             if (actions.isEmpty && suggestions.isEmpty)
               content['sourceAdviceStatus'] == 'not-in-incident-feed'
                   ? 'This incident feed contains no agency instructions. Open the source for any newer warning or advice.'
                   : 'Agency instructions are not available in this view. Check the original source details for the full information.',
           ],
-          subtitle: suggestions.isNotEmpty && actions.isEmpty
+          subtitle: suggestions.isNotEmpty && actions.length < 4
               ? 'ALRT safety advice is general guidance, separate from agency instructions.'
               : null,
         ),

@@ -128,8 +128,24 @@ COPY-ONLY MODE: fact text and evidence must be IDENTICAL copies of one complete 
 For officialActions quote COMPLETE source instruction paragraphs, retaining every condition, place, time, exception and the agency's strength of wording. text and evidence must be identical. Never enforce a word limit by dropping a condition. The server preserves separately supplied instructions, and the app puts additional instructions behind expansion.
 Preserve nativeLevel exactly when present, otherwise null. affectedAreas contains only exact source place names. Echo the supplied title. The server handles phone numbers and dash typography using the source-specific rule.
 Return ONLY valid JSON: {"title":"...","alertType":"warning|incident|closure|information|cancellation|resolved|test","nativeLevel":null,"facts":[{"text":"complete clear source sentence","evidence":"the identical source sentence"}],"affectedAreas":["exact source place"],"officialActions":[{"text":"complete verbatim instruction paragraph","evidence":"the identical instruction paragraph"}],"confidence":"high|medium|low"}.
-ALRT suggestions and For You guidance are selected separately from the approved library. Never return model-written safety advice. ALRT general advice is a clearly labelled fallback only when the source gives no agency instruction. Never invent an instruction.`;
+alrtAdvice (ALRT safety advice, owner direction 9 November 2026 evening, reconfirmed 13 November 2026): if the agency gives fewer than two instructions, enough practical ALRT safety points to make two to four in total; otherwise one or two only where they add something new for this hazard. None for a test, exercise, cancellation or resolved alert. Match the hazard, category, source and level. Never contradict or repeat the agency. Never tell people to leave, evacuate, shelter, stay or return unless the agency says so. No medical treatment beyond calling the local emergency number. No phone numbers, places, times or facts that are not in the source. Add "alrtAdvice":["practical ALRT safety point"] to the JSON. For You guidance is selected separately. Never invent an agency instruction.`;
 
+const STOP_WORDS = new Set(["about","after","again","along","also","area","areas","been","before","being","from","have","here","into","more","near","that","their","there","these","they","this","those","through","until","very","what","when","where","which","while","will","with","your","yours"]);
+const contentWords = (text: string): string[] =>
+  normalise(text).replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+    .filter(w => w.length >= 4 && !STOP_WORDS.has(w)).map(w => w.slice(0, 5));
+/** A plain-language point must be grounded in its quoted evidence: most of its
+ * meaningful words come from the evidence, and every number in it appears there. */
+function groundedIn(text: string, evidence: string): boolean {
+  const numbers = text.match(/\d+(?:[.,:]\d+)*/g) ?? [];
+  if (numbers.some(n => !evidence.includes(n))) return false;
+  const words = contentWords(text);
+  if (!words.length) return true;
+  const available = new Set(contentWords(evidence));
+  return words.filter(w => available.has(w)).length / words.length >= 0.5;
+}
+/** Physical-movement directions ALRT may only repeat, never originate. */
+const MOVEMENT_WORD = /\b(leave|leaving|evacuat\w*|shelter\w*|stay\s+(?:home|indoors|inside|put|where)|return\w*|relocat\w*|go\s+to|move\s+to|head\s+to)\b/i;
 const NON_ACTIVE_TYPES = new Set(["cancellation", "resolved", "test"]);
 
 export function parseAgencyExtraction(
@@ -221,8 +237,12 @@ export function parseAgencyExtraction(
   };
 }
 
-/** Only reviewed library fallback is eligible. Model advice is accepted by
- * the input schema for older payload compatibility, but never displayed. */
+/** ALRT safety advice (owner direction, 9 November 2026 evening): What to do
+ * holds two to four points. When the agency gives fewer than two, ALRT safety
+ * points make up the difference; when it gives two or more, at most two ALRT
+ * points that add something new. Model-written points are kept only when they
+ * repeat no agency line, give no movement direction the agency did not give,
+ * and carry no number; the reviewed library fills any remaining gap. */
 export function alrtSafetyAdvice(input: {
   actions: string[];
   generated?: string[] | undefined;
@@ -230,18 +250,35 @@ export function alrtSafetyAdvice(input: {
   alertType?: string | undefined;
   replaceNumber?: (s: string) => string;
 }): string[] {
-  if (input.actions.some(text => text.trim()) || (input.alertType && NON_ACTIVE_TYPES.has(input.alertType))) return [];
-  const tidy = input.replaceNumber ?? ((s: string) => s);
-  const seen = new Set<string>();
-  return input.reviewed.map(tidy).filter(text => {
+  if (input.alertType && NON_ACTIVE_TYPES.has(input.alertType)) return [];
+  const limit = input.actions.length >= 2 ? 2 : 4 - input.actions.length;
+  const minimum = Math.max(0, 2 - input.actions.length);
+  const seen = new Set(input.actions.map(normalise));
+  const keep = (text: string, fromModel: boolean) => {
     const key = normalise(text);
     if (!key || seen.has(key)) return false;
+    if (fromModel) {
+      if (/\d/.test(text)) return false;
+      // ALRT never gives a movement direction. Even when the agency
+      // mentions one, a model line could reverse it ("Do not leave" vs
+      // "Leave now"), so it is dropped (13 November 2026).
+      if (MOVEMENT_WORD.test(text)) return false;
+      // A point that mostly restates an agency line adds nothing.
+      if (input.actions.some(action => groundedIn(text, action) && contentWords(text).length > 0 && contentWords(text).every(w => contentWords(action).includes(w)))) return false;
+    }
     seen.add(key);
     return true;
-  }).slice(0, 4);
+  };
+  const tidy = input.replaceNumber ?? ((s: string) => s);
+  const fromModel = (input.generated ?? []).map(x => x.trim()).filter(x => keep(x, true)).map(tidy);
+  const fromLibrary = fromModel.length >= minimum
+    ? []
+    : input.reviewed.filter(x => keep(x, false));
+  return [...fromModel, ...fromLibrary].slice(0, limit);
 }
 
-/** Template-built cards use the same reviewed, agency-empty fallback rule. */
+/** Template-built cards (no model): the reviewed library supplies ALRT safety
+ * advice under the same two-to-four rule. */
 export function supplementAgencyAdvice(actions: string[], reviewed: string[], sourceHasInstructions = false): string[] {
   // Directions in the source that were not captured: send the reader to the
   // source rather than substituting ALRT wording.

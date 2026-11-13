@@ -9,9 +9,11 @@ import type { GuidanceEntry } from "./alert_templates.util.js";
  * direction (only the agency gives those); always shown labelled as ALRT's.
  *
  * Drafted 9 November 2026 from the official guidance named in each
- * reference, for the product owner's review. Each row stays unapproved until its wording, category and
- * source reference are reviewed in Alert Templates, then previewed and published.
+ * reference. Approved as drafted by the product owner on 13 November 2026
+ * ("Top up (9 Nov)... library approved as drafted"). Publishing the Alert
+ * Templates snapshot puts it live; any row can still be edited there.
  */
+const REVIEWED = "2026-11-13";
 const AU = ["AU"];
 
 const groups = {
@@ -49,7 +51,7 @@ const CRITICAL: Band[] = ["critical"];
 function entry(id: string, group: keyof typeof groups, text: string, bands: Band[], reference: string, countries = AU): GuidanceEntry {
   return {
     id: `safety-${id}`, text, categoryIds: [...groups[group]], countries, bands,
-    profileTags: [], approved: false, reviewedAt: null,
+    profileTags: [], approved: true, reviewedAt: REVIEWED,
     reference: `Drafted for owner review from: ${reference}`,
   };
 }

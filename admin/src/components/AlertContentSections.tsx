@@ -46,7 +46,7 @@ export function AlertContentSections({
           </ul>
         </section>
       )}
-      {content.alrtSuggestions.length > 0 && content.officialActions.length === 0 && (
+      {content.alrtSuggestions.length > 0 && (
         <section>
           <h3>ALRT safety advice</h3>
           <p>General guidance from ALRT, not part of the official warning.</p>

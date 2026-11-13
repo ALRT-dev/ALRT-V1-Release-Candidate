@@ -33,14 +33,16 @@ describe("official source integrity", () => {
     const result = parseAgencyExtraction({ ...empty, officialActions: [{ text: "Avoid North Road.", evidence: "Avoid North Road." }] }, { ...options, sourceText, sourceActions: ["Avoid North Road. Use South Road."] });
     expect(result.contentDetails.officialActions.join(" ")).toContain("Use South Road.");
   });
-  it("uses reviewed fallback only with no agency instructions and never accepts model advice", () => {
+  it("tops up with reviewed advice and never lets a model line reverse an agency direction", () => {
     const reviewed = ["Consider checking official updates.", "Consider reviewing your emergency plan."];
-    expect(alrtSafetyAdvice({ actions: ["Do not leave your home."], generated: ["Leave your home immediately."], reviewed })).toEqual([]);
-    expect(alrtSafetyAdvice({ actions: [], generated: ["An invented safety recommendation."], reviewed })).toEqual(reviewed);
+    const advice = alrtSafetyAdvice({ actions: ["Do not leave your home."], generated: ["Leave your home immediately."], reviewed });
+    expect(advice.join(" ")).not.toMatch(/leave/i);
+    expect(advice).toEqual(reviewed);
+    expect(alrtSafetyAdvice({ actions: [], generated: ["Keep your phone charged."], reviewed })).toEqual(["Keep your phone charged.", ...reviewed]);
   });
-  it("does not activate guidance still marked as drafted for review", () => {
-    expect(hazardSafetyLibrary().every(entry => !entry.approved && entry.reviewedAt === null)).toBe(true);
-    const selected = selectLibraryGuidance(defaultTemplatePack(), { categoryId: "earthquake", parentCategoryId: null, country: "AU", band: "action" });
-    expect(selected.alrtSuggestions).toEqual([]);
+  it("the safety library is approved as drafted (owner, 13 November 2026)", () => {
+    expect(hazardSafetyLibrary().every(entry => entry.approved && entry.reviewedAt)).toBe(true);
+    const selected = selectLibraryGuidance({ ...defaultTemplatePack(), library: hazardSafetyLibrary() }, { categoryId: "earthquake", parentCategoryId: null, country: "AU", band: "action" });
+    expect(selected.alrtSuggestions.length).toBeGreaterThan(0);
   });
 });

@@ -159,15 +159,18 @@ Tests/drills/resolved incidents are Info. Source-authorised emergency phone word
 be retained only with an explicit source-specific exception. Otherwise use "your local
 emergency number" while preserving road, route, date and measurement numbers.
 
-ALRT safety advice follows the owner's direct conversation rule: practical,
-hazard-relevant reviewed-library fallback only when the agency provides no instructions.
-Do not top up agency advice, originate model-written advice, or auto-approve drafted
-library rows. The 9 November evening amendment in older saved notes conflicts with
-that direct instruction and is not the active rule. The target is 2 to 4 useful points
-where supported; preserve all essential agency instructions behind expansion rather
-than padding, deleting conditions or inventing facts to meet a count. No advice for
-test, cancellation or resolved alerts. For You matches reviewed hazard-specific rows
-against private local selections. Keep required artwork and native warning levels.
+ALRT safety advice (product owner, 9 November 2026 evening, RECONFIRMED by the owner on
+13 November 2026 after a conflicting fallback-only commit): What to do holds 2 to 4
+points. ALRT safety advice, written by the model under the contract or taken from the
+reviewed library, tops up agency advice when the agency gives fewer than two instructions
+(at most two extra points otherwise), carries NO "ALRT suggests:" prefix, and is labelled
+by the app as ALRT safety advice. ALRT never originates a leave/evacuate/shelter/stay/
+return direction and never carries a number; none on test, cancellation or resolved
+alerts. Source instructions the model missed are kept as written. The safety library is
+approved as drafted (owner, 13 November 2026). For You uses the reviewed on-device rows,
+with published rows replacing them group by group. Keep required artwork and native
+warning levels. Facts and agency instructions stay copy-only (complete source sentences
+and complete instruction paragraphs): the negation-safety fix of 13 November.
 Source instruction content and native-level-only updates must change sourceContentHash.
 TEST deployment is authorised in this conversation; production deployment is not.
 

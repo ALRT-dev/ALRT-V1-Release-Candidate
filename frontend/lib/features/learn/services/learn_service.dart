@@ -40,9 +40,11 @@ class LearnService {
   /// Resolves to `Success(null)` when no guide is linked to the category.
   Future<Either<GuideForCategory?, AppError>> getGuideForCategory({
     required final String categoryId,
+    final String? level,
   }) {
     return _learnRepository.getGuideForCategory(
       categoryId: categoryId,
+      level: level,
     );
   }
 }

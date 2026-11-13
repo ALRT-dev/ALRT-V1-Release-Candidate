@@ -14,16 +14,23 @@ class GuideStripCard extends ConsumerWidget {
   const GuideStripCard({
     super.key,
     required this.categoryId,
+    this.level,
   });
 
   final String? categoryId;
+
+  /// The alert's level, which picks the guide's stage (before, during or
+  /// after the event).
+  final String? level;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final id = categoryId;
     if (id == null || id.isEmpty) return const SizedBox.shrink();
 
-    final guideAsync = ref.watch(providerOfGuideForCategory(id));
+    final guideAsync = ref.watch(
+      providerOfGuideForCategory(guideForCategoryKey(id, level)),
+    );
 
     return guideAsync.maybeWhen(
       data: (guide) {

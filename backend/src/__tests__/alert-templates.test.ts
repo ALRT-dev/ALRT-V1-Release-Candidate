@@ -345,14 +345,14 @@ describe("grounded agency extraction", () => {
 describe("5 November owner wording rules", () => {
   const options = { sourceText: "Smoke affects Example Road.", agency: "Agency", allowAgencyNumbers: false, templateVersion: 3, alrtSuggestions: ["Consider reviewing your travel plans.", "Checking local updates may help."], profileGuidance: [] };
   const input = {title:"Update",facts:[{text: options.sourceText,evidence:options.sourceText}],affectedAreas:[],nativeLevel:null,officialActions:[],confidence:"high"};
-  it("one agency instruction suppresses ALRT fallback advice", () => {
+  it("one agency instruction is topped up with ALRT safety advice (owner, 9 Nov, reconfirmed 13 Nov 2026)", () => {
     const result = parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road until it reopens."]});
     expect(result.contentDetails.officialActions).toEqual(["Avoid Example Road until it reopens."]);
-    expect(result.contentDetails.alrtSuggestions).toEqual([]);
+    expect(result.contentDetails.alrtSuggestions.length).toBeGreaterThanOrEqual(1);
     expect(result.callsToAction[0]).toBe("Agency advises: Avoid Example Road until it reopens.");
   });
-  it("does not add filler when two agency instructions already exist", () => {
-    expect(parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road.","Use Example Bridge."]}).contentDetails.alrtSuggestions).toEqual([]);
+  it("adds at most two points when two agency instructions already exist", () => {
+    expect(parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road.","Use Example Bridge."]}).contentDetails.alrtSuggestions.length).toBeLessThanOrEqual(2);
   });
   it("retains up to four sourced facts without padding a three-fact alert", () => {
     const description = "Smoke affects Example Road. Crews are on scene. The next update is due at noon.";
