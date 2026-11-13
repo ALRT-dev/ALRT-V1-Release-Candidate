@@ -93,7 +93,7 @@ export type TemplatePreview = {
   } | null;
 };
 export const getAlertTemplates = () =>
-  apiGet<{ state: TemplateRegistry; sources: TemplateSource[] }>(
+  apiGet<{ state: TemplateRegistry; sources: TemplateSource[]; safetyLibrary?: TemplatePack["library"] }>(
     "/api/admin/alert-templates",
   );
 export const saveAlertTemplates = (data: {

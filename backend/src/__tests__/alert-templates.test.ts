@@ -345,10 +345,11 @@ describe("grounded agency extraction", () => {
 describe("5 November owner wording rules", () => {
   const options = { sourceText: "Smoke affects Example Road.", agency: "Agency", allowAgencyNumbers: false, templateVersion: 3, alrtSuggestions: ["Consider reviewing your travel plans.", "Checking local updates may help."], profileGuidance: [] };
   const input = {title:"Update",facts:[{text: options.sourceText,evidence:options.sourceText}],affectedAreas:[],nativeLevel:null,officialActions:[],confidence:"high"};
-  it("9 November: never mixes ALRT advice with an agency instruction", () => {
+  it("one agency instruction suppresses ALRT fallback advice", () => {
     const result = parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road until it reopens."]});
+    expect(result.contentDetails.officialActions).toEqual(["Avoid Example Road until it reopens."]);
     expect(result.contentDetails.alrtSuggestions).toEqual([]);
-    expect(result.callsToAction).toEqual(["Agency advises: Avoid Example Road until it reopens."]);
+    expect(result.callsToAction[0]).toBe("Agency advises: Avoid Example Road until it reopens.");
   });
   it("does not add filler when two agency instructions already exist", () => {
     expect(parseAgencyExtraction(input, {...options, sourceActions:["Avoid Example Road.","Use Example Bridge."]}).contentDetails.alrtSuggestions).toEqual([]);

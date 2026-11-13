@@ -18,7 +18,7 @@ void main() {
     expect(find.textContaining('has not published'), findsNothing);
   });
   testWidgets(
-    'agency instructions suppress ALRT fallback even on older mixed records',
+    'one agency instruction hides ALRT fallback, including persisted mixed records',
     (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -47,6 +47,8 @@ void main() {
         find.text('Consider reviewing your travel plans.'),
         findsNothing,
       );
+      expect(find.text('ALRT safety advice'), findsNothing);
+      expect(find.textContaining('ALRT safety advice is general guidance'), findsNothing);
       expect(find.text('Agency issued an incident.'), findsNothing);
       expect(find.text('A fourth fact.'), findsOneWidget);
       expect(find.text('A fifth fact.'), findsNothing);

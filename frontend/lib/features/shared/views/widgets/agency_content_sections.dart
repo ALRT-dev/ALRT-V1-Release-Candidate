@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Source facts, official actions and ALRT suggestions render separately.
+/// Source facts, official actions and ALRT safety advice render separately.
 class AgencyContentSections extends StatelessWidget {
   const AgencyContentSections({
     super.key,
@@ -8,6 +8,7 @@ class AgencyContentSections extends StatelessWidget {
     this.sourceName,
     this.officialIntro,
     this.severityColor,
+    this.warningLevel,
     this.showOriginalSource = true,
   });
   final Map<String, dynamic> content;
@@ -15,6 +16,11 @@ class AgencyContentSections extends StatelessWidget {
   final String? officialIntro;
   final Color? severityColor;
   final bool showOriginalSource;
+
+  /// The agency warning level for this alert ([Hazard.displayWarningLevel]).
+  /// An AWS warning always states its level, even when extraction left the
+  /// stored label empty.
+  final String? warningLevel;
 
   List<String> _lines(String key) {
     final value = content[key];
@@ -34,9 +40,11 @@ class AgencyContentSections extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: title == 'WHAT WE KNOW'
-                ? const Color(0xFF799AB5)
-                : const Color(0xFFE7813C),
+            // Facts (what we know, the warning level, the affected area)
+            // are blue-grey; advice is orange (owner, 9 November 2026).
+            color: title == 'WHAT TO DO' || title == 'AGENCY INSTRUCTIONS'
+                ? const Color(0xFFE7813C)
+                : const Color(0xFF799AB5),
             width: 1.5,
           ),
           boxShadow: const [
@@ -71,7 +79,7 @@ class AgencyContentSections extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child:
-                    (text == 'ALRT suggestions' ||
+                    (text == 'ALRT safety advice' ||
                         text == 'Agency instructions' ||
                         text.endsWith(' advises'))
                     ? Text(
@@ -118,7 +126,10 @@ class AgencyContentSections extends StatelessWidget {
     final facts = _lines('facts'), areas = _lines('affectedAreas');
     final actions = _lines('officialActions'),
         suggestions = _lines('alrtSuggestions');
-    final level = content['nativeLevel'];
+    final stored = content['nativeLevel'];
+    final level = stored is String && stored.trim().isNotEmpty
+        ? stored.trim()
+        : warningLevel?.trim();
     final typedIncident = content['extractionMethod'] == 'dfes-incident-fields';
     final originalSource =
         content['originalSourceText'] ?? content['sourceDescription'];
@@ -134,7 +145,7 @@ class AgencyContentSections extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (level is String && level.isNotEmpty)
+        if (level != null && level.isNotEmpty)
           _section('AGENCY WARNING', [level]),
         if (areas.isNotEmpty && !typedIncident)
           _section('AFFECTED AREA', areas),
@@ -172,8 +183,10 @@ class AgencyContentSections extends StatelessWidget {
               agency.isEmpty ? 'Agency instructions' : '$agency advises',
               ...actions.take(4),
             ],
+            // ALRT advice is a fallback only when agency instructions are
+            // absent, including when an older stored record contains both.
             if (suggestions.isNotEmpty && actions.isEmpty) ...[
-              'ALRT suggestions',
+              'ALRT safety advice',
               ...suggestions.take(4),
             ],
             if (actions.isEmpty && suggestions.isEmpty)
@@ -182,7 +195,7 @@ class AgencyContentSections extends StatelessWidget {
                   : 'Agency instructions are not available in this view. Check the original source details for the full information.',
           ],
           subtitle: suggestions.isNotEmpty && actions.isEmpty
-              ? 'General guidance from ALRT; not agency instructions.'
+              ? 'ALRT safety advice is general guidance, separate from agency instructions.'
               : null,
         ),
         if (actions.length > 4)

@@ -7,7 +7,7 @@ export async function getWebhookCategories(_req: Request, res: Response, next: N
   try {
     const categories = await prisma.hazardCategory.findMany({
       where: { parentId: { not: null } },
-      select: { id: true, name: true, parentId: true, description: true, keywords: true },
+      select: { id: true, name: true, parentId: true, description: true, keywords: true, isFireRelated: true },
       orderBy: { id: 'asc' },
     });
     res.setHeader('Cache-Control', 'private, no-store');

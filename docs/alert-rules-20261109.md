@@ -24,3 +24,30 @@ Validation: backend 228 tests across 28 files; 33 focused Flutter checks includi
 - The legacy mobile GeneralGuidance library contains directive movement/sheltering wording. The detail screen no longer uses this unverified fallback or labels unprefixed legacy text as agency instructions. Legacy records still need source-backed re-extraction before they can reliably meet the practical-advice target. This is a release gap, not completed content coverage.
 - Real push delivery, server-side Follow, actual store purchase/restore/webhook acceptance, native maps/phone interactions and the current saved prompts/categories remain separate release gates. Existing simulated checks do not certify these connections.
 - Production unchanged. These edits are development candidates, not a new phone build or TEST rollout.
+
+## Owner direction, 9 November 2026 (evening): supersedes the What we know and ALRT fallback rules above
+
+- What we know: 2 to 4 plain-language, practical points. Each must be grounded in an exact source quote (evidence); no added causes, predictions, numbers or places. Fewer only when the source supports fewer.
+- What to do: agency instructions summarised into short practical points, keeping every condition, place, time and exception and the agency's strength of wording. Each carries its exact source instruction as evidence. All essential instructions stay accessible.
+- ALRT safety advice: What to do holds 2 to 4 points. When the agency gives fewer than two instructions, ALRT safety advice makes up the difference; when it gives two or more, at most two ALRT points that add something new. Always labelled as ALRT's. Calibrated to the level (Info or Monitor: aware and prepare; Action: get ready, keep away; Critical: follow official directions, call the local emergency number if in danger). None on test, exercise, cancellation or resolved alerts.
+- ALRT never originates a leave, evacuate, shelter, stay or return direction; it may only repeat one the agency gave. No numbers in ALRT advice.
+- Level: a designated scale (Australian Warning System, health or air quality, humanitarian such as GDACS, or the agency's own label) is copied exactly. Otherwise the level is the existing ALRT keyword wordbank level, which already sets the outer-shape colour. The AI is given that level and never changes it.
+- Source instructions the model failed to extract are kept as written, never replaced by ALRT wording.
+- Smartraveller is not used (copyright).
+
+
+## Release reconciliation, 13 November 2026
+
+The evening amendment above came from the incoming branch. It conflicts with the
+owner's direct instructions in the active conversation: ALRT is a reviewed-library
+fallback only when no agency instructions exist. The direct instruction controls.
+The merge preserves warning levels, source adapters, original-source disclosure,
+sharing and reviewable draft library rows. It disables generated model advice and
+supplementary ALRT advice alongside agency instructions, including old mixed records.
+
+Validation reproduced reversed source negation and dropped instruction clauses under
+word-overlap grounding. Facts therefore select complete clear source sentences/lines;
+agency instructions retain complete source paragraphs, conditions and lead-ins.
+Structured source adapters still produce readable facts and attribution. Draft safety
+rows remain unapproved with no review date until their wording and source are reviewed.
+No claim of universal practical-advice or selected-profile coverage is made.

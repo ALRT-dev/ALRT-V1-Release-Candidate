@@ -1381,20 +1381,24 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
   /// yes in this very moment.
   /// Alert-detail check-ins are scoped to the group the person chose.
   /// They must never inherit the hub's broadcast or another group's request.
-  Future<bool> checkInToCircle({
+  ///
+  /// When the person chose to share location but the phone has no current
+  /// position, the check-in still goes, without location, and the result
+  /// says so: the app must never claim a location was shared when it wasn't.
+  Future<AlertCheckInOutcome> checkInToCircle({
     required String circleId,
     required String hazardId,
     required bool shareLocation,
     FamilyCheckInStatus status = FamilyCheckInStatus.safe,
   }) async {
     if (!state.circles.any((circle) => circle.circleId == circleId)) {
-      return false;
+      return AlertCheckInOutcome.failed;
     }
     state = state.copyWith(checkInState: const FamilyActionState.loading());
     final position = shareLocation
         ? await _familyLocationService.getCurrentPositionOrNull()
         : null;
-    if (!mounted) return false;
+    if (!mounted) return AlertCheckInOutcome.failed;
     final result = await _familyService.sendFamilyCheckIn(
       circleId: circleId,
       hazardId: hazardId,
@@ -1402,17 +1406,19 @@ class FamilyProvider extends StateNotifier<FamilyProviderState> {
       latitude: position?.latitude,
       longitude: position?.longitude,
     );
-    if (!mounted) return false;
+    if (!mounted) return AlertCheckInOutcome.failed;
     return result.when(
       (checkIn) {
         AnalyticsService.familyCheckIn();
         if (state.circle?.id == circleId) _appendCheckIn(checkIn);
         state = state.copyWith(checkInState: const FamilyActionState.success());
-        return true;
+        return shareLocation && position == null
+            ? AlertCheckInOutcome.sentWithoutLocation
+            : AlertCheckInOutcome.sent;
       },
       (error) {
         state = state.copyWith(checkInState: FamilyActionState.error(error));
-        return false;
+        return AlertCheckInOutcome.failed;
       },
     );
   }
@@ -2637,4 +2643,17 @@ enum SosPrecisionChoice {
 
   static SosPrecisionChoice defaultFor(final FamilySharingLevel? level) =>
       level == FamilySharingLevel.precise ? exact : suburb;
+}
+
+/// What happened to a check-in sent from an alert.
+enum AlertCheckInOutcome {
+  /// Sent, with location if the person chose to share it.
+  sent,
+
+  /// Sent, but the person chose to share location and the phone had no
+  /// current position, so none was included.
+  sentWithoutLocation,
+
+  /// Not sent.
+  failed,
 }

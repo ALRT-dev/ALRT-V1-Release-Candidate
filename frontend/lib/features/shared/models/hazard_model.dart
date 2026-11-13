@@ -143,15 +143,31 @@ abstract class Hazard with _$Hazard {
     return value.toLowerCase() == 'other fire' ? 'Fire' : value;
   }
 
+  /// The agency warning level to show on the card. An Australian Warning
+  /// System alert always states its level (owner, 9 November 2026): the
+  /// extracted label first, then the record's native label, then the level
+  /// its locked AWS band stands for. Non-AWS alerts show only a real label.
+  String? get displayWarningLevel {
+    final extracted = contentDetails?['nativeLevel'];
+    if (extracted is String && extracted.trim().isNotEmpty) {
+      return extracted.trim();
+    }
+    final native = nativeWarningLevel?.trim();
+    if (native != null && native.isNotEmpty) return native;
+    if (isAwsCompliant != true) return null;
+    return switch (severityBand) {
+      HazardSeverityBand.critical => 'Emergency Warning',
+      HazardSeverityBand.action => 'Watch and Act',
+      _ => 'Advice',
+    };
+  }
+
   /// Category navigation uses the owner's seven main groups. Incident names
   /// remain separate, for titles, exact hazard artwork and guidance matching.
   String get displayMainCategoryName {
-    final mainId =
-        category?.parentId ??
-        category?.parent?.id ??
-        category?.id ??
-        categoryId;
-    return categoryPillNames[mainId] ?? 'Category unavailable';
+    final mainId = category?.parentId ?? category?.parent?.id ?? category?.id ?? categoryId;
+    // An unknown parent shows the incident's own name, never a placeholder.
+    return categoryPillNames[mainId] ?? displayCategoryName;
   }
 
   static String _readablePlace(String place) => place

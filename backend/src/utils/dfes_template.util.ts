@@ -61,20 +61,35 @@ export const parseDfesWarning = (
   return { facts, actions };
 };
 
+/** The Australian Warning System level a DFES warning carries. The feed's own
+ * warning type wins; otherwise the level named in the agency title. An AWS
+ * warning must always state its level (owner, 9 November 2026). */
+export const dfesAwsLevel = (title: string, nativeLevel?: string | null, description = ''): string | null => {
+  const warningType = /^\s*warning type\s*:\s*(.+)$/im.exec(description)?.[1] ?? '';
+  const pattern = /\b(emergency warning|watch\s+(?:and|&)\s+act|advice)\b/i;
+  const match = [(nativeLevel ?? '').trim(), title, warningType].map(text => pattern.exec(text)).find(Boolean);
+  if (!match) return nativeLevel?.trim() || null;
+  const word = match[1]!.toLowerCase();
+  return word.startsWith('emergency') ? 'Emergency Warning' : word.startsWith('watch') ? 'Watch and Act' : 'Advice';
+};
+
 export const getDeterministicDfesContent = ({
   title,
   description,
+  nativeWarningLevel,
 }: {
   title: string;
   description: string;
+  nativeWarningLevel?: string | null | undefined;
 }): AISummaryResponse | null => {
+  const level = dfesAwsLevel(title, nativeWarningLevel, description);
   const smoke = buildDfesSmokeBulletin(title, description);
-  if (smoke) return smoke;
+  if (smoke) return level ? { ...smoke, contentDetails: { ...smoke.contentDetails, nativeLevel: level } } : smoke;
   const parsed = parseDfesWarning(description);
   if (!parsed || parsed.facts.length === 0) return null;
   const contentDetails = {
     schemaVersion: 1, templateVersion: 0, facts: parsed.facts,
-    affectedAreas: [], nativeLevel: null, officialActions: parsed.actions,
+    affectedAreas: [], nativeLevel: level, officialActions: parsed.actions,
     alrtSuggestions: [], profileGuidance: [], evidence: parsed.facts,
     originalSourceText: description, extractionMethod: 'dfes-native-warning',
     profileGuidancePolicy: 'bundledFallback',

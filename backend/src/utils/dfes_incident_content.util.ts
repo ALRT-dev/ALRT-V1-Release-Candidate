@@ -100,6 +100,7 @@ export function buildDfesIncidentContent(input: DfesIncidentInput): IncidentCont
     ? 'A smoke report alone does not establish its cause or measured air quality at your location.'
     : isCrash ? 'A crash report alone does not confirm current road access or traffic delays.'
     : 'An incident report alone does not establish its current impact or a warning level.';
+  // ALRT advice is a fallback only when no agency instructions were supplied.
   const guidanceReferences = (officialActions.length ? [] : reviewed.slice(0, 4)).map(item => ({ ...item }));
   const alrtSuggestions = guidanceReferences.map(item => item.text);
   const cleanedFacts = facts.map(clean);

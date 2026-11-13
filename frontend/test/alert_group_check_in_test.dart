@@ -87,7 +87,7 @@ void main() {
             shareLocation: false,
             status: FamilyCheckInStatus.needsHelp,
           );
-      expect(result, isTrue);
+      expect(result, AlertCheckInOutcome.sent);
       expect(service.calls, [
         {
           'circleId': 'chosen',
@@ -108,7 +108,7 @@ void main() {
               hazardId: 'incident',
               shareLocation: false,
             ),
-        isFalse,
+        AlertCheckInOutcome.failed,
       );
       expect(container.read(providerOfFamily).checkInState.isError, isTrue);
     },
