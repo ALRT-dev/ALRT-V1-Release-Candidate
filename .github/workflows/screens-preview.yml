@@ -33,7 +33,7 @@ jobs:
           } > .env
       - run: flutter pub get
       - name: Render alert screens
-        run: ALRT_SCREENSHOTS=1 flutter test test/screenshots/alert_detail_screenshots_test.dart --update-goldens || true
+        run: ALRT_SCREENSHOTS=1 flutter test test/screenshots/alert_types_screenshots_test.dart --update-goldens || true
       - name: Publish screens to a branch
         run: |
           mkdir -p /tmp/out
