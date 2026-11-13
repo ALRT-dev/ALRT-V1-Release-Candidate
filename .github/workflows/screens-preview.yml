@@ -1,0 +1,48 @@
+# Throwaway: renders the alert detail screenshot tests and uploads them.
+name: Alert screens preview
+on:
+  push:
+    branches: [claude/screens-preview]
+permissions:
+  contents: write
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.10"
+          channel: stable
+          cache: true
+      - name: Placeholder .env
+        run: |
+          {
+            echo "GOOGLE_OAUTH_SERVER_CLIENT_ID="
+            echo "GOOGLE_MAPS_API_KEY="
+            echo "MICROSOFT_CLIENT_ID="
+            echo "MICROSOFT_TENANT_ID="
+            echo "REVENUECAT_API_KEY_APPLE="
+            echo "REVENUECAT_API_KEY_GOOGLE="
+            echo "DEV_BASE_URL=https://api-test.safetyalrt.com"
+            echo "ALRT_PLUS_TEST_UNLOCK=true"
+            echo "USE_DUMMY_AI_FOR_REPORTS=false"
+          } > .env
+      - run: flutter pub get
+      - name: Render alert screens
+        run: ALRT_SCREENSHOTS=1 flutter test test/screenshots/alert_detail_screenshots_test.dart --update-goldens || true
+      - name: Publish screens to a branch
+        run: |
+          mkdir -p /tmp/out
+          cp -r test/screenshots/goldens /tmp/out/ 2>/dev/null || true
+          cp -r test/screenshots/failures /tmp/out/ 2>/dev/null || true
+          cd /tmp/out
+          git init -q -b claude/screens-output
+          git config user.name "screens-bot"
+          git config user.email "screens-bot@users.noreply.github.com"
+          git add -A
+          git commit -q -m "alert screens"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" claude/screens-output
