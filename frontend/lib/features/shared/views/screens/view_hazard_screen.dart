@@ -1545,6 +1545,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             child: SizedBox(
               height: 54.spMin,
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
                     child: Material(
@@ -1658,7 +1659,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   onPressed: () =>
                       shareAlert(ref: ref, hazard: hazard, from: 'detail'),
                   icon: Icon(LucideIcons.link, size: 16.spMin, color: ink),
-                  label: const Text('Share link'),
+                  label: Text('Share link', style: _smallPillText(ink)),
                   style: _smallPillStyle(ink),
                 ),
               ),
@@ -1671,7 +1672,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     size: 16.spMin,
                     color: purple,
                   ),
-                  label: const Text('Invite to ALRT'),
+                  label: Text(
+                    'Invite to ALRT',
+                    style: _smallPillText(purple),
+                  ),
                   style: _smallPillStyle(purple),
                 ),
               ),
@@ -1687,7 +1691,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     minimumSize: Size.fromHeight(44.spMin),
     shape: const StadiumBorder(),
     side: const BorderSide(color: Color(0xFFD9D9E0), width: 1.5),
-    textStyle: TextStyle(fontSize: 14.spMin, fontWeight: FontWeight.w700),
+  );
+
+  /// The label keeps the app font (a button textStyle would replace it).
+  TextStyle _smallPillText(final Color color) => TextStyle(
+    fontSize: 14.spMin,
+    fontWeight: FontWeight.w700,
+    color: color,
   );
 
   Widget _buildCommunityVoteSection() {
