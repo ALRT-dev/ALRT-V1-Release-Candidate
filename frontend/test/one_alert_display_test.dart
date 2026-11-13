@@ -7,7 +7,7 @@ import 'package:hazard_app/features/shared/views/widgets/agency_content_sections
 // sections in the same order, whatever path its content took.
 void main() {
   group('older alerts adapted to the structured card', () {
-    test('agency lines stay agency, ALRT lines stay ALRT', () {
+    test('agency lines stay agency; unreviewed old ALRT lines are dropped', () {
       final content = AlertTextUtil.legacyDisplayContent(
         description: 'A bushfire is burning near Melaleuca.\nCrews are on scene.',
         callsToAction: [
@@ -29,7 +29,7 @@ void main() {
         'Avoid the area.',
         'Drive with caution on Great Northern Highway.',
       ]);
-      expect(content['alrtSuggestions'], ['Keep your phone charged.']);
+      expect(content['alrtSuggestions'], isEmpty);
       expect(content['issuingAgency'], 'DFES');
     });
 

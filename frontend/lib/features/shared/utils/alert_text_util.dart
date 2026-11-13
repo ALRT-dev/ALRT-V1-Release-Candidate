@@ -58,8 +58,8 @@ abstract final class AlertTextUtil {
   /// the same sections in the same order:
   /// - What we know: the issued line, then the source's own facts, or the
   ///   plain summary when the source gives fewer than two.
-  /// - What to do: the agency's own lines ("X advises: ..."), then ALRT's
-  ///   lines, topped up from the on-device library only when the agency
+  /// - What to do: the agency's own lines ("X advises: ..."), then ALRT
+  ///   reviewed lines from the on-device library, only when the agency
   ///   gave fewer than two, and never a leave, evacuate, shelter, stay or
   ///   return direction (9 November 2026 rule).
   static Map<String, dynamic> legacyDisplayContent({
@@ -94,9 +94,10 @@ abstract final class AlertTextUtil {
       if (lead != null) {
         agency ??= lead.group(1)?.trim();
         official.add(line.substring(lead.end).trim());
-      } else {
-        alrt.add(line.replaceFirst(_alrtLead, '').trim());
       }
+      // Unprefixed lines on older records were written under earlier rules
+      // and never reviewed, so they are not shown (as before); ALRT advice
+      // here comes only from the reviewed on-device list below.
     }
     if (official.length + alrt.length < 2) {
       for (final row in AlertGuidanceLibrary.considerRows(hazardBucket)) {
@@ -121,10 +122,6 @@ abstract final class AlertTextUtil {
 
   static final RegExp _agencyLead = RegExp(
     r'^(.{1,60}?) advises:\s*',
-    caseSensitive: false,
-  );
-  static final RegExp _alrtLead = RegExp(
-    r'^ALRT suggests:\s*',
     caseSensitive: false,
   );
   static final RegExp _pipelineFiller = RegExp(
