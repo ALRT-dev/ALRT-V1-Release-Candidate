@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { guideSlugForCategory } from "../utils/guide_category_map.util.js";
 import prisma from "../utils/prisma_client.util.js";
 import { HttpError } from "../models/http_error.js";
 import { recordGuideCompletion } from "./xp_ledger.service.js";
@@ -212,22 +213,33 @@ export const completeGuide = async (userId: string, slugOrId: string) => {
  * can select a different hazard's guide and are deliberately excluded.
  * Returns null when there is no matching guide.
  */
-export const getGuideForHazardCategory = async (categoryId: string) => {
+export const getGuideForHazardCategory = async (
+  categoryId: string,
+  level?: string | null,
+) => {
   const category = await prisma.hazardCategory.findUnique({
     where: { id: categoryId },
-    select: { id: true, parentId: true },
+    select: { id: true, name: true, parent: { select: { name: true } } },
   });
 
   if (!category) {
     return null;
   }
 
-  const guide = await prisma.safetyGuide.findFirst({
-    where: {
-      isPublished: true,
-      categoryIds: { has: category.id },
-    },
-    orderBy: { sortOrder: "asc" },
+  // Exact category -> guide table (owner review, 13 November 2026). The old
+  // seed-time keyword links put bushfire guides on vehicle and structure
+  // fires, and a guard meant to stop that compared the guide to the
+  // category's uuid, which hid every bushfire guide, real bushfires
+  // included. An unlisted category gets no guide.
+  const slug = guideSlugForCategory({
+    name: category.name,
+    parentName: category.parent?.name ?? null,
+    level: level ?? null,
+  });
+  if (!slug) return null;
+
+  return prisma.safetyGuide.findFirst({
+    where: { isPublished: true, slug },
     select: {
       id: true,
       slug: true,
@@ -235,9 +247,4 @@ export const getGuideForHazardCategory = async (categoryId: string) => {
       topic: { select: { name: true, icon: true, color: true } },
     },
   });
-
-  // An erroneous database association must not imply bushfire advice for
-  // a generic or structural fire. The category match remains exact above.
-  if (guide && /\bbushfire\b/i.test(guide.title + ' ' + guide.slug) && !/bushfire/i.test(category.id)) return null;
-  return guide;
 };

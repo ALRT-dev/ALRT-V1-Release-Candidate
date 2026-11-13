@@ -641,6 +641,15 @@ abstract final class AlertCardStyle {
   /// Secondary meta text: "ago", source line, distance.
   static const metaInk = Color(0xFF5C5C66);
 
+  /// Readable text on a level colour: near-black on the light levels
+  /// (Advice yellow, Watch and Act orange, Info grey, GDACS green, orange
+  /// and red), white on the dark ones (Emergency red, neutral grey).
+  /// Both choices pass 4.5:1 for the locked level hexes.
+  static Color inkOn(final Color background) =>
+      background.computeLuminance() > 0.18
+          ? const Color(0xFF17171C)
+          : Colors.white;
+
   /// The label ink for an AWS band word, by band.
   static Color bandLabelInk(final HazardSeverityBand? band) {
     return switch (band) {

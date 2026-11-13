@@ -45,6 +45,7 @@ import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import { getTemplateRegistry, getReleasePrompt, type TemplateRelease } from './alert_templates.service.js';
 import { resolveTemplate, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
 import { AGENCY_EXTRACTION_CONTRACT, agencyExtractionFallback, parseAgencyExtraction } from '../utils/agency_extraction.util.js';
+import { TEMPLATE_FIRST_SOURCE_IDS, buildUsgsEarthquakeContent, templateFirstAgencyCard } from '../utils/template_first.util.js';
 import {
   SOURCE_REGISTRY_DEFAULTS,
   type SourceSystemKey,
@@ -745,6 +746,19 @@ export const summarizeHazard = async ({
       const alrtSuggestions=[...gdacsContent.callsToAction];
       return {...gdacsContent,contentDetails:{schemaVersion:1,templateVersion:release?.version??0,facts:[gdacsContent.summary],affectedAreas:locationName?[locationName]:[],nativeLevel:`GDACS ${gdacsLevel}`,officialActions:[],alrtSuggestions,profileGuidance:libraryGuidance.profileGuidance,evidence:[],presentation}};
     }
+  }
+
+  // USGS earthquakes: fixed fields, so a fixed plain card and no model call.
+  if (source.id === ExternalSourceId.earthquakeUsgs) {
+    const value=buildUsgsEarthquakeContent({title,description,templateVersion:release?.version??0,...libraryGuidance});
+    if (value) return {...value,contentDetails:{...value.contentDetails,presentation}};
+  }
+
+  // Agency feeds with their own sentences and instructions: the code
+  // template first; the model only when that card would not read plainly.
+  if (TEMPLATE_FIRST_SOURCE_IDS.has(source.id)) {
+    const value=templateFirstAgencyCard({sourceText,sourceTitle:title,sourceDescription:description,sourceActions,agency:source.name,allowAgencyNumbers:resolved?.settings.allowAgencyNumbers??false,templateVersion:release?.version??0,nativeWarningLevel,...libraryGuidance});
+    if (value) return {...value,contentDetails:{...value.contentDetails,presentation}};
   }
 
   const prompt=release&&resolved?getReleasePrompt(release,{promptId:resolved.settings.promptId,sourceId:source.id,categoryId:category.id,isAws:isAwsCompliant,band:severityBand}):await getAIPromptForHazard({isAwsCompliant,severityBand,category,source});

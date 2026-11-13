@@ -197,7 +197,7 @@ void main() {
               hazard.id!,
             ).overrideWith((ref) => FixtureAlertProvider(ref, hazard)),
             providerOfGuideForCategory(
-              category,
+              guideForCategoryKey(category, hazard.displayWarningLevel),
             ).overrideWith((ref) async => null),
             providerOfFamily.overrideWith(
               (ref) => FamilyProvider(

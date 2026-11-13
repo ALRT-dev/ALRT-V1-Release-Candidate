@@ -21,6 +21,7 @@ import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/shared/enums/ai_confidence_types.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
 import 'package:hazard_app/features/shared/enums/video_priority_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/states/view_hazard_provider_state.dart';
@@ -827,23 +828,38 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     final hasAwsLevel =
         isAws && severityTitle.isNotEmpty && severityTitle != 'Unknown';
 
+    // Owner review, 13 November 2026: the level is always written, on a
+    // solid pill in the level's own colour, so nobody has to decode a
+    // colour. AWS and other designated scales use their own words; any
+    // other alert uses ALRT's band word (Info, Monitor, Action, Critical),
+    // the same word the home screen widget writes.
     final String label;
-    final Color labelInk;
+    final Color pillColor;
     if (hazard.isAlrtIntel) {
       label = 'ALRT ASSESSMENT';
-      labelInk = AlertCardStyle.labelInkNeutral;
+      pillColor = AlertCardStyle.labelInkNeutral;
     } else if (hazard.isGlobalHumanitarian) {
-      label = 'GDACS';
-      labelInk = AlertCardStyle.labelInkNeutral;
-    } else if (hasAwsLevel) {
-      label = severityTitle.toUpperCase();
-      labelInk = AlertCardStyle.bandLabelInk(hazard.severityBand);
-    } else if (isAws) {
-      label = 'AWS';
-      labelInk = AlertCardStyle.bandLabelInk(hazard.severityBand);
+      final level = hazard.nativeWarningLevel?.trim();
+      label = level == null || level.isEmpty
+          ? 'GDACS'
+          : (level.toUpperCase().startsWith('GDACS')
+                ? level.toUpperCase()
+                : 'GDACS ${level.toUpperCase()}');
+      pillColor = AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel);
     } else {
-      label = 'OFFICIAL';
-      labelInk = AlertCardStyle.labelInkNeutral;
+      final named = hazard.displayWarningLevel;
+      final band = hazard.severityBand ?? HazardSeverityBand.info;
+      label = (named != null && named.isNotEmpty && named != 'Unknown')
+          ? named.toUpperCase()
+          : (hasAwsLevel
+                ? severityTitle.toUpperCase()
+                : switch (band) {
+                    HazardSeverityBand.info => 'INFO',
+                    HazardSeverityBand.monitor => 'MONITOR',
+                    HazardSeverityBand.action => 'ACTION',
+                    HazardSeverityBand.critical => 'CRITICAL',
+                  });
+      pillColor = isAws ? band.colorAws : band.colorNonAws;
     }
 
     final postedAt = hazard.createdAt;
@@ -852,16 +868,26 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       if (sourceName.isNotEmpty) sourceName,
       if (postedAt != null) 'Posted ${postedAt.timeAgo}',
     ].join(' · ');
-    final labelText = Text(
-      label,
-      style: TextStyle(
-        fontSize: 12.spMin,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.4,
-        color: labelInk,
+    final labelText = Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 10.spMin,
+        vertical: 5.spMin,
       ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+      decoration: BoxDecoration(
+        color: pillColor,
+        borderRadius: BorderRadius.circular(8.spMin),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12.spMin,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.5,
+          color: AlertCardStyle.inkOn(pillColor),
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
 
     return Row(
@@ -878,7 +904,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           size: 20.spMin,
         ),
         8.wSizedBox,
-        // The label is a short fixed word ("OFFICIAL", "EMERGENCY WARNING")
+        // The level pill is a short fixed word ("MONITOR", "EMERGENCY WARNING")
         // and is always shown whole; the source line takes the rest. A
         // flex split here gave the label a quarter of the row whatever
         // the source used, cutting "EMERGENCY WARNING" short.
@@ -1229,6 +1255,19 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           },
         ),
 
+        // The safety guide sits straight under What to do (owner review,
+        // 13 November 2026), so the next step is one tap from the advice.
+        Consumer(
+          builder: (context, ref, child) {
+            final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (hazard?.isUserReported ?? true) return const SizedBox.shrink();
+            return GuideStripCard(
+              categoryId: hazard?.category?.id,
+              level: hazard?.displayWarningLevel,
+            );
+          },
+        ),
+
         _buildFollowingAlertReason(),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
@@ -1262,13 +1301,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           },
         ),
 
-        Consumer(
-          builder: (context, ref, child) {
-            final hazard = ref.watch(provider.select((value) => value.hazard));
-            if (hazard?.isUserReported ?? true) return const SizedBox.shrink();
-            return GuideStripCard(categoryId: hazard?.category?.id);
-          },
-        ),
 
         _buildTellYourPeopleSection(),
 
