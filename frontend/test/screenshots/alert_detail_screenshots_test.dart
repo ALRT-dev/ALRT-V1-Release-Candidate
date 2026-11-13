@@ -231,7 +231,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('WHAT TO DO'), findsOneWidget);
       expect(
-        find.textContaining('Send to '),
+        find.text('Send alert'),
         noGroup ? findsNothing : findsOneWidget,
       );
       if (noGroup) {
@@ -248,7 +248,7 @@ void main() {
                 .getTopLeft(
                   noGroup
                       ? find.text('Share with a group')
-                      : find.textContaining('Send to '),
+                      : find.text('Send alert'),
                 )
                 .dy,
           ),
@@ -291,7 +291,7 @@ void main() {
       await tester.ensureVisible(
         noGroup
             ? find.text('Explore ALRT+ plans')
-            : find.textContaining('Send to '),
+            : find.text('Send alert'),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
