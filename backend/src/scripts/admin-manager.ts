@@ -209,7 +209,7 @@ async function listAdmins() {
       return;
     }
 
-    const roleOrder = { superAdmin: 1, admin: 2, moderator: 3 };
+    const roleOrder: Record<string, number> = { superAdmin: 1, admin: 2, moderator: 3, reviewer: 4 };
 
     // Group by role
     const groupedAdmins = admins.reduce(
@@ -225,7 +225,7 @@ async function listAdmins() {
     Object.entries(groupedAdmins)
       .sort(
         ([roleA], [roleB]) =>
-          roleOrder[roleA as AdminRole] - roleOrder[roleB as AdminRole],
+          (roleOrder[roleA] ?? 9) - (roleOrder[roleB] ?? 9),
       )
       .forEach(([role, roleAdmins]) => {
         console.log(`\n🛡️  ${role.toUpperCase()}S (${roleAdmins.length})`);

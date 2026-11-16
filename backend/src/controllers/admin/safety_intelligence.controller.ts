@@ -3,6 +3,7 @@ import z from "zod";
 import prisma from "../../utils/prisma_client.util.js";
 import { costFor } from "../../utils/ai_usage.util.js";
 import * as library from "../../services/guidance_library.service.js";
+import type { GuidanceFilters } from "../../services/guidance_library.service.js";
 import { runAssurance, acknowledgeReport } from "../../services/assurance.service.js";
 import { recordAdminAuditEntry } from "../../services/admin_audit_log.service.js";
 import { HttpError } from "../../models/http_error.js";
@@ -47,7 +48,7 @@ export const listGuidance = wrap((req) =>
     kind: z.enum(kinds).optional(), hazard: z.string().optional(), cohort: z.string().optional(),
     jurisdiction: z.string().optional(), status: z.enum(["draft", "in_review", "approved", "retired"]).optional(),
     q: z.string().max(100).optional(), page: z.coerce.number().int().min(1).optional(), pageSize: z.coerce.number().int().min(1).max(200).optional(),
-  }).parse(req.query)),
+  }).parse(req.query) as GuidanceFilters),
 );
 export const guidanceHistory = wrap((req) => library.guidanceHistory(String(req.params.key)));
 export const createGuidance = wrap(async (req) => { const r = await library.createDraft(guidanceBody.parse(req.body) as any, adminId(req)); library.clearGuidanceCache(); return r; });

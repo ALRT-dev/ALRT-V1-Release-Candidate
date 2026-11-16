@@ -738,7 +738,7 @@ export const summarizeAndPostHazards = async ({
           let summarized: Awaited<ReturnType<typeof summarizeHazard>>;
           let extraction: { extractionMethod: string; extractionRef: string };
           const traceExtraction = (aiCalls: number, failed = false) => describeExtraction({
-            aiCalls, failed, sourceId: hazardData.source?.id, templateVersion: templateRelease?.version,
+            aiCalls, failed, sourceId: hazardData.source?.id ?? null, templateVersion: templateRelease?.version ?? null,
             templateFirstSourceIds: TEMPLATE_FIRST_SOURCE_IDS, fixedTemplateSourceIds: FIXED_TEMPLATE_SOURCE_IDS,
           });
           try {

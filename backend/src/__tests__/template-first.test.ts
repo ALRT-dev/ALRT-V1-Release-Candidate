@@ -35,7 +35,7 @@ describe("template-first gate", () => {
     expect(isPlainTemplateCard({ ...ok, facts: ["A BUSHFIRE IS BURNING NEAR SMITHTON AND MOVING EAST.", "Crews are working to contain it."] })).toBe(false);
     expect(isPlainTemplateCard({ ...ok, facts: ["A bushfire is burning near Smithton."] })).toBe(false);
     expect(isPlainTemplateCard({ ...ok, officialActions: [], alrtSuggestions: ["One point only here."] })).toBe(false);
-    expect(isPlainTemplateCard({ ...ok, facts: [ok.facts[0], "x".repeat(260)] })).toBe(false);
+    expect(isPlainTemplateCard({ ...ok, facts: [ok.facts[0]!, "x".repeat(260)] })).toBe(false);
   });
 
   it("builds an agency card from the source text when it reads plainly", () => {
