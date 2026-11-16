@@ -174,7 +174,7 @@ for (const code of isoCountries) {
 }
 export function templateCountry(jurisdiction: string | null | undefined, source: {id: string; country?: string | null}): string | null {
   if (jurisdiction) return normaliseCountry(jurisdiction);
-  if (["smartraveller", "canadaGovTra", "earthquakeUsgs", "gdacsGlobal", "waqi"].includes(source.id)) return null;
+  if (["canadaGovTra", "earthquakeUsgs", "gdacsGlobal", "waqi"].includes(source.id)) return null;
   return normaliseCountry(source.country);
 }
 export function resolveTemplate(

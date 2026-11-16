@@ -1269,18 +1269,6 @@ export const initializeHazardSources = async (): Promise<void> => {
         },
       },
       {
-        id: ExternalSourceId.smartraveller,
-        name: "Smartraveller",
-        url: "https://www.smartraveller.gov.au",
-        copyrightText:
-          "Data sourced from official government feeds, © Commonwealth of Australia (DFAT).",
-        license: {
-          connect: {
-            badgeText: HazardSourceLicenseBadgeText.permission,
-          },
-        },
-      },
-      {
         id: ExternalSourceId.waDfes,
         name: "Department of Fire and Emergency Services WA",
         url: "https://emergency.wa.gov.au",
@@ -1370,7 +1358,6 @@ export const initializeHazardSources = async (): Promise<void> => {
       [ExternalSourceId.nswTransport]: "official",
       [ExternalSourceId.waqi]: "official",
       [ExternalSourceId.openMeteo]: "official",
-      [ExternalSourceId.smartraveller]: "official",
       [ExternalSourceId.earthquakeUsgs]: "official",
       [ExternalSourceId.qldTraffic]: "official",
       [ExternalSourceId.qldPark]: "official",

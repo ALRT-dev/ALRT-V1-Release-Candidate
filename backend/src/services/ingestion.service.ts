@@ -79,7 +79,6 @@ export enum ExternalSourceId {
   ntFireAndRescue = "ntFireAndRescue",
   waqi = "waqi",
   openMeteo = "openMeteo",
-  smartraveller = "smartraveller",
   waDfes = "waDfes",
   nswSes = "nswSes",
   earthquakeUsgs = "earthquakeUsgs",
@@ -323,41 +322,6 @@ export const syncHazardsFromDifferentSources = async ({
           });
         },
       },
-      // {
-      //   id: ExternalSourceId.smartraveller,
-      //   name: "Smartraveller",
-      //   url: "https://www.smartraveller.gov.au",
-      //   imageUrl:
-      //     "https://www.smartraveller.gov.au/themes/custom/smart_traveller/logo-main-st.png",
-      //   apiUrl: "https://www.smartraveller.gov.au/destinations-export",
-      //   parseFunction: (responseData: any) => {
-      //     const parentCategories =
-      //       availableCategories
-      //         ?.map((cat) => cat.parent)
-      //         ?.filter((cat) => cat !== null)
-      //         .reduce<HazardCategory[]>((acc, curr) => {
-      //           if (curr && !acc.find((c) => c.id === curr.id)) {
-      //             acc.push(curr);
-      //           }
-      //           return acc;
-      //         }, []) || [];
-
-      //     const securityAndCrimeCategory = parentCategories.find(
-      //       (cat: HazardCategory) => cat.id === MainCategoryId.securityAndCrime
-      //     );
-      //     if (!securityAndCrimeCategory) {
-      //       console.log(
-      //         "Security and Crime category not found, skipping Smartraveller hazards."
-      //       );
-      //       return [];
-      //     }
-
-      //     return parseSmartravellerToHazards({
-      //       data: responseData,
-      //       category: securityAndCrimeCategory,
-      //     });
-      //   },
-      // },
       {
         id: ExternalSourceId.waDfes,
         apiUrl: "https://api.emergency.wa.gov.au/v1/rss/warnings",
@@ -836,10 +800,6 @@ export const summarizeAndPostHazards = async ({
             expiresAt = getHazardExpiryDateFromSeverity(
               hazardData.severity || HazardSeverity.unknown,
             );
-          }
-          if (hazardData.source?.id === ExternalSourceId.smartraveller) {
-            // No expiry for smartraveller hazards
-            expiresAt = undefined;
           }
 
           // Prepare the hazard data with AI summary

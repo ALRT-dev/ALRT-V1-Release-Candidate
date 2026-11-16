@@ -13,7 +13,6 @@ import {
   getExtractLocationPrompt,
   getOfficialAlertReviewAndSummarizationPrompt,
   getSIExtractionPrompt,
-  getSmartravellerSourcePrompt,
   getUserReportedAlertReviewAndSummarizationPrompt,
 } from "../utils/ai-prompt.util.js";
 import { getAIPromptConfiguration } from "./configuration.service.js";
@@ -555,10 +554,6 @@ export enum DefaultAIPromptNames {
   airQualityAlertCategoryAction = "[ACTION] Air Quality Alert Category Summarization",
   airQualityAlertCategoryCritical = "[CRITICAL] Air Quality Alert Category Summarization",
 
-  smartravellerSourceInfo = "[INFO] Smartraveller Source Alert Summarization",
-  smartravellerSourceMonitor = "[MONITOR] Smartraveller Source Alert Summarization",
-  smartravellerSourceAction = "[ACTION] Smartraveller Source Alert Summarization",
-  smartravellerSourceCritical = "[CRITICAL] Smartraveller Source Alert Summarization",
 
   extractLocationPrompt = "Extract Location from Text",
 
@@ -590,11 +585,6 @@ export const initializeAIPrompts = async (): Promise<void> => {
         name: "Other",
         description:
           "Miscellaneous prompts that don't fit into other categories.",
-      },
-      {
-        name: "Smartraveller Alerts",
-        description:
-          "Prompts for processing and summarizing Smartraveller travel advisories.",
       },
       {
         name: "Air Quality Alerts",
@@ -640,9 +630,6 @@ export const initializeAIPrompts = async (): Promise<void> => {
     )!;
     const airQualityGroup = groups.find(
       (g) => g.name === "Air Quality Alerts"
-    )!;
-    const smartravellerGroup = groups.find(
-      (g) => g.name === "Smartraveller Alerts"
     )!;
     const otherGroup = groups.find((g) => g.name === "Other")!;
 
@@ -826,48 +813,6 @@ export const initializeAIPrompts = async (): Promise<void> => {
         model: "",
         createdBy: { connect: { id: superAdmin.id } },
         group: { connect: { id: airQualityGroup.id } },
-      },
-
-      // Smartraveller Source Summarization Prompts
-      {
-        name: DefaultAIPromptNames.smartravellerSourceInfo,
-        description:
-          "Used to interpret incoming alerts from Smartraveller, extract key details, and produce clear, actionable summaries, including a concise title, a short description, a factual summary, an appropriate call to action and a confidence level that help people understand the situation quickly.",
-        content: getSmartravellerSourcePrompt(HazardSeverityBand.info),
-        variables: [],
-        model: "",
-        createdBy: { connect: { id: superAdmin.id } },
-        group: { connect: { id: smartravellerGroup.id } },
-      },
-      {
-        name: DefaultAIPromptNames.smartravellerSourceMonitor,
-        description:
-          "Used to interpret incoming alerts from Smartraveller, extract key details, and produce clear, actionable summaries, including a concise title, a short description, a factual summary, an appropriate call to action and a confidence level that help people understand the situation quickly.",
-        content: getSmartravellerSourcePrompt(HazardSeverityBand.monitor),
-        variables: [],
-        model: "",
-        createdBy: { connect: { id: superAdmin.id } },
-        group: { connect: { id: smartravellerGroup.id } },
-      },
-      {
-        name: DefaultAIPromptNames.smartravellerSourceAction,
-        description:
-          "Used to interpret incoming alerts from Smartraveller, extract key details, and produce clear, actionable summaries, including a concise title, a short description, a factual summary, an appropriate call to action and a confidence level that help people understand the situation quickly.",
-        content: getSmartravellerSourcePrompt(HazardSeverityBand.action),
-        variables: [],
-        model: "",
-        createdBy: { connect: { id: superAdmin.id } },
-        group: { connect: { id: smartravellerGroup.id } },
-      },
-      {
-        name: DefaultAIPromptNames.smartravellerSourceCritical,
-        description:
-          "Used to interpret incoming alerts from Smartraveller, extract key details, and produce clear, actionable summaries, including a concise title, a short description, a factual summary, an appropriate call to action and a confidence level that help people understand the situation quickly.",
-        content: getSmartravellerSourcePrompt(HazardSeverityBand.critical),
-        variables: [],
-        model: "",
-        createdBy: { connect: { id: superAdmin.id } },
-        group: { connect: { id: smartravellerGroup.id } },
       },
 
       // Extract Location Prompt

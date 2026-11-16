@@ -213,6 +213,14 @@ TEST deployment is authorised in this conversation; production deployment is not
   Other agencies' air-quality warning text may use source extraction; never apply WAQI
   numeric thresholds to an unknown index. A new measurement scale requires an adapter.
 
+## Smartraveller retired (product owner, 16 November 2026)
+
+ALRT does not use Smartraveller content. Its source, parser, severity map,
+AI prompts and the two learn guides copied from it are removed; migration
+20261116000000_retire_smartraveller expires its live alerts (history kept),
+unpublishes those guides, deletes its four prompts and marks the source
+retired. Do not reintroduce a Smartraveller source, prompt or guide.
+
 ## Engineering conventions
 
 - `npx tsc --noEmit` must be clean before every push, except the

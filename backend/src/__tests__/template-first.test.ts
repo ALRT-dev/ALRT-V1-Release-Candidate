@@ -51,6 +51,6 @@ describe("template-first gate", () => {
 
   it("covers the Australian agency and transport feeds, not travel or USGS", () => {
     for (const id of ["bom", "cfs", "viceFire", "qldFire", "ntFireAndRescue", "actEs", "nswTransport", "qldTraffic", "qldPark"]) expect(TEMPLATE_FIRST_SOURCE_IDS.has(id)).toBe(true);
-    for (const id of ["smartraveller", "canadaGovTra", "earthquakeUsgs", "openMeteo"]) expect(TEMPLATE_FIRST_SOURCE_IDS.has(id)).toBe(false);
+    for (const id of ["canadaGovTra", "earthquakeUsgs", "openMeteo"]) expect(TEMPLATE_FIRST_SOURCE_IDS.has(id)).toBe(false);
   });
 });

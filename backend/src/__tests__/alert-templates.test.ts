@@ -156,8 +156,8 @@ describe("editable alert templates", () => {
     expect(normaliseCountry("Timor-Leste")).toBe("TL");
     expect(normaliseCountry("Congo - Kinshasa")).toBe("CD");
     expect(normaliseCountry("A place near Australia")).toBeNull();
-    expect(templateCountry(null, {id: "smartraveller", country: "AU"})).toBeNull();
-    expect(templateCountry("SA", {id: "smartraveller", country: "AU"})).toBe("SA");
+    expect(templateCountry(null, {id: "canadaGovTra", country: "AU"})).toBeNull();
+    expect(templateCountry("SA", {id: "canadaGovTra", country: "AU"})).toBe("SA");
   });
   it("uses editable whole phrases after official levels, with lifecycle rules first", () => {
     const settings = defaultTemplatePack().defaults;

@@ -23,11 +23,5 @@ export interface AIPromptConfiguration {
     actionPromptId: string;
     criticalPromptId: string;
   };
-  smartravellerSourcePromptId: {
-    infoPromptId: string;
-    monitorPromptId: string;
-    actionPromptId: string;
-    criticalPromptId: string;
-  };
   extractLocationPromptId: string;
 }
