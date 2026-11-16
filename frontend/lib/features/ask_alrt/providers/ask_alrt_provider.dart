@@ -1,16 +1,20 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hazard_app/api/endpoints.dart';
+import 'package:hazard_app/features/ask_alrt/models/ask_alrt_local_answers.dart';
 import 'package:hazard_app/features/ask_alrt/models/ask_alrt_message.dart';
 import 'package:hazard_app/features/ask_alrt/providers/states/ask_alrt_provider_state.dart';
-import 'package:hazard_app/api/endpoints.dart';
+import 'package:hazard_app/features/ask_alrt/utils/coarse_place.dart';
+import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/map/providers/map_provider.dart';
-import 'package:hazard_app/features/shared/providers/dio_instance_provider.dart';
-import 'package:hazard_app/features/shared/models/hazard_model.dart';
-import 'package:hazard_app/features/ask_alrt/models/ask_alrt_local_answers.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
+import 'package:hazard_app/features/shared/models/hazard_model.dart';
+import 'package:hazard_app/features/shared/providers/dio_instance_provider.dart';
 import 'package:hazard_app/features/shared/services/emergency_number.dart';
+import 'package:hazard_app/features/shared/services/sim_country.dart';
 
 final providerOfAskAlrt =
     NotifierProvider.autoDispose<AskAlrtProvider, AskAlrtProviderState>(
@@ -155,6 +159,9 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
           // The daily Ask ALRT allowance counts the person's LOCAL day
           // (master spec §14); the server validates and rate-limits changes.
           ..._dayZone,
+          // D1 (16 Nov 2026): the coarse place, so Ask ALRT answers for the
+          // right state or country. Country and state codes only.
+          ..._coarsePlace(),
         },
         options: Options(
           sendTimeout: const Duration(seconds: 30),
@@ -243,6 +250,24 @@ class AskAlrtProvider extends Notifier<AskAlrtProviderState> {
   ///
   /// The sheet is opened from the map rail, so [providerOfMap] is already
   /// alive underneath it and reading it is non-invasive.
+  Map<String, String> _coarsePlace() {
+    try {
+      final region = SimCountry.value ?? PlatformDispatcher.instance.locale.countryCode;
+      if (!ref.exists(providerOfLocation)) {
+        return CoarsePlace.fields(deviceCountry: region);
+      }
+      final location = ref.read(providerOfLocation);
+      return CoarsePlace.fields(
+        deviceCountry: region,
+        lat: location.location.latitude,
+        lng: location.location.longitude,
+        usingDeviceLocation: location.isUsingDeviceLocation,
+      );
+    } catch (_) {
+      return const {};
+    }
+  }
+
   List<Hazard> _gatherNearbyAlerts() {
     // Never build the map just to ask a question.
     if (!ref.exists(providerOfMap)) return const <Hazard>[];
