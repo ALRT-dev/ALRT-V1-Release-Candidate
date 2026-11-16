@@ -188,7 +188,7 @@ export const createAdminAccount = (input: {
   email: string;
   password: string;
   name?: string;
-  role: "superAdmin" | "admin" | "moderator";
+  role: "superAdmin" | "admin" | "moderator" | "reviewer";
 }) => apiPost<{ success: boolean; data: AdminAccountListItem; message: string }>(
   "/api/admin/users/create",
   input,

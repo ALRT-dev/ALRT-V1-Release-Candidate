@@ -251,7 +251,7 @@ export const SourcesPage = () => {
                   value={configDraft.lifecycleStatus ?? "active"}
                   onChange={(event) => setConfigDraft((current) => ({ ...current, lifecycleStatus: event.target.value as AdminHazardSource["lifecycleStatus"] }))}
                 >
-                  {(["active", "monitoring", "degraded", "suspended", "retired"] as const).map((status) => (
+                  {(["draft", "active", "monitoring", "degraded", "suspended", "retired"] as const).map((status) => (
                     <option key={status} value={status}>{status}</option>
                   ))}
                 </select>
