@@ -13,6 +13,7 @@
  *   still goes to the model, so a template is never a worse alert.
  */
 import { agencyExtractionFallback } from "./agency_extraction.util.js";
+import type { selectLibraryGuidance } from "./alert_templates.util.js";
 
 /** Sources tried with the code template before the model. */
 export const TEMPLATE_FIRST_SOURCE_IDS: ReadonlySet<string> = new Set([
@@ -90,7 +91,7 @@ export const buildUsgsEarthquakeContent = (options: {
   title: string;
   description: string;
   alrtSuggestions: string[];
-  profileGuidance: unknown[];
+  profileGuidance: ReturnType<typeof selectLibraryGuidance>["profileGuidance"];
   templateVersion: number;
 }) => {
   const place =
