@@ -126,4 +126,11 @@ export const requireAnyAdmin = requireAdminRole([
   AdminRole.superAdmin,
   AdminRole.admin,
   AdminRole.moderator,
+  "reviewer",
+]);
+/// Reviewers draft and review guidance; only admins approve (owner, 16 Nov 2026).
+export const requireReviewerOrAbove = requireAdminRole([
+  AdminRole.superAdmin,
+  AdminRole.admin,
+  "reviewer",
 ]);

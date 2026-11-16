@@ -159,15 +159,18 @@ Tests/drills/resolved incidents are Info. Source-authorised emergency phone word
 be retained only with an explicit source-specific exception. Otherwise use "your local
 emergency number" while preserving road, route, date and measurement numbers.
 
-ALRT safety advice follows the owner's direct conversation rule: practical,
-hazard-relevant reviewed-library fallback only when the agency provides no instructions.
-Do not top up agency advice, originate model-written advice, or auto-approve drafted
-library rows. The 9 November evening amendment in older saved notes conflicts with
-that direct instruction and is not the active rule. The target is 2 to 4 useful points
-where supported; preserve all essential agency instructions behind expansion rather
-than padding, deleting conditions or inventing facts to meet a count. No advice for
-test, cancellation or resolved alerts. For You matches reviewed hazard-specific rows
-against private local selections. Keep required artwork and native warning levels.
+ALRT safety advice (product owner, 9 November 2026 evening, RECONFIRMED by the owner on
+13 November 2026 after a conflicting fallback-only commit): What to do holds 2 to 4
+points. ALRT safety advice, written by the model under the contract or taken from the
+reviewed library, tops up agency advice when the agency gives fewer than two instructions
+(at most two extra points otherwise), carries NO "ALRT suggests:" prefix, and is labelled
+by the app as ALRT safety advice. ALRT never originates a leave/evacuate/shelter/stay/
+return direction and never carries a number; none on test, cancellation or resolved
+alerts. Source instructions the model missed are kept as written. The safety library is
+approved as drafted (owner, 13 November 2026). For You uses the reviewed on-device rows,
+with published rows replacing them group by group. Keep required artwork and native
+warning levels. Facts and agency instructions stay copy-only (complete source sentences
+and complete instruction paragraphs): the negation-safety fix of 13 November.
 Source instruction content and native-level-only updates must change sourceContentHash.
 TEST deployment is authorised in this conversation; production deployment is not.
 
@@ -209,6 +212,26 @@ TEST deployment is authorised in this conversation; production deployment is not
   `executePrompt`.
   Other agencies' air-quality warning text may use source extraction; never apply WAQI
   numeric thresholds to an unknown index. A new measurement scale requires an adapter.
+
+## Smartraveller retired (product owner, 16 November 2026)
+
+ALRT does not use Smartraveller content. Its source, parser, severity map,
+AI prompts and the two learn guides copied from it are removed; migration
+20261116000000_retire_smartraveller expires its live alerts (history kept),
+unpublishes those guides, deletes its four prompts and marks the source
+retired. Do not reintroduce a Smartraveller source, prompt or guide.
+
+## Safety intelligence (product owner decisions D1 to D8, 16 November 2026)
+
+- **One guidance library.** Alert advice, Safety Profile lines, Learn guide sections, Ask ALRT answers and country facts live in `GuidanceRecord` (one row per version). Draft, in review, approved, retired. Reviewers draft; only admin or super admin approve. Approving a version retires the one it replaces. Edit in admin (Guidance Library), never in code.
+- **Traceability.** Every record names `sourceAgency`, `sourceUrl` (the exact https page), `jurisdiction` (`AU`, `AU-WA`, `ID`, or `*`) and `version`. Approval is refused without a source link. Advice and profile lines reach alerts only through Alert Templates (Send approved lines, then publish), and carry `library <key> v<n>` in their reference.
+- **ALRT's own words** (advice, profile, answers) never contain leave, evacuate, shelter, stay or return directions, or any phone number other than an emergency number (`checkGuidance`). Agency-attributed guide sections only warn.
+- **Ask ALRT resolves the place first** (`ask_alrt/place.ts`): named place, then the alert, then trip, then the device's coarse country and state. A local-law question with no known place gets "Which state or country?" with no AI. The app sends country and state codes only, never coordinates. The 32 fixed place tests run in CI and in the daily assurance.
+- **AI usage log.** Every AI call writes an `AiUsageEvent` (purpose, model, tokens, ms), never the text. Each alert stores `extractionMethod` and `extractionRef`. Prompt edits bump `AIPrompt.version` and add an `AIPromptVersion` row. No savings figure is reported without this log.
+- **Licence gate.** A source moves to `active` only after its licence is confirmed (`licenceConfirmedAt`). New sources are created as `draft`, which ingests nothing, by poll or webhook. Already-active sources were not switched off; the daily check lists unconfirmed ones.
+- **New sources without new code.** Register the source with `adapterKey` (`cap_au`, `geojson`, `arcgis`) and `adapterConfig` (field mapping), preview it in admin, then n8n posts the raw feed to `POST /api/webhook/feeds/:sourceId`. Parsing is in `utils/feed_adapters.util.ts` and copies agency text, never rewrites it.
+- **Server-side Follow.** `HazardFollow`; a cron every 5 minutes pushes once when the agency's own level changes and once when the alert ends. ALRT's band never counts as a level.
+- **Daily assurance.** n8n calls `POST /api/webhook/assurance/run` at 6am Perth; rule checks plus an optional AI sample (`ASSURANCE_AI_SAMPLE=on`). Read-only. Report in admin (Daily Assurance).
 
 ## Engineering conventions
 

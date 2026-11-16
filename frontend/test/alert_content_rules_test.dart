@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 import 'package:hazard_app/features/profile/views/widgets/for_you_card.dart';
@@ -18,7 +19,7 @@ void main() {
     expect(find.textContaining('has not published'), findsNothing);
   });
   testWidgets(
-    'one agency instruction hides ALRT fallback, including persisted mixed records',
+    'one agency instruction is topped up with labelled ALRT safety advice (owner, 9 Nov 2026 evening)',
     (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -45,10 +46,9 @@ void main() {
       );
       expect(
         find.text('Consider reviewing your travel plans.'),
-        findsNothing,
+        findsOneWidget,
       );
-      expect(find.text('ALRT safety advice'), findsNothing);
-      expect(find.textContaining('ALRT safety advice is general guidance'), findsNothing);
+      expect(find.text('ALRT safety advice'), findsOneWidget);
       expect(find.text('Agency issued an incident.'), findsNothing);
       expect(find.text('A fourth fact.'), findsOneWidget);
       expect(find.text('A fifth fact.'), findsNothing);
@@ -73,4 +73,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Container), findsNothing);
   });
+  testWidgets(
+    'a published template with no profile rows still shows For You (owner, 13 Nov 2026)',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'safety_profile_cohorts': ['older'],
+      });
+      await tester.pumpWidget(
+        ProviderScope(
+          child: ScreenUtilInit(
+            designSize: const Size(375, 812),
+            builder: (_, __) => const MaterialApp(
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: ForYouCard(
+                    categoryName: 'Air Quality Alert',
+                    publishedRows: {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('FOR YOU'), findsOneWidget);
+    },
+  );
 }

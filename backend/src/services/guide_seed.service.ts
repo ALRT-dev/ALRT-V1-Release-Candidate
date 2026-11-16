@@ -18,7 +18,7 @@ type TopicSeed = {
   sortOrder: number;
 };
 
-type GuideSeed = {
+export type GuideSeed = {
   slug: string;
   topicSlug: string;
   title: string;
@@ -91,7 +91,7 @@ const topics: TopicSeed[] = [
   },
 ];
 
-const guides: GuideSeed[] = [
+export const guides: GuideSeed[] = [
   // --- Severe Weather & Flood ------------------------------------------------
   {
     slug: "flood-being-prepared",
@@ -1087,124 +1087,6 @@ const guides: GuideSeed[] = [
 
   // --- Travel Safety ------------------------------------------------------------
   {
-    slug: "travel-advisories",
-    topicSlug: "travel-safety",
-    title: "Travel advisories",
-    summary:
-      "Using Smartraveller advice levels to plan safer trips overseas.",
-    sortOrder: 0,
-    sourceName: "Smartraveller (DFAT)",
-    sourceUrl: "https://www.smartraveller.gov.au",
-    categoryKeywords: ["travel", "community"],
-    sections: {
-      before: [
-        {
-          title: "Check the advice level",
-          body: "Smartraveller rates destinations across four levels, from \"exercise normal safety precautions\" to \"do not travel\". Consider checking your destination before booking and again before departing.",
-        },
-        {
-          title: "Subscribe to updates",
-          body: "Smartraveller suggests subscribing to updates for your destinations, so you hear about changes to safety, security and entry requirements.",
-        },
-        {
-          title: "Arrange insurance",
-          body: "DFAT's consistent message is that if you can't afford travel insurance, you can't afford to travel. Consider checking your policy covers your destination and activities.",
-        },
-        {
-          title: "Share your itinerary",
-          body: "Consider leaving a copy of your itinerary and passport details with someone at home, and carrying emergency contacts separately from your phone.",
-        },
-      ],
-      during: [
-        {
-          title: "Stay across local conditions",
-          body: "Conditions can change quickly abroad. Consider re-checking Smartraveller and local news during your trip, particularly around elections, unrest or severe weather.",
-        },
-        {
-          title: "Respect local laws",
-          body: "Smartraveller notes that you are subject to local laws overseas, and penalties can be severe for things legal in Australia. Consider researching local laws and customs before you go.",
-        },
-        {
-          title: "Know where help is",
-          body: "Consider noting the nearest Australian embassy or consulate, and the Consular Emergency Centre (+61 2 6261 3305), available 24/7 for Australians overseas.",
-        },
-      ],
-      after: [
-        {
-          title: "Review your documents",
-          body: "After travel, consider checking your passport validity for future trips; many countries require six months beyond your travel dates.",
-        },
-        {
-          title: "Watch your health",
-          body: "If you become unwell after travelling, consider seeing a GP and mentioning where you have been, as some travel illnesses appear weeks later.",
-        },
-        {
-          title: "Report issues",
-          body: "If you experienced serious problems abroad, consider reporting them to Smartraveller or the relevant authorities to help other travellers.",
-        },
-      ],
-    },
-  },
-  {
-    slug: "natural-disasters-overseas",
-    topicSlug: "travel-safety",
-    title: "Natural disasters overseas",
-    summary:
-      "What Smartraveller suggests if a disaster strikes while you are travelling.",
-    sortOrder: 1,
-    sourceName: "Smartraveller (DFAT)",
-    sourceUrl: "https://www.smartraveller.gov.au",
-    categoryKeywords: ["travel", "community"],
-    sections: {
-      before: [
-        {
-          title: "Research seasonal risks",
-          body: "Many destinations have cyclone, monsoon or wildfire seasons. Smartraveller suggests researching seasonal hazards for your destination and timing.",
-        },
-        {
-          title: "Check your insurance for disasters",
-          body: "Consider confirming whether your policy covers natural disasters and what it requires, as cover can change once an event is officially forecast.",
-        },
-        {
-          title: "Learn local warning systems",
-          body: "Consider finding out how local authorities issue warnings at your destination, such as sirens, SMS alerts or apps, and how you would receive them.",
-        },
-      ],
-      during: [
-        {
-          title: "Follow local authorities",
-          body: "In a disaster overseas, Smartraveller advises following the instructions of local authorities and your accommodation, as they know local conditions best.",
-        },
-        {
-          title: "Let people know you are safe",
-          body: "Consider contacting family early, as networks may fail later. If you cannot reach them, the DFAT Consular Emergency Centre can be a point of contact.",
-        },
-        {
-          title: "Keep documents with you",
-          body: "Consider keeping your passport, insurance details and some cash in a waterproof bag if you may need to move quickly.",
-        },
-        {
-          title: "Contact consular services if needed",
-          body: "Australians in difficulty overseas can contact the Consular Emergency Centre on +61 2 6261 3305 at any time.",
-        },
-      ],
-      after: [
-        {
-          title: "Follow recovery instructions",
-          body: "Consider following local guidance about returning to affected areas, water safety and disease risks after a disaster.",
-        },
-        {
-          title: "Contact your airline and insurer",
-          body: "Consider contacting your airline about disrupted flights and notifying your insurer as early as possible, keeping receipts for extra expenses.",
-        },
-        {
-          title: "Check in with Smartraveller",
-          body: "Advice levels often change after disasters. Consider re-checking Smartraveller before continuing your trip or booking new travel in the region.",
-        },
-      ],
-    },
-  },
-  {
     slug: "emergency-kit-essentials",
     topicSlug: "travel-safety",
     title: "Emergency kit essentials",
@@ -1347,6 +1229,10 @@ export const seedSafetyGuides = async (): Promise<void> => {
       isPublished: true,
     };
 
+    // A guide published from the guidance library (its source note carries
+    // "[library") is owned by the library now: the seed never overwrites it.
+    const current = await prisma.safetyGuide.findUnique({ where: { slug: guide.slug }, select: { sourceNote: true, isPublished: true } });
+    if (current?.sourceNote?.includes("[library")) continue;
     await prisma.safetyGuide.upsert({
       where: { slug: guide.slug },
       update: data,

@@ -28,7 +28,6 @@ import {
   getSeverityBandFromAWSCompliantSeverity,
   getSeverityBandFromDescription,
   getSeverityBandFromPollenCount,
-  getSeverityBandFromSmartravellerLevel,
   getSeverityBandFromUVIndex,
   getSeverityFromDescription,
   isInfoOverride,
@@ -1993,119 +1992,6 @@ export function parseNTFireAndRescueToHazards({
         hazard: HazardDataWithRelations | null,
       ): hazard is HazardDataWithRelations => hazard !== null,
     );
-}
-
-/**
- * Converts Smart Traveller travel advice data into an array of Hazard objects
- *
- * @param data - Array of travel advisories from Smart Traveller API
- * @param availableCategories - The list of available hazard categories to match against
- * @returns Array of HazardDataWithRelations objects ready for database insertion
- *
- * @example
- * ```typescript
- * const smartTravellerData = [
- *   {
- *     "title": "Afghanistan",
- *     "field_overall_advice_level": "Do not travel",
- *     "field_last_update": "Do not travel to Afghanistan...",
- *     "field_last_update_notes": "We continue to advise...",
- *     "field_region": "Asia",
- *     "field_advice_levels": "Do not travel to Afghanistan...",
- *     "field_url": "https://www.smartraveller.gov.au/destinations/asia/afghanistan",
- *     "changed": "Fri, 2025-11-14 14:22"
- *   }
- * ];
- * const hazards = parseSmartravellerToHazards(smartTravellerData, availableCategories);
- * ```
- */
-export function parseSmartravellerToHazards({
-  data,
-  category,
-}: {
-  data: Array<{
-    title: string;
-    field_overall_advice_level: string;
-    field_last_update: string;
-    field_last_update_notes?: string;
-    field_region?: string;
-    field_advice_levels?: string;
-    field_url?: string;
-    field_seo_title?: string;
-    field_seo_description?: string;
-    changed?: string;
-  }>;
-  category: HazardCategory;
-}): HazardDataWithRelations[] {
-  if (!Array.isArray(data) || !data.length) return [];
-
-  const hazards: HazardDataWithRelations[] = [];
-
-  for (const advisory of data) {
-    const country = advisory.title;
-    const adviceLevel = advisory.field_overall_advice_level;
-
-    // Skip if no advice level (shouldn't happen, but just in case)
-    if (!adviceLevel) continue;
-
-    // Build comprehensive description
-    const descriptionParts: string[] = [];
-
-    descriptionParts.push(`Country: ${country}`);
-    descriptionParts.push(`Travel Advice Level: ${adviceLevel}`);
-
-    // Add the main advisory text
-    if (advisory.field_last_update) {
-      descriptionParts.push(`\n${advisory.field_last_update}`);
-    }
-    if (advisory.field_last_update_notes) descriptionParts.push(cleanDescription(advisory.field_last_update_notes));
-    if (advisory.field_advice_levels) descriptionParts.push(cleanDescription(advisory.field_advice_levels));
-
-    const description = descriptionParts
-      .join("\n\n")
-      .replace(/&[a-z]+;/gi, " ")
-      .replace(/\*\*/g, "")
-      .replace(/ +/g, " ")
-      .trim();
-
-    // Create a standardized title
-    const hazardTitle =
-      advisory.field_seo_title ||
-      `${country} - Travel Advisory: ${adviceLevel}`;
-
-    // Determine severity band from advice level
-    const severityBand = getSeverityBandFromSmartravellerLevel(adviceLevel);
-
-    const callsToAction = [advisory.field_last_update_notes, advisory.field_advice_levels].map(cleanDescription).filter(Boolean);
-
-    // Parse the last updated date
-    const occurredAt = advisory.changed
-      ? parseValidDate(advisory.changed)
-      : undefined;
-
-    // Create hazard with location name
-    const hazard: HazardDataWithRelations = {
-      id: `${ExternalSourceId.smartraveller}-${country
-        .toLowerCase()
-        .replace(/\s+/g, "-")}`,
-      title: hazardTitle,
-      description,
-      nativeWarningLevel: adviceLevel,
-      jurisdictionCountry: normaliseCountry(country),
-      sourceInstructionBlocks: callsToAction,
-      severityBand,
-      category,
-      ...(callsToAction && callsToAction.length > 0 && { callsToAction }),
-      isAwsCompliant: false, // Travel advisories are not AWS compliant
-      locationName: country,
-      ...(advisory.field_url && { link: advisory.field_url }),
-      ...(occurredAt && { occurredAt }),
-    };
-
-    hazards.push(hazard);
-  }
-
-  return hazards;
 }
 
 /**

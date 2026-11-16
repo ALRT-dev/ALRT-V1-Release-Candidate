@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { createHazardViaWebhook } from "../controllers/webhook.controller.js";
+import { createHazardViaWebhook, ingestFeedViaWebhook } from "../controllers/webhook.controller.js";
+import express from "express";
 import { getWebhookCategories } from "../controllers/integration_catalog.controller.js";
 import {
   requireWebhookAuth,
@@ -47,6 +48,47 @@ router.post(
   webhookDailyQuota, // Uses per-key maxRequestsPerDay
   validate(createHazardsWebhookBodySchema), // Input validation
   createHazardViaWebhook // Controller
+);
+
+/**
+ * @route   POST /api/webhook/feeds/:sourceId
+ * @desc    Raw feed from n8n, parsed by the source's registered adapter
+ *          (cap_au, geojson, arcgis). Same validation and display path as
+ *          /hazards. Draft sources are refused.
+ * @access  Webhook (X-Webhook-Api-Key)
+ */
+router.post(
+  "/feeds/:sourceId",
+  express.text({ type: "*/*", limit: "6mb" }),
+  requireWebhookAuth,
+  webhookBurstProtection,
+  webhookRateLimiter,
+  webhookSpeedLimiter,
+  webhookDailyQuota,
+  ingestFeedViaWebhook,
+);
+
+/**
+ * @route   POST /api/webhook/assurance/run
+ * @desc    Daily assurance run for the n8n workflow (owner decision D3).
+ *          Read-only: returns the checks and a plain-text report; n8n emails
+ *          the owner only when notify is true.
+ * @access  Webhook (X-Webhook-Api-Key)
+ */
+router.post(
+  "/assurance/run",
+  requireWebhookAuth,
+  webhookBurstProtection,
+  webhookRateLimiter,
+  webhookDailyQuota,
+  async (_req, res, next) => {
+    try {
+      const { runAssurance } = await import("../services/assurance.service.js");
+      res.status(200).json(await runAssurance({ trigger: "n8n" }));
+    } catch (e) {
+      next(e);
+    }
+  },
 );
 
 export default router;

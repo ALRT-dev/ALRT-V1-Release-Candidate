@@ -209,6 +209,11 @@ const processSingleHazard = async (
   if (!source) {
     throw new HttpError(400, `Invalid sourceId provided: ${sourceId}`);
   }
+  // A draft source's licence is not confirmed yet and a retired source is
+  // switched off: neither may create alerts (owner, 16 Nov 2026).
+  if (["draft", "retired"].includes(String(source.lifecycleStatus))) {
+    throw new HttpError(409, `Source ${sourceId} is ${source.lifecycleStatus}: switch it on in Sources first.`);
+  }
 
   // Step 3: Validate location
   if ((latitude === undefined || longitude === undefined) && !locationName) {
@@ -269,4 +274,49 @@ const processSingleHazard = async (
     ...hazardDataWithRelations,
     id: id || generateHazardId(hazardDataWithRelations),
   };
+};
+
+/**
+ * POST /api/webhook/feeds/:sourceId — n8n posts a source's RAW feed (CAP-AU
+ * XML, GeoJSON or ArcGIS JSON); ALRT parses it with the adapter and mapping
+ * registered on the source (Sources page), then runs exactly the same path
+ * as /api/webhook/hazards. Cancelled CAP alerts are expired.
+ */
+export const ingestFeedViaWebhook = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sourceId = String(req.params.sourceId ?? "");
+    const source = await prisma.hazardSource.findUnique({ where: { id: sourceId } });
+    if (!source) throw new HttpError(404, `No source ${sourceId}.`);
+    const adapter = (source as { adapterKey?: string | null }).adapterKey;
+    if (!adapter) throw new HttpError(400, `Source ${sourceId} has no adapter set.`);
+    if (source.lifecycleStatus !== "active")
+      throw new HttpError(409, `Source ${sourceId} is ${source.lifecycleStatus}: nothing was ingested.`);
+    const raw = typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? "");
+    const { runAdapter } = await import("../utils/feed_adapters.util.js");
+    let parsed;
+    try {
+      parsed = runAdapter(adapter, raw, sourceId, (source as { adapterConfig?: unknown }).adapterConfig ?? {});
+    } catch (e) {
+      await prisma.hazardSource.update({ where: { id: sourceId }, data: { lastHealthCheck: new Date(), lastHealthError: (e as Error).message.slice(0, 500) } as any });
+      throw new HttpError(422, `Could not read the feed: ${(e as Error).message}`);
+    }
+    const scoped = (id: string) => `${sourceId}:${id}`.slice(0, 100);
+    if (parsed.cancelledIds.length) {
+      await prisma.hazard.updateMany({
+        where: { sourceId, id: { in: parsed.cancelledIds.map(scoped) }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        data: { expiresAt: new Date() },
+      });
+    }
+    await prisma.hazardSource.update({ where: { id: sourceId }, data: { lastHealthCheck: new Date(), lastSuccessfulFetch: new Date(), lastHealthError: null } as any });
+    if (!parsed.hazards.length) {
+      return res.status(200).json({ success: true, count: 0, skipped: parsed.skipped.length, cancelled: parsed.cancelledIds.length });
+    }
+    req.body = {
+      hazards: parsed.hazards.map((h) => ({ ...h, id: scoped(h.id) })),
+      syncOption: "ignoreExisting",
+    };
+    return createHazardViaWebhook(req, res, next);
+  } catch (error) {
+    next(error);
+  }
 };

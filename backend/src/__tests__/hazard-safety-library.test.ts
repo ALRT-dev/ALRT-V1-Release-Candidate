@@ -15,12 +15,11 @@ describe("ALRT hazard safety library", () => {
       expect(text).not.toMatch(/\b(leave|evacuat\w*|shelter\w*|stay\s+(?:home|indoors|inside)|return\w*|relocat\w*)\b/i);
     }
   });
-  it("does not select draft safety rows at any level", () => {
-    const pack = defaultTemplatePack();
-    for (const categoryId of ["bushfire", "smoke", "earthquake", "crash", "powerOutage"])
-      for (const band of ["info", "monitor", "action", "critical"] as const) {
-        const selected = selectLibraryGuidance(pack, { categoryId, country: "AU", band });
-        expect(selected.alrtSuggestions).toEqual([]);
-      }
+  it("selects approved safety rows for every main hazard (owner, 13 November 2026)", () => {
+    const pack = { ...defaultTemplatePack(), library: hazardSafetyLibrary() };
+    for (const categoryId of ["bushfire", "smoke", "earthquake", "crash", "powerOutage"]) {
+      const selected = selectLibraryGuidance(pack, { categoryId, country: "AU", band: "action" });
+      expect(selected.alrtSuggestions.length).toBeGreaterThan(0);
+    }
   });
 });

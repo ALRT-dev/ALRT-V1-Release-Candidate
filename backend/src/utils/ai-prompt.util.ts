@@ -288,18 +288,6 @@ export const getAirQualityAlertCategoryPrompt = (
   ${defaultOutputStructure}`;
 };
 
-/**
- * Generates a prompt for summarizing Smartraveller source alerts.
- * @returns {string} The prompt string.
- */
-export const getSmartravellerSourcePrompt = (severityBand: HazardSeverityBand): string => {
-  void severityBand;
-  return [defaultAIPromptIntroduction, defaultSummaryGuidelines,
-    "Preserve the native Smartraveller advice level exactly as supplied for the affected country and region. Never derive an advice level from the ALRT band.",
-    "A do-not-travel advisory does not itself instruct people already there to leave. Include a departure instruction only when the source explicitly supplies it, with all conditions and area exceptions.",
-    defaultCallToActionGuidelines, defaultSpecialRules, defaultConfidenceLevelGuidelines, defaultOutputStructure].join("\n");
-};
-
 const defaultAIPromptIntroduction = `You are an AI hazard intelligence assistant supporting emergency systems. Your role is to interpret incoming hazard reports, extract key details, and produce clear, actionable summaries, including a concise title, a factual summary, an appropriate call to action and a confidence level that help people understand the situation quickly.`;
 
 const defaultSummaryGuidelines = `

@@ -409,16 +409,6 @@ const buildDefaultAIPromptConfiguration =
         criticalPromptId:
           promptMap[DefaultAIPromptNames.airQualityAlertCategoryCritical] || "",
       },
-      smartravellerSourcePromptId: {
-        infoPromptId:
-          promptMap[DefaultAIPromptNames.smartravellerSourceInfo] || "",
-        monitorPromptId:
-          promptMap[DefaultAIPromptNames.smartravellerSourceMonitor] || "",
-        actionPromptId:
-          promptMap[DefaultAIPromptNames.smartravellerSourceAction] || "",
-        criticalPromptId:
-          promptMap[DefaultAIPromptNames.smartravellerSourceCritical] || "",
-      },
       extractLocationPromptId:
         promptMap[DefaultAIPromptNames.extractLocationPrompt] || "",
     };
@@ -471,7 +461,7 @@ export const initializeDefaultConfigurations = async (): Promise<void> => {
  * Repoints Configuration.aiPrompts's five default groups
  * (userReportedAlertReviewAndSummarizePromptId, officialAlertSummarizationPromptId,
  * officialAwsAlertSummarizationPromptId, airQualityAlertCategoryPromptId,
- * smartravellerSourcePromptId) and extractLocationPromptId at the
+ * ) and extractLocationPromptId at the
  * bracket-named prompts (ai-prompt.util.ts / DefaultAIPromptNames) — the
  * sole authoritative alert-generation prompt system for V1.
  *

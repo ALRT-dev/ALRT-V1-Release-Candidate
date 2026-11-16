@@ -658,6 +658,7 @@ abstract class RestClient {
   @GET(kUrlGuideForCategory)
   Future<HttpResponse<dynamic>> getGuideForCategory({
     @Path() required final String categoryId,
+    @Query('level') final String? level,
   });
 
   // ---------------------------- READY (Plan & Drill) ----------------------------

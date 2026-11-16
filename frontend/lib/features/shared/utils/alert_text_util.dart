@@ -51,6 +51,95 @@ abstract final class AlertTextUtil {
     return points;
   }
 
+  /// One alert display (owner review, 13 November 2026). An official alert
+  /// stored without structured content (older records, or written while no
+  /// Alert Templates snapshot was published) is turned into the same
+  /// content map the structured card reads, so every official alert shows
+  /// the same sections in the same order:
+  /// - What we know: the issued line, then the source's own facts, or the
+  ///   plain summary when the source gives fewer than two.
+  /// - What to do: the agency's own lines ("X advises: ..."), then ALRT
+  ///   reviewed lines from the on-device library, only when the agency
+  ///   gave fewer than two, and never a leave, evacuate, shelter, stay or
+  ///   return direction (9 November 2026 rule).
+  static Map<String, dynamic> legacyDisplayContent({
+    required final String? description,
+    final String? aiSummary,
+    final List<String>? callsToAction,
+    final String? nativeLevel,
+    final String? issuedLine,
+    final String? hazardBucket,
+  }) {
+    final facts = <String>[
+      if (issuedLine != null && issuedLine.trim().isNotEmpty) issuedLine.trim(),
+    ];
+    for (final point in whatWeKnowAllPoints(description)) {
+      if (facts.length >= 4) break;
+      if (!facts.contains(point)) facts.add(point);
+    }
+    if (facts.length < 2 && aiSummary != null) {
+      for (final point in _summaryPoints(aiSummary)) {
+        if (facts.length >= 4) break;
+        if (!facts.contains(point)) facts.add(point);
+      }
+    }
+
+    final official = <String>[];
+    final alrt = <String>[];
+    String? agency;
+    for (final raw in callsToAction ?? const <String>[]) {
+      final line = raw.trim();
+      if (line.isEmpty || _pipelineFiller.hasMatch(line)) continue;
+      final lead = _agencyLead.firstMatch(line);
+      if (lead != null) {
+        agency ??= lead.group(1)?.trim();
+        official.add(line.substring(lead.end).trim());
+      }
+      // Unprefixed lines on older records were written under earlier rules
+      // and never reviewed, so they are not shown (as before); ALRT advice
+      // here comes only from the reviewed on-device list below.
+    }
+    if (official.length + alrt.length < 2) {
+      for (final row in AlertGuidanceLibrary.considerRows(hazardBucket)) {
+        if (official.length + alrt.length >= 2) break;
+        if (_movementWord.hasMatch(row) || alrt.contains(row)) continue;
+        alrt.add(row);
+      }
+    }
+
+    return {
+      'schemaVersion': 1,
+      'facts': facts,
+      'affectedAreas': const <String>[],
+      'nativeLevel': nativeLevel,
+      'officialActions': official,
+      'alrtSuggestions': alrt,
+      if (agency != null && agency.isNotEmpty) 'issuingAgency': agency,
+      if (description != null) 'sourceDescription': description,
+      'extractionMethod': 'legacy-display',
+    };
+  }
+
+  static final RegExp _agencyLead = RegExp(
+    r'^(.{1,60}?) advises:\s*',
+    caseSensitive: false,
+  );
+  static final RegExp _pipelineFiller = RegExp(
+    r'^\s*(if you are (near|in|around) (the|this) area,?\s*)?be ready to follow\b.*instructions\.?\s*$',
+    caseSensitive: false,
+  );
+  static final RegExp _movementWord = RegExp(
+    r'\b(leave|leaving|evacuat\w*|shelter\w*|stay|return\w*|go to)\b',
+    caseSensitive: false,
+  );
+  static final RegExp _fieldLine = RegExp(r"^[A-Za-z][A-Za-z /&()'-]{1,30}:\s");
+
+  static List<String> _summaryPoints(final String summary) => summary
+      .split(RegExp(r'\n+|(?<=[.!?])\s+(?=[A-Z])'))
+      .map((line) => line.replaceFirst(_bullet, '').trim())
+      .where((line) => line.length >= 15 && !_fieldLine.hasMatch(line))
+      .toList();
+
   /// The first "WHAT WE KNOW" line for an official alert: who issued it and
   /// what kind of incident it is, at which place. e.g. "DFES has issued a
   /// bushfire incident at Toodyay." Falls back to a plain agency line when

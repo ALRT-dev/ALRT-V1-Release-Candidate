@@ -197,7 +197,7 @@ void main() {
               hazard.id!,
             ).overrideWith((ref) => FixtureAlertProvider(ref, hazard)),
             providerOfGuideForCategory(
-              category,
+              guideForCategoryKey(category, hazard.displayWarningLevel),
             ).overrideWith((ref) async => null),
             providerOfFamily.overrideWith(
               (ref) => FamilyProvider(
@@ -231,7 +231,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('WHAT TO DO'), findsOneWidget);
       expect(
-        find.text('Send alert to group'),
+        find.text('Send alert'),
         noGroup ? findsNothing : findsOneWidget,
       );
       if (noGroup) {
@@ -246,9 +246,9 @@ void main() {
           greaterThan(
             tester
                 .getTopLeft(
-                  find.text(
-                    noGroup ? 'Share with a group' : 'Send alert to group',
-                  ),
+                  noGroup
+                      ? find.text('Share with a group')
+                      : find.text('Send alert'),
                 )
                 .dy,
           ),
@@ -289,7 +289,9 @@ void main() {
         matchesGoldenFile('goldens/alert-$kind-phone-top.png'),
       );
       await tester.ensureVisible(
-        find.text(noGroup ? 'Explore ALRT+ plans' : 'Send alert to group'),
+        noGroup
+            ? find.text('Explore ALRT+ plans')
+            : find.text('Send alert'),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

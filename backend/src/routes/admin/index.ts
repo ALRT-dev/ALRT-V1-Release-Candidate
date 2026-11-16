@@ -11,6 +11,7 @@ import adminStatsRouter from "./stats.route.js";
 import adminAskAlrtRouter from "./ask_alrt.route.js";
 import adminAuditLogRouter from "./audit_log.route.js";
 import alertTemplatesRouter from './alert_templates.route.js';
+import safetyIntelligenceRouter from './safety_intelligence.route.js';
 
 const adminRouter = Router();
 
@@ -26,5 +27,6 @@ adminRouter.use('/alert-templates',alertTemplatesRouter);
 adminRouter.use("/configurations", adminConfigurationRouter);
 adminRouter.use("/webhook-api-keys", adminWebhookApiKeyRouter);
 adminRouter.use("/audit-log", adminAuditLogRouter);
+adminRouter.use("/safety-intelligence", safetyIntelligenceRouter);
 
 export default adminRouter;

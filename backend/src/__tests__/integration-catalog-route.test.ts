@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 const guards=vi.hoisted(()=>({requireWebhookAuth:vi.fn(),webhookBurstProtection:vi.fn(),webhookRateLimiter:vi.fn(),webhookSpeedLimiter:vi.fn(),webhookDailyQuota:vi.fn()}));
 vi.mock('../middlewares/webhook.middleware.js',()=>guards);
-vi.mock('../controllers/webhook.controller.js',()=>({createHazardViaWebhook:vi.fn()}));
+vi.mock('../controllers/webhook.controller.js',()=>({createHazardViaWebhook:vi.fn(),ingestFeedViaWebhook:vi.fn()}));
 vi.mock('../controllers/integration_catalog.controller.js',()=>({getWebhookCategories:vi.fn()}));
 vi.mock('../middlewares/validation.middleware.js',()=>({validate:()=>vi.fn()}));
 vi.mock('../validators/webhook.validator.js',()=>({createHazardsWebhookBodySchema:{}}));

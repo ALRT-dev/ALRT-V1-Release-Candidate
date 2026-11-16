@@ -38,16 +38,16 @@ Validation: backend 228 tests across 28 files; 33 focused Flutter checks includi
 
 ## Release reconciliation, 13 November 2026
 
-The evening amendment above came from the incoming branch. It conflicts with the
-owner's direct instructions in the active conversation: ALRT is a reviewed-library
-fallback only when no agency instructions exist. The direct instruction controls.
+The owner was asked directly on 13 November 2026 which advice rule is current and
+chose the 9 November evening top-up rule above, with the safety library approved as
+drafted. The fallback-only rule recorded here earlier that day is superseded; the
+copy-only extraction below stays.
 The merge preserves warning levels, source adapters, original-source disclosure,
-sharing and reviewable draft library rows. It disables generated model advice and
-supplementary ALRT advice alongside agency instructions, including old mixed records.
+sharing and reviewable draft library rows. ALRT safety advice tops up thin agency advice under the 2 to 4 rule.
 
 Validation reproduced reversed source negation and dropped instruction clauses under
 word-overlap grounding. Facts therefore select complete clear source sentences/lines;
 agency instructions retain complete source paragraphs, conditions and lead-ins.
-Structured source adapters still produce readable facts and attribution. Draft safety
-rows remain unapproved with no review date until their wording and source are reviewed.
+Structured source adapters still produce readable facts and attribution. Safety
+rows are approved as drafted (owner, 13 November 2026) and stay editable in Alert Templates.
 No claim of universal practical-advice or selected-profile coverage is made.

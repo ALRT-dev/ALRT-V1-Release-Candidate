@@ -23,6 +23,7 @@ abstract class LearnRepository {
   /// Resolves to `Success(null)` when no guide is linked to the category.
   Future<Either<GuideForCategory?, AppError>> getGuideForCategory({
     required final String categoryId,
+    final String? level,
   });
 }
 
@@ -80,12 +81,14 @@ class LearnRepositoryImpl implements LearnRepository {
   @override
   Future<Either<GuideForCategory?, AppError>> getGuideForCategory({
     required final String categoryId,
+    final String? level,
   }) {
     return runAsyncCall(
       name: 'getGuideForCategory',
       future: () async {
         final response = await _restClient.getGuideForCategory(
           categoryId: categoryId,
+          level: level,
         );
 
         final data = response.data;
