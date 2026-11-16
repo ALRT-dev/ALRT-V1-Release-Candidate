@@ -18,7 +18,7 @@ type TopicSeed = {
   sortOrder: number;
 };
 
-type GuideSeed = {
+export type GuideSeed = {
   slug: string;
   topicSlug: string;
   title: string;
@@ -91,7 +91,7 @@ const topics: TopicSeed[] = [
   },
 ];
 
-const guides: GuideSeed[] = [
+export const guides: GuideSeed[] = [
   // --- Severe Weather & Flood ------------------------------------------------
   {
     slug: "flood-being-prepared",

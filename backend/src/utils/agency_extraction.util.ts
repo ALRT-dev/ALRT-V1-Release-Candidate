@@ -145,7 +145,7 @@ function groundedIn(text: string, evidence: string): boolean {
   return words.filter(w => available.has(w)).length / words.length >= 0.5;
 }
 /** Physical-movement directions ALRT may only repeat, never originate. */
-const MOVEMENT_WORD = /\b(leave|leaving|evacuat\w*|shelter\w*|stay\s+(?:home|indoors|inside|put|where)|return\w*|relocat\w*|go\s+to|move\s+to|head\s+to)\b/i;
+export const MOVEMENT_WORD = /\b(leave|leaving|evacuat\w*|shelter\w*|stay\s+(?:home|indoors|inside|put|where)|return\w*|relocat\w*|go\s+to|move\s+to|head\s+to)\b/i;
 const NON_ACTIVE_TYPES = new Set(["cancellation", "resolved", "test"]);
 
 export function parseAgencyExtraction(

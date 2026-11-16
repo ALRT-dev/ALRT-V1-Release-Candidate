@@ -1,4 +1,6 @@
 import { withSourceHistory } from '../utils/source_history.util.js';
+import { withAiTracking, describeExtraction, FIXED_TEMPLATE_SOURCE_IDS } from "../utils/ai_usage.util.js";
+import { TEMPLATE_FIRST_SOURCE_IDS } from "../utils/template_first.util.js";
 import {CFS_CAP_URL,fetchCFSCap,readCFSCapCancellations} from '../utils/cfs_cap.util.js';
 import {
   HazardReviewStatus,
@@ -33,7 +35,7 @@ import {
 import * as crypto from "crypto";
 import prisma from "../utils/prisma_client.util.js";
 import { getTemplateRegistry, type TemplateRelease } from './alert_templates.service.js';
-import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
+import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry, templateRegion } from '../utils/alert_templates.util.js';
 import { agencyExtractionFallback } from '../utils/agency_extraction.util.js';
 import { isAlwaysOnOfficialWarning } from '../utils/official_warning.util.js';
 import { summarizeHazard } from "./hazard.service.js";
@@ -734,8 +736,13 @@ export const summarizeAndPostHazards = async ({
           // R-03: previously a summarisation failure threw, the outer catch
           // returned null, and the hazard was silently dropped.
           let summarized: Awaited<ReturnType<typeof summarizeHazard>>;
+          let extraction: { extractionMethod: string; extractionRef: string };
+          const traceExtraction = (aiCalls: number, failed = false) => describeExtraction({
+            aiCalls, failed, sourceId: hazardData.source?.id, templateVersion: templateRelease?.version,
+            templateFirstSourceIds: TEMPLATE_FIRST_SOURCE_IDS, fixedTemplateSourceIds: FIXED_TEMPLATE_SOURCE_IDS,
+          });
           try {
-            summarized = await summarizeHazard({
+            const tracked = await withAiTracking(() => summarizeHazard({
               templateRelease,
               jurisdictionCountry:hazardData.jurisdictionCountry,
               nativeWarningLevel:hazardData.nativeWarningLevel,
@@ -748,8 +755,11 @@ export const summarizeAndPostHazards = async ({
               source: hazardData.source!,
               isAwsCompliant: hazardData.isAwsCompliant ?? false,
               severityBand: hazardData.severityBand || HazardSeverityBand.info,
-            });
+            }));
+            summarized = tracked.result;
+            extraction = traceExtraction(tracked.aiCalls);
           } catch (aiError) {
+            extraction = traceExtraction(0, true);
             console.error(
               `AI summarisation failed for "${hazardData.title}", using raw source data:`,
               aiError,
@@ -768,7 +778,7 @@ export const summarizeAndPostHazards = async ({
               const {settings} = resolveTemplate(templateRelease.pack, {country, sourceId: hazardData.source.id});
               const sourceActions = hazardData.sourceInstructionBlocks ?? [];
               const sourceText = [hazardData.title, hazardData.description, hazardData.nativeWarningLevel ?? '', ...sourceActions].filter(Boolean).join('\n\n');
-              const fallback = agencyExtractionFallback({sourceText, sourceTitle: hazardData.title, sourceDescription: hazardData.description, sourceActions, nativeWarningLevel: hazardData.nativeWarningLevel, agency: hazardData.source.name, allowAgencyNumbers: settings.allowAgencyNumbers, templateVersion: templateRelease.version, ...selectLibraryGuidance(templateRelease.pack, {categoryId: hazardData.category.id, parentCategoryId: hazardData.category.parentId, country, band})});
+              const fallback = agencyExtractionFallback({sourceText, sourceTitle: hazardData.title, sourceDescription: hazardData.description, sourceActions, nativeWarningLevel: hazardData.nativeWarningLevel, agency: hazardData.source.name, allowAgencyNumbers: settings.allowAgencyNumbers, templateVersion: templateRelease.version, ...selectLibraryGuidance(templateRelease.pack, {categoryId: hazardData.category.id, parentCategoryId: hazardData.category.parentId, country, region: templateRegion(hazardData.source), band})});
               summarized = {...fallback, contentDetails: {...fallback.contentDetails, presentation: {band, bandColor: settings.bandColors[band], iconCategoryId: hazardData.isAwsCompliant ? hazardData.category.id : (settings.iconCategoryId ?? hazardData.category.id), agencyArtwork: hazardData.isAwsCompliant ?? false}}};
             }
           }
@@ -817,6 +827,8 @@ export const summarizeAndPostHazards = async ({
               new Date(),
             ) as unknown as Prisma.InputJsonObject : summarized.contentDetails ?? Prisma.DbNull,
             aiConfidence: summarized.confidence,
+            extractionMethod: extraction.extractionMethod,
+            extractionRef: extraction.extractionRef,
             callsToAction: templateRelease?summarized.callsToAction:Array.isArray(hazardData.callsToAction)
               ? hazardData.callsToAction
               : Array.isArray(summarized.callsToAction)
@@ -1011,7 +1023,10 @@ const fetchHazardsFromSource = async <T = any>(
     // ingested. Sources with no registry status are treated as active.
     if (
       source.lifecycleStatus === "suspended" ||
-      source.lifecycleStatus === "retired"
+      source.lifecycleStatus === "retired" ||
+      // A draft source has its pipeline built but its licence is not yet
+      // confirmed, so nothing is ingested (owner, 16 Nov 2026).
+      (source.lifecycleStatus as string) === "draft"
     ) {
       console.warn(
         `Skipping ${sourceId}: lifecycle status is ${source.lifecycleStatus}.`,
@@ -1178,6 +1193,7 @@ export const getLocationsFromText = async (text: string): Promise<string[]> => {
     model: model,
     systemPromptContent: promptContent,
     userPromptContent: userContent,
+    usage: { purpose: "locations" },
   });
 
   try {

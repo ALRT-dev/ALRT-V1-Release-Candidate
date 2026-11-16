@@ -43,7 +43,7 @@ import { getDeterministicDfesContent } from "../utils/dfes_template.util.js";
 import { getDeterministicGdacsContent, parseGdacsHazard, parseGdacsLevel } from "../utils/gdacs_template.util.js";
 import { validateAISummary } from "../utils/ai_summary_validation.util.js";
 import { getTemplateRegistry, getReleasePrompt, type TemplateRelease } from './alert_templates.service.js';
-import { resolveTemplate, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
+import { resolveTemplate, selectLibraryGuidance, templateCountry, templateRegion } from '../utils/alert_templates.util.js';
 import { AGENCY_EXTRACTION_CONTRACT, agencyExtractionFallback, parseAgencyExtraction } from '../utils/agency_extraction.util.js';
 import { TEMPLATE_FIRST_SOURCE_IDS, buildUsgsEarthquakeContent, templateFirstAgencyCard } from '../utils/template_first.util.js';
 import {
@@ -594,6 +594,7 @@ Please analyze this hazard report:
     model: model,
     systemPromptContent: promptContent,
     userPromptContent: userContent,
+    usage: { purpose: "report_review" },
   });
 
   try {
@@ -702,7 +703,7 @@ export const summarizeHazard = async ({
     if(!published)return value;
     const country=templateCountry(jurisdictionCountry,source);
     const {settings}=resolveTemplate(published.pack,{country,sourceId:source.id});
-    const guidance=selectLibraryGuidance(published.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand});
+    const guidance=selectLibraryGuidance(published.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,region:templateRegion(source),band:severityBand});
     // Owner review, 13 November 2026: What we know has the rating and what
     // it means (two points, not one), and What to do keeps the reviewed
     // air quality advice, topped up from the library only when it is thin,
@@ -728,7 +729,7 @@ export const summarizeHazard = async ({
   const country=templateCountry(jurisdictionCountry,source);
   const resolved=release?resolveTemplate(release.pack,{country,sourceId:source.id}):null;
   const sourceText=[title,description,locationName??'',nativeWarningLevel??'',...sourceActions].filter(Boolean).join('\n\n');
-  const libraryGuidance=release?selectLibraryGuidance(release.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand}):{alrtSuggestions:[] as string[],profileGuidance:[] as any[]};
+  const libraryGuidance=release?selectLibraryGuidance(release.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,region:templateRegion(source),band:severityBand}):{alrtSuggestions:[] as string[],profileGuidance:[] as any[]};
   const presentation={band:severityBand,bandColor:resolved?.settings.bandColors[severityBand],iconCategoryId:isAwsCompliant?category.id:(resolved?.settings.iconCategoryId??category.id),agencyArtwork:isAwsCompliant};
 
   // NSW RFS and NSW SES (owner review, 13 November 2026): the old band
@@ -834,12 +835,13 @@ ${sourceText}`;
     model: model,
     systemPromptContent: systemPromptContent,
     userPromptContent: userPromptContent,
+    usage: { purpose: "alert_summary", sourceId: source?.id ?? null },
   });
 
   try {
     const parsed: unknown = JSON.parse(content);
     if(release&&resolved){
-      const guidance=selectLibraryGuidance(release.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,band:severityBand});
+      const guidance=selectLibraryGuidance(release.pack,{categoryId:category.id,parentCategoryId:category.parentId,country,region:templateRegion(source),band:severityBand});
       if(nativeWarningLevel&&parsed&&typeof parsed==='object') (parsed as Record<string,unknown>).nativeLevel=nativeWarningLevel;
       const value=parseAgencyExtraction(parsed,{sourceText,sourceTitle:title,sourceDescription:description,sourceActions,agency:source.name,allowAgencyNumbers:resolved.settings.allowAgencyNumbers,templateVersion:release.version,...guidance});
       if(!preview&&!rawCache)await cacheAISummary(`${contentHash}:extraction`,parsed);
@@ -1034,6 +1036,7 @@ Hazard Report:
     model: config.aws.bedrock.fallbackModelId,
     systemPromptContent,
     userPromptContent,
+    usage: { purpose: "category" },
   });
 
   try {

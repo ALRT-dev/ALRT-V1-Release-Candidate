@@ -16,7 +16,7 @@ import type { GuidanceEntry } from "./alert_templates.util.js";
 const REVIEWED = "2026-11-13";
 const AU = ["AU"];
 
-const groups = {
+export const SAFETY_GROUPS = {
   bushfire: ["bushfire", "plannedBurn", "fireWeather"],
   otherFire: ["otherFire", "structuralFire", "vehicleFire"],
   smoke: ["smoke", "smokePlume", "airQualityAlert", "asthmaAlert", "ashfall"],
@@ -48,9 +48,9 @@ const ACTIVE: Band[] = ["monitor", "action", "critical"];
 const HIGH: Band[] = ["action", "critical"];
 const CRITICAL: Band[] = ["critical"];
 
-function entry(id: string, group: keyof typeof groups, text: string, bands: Band[], reference: string, countries = AU): GuidanceEntry {
+function entry(id: string, group: keyof typeof SAFETY_GROUPS, text: string, bands: Band[], reference: string, countries = AU): GuidanceEntry {
   return {
-    id: `safety-${id}`, text, categoryIds: [...groups[group]], countries, bands,
+    id: `safety-${id}`, text, categoryIds: [...SAFETY_GROUPS[group]], countries, bands,
     profileTags: [], approved: true, reviewedAt: REVIEWED,
     reference: `Drafted for owner review from: ${reference}`,
   };

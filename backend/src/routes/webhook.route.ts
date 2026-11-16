@@ -49,4 +49,27 @@ router.post(
   createHazardViaWebhook // Controller
 );
 
+/**
+ * @route   POST /api/webhook/assurance/run
+ * @desc    Daily assurance run for the n8n workflow (owner decision D3).
+ *          Read-only: returns the checks and a plain-text report; n8n emails
+ *          the owner only when notify is true.
+ * @access  Webhook (X-Webhook-Api-Key)
+ */
+router.post(
+  "/assurance/run",
+  requireWebhookAuth,
+  webhookBurstProtection,
+  webhookRateLimiter,
+  webhookDailyQuota,
+  async (_req, res, next) => {
+    try {
+      const { runAssurance } = await import("../services/assurance.service.js");
+      res.status(200).json(await runAssurance({ trigger: "n8n" }));
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
 export default router;

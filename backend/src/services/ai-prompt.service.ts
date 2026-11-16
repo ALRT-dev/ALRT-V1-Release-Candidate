@@ -239,10 +239,18 @@ export const updatePrompt = async (
     throw new HttpError(404, `Prompt with ID '${promptId}' not found`);
   }
 
+  // Version history (owner, 16 Nov 2026): a change to the words or the model
+  // is a new version, so every alert can name the version that wrote it.
+  const contentChanged =
+    (promptData.content !== undefined && promptData.content !== existingPrompt.content) ||
+    (promptData.model !== undefined && promptData.model !== existingPrompt.model);
+  const nextVersion = ((existingPrompt as { version?: number }).version ?? 1) + (contentChanged ? 1 : 0);
+
   const updatedPrompt = await prisma.aIPrompt.update({
     where: { id: promptId },
     data: {
       ...promptData,
+      ...(contentChanged && { version: nextVersion }),
       updatedById: adminId,
     },
     include: {
@@ -265,6 +273,21 @@ export const updatePrompt = async (
 
   // Clear cache to ensure fresh data
   clearCache();
+
+  if (contentChanged) {
+    await (prisma as any).aIPromptVersion
+      ?.create({
+        data: {
+          promptId,
+          name: updatedPrompt.name,
+          version: nextVersion,
+          content: updatedPrompt.content,
+          model: updatedPrompt.model,
+          changedById: adminId,
+        },
+      })
+      .catch((err: unknown) => console.warn("prompt version not recorded", (err as Error)?.message));
+  }
 
   return updatedPrompt;
 };
@@ -864,3 +887,10 @@ export const initializeAIPrompts = async (): Promise<void> => {
     console.error("Error initializing AI prompts:", error);
   }
 };
+
+/** Every saved version of one prompt, newest first. */
+export const getPromptVersions = async (promptId: string) =>
+  (prisma as any).aIPromptVersion.findMany({
+    where: { promptId },
+    orderBy: { version: "desc" },
+  });

@@ -51,7 +51,7 @@ export const libraryEntrySchema = z
     id,
     text: z.string().trim().min(1).max(500),
     categoryIds: z.array(id).max(30),
-    countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(50),
+    countries: z.array(z.string().regex(/^[A-Z]{2}(-[A-Z]{2,3})?$/)).max(50), // "AU" or a state, "AU-WA"
     bands: z.array(bandSchema).max(4),
     profileTags: z.array(z.enum(["older", "kids", "mobility", "medical", "deaf", "vision", "visitor", "worker", "pets"])).max(9),
     approved: z.boolean(),
@@ -172,6 +172,21 @@ for (const code of isoCountries) {
   const name = regionNames.of(code);
   if (name && name !== code) countryNames.set(name.toUpperCase(), code);
 }
+/**
+ * The Australian state an agency's alerts belong to, so state-specific
+ * guidance (for example WA DFES bushfire advice) is chosen before the
+ * national line (owner decision D1 and D2, 16 Nov 2026).
+ */
+const SOURCE_STATE: Record<string, string> = {
+  waDfes: "WA", rfs: "NSW", nswSes: "NSW", nswTransport: "NSW", cfs: "SA", viceFire: "VIC",
+  qldFire: "QLD", qldTraffic: "QLD", qldPark: "QLD", ntFireAndRescue: "NT", actEs: "ACT",
+  saSes: "SA", tasAlert: "TAS", vicEmergency: "VIC",
+};
+export function templateRegion(source: {id: string; region?: string | null}): string | null {
+  const fromSource = source.region?.trim().toUpperCase();
+  if (fromSource && /^[A-Z]{2,3}$/.test(fromSource)) return fromSource;
+  return SOURCE_STATE[source.id] ?? null;
+}
 export function templateCountry(jurisdiction: string | null | undefined, source: {id: string; country?: string | null}): string | null {
   if (jurisdiction) return normaliseCountry(jurisdiction);
   if (["canadaGovTra", "earthquakeUsgs", "gdacsGlobal", "waqi"].includes(source.id)) return null;
@@ -260,19 +275,32 @@ export function selectLibraryGuidance(
     categoryId: string;
     parentCategoryId?: string | null;
     country?: string | null;
+    /** State or province code, e.g. "WA": state lines win over national ones. */
+    region?: string | null;
     band: TemplateBand;
   },
 ) {
   const country = normaliseCountry(input.country);
-  const entries = pack.library.filter(
+  const state = country && input.region ? `${country}-${input.region.toUpperCase()}` : null;
+  const matching = pack.library.filter(
     (x) =>
       x.approved &&
       x.reviewedAt &&
       x.reference &&
       x.categoryIds.includes(input.categoryId) &&
       (!x.countries.length ||
-        Boolean(country && x.countries.includes(country))) &&
+        Boolean(country && x.countries.includes(country)) ||
+        Boolean(state && x.countries.includes(state))) &&
       (!x.bands.length || x.bands.includes(input.band)),
+  );
+  // When the library holds lines for this state, those replace the national
+  // lines for the same purpose (advice, or a profile group's line).
+  const isState = (x: GuidanceEntry) => Boolean(state && x.countries.includes(state));
+  const stateAdvice = matching.some((x) => isState(x) && !x.profileTags.length);
+  const stateTags = new Set(matching.filter(isState).flatMap((x) => x.profileTags));
+  const entries = matching.filter((x) =>
+    isState(x) ||
+    (x.profileTags.length ? !x.profileTags.some((t) => stateTags.has(t)) : !stateAdvice),
   );
   return {
     alrtSuggestions: entries

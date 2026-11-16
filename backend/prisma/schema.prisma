@@ -248,6 +248,7 @@ enum SourcePushPolicy {
 }
 
 enum HazardSourceLifecycleStatus {
+  draft // pipeline built, not ingesting until the licence is confirmed
   active
   monitoring
   degraded
@@ -266,6 +267,9 @@ model Hazard {
   contentDetails Json?
   nativeWarningLevel String?
   sourceContentHash String?
+  // Traceability: which template or prompt (and version) produced this alert.
+  extractionMethod String? // template | template_first | ai | legacy
+  extractionRef    String? // e.g. "dfes_template@2026-11-13" or "prompt:summarize@v4"
   jurisdictionCountry String?
   id            String             @id @default(uuid())
   title         String
@@ -400,6 +404,10 @@ model HazardSource {
   lastReviewedAt DateTime?
   expiryReviewAt DateTime?
   licensingNotes String?
+  // Licence gate (owner, 16 Nov 2026): a source moves to active only once
+  // someone confirms its licence allows ALRT's use.
+  licenceConfirmedAt   DateTime?
+  licenceConfirmedById String?
 
   advisoryText  String? // Standard advisory text associated with this source
   copyrightText String? // Copyright information for this source
@@ -562,6 +570,7 @@ enum AdminRole {
   superAdmin
   admin
   moderator
+  reviewer // drafts and reviews guidance; cannot publish (owner, 16 Nov 2026)
 }
 
 // Minimum viable admin action audit trail (Stage 7B, §22.4/§22.8 of
@@ -611,6 +620,7 @@ model AIPrompt {
   content     String // The actual prompt content with placeholder variables
   variables   Json // JSON array of variable names expected in the prompt
   model       String // Model ID override; empty string = use provider default from config
+  version     Int     @default(1) // bumped on every content change
 
   groupId String?
   group   AIPromptGroup? @relation(fields: [groupId], references: [id])
@@ -1689,4 +1699,138 @@ model EmergencyDrill {
 
   @@index([userId])
   @@index([planId])
+}
+
+
+// ---------------------------------------------------------------------------
+// Safety intelligence (owner decisions D1 to D8, 16 Nov 2026)
+// ---------------------------------------------------------------------------
+
+/// One row per AI call: what it was for and what it used. Never holds the
+/// prompt or the answer text.
+model AiUsageEvent {
+  id            String   @id @default(uuid())
+  purpose       String // alert_summary | category | locations | report_review | si_extraction | ask_alrt | assurance
+  provider      String // bedrock | openai
+  model         String
+  sourceId      String?
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  cacheReadTokens Int    @default(0)
+  durationMs    Int      @default(0)
+  ok            Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([purpose, createdAt])
+}
+
+/// Every content change to an AI prompt, so each alert can name the version
+/// that wrote it.
+model AIPromptVersion {
+  id        String   @id @default(uuid())
+  promptId  String
+  name      String
+  version   Int
+  content   String
+  model     String
+  changedById String?
+  createdAt DateTime @default(now())
+
+  @@unique([promptId, version])
+}
+
+enum GuidanceKind {
+  advice // a "what to do" line on an alert
+  profile // a Safety Profile (For you) line
+  guide_section // one section of a Learn guide
+  answer // an Ask ALRT library answer
+  country_fact // a fact in a country record
+}
+
+enum GuidanceStatus {
+  draft
+  in_review
+  approved
+  retired
+}
+
+/// The one approved guidance library (D2) read by alerts, Safety Profile,
+/// Learn and Ask ALRT. Every record is traceable (D4): source, jurisdiction,
+/// version and reviewer.
+model GuidanceRecord {
+  id           String         @id @default(uuid())
+  key          String // stable id across versions, e.g. "advice:bushfire:during:AU-WA:3"
+  kind         GuidanceKind
+  hazard       String? // canonical hazard key, e.g. "bushfire"
+  cohort       String? // Safety Profile group id for kind=profile
+  stage        String? // before | during | after
+  jurisdiction String         @default("AU") // ISO country, or country-state "AU-WA"
+  title        String?
+  text         String
+  longText     String?
+  triggers     String[]       @default([]) // Ask ALRT match phrases for kind=answer
+  sourceAgency String
+  sourceUrl    String
+  licence      String?
+  version      Int            @default(1)
+  status       GuidanceStatus @default(draft)
+  authorId     String?
+  reviewerId   String?
+  reviewedAt   DateTime?
+  publishedAt  DateTime?
+  nextReviewAt DateTime?
+  changeNote   String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([key, version])
+  @@index([kind, hazard, jurisdiction, status])
+  @@index([status, nextReviewAt])
+}
+
+/// One record per country (and Australian state) replacing the three
+/// emergency-number copies.
+model CountryProfile {
+  code            String   @id // ISO 3166-1 alpha-2, or "AU-WA" for a state
+  name            String
+  aliases         String[] @default([])
+  emergencyNumber String
+  policeNumber    String?
+  ambulanceNumber String?
+  fireNumber      String?
+  hazards         String[] @default([])
+  warningAgencies Json     @default("[]") // [{name,url}]
+  drivingSide     String? // left | right
+  notes           String?
+  sourceUrl       String
+  status          GuidanceStatus @default(draft)
+  reviewedAt      DateTime?
+  nextReviewAt    DateTime?
+  updatedAt       DateTime @updatedAt
+}
+
+/// Server-side Follow (D7): push when a followed alert changes level or ends.
+model HazardFollow {
+  userId    String
+  hazardId  String
+  lastLevel String?
+  createdAt DateTime @default(now())
+
+  @@id([userId, hazardId])
+  @@index([hazardId])
+}
+
+/// One row per daily assurance run (D3).
+model AssuranceReport {
+  id             String   @id @default(uuid())
+  runAt          DateTime @default(now())
+  passed         Int
+  warnings       Int
+  failures       Int
+  checks         Json // [{id,name,status,detail,count}]
+  acknowledgedAt DateTime?
+  acknowledgedById String?
+
+  @@index([runAt])
 }
