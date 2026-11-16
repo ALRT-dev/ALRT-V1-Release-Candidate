@@ -112,6 +112,31 @@ void main() {
     });
   });
 
+  group('owner review, 16 Nov 2026', () {
+    test('heat health and heat stress get heatwave rows', () {
+      expect(bucket(category: 'Heat Health Alert', parent: 'Health & Air'), 'heatwave');
+      expect(bucket(category: 'Heat Stress', parent: 'Health & Air'), 'heatwave');
+    });
+    test('the rows reworded on 16 Nov give no movement direction', () {
+      final move = RegExp(
+        r'\b(leave now|leave early|leaving early|leaving at|evacuat\w*|shelter in place|go indoors|going indoors|stay(ing)? indoors|moving to)\b',
+        caseSensitive: false,
+      );
+      for (final bucket in ['chemical', 'structure_fire', 'tornado', 'tsunami', 'grass_fire', 'dust_storm']) {
+        for (final line in ForYouLibrary.rows[bucket]!.values) {
+          expect(line, isNot(matches(move)), reason: '$bucket: $line');
+        }
+      }
+    });
+    test('Other Fire gets neither bushfire nor storm rows', () {
+      expect(bucket(category: 'Other Fire', parent: 'Weather & Environment'), isNull);
+    });
+    test('land slip and asthma reach their rows', () {
+      expect(bucket(category: 'Land Slip', parent: 'Weather & Environment'), 'landslide');
+      expect(bucket(category: 'Asthma Alert', parent: 'Health & Air'), 'pollen');
+    });
+  });
+
   group('deliberately silent categories stay silent', () {
     test('traffic and security get no card, by design', () {
       expect(bucket(category: 'Crash', parent: 'Traffic & Transport'), isNull);

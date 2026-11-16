@@ -288,6 +288,9 @@ export const askAlrt = async (
     result = await executeChat({
       systemBlocks: [await loadSystemPrompt(), contextText],
       turns: [...history, { role: "user", content: question }],
+      // Short answers (owner, 16 November 2026): roughly 200 words is the
+      // hard ceiling; the prompt asks for under about 70.
+      maxTokens: 350,
     });
   } catch (error) {
     if (userId) await refundQuota(userId, timeZone).catch(() => undefined);
