@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { createHazardViaWebhook } from "../controllers/webhook.controller.js";
+import { createHazardViaWebhook, ingestFeedViaWebhook } from "../controllers/webhook.controller.js";
+import express from "express";
 import { getWebhookCategories } from "../controllers/integration_catalog.controller.js";
 import {
   requireWebhookAuth,
@@ -47,6 +48,24 @@ router.post(
   webhookDailyQuota, // Uses per-key maxRequestsPerDay
   validate(createHazardsWebhookBodySchema), // Input validation
   createHazardViaWebhook // Controller
+);
+
+/**
+ * @route   POST /api/webhook/feeds/:sourceId
+ * @desc    Raw feed from n8n, parsed by the source's registered adapter
+ *          (cap_au, geojson, arcgis). Same validation and display path as
+ *          /hazards. Draft sources are refused.
+ * @access  Webhook (X-Webhook-Api-Key)
+ */
+router.post(
+  "/feeds/:sourceId",
+  express.text({ type: "*/*", limit: "6mb" }),
+  requireWebhookAuth,
+  webhookBurstProtection,
+  webhookRateLimiter,
+  webhookSpeedLimiter,
+  webhookDailyQuota,
+  ingestFeedViaWebhook,
 );
 
 /**

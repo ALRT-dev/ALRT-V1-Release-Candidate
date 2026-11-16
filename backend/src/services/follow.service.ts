@@ -8,7 +8,7 @@ const db = prisma as any;
 const MAX_FOLLOWS = 50;
 
 export const followHazard = async (userId: string, hazardId: string) => {
-  const hazard = await prisma.hazard.findUnique({ where: { id: hazardId }, select: { id: true, nativeWarningLevel: true, severityBand: true } });
+  const hazard = await prisma.hazard.findUnique({ where: { id: hazardId }, select: { id: true, nativeWarningLevel: true } });
   if (!hazard) throw new HttpError(404, "Alert not found.");
   const count = await db.hazardFollow.count({ where: { userId } });
   if (count >= MAX_FOLLOWS) throw new HttpError(409, `You can follow up to ${MAX_FOLLOWS} alerts.`);
@@ -35,7 +35,7 @@ export const notifyFollowers = async (now = new Date()) => {
   const ids = [...new Set(follows.map((f) => f.hazardId))];
   const hazards = await prisma.hazard.findMany({
     where: { id: { in: ids } },
-    select: { id: true, title: true, nativeWarningLevel: true, severityBand: true, expiresAt: true },
+    select: { id: true, title: true, nativeWarningLevel: true, expiresAt: true },
   });
   const byId = new Map(hazards.map((h) => [h.id, h]));
   let sent = 0;

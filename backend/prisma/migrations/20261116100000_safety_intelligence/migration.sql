@@ -135,3 +135,6 @@ CREATE TABLE IF NOT EXISTS "AssuranceReport" (
   CONSTRAINT "AssuranceReport_pkey" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "AssuranceReport_runAt_idx" ON "AssuranceReport"("runAt");
+
+-- Generic feed adapters: per-source field mapping
+ALTER TABLE "HazardSource" ADD COLUMN IF NOT EXISTS "adapterConfig" JSONB;

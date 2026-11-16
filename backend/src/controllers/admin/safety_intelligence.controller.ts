@@ -130,3 +130,76 @@ export const publishGuide = wrap((req) => {
   const { jurisdiction } = z.object({ jurisdiction: z.string().max(10).default("AU-WA") }).parse(req.body ?? {});
   return library.publishGuide(String(req.params.slug), jurisdiction, adminId(req));
 });
+
+// --- New sources: adapter mapping and preview ----------------------------------
+const previewBody = z.object({
+  adapterKey: z.enum(["cap_au", "geojson", "arcgis"]).optional(),
+  adapterConfig: z.unknown().optional(),
+  sample: z.string().max(5_000_000).optional(),
+  url: z.string().url().max(2000).optional(),
+});
+
+/**
+ * Dry run: parse a pasted sample, or fetch the feed URL from the server, with
+ * the adapter and mapping given (or saved). Shows what ALRT would create.
+ * Saves nothing and creates no alert.
+ */
+export const previewSource = wrap(async (req) => {
+  const body = previewBody.parse(req.body ?? {});
+  const source = await prisma.hazardSource.findUnique({ where: { id: String(req.params.id) } });
+  if (!source) throw new HttpError(404, "Source not found.");
+  const adapter = body.adapterKey ?? (source as any).adapterKey;
+  if (!adapter) throw new HttpError(400, "Choose an adapter: cap_au, geojson or arcgis.");
+  let raw = body.sample;
+  const url = body.url ?? source.feedUrl ?? undefined;
+  if (!raw) {
+    if (!url) throw new HttpError(400, "Paste a sample or add the feed URL.");
+    if (!/^https:\/\//.test(url)) throw new HttpError(400, "Feed URL must start with https://.");
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15_000);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal, headers: { accept: "application/json, application/xml, text/xml, */*" } });
+      if (!r.ok) throw new HttpError(502, `The feed answered ${r.status}.`);
+      raw = (await r.text()).slice(0, 5_000_000);
+    } catch (e) {
+      if (e instanceof HttpError) throw e;
+      throw new HttpError(502, `Could not fetch the feed: ${(e as Error).message}`);
+    } finally {
+      clearTimeout(t);
+    }
+  }
+  const { runAdapter } = await import("../../utils/feed_adapters.util.js");
+  let parsed;
+  try {
+    parsed = runAdapter(adapter, raw, source.id, body.adapterConfig ?? (source as any).adapterConfig ?? {});
+  } catch (e) {
+    throw new HttpError(422, (e as Error).message);
+  }
+  // First keys of the first item help write the field mapping.
+  let fields: string[] = [];
+  try {
+    const j = JSON.parse(raw);
+    const first = j?.features?.[0];
+    fields = Object.keys(first?.properties ?? first?.attributes ?? {}).slice(0, 60);
+  } catch { /* XML */ }
+  return { adapter, items: parsed.hazards.slice(0, 20), total: parsed.hazards.length, skipped: parsed.skipped.slice(0, 20), cancelled: parsed.cancelledIds.length, fields };
+});
+
+export const saveSourceAdapter = wrap(async (req) => {
+  const body = z.object({
+    adapterKey: z.enum(["cap_au", "geojson", "arcgis"]),
+    adapterConfig: z.unknown().optional(),
+    feedUrl: z.string().url().max(2000).nullish(),
+  }).parse(req.body ?? {});
+  const { adapterConfigSchema } = await import("../../utils/feed_adapters.util.js");
+  const config = body.adapterKey === "cap_au" ? (body.adapterConfig ?? {}) : adapterConfigSchema.parse(body.adapterConfig);
+  const id = String(req.params.id);
+  const before = await prisma.hazardSource.findUnique({ where: { id } });
+  if (!before) throw new HttpError(404, "Source not found.");
+  const row = await prisma.hazardSource.update({
+    where: { id },
+    data: { adapterKey: body.adapterKey, adapterConfig: config as any, ...(body.feedUrl !== undefined && { feedUrl: body.feedUrl }) } as any,
+  });
+  await recordAdminAuditEntry({ adminId: adminId(req), action: "source.adapter_saved", targetType: "HazardSource", targetId: id, before: { adapterKey: (before as any).adapterKey, adapterConfig: (before as any).adapterConfig }, after: { adapterKey: body.adapterKey, adapterConfig: config } });
+  return row;
+});

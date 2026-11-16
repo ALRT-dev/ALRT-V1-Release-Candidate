@@ -14,8 +14,9 @@ describe("server-side Follow (D7)", () => {
     expect(isEnded({ nativeWarningLevel: "Emergency Warning", expiresAt: new Date("2026-11-17") }, now)).toBe(false);
     expect(followEvent("Advice", { title: "Flood", level: "Advice", ended: true }).kind).toBe("ended");
   });
-  it("uses the agency level, or ALRT's band when the agency gives none", () => {
-    expect(levelOf({ nativeWarningLevel: " Advice ", severityBand: "monitor" })).toBe("Advice");
-    expect(levelOf({ nativeWarningLevel: null, severityBand: "monitor" })).toBe("monitor");
+  it("uses only the agency's own level, never ALRT's band", () => {
+    expect(levelOf({ nativeWarningLevel: " Advice " })).toBe("Advice");
+    expect(levelOf({ nativeWarningLevel: null })).toBeNull();
+    expect(followEvent(null, { title: "Crash", level: null, ended: false }).kind).toBe("none");
   });
 });

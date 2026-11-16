@@ -31,6 +31,8 @@ router.put("/countries/:code", requireAdminOrAbove, c.saveCountry);
 router.get("/ai-usage", requireAdminOrAbove, c.aiUsage);
 router.get("/prompt-versions/:id", requireAnyAdmin, c.promptVersions);
 router.post("/sources/:id/confirm-licence", requireAdminOrAbove, c.confirmSourceLicence);
+router.post("/sources/:id/preview", requireAdminOrAbove, c.previewSource);
+router.put("/sources/:id/adapter", requireAdminOrAbove, c.saveSourceAdapter);
 
 router.get("/assurance", requireAnyAdmin, c.listAssurance);
 router.post("/assurance/run", requireAdminOrAbove, c.runAssuranceNow);

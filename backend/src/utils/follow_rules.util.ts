@@ -5,7 +5,7 @@
  */
 export interface FollowedState {
   title: string;
-  level: string | null; // agency level, or ALRT band when the agency gives none
+  level: string | null; // the agency's own level only
   ended: boolean;
 }
 
@@ -14,8 +14,12 @@ export type FollowEvent =
   | { kind: "level"; title: string; body: string; level: string }
   | { kind: "ended"; title: string; body: string };
 
-export const levelOf = (h: { nativeWarningLevel?: string | null; severityBand?: string | null }): string | null =>
-  h.nativeWarningLevel?.trim() || h.severityBand || null;
+/**
+ * The agency's own level. ALRT never writes a level the source did not set
+ * (owner rule, 13 Nov 2026), so an alert without one only pushes when it ends.
+ */
+export const levelOf = (h: { nativeWarningLevel?: string | null }): string | null =>
+  h.nativeWarningLevel?.trim() || null;
 
 const ENDED_WORDS = /\b(no longer a threat|cancelled|canceled|safe to return|all clear|ended|downgraded to no threat)\b/i;
 
@@ -25,7 +29,7 @@ export const isEnded = (h: { expiresAt?: Date | null; nativeWarningLevel?: strin
 export const followEvent = (lastLevel: string | null, now: FollowedState): FollowEvent => {
   const title = now.title.slice(0, 80);
   if (now.ended) return { kind: "ended", title: "Alert ended", body: `${title} has ended.` };
-  if (now.level && lastLevel && now.level.toLowerCase() !== lastLevel.toLowerCase())
+  if (now.level && now.level.toLowerCase() !== (lastLevel ?? "").toLowerCase())
     return { kind: "level", title: "Alert updated", body: `${title} is now ${now.level}.`, level: now.level };
   return { kind: "none" };
 };

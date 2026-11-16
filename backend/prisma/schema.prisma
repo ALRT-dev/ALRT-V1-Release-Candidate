@@ -386,6 +386,8 @@ model HazardSource {
   format         String?
   accessMethod   String?
   adapterKey     String?
+  // Generic feed adapters (16 Nov 2026): cap_au | geojson | arcgis field mapping.
+  adapterConfig  Json?
   scheduleMinutes Int?
   secretRef      String?
   warningTypes   String[] @default([])
