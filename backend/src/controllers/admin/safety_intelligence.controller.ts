@@ -123,3 +123,10 @@ export const runAssuranceNow = wrap(() => runAssurance({ trigger: "admin" }));
 export const listAssurance = wrap(async () =>
   (prisma as any).assuranceReport.findMany({ orderBy: { runAt: "desc" }, take: 30 }));
 export const acknowledgeAssurance = wrap((req) => acknowledgeReport(String(req.params.id), adminId(req)));
+
+// --- Learn guides from the library ------------------------------------------
+export const listLibraryGuides = wrap(() => library.listLibraryGuides());
+export const publishGuide = wrap((req) => {
+  const { jurisdiction } = z.object({ jurisdiction: z.string().max(10).default("AU-WA") }).parse(req.body ?? {});
+  return library.publishGuide(String(req.params.slug), jurisdiction, adminId(req));
+});

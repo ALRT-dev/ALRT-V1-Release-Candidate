@@ -26,7 +26,7 @@ describe("hazard-specific learning guides",()=>{
     expect((await getGuideForHazardCategory("x","No longer a threat"))?.slug).toBe("bushfire-after");
   });
 
-  it.each(["Vehicle Fire","Structural Fire","Other Fire","Planned Burn","Smoke"])("gives %s no bushfire guide", async(name)=>{
+  it.each(["Vehicle Fire","Other Fire","Planned Burn"])("gives %s no bushfire guide", async(name)=>{
     db.hazardCategory.findUnique.mockResolvedValue(category(name));
     expect(await getGuideForHazardCategory("x","Watch and Act")).toBeNull();
     expect(db.safetyGuide.findFirst).not.toHaveBeenCalled();
@@ -52,8 +52,22 @@ describe("hazard-specific learning guides",()=>{
     expect(guideStageForLevel("Cancelled")).toBe("after");
   });
 
-  it("only links guides that the seed actually creates", ()=>{
-    const seed = readFileSync(new URL("../services/guide_seed.service.ts", import.meta.url), "utf8");
+  it("only links guides that the seed or the 16 Nov drafts create", ()=>{
+    const seed = readFileSync(new URL("../services/guide_seed.service.ts", import.meta.url), "utf8")
+      + readFileSync(new URL("../data/guidance_drafts_20261116.ts", import.meta.url), "utf8");
     for (const slug of linkedGuideSlugs()) expect(seed).toContain(`slug: "${slug}"`);
+  });
+
+  it("gives smoke, structure fire, hazmat and landslide their own guides (drafted 16 Nov)", ()=>{
+    expect(guideSlugForCategory({name:"Smoke"})).toBe("smoke-air-quality");
+    expect(guideSlugForCategory({name:"Structural Fire"})).toBe("house-fire");
+    expect(guideSlugForCategory({name:"Chemical Spill"})).toBe("hazardous-materials");
+    expect(guideSlugForCategory({name:"Land Slip"})).toBe("landslide");
+  });
+
+  it("sends a replaced guide's links to its replacement", async()=>{
+    db.hazardCategory.findUnique.mockResolvedValue(category("Terror","Safety & Crime"));
+    db.safetyGuide.findFirst.mockImplementation(async({where}:any)=>where.slug==="armed-attack-escape-hide-tell"?{id:"g",slug:where.slug}:null);
+    expect((await getGuideForHazardCategory("x"))?.slug).toBe("armed-attack-escape-hide-tell");
   });
 });

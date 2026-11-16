@@ -4,6 +4,7 @@ import { guides } from "../services/guide_seed.service.js";
 import { BUILT_IN_ENTRIES } from "./ask_alrt_content.util.js";
 import { SAFETY_GROUPS, hazardSafetyLibrary } from "./hazard_safety_library.util.js";
 import { buildKey, type GuidanceInput } from "./guidance_library.util.js";
+import { DRAFT_GUIDES } from "../data/guidance_drafts_20261116.js";
 
 /**
  * One-off import of the five existing guidance stores into the shared
@@ -138,3 +139,18 @@ export const buildCountryImport = () =>
     sourceUrl: "",
     notes: "Imported from the shared emergency number list. Add the official source.",
   }));
+
+/** The guides drafted on 16 Nov 2026: imported IN REVIEW for the owner to approve. */
+export const buildDraftGuideRecords = (): (GuidanceInput & { key: string; changeNote: string })[] =>
+  DRAFT_GUIDES.flatMap((g) => {
+    const counts: Record<string, number> = {};
+    return g.sections.map((s) => {
+      counts[s.stage] = (counts[s.stage] ?? 0) + 1;
+      return {
+        key: `guide_section:${g.slug}:-:${s.stage}:${g.jurisdiction}:${counts[s.stage]}`,
+        kind: "guide_section" as const, hazard: g.slug, stage: s.stage, jurisdiction: g.jurisdiction,
+        title: s.title, text: s.body, sourceAgency: s.sourceAgency, sourceUrl: s.sourceUrl,
+        changeNote: `Drafted 16 Nov 2026 for "${g.title}"${g.replaces ? `, replacing the content of "${g.replaces}"` : ""}. Needs owner approval.`,
+      };
+    });
+  });

@@ -3,7 +3,7 @@ vi.mock("../utils/prisma_client.util.js", () => ({ default: {} }));
 import {
   checkGuidance, coverageGrid, jurisdictionChain, nextReviewFrom, overdue, pickApproved, toTemplateEntries, type GuidanceRow,
 } from "../utils/guidance_library.util.js";
-import { buildCountryImport, buildImportRecords, categoryIdsForHazard } from "../utils/guidance_import.util.js";
+import { buildCountryImport, buildDraftGuideRecords, buildImportRecords, categoryIdsForHazard } from "../utils/guidance_import.util.js";
 import { templatePackSchema, libraryEntrySchema } from "../utils/alert_templates.util.js";
 
 const row = (p: Partial<GuidanceRow>): GuidanceRow => ({
@@ -101,6 +101,15 @@ describe("one-off import of the existing stores", () => {
   });
   it("carries a source agency on every record", () => {
     expect(records.every((r) => r.sourceAgency.trim().length > 0)).toBe(true);
+  });
+  it("drafts the new guides with a page-level source and no ALRT movement directions", () => {
+    const drafts = buildDraftGuideRecords();
+    expect(new Set(drafts.map((d) => d.hazard))).toEqual(new Set(["smoke-air-quality", "house-fire", "hazardous-materials", "landslide", "armed-attack-escape-hide-tell", "home-security", "water-contamination"]));
+    for (const d of drafts) {
+      const c = checkGuidance(d, { forApproval: true });
+      expect(c.errors, d.key).toEqual([]);
+      expect(d.sourceUrl).toMatch(/^https:\/\/[^/]+\/./);
+    }
   });
   it("seeds the country register from the shared emergency list", () => {
     const au = buildCountryImport().find((c) => c.code === "AU");

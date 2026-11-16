@@ -16,6 +16,7 @@ import {
 import { flagHazardController } from "../controllers/community_safety.controller.js";
 import { flagHazardSchema } from "../validators/community_safety.validator.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
+import { followHazard, listFollows, unfollowHazard } from "../services/follow.service.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import {
   createHazardSchema,
@@ -87,6 +88,22 @@ hazardRouter.post(
   voteHazard,
 );
 hazardRouter.post("/:id/view", requireAuth, viewHazard);
+
+// Server-side Follow (owner decision D7, 16 Nov 2026): one push when the
+// alert's level changes, one when it ends.
+const followHandler = (fn: (userId: string, id: string) => Promise<unknown>) =>
+  async (req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) => {
+    try {
+      const userId = (res as unknown as { userId?: string }).userId;
+      if (!userId) return res.status(401).json({ message: "Sign in to follow alerts." });
+      res.status(200).json(await fn(userId, String(req.params.id)));
+    } catch (e) {
+      next(e);
+    }
+  };
+hazardRouter.get("/following/list", requireAuth, followHandler((userId) => listFollows(userId)));
+hazardRouter.post("/:id/follow", requireAuth, followHandler(followHazard));
+hazardRouter.delete("/:id/follow", requireAuth, followHandler(unfollowHazard));
 hazardRouter.delete("/:id", requireAuth, deleteHazard);
 
 hazardRouter.delete(

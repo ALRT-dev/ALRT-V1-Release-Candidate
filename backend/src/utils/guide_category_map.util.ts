@@ -74,6 +74,20 @@ const CATEGORY_GUIDES: Record<string, StagedSlugs> = {
   "venue evacuation": one("crowded-events-civil-unrest"),
   "public transport crowding": one("crowded-events-civil-unrest"),
 
+  // Guides drafted 16 Nov 2026: linked only once published (unpublished
+  // guides are never returned).
+  smoke: one("smoke-air-quality"),
+  "smoke plume": one("smoke-air-quality"),
+  ashfall: one("smoke-air-quality"),
+  "asthma alert": one("smoke-air-quality"),
+  "air quality alert": one("smoke-air-quality"),
+  "structural fire": one("house-fire"),
+  "chemical spill": one("hazardous-materials"),
+  "hazmat spill": one("hazardous-materials"),
+  "hazardous item": one("hazardous-materials"),
+  landslide: one("landslide"),
+  "land slip": one("landslide"),
+
   // Utilities.
   "power outage": one("power-outage"),
   "power interruption": one("power-outage"),
@@ -130,3 +144,11 @@ export const linkedGuideSlugs = (): string[] => [
     ),
   ),
 ];
+
+/**
+ * A guide replaced by a newer, correctly sourced one (16 Nov 2026). When the
+ * old guide is unpublished, links to it go to the replacement instead.
+ */
+export const GUIDE_REPLACEMENTS: Readonly<Record<string, string>> = {
+  "crowded-events-civil-unrest": "armed-attack-escape-hide-tell",
+};

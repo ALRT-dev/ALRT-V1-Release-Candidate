@@ -22,6 +22,9 @@ router.post("/guidance/:id/retire", requireAdminOrAbove, c.retireGuidance);
 router.post("/guidance/import", requireAdminOrAbove, c.importGuidance);
 router.post("/guidance/send-to-templates", requireAdminOrAbove, c.sendGuidanceToTemplates);
 
+router.get("/guides", requireAnyAdmin, c.listLibraryGuides);
+router.post("/guides/:slug/publish", requireAdminOrAbove, c.publishGuide);
+
 router.get("/countries", requireAnyAdmin, c.listCountries);
 router.put("/countries/:code", requireAdminOrAbove, c.saveCountry);
 

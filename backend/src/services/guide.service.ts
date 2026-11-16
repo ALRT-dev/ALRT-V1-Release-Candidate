@@ -1,3 +1,4 @@
+import { GUIDE_REPLACEMENTS } from "../utils/guide_category_map.util.js";
 import { Prisma } from "@prisma/client";
 import { guideSlugForCategory } from "../utils/guide_category_map.util.js";
 import prisma from "../utils/prisma_client.util.js";
@@ -238,13 +239,14 @@ export const getGuideForHazardCategory = async (
   });
   if (!slug) return null;
 
-  return prisma.safetyGuide.findFirst({
-    where: { isPublished: true, slug },
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      topic: { select: { name: true, icon: true, color: true } },
-    },
-  });
+  const select = {
+    id: true,
+    slug: true,
+    title: true,
+    topic: { select: { name: true, icon: true, color: true } },
+  } as const;
+  const guide = await prisma.safetyGuide.findFirst({ where: { isPublished: true, slug }, select });
+  const replacement = GUIDE_REPLACEMENTS[slug];
+  if (guide || !replacement) return guide;
+  return prisma.safetyGuide.findFirst({ where: { isPublished: true, slug: replacement }, select });
 };

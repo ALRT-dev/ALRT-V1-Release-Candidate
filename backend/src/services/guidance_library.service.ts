@@ -4,7 +4,9 @@ import {
   buildKey, checkGuidance, coverageGrid, COHORTS, nextReviewFrom, normaliseJurisdiction, overdue, toTemplateEntries,
   type GuidanceInput, type GuidanceKind, type GuidanceRow,
 } from "../utils/guidance_library.util.js";
-import { buildCountryImport, buildImportRecords, categoryIdsForHazard } from "../utils/guidance_import.util.js";
+import { buildCountryImport, buildDraftGuideRecords, buildImportRecords, categoryIdsForHazard } from "../utils/guidance_import.util.js";
+import { DRAFT_GUIDES } from "../data/guidance_drafts_20261116.js";
+import { jurisdictionChain } from "../utils/guidance_library.util.js";
 import { approvedRecords, clearGuidanceCache } from "./guidance_read.service.js";
 export { approvedRecords, clearGuidanceCache };
 import { recordAdminAuditEntry } from "./admin_audit_log.service.js";
@@ -153,6 +155,14 @@ export const importExisting = async (adminId: string) => {
       skipDuplicates: true,
     });
   }
+  // Drafted new guides go in for review, never approved automatically.
+  const drafts = buildDraftGuideRecords().filter((r) => !existing.has(r.key));
+  if (drafts.length) {
+    await db.guidanceRecord.createMany({
+      data: drafts.map((r) => ({ ...clean(r), key: r.key, version: 1, status: "in_review", authorId: adminId, changeNote: r.changeNote })),
+      skipDuplicates: true,
+    });
+  }
   const countries = buildCountryImport();
   let countriesAdded = 0;
   for (const c of countries) {
@@ -161,8 +171,8 @@ export const importExisting = async (adminId: string) => {
     await db.countryProfile.create({ data: { ...c, status: "approved", reviewedAt: now, nextReviewAt: nextReviewFrom(now) } });
     countriesAdded += 1;
   }
-  await recordAdminAuditEntry({ adminId, action: "guidance.import", targetType: "GuidanceRecord", after: { added: fresh.length, skipped: records.length - fresh.length, countriesAdded } });
-  return { added: fresh.length, skipped: records.length - fresh.length, countriesAdded };
+  await recordAdminAuditEntry({ adminId, action: "guidance.import", targetType: "GuidanceRecord", after: { added: fresh.length, skipped: records.length - fresh.length, draftsForReview: drafts.length, countriesAdded } });
+  return { added: fresh.length, skipped: records.length - fresh.length, draftsForReview: drafts.length, countriesAdded };
 };
 
 const LIBRARY_PREFIX = "lib-";
@@ -227,4 +237,82 @@ export const saveCountry = async (code: string, input: Record<string, unknown>, 
   const row = await db.countryProfile.upsert({ where: { code: c }, create: { code: c, ...data }, update: data });
   await recordAdminAuditEntry({ adminId, action: "country.save", targetType: "CountryProfile", targetId: c, before: before ? { emergencyNumber: before.emergencyNumber } : null, after: { emergencyNumber: number, status: data.status } });
   return row;
+};
+
+// --- Learn guides from the library -----------------------------------------
+
+/** Guides the library holds sections for, with how many are approved. */
+export const listLibraryGuides = async () => {
+  const rows: GuidanceRow[] = await db.guidanceRecord.findMany({ where: { kind: "guide_section", status: { not: "retired" } } });
+  const published: { slug: string; title: string; isPublished: boolean; sourceNote: string | null }[] =
+    await prisma.safetyGuide.findMany({ select: { slug: true, title: true, isPublished: true, sourceNote: true } });
+  const bySlug = new Map<string, { approved: number; pending: number; jurisdictions: Set<string> }>();
+  for (const r of rows) {
+    const g = bySlug.get(r.hazard ?? "") ?? { approved: 0, pending: 0, jurisdictions: new Set<string>() };
+    if (r.status === "approved") g.approved += 1; else g.pending += 1;
+    g.jurisdictions.add(normaliseJurisdiction(r.jurisdiction));
+    bySlug.set(r.hazard ?? "", g);
+  }
+  return [...bySlug.entries()].map(([slug, g]) => {
+    const live = published.find((p) => p.slug === slug);
+    const draft = DRAFT_GUIDES.find((d) => d.slug === slug);
+    return {
+      slug, title: live?.title ?? draft?.title ?? slug, approvedSections: g.approved, pendingSections: g.pending,
+      jurisdictions: [...g.jurisdictions], isPublished: live?.isPublished ?? false,
+      fromLibrary: Boolean(live?.sourceNote?.includes("[library")),
+    };
+  }).sort((a, b) => a.title.localeCompare(b.title));
+};
+
+const DISCLAIMER =
+  "ALRT shares safety information and does not issue emergency instructions. In a life-threatening emergency call your local emergency number.";
+
+/**
+ * Builds the Learn guide for [slug] from its APPROVED library sections for
+ * [jurisdiction] (falling back to national) and publishes it. The guide
+ * names every source it uses and the library version.
+ */
+export const publishGuide = async (slug: string, jurisdiction: string, adminId: string) => {
+  const rows: GuidanceRow[] = await db.guidanceRecord.findMany({ where: { kind: "guide_section", hazard: slug, status: "approved" } });
+  let chosen: GuidanceRow[] = [];
+  let used = "";
+  for (const j of jurisdictionChain(jurisdiction)) {
+    chosen = rows.filter((r) => normaliseJurisdiction(r.jurisdiction) === j);
+    if (chosen.length) { used = j; break; }
+  }
+  if (!chosen.length) throw new HttpError(400, "This guide has no approved sections yet. Approve its sections first.");
+  const order = (r: GuidanceRow) => Number(r.key.split(":").pop()) || 0;
+  const sections: Record<string, { title: string; body: string }[]> = { before: [], during: [], after: [] };
+  for (const r of [...chosen].sort((a, b) => order(a) - order(b))) {
+    (sections[r.stage ?? "before"] ??= []).push({ title: r.title ?? "", body: r.text });
+  }
+  const sources = [...new Map(chosen.map((r) => [r.sourceUrl || r.sourceAgency, r])).values()];
+  const sourceName = [...new Set(sources.map((r) => r.sourceAgency))].join("; ");
+  const sourceUrl = sources.find((r) => r.sourceUrl)?.sourceUrl ?? "";
+  const version = Math.max(...chosen.map((r) => r.version));
+  const sourceNote = `This guide summarises publicly available safety information from ${sources
+    .map((r) => `${r.sourceAgency}${r.sourceUrl ? ` (${r.sourceUrl})` : ""}`)
+    .join("; ")}. ${DISCLAIMER} [library ${slug} ${used} v${version}]`;
+
+  const existing = await prisma.safetyGuide.findUnique({ where: { slug } });
+  const draft = DRAFT_GUIDES.find((d) => d.slug === slug);
+  let topicId = existing?.topicId;
+  if (!topicId && draft) topicId = (await prisma.safetyGuideTopic.findUnique({ where: { slug: draft.topicSlug } }))?.id;
+  if (!topicId) throw new HttpError(400, "No Learn topic found for this guide.");
+  let categoryIds = existing?.categoryIds ?? [];
+  if (!existing && draft) {
+    const cats = await prisma.hazardCategory.findMany({ select: { id: true, name: true } });
+    categoryIds = cats.filter((c) => draft.categoryKeywords.some((k) => c.name.toLowerCase().includes(k))).map((c) => c.id);
+  }
+  const data = {
+    topicId, title: existing?.title ?? draft?.title ?? slug, summary: existing?.summary ?? draft?.summary ?? "",
+    sections: sections as any, sourceName, sourceUrl, sourceNote, categoryIds, isPublished: true,
+  };
+  await prisma.safetyGuide.upsert({ where: { slug }, update: data, create: { slug, xpReward: 10, sortOrder: 50, ...data } as any });
+  // A replacement guide retires the old one it replaces.
+  if (draft?.replaces && draft.replaces !== slug) {
+    await prisma.safetyGuide.updateMany({ where: { slug: draft.replaces }, data: { isPublished: false } });
+  }
+  await recordAdminAuditEntry({ adminId, action: "guide.publish_from_library", targetType: "SafetyGuide", targetId: slug, after: { jurisdiction: used, version, sections: chosen.length } });
+  return { slug, jurisdiction: used, version, sections: chosen.length };
 };

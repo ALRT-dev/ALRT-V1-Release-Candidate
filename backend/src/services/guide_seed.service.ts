@@ -1229,6 +1229,10 @@ export const seedSafetyGuides = async (): Promise<void> => {
       isPublished: true,
     };
 
+    // A guide published from the guidance library (its source note carries
+    // "[library") is owned by the library now: the seed never overwrites it.
+    const current = await prisma.safetyGuide.findUnique({ where: { slug: guide.slug }, select: { sourceNote: true, isPublished: true } });
+    if (current?.sourceNote?.includes("[library")) continue;
     await prisma.safetyGuide.upsert({
       where: { slug: guide.slug },
       update: data,
