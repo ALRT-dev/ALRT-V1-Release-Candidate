@@ -221,6 +221,18 @@ AI prompts and the two learn guides copied from it are removed; migration
 unpublishes those guides, deletes its four prompts and marks the source
 retired. Do not reintroduce a Smartraveller source, prompt or guide.
 
+## Safety intelligence (product owner decisions D1 to D8, 16 November 2026)
+
+- **One guidance library.** Alert advice, Safety Profile lines, Learn guide sections, Ask ALRT answers and country facts live in `GuidanceRecord` (one row per version). Draft, in review, approved, retired. Reviewers draft; only admin or super admin approve. Approving a version retires the one it replaces. Edit in admin (Guidance Library), never in code.
+- **Traceability.** Every record names `sourceAgency`, `sourceUrl` (the exact https page), `jurisdiction` (`AU`, `AU-WA`, `ID`, or `*`) and `version`. Approval is refused without a source link. Advice and profile lines reach alerts only through Alert Templates (Send approved lines, then publish), and carry `library <key> v<n>` in their reference.
+- **ALRT's own words** (advice, profile, answers) never contain leave, evacuate, shelter, stay or return directions, or any phone number other than an emergency number (`checkGuidance`). Agency-attributed guide sections only warn.
+- **Ask ALRT resolves the place first** (`ask_alrt/place.ts`): named place, then the alert, then trip, then the device's coarse country and state. A local-law question with no known place gets "Which state or country?" with no AI. The app sends country and state codes only, never coordinates. The 32 fixed place tests run in CI and in the daily assurance.
+- **AI usage log.** Every AI call writes an `AiUsageEvent` (purpose, model, tokens, ms), never the text. Each alert stores `extractionMethod` and `extractionRef`. Prompt edits bump `AIPrompt.version` and add an `AIPromptVersion` row. No savings figure is reported without this log.
+- **Licence gate.** A source moves to `active` only after its licence is confirmed (`licenceConfirmedAt`). New sources are created as `draft`, which ingests nothing, by poll or webhook. Already-active sources were not switched off; the daily check lists unconfirmed ones.
+- **New sources without new code.** Register the source with `adapterKey` (`cap_au`, `geojson`, `arcgis`) and `adapterConfig` (field mapping), preview it in admin, then n8n posts the raw feed to `POST /api/webhook/feeds/:sourceId`. Parsing is in `utils/feed_adapters.util.ts` and copies agency text, never rewrites it.
+- **Server-side Follow.** `HazardFollow`; a cron every 5 minutes pushes once when the agency's own level changes and once when the alert ends. ALRT's band never counts as a level.
+- **Daily assurance.** n8n calls `POST /api/webhook/assurance/run` at 6am Perth; rule checks plus an optional AI sample (`ASSURANCE_AI_SAMPLE=on`). Read-only. Report in admin (Daily Assurance).
+
 ## Engineering conventions
 
 - `npx tsc --noEmit` must be clean before every push, except the

@@ -120,3 +120,23 @@ export const DRAFT_GUIDES: DraftGuide[] = [
     ],
   },
 ];
+
+/**
+ * Safety Profile lines for the two new groups (decision D8): people who rely
+ * on powered medical equipment, and people with an assistance animal.
+ * Imported IN REVIEW for the owner to approve.
+ */
+const WP_OUTAGE = "https://www.westernpower.com.au/faqs/outages/prepare-for-an-extended-power-outage/";
+const DPIRD_ANIMALS = "https://agric.wa.gov.au/animalwelfare/evacuating-animals-emergencies";
+export const DRAFT_PROFILE_LINES: { hazard: string; cohort: "powered" | "assistance"; text: string; sourceAgency: string; sourceUrl: string }[] = [
+  { hazard: "utility_outage", cohort: "powered", text: "Making sure your electricity retailer knows you use life support equipment, and asking your equipment provider how long it runs on battery, may help.", sourceAgency: "Western Power", sourceUrl: WP_OUTAGE },
+  { hazard: "severe_weather", cohort: "powered", text: "Storms can cut power for long periods. Checking your equipment's backup batteries are charged and your outage plan is ready may help.", sourceAgency: "Western Power", sourceUrl: WP_OUTAGE },
+  { hazard: "bushfire", cohort: "powered", text: "Power can be off for days during and after a bushfire. Charging backup batteries early and keeping your outage plan with your kit may help.", sourceAgency: "Western Power", sourceUrl: WP_OUTAGE },
+  { hazard: "cyclone", cohort: "powered", text: "Cyclones can cut power for days. Talking with your equipment provider now about backup options may help.", sourceAgency: "Western Power", sourceUrl: WP_OUTAGE },
+  { hazard: "heatwave", cohort: "powered", text: "Heatwaves can strain the power network. Keeping backup batteries charged and your outage plan handy may help.", sourceAgency: "Western Power", sourceUrl: WP_OUTAGE },
+  { hazard: "flood", cohort: "powered", text: "Floods can cut power and access for days. Having backup batteries charged and your equipment provider's number in your plan may help.", sourceAgency: "Western Power", sourceUrl: WP_OUTAGE },
+  { hazard: "bushfire", cohort: "assistance", text: "Recognised assistance animals are allowed inside emergency relief centres. Keeping their harness, lead, food and papers with your kit may help.", sourceAgency: "Department of Primary Industries and Regional Development (WA)", sourceUrl: DPIRD_ANIMALS },
+  { hazard: "flood", cohort: "assistance", text: "Floodwater can hide hazards for an animal too. Keeping your assistance animal's harness, food and papers in a waterproof bag may help.", sourceAgency: "Department of Primary Industries and Regional Development (WA)", sourceUrl: DPIRD_ANIMALS },
+  { hazard: "cyclone", cohort: "assistance", text: "Packing food, water and papers for your assistance animal in your cyclone kit may help.", sourceAgency: "Department of Primary Industries and Regional Development (WA)", sourceUrl: DPIRD_ANIMALS },
+  { hazard: "evac_centre", cohort: "assistance", text: "Recognised assistance animals are allowed inside emergency relief centres, unlike most pets. Bringing their harness and papers may help.", sourceAgency: "Department of Primary Industries and Regional Development (WA)", sourceUrl: DPIRD_ANIMALS },
+];

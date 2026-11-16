@@ -43,7 +43,8 @@ export interface GuidanceRow extends GuidanceInput {
   reviewerId?: string | null;
 }
 
-export const COHORTS = ["older", "kids", "mobility", "medical", "deaf", "vision", "visitor", "worker", "pets"] as const;
+/** Safety Profile groups. powered and assistance added 16 Nov 2026 (decision D8). */
+export const COHORTS = ["older", "kids", "mobility", "medical", "deaf", "vision", "visitor", "worker", "pets", "powered", "assistance"] as const;
 export const STAGES = ["before", "during", "after"] as const;
 const JURISDICTION_RE = /^(\*|[A-Z]{2}(-[A-Z]{2,3})?)$/;
 const PHONE_RE = /(?:\+?\d[\d\s-]{5,}\d)/;

@@ -103,7 +103,10 @@ describe("one-off import of the existing stores", () => {
     expect(records.every((r) => r.sourceAgency.trim().length > 0)).toBe(true);
   });
   it("drafts the new guides with a page-level source and no ALRT movement directions", () => {
-    const drafts = buildDraftGuideRecords();
+    const drafts = buildDraftGuideRecords().filter((d) => d.kind === "guide_section");
+    const lines = buildDraftGuideRecords().filter((d) => d.kind === "profile");
+    expect(new Set(lines.map((l) => l.cohort))).toEqual(new Set(["powered", "assistance"]));
+    for (const l of lines) expect(checkGuidance(l, { forApproval: true }).errors, l.key).toEqual([]);
     expect(new Set(drafts.map((d) => d.hazard))).toEqual(new Set(["smoke-air-quality", "house-fire", "hazardous-materials", "landslide", "armed-attack-escape-hide-tell", "home-security", "water-contamination"]));
     for (const d of drafts) {
       const c = checkGuidance(d, { forApproval: true });

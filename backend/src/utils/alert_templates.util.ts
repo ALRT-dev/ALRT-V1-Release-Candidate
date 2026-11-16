@@ -53,7 +53,7 @@ export const libraryEntrySchema = z
     categoryIds: z.array(id).max(30),
     countries: z.array(z.string().regex(/^[A-Z]{2}(-[A-Z]{2,3})?$/)).max(50), // "AU" or a state, "AU-WA"
     bands: z.array(bandSchema).max(4),
-    profileTags: z.array(z.enum(["older", "kids", "mobility", "medical", "deaf", "vision", "visitor", "worker", "pets"])).max(9),
+    profileTags: z.array(z.enum(["older", "kids", "mobility", "medical", "deaf", "vision", "visitor", "worker", "pets", "powered", "assistance"])).max(11),
     approved: z.boolean(),
     reference: z.string().trim().max(1000),
     reviewedAt: z

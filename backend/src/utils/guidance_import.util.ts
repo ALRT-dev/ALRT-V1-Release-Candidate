@@ -4,7 +4,7 @@ import { guides } from "../services/guide_seed.service.js";
 import { BUILT_IN_ENTRIES } from "./ask_alrt_content.util.js";
 import { SAFETY_GROUPS, hazardSafetyLibrary } from "./hazard_safety_library.util.js";
 import { buildKey, type GuidanceInput } from "./guidance_library.util.js";
-import { DRAFT_GUIDES } from "../data/guidance_drafts_20261116.js";
+import { DRAFT_GUIDES, DRAFT_PROFILE_LINES } from "../data/guidance_drafts_20261116.js";
 
 /**
  * One-off import of the five existing guidance stores into the shared
@@ -141,8 +141,14 @@ export const buildCountryImport = () =>
   }));
 
 /** The guides drafted on 16 Nov 2026: imported IN REVIEW for the owner to approve. */
-export const buildDraftGuideRecords = (): (GuidanceInput & { key: string; changeNote: string })[] =>
-  DRAFT_GUIDES.flatMap((g) => {
+export const buildDraftGuideRecords = (): (GuidanceInput & { key: string; changeNote: string })[] => [
+  ...DRAFT_PROFILE_LINES.map((l) => ({
+    key: buildKey({ kind: "profile", hazard: l.hazard, cohort: l.cohort, jurisdiction: "AU" }, "line"),
+    kind: "profile" as const, hazard: l.hazard, cohort: l.cohort, jurisdiction: "AU", text: l.text,
+    sourceAgency: l.sourceAgency, sourceUrl: l.sourceUrl,
+    changeNote: "Drafted 16 Nov 2026 for a new Safety Profile group (D8). Needs owner approval.",
+  })),
+  ...DRAFT_GUIDES.flatMap((g) => {
     const counts: Record<string, number> = {};
     return g.sections.map((s) => {
       counts[s.stage] = (counts[s.stage] ?? 0) + 1;
@@ -153,4 +159,5 @@ export const buildDraftGuideRecords = (): (GuidanceInput & { key: string; change
         changeNote: `Drafted 16 Nov 2026 for "${g.title}"${g.replaces ? `, replacing the content of "${g.replaces}"` : ""}. Needs owner approval.`,
       };
     });
-  });
+  }),
+];
