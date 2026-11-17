@@ -2,6 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hazard_app/features/shared/utils/event_icon_assets.dart';
 
 void main() {
+  test('official fire pins load their own art at every band', () {
+    for (final category in ['bushfire', 'fireAlarm']) {
+      for (final band in ['info', 'monitor', 'action', 'critical']) {
+        expect(EventIconAssets.names, contains('non_aws/${category}_$band'));
+      }
+    }
+  });
   test('lookup keys match the keys the loader writes', () {
     expect(
       EventIconAssets.bitmapKey('aws/bushfire_action'),

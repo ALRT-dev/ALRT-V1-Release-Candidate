@@ -77,3 +77,111 @@ export const buildN8nTestWorkflow = (apiBase: string, now: Date = new Date()) =>
   },
   settings: { executionOrder: "v1" },
 });
+
+/**
+ * n8n workflow for a feed source (16 Nov 2026): on a schedule, fetch the
+ * source's feed as text and post it, unchanged, to
+ * POST /api/webhook/feeds/:sourceId. ALRT parses it with the adapter and
+ * mapping saved on the source. The key stays in n8n's Header Auth credential.
+ */
+export const FEED_PATH = (sourceId: string) => `/api/webhook/feeds/${encodeURIComponent(sourceId)}`;
+
+export const buildN8nFeedWorkflow = (apiBase: string, source: { id: string; name: string; feedUrl: string; scheduleMinutes?: number | null }) => ({
+  name: `ALRT feed: ${source.name}`,
+  nodes: [
+    {
+      parameters: { rule: { interval: [{ field: "minutes", minutesInterval: Math.max(1, source.scheduleMinutes ?? 10) }] } },
+      id: "b2f0c1d2-0000-4000-8000-000000000001",
+      name: "Every few minutes",
+      type: "n8n-nodes-base.scheduleTrigger",
+      typeVersion: 1.2,
+      position: [260, 300],
+    },
+    {
+      parameters: { url: source.feedUrl, options: { response: { response: { responseFormat: "text", outputPropertyName: "feed" } }, timeout: 20000 } },
+      id: "b2f0c1d2-0000-4000-8000-000000000002",
+      name: "Fetch feed",
+      type: "n8n-nodes-base.httpRequest",
+      typeVersion: 4.2,
+      position: [520, 300],
+    },
+    {
+      parameters: {
+        method: "POST",
+        url: `${apiBase.replace(/\/+$/, "")}${FEED_PATH(source.id)}`,
+        authentication: "genericCredentialType",
+        genericAuthType: "httpHeaderAuth",
+        sendBody: true,
+        contentType: "raw",
+        rawContentType: "text/plain",
+        body: "={{ $json.feed }}",
+        options: { timeout: 60000 },
+      },
+      id: "b2f0c1d2-0000-4000-8000-000000000003",
+      name: "Send to ALRT",
+      type: "n8n-nodes-base.httpRequest",
+      typeVersion: 4.2,
+      position: [780, 300],
+    },
+  ],
+  connections: {
+    "Every few minutes": { main: [[{ node: "Fetch feed", type: "main", index: 0 }]] },
+    "Fetch feed": { main: [[{ node: "Send to ALRT", type: "main", index: 0 }]] },
+  },
+  settings: { executionOrder: "v1" },
+});
+
+/**
+ * The daily assurance workflow (D3): 6am Perth time, run the checks, and
+ * email the owner only when something failed. Set the email node's
+ * credential and address in n8n.
+ */
+export const buildN8nAssuranceWorkflow = (apiBase: string) => ({
+  name: "ALRT daily assurance",
+  nodes: [
+    {
+      parameters: { rule: { interval: [{ field: "cronExpression", expression: "0 6 * * *" }] } },
+      id: "c3f0c1d2-0000-4000-8000-000000000001",
+      name: "6am Perth",
+      type: "n8n-nodes-base.scheduleTrigger",
+      typeVersion: 1.2,
+      position: [260, 300],
+    },
+    {
+      parameters: {
+        method: "POST",
+        url: `${apiBase.replace(/\/+$/, "")}/api/webhook/assurance/run`,
+        authentication: "genericCredentialType",
+        genericAuthType: "httpHeaderAuth",
+        options: { timeout: 120000 },
+      },
+      id: "c3f0c1d2-0000-4000-8000-000000000002",
+      name: "Run checks",
+      type: "n8n-nodes-base.httpRequest",
+      typeVersion: 4.2,
+      position: [520, 300],
+    },
+    {
+      parameters: { conditions: { boolean: [{ value1: "={{ $json.notify }}", value2: true }] } },
+      id: "c3f0c1d2-0000-4000-8000-000000000003",
+      name: "Anything failed?",
+      type: "n8n-nodes-base.if",
+      typeVersion: 1,
+      position: [780, 300],
+    },
+    {
+      parameters: { subject: "={{ 'ALRT daily assurance: ' + $json.failures + ' failed' }}", text: "={{ $json.report }}", options: {} },
+      id: "c3f0c1d2-0000-4000-8000-000000000004",
+      name: "Email the owner",
+      type: "n8n-nodes-base.emailSend",
+      typeVersion: 2.1,
+      position: [1040, 240],
+    },
+  ],
+  connections: {
+    "6am Perth": { main: [[{ node: "Run checks", type: "main", index: 0 }]] },
+    "Run checks": { main: [[{ node: "Anything failed?", type: "main", index: 0 }]] },
+    "Anything failed?": { main: [[{ node: "Email the owner", type: "main", index: 0 }], []] },
+  },
+  settings: { executionOrder: "v1", timezone: "Australia/Perth" },
+});

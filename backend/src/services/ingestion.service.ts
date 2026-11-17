@@ -1,3 +1,7 @@
+import { withSourceHistory } from '../utils/source_history.util.js';
+import { withAiTracking, describeExtraction, FIXED_TEMPLATE_SOURCE_IDS } from "../utils/ai_usage.util.js";
+import { TEMPLATE_FIRST_SOURCE_IDS } from "../utils/template_first.util.js";
+import {CFS_CAP_URL,fetchCFSCap,readCFSCapCancellations} from '../utils/cfs_cap.util.js';
 import {
   HazardReviewStatus,
   HazardSeverity,
@@ -7,7 +11,7 @@ import {
   type HazardCategory,
 } from "@prisma/client";
 import {
-  parseCFSFeedToHazards,
+  parseCFSCapToHazards,
   parseGeoJsonToHazards,
   parseNTFireAndRescueToHazards,
   parseRSSFeedToHazards,
@@ -31,7 +35,7 @@ import {
 import * as crypto from "crypto";
 import prisma from "../utils/prisma_client.util.js";
 import { getTemplateRegistry, type TemplateRelease } from './alert_templates.service.js';
-import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry } from '../utils/alert_templates.util.js';
+import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry, templateRegion } from '../utils/alert_templates.util.js';
 import { agencyExtractionFallback } from '../utils/agency_extraction.util.js';
 import { isAlwaysOnOfficialWarning } from '../utils/official_warning.util.js';
 import { summarizeHazard } from "./hazard.service.js";
@@ -77,7 +81,6 @@ export enum ExternalSourceId {
   ntFireAndRescue = "ntFireAndRescue",
   waqi = "waqi",
   openMeteo = "openMeteo",
-  smartraveller = "smartraveller",
   waDfes = "waDfes",
   nswSes = "nswSes",
   earthquakeUsgs = "earthquakeUsgs",
@@ -206,13 +209,13 @@ export const syncHazardsFromDifferentSources = async ({
       },
       {
         id: ExternalSourceId.cfs,
-        apiUrl:
-          "https://data.eso.sa.gov.au/prod/cfs/criimson/cfs_current_incidents.json",
-        parseFunction: (responseData: any) =>
-          parseCFSFeedToHazards({
-            data: responseData,
-            availableCategories,
-          }),
+        apiUrl: CFS_CAP_URL,
+        parseFunction: async () => {
+          const xml=await fetchCFSCap();
+          const cancellations=readCFSCapCancellations(xml);
+          const previousHazards=cancellations.length?await prisma.hazard.findMany({where:{sourceId:'cfs',id:{in:cancellations.map(x=>x.id)}},include:{category:true,source:true}}):[];
+          return parseCFSCapToHazards({xml,availableCategories,previousHazards});
+        },
       },
       {
         id: ExternalSourceId.viceFire,
@@ -321,41 +324,6 @@ export const syncHazardsFromDifferentSources = async ({
           });
         },
       },
-      // {
-      //   id: ExternalSourceId.smartraveller,
-      //   name: "Smartraveller",
-      //   url: "https://www.smartraveller.gov.au",
-      //   imageUrl:
-      //     "https://www.smartraveller.gov.au/themes/custom/smart_traveller/logo-main-st.png",
-      //   apiUrl: "https://www.smartraveller.gov.au/destinations-export",
-      //   parseFunction: (responseData: any) => {
-      //     const parentCategories =
-      //       availableCategories
-      //         ?.map((cat) => cat.parent)
-      //         ?.filter((cat) => cat !== null)
-      //         .reduce<HazardCategory[]>((acc, curr) => {
-      //           if (curr && !acc.find((c) => c.id === curr.id)) {
-      //             acc.push(curr);
-      //           }
-      //           return acc;
-      //         }, []) || [];
-
-      //     const securityAndCrimeCategory = parentCategories.find(
-      //       (cat: HazardCategory) => cat.id === MainCategoryId.securityAndCrime
-      //     );
-      //     if (!securityAndCrimeCategory) {
-      //       console.log(
-      //         "Security and Crime category not found, skipping Smartraveller hazards."
-      //       );
-      //       return [];
-      //     }
-
-      //     return parseSmartravellerToHazards({
-      //       data: responseData,
-      //       category: securityAndCrimeCategory,
-      //     });
-      //   },
-      // },
       {
         id: ExternalSourceId.waDfes,
         apiUrl: "https://api.emergency.wa.gov.au/v1/rss/warnings",
@@ -536,6 +504,7 @@ export const summarizeAndPostHazards = async ({
       isUpdate: boolean;
     }> = [];
 
+    const priorSourceDetails = new Map<string, unknown>();
     let templateRelease: TemplateRelease | null = null;
     try { templateRelease = (await getTemplateRegistry()).published; }
     catch (error) { console.error("Template registry unavailable; continuing existing source classification.", error); }
@@ -543,11 +512,12 @@ export const summarizeAndPostHazards = async ({
       if (!hazardData.id) continue;
       if(templateRelease&&hazardData.source&&!(hazardData.category?.id==='airQualityAlert' && hazardData.source.id==='waqi')){
         const resolved=resolveTemplate(templateRelease.pack,{country:templateCountry(hazardData.jurisdictionCountry,hazardData.source),sourceId:hazardData.source.id});
-        hazardData.severityBand=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info}).band;
+        hazardData.severityBand=chooseTemplateBand(resolved.settings,{isAws:hazardData.isAwsCompliant??false,severity:hazardData.severity??null,nativeLevel:hazardData.nativeWarningLevel??null,sourceLifecycle:hazardData.sourceLifecycle,description:hazardData.description,fallback:hazardData.severityBand??HazardSeverityBand.info}).band;
       }
 
       try {
         hazardData.sourceContentHash = hazardContentHash({
+          ...(hazardData.sourceLifecycle?{sourceLifecycle:hazardData.sourceLifecycle}:{}),
           title: hazardData.title, description: hazardData.description,
           instructions: hazardData.sourceInstructionBlocks ?? [],
           nativeLevel: hazardData.nativeWarningLevel ?? null,
@@ -561,6 +531,8 @@ export const summarizeAndPostHazards = async ({
         const existing = await prisma.hazard.findUnique({
           where: { id: hazardData.id },
         });
+
+        if (existing && existing.sourceId === hazardData.source?.id) priorSourceDetails.set(hazardData.id, existing.contentDetails);
 
         // Check if this source has severity band filtering configured
         const sourceId = hazardData.source?.id as ExternalSourceId;
@@ -764,8 +736,13 @@ export const summarizeAndPostHazards = async ({
           // R-03: previously a summarisation failure threw, the outer catch
           // returned null, and the hazard was silently dropped.
           let summarized: Awaited<ReturnType<typeof summarizeHazard>>;
+          let extraction: { extractionMethod: string; extractionRef: string };
+          const traceExtraction = (aiCalls: number, failed = false) => describeExtraction({
+            aiCalls, failed, sourceId: hazardData.source?.id ?? null, templateVersion: templateRelease?.version ?? null,
+            templateFirstSourceIds: TEMPLATE_FIRST_SOURCE_IDS, fixedTemplateSourceIds: FIXED_TEMPLATE_SOURCE_IDS,
+          });
           try {
-            summarized = await summarizeHazard({
+            const tracked = await withAiTracking(() => summarizeHazard({
               templateRelease,
               jurisdictionCountry:hazardData.jurisdictionCountry,
               nativeWarningLevel:hazardData.nativeWarningLevel,
@@ -778,8 +755,11 @@ export const summarizeAndPostHazards = async ({
               source: hazardData.source!,
               isAwsCompliant: hazardData.isAwsCompliant ?? false,
               severityBand: hazardData.severityBand || HazardSeverityBand.info,
-            });
+            }));
+            summarized = tracked.result;
+            extraction = traceExtraction(tracked.aiCalls);
           } catch (aiError) {
+            extraction = traceExtraction(0, true);
             console.error(
               `AI summarisation failed for "${hazardData.title}", using raw source data:`,
               aiError,
@@ -798,7 +778,7 @@ export const summarizeAndPostHazards = async ({
               const {settings} = resolveTemplate(templateRelease.pack, {country, sourceId: hazardData.source.id});
               const sourceActions = hazardData.sourceInstructionBlocks ?? [];
               const sourceText = [hazardData.title, hazardData.description, hazardData.nativeWarningLevel ?? '', ...sourceActions].filter(Boolean).join('\n\n');
-              const fallback = agencyExtractionFallback({sourceText, sourceTitle: hazardData.title, sourceDescription: hazardData.description, sourceActions, nativeWarningLevel: hazardData.nativeWarningLevel, agency: hazardData.source.name, allowAgencyNumbers: settings.allowAgencyNumbers, templateVersion: templateRelease.version, ...selectLibraryGuidance(templateRelease.pack, {categoryId: hazardData.category.id, parentCategoryId: hazardData.category.parentId, country, band})});
+              const fallback = agencyExtractionFallback({sourceText, sourceTitle: hazardData.title, sourceDescription: hazardData.description, sourceActions, nativeWarningLevel: hazardData.nativeWarningLevel, agency: hazardData.source.name, allowAgencyNumbers: settings.allowAgencyNumbers, templateVersion: templateRelease.version, ...selectLibraryGuidance(templateRelease.pack, {categoryId: hazardData.category.id, parentCategoryId: hazardData.category.parentId, country, region: templateRegion(hazardData.source), band})});
               summarized = {...fallback, contentDetails: {...fallback.contentDetails, presentation: {band, bandColor: settings.bandColors[band], iconCategoryId: hazardData.isAwsCompliant ? hazardData.category.id : (settings.iconCategoryId ?? hazardData.category.id), agencyArtwork: hazardData.isAwsCompliant ?? false}}};
             }
           }
@@ -831,18 +811,24 @@ export const summarizeAndPostHazards = async ({
               hazardData.severity || HazardSeverity.unknown,
             );
           }
-          if (hazardData.source?.id === ExternalSourceId.smartraveller) {
-            // No expiry for smartraveller hazards
-            expiresAt = undefined;
-          }
 
           // Prepare the hazard data with AI summary
           const finalHazardData: HazardDataWithRelations = {
             ...hazardData,
             title: summarized.title || hazardData.title,
             aiSummary: templateRelease?summarized.summary:(hazardData.aiSummary || summarized.summary),
-            contentDetails: summarized.contentDetails??Prisma.DbNull,
+            contentDetails: hazardData.source?.id === 'waDfes' ? withSourceHistory(
+              (summarized.contentDetails ?? {}) as unknown as Record<string, unknown>,
+              priorSourceDetails.get(hazardData.id!),
+              {sourceId:hazardData.source!.id,eventId:hazardData.id!,title:hazardData.title,
+                description:hazardData.description,nativeLevel:hazardData.nativeWarningLevel ?? null,
+                channel:hazardData.isAwsCompliant || hazardData.nativeWarningLevel ? 'warning' : 'incident',
+                instructions:hazardData.sourceInstructionBlocks ?? []},
+              new Date(),
+            ) as unknown as Prisma.InputJsonObject : summarized.contentDetails ?? Prisma.DbNull,
             aiConfidence: summarized.confidence,
+            extractionMethod: extraction.extractionMethod,
+            extractionRef: extraction.extractionRef,
             callsToAction: templateRelease?summarized.callsToAction:Array.isArray(hazardData.callsToAction)
               ? hazardData.callsToAction
               : Array.isArray(summarized.callsToAction)
@@ -1037,7 +1023,10 @@ const fetchHazardsFromSource = async <T = any>(
     // ingested. Sources with no registry status are treated as active.
     if (
       source.lifecycleStatus === "suspended" ||
-      source.lifecycleStatus === "retired"
+      source.lifecycleStatus === "retired" ||
+      // A draft source has its pipeline built but its licence is not yet
+      // confirmed, so nothing is ingested (owner, 16 Nov 2026).
+      (source.lifecycleStatus as string) === "draft"
     ) {
       console.warn(
         `Skipping ${sourceId}: lifecycle status is ${source.lifecycleStatus}.`,
@@ -1204,6 +1193,7 @@ export const getLocationsFromText = async (text: string): Promise<string[]> => {
     model: model,
     systemPromptContent: promptContent,
     userPromptContent: userContent,
+    usage: { purpose: "locations" },
   });
 
   try {

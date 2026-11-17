@@ -11,6 +11,7 @@ import 'package:hazard_app/features/onboarding/enums/onboarding_step_types.dart'
 import 'package:hazard_app/features/profile/views/screens/deleted_account_info_screen.dart';
 import 'package:hazard_app/features/shared/enums/shared_prefs_key_types.dart';
 import 'package:hazard_app/features/shared/providers/app_initialization_provider.dart';
+import 'package:hazard_app/features/shared/providers/app_config_provider.dart';
 import 'package:hazard_app/features/shared/providers/instance_providers.dart';
 import 'package:hazard_app/features/shared/providers/logged_in_user_provider.dart';
 import 'package:hazard_app/features/shared/views/screens/splash_screen.dart';
@@ -141,6 +142,7 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
     // A build the backend no longer supports is stopped here, on a
     // full-screen "Please update ALRT" (shown by MyApp over any route).
     unawaited(ref.read(providerOfForceUpdate.notifier).check());
+    unawaited(ref.read(appConfigProvider.future));
     if (loggedInUser != null) {
       // Check if account is scheduled for deletion
       if (loggedInUser.scheduledDeletionAt != null) {

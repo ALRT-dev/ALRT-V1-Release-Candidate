@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hazard_app/features/subscription/views/screens/alrt_plus_choose_screen.dart';
 import 'package:hazard_app/features/shared/views/widgets/agency_content_sections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -6,6 +7,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
+import 'package:hazard_app/features/family/repositories/family_repository.dart';
+import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
+import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
 import 'package:hazard_app/features/home/views/screens/home_screen.dart';
@@ -19,6 +23,8 @@ import 'package:hazard_app/features/map/providers/location_provider.dart';
 import 'package:hazard_app/features/shared/enums/ai_confidence_types.dart';
 import 'package:hazard_app/features/shared/enums/alrt_media_types.dart';
 import 'package:hazard_app/features/shared/enums/hazard_review_status_types.dart';
+import 'package:hazard_app/features/shared/enums/hazard_severity_band_types.dart';
+import 'package:hazard_app/features/shared/utils/alert_guidance_library.dart';
 import 'package:hazard_app/features/shared/enums/video_priority_types.dart';
 import 'package:hazard_app/features/shared/extensions/context_extension.dart';
 import 'package:hazard_app/features/shared/providers/states/view_hazard_provider_state.dart';
@@ -36,15 +42,12 @@ import 'package:hazard_app/features/shared/providers/view_hazard_provider.dart';
 import 'package:hazard_app/features/shared/utils/dialogs.dart';
 import 'package:hazard_app/features/shared/utils/open_link.dart';
 import 'package:hazard_app/features/shared/utils/share_alert.dart';
-import 'package:hazard_app/features/shared/utils/general_guidance.dart';
 import 'package:hazard_app/features/shared/utils/alert_text_util.dart';
 import 'package:hazard_app/features/shared/views/widgets/alert_card_style.dart';
 import 'package:hazard_app/features/shared/views/widgets/category_glyph.dart';
 import 'package:hazard_app/features/shared/views/widgets/report_content_sheet.dart';
 import 'package:hazard_app/features/shared/views/widgets/small_map_view.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/hazard_medias_carousel.dart';
-import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/send_to_group_sheet.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:hazard_app/features/shared/views/widgets/view_hazard_widgets/source_shape_glyph.dart';
 import 'package:hazard_app/others/app_colors.dart';
 import 'dart:math' as math;
@@ -85,7 +88,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// Whether this alert is being read aloud right now. Drives the lit
   /// Listen button, and is cleared when the speech ends on its own.
   bool _isSpeaking = false;
+  bool _sendingToGroup = false;
 
+  /// Which Tell your people button is sending (for its spinner).
+  bool _sendingImSafe = false;
+  late final AlertSpeechService _speech;
 
   /// The lit state of Follow and Listen: the brand orange.
   static const _litInk = Color(0xFFFF6B01);
@@ -94,6 +101,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   @override
   void initState() {
     super.initState();
+    _speech = ref.read(providerOfAlertSpeech);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onInit());
   }
 
@@ -103,7 +111,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     // of the screen it belongs to is the kind of thing people turn the
     // whole feature off over. Unconditional: _isSpeaking can be stale if
     // the flag reset raced the engine, and stop() on silence is a no-op.
-    ref.read(providerOfAlertSpeech).stop();
+    _speech.stop();
     super.dispose();
   }
 
@@ -156,14 +164,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     _buildEditDeleteRow(),
                     16.hSizedBox,
                   ],
+                  _buildUpdatedNotificationBox(),
                   _buildHeaderCard(),
                   16.hSizedBox,
-                  
-                  // Updated notification box
-                  _buildUpdatedNotificationBox(),
-                  
-                  // Timeline section
-                  _buildTimelineSection(),
 
                   // Review feedback section (if applicable)
                   Consumer(
@@ -206,24 +209,19 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       ),
     );
   }
-  
+
   /// Shows "Updated" notification box when alert has been updated recently
   Widget _buildUpdatedNotificationBox() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
-        
-        // Check if updated more than 5 minutes after created
-        if (hazard.updatedAt == null || hazard.createdAt == null) {
-          return const SizedBox.shrink();
-        }
-        
-        final timeDiff = hazard.updatedAt!.difference(hazard.createdAt!);
-        if (timeDiff.inMinutes <= 5) return const SizedBox.shrink();
-        
-        final updatedTime = hazard.updatedAt!.timeAgo;
-        
+
+        // A database refresh is not evidence of a source update.
+        final update = hazard.latestSourceUpdate;
+        if (update == null) return const SizedBox.shrink();
+        final updatedTime = _formatTimestamp(update.at.toLocal());
+
         return Container(
           margin: EdgeInsets.only(bottom: 16.spMin),
           padding: EdgeInsets.all(14.spMin),
@@ -255,7 +253,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Updated',
+                      update.isAgencyTime
+                          ? 'Source updated'
+                          : 'Change detected',
                       style: TextStyle(
                         fontSize: 13.spMin,
                         fontWeight: FontWeight.w700,
@@ -264,13 +264,28 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     ),
                     2.hSizedBox,
                     Text(
-                      'This alert was updated $updatedTime with new information',
+                      '${update.summary} · $updatedTime',
                       style: TextStyle(
                         fontSize: 12.spMin,
                         color: const Color(0xFF6B4423),
                         height: 1.3,
                       ),
                     ),
+                    if (hazard.sourceUpdates.length > 1)
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: const Text('Earlier source changes'),
+                        children: [
+                          for (final earlier in hazard.sourceUpdates.skip(1))
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(earlier.summary),
+                              subtitle: Text(
+                                '${earlier.isAgencyTime ? 'Source updated' : 'Detected'}: ${_formatTimestamp(earlier.at.toLocal())}',
+                              ),
+                            ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -280,96 +295,56 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       },
     );
   }
-  
+
   /// Shows structured timeline with event/posted/updated/expiry times
   Widget _buildTimelineSection() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
-        
-        // Only show if we have meaningful timestamps
-        final hasOccurredAt = hazard.occurredAt != null;
-        final hasUpdated = hazard.updatedAt != null && 
-            hazard.createdAt != null &&
-            hazard.updatedAt!.difference(hazard.createdAt!).inMinutes > 5;
-        final hasExpiry = hazard.expiresAt != null;
-        
-        // Skip if we only have createdAt (already shown elsewhere)
-        if (!hasOccurredAt && !hasUpdated && !hasExpiry) {
-          return const SizedBox.shrink();
-        }
-        
-        return Container(
-          margin: EdgeInsets.only(bottom: 16.spMin),
-          padding: EdgeInsets.all(16.spMin),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(14.spMin),
-            border: Border.all(color: AppColors.lightGrey),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        return Card(
+          elevation: 0,
+          child: ExpansionTile(
+            title: const Text('Source & time details'),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
-              Text(
-                'TIMELINE',
-                style: TextStyle(
-                  fontSize: 11.spMin,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
+              if (hazard.occurredAt != null)
+                _timelineRow(
+                  icon: LucideIcons.clock,
+                  label: hazard.source?.id == 'waDfes'
+                      ? 'Agency reported'
+                      : _eventLabel(hazard.occurredAt!),
+                  value: _formatTimestamp(hazard.occurredAt!),
                   color: AppColors.mediumGrey,
                 ),
-              ),
-              12.hSizedBox,
-              
-              // Event time (when the event occurred/will occur)
-              if (hasOccurredAt)
-                _timelineRow(
-                  icon: LucideIcons.zap,
-                  label: _eventLabel(hazard.occurredAt!),
-                  value: _formatTimestamp(hazard.occurredAt!),
-                  color: hazard.color,
-                ),
-              
-              // Posted time
-              if (hazard.createdAt != null) ...[
-                if (hasOccurredAt) 8.hSizedBox,
+              if (hazard.createdAt != null)
                 _timelineRow(
                   icon: LucideIcons.send,
                   label: 'Posted',
                   value: _formatTimestamp(hazard.createdAt!),
                   color: AppColors.mediumGrey,
                 ),
-              ],
-              
-              // Updated time
-              if (hasUpdated) ...[
-                8.hSizedBox,
+              if (hazard.updatedAt != null)
                 _timelineRow(
                   icon: LucideIcons.refreshCw,
-                  label: 'Updated',
+                  label: 'Record refreshed',
                   value: _formatTimestamp(hazard.updatedAt!),
-                  color: const Color(0xFFFF6B01),
+                  color: AppColors.mediumGrey,
                 ),
-              ],
-              
-              // Expiry time
-              if (hasExpiry) ...[
-                8.hSizedBox,
+              if (hazard.expiresAt != null)
                 _timelineRow(
                   icon: LucideIcons.clock,
-                  label: 'Expires',
+                  label: 'Listing until',
                   value: _formatTimestamp(hazard.expiresAt!),
                   color: AppColors.mediumGrey,
                 ),
-              ],
             ],
           ),
         );
       },
     );
   }
-  
+
   /// Timeline row with icon, label, and formatted time
   Widget _timelineRow({
     required IconData icon,
@@ -410,16 +385,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       ],
     );
   }
-  
+
   /// Format timestamp as "Today 2:15 PM" or "Tomorrow 6:00 PM" or "Thu, 2 Nov 3:45 PM"
   String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
     final dtDate = DateTime(dt.year, dt.month, dt.day);
-    
-    final timeStr = '${dt.hour % 12 == 0 ? 12 : dt.hour % 12}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour >= 12 ? 'PM' : 'AM'}';
-    
+
+    final timeStr =
+        '${dt.hour % 12 == 0 ? 12 : dt.hour % 12}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour >= 12 ? 'PM' : 'AM'}';
+
     if (dtDate == today) {
       return 'Today $timeStr';
     } else if (dtDate == tomorrow) {
@@ -427,12 +403,33 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     } else if (dt.isBefore(now) && now.difference(dt).inHours < 24) {
       return dt.timeAgo;
     } else {
-      final weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][dt.weekday - 1];
-      final month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dt.month - 1];
+      final weekday = [
+        'Mon',
+        'Tue',
+        'Wed',
+        'Thu',
+        'Fri',
+        'Sat',
+        'Sun',
+      ][dt.weekday - 1];
+      final month = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ][dt.month - 1];
       return '$weekday, ${dt.day} $month $timeStr';
     }
   }
-  
+
   /// Event label: "Event" for past, "Active now" for current, "Starts" for future
   String _eventLabel(DateTime occurredAt) {
     final now = DateTime.now();
@@ -537,12 +534,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               _roundControl(
                 icon: LucideIcons.share2,
                 semanticLabel: 'Share',
-                onTap: () => SharePlus.instance.share(
-                  ShareParams(
-                    text:
-                        '${hazard.title ?? "Alert"} \u00b7 ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
-                  ),
-                ),
+                onTap: () =>
+                    shareAlert(ref: ref, hazard: hazard, from: 'detail'),
               )
             else
               SizedBox(width: 40.spMin),
@@ -599,8 +592,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
-        final hasUpdate = hazard != null && _hasUnseenUpdate(hazard);
-        
+        final hasUpdate = hazard != null && _hasSourceUpdate(hazard);
+
         return Stack(
           clipBehavior: Clip.none,
           children: [
@@ -610,7 +603,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               decoration: BoxDecoration(
                 color: isFollowing ? _litWash : AppColors.white,
                 borderRadius: BorderRadius.circular(20.spMin),
-                border: isFollowing ? Border.all(color: _litInk, width: 1.5) : null,
+                border: isFollowing
+                    ? Border.all(color: _litInk, width: 1.5)
+                    : null,
                 boxShadow: const [AlertCardStyle.cardShadow],
               ),
               child: Material(
@@ -679,14 +674,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       },
     );
   }
-  
+
   /// Check if alert has updates the user hasn't seen yet.
-  bool _hasUnseenUpdate(Hazard hazard) {
-    // Simple check: if updated time is more than 5 minutes after created time
-    if (hazard.updatedAt == null || hazard.createdAt == null) return false;
-    final timeDiff = hazard.updatedAt!.difference(hazard.createdAt!);
-    return timeDiff.inMinutes > 5;
-  }
+  bool _hasSourceUpdate(Hazard hazard) => hazard.latestSourceUpdate != null;
 
   Widget _buildEditDeleteRow() {
     return Row(
@@ -738,12 +728,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!hazard.isUserReported)
+              if (!hazard.isUserReported &&
+                  hazard.contentDetails?['extractionMethod'] !=
+                      'dfes-incident-fields')
                 Container(
                   width: double.infinity,
                   height: AlertCardStyle.detailBandStripHeight.spMin,
                   color: hazard.isGdacs
-                      ? AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel)
+                      ? AlertCardStyle.gdacsShapeColor(
+                          hazard.nativeWarningLevel,
+                        )
                       : hazard.color,
                 ),
               Padding(
@@ -789,8 +783,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   }
 
   Widget _buildOfficialCategoryPill(final Hazard hazard) {
-    final category = hazard.category;
-    final label = (category?.name ?? category?.parent?.name ?? 'Other').trim();
+    final label = hazard.displayMainCategoryName;
+    final category = hazard.category?.copyWith(name: label);
     final color = category?.resolvedColor ?? AppColors.grey;
     return Container(
       padding: EdgeInsets.symmetric(
@@ -829,14 +823,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
 
   /// The headline: the alert's own title, or, for a community report with
   /// none, its category.
-  String _titleOf(final Hazard hazard) {
-    final title = hazard.title?.trim();
-    if (title != null && title.isNotEmpty) return title;
-    if (hazard.isUserReported) {
-      return hazard.category?.name ?? 'Community report';
-    }
-    return 'Alert';
-  }
+  String _titleOf(final Hazard hazard) => hazard.displayTitle;
 
   /// Official and AWS: shape glyph, the label (only the Australian Warning
   /// System writes a level word), and "source · ago" on the right.
@@ -846,42 +833,96 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     final hasAwsLevel =
         isAws && severityTitle.isNotEmpty && severityTitle != 'Unknown';
 
-    final String label;
-    final Color labelInk;
+    // Owner review, 13 November 2026: a level is written only when the
+    // source designates one (an AWS level, the source's own level, a GDACS
+    // level, or the WAQI air quality rating). It then sits on a solid pill
+    // in the level colour. Anything else writes no level word: the band
+    // colour on the card and map shape carries it, and the label is the
+    // plain "OFFICIAL" it always was.
+    String label;
+    Color? pillColor;
     if (hazard.isAlrtIntel) {
       label = 'ALRT ASSESSMENT';
-      labelInk = AlertCardStyle.labelInkNeutral;
     } else if (hazard.isGlobalHumanitarian) {
-      label = 'GDACS';
-      labelInk = AlertCardStyle.labelInkNeutral;
-    } else if (hasAwsLevel) {
-      label = severityTitle.toUpperCase();
-      labelInk = AlertCardStyle.bandLabelInk(hazard.severityBand);
-    } else if (isAws) {
-      label = 'AWS';
-      labelInk = AlertCardStyle.bandLabelInk(hazard.severityBand);
+      final level = hazard.nativeWarningLevel?.trim();
+      if (level == null || level.isEmpty) {
+        label = 'GDACS';
+      } else {
+        label = level.toUpperCase().startsWith('GDACS')
+            ? level.toUpperCase()
+            : 'GDACS ${level.toUpperCase()}';
+        pillColor = AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel);
+      }
     } else {
-      label = 'OFFICIAL';
-      labelInk = AlertCardStyle.labelInkNeutral;
+      final band = hazard.severityBand ?? HazardSeverityBand.info;
+      final named = hazard.displayWarningLevel;
+      final airRating = _airQualityRating(hazard);
+      final gdacsImpact = hazard.isGdacs
+          ? switch ((named ?? hazard.nativeWarningLevel ?? '').toLowerCase()) {
+              final v when v.contains('red') => 'HIGH IMPACT',
+              final v when v.contains('orange') => 'MEDIUM IMPACT',
+              final v when v.contains('green') => 'LOW IMPACT',
+              _ => null,
+            }
+          : null;
+      if (gdacsImpact != null) {
+        // GDACS colours mean humanitarian impact, so the pill says so
+        // ("orange earthquake doesn't make sense", owner, 13 Nov 2026).
+        label = 'GDACS: $gdacsImpact';
+        pillColor = AlertCardStyle.gdacsShapeColor(hazard.nativeWarningLevel);
+      } else if (named != null && named.isNotEmpty && named != 'Unknown') {
+        label = named.toUpperCase();
+        pillColor = isAws ? band.colorAws : band.colorNonAws;
+      } else if (hasAwsLevel) {
+        label = severityTitle.toUpperCase();
+        pillColor = band.colorAws;
+      } else if (airRating != null) {
+        label = 'AIR QUALITY: ${airRating.toUpperCase()}';
+        pillColor = band.colorNonAws;
+      } else {
+        label = isAws ? 'AWS' : 'OFFICIAL';
+      }
     }
 
-    final postedAt = hazard.createdAt ?? hazard.occurredAt;
-    final sourceName = hazard.source?.name?.trim();
+    final postedAt = hazard.createdAt;
+    final sourceName = hazard.displaySourceName;
     final right = [
-      if (sourceName != null && sourceName.isNotEmpty) sourceName,
-      if (postedAt != null) postedAt.timeAgo,
+      if (sourceName.isNotEmpty) sourceName,
+      if (postedAt != null) 'Posted ${postedAt.timeAgo}',
     ].join(' · ');
-    final labelText = Text(
-      label,
-      style: TextStyle(
-        fontSize: 12.spMin,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.4,
-        color: labelInk,
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
+    final Widget labelText = pillColor == null
+        ? Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.spMin,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: AlertCardStyle.labelInkNeutral,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )
+        : Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 10.spMin,
+              vertical: 5.spMin,
+            ),
+            decoration: BoxDecoration(
+              color: pillColor,
+              borderRadius: BorderRadius.circular(8.spMin),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.spMin,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+                color: AlertCardStyle.inkOn(pillColor),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
 
     return Row(
       children: [
@@ -897,7 +938,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           size: 20.spMin,
         ),
         8.wSizedBox,
-        // The label is a short fixed word ("OFFICIAL", "EMERGENCY WARNING")
+        // The level pill is a short fixed word ("MONITOR", "EMERGENCY WARNING")
         // and is always shown whole; the source line takes the rest. A
         // flex split here gave the label a quarter of the row whatever
         // the source used, cutting "EMERGENCY WARNING" short.
@@ -921,6 +962,18 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         ],
       ],
     );
+  }
+
+  /// The WAQI rating the source publishes ("Air quality: poor (World Air
+  /// Quality Index rating)"), which is a designated scale. Null otherwise.
+  static String? _airQualityRating(final Hazard hazard) {
+    if (hazard.source?.id != 'waqi') return null;
+    final match = RegExp(
+      r'Air quality:\s*(.+?)\s*\(World Air Quality Index rating\)',
+      caseSensitive: false,
+    ).firstMatch(hazard.description ?? '');
+    final rating = match?.group(1)?.trim();
+    return rating == null || rating.isEmpty ? null : rating;
   }
 
   /// Community: the category disc in a rounded square, the category name
@@ -1026,10 +1079,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           isAws: hazard.isAwsCompliant ?? false,
           severity: hazard.severity,
           band: hazard.severityBand,
-          categoryName: hazard.category?.name,
-          sourceName: hazard.source?.name,
+          categoryName: hazard.displayCategoryName,
+          sourceName: hazard.displaySourceName,
           locationName: hazard.locationName,
-          title: hazard.title,
+          title: hazard.displayTitle,
           hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
         );
         if (plainTerms == null) return const SizedBox.shrink();
@@ -1135,8 +1188,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// One location line: "place · 8.4 km from you", with "Updated ago"
-  /// trailing when the alert has been touched since it was posted.
+  /// One location line: "place · 8.4 km from you". Source changes live above.
   Widget _buildLocationLine(final Hazard hazard) {
     return Consumer(
       builder: (context, ref, child) {
@@ -1154,11 +1206,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             : '${AlertCardStyle.distanceLabel(distance)} from you';
 
         final place = hazard.locationName?.trim();
-        final updatedAt = hazard.updatedAt;
         final fragments = [
           if (place != null && place.isNotEmpty) place,
           if (distanceText != null) distanceText,
-          if (updatedAt != null) 'Updated ${updatedAt.timeAgo}',
         ];
         if (fragments.isEmpty) return const SizedBox.shrink();
 
@@ -1228,37 +1278,36 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             if (hazard?.isUserReported ?? false) {
               return _buildCommunityDescriptionSection();
             }
-            if (hazard?.contentDetails != null) {
-              return AgencyContentSections(
-                content: hazard!.contentDetails!,
-                sourceName: hazard.source?.name,
-                officialIntro: AlertTextUtil.issuedLine(
-                  hazard.source?.name,
-                  hazard.category?.name ?? hazard.title,
-                  hazard.locationName,
-                ),
-                severityColor: hazard.color,
-              );
-            }
-            return Column(
-              children: [
-                _buildOfficialDescriptionSection(),
-                _buildWhatToDoSection(),
-              ],
+            if (hazard == null) return const SizedBox.shrink();
+            // One alert display (owner review, 13 November 2026): every
+            // official alert renders through the same structured card.
+            // Older records without structured content are adapted on the
+            // phone, so no alert falls back to a different layout.
+            return AgencyContentSections(
+              content: _displayContentOf(hazard),
+              showOriginalSource: false,
+              sourceName: hazard.displaySourceName,
+              warningLevel: hazard.displayWarningLevel,
+              officialIntro: AlertTextUtil.issuedLine(
+                hazard.source?.name,
+                hazard.category?.name ?? hazard.title,
+                hazard.locationName,
+              ),
+              severityColor: hazard.color,
             );
           },
         ),
 
+        // The safety guide sits straight under What to do (owner review,
+        // 13 November 2026), so the next step is one tap from the advice.
         Consumer(
           builder: (context, ref, child) {
-            final categoryId = ref.watch(
-              provider.select((value) => value.hazard?.category?.id),
+            final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (hazard?.isUserReported ?? true) return const SizedBox.shrink();
+            return GuideStripCard(
+              categoryId: hazard?.category?.id,
+              level: hazard?.displayWarningLevel,
             );
-            final isUserReported = ref.watch(
-              provider.select((value) => value.hazard?.isUserReported ?? false),
-            );
-            if (isUserReported) return const SizedBox.shrink();
-            return GuideStripCard(categoryId: categoryId);
           },
         ),
 
@@ -1295,7 +1344,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           },
         ),
 
-        // Tell your people: purple card + Everyone else card.
+
         _buildTellYourPeopleSection(),
 
         // Community alerts: I see it / I don't see it voting, the
@@ -1304,12 +1353,25 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         12.hSizedBox,
 
         // Attribution
+        Consumer(
+          builder: (context, ref, child) {
+            final hazard = ref.watch(provider.select((value) => value.hazard));
+            if (hazard == null || hazard.isUserReported) {
+              return const SizedBox.shrink();
+            }
+            final content = _displayContentOf(hazard);
+            final source =
+                content['originalSourceText'] ?? content['sourceDescription'];
+            return source is String
+                ? AgencyOriginalSourceDetails(text: source)
+                : const SizedBox.shrink();
+          },
+        ),
+        _buildTimelineSection(),
         _buildSourceSection(),
         _buildSourceFootnote(),
-        
+
         // Data Attribution Footer (new)
-        _buildDataAttributionFooter(),
-        
         40.hSizedBox,
       ],
     );
@@ -1331,7 +1393,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       severity: hazard.severity,
       band: hazard.severityBand,
       categoryName: hazard.category?.name,
-      sourceName: hazard.source?.name,
+      sourceName: hazard.displaySourceName,
       locationName: hazard.locationName,
       title: hazard.title,
       hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
@@ -1349,24 +1411,90 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     if (mounted) setState(() => _isSpeaking = false);
   }
 
-  Future<void> _sendAlertToCircle(
+  /// One tap (owner review, 13 November 2026): Send alert shares the alert
+  /// with the group; I'm safe shares it and adds a safe check-in. No note sheet, no second sheet, and never a location: the
+  /// owner adds location from Family when she wants to.
+  Future<void> _quickSendToCircle(
     final Hazard hazard,
-    final FamilyCircleSummary circle,
-  ) async {
-    final sent = await showSendToGroupSheet(
-      context: context,
-      hazard: hazard,
-      circleId: circle.circleId,
-      circleName: circle.name,
-    );
-    if (!mounted || sent == null) return;
-    if (sent) {
-      context.showSuccessToast(message: 'Sent to ${circle.name}.');
-    } else {
-      context.showErrorToast(
-        message: 'That could not be sent. Please try again.',
-      );
+    final FamilyCircleSummary circle, {
+    required final bool imSafe,
+  }) async {
+    if (_sendingToGroup || hazard.id == null) return;
+    setState(() {
+      _sendingToGroup = true;
+      _sendingImSafe = imSafe;
+    });
+    try {
+      final result = await ref
+          .read(providerOfFamilyRepository)
+          .shareHazardWithCircle(
+            circleId: circle.circleId,
+            hazardId: hazard.id!,
+            note: null,
+          );
+      if (!mounted) return;
+      if (!result.isSuccess) {
+        if (AccessRefusal.fromError(result.failure) != null) {
+          await showFamilyActionError(
+            context,
+            ref,
+            result.failure,
+            circleId: circle.circleId,
+          );
+          return;
+        }
+        context.showErrorToast(
+          message: 'That could not be sent. Please try again.',
+        );
+        return;
+      }
+      if (!imSafe) {
+        context.showSuccessToast(message: 'Alert sent to ${circle.name}.');
+        return;
+      }
+      final outcome = await ref
+          .read(providerOfFamily.notifier)
+          .checkInToCircle(
+            circleId: circle.circleId,
+            hazardId: hazard.id!,
+            status: FamilyCheckInStatus.safe,
+            shareLocation: false,
+          );
+      if (!mounted) return;
+      if (outcome == AlertCheckInOutcome.failed) {
+        context.showErrorToast(
+          message: "Alert sent, but your I'm safe could not be sent.",
+        );
+      } else {
+        context.showSuccessToast(
+          message: "Alert and I'm safe sent to ${circle.name}.",
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingToGroup = false);
     }
+  }
+
+  /// The structured content the alert card reads: the stored content when
+  /// the alert has it, otherwise the same shape built from the older fields.
+  Map<String, dynamic> _displayContentOf(final Hazard hazard) {
+    if (hazard.hasStructuredAgencyContent) return hazard.contentDetails!;
+    return AlertTextUtil.legacyDisplayContent(
+      description: hazard.description,
+      aiSummary: hazard.aiSummary,
+      callsToAction: hazard.callsToAction,
+      nativeLevel: hazard.displayWarningLevel,
+      issuedLine: AlertTextUtil.issuedLine(
+        hazard.source?.name,
+        hazard.category?.name ?? hazard.title,
+        hazard.locationName,
+      ),
+      hazardBucket: AlertGuidanceLibrary.bucketFor(
+        categoryName: hazard.category?.name,
+        parentCategoryName: hazard.category?.parent?.name,
+        title: hazard.title,
+      ),
+    );
   }
 
   Widget _buildTellYourPeopleSection() {
@@ -1378,7 +1506,32 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final activeCircleId = ref.watch(
           providerOfFamily.select((s) => s.circle?.id),
         );
-        if (circles.isEmpty) return const SizedBox.shrink();
+        if (circles.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => showChooseCircleSheet(context, ref),
+                  icon: const Icon(Icons.group_outlined),
+                  label: const Text('Share with a group'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+                  icon: const Icon(Icons.share_outlined),
+                  label: const Text('Share alert externally'),
+                ),
+                TextButton(
+                  onPressed: () => context.push(AlrtPlusChooseScreen.route),
+                  child: const Text('Explore ALRT+ plans'),
+                ),
+              ],
+            ),
+          );
+        }
         final selected = circles.firstWhere(
           (c) => c.circleId == activeCircleId,
           orElse: () => circles.first,
@@ -1388,18 +1541,43 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: EdgeInsets.only(bottom: 8.spMin),
-                child: Text(
-                  'TELL YOUR PEOPLE',
-                  style: TextStyle(
-                    fontSize: 12.spMin,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
-                    color: const Color(0xFF5B5E6E),
+              Row(
+                children: [
+                  Text(
+                    'TELL YOUR PEOPLE',
+                    style: TextStyle(
+                      fontSize: 12.spMin,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: const Color(0xFF5B5E6E),
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  // The group is the chooser: tap its name to change it.
+                  TextButton.icon(
+                    onPressed: _sendingToGroup
+                        ? null
+                        : () => showChooseCircleSheet(context, ref),
+                    iconAlignment: IconAlignment.end,
+                    icon: Icon(LucideIcons.chevronDown, size: 16.spMin),
+                    label: Text(
+                      selected.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.spMin,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF5B47A0),
+                      minimumSize: const Size(44, 44),
+                      padding: EdgeInsets.symmetric(horizontal: 8.spMin),
+                    ),
+                  ),
+                ],
               ),
+              SizedBox(height: 4.spMin),
               _buildYourCircleCard(hazard, circles.length, selected),
             ],
           ),
@@ -1408,307 +1586,84 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
+  /// Tell your people, one row (owner review, 13 November 2026: "too big
+  /// and clunky"): Send alert, I'm safe (the alert plus a safe check-in)
+  /// and a share icon. The group is chosen from the heading above. No
+  /// card, no location, no second sheet.
   Widget _buildYourCircleCard(
     final Hazard hazard,
     final int circleCount,
     final FamilyCircleSummary selected,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18.spMin),
-        border: Border.all(color: const Color(0xFFE6E7EE)),
-        boxShadow: const [AlertCardStyle.cardShadow],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: EdgeInsets.fromLTRB(14.spMin, 14.spMin, 14.spMin, 10.spMin),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tell your people',
-                        style: TextStyle(
-                          fontSize: 15.spMin,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      2.hSizedBox,
-                      Text(
-                        'Let the people who matter know',
-                        style: TextStyle(
-                          fontSize: 11.5.spMin,
-                          color: AppColors.mediumGrey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => showChooseCircleSheet(context, ref),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.ink,
-                    padding: EdgeInsets.symmetric(horizontal: 10.spMin, vertical: 6.spMin),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    circleCount > 1 ? 'Change group' : 'Choose group',
-                    style: TextStyle(fontSize: 12.5.spMin, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F5)),
-          // Option 1: Your Circle (ALRT+)
-          _tellOption(
-            icon: LucideIcons.users,
-            iconBackground: const LinearGradient(
-              colors: [Color(0xFF5B4FC9), Color(0xFF7C3AED)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            title: 'Your circle',
-            isPremium: true,
-            description: 'Send this alert to everyone in ${selected.name}',
-            benefit: '⚡ Notifies ${selected.memberCount} ${selected.memberCount == 1 ? 'person' : 'people'} now',
-            benefitColor: const Color(0xFF10B981),
-            onTap: () => _sendAlertToCircle(hazard, selected),
-            isFirst: true,
-          ),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F5)),
-          // Option 2: Alert + Check In (ALRT+)
-          _tellOption(
-            icon: LucideIcons.checkCircle,
-            iconBackground: const LinearGradient(
-              colors: [Color(0xFFFF6B2C), Color(0xFFFF3D00)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            title: 'Alert & check in',
-            isPremium: true,
-            description: "Sends the alert plus 'I'm okay' to your group",
-            benefit: '💬 Reduces worried messages',
-            benefitColor: const Color(0xFFFF6B2C),
-            onTap: () {
-              _sendAlertToCircle(hazard, selected);
-            },
-          ),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F5)),
-          // Option 3: Share with Anyone (FREE)
-          _tellOption(
-            icon: LucideIcons.link,
-            iconBackground: null,
-            iconBackgroundColor: const Color(0xFFF3F4F6),
-            iconColor: const Color(0xFF6B7280),
-            title: 'Share with anyone',
-            isFree: true,
-            description: 'Public link — no ALRT account needed',
-            benefit: '📱 Works via SMS, WhatsApp, email',
-            benefitColor: const Color(0xFF9CA3AF),
-            onTap: () => SharePlus.instance.share(
-              ShareParams(
-                text:
-                    '${hazard.title ?? "Alert"} · ${hazard.severityTitle}\nhttps://safetyalrt.com/a/${hazard.id}',
-              ),
-            ),
-            isLast: true,
-          ),
-          // Invite card
-          Padding(
-            padding: EdgeInsets.fromLTRB(14.spMin, 0, 14.spMin, 12.spMin),
-            child: Container(
-              padding: EdgeInsets.all(12.spMin),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF5B4FC9), Color(0xFF7C3AED)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12.spMin),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '⭐ Get them on ALRT',
-                          style: TextStyle(
-                            fontSize: 13.spMin,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        4.hSizedBox,
-                        Text(
-                          'Invite them so they get alerts automatically next time',
-                          style: TextStyle(
-                            fontSize: 12.spMin,
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(LucideIcons.chevronRight, color: Colors.white, size: 18.spMin),
-                ],
-              ),
-            ),
-          ),
-          // Privacy note
-          Padding(
-            padding: EdgeInsets.fromLTRB(14.spMin, 0, 14.spMin, 14.spMin),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(LucideIcons.lock, size: 12.spMin, color: AppColors.mediumGrey),
-                6.wSizedBox,
-                Expanded(
-                  child: Text(
-                    'Private to your group. No location shared unless you add it.',
-                    style: TextStyle(fontSize: 11.spMin, color: AppColors.mediumGrey, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    const purple = Color(0xFF5B47A0);
+    final busy = _sendingToGroup;
+    Widget spinner(final Color color) => SizedBox(
+      width: 16.spMin,
+      height: 16.spMin,
+      child: CircularProgressIndicator(strokeWidth: 2, color: color),
     );
-  }
-
-  Widget _tellOption({
-    required IconData icon,
-    LinearGradient? iconBackground,
-    Color? iconBackgroundColor,
-    Color? iconColor,
-    required String title,
-    bool isPremium = false,
-    bool isFree = false,
-    required String description,
-    required String benefit,
-    required Color benefitColor,
-    required VoidCallback onTap,
-    bool isFirst = false,
-    bool isLast = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 14.spMin, vertical: 12.spMin),
-        child: Row(
-          children: [
-            Container(
-              width: 44.spMin,
-              height: 44.spMin,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: iconBackground,
-                color: iconBackgroundColor,
-              ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  size: 20.spMin,
-                  color: iconColor ?? Colors.white,
-                ),
-              ),
+    final labelStyle = TextStyle(
+      fontSize: 15.spMin,
+      fontWeight: FontWeight.w800,
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: busy
+                ? null
+                : () => _quickSendToCircle(hazard, selected, imSafe: false),
+            icon: busy && !_sendingImSafe
+                ? spinner(Colors.white)
+                : Icon(LucideIcons.send, size: 17.spMin),
+            label: Text('Send alert', style: labelStyle),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE5582C),
+              foregroundColor: Colors.white,
+              minimumSize: Size.fromHeight(48.spMin),
+              shape: const StadiumBorder(),
             ),
-            12.wSizedBox,
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 14.spMin,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      if (isPremium) ...[
-                        6.wSizedBox,
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 5.spMin, vertical: 2.spMin),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF6B00), Color(0xFFFF3D00)],
-                            ),
-                            borderRadius: BorderRadius.circular(4.spMin),
-                          ),
-                          child: Text(
-                            'ALRT+',
-                            style: TextStyle(
-                              fontSize: 9.spMin,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (isFree) ...[
-                        6.wSizedBox,
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 5.spMin, vertical: 2.spMin),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDF4),
-                            borderRadius: BorderRadius.circular(4.spMin),
-                          ),
-                          child: Text(
-                            'FREE',
-                            style: TextStyle(
-                              fontSize: 9.spMin,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF10B981),
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  3.hSizedBox,
-                  Text(
-                    description,
-                    style: TextStyle(fontSize: 12.spMin, color: AppColors.mediumGrey),
-                  ),
-                  4.hSizedBox,
-                  Text(
-                    benefit,
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      fontWeight: FontWeight.w600,
-                      color: benefitColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(LucideIcons.chevronRight, size: 16.spMin, color: const Color(0xFFD1D5DB)),
-          ],
+          ),
         ),
-      ),
+        SizedBox(width: 8.spMin),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: busy
+                ? null
+                : () => _quickSendToCircle(hazard, selected, imSafe: true),
+            icon: busy && _sendingImSafe
+                ? spinner(purple)
+                : Icon(LucideIcons.circleCheck, size: 17.spMin),
+            label: Text("I'm safe", style: labelStyle),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: purple,
+              minimumSize: Size.fromHeight(48.spMin),
+              shape: const StadiumBorder(),
+              side: const BorderSide(color: purple, width: 1.5),
+            ),
+          ),
+        ),
+        SizedBox(width: 8.spMin),
+        Semantics(
+          button: true,
+          label: 'Share a link to this alert',
+          child: OutlinedButton(
+            onPressed: () =>
+                shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF17171C),
+              minimumSize: Size(48.spMin, 48.spMin),
+              padding: EdgeInsets.zero,
+              shape: const CircleBorder(),
+              side: const BorderSide(color: Color(0xFFD9D9E0), width: 1.5),
+            ),
+            child: Icon(LucideIcons.share2, size: 18.spMin),
+          ),
+        ),
+      ],
     );
   }
 
-  // ── Community vote ─────────────────────────────────────────────────────
-
-  /// Community reports: "I see it / I don't see it" voting, the unverified
-  /// note, then Follow / Listen / Report as three outlined pills.
   Widget _buildCommunityVoteSection() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1925,115 +1880,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// Matches a What To Do line the backend built as an attribution prefix
-  /// relaying a source's own instruction, e.g. "NSW SES advises: do not
-  /// drive through floodwater." - see the classification standard's
-  /// directive-extraction rule (every relayed instruction is prefixed with
-  /// the issuing agency's name and the word "advises:").
-  static final RegExp _attributedActionPattern = RegExp(
-    r'^(.{1,60}? advises:)\s*(.*)$',
-  );
-
-  /// Bolds the "{Agency} advises:" prefix of a What To Do line so an
-  /// attributed source directive reads visibly differently from ALRT's own
-  /// wording around it - the classification standard's "attribution
-  /// prefixes bold" rule. Falls back to plain text for a line that isn't in
-  /// that shape (community reports carry no instructions at all, and older
-  /// content may not follow the pattern).
-  Widget _attributedActionText(final String action) {
-    final match = _attributedActionPattern.firstMatch(action);
-    final baseStyle = TextStyle(
-      color: AppColors.black.withValues(alpha: 0.9),
-      fontSize: 14.spMin,
-      height: 1.5,
-    );
-    if (match == null) {
-      return Text(action, style: baseStyle);
-    }
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: match.group(1),
-            style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-          ),
-          TextSpan(text: ' ${match.group(2)}'),
-        ],
-      ),
-      style: baseStyle,
-    );
-  }
-
-  Widget _buildWhatToDoSection() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final hazard = ref.watch(provider.select((value) => value.hazard));
-        final isUserReported = hazard?.isUserReported ?? false;
-        // Community reports have no advice section at all.
-        if (hazard == null || isUserReported) return const SizedBox.shrink();
-
-        var callsToAction = AlertCardStyle.agencyActions(hazard.callsToAction);
-        final fromAgency = callsToAction.isNotEmpty;
-        if (!fromAgency) {
-          // The agency published no instructions: ALRT's general guidance
-          // for this kind of alert, labelled as such below (product owner,
-          // 16 Oct 2026; replaces the "has not published advice" note).
-          callsToAction = GeneralGuidance.forAlert(
-            title: hazard.title,
-            categoryName: hazard.category?.name,
-            parentCategoryName: hazard.category?.parent?.name,
-          );
-        }
-        final agency = hazard.source?.name?.trim();
-
-        // Detail board: WHAT TO DO in a white card, "{agency}, word for
-        // word" under the label when the lines are the agency's own, and
-        // a band-coloured dot on each line.
-        return _detailSectionCard(
-          children: [
-            _detailSectionLabel('WHAT TO DO'),
-            if (fromAgency && agency != null && agency.isNotEmpty) ...[
-              2.hSizedBox,
-              Text(
-                '$agency, word for word',
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  color: AlertCardStyle.metaInk,
-                ),
-              ),
-            ],
-            8.hSizedBox,
-            for (var i = 0; i < callsToAction.length; i++)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: i < callsToAction.length - 1 ? 6.spMin : 0,
-                ),
-                child: _bulletRow(
-                  dot: hazard.color,
-                  child: _attributedActionText(callsToAction[i]),
-                ),
-              ),
-            // ALRT's own lines carry no prefix, so the block says whose
-            // words they are (product owner, 16 Oct 2026).
-            if (AlertCardStyle.hasAlrtGuidance(callsToAction))
-              Padding(
-                padding: EdgeInsets.only(top: 10.spMin),
-                child: Text(
-                  'General guidance from ALRT, not part of the '
-                  'official warning.',
-                  style: TextStyle(
-                    fontSize: 11.5.spMin,
-                    color: AlertCardStyle.metaInk,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildFollowingAlertReason() {
     return Consumer(
       builder: (context, ref, child) {
@@ -2050,79 +1896,14 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             _detailSectionLabel('FOLLOWING THIS ALERT'),
             8.hSizedBox,
             Text(
-              'You\'ll get updates for this alert on this device while it stays followed.',
+              'Saved on this phone so you can find it fast. Push updates '
+              'come for alerts near you and your saved places.',
               style: TextStyle(
                 color: _factInk,
                 fontSize: 14.spMin,
                 height: 1.5,
               ),
             ),
-          ],
-        );
-      },
-    );
-  }
-
-  /// The agency's own words, under the V3 "WHAT WE KNOW" label.
-  Widget _buildOfficialDescriptionSection() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final isUserReported = ref.watch(
-          provider.select(
-            (value) => value.hazard?.isUserReported ?? false,
-          ),
-        );
-        if (isUserReported) return const SizedBox.shrink();
-
-        final description = ref.watch(
-          provider.select((value) => value.hazard?.description),
-        );
-        final sourceName = ref.watch(
-          provider.select((value) => value.hazard?.source?.name),
-        );
-        final locationName = ref.watch(
-          provider.select((value) => value.hazard?.locationName),
-        );
-        final incidentType = ref.watch(
-          provider.select(
-            (value) => value.hazard?.category?.name ?? value.hazard?.title,
-          ),
-        );
-        final rawFacts = AlertTextUtil.whatWeKnowPoints(description);
-        final issuedLine = AlertTextUtil.issuedLine(
-          sourceName,
-          incidentType,
-          locationName,
-        );
-        final facts = [
-          issuedLine,
-          ...rawFacts.where((line) => line.trim() != issuedLine),
-        ];
-
-        if (facts.isEmpty) return const SizedBox.shrink();
-
-        // Detail board: a white card, the orange V3 label, grey dots.
-        return _detailSectionCard(
-          children: [
-            _detailSectionLabel('WHAT WE KNOW'),
-            8.hSizedBox,
-            for (var i = 0; i < facts.length; i++)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: i < facts.length - 1 ? 6.spMin : 0,
-                ),
-                child: _bulletRow(
-                  dot: _factDot,
-                  child: Text(
-                    facts[i],
-                    style: TextStyle(
-                      color: _factInk,
-                      fontSize: 14.spMin,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ),
           ],
         );
       },
@@ -2245,133 +2026,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       },
     );
   }
-  
+
   /// Data attribution footer with source, timestamps, and disclaimer
-  Widget _buildDataAttributionFooter() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final hazard = ref.watch(provider.select((value) => value.hazard));
-        if (hazard == null) return const SizedBox.shrink();
-        
-        final source = hazard.source;
-        final hasUpdate = hazard.updatedAt != null && 
-            hazard.createdAt != null &&
-            hazard.updatedAt!.difference(hazard.createdAt!).inMinutes > 5;
-        
-        return Container(
-          margin: EdgeInsets.only(top: 16.spMin),
-          padding: EdgeInsets.all(14.spMin),
-          decoration: BoxDecoration(
-            color: AppColors.lightGrey.withValues(alpha: 0.3),
-            border: Border(
-              top: BorderSide(color: AppColors.lightGrey),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _attributionRow(
-                'Source',
-                source?.name ?? 'Unknown',
-              ),
-              4.hSizedBox,
-              _attributionRow(
-                'Posted',
-                hazard.createdAt?.timeAgo ?? 'Unknown',
-              ),
-              if (hasUpdate) ...[
-                4.hSizedBox,
-                _attributionRow(
-                  'Updated',
-                  hazard.updatedAt!.timeAgo,
-                ),
-              ],
-              4.hSizedBox,
-              Row(
-                children: [
-                  Text(
-                    'Data: ',
-                    style: TextStyle(
-                      fontSize: 11.spMin,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.grey,
-                    ),
-                  ),
-                  if (source?.url != null)
-                    GestureDetector(
-                      onTap: () => openLink(
-                        context: context,
-                        link: source.url!,
-                      ),
-                      child: Text(
-                        source!.name ?? 'Source',
-                        style: TextStyle(
-                          fontSize: 11.spMin,
-                          color: const Color(0xFF5B4FC9),
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      source?.name ?? 'Unknown',
-                      style: TextStyle(
-                        fontSize: 11.spMin,
-                        color: AppColors.grey,
-                      ),
-                    ),
-                  Text(
-                    ' · Refreshed every 5 min',
-                    style: TextStyle(
-                      fontSize: 11.spMin,
-                      color: AppColors.grey,
-                    ),
-                  ),
-                ],
-              ),
-              8.hSizedBox,
-              Text(
-                'The plain-language summary is generated by ALRT and is not '
-                'official ${source?.name ?? 'agency'} advice. Always follow '
-                'agency instructions.',
-                style: TextStyle(
-                  fontSize: 11.spMin,
-                  fontStyle: FontStyle.italic,
-                  color: AppColors.grey,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-  
-  Widget _attributionRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$label: ',
-          style: TextStyle(
-            fontSize: 11.spMin,
-            fontWeight: FontWeight.w600,
-            color: AppColors.grey,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 11.spMin,
-              color: AppColors.grey,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildSourceSection() {
     return Consumer(

@@ -304,6 +304,11 @@ export const updateHazardSource = async (
     throw new HttpError(404, "Hazard source not found");
   }
 
+  // Licence gate (owner, 16 Nov 2026): a source starts ingesting only once
+  // its licence is confirmed. Sources already active are not switched off;
+  // the daily assurance check lists any that are still unconfirmed.
+  assertLicenceForActivation(existingSource, data.lifecycleStatus);
+
   // If licenseId is provided, verify it exists
   if (data.licenseId) {
     const license = await prisma.hazardSourceLicense.findUnique({
@@ -630,4 +635,13 @@ export const recordSourceFetchResult = async (
   } catch (error) {
     console.error(`Failed to record health for source ${sourceId}:`, error);
   }
+};
+
+/** Moving a source to active needs a confirmed licence. */
+export const assertLicenceForActivation = (
+  source: { lifecycleStatus: string; licenceConfirmedAt?: Date | null },
+  next?: string | null,
+): void => {
+  if (next === "active" && source.lifecycleStatus !== "active" && !source.licenceConfirmedAt)
+    throw new HttpError(400, "Confirm this source's licence before switching it on (Sources, Confirm licence).");
 };

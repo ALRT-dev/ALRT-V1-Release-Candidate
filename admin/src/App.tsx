@@ -1,3 +1,9 @@
+import { GuidanceLibraryPage } from "./pages/GuidanceLibraryPage";
+import { CoveragePage, GuidesPage } from "./pages/CoveragePage";
+import { CountriesPage } from "./pages/CountriesPage";
+import { AiUsagePage } from "./pages/AiUsagePage";
+import { AssurancePage } from "./pages/AssurancePage";
+import { SourceFeedsPage } from "./pages/SourceFeedsPage";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
@@ -59,6 +65,13 @@ function App() {
             <Route path="/emergency-numbers" element={<EmergencyNumbersPage />} />
             <Route path="/audit-log" element={<AuditLogPage />} />
             <Route path="/severity-labels" element={<SeverityLabelsPage />} />
+            <Route path="/guidance" element={<GuidanceLibraryPage />} />
+            <Route path="/coverage" element={<CoveragePage />} />
+            <Route path="/guides" element={<GuidesPage />} />
+            <Route path="/countries" element={<CountriesPage />} />
+            <Route path="/source-feeds" element={<SourceFeedsPage />} />
+            <Route path="/ai-usage" element={<AiUsagePage />} />
+            <Route path="/assurance" element={<AssurancePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

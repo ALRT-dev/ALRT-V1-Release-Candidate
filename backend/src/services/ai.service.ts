@@ -1,6 +1,7 @@
 import { HttpError } from "../models/http_error.js";
 import { config } from "../utils/config.js";
 import * as bedrock from "./bedrock.service.js";
+import { type AiUsageTag } from "../utils/ai_usage.util.js";
 import * as openai from "./open-ai.service.js";
 
 const isBedrockInvalidModelError = (err: unknown): boolean => {
@@ -32,6 +33,8 @@ type ExecutePromptParams = {
   model?: string;
   systemPromptContent: string;
   userPromptContent: string;
+  /** What the call is for, for the AI usage log. */
+  usage?: AiUsageTag;
 };
 
 /**
@@ -51,6 +54,7 @@ export const executePrompt = async (
       model: params.model || "gpt-4o-mini",
       systemPromptContent: params.systemPromptContent,
       userPromptContent: params.userPromptContent,
+      ...(params.usage && { usage: params.usage }),
     });
     const content = response.choices[0]?.message?.content;
     if (!content) {

@@ -57,6 +57,8 @@ export const getDashboardStats = () => apiGet<DashboardStats>("/api/admin/stats/
 
 export interface ListHazardsParams {
   searchString?: string;
+  /** Existing admin backend filter; comma-separated source IDs. */
+  sourceIds?: string;
   reviewStatus?: HazardReviewStatus;
   /** true = community reports only, false = official alerts only. */
   userReported?: boolean;
@@ -186,7 +188,7 @@ export const createAdminAccount = (input: {
   email: string;
   password: string;
   name?: string;
-  role: "superAdmin" | "admin" | "moderator";
+  role: "superAdmin" | "admin" | "moderator" | "reviewer";
 }) => apiPost<{ success: boolean; data: AdminAccountListItem; message: string }>(
   "/api/admin/users/create",
   input,

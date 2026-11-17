@@ -24,8 +24,8 @@ void main() {
       );
       expect(
         line,
-        'Department of Fire and Emergency Services WA has reported a '
-        'vehicle fire at Salter Point. They have not published advice yet.',
+        'A vehicle fire at Salter Point was reported by '
+        'Department of Fire and Emergency Services WA.',
       );
     });
 
@@ -38,8 +38,11 @@ void main() {
         locationName: 'Gingin',
         hasAdvice: true,
       );
-      expect(line, 'DFES has reported a bushfire near Gingin. '
-          'Their advice is in this alert.');
+      expect(
+        line,
+        'A bushfire near Gingin was reported by DFES. '
+        'Their advice is in this alert.',
+      );
     });
 
     test('keeps the title preposition and names bucket categories', () {
@@ -53,7 +56,7 @@ void main() {
       );
       expect(
         line,
-        'WA Police has reported a police operation in Northbridge. '
+        'A police operation in Northbridge was reported by WA Police. '
         'Their advice is in this alert.',
       );
     });
@@ -77,7 +80,10 @@ void main() {
       final recent = DateTime(2026, 10, 14, 9);
       final sorted = MapAreaAlertsList.sortBySeverity([
         Hazard(id: 'info', severityBand: HazardSeverityBand.info),
-        Hazard(id: 'community', reportedBy: const AppUser(id: 'u1')),
+        Hazard(
+          id: 'community',
+          reportedBy: const AppUser(id: 'u1'),
+        ),
         Hazard(
           id: 'action-old',
           severityBand: HazardSeverityBand.action,
@@ -127,7 +133,10 @@ void main() {
       final quiet = HazardCluster(
         hazards: [
           Hazard(id: 'a', severityBand: HazardSeverityBand.monitor),
-          Hazard(id: 'b', reportedBy: const AppUser(id: 'u1')),
+          Hazard(
+            id: 'b',
+            reportedBy: const AppUser(id: 'u1'),
+          ),
         ],
         latitude: 0,
         longitude: 0,

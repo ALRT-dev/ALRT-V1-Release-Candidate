@@ -103,6 +103,7 @@ vi.mock("../utils/ingestion.util.js", () => ({
       title: data.title,
       description: data.description,
       aiSummary: data.aiSummary,
+      contentDetails: data.contentDetails,
       aiConfidence: data.aiConfidence,
       callsToAction: data.callsToAction,
       sourceContentHash: data.sourceContentHash,
@@ -309,7 +310,8 @@ describe("summarizeAndPostHazards – AI fallback (R-03)", () => {
     expect(vi.mocked(summarizeHazard).mock.calls[0]![0].sourceActions).toEqual([instruction]);
     const data = (prisma.hazard.create as any).mock.calls[0][0].data;
     expect(data.callsToAction).toEqual([`NSW RFS advises: ${instruction}`]);
-    expect(data.aiSummary).toContain("Last essential condition.");
+    expect(data.contentDetails.sourceDescription).toBe(description);
+    expect(data.description).toBe(description);
   });
   it("keeps processing when the template registry cannot be read", async () => {
     vi.mocked(getTemplateRegistry).mockRejectedValueOnce(new Error("Malformed registry"));

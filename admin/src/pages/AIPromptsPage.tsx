@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from 'react-router-dom';
 import { useApiQuery } from "../hooks/useApiQuery";
 import { listAIPrompts, updateAIPrompt } from "../api/resources";
+import { getAlertTemplates } from "../api/alertTemplates";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/ToastContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
@@ -21,8 +22,20 @@ export const AIPromptsPage = () => {
 
   const fetcher = useCallback(() => listAIPrompts(), []);
   const { data, error, loading, refetch } = useApiQuery(fetcher, []);
+  const registryFetcher = useCallback(() => getAlertTemplates(), []);
+  const registry = useApiQuery(registryFetcher, []);
+  const published = registry.data?.state?.published;
+  const publicationKnown = !registry.loading && !registry.error &&
+    (published === null || (typeof published?.version === "number" && published.version > 0));
+  const hasSnapshot = publicationKnown && published != null;
+  const saveImpact = !publicationKnown
+    ? "Publication status could not be verified. Saving prompt text may affect current alerts immediately and other AI features may use the saved text directly. This page does not save a draft."
+    : hasSnapshot
+      ? `Agency alerts keep using published snapshot v${published.version}. Edited prompt rows enter agency alerts only after a separate preview and publish in Alert Templates. Other AI features may read saved prompt rows directly, so saving may affect those features immediately. This page does not save a draft.`
+      : "Saving prompt text may affect current alerts immediately, because no published agency template snapshot is available. Other AI features may also use the saved text directly. This page does not save a draft.";
 
   const startEdit = (prompt: AIPrompt) => {
+    registry.refetch();
     setEditing(prompt);
     setContentDraft(prompt.content);
   };
@@ -49,11 +62,21 @@ export const AIPromptsPage = () => {
         <div>
           <h1>AI Prompts</h1>
           <p>
-            Edit the wording used by AI. For published agency templates,
-            preview and publish these changes in <Link to="/alert-templates">Alert Templates</Link>.
-            Other AI features use edits saved here directly.
+            Edit saved AI prompt text. Review the save impact below before changing it.
+            Agency template preview and publication are separate actions in <Link to="/alert-templates">Alert Templates</Link>.
           </p>
         </div>
+      </div>
+
+      <div className="card" role="status" style={{ marginBottom: 16 }}>
+        <p>{registry.loading
+          ? "Checking agency template publication status. Saving prompt text may affect current alerts immediately until that status is verified. This page does not save a draft."
+          : !publicationKnown
+            ? "Could not verify the agency template publication status. Saving prompt text may affect current alerts immediately. This page does not save a draft."
+            : hasSnapshot
+              ? `Published agency template snapshot v${published.version}. Agency alerts use that saved snapshot; edited rows enter agency alerts only after a separate preview and publish in Alert Templates. Other AI features may read saved prompt rows directly and may be affected immediately. This page does not save a draft.`
+              : "No published agency template snapshot. Saving prompt text may affect current alerts immediately. Other AI features may also use saved rows directly. This page does not save a draft."}</p>
+        {!registry.loading && !publicationKnown && <button type="button" className="btn btn-sm" onClick={registry.refetch}>Retry publication status</button>}
       </div>
 
       <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
@@ -116,6 +139,7 @@ export const AIPromptsPage = () => {
             onClick={(event) => event.stopPropagation()}
           >
             <h2>{editing.name}</h2>
+            <p>{saveImpact}</p>
             <div className="field">
               <label htmlFor="prompt-content">Content</label>
               <textarea
@@ -137,7 +161,7 @@ export const AIPromptsPage = () => {
                   disabled={contentDraft === editing.content}
                   onClick={() => setConfirming(true)}
                 >
-                  Save changes
+                  Save prompt text
                 </button>
               )}
             </div>
@@ -148,8 +172,8 @@ export const AIPromptsPage = () => {
       {confirming && editing && (
         <ConfirmDialog
           title="Confirm prompt content change"
-          description={`This changes the live AI prompt "${editing.name}", used for every future alert it applies to. Locked safety rules (e.g. never a specific emergency number, community reports never carry a call-to-action) live in code and are unaffected by this edit, but a bad prompt edit can still degrade alert quality immediately.`}
-          confirmLabel="Save and apply"
+          description={`${hasSnapshot ? `Saving "${editing.name}" updates the prompt row.` : `Saving "${editing.name}" may affect current alerts immediately.`} ${saveImpact}`}
+          confirmLabel="Save prompt text"
           danger
           onConfirm={() => void save()}
           onCancel={() => setConfirming(false)}

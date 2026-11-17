@@ -1,7 +1,7 @@
 /**
  * Repoints Configuration.aiPrompts's five default prompt groups
  * (official AWS/non-AWS summarization, community-report review, air
- * quality, Smartraveller) and extractLocationPromptId at the
+ * quality) and extractLocationPromptId at the
  * bracket-named prompts in ai-prompt.util.ts / DefaultAIPromptNames —
  * the sole authoritative alert-generation prompt system for V1 (see
  * backend/CLAUDE.md).

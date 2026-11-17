@@ -303,7 +303,7 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
         // Cleaned source facts, never the raw feed fields.
         final given = AlertCardStyle.factLines(
           hazard.description,
-          title: hazard.title,
+          title: hazard.displayTitle,
         ).take(2).join('\n');
         final text = given.isNotEmpty
             ? given
@@ -313,9 +313,9 @@ class _CommonHazardsListItemState extends ConsumerState<CommonHazardsListItem> {
                 severity: hazard.severity,
                 band: hazard.severityBand,
                 categoryName: hazard.category?.name,
-                sourceName: hazard.source?.name,
+                sourceName: hazard.displaySourceName,
                 locationName: hazard.locationName,
-                title: hazard.title,
+                title: hazard.displayTitle,
                 hasAdvice: AlertCardStyle.hasAgencyAdvice(hazard.callsToAction),
               );
         if (text == null || text.isEmpty) return const SizedBox.shrink();
