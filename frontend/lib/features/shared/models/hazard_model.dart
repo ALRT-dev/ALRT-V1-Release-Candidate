@@ -150,6 +150,27 @@ abstract class Hazard with _$Hazard {
     return '$kind $level';
   }
 
+  /// The action words an Australian Warning System title carries between
+  /// its level and its place, in sentence case: "Threat is reduced" from
+  /// "Storm Advice - THREAT IS REDUCED - parts of ...", "Monitor
+  /// conditions", "Prepare to leave". Shown under [detailHeading]. Null
+  /// when the agency gives none; ALRT never writes its own.
+  String? get awsActionStatement {
+    if (isAwsCompliant != true || isUserReported) return null;
+    final parts = (title ?? '').trim().split(RegExp(r'\s+[-–—]\s+'));
+    if (parts.length < 3) return null;
+    final words = parts[1].trim();
+    // A place or a sentence is not an action statement.
+    if (words.isEmpty ||
+        words.length > 40 ||
+        RegExp(r'\b(for|in|near|parts of)\b', caseSensitive: false)
+            .hasMatch(words)) {
+      return null;
+    }
+    final lower = words.toLowerCase();
+    return '${lower[0].toUpperCase()}${lower.substring(1)}';
+  }
+
   String get displayCategoryName {
     if (!isUserReported && source?.id == 'waDfes') {
       final incident = contentDetails?['sourceIncidentType'];

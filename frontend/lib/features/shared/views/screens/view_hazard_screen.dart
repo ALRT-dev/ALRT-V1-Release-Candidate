@@ -765,6 +765,23 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         color: AppColors.black,
                       ),
                     ),
+                    // The agency's action words under the heading (owner,
+                    // 17 November 2026): "Storm Advice" then "Threat is
+                    // reduced" or "Monitor conditions". Agency words only.
+                    if (hazard.awsActionStatement case final action?) ...[
+                      4.hSizedBox,
+                      Text(
+                        action,
+                        style: TextStyle(
+                          fontSize: 16.spMin,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          // Dark text: the Advice yellow is unreadable as
+                          // text on white.
+                          color: const Color(0xFF3A3A44),
+                        ),
+                      ),
+                    ],
                     if (hazard.latitude != null &&
                         hazard.longitude != null) ...[
                       14.hSizedBox,
