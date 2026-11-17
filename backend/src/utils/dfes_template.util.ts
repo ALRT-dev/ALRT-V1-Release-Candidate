@@ -1,5 +1,6 @@
 import type { AISummaryResponse } from "../models/ai_summary_response_interface.js";
 import { buildDfesSmokeBulletin } from './dfes_bulletin.util.js';
+import { tidyAgencyContent } from './agency_extraction.util.js';
 
 /**
  * Deterministic, zero-AI content for WA DFES warnings. DFES publishes one
@@ -85,8 +86,11 @@ export const getDeterministicDfesContent = ({
   const level = dfesAwsLevel(title, nativeWarningLevel, description);
   const smoke = buildDfesSmokeBulletin(title, description);
   if (smoke) return level ? { ...smoke, contentDetails: { ...smoke.contentDetails, nativeLevel: level } } : smoke;
-  const parsed = parseDfesWarning(description);
-  if (!parsed || parsed.facts.length === 0) return null;
+  const raw = parseDfesWarning(description);
+  if (!raw || raw.facts.length === 0) return null;
+  // Same clean-up as the AI path: no metadata, no repeats between What we
+  // know and What to do (owner, 17 November 2026).
+  const parsed = tidyAgencyContent(raw.facts, raw.actions, title);
   const contentDetails = {
     schemaVersion: 1, templateVersion: 0, facts: parsed.facts,
     affectedAreas: [], nativeLevel: level, officialActions: parsed.actions,

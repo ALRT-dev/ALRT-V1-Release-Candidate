@@ -10,8 +10,13 @@ class AgencyContentSections extends StatelessWidget {
     this.severityColor,
     this.warningLevel,
     this.showOriginalSource = true,
+    this.whatToDoFooter,
   });
   final Map<String, dynamic> content;
+
+  /// Shown at the bottom, inside the What to do box: the safety guide link
+  /// (owner, 17 November 2026), so the next step sits with the advice.
+  final Widget? whatToDoFooter;
   final String? sourceName;
   final String? officialIntro;
   final Color? severityColor;
@@ -31,7 +36,12 @@ class AgencyContentSections extends StatelessWidget {
 
   /// One section in the Detail board's language: a white card (radius 18),
   /// the V3 orange label, an optional grey line under it, dotted lines.
-  Widget _section(String title, List<String> lines, {String? subtitle}) =>
+  Widget _section(
+    String title,
+    List<String> lines, {
+    String? subtitle,
+    Widget? footer,
+  }) =>
       Container(
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 10),
@@ -117,6 +127,7 @@ class AgencyContentSections extends StatelessWidget {
                         ],
                       ),
               ),
+            ?footer,
           ],
         ),
       );
@@ -207,6 +218,7 @@ class AgencyContentSections extends StatelessWidget {
           subtitle: suggestions.isNotEmpty && actions.length < 4
               ? 'ALRT safety advice is general guidance, separate from agency instructions.'
               : null,
+          footer: whatToDoFooter,
         ),
         if (actions.length > 4)
           Card(

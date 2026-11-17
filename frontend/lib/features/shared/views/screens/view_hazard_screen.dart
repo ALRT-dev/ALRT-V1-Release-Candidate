@@ -822,8 +822,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   }
 
   /// The headline: the alert's own title, or, for a community report with
-  /// none, its category.
-  String _titleOf(final Hazard hazard) => hazard.displayTitle;
+  /// none, its category. An Australian Warning System alert shows only what
+  /// it is and its level, such as "Storm Advice" (owner, 17 November 2026).
+  String _titleOf(final Hazard hazard) => hazard.detailHeading;
 
   /// Official and AWS: shape glyph, the label (only the Australian Warning
   /// System writes a level word), and "source · ago" on the right.
@@ -1294,19 +1295,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 hazard.locationName,
               ),
               severityColor: hazard.color,
-            );
-          },
-        ),
-
-        // The safety guide sits straight under What to do (owner review,
-        // 13 November 2026), so the next step is one tap from the advice.
-        Consumer(
-          builder: (context, ref, child) {
-            final hazard = ref.watch(provider.select((value) => value.hazard));
-            if (hazard?.isUserReported ?? true) return const SizedBox.shrink();
-            return GuideStripCard(
-              categoryId: hazard?.category?.id,
-              level: hazard?.displayWarningLevel,
+              // The safety guide sits at the bottom of the What to do box
+              // (owner, 17 November 2026), so the next step is one tap from
+              // the advice.
+              whatToDoFooter: GuideStripCard(
+                categoryId: hazard.category?.id,
+                level: hazard.displayWarningLevel,
+              ),
             );
           },
         ),
