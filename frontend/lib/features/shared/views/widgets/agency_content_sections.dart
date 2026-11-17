@@ -10,12 +10,18 @@ class AgencyContentSections extends StatelessWidget {
     this.severityColor,
     this.warningLevel,
     this.showOriginalSource = true,
+    this.whatToDoTrailing,
   });
   final Map<String, dynamic> content;
   final String? sourceName;
   final String? officialIntro;
   final Color? severityColor;
   final bool showOriginalSource;
+
+  /// Sits on the right of the WHAT TO DO label: the alert's Follow pill
+  /// (owner review, 17 November 2026: Follow lives in What to do, not the
+  /// top bar).
+  final Widget? whatToDoTrailing;
 
   /// The agency warning level for this alert ([Hazard.displayWarningLevel]).
   /// An AWS warning always states its level, even when extraction left the
@@ -31,7 +37,12 @@ class AgencyContentSections extends StatelessWidget {
 
   /// One section in the Detail board's language: a white card (radius 18),
   /// the V3 orange label, an optional grey line under it, dotted lines.
-  Widget _section(String title, List<String> lines, {String? subtitle}) =>
+  Widget _section(
+    String title,
+    List<String> lines, {
+    String? subtitle,
+    Widget? trailing,
+  }) =>
       Container(
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 10),
@@ -58,14 +69,21 @@ class AgencyContentSections extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Color(0xFFB84500),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Color(0xFFB84500),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+                if (trailing != null) trailing,
+              ],
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 2),
@@ -207,6 +225,7 @@ class AgencyContentSections extends StatelessWidget {
           subtitle: suggestions.isNotEmpty && actions.length < 4
               ? 'ALRT safety advice is general guidance, separate from agency instructions.'
               : null,
+          trailing: whatToDoTrailing,
         ),
         if (actions.length > 4)
           Card(

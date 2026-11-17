@@ -9,6 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hazard_app/features/family/views/widgets/family_choose_circle_sheet.dart';
 import 'package:hazard_app/features/family/repositories/family_repository.dart';
 import 'package:hazard_app/features/subscription/utils/access_refusal.dart';
+import 'package:hazard_app/features/subscription/providers/alrt_plus_provider.dart';
 import 'package:hazard_app/features/subscription/views/widgets/access_refusal_sheet.dart';
 import 'package:hazard_app/features/family/providers/family_provider.dart';
 import 'package:hazard_app/features/family/models/family_models.dart';
@@ -33,6 +34,7 @@ import 'package:hazard_app/features/shared/extensions/num_sized_box_extension.da
 import 'package:hazard_app/features/shared/extensions/widget_extension.dart';
 import 'package:hazard_app/features/shared/models/error_model.dart';
 import 'package:hazard_app/features/profile/views/widgets/for_you_card.dart';
+import 'package:hazard_app/features/profile/views/widgets/share_alrt_sheet.dart';
 import 'package:hazard_app/features/shared/models/hazard_model.dart';
 import 'package:hazard_app/features/shared/providers/followed_alerts_provider.dart';
 import 'package:hazard_app/features/shared/models/video_id_priority_model.dart';
@@ -89,14 +91,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   /// Listen button, and is cleared when the speech ends on its own.
   bool _isSpeaking = false;
   bool _sendingToGroup = false;
-
-  /// Which Tell your people button is sending (for its spinner).
-  bool _sendingImSafe = false;
   late final AlertSpeechService _speech;
 
   /// The lit state of Follow and Listen: the brand orange.
   static const _litInk = Color(0xFFFF6B01);
   static const _litWash = Color(0xFFFFF0E4);
+
+  /// Following: a green outline (owner review, 17 November 2026).
+  static const _followingLine = Color(0xFF1E9E5A);
+  static const _followingInk = Color(0xFF17643B);
+  static const _followingWash = Color(0xFFE9F7EF);
 
   @override
   void initState() {
@@ -216,6 +220,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
+        // Updates show only once the person follows this alert (owner
+        // review, 17 November 2026).
+        if (!ref.watch(providerOfFollowedAlerts).contains(hazard.id)) {
+          return const SizedBox.shrink();
+        }
 
         // A database refresh is not evidence of a source update.
         final update = hazard.latestSourceUpdate;
@@ -302,6 +311,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         if (hazard == null) return const SizedBox.shrink();
+        // Part of the alert's updates: shown once the person follows it
+        // (owner review, 17 November 2026).
+        if (!ref.watch(providerOfFollowedAlerts).contains(hazard.id)) {
+          return const SizedBox.shrink();
+        }
         return Card(
           elevation: 0,
           child: ExpansionTile(
@@ -474,9 +488,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
-        final id = hazard?.id;
-        if (hazard == null || id == null) return const SizedBox.shrink();
-        final isFollowing = ref.watch(providerOfFollowedAlerts).contains(id);
+        if (hazard == null || hazard.id == null) {
+          return const SizedBox.shrink();
+        }
 
         return Row(
           children: [
@@ -486,12 +500,17 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               onTap: () => context.pop(),
             ),
             const Spacer(),
-            _followPill(
-              isFollowing: isFollowing,
-              onTap: () =>
-                  ref.read(providerOfFollowedAlerts.notifier).toggle(id),
-            ),
-            8.wSizedBox,
+            // Follow lives in What to do (owner review, 17 November 2026);
+            // the top bar keeps back, share and listen.
+            if (isAlertShareable(hazard)) ...[
+              _roundControl(
+                icon: LucideIcons.share2,
+                semanticLabel: 'Share',
+                onTap: () =>
+                    shareAlert(ref: ref, hazard: hazard, from: 'detail'),
+              ),
+              8.wSizedBox,
+            ],
             _roundControl(
               icon: LucideIcons.volume2,
               semanticLabel: _isSpeaking ? 'Stop' : 'Listen',
@@ -583,8 +602,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// The Follow pill: bell plus "Follow", filled orange-tint once followed.
-  /// Shows pulsing orange dot when alert has been updated.
+  /// The Follow pill on the right of WHAT TO DO (owner review, 17
+  /// November 2026): a small rounded-corner pill, bell plus "Follow";
+  /// once followed it turns a green outline with a tick and "Following".
+  /// Tapping again unfollows. A dot shows when a followed alert has a
+  /// source update.
   Widget _followPill({
     required final bool isFollowing,
     required final VoidCallback onTap,
@@ -593,83 +615,74 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
         final hasUpdate = hazard != null && _hasSourceUpdate(hazard);
+        final ink = isFollowing ? _followingInk : AppColors.ink;
+        final radius = BorderRadius.circular(8.spMin);
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              height: 40.spMin,
-              decoration: BoxDecoration(
-                color: isFollowing ? _litWash : AppColors.white,
-                borderRadius: BorderRadius.circular(20.spMin),
-                border: isFollowing
-                    ? Border.all(color: _litInk, width: 1.5)
-                    : null,
-                boxShadow: const [AlertCardStyle.cardShadow],
-              ),
-              child: Material(
-                color: AppColors.transparent,
-                borderRadius: BorderRadius.circular(20.spMin),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: onTap,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 14.spMin),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.bell,
-                          size: 16.spMin,
-                          color: isFollowing ? _litInk : AppColors.ink,
-                        ),
-                        6.wSizedBox,
-                        Text(
-                          isFollowing ? 'Following' : 'Follow',
-                          style: TextStyle(
-                            fontSize: 13.spMin,
-                            fontWeight: FontWeight.w600,
-                            color: isFollowing ? _litInk : AppColors.ink,
+        return Semantics(
+          button: true,
+          toggled: isFollowing,
+          label: isFollowing ? 'Following. Tap to unfollow' : 'Follow this alert',
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 32.spMin,
+                decoration: BoxDecoration(
+                  color: isFollowing ? _followingWash : AppColors.white,
+                  borderRadius: radius,
+                  border: Border.all(
+                    color: isFollowing ? _followingLine : AppColors.ink,
+                    width: 1.5,
+                  ),
+                ),
+                child: Material(
+                  color: AppColors.transparent,
+                  borderRadius: radius,
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onTap,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10.spMin),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isFollowing ? LucideIcons.check : LucideIcons.bell,
+                            size: 14.spMin,
+                            color: ink,
                           ),
-                        ),
-                      ],
+                          6.wSizedBox,
+                          Text(
+                            isFollowing ? 'Following' : 'Follow',
+                            style: TextStyle(
+                              fontSize: 13.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: ink,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (hasUpdate && isFollowing)
-              Positioned(
-                top: -2.spMin,
-                right: -2.spMin,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.6, end: 1.0),
-                  duration: const Duration(seconds: 2),
-                  curve: Curves.easeInOut,
-                  builder: (context, value, child) {
-                    return Opacity(
-                      opacity: value,
-                      child: Container(
-                        width: 10.spMin,
-                        height: 10.spMin,
-                        decoration: BoxDecoration(
-                          color: _litInk,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  onEnd: () {
-                    if (mounted) setState(() {});
-                  },
+              if (hasUpdate && isFollowing)
+                Positioned(
+                  top: -3.spMin,
+                  right: -3.spMin,
+                  child: Container(
+                    width: 9.spMin,
+                    height: 9.spMin,
+                    decoration: BoxDecoration(
+                      color: _litInk,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.white, width: 1.5),
+                    ),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -793,7 +806,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
       ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        // Less rounded than a pill (owner review, 17 November 2026).
+        borderRadius: BorderRadius.circular(8.spMin),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(
@@ -1045,7 +1059,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
             ),
             decoration: BoxDecoration(
               color: AppColors.extraLightGrey,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(8.spMin),
             ),
             child: Text(
               'Confirmed by ×${hazard.corroborationCount}',
@@ -1144,12 +1158,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.white,
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(10.spMin),
                   boxShadow: const [AlertCardStyle.cardShadow],
                 ),
                 child: Material(
                   color: AppColors.transparent,
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(10.spMin),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     onTap: () => _showOnMap(hazard),
@@ -1294,6 +1308,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 hazard.locationName,
               ),
               severityColor: hazard.color,
+              whatToDoTrailing: hazard.id == null
+                  ? null
+                  : _followPill(
+                      isFollowing: ref
+                          .watch(providerOfFollowedAlerts)
+                          .contains(hazard.id),
+                      onTap: () => ref
+                          .read(providerOfFollowedAlerts.notifier)
+                          .toggle(hazard.id!),
+                    ),
             );
           },
         ),
@@ -1411,19 +1435,16 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     if (mounted) setState(() => _isSpeaking = false);
   }
 
-  /// One tap (owner review, 13 November 2026): Send alert shares the alert
-  /// with the group; I'm safe shares it and adds a safe check-in. No note sheet, no second sheet, and never a location: the
-  /// owner adds location from Family when she wants to.
+  /// One tap: shares the alert with the chosen group. No note sheet, no
+  /// second sheet, and never a location: the owner adds location from
+  /// Family when she wants to. ("I'm safe" was dropped from Tell your
+  /// people, owner review 17 November 2026.)
   Future<void> _quickSendToCircle(
     final Hazard hazard,
-    final FamilyCircleSummary circle, {
-    required final bool imSafe,
-  }) async {
+    final FamilyCircleSummary circle,
+  ) async {
     if (_sendingToGroup || hazard.id == null) return;
-    setState(() {
-      _sendingToGroup = true;
-      _sendingImSafe = imSafe;
-    });
+    setState(() => _sendingToGroup = true);
     try {
       final result = await ref
           .read(providerOfFamilyRepository)
@@ -1448,28 +1469,7 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         );
         return;
       }
-      if (!imSafe) {
-        context.showSuccessToast(message: 'Alert sent to ${circle.name}.');
-        return;
-      }
-      final outcome = await ref
-          .read(providerOfFamily.notifier)
-          .checkInToCircle(
-            circleId: circle.circleId,
-            hazardId: hazard.id!,
-            status: FamilyCheckInStatus.safe,
-            shareLocation: false,
-          );
-      if (!mounted) return;
-      if (outcome == AlertCheckInOutcome.failed) {
-        context.showErrorToast(
-          message: "Alert sent, but your I'm safe could not be sent.",
-        );
-      } else {
-        context.showSuccessToast(
-          message: "Alert and I'm safe sent to ${circle.name}.",
-        );
-      }
+      context.showSuccessToast(message: 'Alert sent to ${circle.name}.');
     } finally {
       if (mounted) setState(() => _sendingToGroup = false);
     }
@@ -1497,6 +1497,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
+  /// Tell your people (owner review, 17 November 2026): one card with a
+  /// purple outline and three rows. Row one sends the alert to the group
+  /// (the arrow beside it changes the group); people without a group see
+  /// "Send to your group" with the ALRT + badge instead. Then Send link and
+  /// Invite, each with what it does, split by a thin line. Small and
+  /// streamlined, never a stack of big buttons.
   Widget _buildTellYourPeopleSection() {
     return Consumer(
       builder: (context, ref, child) {
@@ -1506,79 +1512,104 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
         final activeCircleId = ref.watch(
           providerOfFamily.select((s) => s.circle?.id),
         );
-        if (circles.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => showChooseCircleSheet(context, ref),
-                  icon: const Icon(Icons.group_outlined),
-                  label: const Text('Share with a group'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      shareAlert(ref: ref, hazard: hazard, from: 'detail'),
-                  icon: const Icon(Icons.share_outlined),
-                  label: const Text('Share alert externally'),
-                ),
-                TextButton(
-                  onPressed: () => context.push(AlrtPlusChooseScreen.route),
-                  child: const Text('Explore ALRT+ plans'),
-                ),
-              ],
-            ),
-          );
-        }
-        final selected = circles.firstWhere(
-          (c) => c.circleId == activeCircleId,
-          orElse: () => circles.first,
-        );
+        final hasPlus = ref.watch(providerOfAlrtPlus).value ?? false;
+        final selected = circles.isEmpty
+            ? null
+            : circles.firstWhere(
+                (c) => c.circleId == activeCircleId,
+                orElse: () => circles.first,
+              );
+
         return Padding(
           padding: EdgeInsets.only(top: 24.spMin),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Text(
-                    'TELL YOUR PEOPLE',
-                    style: TextStyle(
-                      fontSize: 12.spMin,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                      color: const Color(0xFF5B5E6E),
+              Text(
+                'SHARE THIS ALERT',
+                style: TextStyle(
+                  fontSize: 12.spMin,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  color: _sharePurple,
+                ),
+              ),
+              4.hSizedBox,
+              Text(
+                'Let your people know.',
+                style: TextStyle(
+                  fontSize: 20.spMin,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
+              ),
+              12.hSizedBox,
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(
+                  14.spMin,
+                  14.spMin,
+                  14.spMin,
+                  10.spMin,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(20.spMin),
+                  border: Border.all(color: _sharePurple, width: 2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (selected != null)
+                      _sendToGroupRow(hazard, selected)
+                    else
+                      _getGroupRow(hasPlus: hasPlus),
+                    4.hSizedBox,
+                    _shareListRow(
+                      icon: LucideIcons.link,
+                      label: 'Send link',
+                      detail: 'By text, WhatsApp or email. No app needed.',
+                      onTap: () =>
+                          shareAlert(ref: ref, hazard: hazard, from: 'detail'),
                     ),
-                  ),
-                  const Spacer(),
-                  // The group is the chooser: tap its name to change it.
-                  TextButton.icon(
-                    onPressed: _sendingToGroup
-                        ? null
-                        : () => showChooseCircleSheet(context, ref),
-                    iconAlignment: IconAlignment.end,
-                    icon: Icon(LucideIcons.chevronDown, size: 16.spMin),
-                    label: Text(
-                      selected.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14.spMin,
-                        fontWeight: FontWeight.w700,
+                    const Divider(height: 1, color: Color(0xFFECECF0)),
+                    _shareListRow(
+                      icon: LucideIcons.userPlus,
+                      label: 'Invite',
+                      detail:
+                          'They join ALRT and get alerts automatically next time.',
+                      onTap: () => showShareAlrtSheet(context),
+                    ),
+                    const Divider(height: 1, color: Color(0xFFECECF0)),
+                    Padding(
+                      padding: EdgeInsets.only(top: 10.spMin),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            LucideIcons.lock,
+                            size: 13.spMin,
+                            color: AppColors.mediumGrey,
+                          ),
+                          6.wSizedBox,
+                          Flexible(
+                            child: Text(
+                              selected != null
+                                  ? 'Private to your group. No location unless you add it.'
+                                  : 'No location shared unless you add it.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12.spMin,
+                                color: AppColors.mediumGrey,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF5B47A0),
-                      minimumSize: const Size(44, 44),
-                      padding: EdgeInsets.symmetric(horizontal: 8.spMin),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              SizedBox(height: 4.spMin),
-              _buildYourCircleCard(hazard, circles.length, selected),
             ],
           ),
         );
@@ -1586,81 +1617,294 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// Tell your people, one row (owner review, 13 November 2026: "too big
-  /// and clunky"): Send alert, I'm safe (the alert plus a safe check-in)
-  /// and a share icon. The group is chosen from the heading above. No
-  /// card, no location, no second sheet.
-  Widget _buildYourCircleCard(
+  /// The purple of Tell your people (the app's existing share purple).
+  static const _sharePurple = Color(0xFF5B47A0);
+  static const _sharePurpleWash = Color(0xFFF1ECFF);
+
+  /// Row one for someone in a group: the main part sends the alert, the
+  /// arrow on the right (behind a thin divider) changes the group.
+  Widget _sendToGroupRow(
     final Hazard hazard,
-    final int circleCount,
     final FamilyCircleSummary selected,
   ) {
-    const purple = Color(0xFF5B47A0);
     final busy = _sendingToGroup;
-    Widget spinner(final Color color) => SizedBox(
-      width: 16.spMin,
-      height: 16.spMin,
-      child: CircularProgressIndicator(strokeWidth: 2, color: color),
+    final radius = BorderRadius.circular(14.spMin);
+    final initial = selected.name.trim().isEmpty
+        ? '?'
+        : selected.name.trim().characters.first.toUpperCase();
+    return Container(
+      height: 60.spMin,
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        border: Border.all(color: _sharePurple, width: 1.5),
+      ),
+      child: Material(
+        color: AppColors.transparent,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                button: true,
+                label: 'Send this alert to ${selected.name}',
+                child: InkWell(
+                  onTap: busy ? null : () => _quickSendToCircle(hazard, selected),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10.spMin),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38.spMin,
+                          height: 38.spMin,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _sharePurple,
+                            borderRadius: BorderRadius.circular(10.spMin),
+                          ),
+                          child: Text(
+                            initial,
+                            style: TextStyle(
+                              fontSize: 16.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.white,
+                            ),
+                          ),
+                        ),
+                        12.wSizedBox,
+                        Expanded(
+                          child: Text(
+                            'Send to ${selected.name}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16.spMin,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                        if (busy)
+                          SizedBox(
+                            width: 18.spMin,
+                            height: 18.spMin,
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _sharePurple,
+                            ),
+                          )
+                        else
+                          Icon(
+                            LucideIcons.send,
+                            size: 20.spMin,
+                            color: _sharePurple,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              width: 1,
+              margin: EdgeInsets.symmetric(vertical: 14.spMin),
+              color: const Color(0xFFD9CCFB),
+            ),
+            Semantics(
+              button: true,
+              label: 'Change group',
+              child: InkWell(
+                onTap: busy ? null : () => showChooseCircleSheet(context, ref),
+                child: SizedBox(
+                  width: 52.spMin,
+                  height: double.infinity,
+                  child: Icon(
+                    LucideIcons.chevronDown,
+                    size: 20.spMin,
+                    color: _sharePurple,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-    final labelStyle = TextStyle(
-      fontSize: 15.spMin,
-      fontWeight: FontWeight.w800,
+  }
+
+  /// Row one for someone with no group yet. Without ALRT + it carries the
+  /// badge and opens the plans; with it, it opens the group chooser.
+  Widget _getGroupRow({required final bool hasPlus}) {
+    final radius = BorderRadius.circular(14.spMin);
+    return Semantics(
+      button: true,
+      label: hasPlus
+          ? 'Send to your group. Choose or start a group'
+          : 'Send to your group. Needs ALRT +',
+      child: Material(
+        color: AppColors.transparent,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => hasPlus
+              ? showChooseCircleSheet(context, ref)
+              : context.push(AlrtPlusChooseScreen.route),
+          child: Container(
+            constraints: BoxConstraints(minHeight: 64.spMin),
+            padding: EdgeInsets.fromLTRB(
+              10.spMin,
+              10.spMin,
+              12.spMin,
+              10.spMin,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: _sharePurple, width: 1.5),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38.spMin,
+                  height: 38.spMin,
+                  decoration: BoxDecoration(
+                    color: _sharePurpleWash,
+                    borderRadius: BorderRadius.circular(10.spMin),
+                  ),
+                  child: Icon(
+                    LucideIcons.users,
+                    size: 20.spMin,
+                    color: _sharePurple,
+                  ),
+                ),
+                12.wSizedBox,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Send to your group',
+                              style: TextStyle(
+                                fontSize: 16.spMin,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                          ),
+                          if (!hasPlus) ...[
+                            8.wSizedBox,
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 7.spMin,
+                                vertical: 2.spMin,
+                              ),
+                              decoration: BoxDecoration(
+                                // The ALRT + plan purple (CLAUDE.md,
+                                // plan names and colours).
+                                color: const Color(0xFF7B359A),
+                                borderRadius: BorderRadius.circular(6.spMin),
+                              ),
+                              child: Text(
+                                'ALRT +',
+                                style: TextStyle(
+                                  fontSize: 11.spMin,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      2.hSizedBox,
+                      Text(
+                        'Alert your family in one tap.',
+                        style: TextStyle(
+                          fontSize: 12.5.spMin,
+                          height: 1.35,
+                          color: AppColors.mediumGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  LucideIcons.chevronRight,
+                  size: 18.spMin,
+                  color: _sharePurple,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
-    return Row(
-      children: [
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: busy
-                ? null
-                : () => _quickSendToCircle(hazard, selected, imSafe: false),
-            icon: busy && !_sendingImSafe
-                ? spinner(Colors.white)
-                : Icon(LucideIcons.send, size: 17.spMin),
-            label: Text('Send alert', style: labelStyle),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE5582C),
-              foregroundColor: Colors.white,
-              minimumSize: Size.fromHeight(48.spMin),
-              shape: const StadiumBorder(),
-            ),
+  }
+
+  /// Send link / Invite: icon on the left, the action, what it does on
+  /// the right, and a matching purple arrow.
+  Widget _shareListRow({
+    required final IconData icon,
+    required final String label,
+    required final String detail,
+    required final VoidCallback onTap,
+  }) {
+    return Semantics(
+      button: true,
+      label: '$label. $detail',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 4.spMin,
+            vertical: 12.spMin,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36.spMin,
+                height: 36.spMin,
+                decoration: BoxDecoration(
+                  color: _sharePurpleWash,
+                  borderRadius: BorderRadius.circular(10.spMin),
+                ),
+                child: Icon(icon, size: 18.spMin, color: _sharePurple),
+              ),
+              12.wSizedBox,
+              SizedBox(
+                width: 84.spMin,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15.spMin,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  detail,
+                  style: TextStyle(
+                    fontSize: 12.5.spMin,
+                    height: 1.35,
+                    color: AppColors.mediumGrey,
+                  ),
+                ),
+              ),
+              6.wSizedBox,
+              Icon(
+                LucideIcons.chevronRight,
+                size: 18.spMin,
+                color: _sharePurple,
+              ),
+            ],
           ),
         ),
-        SizedBox(width: 8.spMin),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: busy
-                ? null
-                : () => _quickSendToCircle(hazard, selected, imSafe: true),
-            icon: busy && _sendingImSafe
-                ? spinner(purple)
-                : Icon(LucideIcons.circleCheck, size: 17.spMin),
-            label: Text("I'm safe", style: labelStyle),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: purple,
-              minimumSize: Size.fromHeight(48.spMin),
-              shape: const StadiumBorder(),
-              side: const BorderSide(color: purple, width: 1.5),
-            ),
-          ),
-        ),
-        SizedBox(width: 8.spMin),
-        Semantics(
-          button: true,
-          label: 'Share a link to this alert',
-          child: OutlinedButton(
-            onPressed: () =>
-                shareAlert(ref: ref, hazard: hazard, from: 'detail'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF17171C),
-              minimumSize: Size(48.spMin, 48.spMin),
-              padding: EdgeInsets.zero,
-              shape: const CircleBorder(),
-              side: const BorderSide(color: Color(0xFFD9D9E0), width: 1.5),
-            ),
-            child: Icon(LucideIcons.share2, size: 18.spMin),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -1762,8 +2006,11 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 children: [
                   _outlinedPill(
                     label: isFollowing ? 'Following' : 'Follow',
-                    icon: LucideIcons.bell,
+                    icon: isFollowing ? LucideIcons.check : LucideIcons.bell,
                     highlighted: isFollowing,
+                    highlightInk: _followingInk,
+                    highlightLine: _followingLine,
+                    highlightWash: _followingWash,
                     onTap: () =>
                         ref.read(providerOfFollowedAlerts.notifier).toggle(id),
                   ),
@@ -1798,9 +2045,12 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     required final IconData icon,
     required final VoidCallback onTap,
     final bool highlighted = false,
+    final Color highlightInk = _litInk,
+    final Color highlightLine = _litInk,
+    final Color highlightWash = _litWash,
   }) {
     // Community board: 48 high, radius 14, a hairline warm-grey border.
-    final ink = highlighted ? _litInk : AppColors.ink;
+    final ink = highlighted ? highlightInk : AppColors.ink;
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -1809,10 +2059,10 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           duration: const Duration(milliseconds: 180),
           height: 48.spMin,
           decoration: BoxDecoration(
-            color: highlighted ? _litWash : AppColors.white,
+            color: highlighted ? highlightWash : AppColors.white,
             borderRadius: BorderRadius.circular(14.spMin),
             border: Border.all(
-              color: highlighted ? _litInk : const Color(0xFFD9D6D0),
+              color: highlighted ? highlightLine : const Color(0xFFD9D6D0),
               width: highlighted ? 2.0 : 1.0,
             ),
           ),
