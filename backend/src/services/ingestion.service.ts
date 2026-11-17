@@ -38,6 +38,7 @@ import { getTemplateRegistry, type TemplateRelease } from './alert_templates.ser
 import { resolveTemplate, chooseTemplateBand, selectLibraryGuidance, templateCountry, templateRegion } from '../utils/alert_templates.util.js';
 import { agencyExtractionFallback } from '../utils/agency_extraction.util.js';
 import { isAlwaysOnOfficialWarning } from '../utils/official_warning.util.js';
+import { alertCurrency, boundedExpiry, guardNonWarningCategory, type Currency } from '../utils/alert_currency.util.js';
 import { summarizeHazard } from "./hazard.service.js";
 import { sendPushNotificationAboutNewHazard } from "./notification.service.js";
 import { sendSocketEventAboutHazardToSubscribers } from "./socket.service.js";
@@ -505,6 +506,8 @@ export const summarizeAndPostHazards = async ({
     }> = [];
 
     const priorSourceDetails = new Map<string, unknown>();
+    const currencyById = new Map<string, Currency>();
+    let otherCategory: HazardCategory | null | undefined;
     let templateRelease: TemplateRelease | null = null;
     try { templateRelease = (await getTemplateRegistry()).published; }
     catch (error) { console.error("Template registry unavailable; continuing existing source classification.", error); }
@@ -533,6 +536,67 @@ export const summarizeAndPostHazards = async ({
         });
 
         if (existing && existing.sourceId === hazardData.source?.id) priorSourceDetails.set(hazardData.id, existing.contentDetails);
+
+        // Wrong icon guard (owner, 17 November 2026): a closure or notice
+        // never takes a hazard category from words in its body.
+        if (hazardData.category) {
+          if (otherCategory === undefined) {
+            // A failed lookup only switches the guard off for this run; it
+            // never stops an alert being read.
+            otherCategory = await Promise.resolve()
+              .then(() => prisma.hazardCategory.findUnique({
+                where: { id: "other" },
+                include: { parent: true },
+              }))
+              .catch(() => null);
+          }
+          hazardData.category = guardNonWarningCategory({
+            title: hazardData.title ?? "",
+            category: hazardData.category,
+            isAwsCompliant: hazardData.isAwsCompliant ?? false,
+            headlineNamesCategory: (category, title) => {
+              const text = title.toLowerCase();
+              return [category.name, ...(category.keywords ?? [])]
+                .filter(Boolean)
+                .some((word) => text.includes(word.toLowerCase()));
+            },
+            fallback: (otherCategory ?? null) as typeof hazardData.category | null,
+          });
+        }
+
+        // Old and outdated guard (owner, 17 November 2026; ruling T10): the
+        // clock is the agency's own time, and an alert the agency has not
+        // changed for three days is removed, even while a feed keeps
+        // republishing it.
+        const sameSourceRecord = existing && existing.sourceId === hazardData.source?.id ? existing : null;
+        const currency = alertCurrency({
+          title: hazardData.title ?? "",
+          description: hazardData.description ?? "",
+          nativeLevel: hazardData.nativeWarningLevel ?? null,
+          sourceId: hazardData.source?.id ?? null,
+          occurredAt: hazardData.occurredAt ? new Date(hazardData.occurredAt) : null,
+          existing: sameSourceRecord,
+          now: new Date(),
+        });
+        currencyById.set(hazardData.id, currency);
+        if (currency.staleAt.getTime() <= Date.now()) {
+          if (existing && (!existing.expiresAt || existing.expiresAt.getTime() > Date.now())) {
+            await prisma.hazard.update({
+              where: { id: existing.id },
+              data: { expiresAt: currency.staleAt },
+            });
+            console.log(
+              `[${hazardData.source?.id}] Not changed by the agency since ${currency.changedAt.toISOString()}, removing:`,
+              hazardData.title,
+            );
+          } else {
+            console.log(
+              `[${hazardData.source?.id}] Skipping outdated alert (agency time ${currency.changedAt.toISOString()}):`,
+              hazardData.title,
+            );
+          }
+          continue;
+        }
 
         // Check if this source has severity band filtering configured
         const sourceId = hazardData.source?.id as ExternalSourceId;
@@ -811,13 +875,27 @@ export const summarizeAndPostHazards = async ({
               hazardData.severity || HazardSeverity.unknown,
             );
           }
+          // Never later than three days after the agency's last change.
+          const currency = currencyById.get(hazardData.id!);
+          if (currency) expiresAt = boundedExpiry(expiresAt ? new Date(expiresAt) : null, currency);
+          const withCurrency = (details: unknown): Prisma.InputJsonObject | typeof Prisma.DbNull =>
+            currency && details && typeof details === "object" && !Array.isArray(details)
+              ? ({
+                  ...(details as Record<string, unknown>),
+                  sourceChangedAt: currency.changedAt.toISOString(),
+                  ...(currency.statedAt ? { agencyIssuedAt: currency.statedAt.toISOString() } : {}),
+                } as Prisma.InputJsonObject)
+              : (details as Prisma.InputJsonObject | typeof Prisma.DbNull);
 
           // Prepare the hazard data with AI summary
           const finalHazardData: HazardDataWithRelations = {
             ...hazardData,
+            // The time shown is the agency's own issue time when it states
+            // one, never a feed's republish date.
+            ...(currency ? { occurredAt: currency.shownAt } : {}),
             title: summarized.title || hazardData.title,
             aiSummary: templateRelease?summarized.summary:(hazardData.aiSummary || summarized.summary),
-            contentDetails: hazardData.source?.id === 'waDfes' ? withSourceHistory(
+            contentDetails: withCurrency(hazardData.source?.id === 'waDfes' ? withSourceHistory(
               (summarized.contentDetails ?? {}) as unknown as Record<string, unknown>,
               priorSourceDetails.get(hazardData.id!),
               {sourceId:hazardData.source!.id,eventId:hazardData.id!,title:hazardData.title,
@@ -825,7 +903,7 @@ export const summarizeAndPostHazards = async ({
                 channel:hazardData.isAwsCompliant || hazardData.nativeWarningLevel ? 'warning' : 'incident',
                 instructions:hazardData.sourceInstructionBlocks ?? []},
               new Date(),
-            ) as unknown as Prisma.InputJsonObject : summarized.contentDetails ?? Prisma.DbNull,
+            ) as unknown as Prisma.InputJsonObject : summarized.contentDetails ?? Prisma.DbNull),
             aiConfidence: summarized.confidence,
             extractionMethod: extraction.extractionMethod,
             extractionRef: extraction.extractionRef,
