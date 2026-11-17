@@ -1666,11 +1666,31 @@ function createWAHazardFromWarning({
   );
   // The headline wins over words in the body (a smoke alert must not
   // become a power outage because the body mentions power).
-  const titleCategory = getCategoryFromTitleFirst(
+  const headlineCategory = getCategoryFromTitleFirst(
     warning.title,
     categoryText,
     availableCategories,
   );
+  // A closure is a closure (owner, 17 November 2026): a DBCA "Facility or
+  // Park Closure" after Cyclone Narelle became a Cyclone alert because the
+  // body mentions the cyclone. A closure takes its category from its own
+  // headline or type, never a hazard named in the body; with no match it
+  // is Other.
+  const isClosure = /\bclosure\b|\bclosed\b/i.test(
+    `${warning.warningType ?? ""} ${warning.title ?? ""}`,
+  );
+  const titleCategory = isClosure
+    ? (headlineCategory ??
+      (warning.warningType
+        ? getCategoryFromTitleFirst(
+            warning.warningType,
+            warning.warningType,
+            availableCategories,
+          )
+        : null) ??
+      availableCategories.find((c) => c.id === "other") ??
+      null)
+    : headlineCategory;
 
   return {
     id: hazardId,
