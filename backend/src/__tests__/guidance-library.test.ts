@@ -107,7 +107,9 @@ describe("one-off import of the existing stores", () => {
     const lines = buildDraftGuideRecords().filter((d) => d.kind === "profile");
     expect(new Set(lines.map((l) => l.cohort))).toEqual(new Set(["powered", "assistance"]));
     for (const l of lines) expect(checkGuidance(l, { forApproval: true }).errors, l.key).toEqual([]);
-    expect(new Set(drafts.map((d) => d.hazard))).toEqual(new Set(["smoke-air-quality", "house-fire", "hazardous-materials", "landslide", "armed-attack-escape-hide-tell", "home-security", "water-contamination"]));
+    expect(new Set(drafts.map((d) => d.hazard))).toEqual(new Set(["smoke-air-quality", "house-fire", "hazardous-materials", "landslide", "armed-attack-escape-hide-tell", "home-security", "water-contamination",
+      // National (AU) rewrites of the main hazard guides, 17 Nov 2026.
+      "bushfire-being-prepared", "bushfire-during", "bushfire-after", "flood-being-prepared", "flash-flooding", "severe-storm", "cyclone", "heatwave"]));
     for (const d of drafts) {
       const c = checkGuidance(d, { forApproval: true });
       expect(c.errors, d.key).toEqual([]);

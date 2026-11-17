@@ -4,7 +4,7 @@ import { guides } from "../services/guide_seed.service.js";
 import { BUILT_IN_ENTRIES } from "./ask_alrt_content.util.js";
 import { SAFETY_GROUPS, hazardSafetyLibrary } from "./hazard_safety_library.util.js";
 import { buildKey, type GuidanceInput } from "./guidance_library.util.js";
-import { DRAFT_GUIDES, DRAFT_PROFILE_LINES } from "../data/guidance_drafts_20261116.js";
+import { COUNTRY_WARNING_ANSWERS, DRAFT_GUIDES, DRAFT_PROFILE_LINES, GUIDE_ANSWERS, NATIONAL_GUIDES } from "../data/guidance_drafts_20261116.js";
 
 /**
  * One-off import of the five existing guidance stores into the shared
@@ -148,15 +148,28 @@ export const buildDraftGuideRecords = (): (GuidanceInput & { key: string; change
     sourceAgency: l.sourceAgency, sourceUrl: l.sourceUrl,
     changeNote: "Drafted 16 Nov 2026 for a new Safety Profile group (D8). Needs owner approval.",
   })),
-  ...DRAFT_GUIDES.flatMap((g) => {
+  ...GUIDE_ANSWERS.map((a) => ({
+    key: `answer:-:-:-:AU:guide-${a.id}`,
+    kind: "answer" as const, jurisdiction: "AU", title: a.id, text: a.text, triggers: a.triggers,
+    sourceAgency: a.sourceAgency, sourceUrl: a.sourceUrl,
+    changeNote: "Ask ALRT answer drafted 17 Nov 2026 from the same sources as the Learn guides. Needs owner approval.",
+  })),
+  ...COUNTRY_WARNING_ANSWERS.map((a) => ({
+    key: `answer:-:-:-:${a.jurisdiction}:warning-levels`,
+    kind: "answer" as const, jurisdiction: a.jurisdiction, title: `warning-levels-${a.jurisdiction}`, text: a.text,
+    triggers: ["what do the warning levels mean", "weather warning levels", "what does a red warning mean", "warning colours", "watch vs warning"],
+    sourceAgency: a.sourceAgency, sourceUrl: a.sourceUrl,
+    changeNote: "Country warning levels researched 17 Nov 2026. Needs owner approval.",
+  })),
+  ...[...DRAFT_GUIDES, ...NATIONAL_GUIDES].flatMap((g) => {
     const counts: Record<string, number> = {};
     return g.sections.map((s) => {
       counts[s.stage] = (counts[s.stage] ?? 0) + 1;
       return {
-        key: `guide_section:${g.slug}:-:${s.stage}:${g.jurisdiction}:${counts[s.stage]}`,
+        key: `guide_section:${g.slug}:-:${s.stage}:${g.jurisdiction}:${NATIONAL_GUIDES.includes(g) ? "L" : ""}${counts[s.stage]}`,
         kind: "guide_section" as const, hazard: g.slug, stage: s.stage, jurisdiction: g.jurisdiction,
         title: s.title, text: s.body, sourceAgency: s.sourceAgency, sourceUrl: s.sourceUrl,
-        changeNote: `Drafted 16 Nov 2026 for "${g.title}"${g.replaces ? `, replacing the content of "${g.replaces}"` : ""}. Needs owner approval.`,
+        changeNote: `Drafted ${NATIONAL_GUIDES.includes(g) ? "17" : "16"} Nov 2026 for "${g.title}"${g.replaces ? `, replacing the content of "${g.replaces}"` : ""}. Needs owner approval.`,
       };
     });
   }),

@@ -140,3 +140,133 @@ export const DRAFT_PROFILE_LINES: { hazard: string; cohort: "powered" | "assista
   { hazard: "cyclone", cohort: "assistance", text: "Packing food, water and papers for your assistance animal in your cyclone kit may help.", sourceAgency: "Department of Primary Industries and Regional Development (WA)", sourceUrl: DPIRD_ANIMALS },
   { hazard: "evac_centre", cohort: "assistance", text: "Recognised assistance animals are allowed inside emergency relief centres, unlike most pets. Bringing their harness and papers may help.", sourceAgency: "Department of Primary Industries and Regional Development (WA)", sourceUrl: DPIRD_ANIMALS },
 ];
+
+/**
+ * National (generic) versions of the main hazard guides (owner, 17 Nov 2026).
+ * The Australian Warning System is the same in every state, so one national
+ * guide per hazard is accurate everywhere; a state version (AU-WA) can be
+ * added later where the advice differs. Publishing one replaces the older
+ * state-sourced text on the same guide. Agency directions are attributed.
+ */
+const AWS = "https://www.australianwarningsystem.com.au/#warning";
+const REDCROSS_PREPARE = "https://www.redcross.org.au/prepare/";
+const HEALTHDIRECT_HEAT = "https://www.healthdirect.gov.au/hot-weather-risks-and-staying-cool";
+const BOM_SEVERE = "https://www.bom.gov.au/knowyourweather/";
+const QLD_CYCLONE_FAQ = "https://getready.qld.gov.au/cyclone-frequently-asked-questions";
+const AWS_AGENCY = "Australian Warning System (Australian Government and state emergency services)";
+
+const warningLevels = (hazard: string) => ({
+  stage: "before" as const,
+  title: "Know the three warning levels",
+  body: `${hazard} warnings use the national Australian Warning System. Advice (yellow) means an incident has started with no immediate danger. Watch and Act (orange) means conditions are changing and it is time to start protecting yourself and your family. Emergency Warning (red) is the highest level: you may be in danger and need to act immediately.`,
+  sourceAgency: AWS_AGENCY,
+  sourceUrl: AWS,
+});
+const plan = {
+  stage: "before" as const,
+  title: "Make a household plan",
+  body: "Australian Red Cross suggests four steps: get in the know about your risks, get connected with the people who can help you, get organised with a written plan, and get packing with an emergency kit. Its free Get Prepared app walks you through each step.",
+  sourceAgency: "Australian Red Cross",
+  sourceUrl: REDCROSS_PREPARE,
+};
+const followWarning = (hazard: string) => ({
+  stage: "during" as const,
+  title: "Follow the call to action",
+  body: `Every ${hazard.toLowerCase()} warning carries a call to action from the agency, such as Prepare now, Stay informed or Avoid the area. Follow the call to action in the current warning, and check again often because it can change quickly.`,
+  sourceAgency: AWS_AGENCY,
+  sourceUrl: AWS,
+});
+
+export const NATIONAL_GUIDES: DraftGuide[] = [
+  {
+    slug: "bushfire-being-prepared", topicSlug: "bushfire-heat", jurisdiction: "AU",
+    title: "Bushfire: being prepared", summary: "How bushfire warnings work in Australia and how to get your household ready.",
+    categoryKeywords: ["bushfire", "grass fire", "scrub fire"],
+    sections: [warningLevels("Bushfire"), plan,
+      { stage: "before", title: "Pack an emergency kit", body: "A kit with water, medicines, important documents, a battery radio, a torch and phone chargers saves time when every minute matters. Keep it where everyone can find it.", sourceAgency: "Australian Red Cross", sourceUrl: REDCROSS_PREPARE }],
+  },
+  {
+    slug: "bushfire-during", topicSlug: "bushfire-heat", jurisdiction: "AU",
+    title: "Bushfire: during a fire", summary: "Understanding bushfire warnings while a fire is burning.",
+    categoryKeywords: ["bushfire"],
+    sections: [followWarning("Bushfire"),
+      { stage: "during", title: "Emergency Warning", body: "An Emergency Warning is the highest level. The national system says it means you may be in danger and need to act immediately, because any delay puts your life at risk. Call 000 if your life is in danger.", sourceAgency: AWS_AGENCY, sourceUrl: AWS }],
+  },
+  {
+    slug: "bushfire-after", topicSlug: "bushfire-heat", jurisdiction: "AU",
+    title: "Bushfire: after a fire", summary: "What to expect once a fire has passed.",
+    categoryKeywords: ["bushfire"],
+    sections: [{ stage: "after", title: "Wait for official advice", body: "Warnings can still be current after the fire front passes. The national system uses calls to action such as Return with caution and Avoid smoke once conditions ease. Keep checking the current warning for your area.", sourceAgency: AWS_AGENCY, sourceUrl: AWS },
+      { stage: "after", title: "Look after yourself and others", body: "Australian Red Cross notes that emergencies affect wellbeing and connection as well as property. Checking in on neighbours and talking about what happened helps recovery.", sourceAgency: "Australian Red Cross", sourceUrl: REDCROSS_PREPARE }],
+  },
+  {
+    slug: "flood-being-prepared", topicSlug: "severe-weather-flood", jurisdiction: "AU",
+    title: "Flood: being prepared", summary: "How flood warnings work and how to get ready.",
+    categoryKeywords: ["flood", "riverine flood"],
+    sections: [warningLevels("Flood"), plan, followWarning("Flood")],
+  },
+  {
+    slug: "flash-flooding", topicSlug: "severe-weather-flood", jurisdiction: "AU",
+    title: "Flash flooding", summary: "Flash floods happen fast. What the warnings mean and why floodwater is so dangerous.",
+    categoryKeywords: ["flash flood", "heavy rain"],
+    sections: [{ stage: "before", title: "Severe weather season", body: "The Bureau of Meteorology says Australia faces a higher risk of severe weather from October to April. Heavy rain can turn creeks, roads and drains into fast-moving water within minutes.", sourceAgency: "Bureau of Meteorology", sourceUrl: BOM_SEVERE },
+      { stage: "during", title: "Floodwater", body: "Floodwater can hide fast currents, debris and washed-out roads. Emergency services across Australia advise never driving, walking or swimming through floodwater. If your life is in danger, call 000.", sourceAgency: "Bureau of Meteorology", sourceUrl: BOM_SEVERE }],
+  },
+  {
+    slug: "severe-storm", topicSlug: "severe-weather-flood", jurisdiction: "AU",
+    title: "Severe storms", summary: "Damaging winds, hail and heavy rain: what to expect and how to prepare.",
+    categoryKeywords: ["storm", "damaging winds", "hail"],
+    sections: [{ stage: "before", title: "Storm season", body: "The Bureau of Meteorology says the risk of severe weather is higher from October to April. Checking forecasts and warnings during that period gives you time to prepare.", sourceAgency: "Bureau of Meteorology", sourceUrl: BOM_SEVERE }, plan, followWarning("Storm")],
+  },
+  {
+    slug: "cyclone", topicSlug: "severe-weather-flood", jurisdiction: "AU",
+    title: "Tropical cyclones", summary: "Cyclone watches, warnings and what to do before and after.",
+    categoryKeywords: ["cyclone"],
+    sections: [
+      { stage: "before", title: "Watch and warning", body: "The Bureau of Meteorology issues a Tropical Cyclone Watch when gales are expected within 24 to 48 hours, and a Tropical Cyclone Warning when gales are expected within 24 hours or are already happening.", sourceAgency: "Bureau of Meteorology (via Queensland Government Get Ready)", sourceUrl: QLD_CYCLONE_FAQ },
+      plan,
+      { stage: "after", title: "After the cyclone", body: "Strong winds and heavy rain can continue after a cyclone is downgraded. The Bureau of Meteorology warns that coastal areas can be extremely dangerous before, during and after a cyclone.", sourceAgency: "Bureau of Meteorology", sourceUrl: BOM_SEVERE },
+    ],
+  },
+  {
+    slug: "heatwave", topicSlug: "bushfire-heat", jurisdiction: "AU",
+    title: "Heatwaves", summary: "Heat is Australia's deadliest natural hazard. Signs of heat illness and how to stay cool.",
+    categoryKeywords: ["heatwave", "heat"],
+    sections: [
+      { stage: "before", title: "Who is most at risk", body: "healthdirect notes that heat-related illness can affect anyone, and older people, babies and young children, pregnant people and people with medical conditions are at greater risk.", sourceAgency: "healthdirect (Australian Government)", sourceUrl: HEALTHDIRECT_HEAT },
+      { stage: "during", title: "Keep cool and drink water", body: "healthdirect says the best way to prevent heat-related illness is to drink plenty of water and stay as cool as possible.", sourceAgency: "healthdirect (Australian Government)", sourceUrl: HEALTHDIRECT_HEAT },
+      { stage: "during", title: "When to call 000", body: "Heat-related illness can quickly become life-threatening. healthdirect advises calling 000 for an ambulance if someone is very unwell and does not respond to cooling and drinking water within about 10 minutes.", sourceAgency: "healthdirect (Australian Government)", sourceUrl: HEALTHDIRECT_HEAT },
+    ],
+  },
+];
+
+/**
+ * Ask ALRT answers built from the same sourced guide content (owner, 17 Nov
+ * 2026), so Learn and Ask ALRT say the same thing. Under 70 words, no
+ * movement directions, only emergency numbers.
+ */
+export const GUIDE_ANSWERS: { id: string; triggers: string[]; text: string; sourceAgency: string; sourceUrl: string }[] = [
+  { id: "warning-levels", triggers: ["what do the warning levels mean", "what is watch and act", "what does watch and act mean", "what does emergency warning mean", "what is an emergency warning", "what does advice mean", "australian warning system"], text: "Australia uses three warning levels. Advice (yellow): an incident has started, no immediate danger. Watch and Act (orange): conditions are changing, start protecting yourself and your family. Emergency Warning (red): you may be in danger and need to act immediately. Each warning also has a call to action from the agency, so follow that.", sourceAgency: AWS_AGENCY, sourceUrl: AWS },
+  { id: "emergency-plan", triggers: ["how do i make an emergency plan", "emergency plan", "how do i prepare for an emergency", "household plan"], text: "Australian Red Cross suggests four steps: learn your local risks, connect with people who can help, write a household plan, and pack an emergency kit. Its free Get Prepared app walks you through each step.", sourceAgency: "Australian Red Cross", sourceUrl: REDCROSS_PREPARE },
+  { id: "bushfire-prepare", triggers: ["how do i prepare for bushfire", "bushfire season", "bushfire plan", "get ready for bushfire"], text: "Bushfire warnings use the national levels: Advice, Watch and Act, Emergency Warning. Getting ready early helps: make a household plan, pack a kit with water, medicines, documents, a battery radio and chargers, and check warnings for your area often.", sourceAgency: AWS_AGENCY, sourceUrl: AWS },
+  { id: "floodwater", triggers: ["can i drive through floodwater", "is floodwater dangerous", "flash flood", "driving in flood"], text: "Floodwater can hide fast currents, debris and washed-out roads, and it rises quickly in heavy rain. Emergency services across Australia advise never driving, walking or swimming through it. If your life is in danger, call 000.", sourceAgency: "Bureau of Meteorology", sourceUrl: BOM_SEVERE },
+  { id: "cyclone-watch-warning", triggers: ["cyclone watch", "cyclone warning", "difference between cyclone watch and warning", "cyclone"], text: "The Bureau of Meteorology issues a Tropical Cyclone Watch when gales are expected within 24 to 48 hours, and a Tropical Cyclone Warning when gales are expected within 24 hours or have started. Strong winds and rain can continue after a cyclone is downgraded.", sourceAgency: "Bureau of Meteorology (via Queensland Government Get Ready)", sourceUrl: QLD_CYCLONE_FAQ },
+  { id: "heat-illness", triggers: ["heat stroke", "heat exhaustion", "signs of heat illness", "heatwave", "too hot"], text: "Drink plenty of water and keep as cool as you can. Older people, babies, young children, pregnant people and people with medical conditions are at greater risk. healthdirect advises calling 000 if someone is very unwell and not improving within about 10 minutes of cooling and drinking water.", sourceAgency: "healthdirect (Australian Government)", sourceUrl: HEALTHDIRECT_HEAT },
+  { id: "smoke", triggers: ["bushfire smoke", "smoke outside", "is the smoke dangerous", "air quality smoke"], text: "The WA Department of Health suggests keeping windows and doors closed, using air conditioning on recirculate, and that only a fitted P2 (N95) mask filters smoke. People with asthma, heart or lung conditions, children, older people and pregnant women are most at risk. Trouble breathing or chest pain: call 000.", sourceAgency: "WA Department of Health (HealthyWA)", sourceUrl: HEALTHYWA_SMOKE },
+  { id: "hazmat-report", triggers: ["chemical spill", "hazmat", "how do i report a chemical spill", "smell of chemicals"], text: "Call 000 and ask for fire services. DFES says it helps to give the location, the four-digit UN number on the container if you can see it, how much is involved and whether anyone is hurt. If a HAZMAT Warning is issued, follow its advice.", sourceAgency: "Department of Fire and Emergency Services (DFES)", sourceUrl: DFES_HAZMAT },
+  { id: "boil-water", triggers: ["boil water notice", "boil water alert", "how long do i boil water", "is tap water safe"], text: "Water Corporation advises a rolling boil for at least one minute, then letting it cool. Use boiled or bottled water for drinking, cooking, ice, brushing teeth and pets. Boiling kills germs but does not remove chemicals, so follow the notice.", sourceAgency: "Water Corporation", sourceUrl: WATERCORP_CYCLONE },
+  { id: "escape-hide-tell", triggers: ["armed attack", "what to do in an attack", "escape hide tell", "active shooter"], text: "The national advice is ESCAPE. HIDE. TELL. Get away only if it is safe; if not, get out of sight, silence your phone and lock doors. When safe, call 000 with your location, a description and any weapons.", sourceAgency: "Australian National Security (Department of Home Affairs)", sourceUrl: NATSEC_ATTACK },
+];
+
+/**
+ * Other countries' official warning levels (owner, 17 Nov 2026), as Ask ALRT
+ * answers keyed to the country, so "what do the warning levels mean" is
+ * answered for the place the question is about (D1).
+ */
+export const COUNTRY_WARNING_ANSWERS: { jurisdiction: string; text: string; sourceAgency: string; sourceUrl: string }[] = [
+  { jurisdiction: "NZ", text: "MetService uses Outlooks, yellow Watches (stay alert), Orange Warnings (take action) and Red Warnings (act now), the last for the worst weather New Zealand sees. Thunderstorm Warnings are always red. During a Red Warning, follow official authorities and emergency services. In an emergency call 111.", sourceAgency: "MetService (New Zealand)", sourceUrl: "https://about.metservice.com/about-severe-weather-warnings" },
+  { jurisdiction: "GB", text: "The Met Office uses yellow, amber and red warnings, set by how likely the weather is and how much impact it could have. Yellow: be aware. Amber: be prepared to change plans. Red: dangerous weather is expected and action is needed, with risk to life likely. In an emergency call 999.", sourceAgency: "Met Office (UK)", sourceUrl: "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings" },
+  { jurisdiction: "US", text: "The National Weather Service uses Advisories (be aware: less serious but disruptive weather), Watches (be prepared: conditions favour hazardous weather) and Warnings (take action: hazardous weather is happening or about to). In an emergency call 911.", sourceAgency: "National Weather Service (US)", sourceUrl: "https://www.weather.gov/safety/" },
+  { jurisdiction: "CA", text: "Since November 2025, Environment and Climate Change Canada colour-codes every Warning, Advisory and Watch. Yellow: hazardous weather with moderate, local impacts. Orange: severe weather likely to cause significant damage or disruption. Red: very dangerous and rare, with extreme, widespread impacts. In an emergency call 911.", sourceAgency: "Environment and Climate Change Canada", sourceUrl: "https://www.canada.ca/en/environment-climate-change/news/2025/11/colour-coded-weather-alerts.html" },
+  { jurisdiction: "JP", text: "Japan uses five levels for heavy rain, floods, landslides and storm surges. Level 1 Early Advisory and Level 2 Advisory are for getting ready. Levels 3 and 4 are warnings, when local authorities issue their own instructions. Level 5 Emergency Warning (black) means a disaster may already be happening. Police 110, fire and ambulance 119.", sourceAgency: "Japan Meteorological Agency (summary by Nippon.com)", sourceUrl: "https://www.nippon.com/en/japan-data/h02798/" },
+];

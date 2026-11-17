@@ -5,7 +5,7 @@ import {
   type GuidanceInput, type GuidanceKind, type GuidanceRow,
 } from "../utils/guidance_library.util.js";
 import { buildCountryImport, buildDraftGuideRecords, buildImportRecords, categoryIdsForHazard } from "../utils/guidance_import.util.js";
-import { DRAFT_GUIDES } from "../data/guidance_drafts_20261116.js";
+import { DRAFT_GUIDES, NATIONAL_GUIDES } from "../data/guidance_drafts_20261116.js";
 import { jurisdictionChain } from "../utils/guidance_library.util.js";
 import { approvedRecords, clearGuidanceCache } from "./guidance_read.service.js";
 export { approvedRecords, clearGuidanceCache };
@@ -255,7 +255,7 @@ export const listLibraryGuides = async () => {
   }
   return [...bySlug.entries()].map(([slug, g]) => {
     const live = published.find((p) => p.slug === slug);
-    const draft = DRAFT_GUIDES.find((d) => d.slug === slug);
+    const draft = [...DRAFT_GUIDES, ...NATIONAL_GUIDES].find((d) => d.slug === slug);
     return {
       slug, title: live?.title ?? draft?.title ?? slug, approvedSections: g.approved, pendingSections: g.pending,
       jurisdictions: [...g.jurisdictions], isPublished: live?.isPublished ?? false,
@@ -280,8 +280,12 @@ export const publishGuide = async (slug: string, jurisdiction: string, adminId: 
     chosen = rows.filter((r) => normaliseJurisdiction(r.jurisdiction) === j);
     if (chosen.length) { used = j; break; }
   }
+  // Rewritten library sections (key ends ":L<n>") replace the older imported
+  // text for the same guide and jurisdiction rather than mixing with it.
+  const isLibrary = (r: GuidanceRow) => /^L\d+$/.test(r.key.split(":").pop() ?? "");
+  if (chosen.some(isLibrary)) chosen = chosen.filter(isLibrary);
   if (!chosen.length) throw new HttpError(400, "This guide has no approved sections yet. Approve its sections first.");
-  const order = (r: GuidanceRow) => Number(r.key.split(":").pop()) || 0;
+  const order = (r: GuidanceRow) => Number((r.key.split(":").pop() ?? "").replace(/^L/, "")) || 0;
   const sections: Record<string, { title: string; body: string }[]> = { before: [], during: [], after: [] };
   for (const r of [...chosen].sort((a, b) => order(a) - order(b))) {
     (sections[r.stage ?? "before"] ??= []).push({ title: r.title ?? "", body: r.text });
@@ -295,7 +299,7 @@ export const publishGuide = async (slug: string, jurisdiction: string, adminId: 
     .join("; ")}. ${DISCLAIMER} [library ${slug} ${used} v${version}]`;
 
   const existing = await prisma.safetyGuide.findUnique({ where: { slug } });
-  const draft = DRAFT_GUIDES.find((d) => d.slug === slug);
+  const draft = [...DRAFT_GUIDES, ...NATIONAL_GUIDES].find((d) => d.slug === slug);
   let topicId = existing?.topicId;
   if (!topicId && draft) topicId = (await prisma.safetyGuideTopic.findUnique({ where: { slug: draft.topicSlug } }))?.id;
   if (!topicId) throw new HttpError(400, "No Learn topic found for this guide.");

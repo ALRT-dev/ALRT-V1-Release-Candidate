@@ -101,7 +101,8 @@ const loadEntries = async (): Promise<KnowledgeEntry[]> => {
  */
 const libraryAnswersFor = async (jurisdiction: string | null): Promise<KnowledgeEntry[]> => {
   const rows = await approvedRecords("answer");
-  const chain = jurisdictionChain(jurisdiction ?? "*");
+  // ALRT is an Australian app: with no place known, national (AU) answers apply.
+  const chain = jurisdictionChain(jurisdiction ?? "AU");
   const out: KnowledgeEntry[] = [];
   for (const j of chain) {
     for (const r of pickApproved(rows, { kind: "answer", jurisdiction: j }).filter((x) => normaliseJurisdiction(x.jurisdiction) === j)) {
