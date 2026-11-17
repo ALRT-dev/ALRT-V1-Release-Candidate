@@ -183,7 +183,12 @@ const LIBRARY_PREFIX = "lib-";
  * keeps one publish button and one rollback for everything alerts show.
  */
 export const sendToAlertTemplates = async (adminId: string) => {
-  const rows: GuidanceRow[] = await db.guidanceRecord.findMany({ where: { status: "approved", kind: { in: ["advice", "profile"] } } });
+  const all: GuidanceRow[] = await db.guidanceRecord.findMany({ where: { status: "approved", kind: { in: ["advice", "profile"] } } });
+  // Safety Profile lines the app already holds on the device (imported
+  // unchanged) stay there; only new or edited lines go to Alert Templates,
+  // where they replace the device row group by group.
+  const onDevice = new Map(buildImportRecords().filter((r) => r.kind === "profile").map((r) => [r.key, r.text]));
+  const rows = all.filter((r) => r.kind !== "profile" || onDevice.get(r.key) !== r.text);
   const knownCategories = new Set<string>((await prisma.hazardCategory.findMany({ select: { id: true } })).map((c) => c.id));
   const { entries, skipped } = toTemplateEntries(rows, (h) => categoryIdsForHazard(h).filter((id) => knownCategories.has(id)));
   // Library advice supersedes the built-in line it was imported from.

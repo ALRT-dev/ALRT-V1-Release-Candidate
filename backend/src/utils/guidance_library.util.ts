@@ -104,6 +104,9 @@ export const checkGuidance = (r: GuidanceInput, opts: { forApproval?: boolean } 
   const warnings: string[] = [];
   const text = (r.text ?? "").trim();
   if (!text) errors.push("Text is required.");
+  // Same wording rule Alert Templates enforces, caught here before approval.
+  if ((r.kind === "advice" || r.kind === "profile") && /\byou must\b|\byou are required to\b/i.test(text))
+    errors.push('Use suggestive wording, such as "consider" or "may help", not "you must".');
   if (text.length > MAX_TEXT[r.kind]) errors.push(`Keep it under ${MAX_TEXT[r.kind]} characters.`);
   if (r.kind === "profile" && (!r.cohort || !(COHORTS as readonly string[]).includes(r.cohort)))
     errors.push("A Safety Profile line needs one group.");
