@@ -42,3 +42,15 @@ describe("national guides and Ask ALRT answers (17 Nov 2026)", () => {
     expect((hit as any)?.entry?.id).toBe(`answer:-:-:-:${j}:warning-levels`);
   });
 });
+
+import { MOVEMENT_REWORDS_20261117 } from "../data/guidance_drafts_20261116.js";
+import { buildImportRecords } from "../utils/guidance_import.util.js";
+describe("movement-word rewords (17 Nov 2026)", () => {
+  const imported = new Map(buildImportRecords().map((r) => [r.key, r]));
+  it.each(MOVEMENT_REWORDS_20261117.map((r) => [r.key, r] as const))("%s passes approval", (key, r) => {
+    const base = imported.get(key);
+    expect(base, "key exists in the import").toBeTruthy();
+    const errors = checkGuidance({ ...base!, text: r.text, sourceAgency: r.sourceAgency, sourceUrl: r.sourceUrl } as any, { forApproval: true }).errors;
+    expect(errors).toEqual([]);
+  });
+});

@@ -11,10 +11,10 @@
  *   node dist/scripts/apply-guidance-library.js --confirm-test
  */
 import prisma from "../utils/prisma_client.util.js";
-import { approve, importExisting, publishGuide, sendToAlertTemplates } from "../services/guidance_library.service.js";
+import { approve, createDraft, importExisting, publishGuide, sendToAlertTemplates } from "../services/guidance_library.service.js";
 import { getTemplateRegistry, saveTemplateRegistry } from "../services/alert_templates.service.js";
 import { runAssurance } from "../services/assurance.service.js";
-import { DRAFT_GUIDES, NATIONAL_GUIDES } from "../data/guidance_drafts_20261116.js";
+import { DRAFT_GUIDES, MOVEMENT_REWORDS_20261117, NATIONAL_GUIDES } from "../data/guidance_drafts_20261116.js";
 
 const PROD_MARKERS = ["alrt-app-db-dev", "082258816984"];
 
@@ -44,6 +44,28 @@ const main = async () => {
     }
   }
   out.approve = { approved, failed };
+
+  // Rewords of lines the daily check flagged, as new approved versions.
+  const reworded: string[] = [];
+  const rewordFailed: { key: string; error: string }[] = [];
+  for (const rw of MOVEMENT_REWORDS_20261117) {
+    const current = await (prisma as any).guidanceRecord.findFirst({ where: { key: rw.key, status: "approved" }, orderBy: { version: "desc" } });
+    if (!current || current.text === rw.text) continue;
+    try {
+      const draft = await createDraft({
+        key: rw.key, kind: current.kind, hazard: current.hazard ?? undefined, cohort: current.cohort ?? undefined,
+        stage: current.stage ?? undefined, jurisdiction: current.jurisdiction, title: current.title ?? undefined,
+        triggers: current.triggers ?? [], bands: current.bands ?? [], text: rw.text,
+        sourceAgency: rw.sourceAgency, sourceUrl: rw.sourceUrl,
+        changeNote: "Reworded 17 Nov 2026: removed movement wording flagged by the daily check and added the official source page.",
+      } as any, admin.id);
+      await approve(draft.id, admin.id, "Owner instruction 17 Nov 2026: fix lines flagged by the daily check");
+      reworded.push(rw.key);
+    } catch (e) {
+      rewordFailed.push({ key: rw.key, error: (e as Error).message });
+    }
+  }
+  out.reworded = { count: reworded.length, failed: rewordFailed };
 
   out.templatesDraft = await sendToAlertTemplates(admin.id);
   const registry = await getTemplateRegistry();
