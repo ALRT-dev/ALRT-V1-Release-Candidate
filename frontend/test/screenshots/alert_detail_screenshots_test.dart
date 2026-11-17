@@ -230,15 +230,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('WHAT TO DO'), findsOneWidget);
-      expect(
-        find.text('Send alert'),
-        noGroup ? findsNothing : findsOneWidget,
-      );
-      if (noGroup) {
-        expect(find.text('Share with a group'), findsOneWidget);
-        expect(find.text('Explore ALRT+ plans'), findsOneWidget);
-        expect(find.text('Share alert externally'), findsOneWidget);
-      }
+      // Tell your people (owner review, 17 November 2026): one card, the
+      // group row first, then Send link and Invite. No "I'm safe".
+      final groupRow = noGroup
+          ? find.text('Send to your group')
+          : find.textContaining('Send to ');
+      expect(groupRow, findsWidgets);
+      expect(find.text('Send link'), findsOneWidget);
+      expect(find.text('Invite'), findsOneWidget);
+      expect(find.text("I'm safe"), findsNothing);
       expect(find.text('Send alert & check in'), findsNothing);
       if (!legacy) {
         expect(
@@ -246,18 +246,15 @@ void main() {
           greaterThan(
             tester
                 .getTopLeft(
-                  noGroup
-                      ? find.text('Share with a group')
-                      : find.text('Send alert'),
+                  find.text('Send link'),
                 )
                 .dy,
           ),
         );
       }
-      expect(
-        find.text('Change detected'),
-        smoke || legacy || sparse ? findsNothing : findsOneWidget,
-      );
+      // Updates show only once the alert is followed (owner review, 17
+      // November 2026); these alerts are not followed.
+      expect(find.text('Change detected'), findsNothing);
       if (legacy) {
         expect(find.textContaining('Keep Example Road clear.'), findsOneWidget);
         expect(find.text('Consider checking local updates.'), findsNothing);
@@ -288,11 +285,7 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/alert-$kind-phone-top.png'),
       );
-      await tester.ensureVisible(
-        noGroup
-            ? find.text('Explore ALRT+ plans')
-            : find.text('Send alert'),
-      );
+      await tester.ensureVisible(find.text('Send link'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await expectLater(

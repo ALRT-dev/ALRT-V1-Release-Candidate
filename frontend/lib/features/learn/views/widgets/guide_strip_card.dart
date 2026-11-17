@@ -43,12 +43,12 @@ class GuideStripCard extends ConsumerWidget {
           child: Container(
             margin: EdgeInsets.only(top: 10.spMin),
             padding: EdgeInsets.all(12.spMin),
+            // A clear orange outline on white (owner review, 17 November
+            // 2026), so the guide reads as a tappable box.
             decoration: BoxDecoration(
-              color: AppColors.orange.withValues(alpha: 0.08),
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(14.spMin),
-              border: Border.all(
-                color: AppColors.orange.withValues(alpha: 0.25),
-              ),
+              border: Border.all(color: AppColors.orange, width: 2),
             ),
             child: Row(
               children: [
@@ -56,12 +56,12 @@ class GuideStripCard extends ConsumerWidget {
                   width: 38.spMin,
                   height: 38.spMin,
                   decoration: BoxDecoration(
-                    color: AppColors.orange,
-                    borderRadius: BorderRadius.circular(11.spMin),
+                    color: AppColors.orange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10.spMin),
                   ),
                   child: Icon(
                     LucideIcons.bookOpen,
-                    color: AppColors.white,
+                    color: AppColors.orange,
                     size: 18.spMin,
                   ),
                 ),
@@ -91,7 +91,7 @@ class GuideStripCard extends ConsumerWidget {
                   ),
                 ),
                 Icon(
-                  Icons.chevron_right,
+                  LucideIcons.chevronRight,
                   size: 18.spMin,
                   color: AppColors.orange,
                 ),
