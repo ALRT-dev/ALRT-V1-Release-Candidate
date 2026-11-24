@@ -34,6 +34,17 @@ const FIELD = /^([A-Za-z][A-Za-z ]{1,30}):\s*(.*)$/;
 const KNOWN = new Set(['incident', 'location', 'status', 'suburb', 'type', 'agency', 'incident number', 'updated', 'time of call']);
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+/**
+ * ACT ambulance call-outs are never ALRT alerts (owner, 24 November 2026:
+ * they could invade privacy). A call-out is a single person's medical
+ * emergency at a suburb and a time, not a public hazard. True when the item's
+ * Agency is Ambulance or its Type names an ambulance response.
+ */
+export function isActAmbulanceCallout(description: string): boolean {
+  const text = description.replace(/\r\n?/g, '\n');
+  return /^\s*Agency:\s*Ambulance\b/im.test(text) || /^\s*Type:[^\n]*\bAMBULANCE\b/im.test(text);
+}
+
 /** Bring shouted capitals back to normal case, keeping O'Connor and Mc names readable. */
 export const calmCase = (text: string): string =>
   text

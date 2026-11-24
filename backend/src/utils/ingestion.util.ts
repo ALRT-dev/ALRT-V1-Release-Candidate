@@ -22,7 +22,7 @@ import {
   convertLatLngToAddress,
 } from "../services/google_map.service.js";
 import { waqiRatingFor, waqiRatingMeaning } from "./waqi_rating.util.js";
-import { actIncidentTime } from "./act_incident_content.util.js";
+import { actIncidentTime, isActAmbulanceCallout } from "./act_incident_content.util.js";
 import {
   awsCompliantSeverities,
   getSeverityBandFromAQI,
@@ -538,7 +538,19 @@ export async function parseRSSFeedToHazards({
 
   if (!feed.items?.length) return [];
 
-  return feed.items.map((item) => {
+  // ACT ambulance call-outs are never alerts (owner, 24 November 2026: they
+  // could invade privacy). They are dropped before anything is stored.
+  const items =
+    idPrefix === "actEs"
+      ? feed.items.filter(
+          (item) =>
+            !isActAmbulanceCallout(
+              cleanDescription(item.content || item.description || ""),
+            ),
+        )
+      : feed.items;
+
+  return items.map((item) => {
     const title = cleanRSSTitle(item.title || "Untitled Incident");
     let description = cleanDescription(item.content || item.description || "");
 

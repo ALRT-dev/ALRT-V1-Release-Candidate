@@ -16,6 +16,7 @@
  */
 import prisma from "../utils/prisma_client.util.js";
 import { alertCurrency } from "../utils/alert_currency.util.js";
+import { isActAmbulanceCallout } from "../utils/act_incident_content.util.js";
 
 const apply = process.argv.includes("--apply");
 const now = new Date();
@@ -33,7 +34,18 @@ const visible = await prisma.hazard.findMany({
 });
 
 let stale = 0;
+let ambulance = 0;
 for (const hazard of visible) {
+  // ACT ambulance call-outs are never alerts (owner, 24 November 2026: they
+  // could invade privacy). Any already stored go now.
+  if (hazard.sourceId === "actEs" && isActAmbulanceCallout(hazard.description ?? "")) {
+    ambulance += 1;
+    console.log(`${apply ? "Removing" : "Would remove"} [actEs] ambulance call-out ${hazard.id}`);
+    if (apply) {
+      await prisma.hazard.update({ where: { id: hazard.id }, data: { expiresAt: now } });
+    }
+    continue;
+  }
   // The stored record is both "existing" and the current words, so the clock
   // is the agency's stated time, the recorded last change, or first sighting.
   const currency = alertCurrency({
@@ -59,5 +71,5 @@ for (const hazard of visible) {
   }
 }
 
-console.log(`${visible.length} official alerts visible; ${stale} outdated${apply ? " and removed" : " (dry run, nothing changed)"}.`);
+console.log(`${visible.length} official alerts visible; ${stale} outdated; ${ambulance} ACT ambulance call-outs${apply ? " and removed" : " (dry run, nothing changed)"}.`);
 await prisma.$disconnect();
