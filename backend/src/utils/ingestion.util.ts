@@ -175,13 +175,14 @@ export function parseGeoJsonToHazards({
         latitude,
         longitude,
         link,
-        // NSW Live Traffic has no pubDate: its own time is lastUpdated (or
-        // created), epoch milliseconds (TEST, 24 Nov 2026).
+        // NSW Live Traffic has no pubDate, and parseValidDate turns a missing
+        // date into "now", so every poll looked like a change and every item
+        // went back to the model (TEST, 24 Nov 2026: about 8,600 calls a
+        // day). Its own time is lastUpdated (or created), epoch milliseconds.
         occurredAt:
-          parseValidDate(properties?.pubDate, dateFormat) ??
           (idPrefix === ExternalSourceId.nswTransport
             ? epochMsDate(properties?.lastUpdated ?? properties?.created)
-            : null),
+            : null) ?? parseValidDate(properties?.pubDate, dateFormat),
         expiresAt: properties?.end
           ? parseValidDate(properties.end, dateFormat)
           : null,
