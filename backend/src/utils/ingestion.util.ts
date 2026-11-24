@@ -22,6 +22,7 @@ import {
   convertLatLngToAddress,
 } from "../services/google_map.service.js";
 import { waqiRatingFor, waqiRatingMeaning } from "./waqi_rating.util.js";
+import { actIncidentTime } from "./act_incident_content.util.js";
 import {
   awsCompliantSeverities,
   getSeverityBandFromAQI,
@@ -571,7 +572,13 @@ export async function parseRSSFeedToHazards({
       description,
       latitude,
       longitude,
-      occurredAt: parseValidDate(item.pubDate),
+      // ACT ESA's pubDate is when the feed was generated, the same for every
+      // item and new on every poll (owner, 17 November 2026: wrong times and
+      // a reprocess every 15 minutes). The incident's own Time of Call is
+      // its time.
+      occurredAt:
+        (idPrefix === "actEs" ? actIncidentTime(description) : null) ??
+        parseValidDate(item.pubDate),
     };
 
     return hazard;

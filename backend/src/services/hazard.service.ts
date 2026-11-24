@@ -1,4 +1,5 @@
 import { buildDfesIncidentContent } from '../utils/dfes_incident_content.util.js';
+import { buildActIncidentContent } from '../utils/act_incident_content.util.js';
 import {
   type Prisma,
   type LocationSubscription,
@@ -771,6 +772,15 @@ export const summarizeHazard = async ({
   if (source.id === ExternalSourceId.earthquakeUsgs) {
     const value=buildUsgsEarthquakeContent({title,description,templateVersion:release?.version??0,...libraryGuidance});
     if (value) return {...value,contentDetails:{...value.contentDetails,presentation}};
+  }
+
+  // ACT ESA incidents (owner, 17 November 2026): the feed is all
+  // "Field: value" lines with no sentences or instructions, so a dedicated
+  // adapter writes the card and the model is never called.
+  if (source.id === ExternalSourceId.actEs) {
+    const value = buildActIncidentContent({ title, description, agency: source.name,
+      templateVersion: release?.version ?? 0, ...libraryGuidance });
+    if (value) return { ...value, contentDetails: { ...value.contentDetails, presentation } };
   }
 
   // Agency feeds with their own sentences and instructions: the code
