@@ -10,8 +10,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// The FOR YOU card on an alert: pre-written, human-reviewed guidance pinned
 /// by the on-device safety profile. Zero AI at render. The tint is the
 /// cohort's permanent identity; rows without a topic icon render the tint
-/// block alone (always legal per the anchor rules). Renders nothing when no
-/// ticked cohort has a line for this hazard - never a substitute line.
+/// block alone (always legal per the anchor rules). Renders nothing only
+/// when no group is ticked; a ticked group without a reviewed line for this
+/// hazard gets a general line for the alert type (owner, 24 Nov 2026).
 class ForYouCard extends ConsumerStatefulWidget {
   const ForYouCard({
     super.key,
@@ -73,15 +74,27 @@ class _ForYouCardState extends ConsumerState<ForYouCard> {
     // them group by group. A published template with no profile rows used
     // to hide For You on every templated alert.
     final rows = <SafetyCohort, String>{...bundledRows, ...publishedRows};
-    if (rows.isEmpty) return const SizedBox.shrink();
 
     // Only explicitly selected needs belong on alert detail.
     if (ticked.isEmpty) return const SizedBox.shrink();
 
-    // Ticked cohorts that have a line for this hazard, in enum order.
+    // Owner, 24 Nov 2026: every ticked group gets a line. A group with no
+    // reviewed line for this hazard gets the general line for the alert
+    // type (fire, transport...), then one that suits any alert.
+    for (final cohort in SafetyCohort.values) {
+      if (!ticked.contains(cohort) || rows.containsKey(cohort)) continue;
+      rows[cohort] = ForYouLibrary.generalLineFor(
+        cohort,
+        categoryName: widget.categoryName,
+        parentCategoryName: widget.parentCategoryName,
+        title: widget.title,
+      );
+    }
+
+    // Ticked cohorts, in enum order.
     final matched = [
       for (final cohort in SafetyCohort.values)
-        if (ticked.contains(cohort) && rows.containsKey(cohort)) cohort,
+        if (ticked.contains(cohort)) cohort,
     ];
     if (matched.isEmpty) return const SizedBox.shrink();
 

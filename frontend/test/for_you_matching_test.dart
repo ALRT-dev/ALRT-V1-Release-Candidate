@@ -234,4 +234,61 @@ void main() {
       }
     });
   });
+
+  group('general lines (owner, 24 Nov 2026)', () {
+    final allGeneral = <String, String>{
+      for (final type in ForYouLibrary.generalRows.entries)
+        for (final line in type.value.entries)
+          '${type.key} / ${line.key.name}': line.value,
+      for (final line in ForYouLibrary.anyAlertRows.entries)
+        'any / ${line.key.name}': line.value,
+    };
+
+    test('every type and the any-alert set cover all nine groups', () {
+      for (final entry in ForYouLibrary.generalRows.entries) {
+        expect(entry.value.keys.toSet(), SafetyCohort.values.toSet(),
+            reason: '${entry.key} is missing a group');
+      }
+      expect(ForYouLibrary.anyAlertRows.keys.toSet(),
+          SafetyCohort.values.toSet());
+    });
+
+    test('general lines keep the library voice', () {
+      final banned = RegExp(
+        r'advisable|all clear|\bnever\b|\balways\b|\bsafe(ly|st)?\b|\b000\b|\b112\b|\b911\b|\bevacuat|\bleave\b|stay indoors|shelter|—',
+        caseSensitive: false,
+      );
+      for (final entry in allGeneral.entries) {
+        expect(banned.hasMatch(entry.value), isFalse,
+            reason: '${entry.key}: ${entry.value}');
+        expect(entry.value.endsWith('may help.'), isTrue,
+            reason: '${entry.key} must end on what may help');
+      }
+    });
+
+    test('alerts with no reviewed rows get their type', () {
+      String? type({String? category, String? parent, String? title}) =>
+          ForYouLibrary.generalTypeFor(
+              categoryName: category, parentCategoryName: parent, title: title);
+      expect(type(category: 'Other Fire', parent: 'Weather & Environment'), 'fire');
+      expect(type(category: 'Vehicle Fire', parent: 'Transport & Traffic'), 'fire');
+      expect(type(category: 'Crash', parent: 'Transport & Traffic'), 'transport');
+      expect(type(category: 'Road Closure', parent: 'Transport & Traffic'), 'transport');
+      expect(type(category: 'Crime', parent: 'Safety & Crime'), 'security');
+      expect(type(category: 'Gas Leak', parent: 'Utilities & Infrastructure'), 'utilities');
+      expect(type(category: 'Concert/Festival', parent: 'Community / Information'), 'events');
+      expect(type(category: 'Something new'), isNull);
+    });
+
+    test('every ticked group always gets a line, even with no reviewed rows', () {
+      for (final cohort in SafetyCohort.values) {
+        for (final category in ['Crash', 'Gas Leak', 'Other Fire', 'Crime', 'Unknown']) {
+          expect(
+            ForYouLibrary.generalLineFor(cohort, categoryName: category),
+            isNotEmpty,
+          );
+        }
+      }
+    });
+  });
 }

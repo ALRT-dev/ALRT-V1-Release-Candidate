@@ -100,4 +100,36 @@ void main() {
       expect(find.text('FOR YOU'), findsOneWidget);
     },
   );
+  testWidgets(
+    'a ticked group sees For You on an alert with no reviewed rows (owner, 24 Nov 2026)',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'safety_profile_cohorts': ['pets', 'older'],
+      });
+      await tester.pumpWidget(
+        ProviderScope(
+          child: ScreenUtilInit(
+            designSize: const Size(375, 812),
+            builder: (_, __) => const MaterialApp(
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: ForYouCard(
+                    categoryName: 'Crash',
+                    parentCategoryName: 'Transport & Traffic',
+                    publishedRows: {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('FOR YOU'), findsOneWidget);
+      expect(
+        find.textContaining('Carrying water for pets', findRichText: true),
+        findsOneWidget,
+      );
+    },
+  );
 }

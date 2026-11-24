@@ -786,4 +786,206 @@ abstract final class ForYouLibrary {
           'Pets often bolt in storms. Bringing them indoors with identification before the storm arrives may help.',
     },
   };
+
+  /// General lines (owner, 24 Nov 2026): when someone has ticked a group,
+  /// For You always shows something. A hazard with no reviewed line for a
+  /// ticked group falls back to a general line for the alert type, then to
+  /// a line that suits any alert. Same voice as the reviewed rows: ends on
+  /// what MAY help, no movement or shelter direction, nothing that could
+  /// contradict an agency instruction (gas leaks, alarms and crashes reach
+  /// these too).
+  static String generalLineFor(
+    final SafetyCohort cohort, {
+    final String? categoryName,
+    final String? parentCategoryName,
+    final String? title,
+  }) {
+    final type = generalTypeFor(
+      categoryName: categoryName,
+      parentCategoryName: parentCategoryName,
+      title: title,
+    );
+    return (type == null ? null : generalRows[type]?[cohort]) ??
+        anyAlertRows[cohort]!;
+  }
+
+  /// The broad alert type used for general lines, or null for "any alert".
+  static String? generalTypeFor({
+    final String? categoryName,
+    final String? parentCategoryName,
+    final String? title,
+  }) {
+    final text = [title, categoryName, parentCategoryName]
+        .whereType<String>()
+        .join(' ')
+        .toLowerCase();
+    if (text.isEmpty) return null;
+    bool has(final List<String> words) => words.any(text.contains);
+    if (has(['fire', 'burn', 'smoke', 'alarm'])) return 'fire';
+    if (has([
+      'gas',
+      'utilit',
+      'power',
+      'outage',
+      'electric',
+      'telecom',
+      'water main',
+      'burst main',
+      'water supply',
+      'sewer',
+      'infrastructure',
+    ])) {
+      return 'utilities';
+    }
+    if (has(['security', 'crime', 'police', 'terror', 'missing person'])) {
+      return 'security';
+    }
+    if (has([
+      'traffic',
+      'transport',
+      'crash',
+      'road',
+      'rail',
+      'train',
+      'tram',
+      'bus ',
+      'ferry',
+      'flight',
+      'airport',
+      'detour',
+      'breakdown',
+    ])) {
+      return 'transport';
+    }
+    if (has(['event', 'concert', 'festival', 'sport', 'protest', 'community'])) {
+      return 'events';
+    }
+    return null;
+  }
+
+  /// alert type -> cohort -> general line. Drafted 24 Nov 2026 for owner review.
+  static const Map<String, Map<SafetyCohort, String>> generalRows = {
+    'fire': {
+      SafetyCohort.older:
+          'Fires and smoke can change quickly. Keeping your phone with you and checking the agency\'s latest update may help.',
+      SafetyCohort.kids:
+          'Smoke and sirens can unsettle children. Keeping them close and explaining what is happening simply may help.',
+      SafetyCohort.mobility:
+          'Knowing who could help you if the agency asks people to move, and keeping essentials within reach, may help.',
+      SafetyCohort.medical:
+          'Smoke can affect breathing and some conditions. Keeping your medication and care plan within reach may help.',
+      SafetyCohort.deaf:
+          'Sirens and spoken warnings may not reach you. Keeping vibration alerts on and checking written updates in this app may help.',
+      SafetyCohort.vision:
+          'Smoke can make familiar places harder to read. Asking someone you trust to share official updates with you may help.',
+      SafetyCohort.visitor:
+          'Australian fire services give instructions through official warnings. Following the agency\'s instructions and your accommodation\'s advice may help.',
+      SafetyCohort.worker:
+          'If you work near the area, checking with your employer or site about access and any changes may help.',
+      SafetyCohort.pets:
+          'Animals can bolt from smoke and sirens. Keeping pets close, with identification on, may help.',
+    },
+    'transport': {
+      SafetyCohort.older:
+          'Road and transport disruptions can change travel times. Allowing extra time and checking the latest update before you travel may help.',
+      SafetyCohort.kids:
+          'Delays can affect school and childcare pickups. Agreeing a backup plan for pickup may help.',
+      SafetyCohort.mobility:
+          'Disruptions can affect accessible services and routes. Checking that your usual transport and assistance are running may help.',
+      SafetyCohort.medical:
+          'Delays can stretch time away from home. Carrying your usual medication with you may help.',
+      SafetyCohort.deaf:
+          'Changes are often announced over speakers. Checking written updates in this app and from the operator may help.',
+      SafetyCohort.vision:
+          'Detours and changed stops can be hard to navigate. Asking staff or someone you trust for help with changed routes may help.',
+      SafetyCohort.visitor:
+          'Local roads and transport can change at short notice. Checking the operator\'s or road authority\'s updates before you travel may help.',
+      SafetyCohort.worker:
+          'If you travel for work, checking with your employer about delays or changed routes may help.',
+      SafetyCohort.pets:
+          'Long delays in warm cars are hard on animals. Carrying water for pets on longer trips may help.',
+    },
+    'security': {
+      SafetyCohort.older:
+          'Following any instructions from police and letting someone know how you are going may help.',
+      SafetyCohort.kids:
+          'Explaining what is happening simply and keeping children close may help.',
+      SafetyCohort.mobility:
+          'Keeping your phone charged and knowing who you could call for help may help.',
+      SafetyCohort.medical:
+          'Keeping your medication with you in case access to the area changes may help.',
+      SafetyCohort.deaf:
+          'Police instructions are often spoken. Checking written updates in this app may help.',
+      SafetyCohort.vision:
+          'Asking someone you trust to share official updates with you may help.',
+      SafetyCohort.visitor:
+          'Following directions from local police and your accommodation may help.',
+      SafetyCohort.worker:
+          'Checking with your employer about access to your workplace may help.',
+      SafetyCohort.pets:
+          'Keeping pets close by while police are working in the area may help.',
+    },
+    'utilities': {
+      SafetyCohort.older:
+          'Service interruptions can affect heating, cooling and lighting. Checking the provider\'s latest update and letting someone know how you are going may help.',
+      SafetyCohort.kids:
+          'Interruptions can disrupt routines. Explaining what is happening and keeping a torch handy may help.',
+      SafetyCohort.mobility:
+          'Outages can affect lifts and powered equipment. Checking backup arrangements for any equipment you rely on may help.',
+      SafetyCohort.medical:
+          'If you rely on powered or refrigerated medical supplies, checking your backup arrangements and the provider\'s restoration time may help.',
+      SafetyCohort.deaf:
+          'Updates may be given by phone or in person. Checking written updates from the provider and in this app may help.',
+      SafetyCohort.vision:
+          'Keeping your aids within reach and asking someone to share the provider\'s updates may help.',
+      SafetyCohort.visitor:
+          'Asking your accommodation about the interruption and following the provider\'s advice may help.',
+      SafetyCohort.worker:
+          'Checking with your employer or site about any impact on work may help.',
+      SafetyCohort.pets:
+          'Checking that pets have water and a comfortable temperature during the interruption may help.',
+    },
+    'events': {
+      SafetyCohort.older:
+          'Large events can mean crowds and changed transport. Allowing extra time and checking updates may help.',
+      SafetyCohort.kids:
+          'Crowds make it easy to get separated. Agreeing a meeting point with children may help.',
+      SafetyCohort.mobility:
+          'Crowds and closures can affect accessible routes. Checking accessible access and transport in advance may help.',
+      SafetyCohort.medical:
+          'Carrying your usual medication with you while you are out may help.',
+      SafetyCohort.deaf:
+          'Announcements at events are often spoken. Checking written updates in this app may help.',
+      SafetyCohort.vision:
+          'Crowds and barriers can change familiar routes. Going with someone you trust may help.',
+      SafetyCohort.visitor:
+          'Checking local transport and road updates before heading out may help.',
+      SafetyCohort.worker:
+          'Checking with your employer about access and travel around the area may help.',
+      SafetyCohort.pets:
+          'Crowds and noise can stress animals. Keeping pets at home during large events may help.',
+    },
+  };
+
+  /// One line per group that suits any alert. Drafted 24 Nov 2026 for owner review.
+  static const Map<SafetyCohort, String> anyAlertRows = {
+    SafetyCohort.older:
+        'Keeping your phone charged and checking the agency\'s latest update may help.',
+    SafetyCohort.kids:
+        'Explaining what is happening simply and keeping children\'s routines calm may help.',
+    SafetyCohort.mobility:
+        'Checking that the help and equipment you rely on are available may help.',
+    SafetyCohort.medical:
+        'Keeping your medication and anything in your usual care plan within reach may help.',
+    SafetyCohort.deaf:
+        'Keeping vibration alerts on and checking written updates in this app may help.',
+    SafetyCohort.vision:
+        'Asking someone you trust to share official updates with you may help.',
+    SafetyCohort.visitor:
+        'Following directions from local authorities and asking your accommodation for local advice may help.',
+    SafetyCohort.worker:
+        'Checking with your employer about any impact on your work or travel may help.',
+    SafetyCohort.pets:
+        'Keeping pets close, with identification on, may help.',
+  };
 }
