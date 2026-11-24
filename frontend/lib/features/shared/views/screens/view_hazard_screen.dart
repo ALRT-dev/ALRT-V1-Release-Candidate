@@ -778,6 +778,23 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                         color: AppColors.black,
                       ),
                     ),
+                    // The agency's action words under the heading (owner,
+                    // 17 November 2026): "Storm Advice" then "Threat is
+                    // reduced" or "Monitor conditions". Agency words only.
+                    if (hazard.awsActionStatement case final action?) ...[
+                      4.hSizedBox,
+                      Text(
+                        action,
+                        style: TextStyle(
+                          fontSize: 16.spMin,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          // Dark text: the Advice yellow is unreadable as
+                          // text on white.
+                          color: const Color(0xFF3A3A44),
+                        ),
+                      ),
+                    ],
                     if (hazard.latitude != null &&
                         hazard.longitude != null) ...[
                       14.hSizedBox,
@@ -836,8 +853,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
   }
 
   /// The headline: the alert's own title, or, for a community report with
-  /// none, its category.
-  String _titleOf(final Hazard hazard) => hazard.displayTitle;
+  /// none, its category. An Australian Warning System alert shows only what
+  /// it is and its level, such as "Storm Advice" (owner, 17 November 2026).
+  String _titleOf(final Hazard hazard) => hazard.detailHeading;
 
   /// Official and AWS: shape glyph, the label (only the Australian Warning
   /// System writes a level word), and "source · ago" on the right.
@@ -1308,6 +1326,8 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 hazard.locationName,
               ),
               severityColor: hazard.color,
+              // Follow sits on the right of the WHAT TO DO label (owner
+              // review, 17 November 2026).
               whatToDoTrailing: hazard.id == null
                   ? null
                   : _followPill(
@@ -1318,19 +1338,13 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                           .read(providerOfFollowedAlerts.notifier)
                           .toggle(hazard.id!),
                     ),
-            );
-          },
-        ),
-
-        // The safety guide sits straight under What to do (owner review,
-        // 13 November 2026), so the next step is one tap from the advice.
-        Consumer(
-          builder: (context, ref, child) {
-            final hazard = ref.watch(provider.select((value) => value.hazard));
-            if (hazard?.isUserReported ?? true) return const SizedBox.shrink();
-            return GuideStripCard(
-              categoryId: hazard?.category?.id,
-              level: hazard?.displayWarningLevel,
+              // The safety guide sits at the bottom of the What to do box
+              // (owner, 17 November 2026), so the next step is one tap from
+              // the advice.
+              whatToDoFooter: GuideStripCard(
+                categoryId: hazard.category?.id,
+                level: hazard.displayWarningLevel,
+              ),
             );
           },
         ),

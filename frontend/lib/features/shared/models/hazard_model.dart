@@ -118,6 +118,59 @@ abstract class Hazard with _$Hazard {
     return '$heading in $calmPlace';
   }
 
+  static final _awsTitle = RegExp(
+    r'^(.+?)\s+(advice|watch and act|emergency warning)\b',
+    caseSensitive: false,
+  );
+
+  /// The detail heading (owner, 17 November 2026): an Australian Warning
+  /// System alert is headed by what it is and its level only, for example
+  /// "Storm Advice" or "Bushfire Watch and Act". The place is under the map;
+  /// status words such as "THREAT IS REDUCED" are in the source's own text.
+  /// Lists and the map keep [displayTitle], which names the place.
+  String get detailHeading {
+    if (isAwsCompliant != true || isUserReported) return displayTitle;
+    // Only the three AWS level words, whatever else the stored label holds.
+    final word = RegExp(
+      r'emergency warning|watch\s+(?:and|&)\s+act|advice',
+      caseSensitive: false,
+    ).firstMatch(displayWarningLevel ?? '')?[0]?.toLowerCase();
+    if (word == null) return displayTitle;
+    final level = word.startsWith('emergency')
+        ? 'Emergency Warning'
+        : word.startsWith('watch')
+        ? 'Watch and Act'
+        : 'Advice';
+    final match = _awsTitle.firstMatch(title?.trim() ?? '');
+    var kind = match?[1]?.trim() ?? displayCategoryName;
+    if (kind.isEmpty) return displayTitle;
+    if (kind.toLowerCase() == 'other fire') kind = 'Fire';
+    if (kind == kind.toUpperCase()) kind = _readablePlace(kind);
+    kind = '${kind[0].toUpperCase()}${kind.substring(1)}';
+    return '$kind $level';
+  }
+
+  /// The action words an Australian Warning System title carries between
+  /// its level and its place, in sentence case: "Threat is reduced" from
+  /// "Storm Advice - THREAT IS REDUCED - parts of ...", "Monitor
+  /// conditions", "Prepare to leave". Shown under [detailHeading]. Null
+  /// when the agency gives none; ALRT never writes its own.
+  String? get awsActionStatement {
+    if (isAwsCompliant != true || isUserReported) return null;
+    final parts = (title ?? '').trim().split(RegExp(r'\s+[-–—]\s+'));
+    if (parts.length < 3) return null;
+    final words = parts[1].trim();
+    // A place or a sentence is not an action statement.
+    if (words.isEmpty ||
+        words.length > 40 ||
+        RegExp(r'\b(for|in|near|parts of)\b', caseSensitive: false)
+            .hasMatch(words)) {
+      return null;
+    }
+    final lower = words.toLowerCase();
+    return '${lower[0].toUpperCase()}${lower.substring(1)}';
+  }
+
   String get displayCategoryName {
     if (!isUserReported && source?.id == 'waDfes') {
       final incident = contentDetails?['sourceIncidentType'];
