@@ -104,4 +104,4 @@ export const describeExtraction = ({
 };
 
 /** Sources whose alerts are written by a fixed template, never AI. */
-export const FIXED_TEMPLATE_SOURCE_IDS = ["waDfes", "rfs", "nswSes", "waqi", "openMeteo", "gdacsGlobal", "earthquakeUsgs", "actEs"] as const;
+export const FIXED_TEMPLATE_SOURCE_IDS = ["waDfes", "rfs", "nswSes", "waqi", "openMeteo", "gdacsGlobal", "earthquakeUsgs", "actEs", "nswTransport"] as const;

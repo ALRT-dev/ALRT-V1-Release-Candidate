@@ -1,5 +1,6 @@
 import { buildDfesIncidentContent } from '../utils/dfes_incident_content.util.js';
 import { buildActIncidentContent } from '../utils/act_incident_content.util.js';
+import { buildNswTrafficContent } from '../utils/nsw_traffic_content.util.js';
 import {
   type Prisma,
   type LocationSubscription,
@@ -779,6 +780,15 @@ export const summarizeHazard = async ({
   // adapter writes the card and the model is never called.
   if (source.id === ExternalSourceId.actEs) {
     const value = buildActIncidentContent({ title, description, agency: source.name,
+      templateVersion: release?.version ?? 0, ...libraryGuidance });
+    if (value) return { ...value, contentDetails: { ...value.contentDetails, presentation } };
+  }
+
+  // NSW Live Traffic (TEST, 24 November 2026: about 8,600 rejected model calls
+  // a day): the stored body is "Field: value" lines, so a dedicated adapter
+  // writes the card and the model is never called.
+  if (source.id === ExternalSourceId.nswTransport) {
+    const value = buildNswTrafficContent({ title, description, agency: source.name,
       templateVersion: release?.version ?? 0, ...libraryGuidance });
     if (value) return { ...value, contentDetails: { ...value.contentDetails, presentation } };
   }

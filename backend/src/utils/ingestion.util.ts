@@ -23,6 +23,7 @@ import {
 } from "../services/google_map.service.js";
 import { waqiRatingFor, waqiRatingMeaning } from "./waqi_rating.util.js";
 import { actIncidentTime, isActAmbulanceCallout } from "./act_incident_content.util.js";
+import { epochMsDate } from "./nsw_traffic_content.util.js";
 import {
   awsCompliantSeverities,
   getSeverityBandFromAQI,
@@ -174,7 +175,13 @@ export function parseGeoJsonToHazards({
         latitude,
         longitude,
         link,
-        occurredAt: parseValidDate(properties?.pubDate, dateFormat),
+        // NSW Live Traffic has no pubDate: its own time is lastUpdated (or
+        // created), epoch milliseconds (TEST, 24 Nov 2026).
+        occurredAt:
+          parseValidDate(properties?.pubDate, dateFormat) ??
+          (idPrefix === ExternalSourceId.nswTransport
+            ? epochMsDate(properties?.lastUpdated ?? properties?.created)
+            : null),
         expiresAt: properties?.end
           ? parseValidDate(properties.end, dateFormat)
           : null,
@@ -3238,6 +3245,22 @@ function extractNSWTrafficDescription(properties: GeoJsonProperties): string {
   if (mainCategory) descriptionParts.push(`Main Category: ${mainCategory}`);
   if (subCategoryA && subCategoryA !== "null")
     descriptionParts.push(`Sub Category: ${subCategoryA}`);
+  // Where it is (TEST, 24 Nov 2026: cards said what but never where). The
+  // first listed road: "Pacific Highway near Masonite Road, Raymond Terrace".
+  const road = Array.isArray(properties?.roads) ? properties.roads[0] : null;
+  const roadText = (x: unknown) =>
+    typeof x === "string" && x.trim() && x.trim() !== "null" ? x.trim() : "";
+  if (road) {
+    const main = roadText(road.mainStreet);
+    const cross = roadText(road.crossStreet);
+    const qualifier = roadText(road.locationQualifier);
+    const suburb = roadText(road.suburb);
+    const street = [main, cross && `${qualifier || "near"} ${cross}`]
+      .filter(Boolean)
+      .join(" ");
+    const place = [street, suburb].filter(Boolean).join(", ");
+    if (place) descriptionParts.push(`Location: ${place}`);
+  }
   if (adviceA?.trim() || adviceB?.trim() || adviceC?.trim())
     descriptionParts.push(
       `Advice: ${[adviceA, adviceB, adviceC]
