@@ -203,7 +203,7 @@ abstract final class ForYouLibrary {
       SafetyCohort.worker:
           'If working outdoors nearby, moving vehicles and machinery off dry grass and agreeing a trigger point to stop work may help.',
       SafetyCohort.pets:
-          'Grass fires leave no time to search for a hiding pet. Bringing animals in at the first sign of smoke, with carriers ready may help.',
+          'Grass fires move fast, so there is little time to search for a hiding pet. Keeping animals close at the first sign of smoke, with carriers ready, may help.',
     },
     'flood': {
       SafetyCohort.older:
@@ -679,9 +679,9 @@ abstract final class ForYouLibrary {
       SafetyCohort.vision:
           'Snakes are seen rather than heard, which makes shared awareness matter. Walking with someone in bush or long grass this season may help.',
       SafetyCohort.visitor:
-          'Australian snakes avoid people given the chance. Solid shoes, staying on paths, and leaving any snake alone may help. Not trying to move one may help.',
+          'Australian snakes avoid people given the chance. Solid shoes, keeping to paths, and giving any snake plenty of space may help. Not trying to catch or move one may help.',
       SafetyCohort.worker:
-          'Snakes shelter in sheds, pipes and machinery. Checking before reaching into dark spaces, and wearing gloves and boots may help.',
+          'Snakes hide in sheds, pipes and machinery. Checking before reaching into dark spaces, and wearing gloves and boots, may help.',
       SafetyCohort.pets:
           'Curious dogs and cats meet most of the snakes. Keeping dogs leashed, cats in, and yards clear of long grass may help. After any suspected strike, seeing a vet urgently may help.',
     },
@@ -703,7 +703,7 @@ abstract final class ForYouLibrary {
       SafetyCohort.worker:
           'If your work depends on driving, agreeing priority fuelling with your employer early in a shortage may help.',
       SafetyCohort.pets:
-          'Queues in warm cars are hard on animals. Leaving pets at home when heading out for fuel may help.',
+          'Queues in warm cars are hard on animals. Keeping pets at home when queuing for fuel may help.',
     },
     'shark': {
       SafetyCohort.older:

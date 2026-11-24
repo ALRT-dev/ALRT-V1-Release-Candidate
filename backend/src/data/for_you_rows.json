@@ -22,7 +22,7 @@
    "vision": "Fast moving smoke changes conditions quickly. Asking someone nearby to describe what they can see, and agreeing to act together on the agency's instructions, may help.",
    "visitor": "Grass fires are common in Australian summers and move extremely fast. Following local directions rather than stopping to watch may help.",
    "worker": "If working outdoors nearby, moving vehicles and machinery off dry grass and agreeing a trigger point to stop work may help.",
-   "pets": "Grass fires leave no time to search for a hiding pet. Bringing animals in at the first sign of smoke, with carriers ready may help."
+   "pets": "Grass fires move fast, so there is little time to search for a hiding pet. Keeping animals close at the first sign of smoke, with carriers ready, may help."
   },
   "flood": {
    "older": "Floodwater can rise overnight. Moving medicines, glasses and essentials above floor level now may help.",
@@ -284,8 +284,8 @@
    "medical": "For any suspected bite, keeping completely still may help for everyone, and not driving yourself. If you are experiencing an emergency, call your local emergency number.",
    "deaf": "A warning rustle or hiss is easy to miss. Extra visual scanning near long grass, water and wood piles may help.",
    "vision": "Snakes are seen rather than heard, which makes shared awareness matter. Walking with someone in bush or long grass this season may help.",
-   "visitor": "Australian snakes avoid people given the chance. Solid shoes, staying on paths, and leaving any snake alone may help. Not trying to move one may help.",
-   "worker": "Snakes shelter in sheds, pipes and machinery. Checking before reaching into dark spaces, and wearing gloves and boots may help.",
+   "visitor": "Australian snakes avoid people given the chance. Solid shoes, keeping to paths, and giving any snake plenty of space may help. Not trying to catch or move one may help.",
+   "worker": "Snakes hide in sheds, pipes and machinery. Checking before reaching into dark spaces, and wearing gloves and boots, may help.",
    "pets": "Curious dogs and cats meet most of the snakes. Keeping dogs leashed, cats in, and yards clear of long grass may help. After any suspected strike, seeing a vet urgently may help."
   },
   "fuel_supply": {
@@ -297,7 +297,7 @@
    "vision": "If you rely on lifts, your drivers will be juggling queues too. Booking transport earlier than usual while supply is short may help.",
    "visitor": "Distances between stations here can exceed a full tank. Fuelling at every reasonable stop in affected areas may help.",
    "worker": "If your work depends on driving, agreeing priority fuelling with your employer early in a shortage may help.",
-   "pets": "Queues in warm cars are hard on animals. Leaving pets at home when heading out for fuel may help."
+   "pets": "Queues in warm cars are hard on animals. Keeping pets at home when queuing for fuel may help."
   },
   "shark": {
    "older": "Sharks can be a risk close to shore too. Keeping out of the water while the alert is active, and enjoying the beach from the sand may help.",
