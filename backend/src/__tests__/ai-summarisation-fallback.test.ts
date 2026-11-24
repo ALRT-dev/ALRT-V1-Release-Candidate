@@ -309,7 +309,11 @@ describe("summarizeAndPostHazards – AI fallback (R-03)", () => {
     expect(result).toHaveLength(1);
     expect(vi.mocked(summarizeHazard).mock.calls[0]![0].sourceActions).toEqual([instruction]);
     const data = (prisma.hazard.create as any).mock.calls[0][0].data;
-    expect(data.callsToAction).toEqual([`NSW RFS advises: ${instruction}`]);
+    // The agency's own instruction comes first, whole. An NSW agency counts
+    // as AU (24 Nov 2026), so ALRT's reviewed AU lines follow it, never
+    // replace it, and none is presented as the agency's.
+    expect(data.callsToAction[0]).toBe(`NSW RFS advises: ${instruction}`);
+    expect(data.callsToAction.slice(1).every((x: string) => !/advises:/.test(x))).toBe(true);
     expect(data.contentDetails.sourceDescription).toBe(description);
     expect(data.description).toBe(description);
   });

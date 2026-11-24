@@ -190,7 +190,11 @@ export function templateRegion(source: {id: string; region?: string | null}): st
 export function templateCountry(jurisdiction: string | null | undefined, source: {id: string; country?: string | null}): string | null {
   if (jurisdiction) return normaliseCountry(jurisdiction);
   if (["canadaGovTra", "earthquakeUsgs", "gdacsGlobal", "waqi"].includes(source.id)) return null;
-  return normaliseCountry(source.country);
+  // An Australian state agency is Australian even when its source record has
+  // no country (TEST, 24 Nov 2026: ACT, VIC fire, NSW Transport, SA CFS and NT
+  // alerts carried no country, so none of the AU advice lines matched and
+  // those alerts showed no ALRT advice).
+  return normaliseCountry(source.country) ?? (SOURCE_STATE[source.id] ? "AU" : null);
 }
 export function resolveTemplate(
   pack: TemplatePack,
