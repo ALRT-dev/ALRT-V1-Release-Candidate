@@ -168,9 +168,9 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                     _buildEditDeleteRow(),
                     16.hSizedBox,
                   ],
-                  _buildUpdatedNotificationBox(),
                   _buildHeaderCard(),
                   16.hSizedBox,
+                  _buildUpdatedNotificationBox(),
 
                   // Review feedback section (if applicable)
                   Consumer(
@@ -214,94 +214,348 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// Shows "Updated" notification box when alert has been updated recently
+  /// Updates (owner design, 24 November 2026), straight under the alert's
+  /// heading. Not following: "Get every update as it happens." and Follow
+  /// this alert. Following: the green Following chip and the alert's own
+  /// timeline: posted, each agency update (the newest marked NEW, with what
+  /// changed one tap away), and when it expires unless updated. A database
+  /// refresh is never shown as an update: only source updates are listed.
   Widget _buildUpdatedNotificationBox() {
     return Consumer(
       builder: (context, ref, child) {
         final hazard = ref.watch(provider.select((value) => value.hazard));
-        if (hazard == null) return const SizedBox.shrink();
-        // Updates show only once the person follows this alert (owner
-        // review, 17 November 2026).
-        if (!ref.watch(providerOfFollowedAlerts).contains(hazard.id)) {
-          return const SizedBox.shrink();
-        }
+        final id = hazard?.id;
+        if (hazard == null || id == null) return const SizedBox.shrink();
+        final isFollowing = ref.watch(providerOfFollowedAlerts).contains(id);
+        void toggle() =>
+            ref.read(providerOfFollowedAlerts.notifier).toggle(id);
+        final agency = hazard.displaySourceName;
 
-        // A database refresh is not evidence of a source update.
-        final update = hazard.latestSourceUpdate;
-        if (update == null) return const SizedBox.shrink();
-        final updatedTime = _formatTimestamp(update.at.toLocal());
-
-        return Container(
-          margin: EdgeInsets.only(bottom: 16.spMin),
-          padding: EdgeInsets.all(14.spMin),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF0E4), // Light orange wash
-            borderRadius: BorderRadius.circular(14.spMin),
-            border: Border.all(
-              color: const Color(0xFFFF6B01).withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
+        if (!isFollowing) {
+          return _detailSectionCard(
             children: [
-              Container(
-                width: 32.spMin,
-                height: 32.spMin,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF6B01),
-                  borderRadius: BorderRadius.circular(8.spMin),
-                ),
-                child: Icon(
-                  LucideIcons.refreshCw,
-                  size: 16.spMin,
-                  color: Colors.white,
+              _detailSectionLabel('UPDATES'),
+              8.hSizedBox,
+              Text(
+                'Get every update as it happens.',
+                style: TextStyle(
+                  fontSize: 18.spMin,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                  color: AppColors.ink,
                 ),
               ),
-              12.wSizedBox,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      update.isAgencyTime
-                          ? 'Source updated'
-                          : 'Change detected',
-                      style: TextStyle(
-                        fontSize: 13.spMin,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFFFF6B01),
-                      ),
-                    ),
-                    2.hSizedBox,
-                    Text(
-                      '${update.summary} · $updatedTime',
-                      style: TextStyle(
-                        fontSize: 12.spMin,
-                        color: const Color(0xFF6B4423),
-                        height: 1.3,
-                      ),
-                    ),
-                    if (hazard.sourceUpdates.length > 1)
-                      ExpansionTile(
-                        tilePadding: EdgeInsets.zero,
-                        title: const Text('Earlier source changes'),
-                        children: [
-                          for (final earlier in hazard.sourceUpdates.skip(1))
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(earlier.summary),
-                              subtitle: Text(
-                                '${earlier.isAgencyTime ? 'Source updated' : 'Detected'}: ${_formatTimestamp(earlier.at.toLocal())}',
-                              ),
-                            ),
-                        ],
-                      ),
-                  ],
+              6.hSizedBox,
+              Text(
+                hazard.isUserReported
+                    ? "Follow and we'll notify you when this report changes, and show each update here."
+                    : "Follow and we'll notify you when $agency changes this alert, and show each update here.",
+                style: TextStyle(
+                  fontSize: 13.5.spMin,
+                  height: 1.45,
+                  color: AppColors.mediumGrey,
                 ),
+              ),
+              14.hSizedBox,
+              _gradientPillButton(
+                icon: LucideIcons.bell,
+                label: 'Follow this alert',
+                onTap: toggle,
               ),
             ],
-          ),
+          );
+        }
+
+        final now = DateTime.now();
+        final posted = (hazard.createdAt ?? hazard.occurredAt)?.toLocal();
+        final isToday = posted != null && _sameDay(posted, now);
+        // Newest first in the model; the timeline reads oldest to newest.
+        final updates = hazard.sourceUpdates.reversed.toList();
+        final expires = hazard.expiresAt?.toLocal();
+        final showExpiry = expires != null && expires.isAfter(now);
+        return _detailSectionCard(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _detailSectionLabel(
+                    isToday ? 'UPDATES · TODAY' : 'UPDATES',
+                  ),
+                ),
+                _followPill(isFollowing: true, onTap: toggle),
+              ],
+            ),
+            12.hSizedBox,
+            if (posted != null)
+              _updateRow(
+                dot: _UpdateDot.past,
+                title: hazard.isUserReported
+                    ? 'Posted to ALRT'
+                    : 'Posted by $agency',
+                time: _clock(posted),
+                last: updates.isEmpty && !showExpiry,
+              ),
+            for (var i = 0; i < updates.length; i++)
+              _updateRow(
+                dot: i == updates.length - 1
+                    ? _UpdateDot.latest
+                    : _UpdateDot.past,
+                title: 'Updated with new information',
+                time: _clock(updates[i].at.toLocal()),
+                isNew: i == updates.length - 1 &&
+                    now.difference(updates[i].at).inHours < 24,
+                detail: updates[i].summary,
+                detailKey: '${updates[i].at.toIso8601String()}-$i',
+                last: i == updates.length - 1 && !showExpiry,
+              ),
+            if (showExpiry)
+              _updateRow(
+                dot: _UpdateDot.future,
+                title: 'Expires, unless updated',
+                time: _clock(expires),
+                last: true,
+              ),
+          ],
         );
       },
+    );
+  }
+
+  /// Which "See what changed" lines are open in the Updates timeline.
+  final Set<String> _openUpdates = <String>{};
+
+  static bool _sameDay(final DateTime a, final DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// "12:45 am" today, "17 Nov, 12:45 am" on another day.
+  String _clock(final DateTime t) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final time =
+        '$hour:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'am' : 'pm'}';
+    return _sameDay(t, DateTime.now())
+        ? time
+        : '${t.day} ${months[t.month - 1]}, $time';
+  }
+
+  /// One line of the Updates timeline: a dot on a thin line, the event,
+  /// its time on the right; the newest update carries NEW and its change
+  /// summary one tap away.
+  Widget _updateRow({
+    required final _UpdateDot dot,
+    required final String title,
+    required final String time,
+    final bool isNew = false,
+    final String? detail,
+    final String? detailKey,
+    final bool last = false,
+  }) {
+    const grey = Color(0xFFB8BCC6);
+    final open = detailKey != null && _openUpdates.contains(detailKey);
+    final dotWidget = switch (dot) {
+      _UpdateDot.latest => Container(
+        width: 12.spMin,
+        height: 12.spMin,
+        decoration: const BoxDecoration(
+          color: AppColors.orange300,
+          shape: BoxShape.circle,
+        ),
+      ),
+      _UpdateDot.past => Container(
+        width: 8.spMin,
+        height: 8.spMin,
+        decoration: const BoxDecoration(color: grey, shape: BoxShape.circle),
+      ),
+      _UpdateDot.future => Container(
+        width: 8.spMin,
+        height: 8.spMin,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: grey, width: 1.5),
+        ),
+      ),
+    };
+    final hasDetail =
+        detail != null && detail.trim().isNotEmpty && detailKey != null;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 20.spMin,
+            child: Column(
+              children: [
+                4.hSizedBox,
+                SizedBox(height: 12.spMin, child: Center(child: dotWidget)),
+                if (!last)
+                  Expanded(
+                    child: Container(
+                      width: 1.5,
+                      color: const Color(0xFFE3E5EA),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          10.wSizedBox,
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: last ? 0 : 12.spMin),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 14.spMin,
+                            height: 1.35,
+                            fontWeight: dot == _UpdateDot.latest
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                      8.wSizedBox,
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 12.5.spMin,
+                          height: 1.5,
+                          color: AppColors.mediumGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isNew)
+                    Padding(
+                      padding: EdgeInsets.only(top: 4.spMin),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6.spMin,
+                          vertical: 1.spMin,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.orange300,
+                          borderRadius: BorderRadius.circular(4.spMin),
+                        ),
+                        child: Text(
+                          'NEW',
+                          style: TextStyle(
+                            fontSize: 10.spMin,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: AppColors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (hasDetail) ...[
+                    Semantics(
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          if (open) {
+                            _openUpdates.remove(detailKey);
+                          } else {
+                            _openUpdates.add(detailKey);
+                          }
+                        }),
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 4.spMin),
+                          child: Text(
+                            open ? 'Hide what changed' : 'See what changed',
+                            style: TextStyle(
+                              fontSize: 12.5.spMin,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFC2410C),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (open)
+                      Padding(
+                        padding: EdgeInsets.only(top: 4.spMin),
+                        child: Text(
+                          detail,
+                          style: TextStyle(
+                            fontSize: 13.spMin,
+                            height: 1.45,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The orange gradient pill (the locked header gradient), full width.
+  Widget _gradientPillButton({
+    required final IconData icon,
+    required final String label,
+    required final VoidCallback onTap,
+  }) {
+    final radius = BorderRadius.circular(999);
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.orange300, AppColors.red200],
+          ),
+          borderRadius: radius,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33FF6B00),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: AppColors.transparent,
+          borderRadius: radius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              height: 48.spMin,
+              width: double.infinity,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 17.spMin, color: AppColors.white),
+                  8.wSizedBox,
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 15.spMin,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1326,18 +1580,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 hazard.locationName,
               ),
               severityColor: hazard.color,
-              // Follow sits on the right of the WHAT TO DO label (owner
-              // review, 17 November 2026).
-              whatToDoTrailing: hazard.id == null
-                  ? null
-                  : _followPill(
-                      isFollowing: ref
-                          .watch(providerOfFollowedAlerts)
-                          .contains(hazard.id),
-                      onTap: () => ref
-                          .read(providerOfFollowedAlerts.notifier)
-                          .toggle(hazard.id!),
-                    ),
               // The safety guide sits at the bottom of the What to do box
               // (owner, 17 November 2026), so the next step is one tap from
               // the advice.
@@ -1349,7 +1591,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
           },
         ),
 
-        _buildFollowingAlertReason(),
 
         // For You: profile-pinned guidance. On-device matching, zero AI.
         Consumer(
@@ -1534,95 +1775,77 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
                 orElse: () => circles.first,
               );
 
+        // Tell your people (owner design, 24 November 2026): one white
+        // card; the orange Send to {group} pill, Send link and Invite side
+        // by side, and the privacy line.
         return Padding(
           padding: EdgeInsets.only(top: 24.spMin),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: _detailSectionCard(
             children: [
-              Text(
-                'SHARE THIS ALERT',
-                style: TextStyle(
-                  fontSize: 12.spMin,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0,
-                  color: _sharePurple,
-                ),
-              ),
-              4.hSizedBox,
+              _detailSectionLabel('TELL YOUR PEOPLE'),
+              6.hSizedBox,
               Text(
                 'Let your people know.',
                 style: TextStyle(
                   fontSize: 20.spMin,
                   fontWeight: FontWeight.w700,
+                  height: 1.25,
                   color: AppColors.ink,
                 ),
               ),
-              12.hSizedBox,
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.fromLTRB(
-                  14.spMin,
-                  14.spMin,
-                  14.spMin,
-                  10.spMin,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(20.spMin),
-                  border: Border.all(color: _sharePurple, width: 2),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (selected != null)
-                      _sendToGroupRow(hazard, selected)
-                    else
-                      _getGroupRow(hasPlus: hasPlus),
-                    4.hSizedBox,
-                    _shareListRow(
+              14.hSizedBox,
+              if (selected != null)
+                _sendToGroupRow(hazard, selected)
+              else
+                _getGroupRow(hasPlus: hasPlus),
+              10.hSizedBox,
+              Row(
+                children: [
+                  Expanded(
+                    child: _shareOutlinePill(
                       icon: LucideIcons.link,
                       label: 'Send link',
-                      detail: 'By text, WhatsApp or email. No app needed.',
+                      semantics:
+                          'Send link. By text, WhatsApp or email. No app needed.',
                       onTap: () =>
                           shareAlert(ref: ref, hazard: hazard, from: 'detail'),
                     ),
-                    const Divider(height: 1, color: Color(0xFFECECF0)),
-                    _shareListRow(
+                  ),
+                  10.wSizedBox,
+                  Expanded(
+                    child: _shareOutlinePill(
                       icon: LucideIcons.userPlus,
                       label: 'Invite',
-                      detail:
-                          'They join ALRT and get alerts automatically next time.',
+                      semantics:
+                          'Invite. They join ALRT and get alerts automatically next time.',
                       onTap: () => showShareAlrtSheet(context),
                     ),
-                    const Divider(height: 1, color: Color(0xFFECECF0)),
-                    Padding(
-                      padding: EdgeInsets.only(top: 10.spMin),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            LucideIcons.lock,
-                            size: 13.spMin,
-                            color: AppColors.mediumGrey,
-                          ),
-                          6.wSizedBox,
-                          Flexible(
-                            child: Text(
-                              selected != null
-                                  ? 'Private to your group. No location unless you add it.'
-                                  : 'No location shared unless you add it.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12.spMin,
-                                color: AppColors.mediumGrey,
-                              ),
-                            ),
-                          ),
-                        ],
+                  ),
+                ],
+              ),
+              12.hSizedBox,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    LucideIcons.lock,
+                    size: 13.spMin,
+                    color: AppColors.mediumGrey,
+                  ),
+                  6.wSizedBox,
+                  Flexible(
+                    child: Text(
+                      selected != null
+                          ? 'Private to your group. No location unless you add it.'
+                          : 'No location shared unless you add it.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.spMin,
+                        color: AppColors.mediumGrey,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1631,225 +1854,254 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// The purple of Tell your people (the app's existing share purple).
-  static const _sharePurple = Color(0xFF5B47A0);
-  static const _sharePurpleWash = Color(0xFFF1ECFF);
+  static const _shareGradient = LinearGradient(
+    colors: [AppColors.orange300, AppColors.red200],
+  );
 
-  /// Row one for someone in a group: the main part sends the alert, the
-  /// arrow on the right (behind a thin divider) changes the group.
+  /// The orange gradient pill of Tell your people: the main part sends
+  /// the alert to the group, the arrow behind a thin divider changes group.
   Widget _sendToGroupRow(
     final Hazard hazard,
     final FamilyCircleSummary selected,
   ) {
     final busy = _sendingToGroup;
-    final radius = BorderRadius.circular(14.spMin);
+    final radius = BorderRadius.circular(999);
     final initial = selected.name.trim().isEmpty
         ? '?'
         : selected.name.trim().characters.first.toUpperCase();
-    return Container(
-      height: 60.spMin,
+    final count = selected.memberCount;
+    return DecoratedBox(
       decoration: BoxDecoration(
+        gradient: _shareGradient,
         borderRadius: radius,
-        border: Border.all(color: _sharePurple, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33FF6B00),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Material(
         color: AppColors.transparent,
         borderRadius: radius,
         clipBehavior: Clip.antiAlias,
-        child: Row(
-          children: [
-            Expanded(
-              child: Semantics(
-                button: true,
-                label: 'Send this alert to ${selected.name}',
-                child: InkWell(
-                  onTap: busy ? null : () => _quickSendToCircle(hazard, selected),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10.spMin),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 38.spMin,
-                          height: 38.spMin,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: _sharePurple,
-                            borderRadius: BorderRadius.circular(10.spMin),
+        child: SizedBox(
+          height: 60.spMin,
+          child: Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: 'Send this alert to ${selected.name}',
+                  excludeSemantics: true,
+                  child: InkWell(
+                    onTap: busy
+                        ? null
+                        : () => _quickSendToCircle(hazard, selected),
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 8.spMin, right: 14.spMin),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44.spMin,
+                            height: 44.spMin,
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(
+                              color: AppColors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              initial,
+                              style: TextStyle(
+                                fontSize: 17.spMin,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.orange300,
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            initial,
-                            style: TextStyle(
-                              fontSize: 16.spMin,
-                              fontWeight: FontWeight.w700,
+                          12.wSizedBox,
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Send to ${selected.name}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 16.spMin,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.white,
+                                  ),
+                                ),
+                                if (count > 0)
+                                  Text(
+                                    count == 1 ? '1 person' : '$count people',
+                                    style: TextStyle(
+                                      fontSize: 12.5.spMin,
+                                      color: AppColors.white.withValues(
+                                        alpha: 0.85,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (busy)
+                            SizedBox(
+                              width: 18.spMin,
+                              height: 18.spMin,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.white,
+                              ),
+                            )
+                          else
+                            Icon(
+                              LucideIcons.send,
+                              size: 20.spMin,
                               color: AppColors.white,
                             ),
-                          ),
-                        ),
-                        12.wSizedBox,
-                        Expanded(
-                          child: Text(
-                            'Send to ${selected.name}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16.spMin,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                        ),
-                        if (busy)
-                          SizedBox(
-                            width: 18.spMin,
-                            height: 18.spMin,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: _sharePurple,
-                            ),
-                          )
-                        else
-                          Icon(
-                            LucideIcons.send,
-                            size: 20.spMin,
-                            color: _sharePurple,
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            Container(
-              width: 1,
-              margin: EdgeInsets.symmetric(vertical: 14.spMin),
-              color: const Color(0xFFD9CCFB),
-            ),
-            Semantics(
-              button: true,
-              label: 'Change group',
-              child: InkWell(
-                onTap: busy ? null : () => showChooseCircleSheet(context, ref),
-                child: SizedBox(
-                  width: 52.spMin,
-                  height: double.infinity,
-                  child: Icon(
-                    LucideIcons.chevronDown,
-                    size: 20.spMin,
-                    color: _sharePurple,
+              Container(
+                width: 1,
+                margin: EdgeInsets.symmetric(vertical: 14.spMin),
+                color: AppColors.white.withValues(alpha: 0.45),
+              ),
+              Semantics(
+                button: true,
+                label: 'Change group',
+                child: InkWell(
+                  onTap: busy ? null : () => showChooseCircleSheet(context, ref),
+                  child: SizedBox(
+                    width: 52.spMin,
+                    height: double.infinity,
+                    child: Icon(
+                      LucideIcons.chevronDown,
+                      size: 20.spMin,
+                      color: AppColors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// Row one for someone with no group yet. Without ALRT + it carries the
-  /// badge and opens the plans; with it, it opens the group chooser.
+  /// The same orange pill for someone with no group yet. Without ALRT +
+  /// it carries the badge and opens the plans; with it, the group chooser.
   Widget _getGroupRow({required final bool hasPlus}) {
-    final radius = BorderRadius.circular(14.spMin);
+    final radius = BorderRadius.circular(999);
     return Semantics(
       button: true,
       label: hasPlus
           ? 'Send to your group. Choose or start a group'
           : 'Send to your group. Needs ALRT +',
-      child: Material(
-        color: AppColors.transparent,
-        borderRadius: radius,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => hasPlus
-              ? showChooseCircleSheet(context, ref)
-              : context.push(AlrtPlusChooseScreen.route),
-          child: Container(
-            constraints: BoxConstraints(minHeight: 64.spMin),
-            padding: EdgeInsets.fromLTRB(
-              10.spMin,
-              10.spMin,
-              12.spMin,
-              10.spMin,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(color: _sharePurple, width: 1.5),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 38.spMin,
-                  height: 38.spMin,
-                  decoration: BoxDecoration(
-                    color: _sharePurpleWash,
-                    borderRadius: BorderRadius.circular(10.spMin),
-                  ),
-                  child: Icon(
-                    LucideIcons.users,
-                    size: 20.spMin,
-                    color: _sharePurple,
-                  ),
-                ),
-                12.wSizedBox,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+      excludeSemantics: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(gradient: _shareGradient, borderRadius: radius),
+        child: Material(
+          color: AppColors.transparent,
+          borderRadius: radius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => hasPlus
+                ? showChooseCircleSheet(context, ref)
+                : context.push(AlrtPlusChooseScreen.route),
+            child: SizedBox(
+              height: 60.spMin,
+              child: Padding(
+                padding: EdgeInsets.only(left: 8.spMin, right: 16.spMin),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44.spMin,
+                      height: 44.spMin,
+                      decoration: const BoxDecoration(
+                        color: AppColors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        LucideIcons.users,
+                        size: 20.spMin,
+                        color: AppColors.orange300,
+                      ),
+                    ),
+                    12.wSizedBox,
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(
-                            child: Text(
-                              'Send to your group',
-                              style: TextStyle(
-                                fontSize: 16.spMin,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.ink,
-                              ),
-                            ),
-                          ),
-                          if (!hasPlus) ...[
-                            8.wSizedBox,
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 7.spMin,
-                                vertical: 2.spMin,
-                              ),
-                              decoration: BoxDecoration(
-                                // The ALRT + plan purple (CLAUDE.md,
-                                // plan names and colours).
-                                color: const Color(0xFF7B359A),
-                                borderRadius: BorderRadius.circular(6.spMin),
-                              ),
-                              child: Text(
-                                'ALRT +',
-                                style: TextStyle(
-                                  fontSize: 11.spMin,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.white,
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Send to your group',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 16.spMin,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.white,
+                                  ),
                                 ),
                               ),
+                              if (!hasPlus) ...[
+                                8.wSizedBox,
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 7.spMin,
+                                    vertical: 2.spMin,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    // The ALRT + plan purple (CLAUDE.md,
+                                    // plan names and colours).
+                                    color: const Color(0xFF7B359A),
+                                    borderRadius: BorderRadius.circular(
+                                      6.spMin,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'ALRT +',
+                                    style: TextStyle(
+                                      fontSize: 11.spMin,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          Text(
+                            'Alert your family in one tap.',
+                            style: TextStyle(
+                              fontSize: 12.5.spMin,
+                              color: AppColors.white.withValues(alpha: 0.85),
                             ),
-                          ],
+                          ),
                         ],
                       ),
-                      2.hSizedBox,
-                      Text(
-                        'Alert your family in one tap.',
-                        style: TextStyle(
-                          fontSize: 12.5.spMin,
-                          height: 1.35,
-                          color: AppColors.mediumGrey,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    Icon(
+                      LucideIcons.chevronRight,
+                      size: 20.spMin,
+                      color: AppColors.white,
+                    ),
+                  ],
                 ),
-                Icon(
-                  LucideIcons.chevronRight,
-                  size: 18.spMin,
-                  color: _sharePurple,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -1857,65 +2109,45 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
     );
   }
 
-  /// Send link / Invite: icon on the left, the action, what it does on
-  /// the right, and a matching purple arrow.
-  Widget _shareListRow({
+  /// Send link / Invite: outlined pills side by side.
+  Widget _shareOutlinePill({
     required final IconData icon,
     required final String label,
-    required final String detail,
+    required final String semantics,
     required final VoidCallback onTap,
   }) {
+    final radius = BorderRadius.circular(999);
     return Semantics(
       button: true,
-      label: '$label. $detail',
+      label: semantics,
       excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: 4.spMin,
-            vertical: 12.spMin,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36.spMin,
-                height: 36.spMin,
-                decoration: BoxDecoration(
-                  color: _sharePurpleWash,
-                  borderRadius: BorderRadius.circular(10.spMin),
-                ),
-                child: Icon(icon, size: 18.spMin, color: _sharePurple),
-              ),
-              12.wSizedBox,
-              SizedBox(
-                width: 84.spMin,
-                child: Text(
+      child: Material(
+        color: AppColors.white,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            height: 46.spMin,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: const Color(0xFFDADDE3), width: 1.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 17.spMin, color: AppColors.ink),
+                8.wSizedBox,
+                Text(
                   label,
                   style: TextStyle(
-                    fontSize: 15.spMin,
+                    fontSize: 14.5.spMin,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
                   ),
                 ),
-              ),
-              Expanded(
-                child: Text(
-                  detail,
-                  style: TextStyle(
-                    fontSize: 12.5.spMin,
-                    height: 1.35,
-                    color: AppColors.mediumGrey,
-                  ),
-                ),
-              ),
-              6.wSizedBox,
-              Icon(
-                LucideIcons.chevronRight,
-                size: 18.spMin,
-                color: _sharePurple,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2138,36 +2370,6 @@ class _ViewHazardScreenState extends ConsumerState<ViewHazardScreen> {
               registerVideoLifecycle: true,
             ),
             16.hSizedBox,
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildFollowingAlertReason() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final hazard = ref.watch(provider.select((value) => value.hazard));
-        final id = hazard?.id;
-        if (hazard == null || id == null || hazard.isUserReported) {
-          return const SizedBox.shrink();
-        }
-        final isFollowing = ref.watch(providerOfFollowedAlerts).contains(id);
-        if (!isFollowing) return const SizedBox.shrink();
-
-        return _detailSectionCard(
-          children: [
-            _detailSectionLabel('FOLLOWING THIS ALERT'),
-            8.hSizedBox,
-            Text(
-              'Saved on this phone so you can find it fast. Push updates '
-              'come for alerts near you and your saved places.',
-              style: TextStyle(
-                color: _factInk,
-                fontSize: 14.spMin,
-                height: 1.5,
-              ),
-            ),
           ],
         );
       },
@@ -2756,3 +2958,6 @@ class ConfidenceDialPainter extends CustomPainter {
         oldDelegate.backgroundColor != backgroundColor;
   }
 }
+
+/// Dot styles in the Updates timeline.
+enum _UpdateDot { past, latest, future }
