@@ -1,6 +1,7 @@
 import { buildDfesIncidentContent } from '../utils/dfes_incident_content.util.js';
 import { buildActIncidentContent } from '../utils/act_incident_content.util.js';
 import { buildNswTrafficContent } from '../utils/nsw_traffic_content.util.js';
+import { buildVicIncidentContent } from '../utils/vic_incident_content.util.js';
 import {
   type Prisma,
   type LocationSubscription,
@@ -789,6 +790,15 @@ export const summarizeHazard = async ({
   // writes the card and the model is never called.
   if (source.id === ExternalSourceId.nswTransport) {
     const value = buildNswTrafficContent({ title, description, agency: source.name,
+      templateVersion: release?.version ?? 0, ...libraryGuidance });
+    if (value) return { ...value, contentDetails: { ...value.contentDetails, presentation } };
+  }
+
+  // VicEmergency incidents (TEST, 24 November 2026: raw feed text after the
+  // model was rejected): labelled fields, so a dedicated adapter writes the
+  // card and the model is never called.
+  if (source.id === ExternalSourceId.viceFire) {
+    const value = buildVicIncidentContent({ title, description, agency: source.name,
       templateVersion: release?.version ?? 0, ...libraryGuidance });
     if (value) return { ...value, contentDetails: { ...value.contentDetails, presentation } };
   }

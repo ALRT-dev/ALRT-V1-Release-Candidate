@@ -17,6 +17,7 @@
 import prisma from "../utils/prisma_client.util.js";
 import { alertCurrency } from "../utils/alert_currency.util.js";
 import { isActAmbulanceCallout } from "../utils/act_incident_content.util.js";
+import { isVicNonIncident } from "../utils/vic_incident_content.util.js";
 
 const apply = process.argv.includes("--apply");
 const now = new Date();
@@ -41,6 +42,15 @@ for (const hazard of visible) {
   if (hazard.sourceId === "actEs" && isActAmbulanceCallout(hazard.description ?? "")) {
     ambulance += 1;
     console.log(`${apply ? "Removing" : "Would remove"} [actEs] ambulance call-out ${hazard.id}`);
+    if (apply) {
+      await prisma.hazard.update({ where: { id: hazard.id }, data: { expiresAt: now } });
+    }
+    continue;
+  }
+  // VicEmergency false alarms and incidents listed as Safe are not current.
+  if (hazard.sourceId === "viceFire" && isVicNonIncident(hazard.description ?? "")) {
+    stale += 1;
+    console.log(`${apply ? "Removing" : "Would remove"} [viceFire] false alarm or safe: ${hazard.title}`);
     if (apply) {
       await prisma.hazard.update({ where: { id: hazard.id }, data: { expiresAt: now } });
     }

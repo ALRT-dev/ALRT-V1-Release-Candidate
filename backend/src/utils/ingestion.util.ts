@@ -24,6 +24,7 @@ import {
 import { waqiRatingFor, waqiRatingMeaning } from "./waqi_rating.util.js";
 import { actIncidentTime, isActAmbulanceCallout } from "./act_incident_content.util.js";
 import { epochMsDate } from "./nsw_traffic_content.util.js";
+import { isVicNonIncident } from "./vic_incident_content.util.js";
 import {
   awsCompliantSeverities,
   getSeverityBandFromAQI,
@@ -548,6 +549,8 @@ export async function parseRSSFeedToHazards({
 
   // ACT ambulance call-outs are never alerts (owner, 24 November 2026: they
   // could invade privacy). They are dropped before anything is stored.
+  // VicEmergency false alarms and incidents the agency lists as Safe are not
+  // current hazards (owner: never show old or outdated alerts).
   const items =
     idPrefix === "actEs"
       ? feed.items.filter(
@@ -556,7 +559,11 @@ export async function parseRSSFeedToHazards({
               cleanDescription(item.content || item.description || ""),
             ),
         )
-      : feed.items;
+      : idPrefix === "viceFire"
+        ? feed.items.filter(
+            (item) => !isVicNonIncident(item.content || item.description || ""),
+          )
+        : feed.items;
 
   return items.map((item) => {
     const title = cleanRSSTitle(item.title || "Untitled Incident");
