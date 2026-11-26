@@ -4,7 +4,7 @@
 // against the older §22 audit. Fields the backend doesn't return are
 // simply not declared here, rather than guessed.
 
-export type AdminRole = "superAdmin" | "admin" | "moderator";
+export type AdminRole = "superAdmin" | "admin" | "moderator" | "reviewer";
 
 export interface AdminProfile {
   id: string;
@@ -209,7 +209,9 @@ export interface AdminHazardSource {
   warningTypes: string[];
   sourceNativeSeverity: string | null;
   sourceNativeSymbol: string | null;
-  lifecycleStatus: "active" | "monitoring" | "degraded" | "suspended" | "retired";
+  lifecycleStatus: "draft" | "active" | "monitoring" | "degraded" | "suspended" | "retired";
+  licenceConfirmedAt?: string | null;
+  adapterConfig?: unknown;
   healthStatus: "unknown" | "healthy" | "stale" | "failing";
   lastHealthCheck: string | null;
   lastSuccessfulFetch: string | null;

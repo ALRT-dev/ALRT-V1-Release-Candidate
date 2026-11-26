@@ -25,6 +25,7 @@ import { getHazardAttributesFromDescription } from "../../utils/ingestion.util.j
 import { getSeverityBandFromAQI } from "../../utils/ingestion.severity.util.js";
 import { parseAqiValueFromDescription } from "../../utils/air_quality_template.util.js";
 import { summarizeHazard } from "../../services/hazard.service.js";
+import { hazardSafetyLibrary } from "../../utils/hazard_safety_library.util.js";
 
 const router = Router();
 router.use(requireAdminAuth);
@@ -43,7 +44,8 @@ router.get("/", requireAnyAdmin, async (_req, res, next) => {
         orderBy: { name: "asc" },
       }),
     ]);
-    res.json({ state, sources });
+    // The code's ALRT safety library, for the admin to merge into the draft.
+    res.json({ state, sources, safetyLibrary: hazardSafetyLibrary() });
   } catch (e) {
     next(e);
   }

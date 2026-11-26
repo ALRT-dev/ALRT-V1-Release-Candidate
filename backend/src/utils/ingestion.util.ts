@@ -13,6 +13,7 @@ import type {
   Point,
 } from "geojson";
 import Parser from "rss-parser";
+import {readCFSCap,readCFSCapCancellations} from './cfs_cap.util.js';
 import { readFileSync } from "fs";
 import { join } from "path";
 import type { GeocodeResult } from "@googlemaps/google-maps-services-js";
@@ -21,13 +22,15 @@ import {
   convertLatLngToAddress,
 } from "../services/google_map.service.js";
 import { waqiRatingFor, waqiRatingMeaning } from "./waqi_rating.util.js";
+import { actIncidentTime, isActAmbulanceCallout } from "./act_incident_content.util.js";
+import { epochMsDate } from "./nsw_traffic_content.util.js";
+import { isVicNonIncident } from "./vic_incident_content.util.js";
 import {
   awsCompliantSeverities,
   getSeverityBandFromAQI,
   getSeverityBandFromAWSCompliantSeverity,
   getSeverityBandFromDescription,
   getSeverityBandFromPollenCount,
-  getSeverityBandFromSmartravellerLevel,
   getSeverityBandFromUVIndex,
   getSeverityFromDescription,
   isInfoOverride,
@@ -173,7 +176,14 @@ export function parseGeoJsonToHazards({
         latitude,
         longitude,
         link,
-        occurredAt: parseValidDate(properties?.pubDate, dateFormat),
+        // NSW Live Traffic has no pubDate, and parseValidDate turns a missing
+        // date into "now", so every poll looked like a change and every item
+        // went back to the model (TEST, 24 Nov 2026: about 8,600 calls a
+        // day). Its own time is lastUpdated (or created), epoch milliseconds.
+        occurredAt:
+          (idPrefix === ExternalSourceId.nswTransport
+            ? epochMsDate(properties?.lastUpdated ?? properties?.created)
+            : null) ?? parseValidDate(properties?.pubDate, dateFormat),
         expiresAt: properties?.end
           ? parseValidDate(properties.end, dateFormat)
           : null,
@@ -537,7 +547,25 @@ export async function parseRSSFeedToHazards({
 
   if (!feed.items?.length) return [];
 
-  return feed.items.map((item) => {
+  // ACT ambulance call-outs are never alerts (owner, 24 November 2026: they
+  // could invade privacy). They are dropped before anything is stored.
+  // VicEmergency false alarms and incidents the agency lists as Safe are not
+  // current hazards (owner: never show old or outdated alerts).
+  const items =
+    idPrefix === "actEs"
+      ? feed.items.filter(
+          (item) =>
+            !isActAmbulanceCallout(
+              cleanDescription(item.content || item.description || ""),
+            ),
+        )
+      : idPrefix === "viceFire"
+        ? feed.items.filter(
+            (item) => !isVicNonIncident(item.content || item.description || ""),
+          )
+        : feed.items;
+
+  return items.map((item) => {
     const title = cleanRSSTitle(item.title || "Untitled Incident");
     let description = cleanDescription(item.content || item.description || "");
 
@@ -571,7 +599,13 @@ export async function parseRSSFeedToHazards({
       description,
       latitude,
       longitude,
-      occurredAt: parseValidDate(item.pubDate),
+      // ACT ESA's pubDate is when the feed was generated, the same for every
+      // item and new on every poll (owner, 17 November 2026: wrong times and
+      // a reprocess every 15 minutes). The incident's own Time of Call is
+      // its time.
+      occurredAt:
+        (idPrefix === "actEs" ? actIncidentTime(description) : null) ??
+        parseValidDate(item.pubDate),
     };
 
     return hazard;
@@ -1666,11 +1700,31 @@ function createWAHazardFromWarning({
   );
   // The headline wins over words in the body (a smoke alert must not
   // become a power outage because the body mentions power).
-  const titleCategory = getCategoryFromTitleFirst(
+  const headlineCategory = getCategoryFromTitleFirst(
     warning.title,
     categoryText,
     availableCategories,
   );
+  // A closure is a closure (owner, 17 November 2026): a DBCA "Facility or
+  // Park Closure" after Cyclone Narelle became a Cyclone alert because the
+  // body mentions the cyclone. A closure takes its category from its own
+  // headline or type, never a hazard named in the body; with no match it
+  // is Other.
+  const isClosure = /\bclosure\b|\bclosed\b/i.test(
+    `${warning.warningType ?? ""} ${warning.title ?? ""}`,
+  );
+  const titleCategory = isClosure
+    ? (headlineCategory ??
+      (warning.warningType
+        ? getCategoryFromTitleFirst(
+            warning.warningType,
+            warning.warningType,
+            availableCategories,
+          )
+        : null) ??
+      availableCategories.find((c) => c.id === "other") ??
+      null)
+    : headlineCategory;
 
   return {
     id: hazardId,
@@ -1795,6 +1849,41 @@ function createWAHazardFromItem({
  * const hazards = parseCFSFeedToHazards(cfsData, categoryId);
  * ```
  */
+export function parseCFSCapToHazards({xml,availableCategories,previousHazards=[]}:{xml:string;availableCategories:(HazardCategory & {parent:HazardCategory|null})[];previousHazards?:Omit<HazardDataWithRelations,'contentDetails'>[]}):HazardDataWithRelations[]{
+  const rows=new Map<string,HazardDataWithRelations>();
+  const cancellationRows=new Map<string,HazardDataWithRelations>();
+  for(const row of readCFSCap(xml)){
+    const {categoryText,sourceLifecycle,isCancellation,hasCancellationReferences,...fields}=row;
+    const attributes=getHazardAttributesFromDescription(row.description,availableCategories,undefined,{categoryText,severityText:row.nativeWarningLevel??''});
+    const hazard:HazardDataWithRelations={...fields,...attributes,
+      ...(sourceLifecycle?{sourceLifecycle}:{}),
+      ...(sourceLifecycle==='active'&&awsCompliantSeverities.includes(attributes.severity)?{severityBand:getSeverityBandFromAWSCompliantSeverity(attributes.severity)}:{}),
+      ...(sourceLifecycle&&sourceLifecycle!=='active'?{severity:HazardSeverity.info,severityBand:HazardSeverityBand.info}:{}),
+      callsToAction:row.sourceInstructionBlocks};
+    if(isCancellation&&hasCancellationReferences){cancellationRows.set(row.id,hazard);continue;}
+    const previous=rows.get(row.id);
+    if(!previous||new Date(previous.occurredAt!).getTime()<=row.occurredAt.getTime())rows.set(row.id,hazard);
+  }
+  for(const cancellation of readCFSCapCancellations(xml)){
+    const candidates=[rows.get(cancellation.id),previousHazards.find(x=>x.id===cancellation.id&&x.source?.id==='cfs')].filter((x):x is Omit<HazardDataWithRelations,'contentDetails'>=>!!x).sort((a,b)=>new Date(b.occurredAt!).getTime()-new Date(a.occurredAt!).getTime());
+    const previous=candidates[0];
+    if(!previous||!previous.category||new Date(previous.occurredAt!).getTime()>cancellation.referencedAt.getTime()||cancellation.referencedAt>cancellation.occurredAt)continue;
+    const supplied=cancellationRows.get(cancellation.messageId);
+    rows.set(cancellation.id,{
+      ...(supplied??{}),
+      id:cancellation.id,title:supplied?.title??previous.title,description:supplied?.description??'Incident is resolved. The source cancelled this alert.',
+      nativeWarningLevel:supplied?.nativeWarningLevel??previous.nativeWarningLevel??null,jurisdictionCountry:'AU',
+      category:previous.category,source:previous.source??null,sourceLifecycle:'resolved',
+      severity:HazardSeverity.info,severityBand:HazardSeverityBand.info,isAwsCompliant:previous.isAwsCompliant??false,
+      latitude:supplied?.latitude??previous.latitude??null,longitude:supplied?.longitude??previous.longitude??null,locationName:supplied?.locationName??previous.locationName??null,
+      northeastLat:supplied?.northeastLat??previous.northeastLat??null,northeastLng:supplied?.northeastLng??previous.northeastLng??null,southwestLat:supplied?.southwestLat??previous.southwestLat??null,southwestLng:supplied?.southwestLng??previous.southwestLng??null,
+      link:supplied?.link??previous.link??null,callsToAction:supplied?.sourceInstructionBlocks??[],sourceInstructionBlocks:supplied?.sourceInstructionBlocks??[],occurredAt:cancellation.occurredAt,expiresAt:cancellation.occurredAt,
+    });
+  }
+  return [...rows.values()];
+}
+
+
 export function parseCFSFeedToHazards({
   data,
   availableCategories,
@@ -1957,119 +2046,6 @@ export function parseNTFireAndRescueToHazards({
         hazard: HazardDataWithRelations | null,
       ): hazard is HazardDataWithRelations => hazard !== null,
     );
-}
-
-/**
- * Converts Smart Traveller travel advice data into an array of Hazard objects
- *
- * @param data - Array of travel advisories from Smart Traveller API
- * @param availableCategories - The list of available hazard categories to match against
- * @returns Array of HazardDataWithRelations objects ready for database insertion
- *
- * @example
- * ```typescript
- * const smartTravellerData = [
- *   {
- *     "title": "Afghanistan",
- *     "field_overall_advice_level": "Do not travel",
- *     "field_last_update": "Do not travel to Afghanistan...",
- *     "field_last_update_notes": "We continue to advise...",
- *     "field_region": "Asia",
- *     "field_advice_levels": "Do not travel to Afghanistan...",
- *     "field_url": "https://www.smartraveller.gov.au/destinations/asia/afghanistan",
- *     "changed": "Fri, 2025-11-14 14:22"
- *   }
- * ];
- * const hazards = parseSmartravellerToHazards(smartTravellerData, availableCategories);
- * ```
- */
-export function parseSmartravellerToHazards({
-  data,
-  category,
-}: {
-  data: Array<{
-    title: string;
-    field_overall_advice_level: string;
-    field_last_update: string;
-    field_last_update_notes?: string;
-    field_region?: string;
-    field_advice_levels?: string;
-    field_url?: string;
-    field_seo_title?: string;
-    field_seo_description?: string;
-    changed?: string;
-  }>;
-  category: HazardCategory;
-}): HazardDataWithRelations[] {
-  if (!Array.isArray(data) || !data.length) return [];
-
-  const hazards: HazardDataWithRelations[] = [];
-
-  for (const advisory of data) {
-    const country = advisory.title;
-    const adviceLevel = advisory.field_overall_advice_level;
-
-    // Skip if no advice level (shouldn't happen, but just in case)
-    if (!adviceLevel) continue;
-
-    // Build comprehensive description
-    const descriptionParts: string[] = [];
-
-    descriptionParts.push(`Country: ${country}`);
-    descriptionParts.push(`Travel Advice Level: ${adviceLevel}`);
-
-    // Add the main advisory text
-    if (advisory.field_last_update) {
-      descriptionParts.push(`\n${advisory.field_last_update}`);
-    }
-    if (advisory.field_last_update_notes) descriptionParts.push(cleanDescription(advisory.field_last_update_notes));
-    if (advisory.field_advice_levels) descriptionParts.push(cleanDescription(advisory.field_advice_levels));
-
-    const description = descriptionParts
-      .join("\n\n")
-      .replace(/&[a-z]+;/gi, " ")
-      .replace(/\*\*/g, "")
-      .replace(/ +/g, " ")
-      .trim();
-
-    // Create a standardized title
-    const hazardTitle =
-      advisory.field_seo_title ||
-      `${country} - Travel Advisory: ${adviceLevel}`;
-
-    // Determine severity band from advice level
-    const severityBand = getSeverityBandFromSmartravellerLevel(adviceLevel);
-
-    const callsToAction = [advisory.field_last_update_notes, advisory.field_advice_levels].map(cleanDescription).filter(Boolean);
-
-    // Parse the last updated date
-    const occurredAt = advisory.changed
-      ? parseValidDate(advisory.changed)
-      : undefined;
-
-    // Create hazard with location name
-    const hazard: HazardDataWithRelations = {
-      id: `${ExternalSourceId.smartraveller}-${country
-        .toLowerCase()
-        .replace(/\s+/g, "-")}`,
-      title: hazardTitle,
-      description,
-      nativeWarningLevel: adviceLevel,
-      jurisdictionCountry: normaliseCountry(country),
-      sourceInstructionBlocks: callsToAction,
-      severityBand,
-      category,
-      ...(callsToAction && callsToAction.length > 0 && { callsToAction }),
-      isAwsCompliant: false, // Travel advisories are not AWS compliant
-      locationName: country,
-      ...(advisory.field_url && { link: advisory.field_url }),
-      ...(occurredAt && { occurredAt }),
-    };
-
-    hazards.push(hazard);
-  }
-
-  return hazards;
 }
 
 /**
@@ -3277,6 +3253,22 @@ function extractNSWTrafficDescription(properties: GeoJsonProperties): string {
   if (mainCategory) descriptionParts.push(`Main Category: ${mainCategory}`);
   if (subCategoryA && subCategoryA !== "null")
     descriptionParts.push(`Sub Category: ${subCategoryA}`);
+  // Where it is (TEST, 24 Nov 2026: cards said what but never where). The
+  // first listed road: "Pacific Highway near Masonite Road, Raymond Terrace".
+  const road = Array.isArray(properties?.roads) ? properties.roads[0] : null;
+  const roadText = (x: unknown) =>
+    typeof x === "string" && x.trim() && x.trim() !== "null" ? x.trim() : "";
+  if (road) {
+    const main = roadText(road.mainStreet);
+    const cross = roadText(road.crossStreet);
+    const qualifier = roadText(road.locationQualifier);
+    const suburb = roadText(road.suburb);
+    const street = [main, cross && `${qualifier || "near"} ${cross}`]
+      .filter(Boolean)
+      .join(" ");
+    const place = [street, suburb].filter(Boolean).join(", ");
+    if (place) descriptionParts.push(`Location: ${place}`);
+  }
   if (adviceA?.trim() || adviceB?.trim() || adviceC?.trim())
     descriptionParts.push(
       `Advice: ${[adviceA, adviceB, adviceC]
@@ -3634,7 +3626,7 @@ const isValidURL = (str: string): boolean => {
 export const convertHazardDataWithRelationsToCreateInput = (
   hazardData: HazardDataWithRelations,
 ): Prisma.HazardCreateInput => {
-  const {sourceInstructionBlocks: _sourceInstructionBlocks, ...stored} = hazardData;
+  const {sourceInstructionBlocks: _sourceInstructionBlocks, sourceLifecycle: _sourceLifecycle, ...stored} = hazardData;
   return {
     ...stored,
     category: {

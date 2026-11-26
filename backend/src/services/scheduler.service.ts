@@ -62,6 +62,16 @@ export const initializeScheduledTasks = () => {
     }
   });
 
+  // Followed alerts: push on level change and when the alert ends (D7).
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      const { notifyFollowers } = await import("./follow.service.js");
+      await notifyFollowers();
+    } catch (error) {
+      console.error("Followed alert updates failed:", error);
+    }
+  });
+
   // Pay points for community reports once their expiry time has passed
   cron.schedule("*/10 * * * *", async () => {
     try {

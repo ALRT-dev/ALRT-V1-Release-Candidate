@@ -195,6 +195,7 @@ export const AdminAccountsPage = () => {
                 onChange={(event) => setForm({ ...form, role: event.target.value as AdminRole })}
               >
                 <option value="moderator">Moderator</option>
+                <option value="reviewer">Reviewer (drafts guidance, cannot publish)</option>
                 <option value="admin">Admin</option>
                 <option value="superAdmin">Super Admin</option>
               </select>

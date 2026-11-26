@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import admin, { type ServiceAccount } from "firebase-admin";
 import serviceAccountFile from "../../serviceAccountKey.json" with { type: "json" };
+import { initializeFederatedFirebaseApp } from "./firebase_federation.util.js";
 
 // serviceAccountKey.json is either a classic service account key (live) or,
 // where the Google organisation forbids downloadable keys (TEST), a
@@ -25,10 +26,7 @@ if (!admin.apps.length) {
     } else {
       console.log(`ALRT BACKEND: Firebase initialising with projectId=${envProj}`);
     }
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      ...(envProj ? { projectId: envProj } : {}),
-    });
+    initializeFederatedFirebaseApp(process.env.GOOGLE_APPLICATION_CREDENTIALS!, envProj);
   } else {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccountFile as ServiceAccount),

@@ -90,7 +90,7 @@ export const getDeterministicGdacsContent = ({
   const { phrase, meaning } = IMPACT[level];
   return {
     title,
-    summary: `GDACS rates this ${hazard}${where} as ${level.toLowerCase()}, ${phrase}. ${meaning}`,
+    summary: `GDACS expects ${phrase} from this ${hazard}${where} (${level} alert). ${meaning}`,
     callsToAction: ACTIONS[level],
     confidence: "high",
   };

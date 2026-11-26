@@ -3127,9 +3127,11 @@ class _RestClient implements RestClient {
   @override
   Future<HttpResponse<dynamic>> getGuideForCategory({
     required String categoryId,
+    String? level,
   }) async {
     final _extra = <String, dynamic>{};
-    final queryParameters = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{r'level': level};
+    queryParameters.removeWhere((k, v) => v == null);
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
     final _options = _setStreamType<HttpResponse<dynamic>>(

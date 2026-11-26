@@ -31,7 +31,7 @@ Never mapped onto the internal band system.
 - AI may rewrite/clean the text; cleaned version is what publishes
 - Only explicit AI rejection (truly bad content) blocks a post
 - Safety nets: phone numbers, emails, addresses, and unscreened media → pending (admin review)
-- Report shows as Unverified on the card always
+- Updated by Sarah on 4 November 2026: no separate “Unverified” badge on the card. Keep clear community-source wording; this does not remove screening or imply official verification.
 
 ## XP for community reports
 - Submitting: 0 XP
@@ -44,6 +44,6 @@ Never mapped onto the internal band system.
 - Family: A$15.99/mo
 - Group 20: A$24.99/mo
 - Group 50: A$49.99/mo
-- Free trial: 1 month for everyone, then paid
+- Updated by Sarah on 4 November 2026: the personal ALRT+ plan alone offers a free trial, subject to store eligibility and the store's displayed duration. Family and Group plans have no free trial.
 - Yearly: to be added post-launch
 - official, community, global (sensor parked for V2)

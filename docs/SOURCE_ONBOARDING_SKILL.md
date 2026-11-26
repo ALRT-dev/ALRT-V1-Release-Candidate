@@ -16,6 +16,19 @@ A section at the end lists things this review found that do not match what the c
 
 ---
 
+## Part 0. The fast path: a standard adapter (added 16 November 2026)
+
+Most Australian agencies publish CAP-AU, GeoJSON or ArcGIS. For those, no backend code is needed:
+
+1. Admin, Sources: create the source with lifecycle **draft** (ingests nothing).
+2. Admin, Source Feeds, **Set up**: choose the adapter, add the feed URL, write the field mapping (JSON). CAP-AU needs no mapping; add `{"senders": [...]}` for a shared multi-agency feed.
+3. **Preview**: paste a sample or fetch the URL. It shows exactly what ALRT would create, and the feed's field names. Nothing is saved.
+4. **Confirm licence**: record where the licence is (name, link, date). Required before the source can be switched on.
+5. **Download n8n workflow**, import it, pick the Header Auth credential (X-Webhook-Api-Key), turn it on.
+6. **Switch on.** Alerts go through the same validation, templates, guidance and display as every other source.
+
+Write a dedicated adapter (Parts 2 to 4) only when the feed needs logic a mapping cannot express.
+
 ## Part 1. One-page guide for a non-developer
 
 Think of a new source as a new supplier delivering alerts to the ALRT shop. Before the shop puts anything on the shelf, we check who the supplier is, whether they let us use their goods, and that nothing is mislabelled.

@@ -26,6 +26,9 @@ import {
   type AskPlan,
 } from "./ask_alrt/quota.js";
 
+import { resolvePlace, placeContextLine, ASK_PLACE_ANSWER } from "./ask_alrt/place.js";
+import { approvedRecords } from "./guidance_read.service.js";
+import { jurisdictionChain, normaliseJurisdiction, pickApproved } from "../utils/guidance_library.util.js";
 export type { AskRequest, NearbyAlert } from "./ask_alrt/rules.js";
 
 /**
@@ -54,6 +57,8 @@ export interface AskResponse {
   refused?: boolean;
   referencedAlertIds?: string[];
   remainingToday?: number;
+  /** The place the answer is for (D1), so the app can show "Answering for Western Australia". */
+  place?: { jurisdiction: string | null; label: string | null; basis: string };
 }
 
 // --- Cached settings (5 minutes, cleared on every admin save) ---------------
@@ -90,11 +95,44 @@ const loadEntries = async (): Promise<KnowledgeEntry[]> => {
   }
 };
 
+/**
+ * Approved Ask ALRT answers from the shared guidance library (D2), most
+ * specific place first: a WA answer is tried before the national one.
+ */
+const libraryAnswersFor = async (jurisdiction: string | null): Promise<KnowledgeEntry[]> => {
+  const rows = await approvedRecords("answer");
+  // ALRT is an Australian app: with no place known, national (AU) answers apply.
+  const chain = jurisdictionChain(jurisdiction ?? "AU");
+  const out: KnowledgeEntry[] = [];
+  for (const j of chain) {
+    for (const r of pickApproved(rows, { kind: "answer", jurisdiction: j }).filter((x) => normaliseJurisdiction(x.jurisdiction) === j)) {
+      // Imported built-in answers already sit in the base list under their own id.
+      if (r.key.startsWith("answer:-:-:-:*:")) continue;
+      out.push({ id: r.key, triggers: r.triggers ?? [], keywords: [], answer: r.text });
+    }
+  }
+  return out;
+};
+
 const loadEmergency = async () => {
   if (fresh(emergencyCache)) return emergencyCache.value;
   try {
     const row = await prisma.askAlrtConfig.findUnique({ where: { key: "emergencyNumbers" } });
-    const value = resolveEmergency(readSavedEmergency(row?.value));
+    const saved = readSavedEmergency(row?.value);
+    // One country register (D2): approved country records win over the starting list.
+    try {
+      const countries: { code: string; name: string; emergencyNumber: string; status: string }[] =
+        await (prisma as any).countryProfile.findMany({ where: { status: "approved" } });
+      for (const c of countries) {
+        if (/^[A-Z]{2}$/.test(c.code)) {
+          saved.numbers[c.code] = c.emergencyNumber;
+          saved.names[c.code] = c.name;
+        }
+      }
+    } catch {
+      // Country register not migrated yet: the saved list still applies.
+    }
+    const value = resolveEmergency(saved);
     emergencyCache = { at: Date.now(), value };
     return value;
   } catch (error) {
@@ -256,20 +294,36 @@ export const askAlrt = async (
   // generic answer), otherwise the library (see localAnswer). Neither counts
   // against the daily allowance and neither is ever refused with 429
   // (ruling 3 Oct 2026): only answers that go to the AI model count.
+  // D1: work out which place the question is about before looking anything up.
+  const place = resolvePlace(question, {
+    deviceCountry: data.country ?? null,
+    deviceState: data.state ?? null,
+    alertJurisdiction: data.alertJurisdiction ?? null,
+    tripDestination: typeof data.tripDestination === "string" ? data.tripDestination.slice(0, 100) : null,
+  });
+  const placeOut = { jurisdiction: place.jurisdiction, label: place.label, basis: place.basis };
   const emergency = await loadEmergency();
-  const local = localAnswer(question, await loadEntries(), {
+  const placeEntries = await libraryAnswersFor(place.jurisdiction).catch(() => [] as KnowledgeEntry[]);
+  const local = localAnswer(question, [...placeEntries, ...(await loadEntries())], {
     aliases: aliasesFromNames(emergency.names),
     answerFor: (iso) => emergencyAnswer(iso, emergency.table, emergency.names),
   });
   if (local?.source === "library") {
     const remainingToday = await peek();
     console.log(JSON.stringify({ event: "ask_alrt_answered", source: "library", entry: local.entry.id }));
-    return { answer: local.entry.answer, source: "library", usedAI: false, ...(remainingToday !== undefined && { remainingToday }) };
+    return { answer: local.entry.answer, source: "library", usedAI: false, place: placeOut, ...(remainingToday !== undefined && { remainingToday }) };
   }
   if (local?.source === "emergency_lookup") {
     const remainingToday = await peek();
     console.log(JSON.stringify({ event: "ask_alrt_answered", source: "emergency_lookup", iso: local.iso }));
-    return { answer: local.answer, source: "emergency_lookup", usedAI: false, ...(remainingToday !== undefined && { remainingToday }) };
+    return { answer: local.answer, source: "emergency_lookup", usedAI: false, place: placeOut, ...(remainingToday !== undefined && { remainingToday }) };
+  }
+
+  // Local-law question and no place known: ask which place (zero AI, never counted).
+  if (place.askPlace) {
+    const remainingToday = await peek();
+    console.log(JSON.stringify({ event: "ask_alrt_answered", source: "ask_place" }));
+    return { answer: ASK_PLACE_ANSWER, source: "library", usedAI: false, place: placeOut, ...(remainingToday !== undefined && { remainingToday }) };
   }
 
   // 3. AI fallback
@@ -286,8 +340,11 @@ export const askAlrt = async (
   let result;
   try {
     result = await executeChat({
-      systemBlocks: [await loadSystemPrompt(), contextText],
+      systemBlocks: [await loadSystemPrompt(), `${contextText}\n${placeContextLine(place)}`],
       turns: [...history, { role: "user", content: question }],
+      // Short answers (owner, 16 November 2026): roughly 200 words is the
+      // hard ceiling; the prompt asks for under about 70.
+      maxTokens: 350,
     });
   } catch (error) {
     if (userId) await refundQuota(userId, timeZone).catch(() => undefined);
@@ -297,7 +354,7 @@ export const askAlrt = async (
 
   if (result.refused) {
     console.log(JSON.stringify({ event: "ask_alrt_refusal" }));
-    return { answer: REFUSAL_ANSWER, source: "ai", usedAI: true, refused: true, ...(remainingToday !== undefined && { remainingToday }) };
+    return { answer: REFUSAL_ANSWER, source: "ai", usedAI: true, refused: true, place: placeOut, ...(remainingToday !== undefined && { remainingToday }) };
   }
 
   const { answer, usedAlertIds } = extractUsedAlertIds(result.text, sentAlertIds);
@@ -308,6 +365,7 @@ export const askAlrt = async (
     usedAI: true,
     refused: false,
     referencedAlertIds: usedAlertIds,
+    place: placeOut,
     ...(remainingToday !== undefined && { remainingToday }),
   };
 };

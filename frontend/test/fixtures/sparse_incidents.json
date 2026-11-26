@@ -1,0 +1,326 @@
+{
+  "smoke-report": {
+    "title": "Report of Smoke - INNALOO",
+    "summary": "• Smoke was reported in Innaloo (City of Stirling).\n• Reported on 9 November at 5:07 pm AWST.",
+    "callsToAction": [
+      "Checking Emergency WA for warnings linked to this smoke report may help you find any newer advice.",
+      "If smoke affects your home, closing doors and windows and turning off air-conditioners may help reduce smoke indoors.",
+      "If your journey passes through the area, checking Main Roads Travel Map for reported road impacts may help you plan."
+    ],
+    "confidence": "high",
+    "contentDetails": {
+      "schemaVersion": 1,
+      "templateVersion": 1,
+      "facts": [
+        "Smoke was reported in Innaloo (City of Stirling).",
+        "Reported on 9 November at 5:07 pm AWST."
+      ],
+      "affectedAreas": [
+        "Innaloo"
+      ],
+      "nativeLevel": null,
+      "officialActions": [],
+      "alrtSuggestions": [
+        "Checking Emergency WA for warnings linked to this smoke report may help you find any newer advice.",
+        "If smoke affects your home, closing doors and windows and turning off air-conditioners may help reduce smoke indoors.",
+        "If your journey passes through the area, checking Main Roads Travel Map for reported road impacts may help you plan."
+      ],
+      "profileGuidance": [
+        {
+          "id": "dfes-incident-smoke-older-20261109",
+          "text": "If you rely on someone for support, agreeing how you will check smoke updates together may help.",
+          "profileTags": [
+            "older"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-smoke-kids-20261109",
+          "text": "If smoke affects school or childcare activities, checking their current arrangements may help you coordinate care.",
+          "profileTags": [
+            "kids"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-smoke-mobility-20261109",
+          "text": "Checking that your emergency plan includes the support and equipment you rely on may help if smoke affects you.",
+          "profileTags": [
+            "mobility"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-smoke-medical-20261109",
+          "text": "Having your existing care plan and usual health-service contact details available may help if smoke affects you.",
+          "profileTags": [
+            "medical"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-smoke-deaf-20261109",
+          "text": "Checking written official smoke updates and agreeing how a trusted person will contact you may help.",
+          "profileTags": [
+            "deaf"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-smoke-vision-20261109",
+          "text": "Using accessible official updates, or asking a trusted person to read them with you, may help.",
+          "profileTags": [
+            "vision"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-smoke-visitor-20261109",
+          "text": "Checking official smoke and road updates for the places you plan to visit may help.",
+          "profileTags": [
+            "visitor"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-smoke-worker-20261109",
+          "text": "If your work is outdoors, checking your employer's arrangements for smoky conditions may help.",
+          "profileTags": [
+            "worker"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-smoke-pets-20261109",
+          "text": "Checking that your household emergency plan includes animal supplies and care arrangements may help.",
+          "profileTags": [
+            "pets"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        }
+      ],
+      "evidence": [
+        "Incident Type: Report of Smoke\nLocation: Innaloo\nLocal government area: City Of Stirling",
+        "Reported: Mon, 09 Nov 2026 17:07:02 +0800"
+      ],
+      "originalSourceText": "Incident Type: Report of Smoke\nLocation: Innaloo\nLocal government area: City Of Stirling\nRegion: Metro North Coastal\nReported: Mon, 09 Nov 2026 17:07:02 +0800\nSource: Department of Fire and Emergency Services WA incident feed",
+      "originalSourceActions": [],
+      "guidanceReferences": [
+        {
+          "text": "Checking Emergency WA for warnings linked to this smoke report may help you find any newer advice.",
+          "url": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "text": "If smoke affects your home, closing doors and windows and turning off air-conditioners may help reduce smoke indoors.",
+          "url": "https://www.dfes.wa.gov.au/emergencywa/faq",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "text": "If your journey passes through the area, checking Main Roads Travel Map for reported road impacts may help you plan.",
+          "url": "https://www.mainroads.wa.gov.au/travelmap/",
+          "reviewedAt": "2026-11-09"
+        }
+      ],
+      "extractionMethod": "dfes-incident-fields",
+      "sourceReportedAt": "2026-11-09T09:07:02.000Z",
+      "displayLocation": "Innaloo",
+      "sourceLimitations": "A smoke report alone does not establish its cause or measured air quality at your location.",
+      "sourceAdviceStatus": "not-in-incident-feed",
+      "profileGuidancePolicy": "publishedIncidentPlanning"
+    }
+  },
+  "crash": {
+    "title": "Road Crash - WOODLANDS",
+    "summary": "• A road crash was reported in Woodlands (City of Stirling).\n• Reported on 9 November at 1:12 pm AWST.",
+    "callsToAction": [
+      "Checking Main Roads Travel Map for confirmed road closures near the incident may help you plan your journey.",
+      "Comparing the map's live traffic and listed detours with your planned route may help you assess travel options."
+    ],
+    "confidence": "high",
+    "contentDetails": {
+      "schemaVersion": 1,
+      "templateVersion": 1,
+      "facts": [
+        "A road crash was reported in Woodlands (City of Stirling).",
+        "Reported on 9 November at 1:12 pm AWST."
+      ],
+      "affectedAreas": [
+        "Woodlands"
+      ],
+      "nativeLevel": null,
+      "officialActions": [],
+      "alrtSuggestions": [
+        "Checking Main Roads Travel Map for confirmed road closures near the incident may help you plan your journey.",
+        "Comparing the map's live traffic and listed detours with your planned route may help you assess travel options."
+      ],
+      "profileGuidance": [],
+      "evidence": [
+        "Incident Type: Road Crash\nLocation: Woodlands\nLocal government area: City Of Stirling",
+        "Reported: Mon, 09 Nov 2026 13:12:00 +0800"
+      ],
+      "originalSourceText": "Incident Type: Road Crash\nLocation: Woodlands\nLocal government area: City Of Stirling\nRegion: Metro North Coastal\nReported: Mon, 09 Nov 2026 13:12:00 +0800\nSource: Department of Fire and Emergency Services WA incident feed",
+      "originalSourceActions": [],
+      "guidanceReferences": [
+        {
+          "text": "Checking Main Roads Travel Map for confirmed road closures near the incident may help you plan your journey.",
+          "url": "https://www.mainroads.wa.gov.au/travel-information/driving-in-wa/roadworks-closures/",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "text": "Comparing the map's live traffic and listed detours with your planned route may help you assess travel options.",
+          "url": "https://www.mainroads.wa.gov.au/travelmap/",
+          "reviewedAt": "2026-11-09"
+        }
+      ],
+      "extractionMethod": "dfes-incident-fields",
+      "sourceReportedAt": "2026-11-09T05:12:00.000Z",
+      "displayLocation": "Woodlands",
+      "sourceLimitations": "A crash report alone does not confirm current road access or traffic delays.",
+      "sourceAdviceStatus": "not-in-incident-feed",
+      "profileGuidancePolicy": "publishedIncidentPlanning"
+    }
+  },
+  "bushfire-report": {
+    "title": "Bushfire - GUNYIDI",
+    "summary": "• A bushfire was reported in Gunyidi (Shire of Coorow).\n• Reported on 9 November at 1:22 pm AWST.",
+    "callsToAction": [
+      "Consider checking Emergency WA for official incident updates.",
+      "Consider reviewing your bushfire emergency plan."
+    ],
+    "confidence": "high",
+    "contentDetails": {
+      "schemaVersion": 1,
+      "templateVersion": 1,
+      "facts": [
+        "A bushfire was reported in Gunyidi (Shire of Coorow).",
+        "Reported on 9 November at 1:22 pm AWST."
+      ],
+      "affectedAreas": [
+        "Gunyidi"
+      ],
+      "nativeLevel": null,
+      "officialActions": [],
+      "alrtSuggestions": [
+        "Consider checking Emergency WA for official incident updates.",
+        "Consider reviewing your bushfire emergency plan."
+      ],
+      "profileGuidance": [
+        {
+          "id": "dfes-incident-bushfire-older-20261109",
+          "text": "Checking who can help you carry out your bushfire plan, and keeping their contact details handy, may help.",
+          "profileTags": [
+            "older"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-bushfire-kids-20261109",
+          "text": "Checking your school or childcare emergency arrangements and agreeing who will contact them may help.",
+          "profileTags": [
+            "kids"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-bushfire-mobility-20261109",
+          "text": "Checking that your bushfire plan includes accessible transport, equipment and someone who can assist may help.",
+          "profileTags": [
+            "mobility"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-bushfire-medical-20261109",
+          "text": "Checking that your emergency kit covers the supplies and equipment in your usual care plan may help.",
+          "profileTags": [
+            "medical"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-bushfire-deaf-20261109",
+          "text": "Checking written official updates and agreeing how a trusted person will contact you may help.",
+          "profileTags": [
+            "deaf"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-bushfire-vision-20261109",
+          "text": "Reviewing your bushfire plan in an accessible format with someone who can assist may help.",
+          "profileTags": [
+            "vision"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-bushfire-visitor-20261109",
+          "text": "Asking your accommodation provider about its bushfire plan and how it receives official warnings may help.",
+          "profileTags": [
+            "visitor"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-bushfire-worker-20261109",
+          "text": "Checking your workplace bushfire plan and how your employer will communicate changes may help.",
+          "profileTags": [
+            "worker"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        },
+        {
+          "id": "dfes-incident-bushfire-pets-20261109",
+          "text": "Including carriers, leads, supplies and a suitable place for your animals in your bushfire plan may help.",
+          "profileTags": [
+            "pets"
+          ],
+          "reference": "https://www.dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-09"
+        }
+      ],
+      "evidence": [
+        "Incident Type: Bushfire\nLocation: Gunyidi\nLocal government area: Shire Of Coorow",
+        "Reported: Mon, 09 Nov 2026 13:22:00 +0800"
+      ],
+      "originalSourceText": "Incident Type: Bushfire\nLocation: Gunyidi\nLocal government area: Shire Of Coorow\nRegion: Metro North Coastal\nReported: Mon, 09 Nov 2026 13:22:00 +0800\nSource: Department of Fire and Emergency Services WA incident feed",
+      "originalSourceActions": [],
+      "guidanceReferences": [
+        {
+          "text": "Consider checking Emergency WA for official incident updates.",
+          "url": "https://www.emergency.wa.gov.au/",
+          "reviewedAt": "2026-11-06"
+        },
+        {
+          "text": "Consider reviewing your bushfire emergency plan.",
+          "url": "https://dfes.wa.gov.au/hazard-information/bushfire/prepare",
+          "reviewedAt": "2026-11-06"
+        }
+      ],
+      "extractionMethod": "dfes-incident-fields",
+      "sourceReportedAt": "2026-11-09T05:22:00.000Z",
+      "displayLocation": "Gunyidi",
+      "sourceLimitations": "An incident report alone does not establish its current impact or a warning level.",
+      "sourceAdviceStatus": "not-in-incident-feed",
+      "profileGuidancePolicy": "publishedIncidentPlanning"
+    }
+  }
+}

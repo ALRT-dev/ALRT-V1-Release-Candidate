@@ -29,6 +29,13 @@ export interface AskRequest {
   language?: string;
   timeZone?: string;
   utcOffsetMinutes?: number;
+  /** Coarse place only (D1): ISO country and Australian state code. Never coordinates. */
+  country?: string;
+  state?: string;
+  /** Jurisdiction of the alert Ask ALRT was opened from, e.g. "AU-WA". */
+  alertJurisdiction?: string;
+  /** A trip destination the person set, as a place name. */
+  tripDestination?: string;
 }
 
 export const asStringArray = (v: unknown): string[] =>

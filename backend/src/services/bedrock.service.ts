@@ -128,10 +128,12 @@ export const executePrompt = ({
   model,
   systemPromptContent,
   userPromptContent,
+  usage,
 }: {
   model?: string;
   systemPromptContent: string;
   userPromptContent: string;
+  usage?: AiUsageTag;
 }): Promise<string> => {
   const modelId = model || config.aws.bedrock.fallbackModelId;
   // const modelId = config.aws.bedrock.fallbackModelId;
@@ -139,13 +141,9 @@ export const executePrompt = ({
   return retryWithBackoff(async () => {
     const command = new ConverseCommand({
       modelId,
-      system: [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        {
-          text: systemPromptContent,
-          cachePoint: { type: "default" },
-        } as any,
-      ],
+      // SystemContentBlock is a union: text and cachePoint cannot share a block.
+      // Keep extraction usable for short prompts and models without caching.
+      system: [{ text: systemPromptContent }],
       messages: [
         {
           role: "user",
@@ -158,7 +156,24 @@ export const executePrompt = ({
       },
     });
 
-    const response = await bedrockClient.send(command);
+    const started = Date.now();
+    let response;
+    try {
+      response = await bedrockClient.send(command);
+    } catch (err) {
+      recordAiUsage({ ...usage, provider: "bedrock", model: modelId, durationMs: Date.now() - started, ok: false });
+      throw err;
+    }
+    recordAiUsage({
+      ...usage,
+      provider: "bedrock",
+      model: modelId,
+      inputTokens: response.usage?.inputTokens,
+      outputTokens: response.usage?.outputTokens,
+      cacheReadTokens: (response.usage as { cacheReadInputTokens?: number } | undefined)?.cacheReadInputTokens,
+      durationMs: Date.now() - started,
+      ok: true,
+    });
     const text = response.output?.message?.content?.[0]?.text;
 
     if (!text) {
@@ -194,6 +209,7 @@ export const validateModelId = (modelId: string): Promise<void> => {
   });
 };
 
+import { recordAiUsage, type AiUsageTag } from "../utils/ai_usage.util.js";
 import { normaliseChatTurns, type ChatTurn } from "./ask_alrt/rules.js";
 
 export interface ChatResult {
@@ -211,11 +227,13 @@ export const executeChat = ({
   turns,
   maxTokens = 1000,
   model,
+  usage,
 }: {
   systemBlocks: string[];
   turns: readonly ChatTurn[];
   maxTokens?: number;
   model?: string;
+  usage?: AiUsageTag;
 }): Promise<ChatResult> => {
   const modelId = model || config.aws.bedrock.fallbackModelId;
   const messages = normaliseChatTurns(turns).map((t) => ({
@@ -227,14 +245,31 @@ export const executeChat = ({
   }
 
   return retryWithBackoff(async () => {
-    const response = await bedrockClient.send(
-      new ConverseCommand({
-        modelId,
-        system: systemBlocks.map((text) => ({ text })),
-        messages,
-        inferenceConfig: { maxTokens, temperature: 0.3 },
-      }),
-    );
+    const started = Date.now();
+    let response;
+    try {
+      response = await bedrockClient.send(
+        new ConverseCommand({
+          modelId,
+          system: systemBlocks.map((text) => ({ text })),
+          messages,
+          inferenceConfig: { maxTokens, temperature: 0.3 },
+        }),
+      );
+    } catch (err) {
+      recordAiUsage({ purpose: "ask_alrt", ...usage, provider: "bedrock", model: modelId, durationMs: Date.now() - started, ok: false });
+      throw err;
+    }
+    recordAiUsage({
+      purpose: "ask_alrt",
+      ...usage,
+      provider: "bedrock",
+      model: modelId,
+      inputTokens: response.usage?.inputTokens,
+      outputTokens: response.usage?.outputTokens,
+      durationMs: Date.now() - started,
+      ok: true,
+    });
     const refused =
       response.stopReason === "content_filtered" ||
       response.stopReason === "guardrail_intervened";

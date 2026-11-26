@@ -129,6 +129,7 @@ export const extractHazardInfo = async (
       model: input.model ?? DEFAULT_MODEL,
       systemPromptContent,
       userPromptContent: JSON.stringify({ title, description }),
+      usage: { purpose: "si_extraction" },
     });
 
     const content = response?.choices?.[0]?.message?.content;

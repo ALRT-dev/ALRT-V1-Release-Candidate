@@ -64,6 +64,7 @@ import prisma from "../utils/prisma_client.util.js";
 import { sendPushNotificationToUser } from "../services/notification.service.js";
 import { sendSocketEventToUsers } from "../services/socket.service.js";
 import { shareHazardWithCircle } from "../services/family.service.js";
+import { assertConnectionAccess } from '../services/entitlement.service.js';
 import { PushNotificationType } from "../models/push_notification_types.js";
 import { SocketEvent } from "../models/socket_event_types.js";
 
@@ -115,6 +116,13 @@ beforeEach(() => {
 });
 
 describe("shareHazardWithCircle", () => {
+  it('requires group connection access before looking up or sending an alert', async () => {
+    vi.mocked(assertConnectionAccess).mockRejectedValueOnce(Object.assign(new Error('ALRT+ required'),{statusCode:402,code:'INDIVIDUAL_REQUIRED'}));
+    await expect(shareHazardWithCircle(SENDER_USER, HAZARD, {circleId:CIRCLE})).rejects.toMatchObject({statusCode:402});
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(socketMock).not.toHaveBeenCalled();
+    expect(prisma.hazard.findFirst).not.toHaveBeenCalled();
+  });
   it("refuses a non-member with 403 and pushes nothing", async () => {
     (prisma.familyMember.findFirst as any).mockResolvedValue(null);
 

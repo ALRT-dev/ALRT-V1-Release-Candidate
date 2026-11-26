@@ -172,8 +172,10 @@ goes on its own address first:
    `API_ORIGIN=https://api.safetyalrt.com`.
 4. Custom domains: add `admin-new.safetyalrt.com`.
 
-`npm run build` reads `.env.production` (live API, `VITE_USE_RELAY=true`),
-so every call goes through the Pages relay and the live backend needs no
-CORS change. Pages the live server does not support yet show "This part of
+`npm run build` reads `.env.production` (live API, `VITE_USE_RELAY=false`)
+and targets the currently verified AWS/nginx portal at admin.safetyalrt.com.
+For the proposed custom-domain Pages deployment, explicitly set
+`VITE_USE_RELAY=true` in its build environment, in addition to `API_ORIGIN`
+above. That Pages build uses the relay without changing backend CORS. Pages the live server does not support yet show "This part of
 the portal needs the server update" instead of an error. Move
 `admin.safetyalrt.com` across only after the live backend is updated.

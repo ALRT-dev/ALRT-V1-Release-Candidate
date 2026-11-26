@@ -51,9 +51,9 @@ export const libraryEntrySchema = z
     id,
     text: z.string().trim().min(1).max(500),
     categoryIds: z.array(id).max(30),
-    countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(50),
+    countries: z.array(z.string().regex(/^[A-Z]{2}(-[A-Z]{2,3})?$/)).max(50), // "AU" or a state, "AU-WA"
     bands: z.array(bandSchema).max(4),
-    profileTags: z.array(z.enum(["older", "kids", "mobility", "medical", "deaf", "vision", "visitor", "worker", "pets"])).max(9),
+    profileTags: z.array(z.enum(["older", "kids", "mobility", "medical", "deaf", "vision", "visitor", "worker", "pets", "powered", "assistance"])).max(11),
     approved: z.boolean(),
     reference: z.string().trim().max(1000),
     reviewedAt: z
@@ -137,7 +137,7 @@ export const defaultTemplatePack = (): TemplatePack => ({
     language: "en-AU",
     promptId: null,
     additionalInstructions:
-      "Extract 2-3 concise facts supported by the agency source. Retain the affected area, original warning level and all essential official instructions. Do not invent missing facts. ALRT suggestions and For You guidance come from the approved library.",
+      "Extract up to four relevant concise facts where supported by the agency source. Retain the affected area, original warning level and all essential official instructions. Do not invent missing facts. ALRT suggestions and For You guidance come from the approved library.",
     bandColors: {
       info: "#8A93A0",
       monitor: "#FBE032",
@@ -172,10 +172,29 @@ for (const code of isoCountries) {
   const name = regionNames.of(code);
   if (name && name !== code) countryNames.set(name.toUpperCase(), code);
 }
+/**
+ * The Australian state an agency's alerts belong to, so state-specific
+ * guidance (for example WA DFES bushfire advice) is chosen before the
+ * national line (owner decision D1 and D2, 16 Nov 2026).
+ */
+const SOURCE_STATE: Record<string, string> = {
+  waDfes: "WA", rfs: "NSW", nswSes: "NSW", nswTransport: "NSW", cfs: "SA", viceFire: "VIC",
+  qldFire: "QLD", qldTraffic: "QLD", qldPark: "QLD", ntFireAndRescue: "NT", actEs: "ACT",
+  saSes: "SA", tasAlert: "TAS", vicEmergency: "VIC",
+};
+export function templateRegion(source: {id: string; region?: string | null}): string | null {
+  const fromSource = source.region?.trim().toUpperCase();
+  if (fromSource && /^[A-Z]{2,3}$/.test(fromSource)) return fromSource;
+  return SOURCE_STATE[source.id] ?? null;
+}
 export function templateCountry(jurisdiction: string | null | undefined, source: {id: string; country?: string | null}): string | null {
   if (jurisdiction) return normaliseCountry(jurisdiction);
-  if (["smartraveller", "canadaGovTra", "earthquakeUsgs", "gdacsGlobal", "waqi"].includes(source.id)) return null;
-  return normaliseCountry(source.country);
+  if (["canadaGovTra", "earthquakeUsgs", "gdacsGlobal", "waqi"].includes(source.id)) return null;
+  // An Australian state agency is Australian even when its source record has
+  // no country (TEST, 24 Nov 2026: ACT, VIC fire, NSW Transport, SA CFS and NT
+  // alerts carried no country, so none of the AU advice lines matched and
+  // those alerts showed no ALRT advice).
+  return normaliseCountry(source.country) ?? (SOURCE_STATE[source.id] ? "AU" : null);
 }
 export function resolveTemplate(
   pack: TemplatePack,
@@ -215,11 +234,12 @@ export function chooseTemplateBand(
     isAws: boolean;
     severity?: string | null;
     nativeLevel?: string | null;
+    sourceLifecycle?: 'active' | 'test' | 'resolved' | undefined;
     description: string;
     fallback: TemplateBand;
   },
 ) {
-  if (isInfoOverride(input.description))
+  if ((input.sourceLifecycle && input.sourceLifecycle!=='active') || (!input.sourceLifecycle && isInfoOverride(input.description)))
     return {
       band: "info" as TemplateBand,
       reason: "Source text marks a test, drill or resolved incident.",
@@ -259,29 +279,38 @@ export function selectLibraryGuidance(
     categoryId: string;
     parentCategoryId?: string | null;
     country?: string | null;
+    /** State or province code, e.g. "WA": state lines win over national ones. */
+    region?: string | null;
     band: TemplateBand;
   },
 ) {
   const country = normaliseCountry(input.country);
-  const entries = pack.library.filter(
+  const state = country && input.region ? `${country}-${input.region.toUpperCase()}` : null;
+  const matching = pack.library.filter(
     (x) =>
       x.approved &&
       x.reviewedAt &&
       x.reference &&
-      (x.categoryIds.includes(input.categoryId) ||
-        Boolean(
-          input.parentCategoryId &&
-            x.categoryIds.includes(input.parentCategoryId),
-        )) &&
+      x.categoryIds.includes(input.categoryId) &&
       (!x.countries.length ||
-        Boolean(country && x.countries.includes(country))) &&
+        Boolean(country && x.countries.includes(country)) ||
+        Boolean(state && x.countries.includes(state))) &&
       (!x.bands.length || x.bands.includes(input.band)),
+  );
+  // When the library holds lines for this state, those replace the national
+  // lines for the same purpose (advice, or a profile group's line).
+  const isState = (x: GuidanceEntry) => Boolean(state && x.countries.includes(state));
+  const stateAdvice = matching.some((x) => isState(x) && !x.profileTags.length);
+  const stateTags = new Set(matching.filter(isState).flatMap((x) => x.profileTags));
+  const entries = matching.filter((x) =>
+    isState(x) ||
+    (x.profileTags.length ? !x.profileTags.some((t) => stateTags.has(t)) : !stateAdvice),
   );
   return {
     alrtSuggestions: entries
       .filter((x) => !x.profileTags.length)
       .map((x) => x.text)
-      .slice(0, 3),
+      .slice(0, 4),
     profileGuidance: entries
       .filter((x) => x.profileTags.length)
       .map((x) => ({

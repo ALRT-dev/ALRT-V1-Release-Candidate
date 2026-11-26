@@ -121,7 +121,7 @@ class _OnboardingThingsToKnowScreenState
               index: 2,
               title: 'Community reports are not verified by authorities',
               subtitle:
-                  'They always say Unverified. Official warnings always come '
+                  'They are clearly labelled as community reports. Official warnings always come '
                   'first.',
             ),
             14.hSizedBox,

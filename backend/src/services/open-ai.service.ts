@@ -1,3 +1,4 @@
+import { recordAiUsage, type AiUsageTag } from "../utils/ai_usage.util.js";
 import openai from "../utils/open_ai_client.util.js";
 
 /**
@@ -109,20 +110,38 @@ export const executePrompt = ({
   model,
   systemPromptContent,
   userPromptContent,
+  usage,
 }: {
   model: string;
   systemPromptContent: string;
   userPromptContent: string;
+  usage?: AiUsageTag;
 }): Promise<any> => {
   return retryWithBackoff(async () => {
-    return await openai.chat.completions.create({
-      model: model,
-      messages: [
-        { role: "system", content: systemPromptContent },
-        { role: "user", content: userPromptContent },
-      ],
-      response_format: { type: "json_object" },
-    });
+    const started = Date.now();
+    try {
+      const response = await openai.chat.completions.create({
+        model: model,
+        messages: [
+          { role: "system", content: systemPromptContent },
+          { role: "user", content: userPromptContent },
+        ],
+        response_format: { type: "json_object" },
+      });
+      recordAiUsage({
+        ...usage,
+        provider: "openai",
+        model,
+        inputTokens: response.usage?.prompt_tokens,
+        outputTokens: response.usage?.completion_tokens,
+        durationMs: Date.now() - started,
+        ok: true,
+      });
+      return response;
+    } catch (err) {
+      recordAiUsage({ ...usage, provider: "openai", model, durationMs: Date.now() - started, ok: false });
+      throw err;
+    }
   });
 };
 

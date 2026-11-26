@@ -41,7 +41,7 @@ class AlertKeyContent extends ConsumerWidget {
         SizedBox(height: 12.spMin),
         _keyRowBuilder(icon: LucideIcons.triangle, title: 'Australian Warning System', subtitle: 'The only one that writes the level in words'),
         _keyRowBuilder(icon: LucideIcons.diamond, title: 'Official source', subtitle: 'Colour for the level, never a level word'),
-        _keyRowBuilder(icon: LucideIcons.circle, title: 'Community report', subtitle: 'Colour is the category. Always Unverified'),
+        _keyRowBuilder(icon: LucideIcons.circle, title: 'Community report', subtitle: 'Colour is the category. Reported by the community'),
         _keyRowBuilder(icon: LucideIcons.shield, title: 'ALRT Assessment', subtitle: 'Named sources. Never restates a warning'),
         SizedBox(height: 20.spMin),
         _labelBuilder('COLOUR SHOWS SEVERITY'),

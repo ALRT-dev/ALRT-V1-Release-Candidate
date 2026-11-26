@@ -118,7 +118,6 @@ const SYNONYMS: Record<CanonicalHazard, string[]> = {
     "do not travel",
     "reconsider your need to travel",
     "exercise a high degree of caution",
-    "smartraveller",
   ],
   marine: [
     "marine wind warning",

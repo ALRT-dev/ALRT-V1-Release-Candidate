@@ -7,16 +7,50 @@ import 'package:hazard_app/features/profile/models/safety_cohort.dart';
 /// because the bug this guards against was a silent one: every hazard
 /// matched on its broad parent, so a flood got generic weather advice.
 void main() {
+  test('bundled bushfire and smoke profiles never invent evacuation advice', () {
+    for (final bucket in ['bushfire', 'smoke']) {
+      final lines = ForYouLibrary.rows[bucket]!;
+      expect(lines.keys.toSet(), SafetyCohort.values.toSet());
+      for (final line in lines.values) {
+        expect(
+          line,
+          isNot(
+            matches(
+              RegExp(
+                r'\b(leave|leaving|evacuat\w*|stay|staying|indoors|ember attacks)\b',
+                caseSensitive: false,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+  });
+  test('fuel leaks and alarms never borrow fuel shortage or fire guidance', () {
+    expect(
+      ForYouLibrary.bucketFor(
+        title: 'Fuel Leak - BEDFORDALE',
+        categoryName: 'Other',
+      ),
+      isNull,
+    );
+    expect(
+      ForYouLibrary.bucketFor(
+        title: 'Active Alarm - CLAREMONT',
+        parentCategoryName: 'Weather & Environment',
+      ),
+      isNull,
+    );
+  });
   String? bucket({
     final String? category,
     final String? parent,
     final String? title,
-  }) =>
-      ForYouLibrary.bucketFor(
-        categoryName: category,
-        parentCategoryName: parent,
-        title: title,
-      );
+  }) => ForYouLibrary.bucketFor(
+    categoryName: category,
+    parentCategoryName: parent,
+    title: title,
+  );
 
   group('a specific hazard gets its own guidance', () {
     const parent = 'Weather & Environment';
@@ -78,6 +112,31 @@ void main() {
     });
   });
 
+  group('owner review, 16 Nov 2026', () {
+    test('heat health and heat stress get heatwave rows', () {
+      expect(bucket(category: 'Heat Health Alert', parent: 'Health & Air'), 'heatwave');
+      expect(bucket(category: 'Heat Stress', parent: 'Health & Air'), 'heatwave');
+    });
+    test('the rows reworded on 16 Nov give no movement direction', () {
+      final move = RegExp(
+        r'\b(leave now|leave early|leaving early|leaving at|evacuat\w*|shelter in place|go indoors|going indoors|stay(ing)? indoors|moving to)\b',
+        caseSensitive: false,
+      );
+      for (final bucket in ['chemical', 'structure_fire', 'tornado', 'tsunami', 'grass_fire', 'dust_storm']) {
+        for (final line in ForYouLibrary.rows[bucket]!.values) {
+          expect(line, isNot(matches(move)), reason: '$bucket: $line');
+        }
+      }
+    });
+    test('Other Fire gets neither bushfire nor storm rows', () {
+      expect(bucket(category: 'Other Fire', parent: 'Weather & Environment'), isNull);
+    });
+    test('land slip and asthma reach their rows', () {
+      expect(bucket(category: 'Land Slip', parent: 'Weather & Environment'), 'landslide');
+      expect(bucket(category: 'Asthma Alert', parent: 'Health & Air'), 'pollen');
+    });
+  });
+
   group('deliberately silent categories stay silent', () {
     test('traffic and security get no card, by design', () {
       expect(bucket(category: 'Crash', parent: 'Traffic & Transport'), isNull);
@@ -86,8 +145,7 @@ void main() {
   });
 
   group('the buckets people are matched into actually have rows', () {
-    test('every bucket a real category resolves to exists in the library',
-        () {
+    test('every bucket a real category resolves to exists in the library', () {
       const realCategories = <(String, String)>[
         ('Flood', 'Weather & Environment'),
         ('Bushfire', 'Weather & Environment'),
@@ -121,10 +179,11 @@ void main() {
     });
 
     test('a ticked cohort reaches guidance on a real hazard', () {
-      final rows = ForYouLibrary.rows[bucket(
-        category: 'Flood',
-        parent: 'Weather & Environment',
-      )]!;
+      final rows =
+          ForYouLibrary.rows[bucket(
+            category: 'Flood',
+            parent: 'Weather & Environment',
+          )]!;
       // The cohorts most likely to be ticked should have something to say
       // about a flood.
       for (final cohort in [

@@ -20,6 +20,26 @@ String buildAlertShareUrl({
   required final String hazardId,
 }) => '$baseUrl/a/$hazardId';
 
+/// Tell your people carries practical advice for the alert's own hazard
+/// (owner, 17 November 2026): up to two points from What to do, the
+/// agency's own first, then ALRT safety advice. Each point is one line.
+List<String> sharedAdviceOf(final Hazard hazard, {final int max = 2}) {
+  List<String> linesOf(final String key) {
+    final value = hazard.contentDetails?[key];
+    if (value is! List) return const [];
+    return value
+        .whereType<String>()
+        .map((text) => text.replaceAll(RegExp(r'\s*\n+\s*'), ' ').trim())
+        .where((text) => text.isNotEmpty)
+        .toList();
+  }
+
+  return [
+    ...linesOf('officialActions'),
+    ...linesOf('alrtSuggestions'),
+  ].take(max).toList();
+}
+
 /// Opens the OS share sheet for an alert, pointing at the public short link
 /// (which unfurls with the OG card). [from] tags the analytics event with
 /// where the share started (e.g. 'detail', 'card', 'map_callout').
@@ -38,18 +58,28 @@ Future<void> shareAlert({
 
   final baseUrl = ref.read(providerOfBaseUrl);
   final url = buildAlertShareUrl(baseUrl: baseUrl, hazardId: id);
+  final isAws = hazard.isAwsCompliant ?? false;
   final parts = <String>[
-    if ((hazard.severityTitle).isNotEmpty &&
+    if (!isAws &&
+        (hazard.severityTitle).isNotEmpty &&
         hazard.severityTitle != 'Unknown')
       '${hazard.severityTitle.toUpperCase()}:',
-    hazard.title ?? 'Safety alert',
+    // An AWS warning reads "Storm Advice near X", the same heading as the
+    // alert screen; the level is part of it.
+    isAws ? hazard.detailHeading : (hazard.title ?? 'Safety alert'),
     if (hazard.locationName != null) 'near ${hazard.locationName}',
   ];
+  final advice = sharedAdviceOf(hazard);
 
   AnalyticsService.alertShared(hazardId: id, from: from);
   await SharePlus.instance.share(
     ShareParams(
-      text: '${parts.join(' ')}\n$url',
+      text: [
+        parts.join(' '),
+        if (advice.isNotEmpty) ...['', 'What to do:', ...advice.map((a) => '• $a')],
+        '',
+        url,
+      ].join('\n'),
       subject: hazard.title ?? 'Safety ALRT alert',
     ),
   );

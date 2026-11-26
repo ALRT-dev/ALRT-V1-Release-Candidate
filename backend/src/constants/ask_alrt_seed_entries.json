@@ -26,7 +26,7 @@
       "emergency",
       "help"
     ],
-    "answer": "Open the SOS screen, then hold the button for 3 seconds. You get a confirm screen showing exactly who will be alerted, a short countdown, and a 12 second undo after it sends. SOS alerts the people in your circle, it does not contact emergency services."
+    "answer": "Open SOS and hold the button for 3 seconds. You see who will be alerted, a short countdown, then 12 seconds to undo. SOS alerts your circle, not emergency services."
   },
   {
     "id": "sos_who",
@@ -55,7 +55,7 @@
       "location",
       "share"
     ],
-    "answer": "A snapshot is a single point that shows where you are right now. You send it on purpose, it fades and is deleted after 60 minutes, and it never keeps a history. ALRT never tracks a person in the background. Location is shared only when you choose: a snapshot, a Journey you start, or an SOS you send."
+    "answer": "A snapshot shows where you are right now, once. You send it on purpose, and it is deleted after 60 minutes with no history kept. ALRT never tracks you in the background."
   },
   {
     "id": "live_tracking",
@@ -71,7 +71,7 @@
       "continuous",
       "monitor"
     ],
-    "answer": "ALRT does not track people in the background. You can send a one time snapshot that expires in an hour. A Journey sends periodic updates by default (when you leave, about every 10 minutes, and when you arrive), and you can turn on live location for that Journey only. An SOS lasts 1 hour, and the person who sent it can extend it by an hour or end it. Watching a place forever is a map feature, watching a person forever is not something the app does."
+    "answer": "ALRT never tracks people in the background. You can send a one-time snapshot (deleted after an hour), start a Journey with updates about every 10 minutes, or send an SOS that lasts an hour."
   },
   {
     "id": "family_circle",
@@ -101,7 +101,7 @@
       "leaving",
       "exit"
     ],
-    "answer": "Open the circle, scroll to the Leaving section at the bottom, and confirm. Leaving stops SOS both ways and deletes your snapshots for that circle. You keep your account, your alerts, and your other circles. Leaving is the way to stop a circle's SOS, there is no mute."
+    "answer": "Open the circle, scroll to Leaving at the bottom and confirm. This stops SOS both ways and deletes your snapshots for that circle. Your account and other circles stay."
   },
   {
     "id": "pricing",
@@ -119,7 +119,7 @@
       "subscription",
       "plus"
     ],
-    "answer": "Alerts, the live map and emergency guidance are always free, with one saved place and 3 Ask ALRT questions a day. ALRT + Individual is for you: unlimited saved places and 10 Ask ALRT questions a day, and only Individual can have a free trial. Family and Group plans cover check-ins, SOS and Journey for one group. The app shows current prices straight from your app store."
+    "answer": "Alerts, the map and emergency guidance are free, with one saved place and 3 Ask ALRT questions a day. ALRT + Individual adds unlimited places and 10 questions a day. Family and Group plans cover check-ins, SOS and Journey for one group."
   },
   {
     "id": "seats",
@@ -135,7 +135,7 @@
       "hosting",
       "people"
     ],
-    "answer": "Creating and joining groups is free, and you can be in as many as you like. For check-ins, SOS and Journey, each person needs ALRT + Individual, or one person can cover a single group with Family (up to 6 people), Group 20 or Group 50. Everyone in that group counts, including the payer."
+    "answer": "Creating and joining groups is free. For check-ins, SOS and Journey, each person needs ALRT + Individual, or one person covers a group with Family (6), Group 20 or Group 50."
   },
   {
     "id": "phone_numbers",
@@ -230,7 +230,7 @@
       "symbol",
       "icon"
     ],
-    "answer": "The shape tells you who issued the alert. Triangle: an AWS warning from the Australian Warning System, the only source that states a level in words (Advice, Watch and Act, Emergency Warning). Diamond: an official source such as a state agency or service. Circle: a community report from a person nearby, unverified. Shield: from ALRT itself. The full key is on the map under the layers button."
+    "answer": "The shape shows who issued it. Triangle: Australian Warning System. Diamond: an official agency. Circle: a community report, unverified. Shield: ALRT. The key is under the map's layers button."
   },
   {
     "id": "alert_colours",
@@ -254,7 +254,7 @@
       "urgent",
       "critical"
     ],
-    "answer": "Colour tells you how urgent an alert is. Grey is Info, awareness only. Yellow is Monitor, stay across it. Orange is Action, do something now. Red is Critical, the highest level, and only official critical alerts fill solid red. Community reports are the exception: their circle wears the category colour (for example blue for weather), not an urgency colour."
+    "answer": "Colour shows urgency: grey Info, yellow Monitor, orange Action, red Critical. Community reports use their category colour instead. A level word appears only when the agency gives one."
   },
   {
     "id": "alert_types",
@@ -274,7 +274,7 @@
       "traffic",
       "utilities"
     ],
-    "answer": "Alerts come from three sources: AWS warnings (triangles), official agencies (diamonds), and community reports (circles). Every alert also belongs to a category: Weather, Health, Security, Traffic, Utilities, Community, or Other. You can filter which sources show on the map from the layers button, and pick which categories notify you in Notifications settings."
+    "answer": "Alerts come from AWS warnings (triangles), official agencies (diamonds) and community reports (circles). Filter sources from the map's layers button and choose categories in Notifications settings."
   },
   {
     "id": "aws_levels",
@@ -294,7 +294,7 @@
       "warning",
       "level"
     ],
-    "answer": "AWS is the Australian Warning System, the national three level warning scale. Advice means an incident is happening, stay informed. Watch and Act means conditions are changing, take action to protect yourself. Emergency Warning is the highest level, you may be in danger and need to act immediately. In ALRT, AWS alerts are triangles and are the only alerts that write their level in words."
+    "answer": "The Australian Warning System has three levels. Advice: stay informed. Watch and Act: conditions are changing, take action. Emergency Warning: you may be in danger, act immediately."
   },
   {
     "id": "community_reports",
@@ -312,7 +312,7 @@
       "confirm",
       "dispute"
     ],
-    "answer": "A community report (a circle on the map) is posted by a person nearby through the app and is unverified. Others nearby can confirm or dispute it, which you can see on the report. Treat it as a heads-up, not an official warning, and check official alerts for the confirmed picture. You can post one yourself from the ALRT button in the footer."
+    "answer": "A community report (a circle) comes from someone nearby and is unverified. Others can confirm or dispute it. Treat it as a heads-up and check official alerts. Post one from the ALRT button."
   },
   {
     "id": "emergency_generic",
