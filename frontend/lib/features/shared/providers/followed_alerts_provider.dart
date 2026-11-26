@@ -14,6 +14,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class FollowedAlertsNotifier extends Notifier<Set<String>> {
   static const _prefsKey = 'followed_alert_ids';
 
+  /// Unfollowed since the app started: never re-added by the server restore
+  /// (its list can still hold them until the DELETE lands).
+  final _unfollowed = <String>{};
+
   @override
   Set<String> build() {
     _load();
@@ -22,17 +26,49 @@ class FollowedAlertsNotifier extends Notifier<Set<String>> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    state = (prefs.getStringList(_prefsKey) ?? const []).toSet();
+    final local = (prefs.getStringList(_prefsKey) ?? const []).toSet();
+    state = local;
     // Re-send follows made while offline or before the server supported them.
-    for (final id in state) {
+    for (final id in local) {
       unawaited(_sync(id, follow: true));
+    }
+    // Restore follows the server still holds (a reinstall or a new phone
+    // starts with an empty list here, but the server keeps pushing for them,
+    // so the Follow buttons must say Following).
+    final remote = await _fetchServerFollows();
+    if (remote.isEmpty) return;
+    final merged = {...state, ...remote.difference(_unfollowed)};
+    if (merged.length == state.length) return;
+    state = merged;
+    await prefs.setStringList(_prefsKey, merged.toList());
+  }
+
+  /// GET /hazards/following/list: [{hazardId, createdAt}]. Empty when signed
+  /// out, offline or on an older server.
+  Future<Set<String>> _fetchServerFollows() async {
+    try {
+      final dio = ref.read(providerOfDioInstance(true));
+      final response = await dio.get<dynamic>('$kUrlHazards/following/list');
+      final data = response.data;
+      if (data is! List) return const {};
+      return {
+        for (final row in data)
+          if (row is Map && row['hazardId'] is String) row['hazardId'] as String,
+      };
+    } catch (_) {
+      return const {};
     }
   }
 
   Future<void> toggle(final String alertId) async {
     final next = {...state};
     final following = !next.remove(alertId);
-    if (following) next.add(alertId);
+    if (following) {
+      next.add(alertId);
+      _unfollowed.remove(alertId);
+    } else {
+      _unfollowed.add(alertId);
+    }
     state = next;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_prefsKey, next.toList());
